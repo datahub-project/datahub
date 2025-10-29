@@ -35,14 +35,12 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
 
   @Override
   public String createIamUserSql(String username, String iamRole) {
-    // MySQL - IAM authentication with configurable role
+    // The iamRole parameter is not used for MySQL (unlike PostgreSQL)
+    // The actual IAM permissions are managed by AWS IAM policies, not stored in MySQL
     String escapedUser = escapeMysqlStringLiteral(username);
-    String escapedRole = escapeMysqlStringLiteral(iamRole);
-    return "CREATE USER "
+    return "CREATE USER IF NOT EXISTS "
         + escapedUser
-        + "@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS "
-        + escapedRole
-        + ";";
+        + "@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS 'RDS';";
   }
 
   @Override
@@ -50,7 +48,11 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
     // MySQL - traditional authentication
     String escapedUser = escapeMysqlStringLiteral(username);
     String escapedPassword = escapeMysqlStringLiteral(password);
-    return "CREATE USER " + escapedUser + "@'%' IDENTIFIED BY " + escapedPassword + ";";
+    return "CREATE USER IF NOT EXISTS "
+        + escapedUser
+        + "@'%' IDENTIFIED BY "
+        + escapedPassword
+        + ";";
   }
 
   @Override

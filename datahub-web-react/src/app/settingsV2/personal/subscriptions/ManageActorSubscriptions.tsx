@@ -3,6 +3,7 @@ import { Pagination, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
+import { Checkbox } from '@components/components/Checkbox';
 import { Column, Table } from '@components/components/Table';
 
 import analytics from '@app/analytics';
@@ -10,6 +11,7 @@ import { EventType } from '@app/analytics/event';
 import { useUserContext } from '@app/context/useUserContext';
 import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settingsV2/personal/notifications/constants';
+import { SubscriptionBulkActionsBar } from '@app/settingsV2/personal/subscriptions/SubscriptionBulkActionsBar';
 import { SubscriptionListFilters } from '@app/settingsV2/personal/subscriptions/SubscriptionListFilters';
 import { SUBSCRIPTION_DEFAULT_FILTERS } from '@app/settingsV2/personal/subscriptions/constants';
 import ChannelColumn from '@app/settingsV2/personal/subscriptions/table/ChannelColumn';
@@ -90,6 +92,16 @@ const SubscriptionListContainer = styled.div`
     overflow: hidden;
     min-height: 0;
     gap: 20px 0px;
+`;
+
+const SubscriptionContentWrapper = styled.div`
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    gap: 20px;
 `;
 
 const NUM_GROUP_URNS_TO_FETCH = 100;
@@ -192,6 +204,7 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
 
     const [page, setPage] = useState(1);
     const [selectedFilters, setSelectedFilters] = useState<SubscriptionListFilter>(SUBSCRIPTION_DEFAULT_FILTERS);
+    const [selectedSubscriptionUrns, setSelectedSubscriptionUrns] = useState<string[]>([]);
 
     // Reset page to 1 when filters change, since we paginate results
     useEffect(() => {
@@ -256,7 +269,52 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
     const handleFilterChange = (filter: SubscriptionListFilter) => {
         setSelectedFilters(filter);
     };
+
+    // Get all subscription URNs on current page
+    const currentPageSubscriptionUrns = subscriptions.map((s) => s.subscriptionUrn);
+    const allCurrentPageSelected =
+        currentPageSubscriptionUrns.length > 0 &&
+        currentPageSubscriptionUrns.every((urn) => selectedSubscriptionUrns.includes(urn));
+    const someCurrentPageSelected = currentPageSubscriptionUrns.some((urn) => selectedSubscriptionUrns.includes(urn));
+
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            // Add all current page subscriptions to selection
+            const newUrns = [...new Set([...selectedSubscriptionUrns, ...currentPageSubscriptionUrns])];
+            setSelectedSubscriptionUrns(newUrns);
+        } else {
+            // Remove all current page subscriptions from selection
+            setSelectedSubscriptionUrns((prev) => prev.filter((urn) => !currentPageSubscriptionUrns.includes(urn)));
+        }
+    };
+
     const subscriptionTableColumns: Column<DataHubSubscription>[] = [
+        {
+            title: (
+                <Checkbox
+                    isChecked={allCurrentPageSelected}
+                    isIntermediate={someCurrentPageSelected && !allCurrentPageSelected}
+                    onCheckboxChange={handleSelectAll}
+                />
+            ),
+            key: 'select',
+            dataIndex: 'select',
+            render: (subscription: DataHubSubscription) => (
+                <Checkbox
+                    isChecked={selectedSubscriptionUrns.includes(subscription.subscriptionUrn)}
+                    onCheckboxChange={(checked) => {
+                        if (checked) {
+                            setSelectedSubscriptionUrns((prev) => [...prev, subscription.subscriptionUrn]);
+                        } else {
+                            setSelectedSubscriptionUrns((prev) =>
+                                prev.filter((urn) => urn !== subscription.subscriptionUrn),
+                            );
+                        }
+                    }}
+                />
+            ),
+            width: '60px',
+        },
         {
             title: <ColumnTitle>Name</ColumnTitle>,
             key: 'name',
@@ -355,13 +413,20 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
     const refinementReturnedNoResults = !isSubscriptionsLoading && !hasResults && hasUserAppliedRefinements;
 
     return (
-        <>
+        <SubscriptionContentWrapper>
             <SubscriptionListFilters
                 subscriptions={subscriptions}
                 selectedFilters={selectedFilters}
                 handleFilterChange={handleFilterChange}
                 viewer={user}
                 ownedAndMemberGroupUrns={groupUrns}
+            />
+            <SubscriptionBulkActionsBar
+                selectedUrns={selectedSubscriptionUrns}
+                setSelectedUrns={setSelectedSubscriptionUrns}
+                refetch={refetch}
+                isPersonal={isPersonal}
+                hasPagination={numSubscriptions >= PAGE_SIZE}
             />
             {isSubscriptionsLoading && !hasPreviousResults ? <TableLoadingSkeleton /> : null}
             {!isSubscriptionsLoading && !hasResults && !hasUserAppliedRefinements ? (
@@ -404,7 +469,7 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
                     )}
                 </>
             )}
-        </>
+        </SubscriptionContentWrapper>
     );
 };
 

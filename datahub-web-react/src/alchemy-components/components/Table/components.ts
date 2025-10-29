@@ -97,7 +97,7 @@ export const TableCell = styled.td<{
     isExpanded?: boolean;
 }>(({ width, alignment, isGroupHeader, isExpanded }) => ({
     padding: isGroupHeader
-        ? `${spacing.xsm} ${spacing.xsm} ${spacing.xsm} ${spacing.md}`
+        ? `${spacing.xsm} ${spacing.xsm} ${spacing.xsm} ${spacing.xsm}`
         : `${spacing.md} ${spacing.xsm} ${spacing.md} ${spacing.md}`,
     borderBottom: isGroupHeader && !isExpanded ? `1px solid ${colors.gray[200]}` : `1px solid ${colors.gray[100]}`,
     color: colors.gray[1700],

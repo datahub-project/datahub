@@ -36,16 +36,41 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
 
   @Override
   public String createIamUserSql(String username, String iamRole) {
-    // PostgreSQL - IAM authentication (requires additional setup)
+    // PostgreSQL RDS - IAM authentication uses the rds_iam role
+    // The iamRole parameter is not used for PostgreSQL (IAM permissions are managed by AWS IAM)
+    // The actual IAM permissions are managed by AWS IAM policies, not stored in PostgreSQL
     String escapedUser = escapePostgresIdentifier(username);
-    return "CREATE USER " + escapedUser + " WITH LOGIN;";
+    return String.format(
+        """
+        DO
+        $$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                CREATE USER %s WITH LOGIN;
+            END IF;
+        END
+        $$;
+        GRANT rds_iam TO %s;
+        """,
+        escapedUser, escapedUser, escapedUser);
   }
 
   @Override
   public String createTraditionalUserSql(String username, String password) {
     String escapedUser = escapePostgresIdentifier(username);
     String escapedPassword = escapePostgresStringLiteral(password);
-    return "CREATE USER " + escapedUser + " WITH PASSWORD " + escapedPassword + ";";
+    return String.format(
+        """
+        DO
+        $$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                CREATE USER %s WITH PASSWORD %s;
+            END IF;
+        END
+        $$;
+        """,
+        escapedUser, escapedUser, escapedPassword);
   }
 
   @Override
@@ -61,6 +86,7 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
     // Properly escape identifiers and string literals to prevent SQL injection
     String escapedUser = escapePostgresIdentifier(cdcUser);
     String escapedPassword = escapePostgresStringLiteral(cdcPassword);
+    String escapedUserLiteral = escapePostgresStringLiteral(cdcUser);
 
     return String.format(
         """
@@ -74,7 +100,7 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
         $$;
         ALTER USER %s WITH REPLICATION;
         """,
-        escapedPassword, escapedUser, escapedPassword, escapedUser);
+        escapedUserLiteral, escapedUser, escapedPassword, escapedUser);
   }
 
   @Override

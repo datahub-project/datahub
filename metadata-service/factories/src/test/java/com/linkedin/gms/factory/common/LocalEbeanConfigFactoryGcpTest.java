@@ -73,7 +73,16 @@ public class LocalEbeanConfigFactoryGcpTest extends AbstractTestNGSpringContextT
   @Test
   public void testDetectCloudProviderGcp() {
     String gcpResult =
-        localEbeanConfigFactory.detectCloudProvider("jdbc:mysql://localhost:3306/datahub");
+        CrossCloudIamUtils.detectCloudProvider(
+            "jdbc:mysql://localhost:3306/datahub",
+            "auto",
+            null,
+            null,
+            null,
+            null,
+            "/path/to/service-account.json", // GOOGLE_APPLICATION_CREDENTIALS
+            null,
+            null);
     assertEquals(gcpResult, "gcp");
   }
 
@@ -132,14 +141,21 @@ public class LocalEbeanConfigFactoryGcpTest extends AbstractTestNGSpringContextT
 
   @Test
   public void testConfigureCrossCloudIamWithGcpIam() {
-    // Override non-cloud properties using reflection
-    ReflectionTestUtils.setField(localEbeanConfigFactory, "useIamAuth", true);
-    ReflectionTestUtils.setField(localEbeanConfigFactory, "cloudProvider", "gcp");
-
     String originalUrl = "jdbc:mysql://localhost:3306/datahub";
 
-    LocalEbeanConfigFactory.CrossCloudConfig result =
-        localEbeanConfigFactory.configureCrossCloudIam(originalUrl);
+    CrossCloudIamUtils.CrossCloudConfig result =
+        CrossCloudIamUtils.configureCrossCloudIam(
+            originalUrl,
+            "com.mysql.cj.jdbc.Driver",
+            true,
+            "gcp",
+            null,
+            null,
+            null,
+            null,
+            "/path/to/service-account.json",
+            null,
+            "project:region:instance");
 
     assertNotNull(result);
     assertEquals(result.driver, "com.google.cloud.sql.mysql.SocketFactory");

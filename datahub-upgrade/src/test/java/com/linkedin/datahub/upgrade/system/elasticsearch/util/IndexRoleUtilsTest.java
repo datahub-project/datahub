@@ -3,6 +3,8 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -31,6 +33,8 @@ public class IndexRoleUtilsTest {
   @Mock private SearchClientShim searchClient;
   @Mock private RawResponse rawResponse;
   @Mock private ResponseException responseException;
+
+  private OperationContext operationContext = TestOperationContexts.systemContextNoValidate();
 
   @BeforeMethod
   public void setUp() {
@@ -287,61 +291,96 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
     String username = "test_user";
     String password = "test_password";
-    String prefix = "test_";
 
-    // Mock successful role creation
+    // Mock successful user creation only (role should be created separately)
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK")); // PUT user
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, null, operationContext);
+
+    // Assert
+    // Should make calls for user creation
+    Mockito.verify(searchClient, Mockito.atLeast(1))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateAwsOpenSearchUser_AlreadyExists() throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String username = "test_user";
+    String password = "test_password";
+
+    // Mock user already exists (409)
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(createStatusLine(409, "Conflict")); // PUT user - already exists
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, null, operationContext);
+
+    // Assert
+    // User creation attempted
+    Mockito.verify(searchClient, Mockito.atLeast(1))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  // ==================== AWS OpenSearch Role Mapping Tests ====================
+
+  @Test
+  public void testCreateAwsOpenSearchRoleMapping_Success() throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String iamRoleArn = "arn:aws:iam::123456789012:role/test-role";
+
     Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchUser(esComponents, roleName, username, password, prefix);
+    IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
 
     // Assert
-    // Should make 2 calls: one for role creation, one for user creation
-    Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
   }
 
   @Test
-  public void testCreateAwsOpenSearchUser_RoleAlreadyExists() throws IOException {
+  public void testCreateAwsOpenSearchRoleMapping_AlreadyExists() throws IOException {
     // Arrange
     String roleName = "existing_role";
-    String username = "test_user";
-    String password = "test_password";
-    String prefix = "test_";
+    String iamRoleArn = "arn:aws:iam::123456789012:role/test-role";
 
-    // Mock role already exists (409), then successful user creation
     Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
-        .thenReturn(rawResponse)
         .thenReturn(rawResponse);
-    Mockito.when(rawResponse.getStatusLine())
-        .thenReturn(createStatusLine(409, "Conflict"))
-        .thenReturn(createStatusLine(200, "OK"));
+    Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(409, "Conflict"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchUser(esComponents, roleName, username, password, prefix);
+    IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
 
     // Assert
-    Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
-  public void testCreateAwsOpenSearchUser_RoleCreationFails() throws IOException {
+  public void testCreateAwsOpenSearchRoleMapping_ResponseException500() throws IOException {
     // Arrange
     String roleName = "test_role";
-    String username = "test_user";
-    String password = "test_password";
-    String prefix = "test_";
+    String iamRoleArn = "arn:aws:iam::123456789012:role/test-role";
 
-    // Mock role creation failure
     Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
-        .thenReturn(rawResponse);
-    Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
+        .thenThrow(responseException);
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(createStatusLine(500, "Internal Server Error"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchUser(esComponents, roleName, username, password, prefix);
+    IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
   }
 
   // ==================== Retry Logic Tests ====================
@@ -580,7 +619,8 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(409, "Conflict"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchUser(esComponents, roleName, username, password, "test_");
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, null, operationContext);
 
     // Assert - Should handle 409 gracefully without throwing exception
     Mockito.verify(searchClient, Mockito.atLeast(1))
@@ -603,7 +643,276 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(500, "Internal Server Error"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchUser(esComponents, roleName, username, password, "test_");
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, null, operationContext);
+  }
+
+  // ==================== IAM-Only Authentication Tests ====================
+
+  @Test
+  public void testCreateAwsOpenSearchUser_IamOnlyAuth_Success() throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String username = "test_user";
+    String password = null; // IAM-only, no password
+    String iamRoleArn = "arn:aws:iam::123456789012:role/test-role";
+    String prefix = "test_";
+
+    // Mock successful user creation only (role should be created separately)
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK")); // PUT user
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, iamRoleArn, operationContext);
+
+    // Assert
+    // Should make calls for user creation
+    Mockito.verify(searchClient, Mockito.atLeast(1))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateAwsOpenSearchUser_PasswordBasedAuth_Success() throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String username = "test_user";
+    String password = "test_password";
+    String iamRoleArn = null; // No IAM role, password-based
+    String prefix = "test_";
+
+    // Mock successful user creation only (role should be created separately)
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK")); // PUT user
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, iamRoleArn, operationContext);
+
+    // Assert
+    // Should make calls for user creation
+    Mockito.verify(searchClient, Mockito.atLeast(1))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateAwsOpenSearchUser_IamOnlyAuth_EmptyIamRole() throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String username = "test_user";
+    String password = null;
+    String iamRoleArn = ""; // Empty IAM role
+    String prefix = "test_";
+
+    // Mock successful user creation only (role should be created separately)
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK")); // PUT user
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, iamRoleArn, operationContext);
+
+    // Assert
+    // Should make calls for user creation
+    Mockito.verify(searchClient, Mockito.atLeast(1))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  // ==================== AWS OpenSearch User Error Logging Tests ====================
+
+  @Test(expectedExceptions = IOException.class)
+  public void testCreateAwsOpenSearchUser_ErrorWithResponseBody() throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String username = "test_user";
+    String password = "test_password";
+
+    // Mock error response with response body
+    org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
+
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
+    Mockito.when(rawResponse.getEntity()).thenReturn(mockEntity);
+
+    try {
+      Mockito.when(mockEntity.getContent())
+          .thenReturn(
+              new java.io.ByteArrayInputStream("{\"error\":\"Invalid credentials\"}".getBytes()));
+    } catch (Exception e) {
+      // Handle exception
+    }
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, null, operationContext);
+  }
+
+  @Test(expectedExceptions = IOException.class)
+  public void testCreateAwsOpenSearchUser_ResponseExceptionWithResponseBody() throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String username = "test_user";
+    String password = "test_password";
+
+    // Mock ResponseException with response body
+    org.opensearch.client.Response mockResponse =
+        Mockito.mock(org.opensearch.client.Response.class);
+    org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
+
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException);
+    Mockito.when(responseException.getResponse()).thenReturn(mockResponse);
+    Mockito.when(mockResponse.getStatusLine())
+        .thenReturn(createStatusLine(500, "Internal Server Error"));
+    Mockito.when(mockResponse.getEntity()).thenReturn(mockEntity);
+
+    try {
+      Mockito.when(mockEntity.getContent())
+          .thenReturn(new java.io.ByteArrayInputStream("{\"error\":\"Server error\"}".getBytes()));
+    } catch (Exception e) {
+      // Handle exception
+    }
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, null, operationContext);
+  }
+
+  @Test(expectedExceptions = IOException.class)
+  public void testCreateAwsOpenSearchUser_RetryableErrorThenFailure() throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String username = "test_user";
+    String password = "test_password";
+
+    org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
+
+    // Mock retryable error (400) returned repeatedly
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
+    Mockito.when(rawResponse.getEntity()).thenReturn(mockEntity);
+
+    try {
+      Mockito.when(mockEntity.getContent())
+          .thenReturn(
+              new java.io.ByteArrayInputStream("{\"error\":\"Validation failed\"}".getBytes()));
+    } catch (Exception e) {
+      // Handle exception
+    }
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, null, operationContext);
+  }
+
+  // ==================== AWS OpenSearch Role Mapping Error Logging Tests ====================
+
+  @Test(expectedExceptions = IOException.class)
+  public void testCreateAwsOpenSearchRoleMapping_ErrorWithResponseBody() throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String iamRoleArn = "arn:aws:iam::123456789012:role/test-role";
+
+    // Mock error response with response body
+    org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
+
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
+    Mockito.when(rawResponse.getEntity()).thenReturn(mockEntity);
+
+    try {
+      Mockito.when(mockEntity.getContent())
+          .thenReturn(
+              new java.io.ByteArrayInputStream("{\"error\":\"Invalid IAM role\"}".getBytes()));
+    } catch (Exception e) {
+      // Handle exception
+    }
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
+  }
+
+  @Test(expectedExceptions = IOException.class)
+  public void testCreateAwsOpenSearchRoleMapping_ResponseExceptionWithResponseBody()
+      throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String iamRoleArn = "arn:aws:iam::123456789012:role/test-role";
+
+    // Mock ResponseException with response body
+    org.opensearch.client.Response mockResponse =
+        Mockito.mock(org.opensearch.client.Response.class);
+    org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
+
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException);
+    Mockito.when(responseException.getResponse()).thenReturn(mockResponse);
+    Mockito.when(mockResponse.getStatusLine())
+        .thenReturn(createStatusLine(500, "Internal Server Error"));
+    Mockito.when(mockResponse.getEntity()).thenReturn(mockEntity);
+
+    try {
+      Mockito.when(mockEntity.getContent())
+          .thenReturn(new java.io.ByteArrayInputStream("{\"error\":\"Mapping error\"}".getBytes()));
+    } catch (Exception e) {
+      // Handle exception
+    }
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
+  }
+
+  // ==================== Response Body Extraction Tests ====================
+
+  @Test(expectedExceptions = IOException.class)
+  public void testCreateAwsOpenSearchUser_NoEntityReturnsNoResponseBody() throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String username = "test_user";
+    String password = "test_password";
+
+    // Mock error response without entity
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
+    // No entity set, so extractResponseBody should return "No response body"
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, null, operationContext);
+  }
+
+  @Test(expectedExceptions = IOException.class)
+  public void testCreateAwsOpenSearchUser_EntityReadException() throws IOException {
+    // Arrange
+    String roleName = "test_role";
+    String username = "test_user";
+    String password = "test_password";
+
+    // Mock error response with entity that throws exception on read
+    org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
+
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
+    Mockito.when(rawResponse.getEntity()).thenReturn(mockEntity);
+
+    try {
+      // Entity throws exception when reading
+      Mockito.when(mockEntity.getContent()).thenThrow(new IOException("Cannot read entity"));
+    } catch (IOException e) {
+      // Expected
+    }
+
+    // Act
+    IndexRoleUtils.createAwsOpenSearchUser(
+        esComponents, username, password, roleName, null, operationContext);
   }
 
   // ==================== Helper Methods ====================

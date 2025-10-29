@@ -9,10 +9,12 @@ from datahub.metadata.schema_classes import (
     NotificationTemplateTypeClass,
 )
 from loguru import logger
+from sendgrid import SendGridAPIClient
 
 from datahub_integrations.notifications.constants import (
     DATAHUB_BASE_URL,
     MAX_NOTIFICATION_RETRIES,
+    SEND_GRID_API_KEY,
 )
 from datahub_integrations.notifications.sinks.context import NotificationContext
 from datahub_integrations.notifications.sinks.email.send_email import (
@@ -52,6 +54,7 @@ class EmailNotificationSink(NotificationSink):
     """
 
     base_url: str
+    sg_client: SendGridAPIClient
 
     def type(self) -> str:
         return NotificationSinkTypeClass.EMAIL
@@ -60,8 +63,8 @@ class EmailNotificationSink(NotificationSink):
         return [NotificationRecipientTypeClass.EMAIL]
 
     def init(self) -> None:
-        # Unused for now.
         self.base_url = DATAHUB_BASE_URL
+        self.sg_client = SendGridAPIClient(SEND_GRID_API_KEY)
 
     def send(
         self, request: NotificationRequestClass, context: NotificationContext
@@ -207,7 +210,9 @@ class EmailNotificationSink(NotificationSink):
         message = request.message.parameters.get("message")
 
         if subject is not None and message is not None:
-            send_custom_email_to_recipients(request.recipients, subject, message)
+            send_custom_email_to_recipients(
+                request.recipients, subject, message, self.sg_client
+            )
         else:
             logger.error(
                 "Custom notification request does not have subject or message. Skipping sending email."
@@ -231,6 +236,7 @@ class EmailNotificationSink(NotificationSink):
                 initial_backoff=1,
                 recipients=recipients,
                 parameters=parameters,
+                sg_client=self.sg_client,
             )
             logger.info(
                 f"Successfully sent user invitation emails to {len(recipients)} recipients"
@@ -257,6 +263,7 @@ class EmailNotificationSink(NotificationSink):
                 initial_backoff=1,
                 recipients=recipients,
                 parameters=parameters,
+                sg_client=self.sg_client,
             )
         except Exception as e:
             logger.error(
@@ -280,6 +287,7 @@ class EmailNotificationSink(NotificationSink):
                 initial_backoff=1,
                 recipients=recipients,
                 parameters=parameters,
+                sg_client=self.sg_client,
             )
         except Exception as e:
             logger.error(
@@ -303,6 +311,7 @@ class EmailNotificationSink(NotificationSink):
                 initial_backoff=1,
                 recipients=recipients,
                 parameters=parameters,
+                sg_client=self.sg_client,
             )
         except Exception as e:
             logger.error(
@@ -326,6 +335,7 @@ class EmailNotificationSink(NotificationSink):
                 initial_backoff=1,
                 recipients=recipients,
                 parameters=parameters,
+                sg_client=self.sg_client,
             )
         except Exception as e:
             logger.error(
@@ -349,6 +359,7 @@ class EmailNotificationSink(NotificationSink):
                 initial_backoff=1,
                 recipients=recipients,
                 parameters=parameters,
+                sg_client=self.sg_client,
             )
         except Exception as e:
             logger.error(

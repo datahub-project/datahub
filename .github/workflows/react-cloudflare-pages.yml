@@ -60,7 +60,7 @@ jobs:
       - name: Gradle build for frontend
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: |
-          ./gradlew :datahub-web-react:build -Psourcemap -x test -x check --parallel
+          ./gradlew :datahub-web-react:build -x test -x check --parallel
       - name: Publish
         if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
         uses: cloudflare/pages-action@1

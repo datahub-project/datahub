@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from typing_extensions import Self
 
@@ -11,8 +11,6 @@ from datahub.metadata.schema_classes import (
 
 
 class HasOwnershipPatch(MetadataPatchProposal):
-    base_path = ["owners"]
-
     def add_owner(self, owner: OwnerClass) -> Self:
         """Add an owner to the entity.
 
@@ -22,27 +20,16 @@ class HasOwnershipPatch(MetadataPatchProposal):
         Returns:
             The patch builder instance.
         """
-
-        path = [
-            *self.base_path,
-            owner.owner,
-            str(owner.type),
-            "None" if owner.typeUrn is None else owner.typeUrn,
-        ]
-
         self._add_patch(
             OwnershipClass.ASPECT_NAME,
             "add",
-            path=tuple(path),
+            path=("owners", owner.owner, str(owner.type)),
             value=owner,
         )
         return self
 
     def remove_owner(
-        self,
-        owner: str,
-        owner_type: Optional[Union[str, OwnershipTypeClass]] = None,
-        owner_type_urn: Optional[str] = None,
+        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
     ) -> Self:
         """Remove an owner from the entity.
 
@@ -51,21 +38,14 @@ class HasOwnershipPatch(MetadataPatchProposal):
         Args:
             owner: The owner to remove.
             owner_type: The ownership type of the owner (optional).
-            owner_type_urn: The ownership type urn of the owner (optional).
 
         Returns:
             The patch builder instance.
         """
-
-        path = [*self.base_path, owner]
-        if owner_type:
-            path.append(str(owner_type))
-        if owner_type_urn:
-            path.append(owner_type_urn)
         self._add_patch(
             OwnershipClass.ASPECT_NAME,
             "remove",
-            path=tuple(path),
+            path=("owners", owner) + ((str(owner_type),) if owner_type else ()),
             value=owner,
         )
         return self
@@ -82,6 +62,6 @@ class HasOwnershipPatch(MetadataPatchProposal):
             The patch builder instance.
         """
         self._add_patch(
-            OwnershipClass.ASPECT_NAME, "add", path=tuple(self.base_path), value=owners
+            OwnershipClass.ASPECT_NAME, "add", path=("owners",), value=owners
         )
         return self

@@ -25,6 +25,7 @@ import cachetools
 import mlflow
 import mlflow.entities
 import mlflow.tracing
+from bs4 import BeautifulSoup
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.sdk.main_client import DataHubClient
 from datahub.utilities.perf_timer import PerfTimer
@@ -212,12 +213,39 @@ class NextMessage(BaseModel):
         return v
 
 
+def _strip_reasoning_tag(text: str) -> str:
+    """
+    Remove <reasoning> tags and their contents from the text.
+
+    This is used to handle cases where the LLM includes a <reasoning> tag
+    with internal thoughts that should not be shown to the user.
+
+    Example:
+        Input: "<reasoning>thinking...</reasoning>Here is the answer"
+        Output: "Here is the answer"
+    """
+    try:
+        soup = BeautifulSoup(text, "html.parser")
+        # Find and remove all <reasoning> tags and their contents
+        for reasoning_tag in soup.find_all("reasoning"):
+            reasoning_tag.decompose()  # Remove tag and all its contents
+        # Return the remaining text (strips any other HTML/XML tags too)
+        return soup.get_text()
+    except Exception as e:
+        # If parsing fails, log and return original text
+        logger.warning(f"Failed to strip reasoning tag from response: {e}")
+        return text
+
+
 def respond_to_user(
     response: str,
     follow_up_suggestions: Optional[List[str]] = None,
     chat_type: ChatType = ChatType.DEFAULT,
 ) -> NextMessage:
+    """Respond to the user with a formatted message."""
     client = get_datahub_client()
+    # Strip any <reasoning> tags that the LLM might have included
+    response = _strip_reasoning_tag(response)
     response = auto_fix_chat_links(response, client._graph.frontend_base_url)
     formatted_text = format_message(response, chat_type)
     return NextMessage(
@@ -230,8 +258,11 @@ _respond_to_user_tool = ToolWrapper.from_function(
     fn=respond_to_user,
     name="respond_to_user",
     description=f"""\
-Respond to the user with a message formatted using Markdown. \
-However, do not use any headers (e.g. #, ##, ###, etc.) or tables, as these are not supported.
+CRITICAL: This tool generates the ACTUAL MESSAGE that will be displayed directly to the user. \
+Write your response AS IF you are speaking directly to the user, NOT as instructions or meta-commentary.
+
+Format your response using MARKDOWN ONLY. Do NOT use XML, HTML, or any other markup language. \
+However, do not use any headers (e.g. #, ##, ###, etc.) or tables, as these are not supported in the chat interface.
 
 The first reference to each entity must be formatted as a link to the entity in DataHub.
 CRITICAL: When you have the exact identifier for an entity, include it in your response for clarity and to avoid ambiguity.
@@ -311,6 +342,22 @@ metadata management, data discovery, data governance, and data quality within th
 
 DataHub AI provides thorough responses to more complex and open-ended questions or to anything where \
 a long response is requested, but concise responses to simpler questions and tasks.
+
+UNDERSTANDING DATAHUB'S METADATA MODEL:
+DataHub organizes metadata into entity types with specific relationships. When searching, DataHub AI considers these relationships:
+- Dataset: Tables with rows and columns that can be joined and queried
+- Dashboard: Visualizations of metrics and dimensions over time that contain Charts
+- Chart: Individual visualization panels within a Dashboard
+- Data Flow: Multi-step DAGs (pipelines) that contain Data Jobs
+- Data Job: Individual steps within a Data Flow or pipeline
+- Container: Collections of other assets (e.g., databases, schemas)
+- Tag: Freeform labels for organizing data assets
+- Glossary Term: Governed, hierarchical business concepts and definitions
+- Domain: Business areas for organizing data, typically hierarchical
+
+When users ask about Dashboards, DataHub AI proactively searches for both DASHBOARD and CHART entity types, \
+since dashboards contain charts and users typically want to see both. Similarly, when users ask about \
+pipelines or data flows, DataHub AI searches for both DATA_FLOW and DATA_JOB entity types.
 
 DataHub AI makes use of the available tools in order to effectively answer the person's question. \
 DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
@@ -831,6 +878,8 @@ class ChatSession:
             # This is a fallback case where LLM outputs text without using respond_to_user tool
             # We log this to track when it happens (unexpected behavior)
             response_text = content_block["text"]
+            # Strip any XML tags (like <reasoning>) that might be present
+            response_text = _strip_reasoning_tag(response_text)
             logger.info(f"Adding AssistantMessage: {response_text}")
             self._add_message(AssistantMessage(text=response_text))
 

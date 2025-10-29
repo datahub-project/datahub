@@ -4,6 +4,9 @@ from datahub_integrations.chat.chat_history import (
     AssistantMessage,
     ChatHistory,
     HumanMessage,
+    ReasoningMessage,
+    ToolCallRequest,
+    ToolResult,
 )
 from datahub_integrations.experimentation.chatbot.eval_helpers import (
     check_for_invalid_links,
@@ -26,6 +29,32 @@ def test_extract_response_simple_chat_history() -> None:
 
     result = extract_response_from_history(history)
     assert result == "Hi there! How can I help you?"
+
+
+def test_extract_response_from_assistant_message_fallback() -> None:
+    """Test extraction when LLM uses fallback path (direct AssistantMessage with multiple messages)."""
+    # Simulate a conversation with tool calls followed by direct assistant output
+    history = ChatHistory(
+        messages=[
+            HumanMessage(text="What tables do we have?"),
+            ReasoningMessage(text="<reasoning>Need to search for tables</reasoning>"),
+            ToolCallRequest(
+                tool_use_id="tool1", tool_name="search", tool_input={"query": "tables"}
+            ),
+            ToolResult(
+                tool_request=ToolCallRequest(
+                    tool_use_id="tool1",
+                    tool_name="search",
+                    tool_input={"query": "tables"},
+                ),
+                result={"matches": ["table1", "table2"]},
+            ),
+            AssistantMessage(text="I found two tables: table1 and table2."),
+        ]
+    )
+
+    result = extract_response_from_history(history)
+    assert result == "I found two tables: table1 and table2."
 
 
 def test_extract_response_from_chat_history_with_tool_calls() -> None:

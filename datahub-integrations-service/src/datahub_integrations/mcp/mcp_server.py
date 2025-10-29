@@ -665,6 +665,8 @@ def _search_implementation(
     filters: Optional[Filter | str],
     num_results: int,
     search_strategy: Optional[Literal["semantic", "keyword", "ersatz_semantic"]] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[Literal["asc", "desc"]] = "desc",
 ) -> dict:
     """Core search implementation that can use semantic, keyword, or ersatz_semantic search."""
     client = get_datahub_client()
@@ -700,13 +702,20 @@ def _search_implementation(
     else:
         logger.debug("No default view to apply")
 
-    variables = {
+    variables: Dict[str, Any] = {
         "query": query,
         "types": types,
         "orFilters": compiled_filters,
         "count": max(num_results, 1),  # 0 is not a valid value for count.
         "viewUrn": view_urn,  # Will be None if disabled or not set
     }
+
+    # Add sorting if requested
+    if sort_by is not None:
+        sort_order_enum = "ASCENDING" if sort_order == "asc" else "DESCENDING"
+        variables["sortInput"] = {
+            "sortCriteria": [{"field": sort_by, "sortOrder": sort_order_enum}]
+        }
 
     # Choose GraphQL query and operation based on strategy
     if search_strategy == "semantic":
@@ -743,6 +752,7 @@ def _search_implementation(
 
 
 # Define enhanced search tool when semantic search is enabled
+# TODO: Consider adding sorting support (sort_by, sort_order parameters) similar to search() tool if needed.
 def enhanced_search(
     query: str = "*",
     search_strategy: Optional[Literal["semantic", "keyword"]] = None,
@@ -841,6 +851,8 @@ def search(
     query: str = "*",
     filters: Optional[Filter | str] = None,
     num_results: int = 10,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[Literal["asc", "desc"]] = "desc",
 ) -> dict:
     """Search across DataHub entities using structured full-text search.
     Results are ordered by relevance and importance - examine top results first.
@@ -922,14 +934,30 @@ def search(
     - /q customer OR user → finds tables with either term
     - /q (financial OR revenue) AND metrics → complex boolean logic
 
-    LIMITATIONS:
-    Cannot sort by specific fields like downstream_count or query_count.
+    SORTING - Order results by specific fields:
+    - sort_by: Field name to sort by (optional)
+    - sort_order: "desc" (default) or "asc"
 
-    Note: Search results are already ranked by importance - frequently queried and
-    high-usage entities appear first. For "most important tables", search by
-    importance tags/terms or use the top-ranked results from a broad search.
+    Available sort fields for datasets:
+    - queryCountLast30DaysFeature: Number of queries in last 30 days
+    - rowCountFeature: Table row count
+    - sizeInBytesFeature: Table size in bytes
+    - writeCountLast30DaysFeature: Number of writes/updates in last 30 days
+
+    Sorting examples:
+    - Most queried datasets:
+      search(query="*", filters={"entity_type": ["DATASET"]}, sort_by="queryCountLast30DaysFeature", num_results=10)
+    - Largest tables:
+      search(query="*", filters={"entity_type": ["DATASET"]}, sort_by="sizeInBytesFeature", num_results=10)
+    - Smallest tables first:
+      search(query="*", filters={"entity_type": ["DATASET"]}, sort_by="sizeInBytesFeature", sort_order="asc", num_results=10)
+
+    Note: If sort_by is not provided, search results use default ranking by relevance and
+    importance. When using sort_by, results are strictly ordered by that field.
     """
-    return _search_implementation(query, filters, num_results, "keyword")
+    return _search_implementation(
+        query, filters, num_results, "keyword", sort_by, sort_order
+    )
 
 
 def get_dataset_queries(
@@ -1168,6 +1196,8 @@ class AssetLineageAPI:
         return result
 
 
+# TODO: Consider adding sorting support (sort_by, sort_order parameters) similar to search() tool.
+# GraphQL SearchAcrossLineageInput supports sortInput parameter.
 def get_lineage(
     urn: str,
     column: Optional[str],

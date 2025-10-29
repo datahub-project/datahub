@@ -35,27 +35,38 @@ public class DatabaseOperationsTest {
   @Test
   public void testPostgresCreateIamUserSql() {
     String result = postgresOps.createIamUserSql("testuser", "testrole");
-    assertEquals(result, "CREATE USER \"testuser\" WITH LOGIN;");
+    assertTrue(result.contains("IF NOT EXISTS"));
+    assertTrue(result.contains("CREATE USER"));
+    assertTrue(result.contains("\"testuser\""));
+    assertTrue(result.contains("WITH LOGIN"));
   }
 
   @Test
   public void testMysqlCreateIamUserSql() {
-    String result = mysqlOps.createIamUserSql("testuser", "testrole");
-    assertEquals(
-        result,
-        "CREATE USER 'testuser'@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS 'testrole';");
+    String result = mysqlOps.createIamUserSql("testuser", null);
+    assertTrue(result.contains("CREATE USER IF NOT EXISTS"));
+    assertTrue(result.contains("'testuser'@'%'"));
+    assertTrue(result.contains("IDENTIFIED WITH AWSAuthenticationPlugin"));
+    assertTrue(result.contains("AS 'RDS'")); // MySQL uses 'RDS' constant, not the role parameter
   }
 
   @Test
   public void testPostgresCreateTraditionalUserSql() {
     String result = postgresOps.createTraditionalUserSql("testuser", "testpass");
-    assertEquals(result, "CREATE USER \"testuser\" WITH PASSWORD 'testpass';");
+    assertTrue(result.contains("IF NOT EXISTS"));
+    assertTrue(result.contains("CREATE USER"));
+    assertTrue(result.contains("\"testuser\""));
+    assertTrue(result.contains("WITH PASSWORD"));
+    assertTrue(result.contains("testpass"));
   }
 
   @Test
   public void testMysqlCreateTraditionalUserSql() {
     String result = mysqlOps.createTraditionalUserSql("testuser", "testpass");
-    assertEquals(result, "CREATE USER 'testuser'@'%' IDENTIFIED BY 'testpass';");
+    assertTrue(result.contains("CREATE USER IF NOT EXISTS"));
+    assertTrue(result.contains("'testuser'@'%'"));
+    assertTrue(result.contains("IDENTIFIED BY"));
+    assertTrue(result.contains("testpass"));
   }
 
   @Test
@@ -75,6 +86,23 @@ public class DatabaseOperationsTest {
     String result = postgresOps.createCdcUserSql("cdcuser", "cdcpass");
     assertTrue(result.contains("CREATE USER \"cdcuser\""));
     assertTrue(result.contains("ALTER USER \"cdcuser\" WITH REPLICATION"));
+    // Verify the IF NOT EXISTS comparison is against the username (not password)
+    assertTrue(result.contains("rolname = 'cdcuser'"));
+  }
+
+  @Test
+  public void testPostgresCreateCdcUserSqlWithSpecialCharacters() {
+    // Test with username containing quotes and password containing single quotes
+    String result =
+        postgresOps.createCdcUserSql("user\"with\"quotes", "password'with'single'quotes");
+    // Verify username is properly escaped (quotes should be doubled)
+    assertTrue(result.contains("\"user\"\"with\"\"quotes\""));
+    // Verify password is properly escaped (single quotes should be doubled)
+    assertTrue(result.contains("'password''with''single''quotes'"));
+    // Verify the comparison uses the correct variable (username, not password)
+    assertTrue(
+        result.contains("rolname = 'user\"with\"quotes'")
+            || result.contains("rolname = 'user\"\"with\"\"quotes'"));
   }
 
   @Test

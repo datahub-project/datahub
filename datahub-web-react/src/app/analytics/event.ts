@@ -158,6 +158,8 @@ export enum EventType {
     SubscriptionUpdateErrorEvent,
     SubscriptionDeleteSuccessEvent,
     SubscriptionDeleteErrorEvent,
+    BulkSubscriptionDeleteEvent,
+    BulkSubscriptionDeleteCompletedEvent,
     NotificationSettingsSuccessEvent,
     NotificationSettingsErrorEvent,
     InboxPageViewEvent,
@@ -1157,6 +1159,20 @@ export interface SubscriptionDeleteErrorEvent extends BaseEvent {
     actorType: ActorType;
 }
 
+export interface BulkSubscriptionDeleteEvent extends BaseEvent {
+    type: EventType.BulkSubscriptionDeleteEvent;
+    subscriptionCount: number;
+    isPersonal: boolean;
+}
+
+export interface BulkSubscriptionDeleteCompletedEvent extends BaseEvent {
+    type: EventType.BulkSubscriptionDeleteCompletedEvent;
+    subscriptionCount: number;
+    successfulCount: number;
+    failedCount: number;
+    isPersonal: boolean;
+}
+
 export interface NotificationSettingsSuccessEvent extends BaseEvent {
     type: EventType.NotificationSettingsSuccessEvent;
     sinkTypes: Array<NotificationSinkType>;
@@ -2064,6 +2080,8 @@ export type Event =
     | SubscriptionUpdateErrorEvent
     | SubscriptionDeleteSuccessEvent
     | SubscriptionDeleteErrorEvent
+    | BulkSubscriptionDeleteEvent
+    | BulkSubscriptionDeleteCompletedEvent
     | NotificationSettingsSuccessEvent
     | NotificationSettingsErrorEvent
     | InboxPageViewEvent
@@ -2171,6 +2189,8 @@ export type Event =
     | SubscriptionEditClickEvent
     | SubscriptionDeleteClickEvent
     | SubscriptionOwnerClickEvent
+    | BulkSubscriptionDeleteEvent
+    | BulkSubscriptionDeleteCompletedEvent
     | CreateDataHubChatEvent
     | CreateDataHubChatMessageEvent
     | DeleteDataHubChatEvent

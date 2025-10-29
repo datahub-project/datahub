@@ -242,6 +242,8 @@ public enum DataHubUsageEventType {
   SUBSCRIPTION_ENTITY_CLICK_EVENT("SubscriptionEntityClickEvent"),
   SUBSCRIPTION_EDIT_CLICK_EVENT("SubscriptionEditClickEvent"),
   SUBSCRIPTION_DELETE_CLICK_EVENT("SubscriptionDeleteClickEvent"),
+  BULK_SUBSCRIPTION_DELETE_EVENT("BulkSubscriptionDeleteEvent"),
+  BULK_SUBSCRIPTION_DELETE_COMPLETED_EVENT("BulkSubscriptionDeleteCompletedEvent"),
 
   // Integrations service events
   CHATBOT_INTERACTION_EVENT("ChatbotInteraction"),
