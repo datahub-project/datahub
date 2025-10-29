@@ -1,5 +1,4 @@
 
-import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 
 import { PropertyValue, StructuredPropertiesEntry } from '@types';

@@ -8,7 +8,6 @@ import {
     AssertionType,
     AuditStamp,
     DataPlatform,
-    EntityType,
     TagAssociation,
 } from '@src/types.generated';
 

@@ -1,12 +1,5 @@
 import { Divider, List } from 'antd';
-import React from 'react';
 import styled from 'styled-components';
-
-import { IconStyleType } from '@app/entity/Entity';
-import { getPlatformName } from '@app/entity/shared/utils';
-import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity } from '@types';
 
@@ -54,8 +47,3 @@ export const ThinDivider = styled(Divider)`
     padding: 0px;
     margin: 0px;
 `;
-
-type Props = {
-    entities: Array<Entity>;
-    onClick?: (index: number) => void;
-};

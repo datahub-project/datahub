@@ -1,11 +1,6 @@
 import {
     BookOutlined,
-    DatabaseOutlined,
-    FileOutlined,
     FolderFilled,
-    FolderOutlined,
-    TagOutlined,
-    UserOutlined,
 } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
 import moment from 'moment-timezone';
@@ -15,34 +10,23 @@ import styled from 'styled-components';
 import { IconStyleType } from '@app/entity/Entity';
 import EntityRegistry from '@app/entity/EntityRegistry';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { FACETS_TO_ENTITY_TYPES } from '@app/search/filters/constants';
 import { FilterOptionType } from '@app/search/filters/types';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
-    DOMAINS_FILTER_NAME,
     ENTITY_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
     FILTER_DELIMITER,
-    GLOSSARY_TERMS_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
-    OWNERS_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     STRUCTURED_PROPERTIES_FILTER_NAME,
-    TAGS_FILTER_NAME,
-    TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/search/utils/constants';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fields';
 import { DATE_TYPE_URN } from '@src/app/shared/constants';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import TableIcon from '@src/images/table-icon.svg?react';
-
-import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {
-    AggregationMetadata,
     Container,
     DataPlatform,
     DataPlatformInstance,
@@ -54,8 +38,6 @@ import {
     GlossaryTerm,
     StructuredPropertyEntity,
 } from '@types';
-
-import DomainsIcon from '@images/domain.svg?react';
 
 export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[], filterValue: string) {
     const parentFilterValues = filterValue.includes(FILTER_DELIMITER)
@@ -210,10 +192,6 @@ export function getFilterIconAndLabel(
     }
 
     return { icon, label };
-}
-
-function getNumActiveFiltersForFilter(activeFilters: FacetFilterInput[], filter: FacetMetadata) {
-    return activeFilters.find((f) => f.field === filter.field)?.values?.length || 0;
 }
 
 export function getParentEntities(entity: Entity): Entity[] | null {

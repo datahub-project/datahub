@@ -1,13 +1,9 @@
 import {
     CONTAINER_FILTER_NAME,
     DOMAINS_FILTER_NAME,
-    ENTITY_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
-    ORIGIN_FILTER_NAME,
     OWNERS_FILTER_NAME,
-    PLATFORM_FILTER_NAME,
     TAGS_FILTER_NAME,
-    TYPE_NAMES_FILTER_NAME,
 } from '@app/search/utils/constants';
 
 import { EntityType } from '@types';

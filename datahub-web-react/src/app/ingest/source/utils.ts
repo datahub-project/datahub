@@ -11,7 +11,7 @@ import {
 import YAML from 'yamljs';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingest/source/types';
-import { EntityType, ExecutionRequestResult } from '@types';
+import { ExecutionRequestResult } from '@types';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -124,76 +124,6 @@ const createStructuredReport = (items: StructuredReportLogEntry[]): StructuredRe
         infoCount,
         items,
     };
-};
-
-const transformToStructuredReport = (structuredReportObj: any): StructuredReport | null => {
-    if (!structuredReportObj) {
-        return null;
-    }
-
-    /* Legacy helper function to map backend failure or warning ingestion objects into StructuredReportLogEntry[] */
-    const mapItemObject = (
-        items: { [key: string]: string[] },
-        level: StructuredReportItemLevel,
-    ): StructuredReportLogEntry[] => {
-        return Object.entries(items).map(([rawMessage, context]) => ({
-            level,
-            title: 'An unexpected issue occurred',
-            message: rawMessage,
-            context,
-        }));
-    };
-
-    /* V2 helper function to map backend failure or warning lists into StructuredReportLogEntry[] */
-    const mapItemArray = (items, level: StructuredReportItemLevel): StructuredReportLogEntry[] => {
-        return items
-            .map((item) => {
-                if (typeof item === 'string') {
-                    // Handle "sampled from" case..
-                    return null;
-                }
-
-                return {
-                    level,
-                    title: item.title || 'An unexpected issue occurred',
-                    message: item.message,
-                    context: item.context,
-                };
-            })
-            .filter((item) => item != null);
-    };
-
-    try {
-        const sourceReport = structuredReportObj.source?.report;
-
-        if (!sourceReport) {
-            return null;
-        }
-
-        // Else fallback to using the legacy fields
-        const failures = Array.isArray(sourceReport.failures)
-            ? /* Use V2 failureList if present */
-              mapItemArray(sourceReport.failures || [], StructuredReportItemLevel.ERROR)
-            : /* Else use the legacy object type */
-              mapItemObject(sourceReport.failures || {}, StructuredReportItemLevel.ERROR);
-
-        const warnings = Array.isArray(sourceReport.warnings)
-            ? /* Use V2 warning if present */
-              mapItemArray(sourceReport.warnings || [], StructuredReportItemLevel.WARN)
-            : /* Else use the legacy object type */
-              mapItemObject(sourceReport.warnings || {}, StructuredReportItemLevel.WARN);
-
-        const infos = Array.isArray(sourceReport.infos)
-            ? /* Use V2 infos if present */
-              mapItemArray(sourceReport.infos || [], StructuredReportItemLevel.INFO)
-            : /* Else use the legacy object type */
-              mapItemObject(sourceReport.infos || {}, StructuredReportItemLevel.INFO);
-
-        return createStructuredReport([...failures, ...warnings, ...infos]);
-    } catch (e) {
-        console.warn('Failed to extract structured report from ingestion report!', e);
-        return null;
-    }
 };
 
 const extractStructuredReportPOJO = (result: Partial<ExecutionRequestResult>): any | null => {

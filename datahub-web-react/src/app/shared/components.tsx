@@ -1,8 +1,6 @@
 import { Button } from 'antd';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 export const BaseButton = styled(Button)`
     &&& {
         display: flex;

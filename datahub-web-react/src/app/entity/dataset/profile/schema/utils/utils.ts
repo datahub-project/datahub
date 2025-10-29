@@ -1,10 +1,6 @@
 
 import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
 
-import {
-    SchemaField,
-} from '@types';
-
 export function downgradeV2FieldPath(fieldPath?: string | null) {
     if (!fieldPath) {
         return fieldPath;
