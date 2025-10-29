@@ -105,7 +105,7 @@ At its core, the logical -> physical relationship is created by the [`LogicalPar
 The OpenAPI endpoint creates a logical -> physical relationship for a single logical-physical pair, as well as the column-level relationships between their columns, if specified.
 
 ```shell
-curl -X POST 'http://localhost:8080/openapi/v3/entity/logical/<physical_child_urn>/relationship/physicalInstanceOf/<logical_model_urn>' \
+curl -X POST 'http://localhost:8080/openapi/v3/logical/<physical_child_urn>/relationship/physicalInstanceOf/<logical_model_urn>' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -115,10 +115,10 @@ curl -X POST 'http://localhost:8080/openapi/v3/entity/logical/<physical_child_ur
   }'
 ```
 
-These relationships can also be removed:
+These relationships can also be removed (as of DataHub Cloud v0.3.15):
 
 ```shell
-curl -X DELETE 'http://localhost:8080/openapi/v3/entity/logical/<physical_child_urn>/relationship/physicalInstanceOf' \
+curl -X DELETE 'http://localhost:8080/openapi/v3/logical/<physical_child_urn>/relationship/physicalInstanceOf' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json'
 ```
@@ -130,7 +130,7 @@ The Python SDK can also query the same endpoint:
 ```python
     from datahub.sdk import DataHubClient
     client = DataHubClient.from_env()
-    url = f"{client._graph.config.server}/openapi/v3/entity/logical/{child_urn}/relationship/physicalInstanceOf/{parent_urn}"
+    url = f"{client._graph.config.server}/openapi/v3/logical/{child_urn}/relationship/physicalInstanceOf/{parent_urn}"
     client._graph._post_generic(url, {column.parent_name: column.child_name for column in columns})
 ```
 
