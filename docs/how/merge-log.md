@@ -1296,3 +1296,75 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **55c4692e19** - fix(ui): Fix routing issue in Manage Views (#15101)
   *by Saketh Varma on 2025-10-24*
 
+
+## Upstream Merge Session - 2025-10-29 04:03:24
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-10-29-040323`
+- **Merge Base**: `55c4692e19c4c4cfc3ab697142c19cb1656ecee9`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 19
+- **Strategy**: stacked
+- **Started**: Wed Oct 29 04:03:24 UTC 2025
+
+### Commits Included in This Merge
+- **080233054b** - fix(ui/column-stats): fix unopenable side panel for nested column stats (#14874)
+  *by Jonny Dixon on 2025-10-24*
+
+- **8038dc9c45** - fix(elasticsearch): fix regression system-update elasticsearch-setup (#15107)
+  *by david-leifker on 2025-10-24*
+
+- **bc25b82da5** - fix(web): tsc null check (#15109)
+  *by Jay on 2025-10-25*
+
+- **ee20dbbcb3** - fix(prefix): improve/fix es prefix calculation (#15110)
+  *by david-leifker on 2025-10-25*
+
+- **f844ea7b2d** - chore(metabase): use non deprecated fields in ChartInfo and DashboardInfo aspects (#15102)
+  *by Sergio Gómez Villamor on 2025-10-27*
+
+- **9016a4446f** - feat(docs): generate DataHub-optimized entity documentation variant (#15111)
+  *by Shirshanka Das on 2025-10-27*
+
+- **dc0b9b2f76** - fix(docs): Fix upgrade restore docs (#15103)
+  *by Harsh Verma on 2025-10-27*
+
+- **6af5182e9b** - fix(mssql): replace permission-based RDS detection with server name analysis and fix SQLAlchemy 1.4+ compatibility (#14975)
+  *by Sergio Gómez Villamor on 2025-10-27*
+
+- **f05f3e40f2** - fix(ingestion/dremio): handle dremio oom errors when ingesting large amount of metadata (#14883)
+  *by Jonny Dixon on 2025-10-27*
+
+- **680d16fa84** - feat(ingestion/sql-queries): add performance optimizations, S3 support, temp table patterns (#14757)
+  *by Brock Griffey on 2025-10-27*
+
+- **5c2ee31fde** - docs(snowflake): lineage limitations (#15115)
+  *by Sergio Gómez Villamor on 2025-10-28*
+
+- **0baabeb639** - fix(ci): reworked smoke test batching (#15039)
+  *by Chakru on 2025-10-28*
+
+- **0f79f62187** - fix(cypress): fix summaryTab.js (#15136)
+  *by v-tarasevich-blitz-brain on 2025-10-28*
+
+- **bc814fd328** - feat(ci): monitor test weights and update automatically (#15126)
+  *by Chakru on 2025-10-28*
+
+- **653e5a5b7e** - feat(ui/theme): Support styled-components theming; clean up ant theming (#14787)
+  *by Andrew Sikowitz on 2025-10-28*
+
+- **a6222ca5cc** - Fixed some UX and React reconciliation errors on Tags page (#15098)
+  *by ani-malgari on 2025-10-28*
+
+- **eeb2c88469** - feat(search): unified entity index (#14966)
+  *by david-leifker on 2025-10-28*
+
+- **b02f182e70** - fix(cypress) Skip summaryTab.js while we fix it (#15135)
+  *by Chris Collins on 2025-10-28*
+
+- **a3275c37c1** - fix(docs): move DataHub variant entity docs to separate directory (#15144)
+  *by Shirshanka Das on 2025-10-28*
+
