@@ -51,7 +51,7 @@ HOSTED_DOCS_ONLY-->
 ### 🏠 Docs: [docs.datahub.com](https://docs.datahub.com/)
 
 [Quickstart](https://docs.datahub.com/docs/quickstart) |
-[Features](https://docs.datahub.com/docs/features) |
+[Features](https://datahub.com/products/) |
 [Adoption](https://datahub.com/resources/?2004611554=dh-stories) |
 [Demo](https://demo.datahub.com/) |
 [Town Hall](https://docs.datahub.com/docs/townhalls)
@@ -59,12 +59,10 @@ HOSTED_DOCS_ONLY-->
 
 ## What is DataHub?
 
-**DataHub is an enterprise-grade, real-time metadata platform** that enables data discovery, observability, and governance across your entire data ecosystem. Built by LinkedIn and proven at massive scale (100,000+ datasets), DataHub provides a unified catalog where data engineers, analysts, and scientists can find, understand, and trust their data.
 
+**DataHub is an open-source metadata platform** that enables data discovery, observability, and governance across your entire data stack. Built by LinkedIn and proven at scale (100,000+ datasets), DataHub provides a unified catalog where teams can find, understand, and trust their data.
 
-**The Challenge:** Modern data stacks are fragmented across dozens of tools—warehouses, lakes, BI platforms, ML systems, orchestration engines. Finding the right data, understanding its lineage, and ensuring governance is like searching through a maze blindfolded.
-
-**The DataHub Solution:** DataHub acts as a real-time metadata graph that continuously streams metadata from all your data tools, creating a single source of truth. Unlike batch-based catalogs that are always outdated, DataHub keeps your metadata fresh and actionable.
+Modern data stacks are fragmented across dozens of tools. DataHub solves this by acting as a real-time metadata graph that continuously streams metadata from all your data sources, creating a single source of truth.
 
 ## Why DataHub?
 
@@ -75,17 +73,27 @@ HOSTED_DOCS_ONLY-->
 - Enterprise Ready: Battle-tested security, authentication, authorization, and audit trails
 - **Open Source**: [Apache 2.0 licensed](./LICENSE), vendor-neutral, community-driven
 
-## Common Use Cases
+## Core Features
 
 
-| Use Case | Description | Learn More |
-|----------|-------------|------------|
-| 🔍 **Data Discovery** | Help users find the right data for analytics and ML | [Guide](https://docs.datahub.com/docs/features) |
-| 📊 **Impact Analysis** | Understand downstream impact before making changes | [Lineage Docs](https://docs.datahub.com/docs/lineage) |
-| 🏛️ **Data Governance** | Enforce policies, classify PII, manage access | [Governance Guide](https://docs.datahub.com/docs/governance) |
-| 🔔 **Data Quality** | Monitor freshness, volumes, schema changes | [Quality Checks](https://docs.datahub.com/docs/tests) |
-| 📚 **Documentation** | Centralize data documentation and knowledge | [Docs Features](https://docs.datahub.com/docs/documentation) |
-| 👥 **Collaboration** | Foster data culture with discussions and ownership | [Collaboration](https://docs.datahub.com/docs/features) |
+<p align="center">
+<a href="https://datahub.com/products/data-discovery/">
+<img alt="DataHub" src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs-website/static/img/quickstart_discovery.png" height="150" />
+</a>
+<a href="https://datahub.com/products/data-governance">
+<img alt="DataHub" src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs-website/static/img/quickstart_governance.png" height="150" />
+</a>
+<a href="https://datahub.com/products/data-observability">
+<img alt="DataHub" src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs-website/static/img/quickstart_observability.png" height="150" />
+</a>
+</p>
+
+| Features | Description |
+|----------|-------------|
+| 🔍 [**Data Discovery**](https://datahub.com/products/data-discovery/) | Effortlessly discover and get context on trustworthy data |
+| 👁️ [**Data Observability**](https://datahub.com/products/data-observability) | Detect, resolve, and prevent data quality issues before they impact your business | 
+| 🏛️ [**Data Governance**](https://datahub.com/products/data-governance)| Ensure every data asset is accounted for by continuously fulfilling governance standards. | 
+| 📊 [**Impact Analysis**](https://docs.datahub.com/docs/act-on-metadata/impact-analysis) | Understand downstream impact before making changes | [Lineage Docs](https://docs.datahub.com/docs/lineage) |
 
 
 ## Quickstart
@@ -132,8 +140,7 @@ If you're looking to build & modify datahub please take a look at our [Developme
 
 Looking for a fully managed solution? **DataHub Cloud** provides enterprise-grade data catalog with zero infrastructure management.
 
-**☁️ [Request Demo](https://datahub.com/demo/)** | **[Why Cloud?](https://datahub.com/products/why-datahub-cloud/)** | **[Cloud vs Core](https://datahub.com/products/cloud-vs-core/)** | **[Pricing](https://www.acryldata.io/pricing)**
-
+**☁️ [Request Demo](https://datahub.com/demo/)** | **[Why Cloud?](https://datahub.com/products/why-datahub-cloud/)** | **[Cloud vs Core](https://datahub.com/products/cloud-vs-core/)** 
 
 ## Source Code and Repositories
 
