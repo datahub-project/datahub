@@ -7,7 +7,7 @@ import static org.testng.Assert.assertNull;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.ObjectMapperContext;
@@ -26,7 +26,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-@SpringBootTest(classes = {ElasticSearchServiceFactory.class})
+@SpringBootTest(classes = {ElasticSearchServiceFactory.class, MappingsBuilderFactory.class})
 @EnableConfigurationProperties(ConfigurationProvider.class)
 @TestPropertySource(
     locations = "classpath:/application.yaml",
