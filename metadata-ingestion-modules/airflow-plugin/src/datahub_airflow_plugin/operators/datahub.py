@@ -12,21 +12,24 @@ from datahub_airflow_plugin.hooks.datahub import (
 )
 
 if TYPE_CHECKING:
+    from typing import Dict
+
     from jinja2 import Environment
 
     # Import Context with version compatibility for type checking
-    # Try Airflow 2.x location first, then Airflow 3.x, then fall back to Dict
+    # Import to different names to avoid redefinition errors, then assign to Context
+    Context: Any
     try:
-        from airflow.utils.context import Context
+        from airflow.utils.context import Context as _AirflowContext
+
+        Context = _AirflowContext
     except ImportError:
         try:
-            from airflow.sdk.definitions.context import (
-                Context,  # type: ignore[no-redef]
-            )
-        except ImportError:
-            from typing import Dict
+            from airflow.sdk.definitions.context import Context as _Airflow3Context
 
-            Context = Dict[str, Any]  # type: ignore[assignment, misc, no-redef]
+            Context = _Airflow3Context  # type: ignore[no-redef]
+        except ImportError:
+            Context = Dict[str, Any]  # type: ignore[assignment]
 
 
 class DatahubBaseOperator(BaseOperator):
