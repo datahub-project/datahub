@@ -31,6 +31,7 @@ import com.linkedin.pegasus2avro.entity.EnvelopedAspect;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -69,7 +70,8 @@ public class TimeseriesAspectServiceUnitTest {
   private final ESBulkProcessor bulkProcessor = mock(ESBulkProcessor.class);
   private final RawResponse response = mock(RawResponse.class);
   private final OperationContext opContext =
-      TestOperationContexts.systemContextNoSearchAuthorization(indexConvention);
+      TestOperationContexts.systemContextNoSearchAuthorization(
+          SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
   private final EntityRegistry entityRegistry = opContext.getEntityRegistry();
   private final ESIndexBuilder indexBuilder = mock(ESIndexBuilder.class);
   private final TimeseriesAspectService _timeseriesAspectService =

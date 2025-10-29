@@ -5,12 +5,12 @@ import { ThemeProvider } from 'styled-components';
 
 import { DefineRecipeStep } from '@app/ingest/source/builder/DefineRecipeStep';
 import { SourceConfig } from '@app/ingest/source/builder/types';
-import defaultThemeConfig from '@conf/theme/theme_light.config.json';
+import themeV1 from '@conf/theme/themeV1';
 
 describe('DefineRecipeStep', () => {
     it('should render the RecipeBuilder if the type is in CONNECTORS_WITH_FORM', () => {
         const { getByText, queryByText } = render(
-            <ThemeProvider theme={defaultThemeConfig}>
+            <ThemeProvider theme={themeV1}>
                 <MockedProvider>
                     <DefineRecipeStep
                         state={{ type: 'snowflake' }}
@@ -31,7 +31,7 @@ describe('DefineRecipeStep', () => {
 
     it('should not render the RecipeBuilder if the type is not in CONNECTORS_WITH_FORM', () => {
         const { getByText, queryByText } = render(
-            <ThemeProvider theme={defaultThemeConfig}>
+            <ThemeProvider theme={themeV1}>
                 <MockedProvider>
                     <DefineRecipeStep
                         state={{ type: 'glue' }}
