@@ -12,8 +12,6 @@ from datahub_airflow_plugin.hooks.datahub import (
 )
 
 if TYPE_CHECKING:
-    from typing import Dict
-
     from jinja2 import Environment
 
     # Import Context with version compatibility for type checking
@@ -24,12 +22,9 @@ if TYPE_CHECKING:
 
         Context = _AirflowContext
     except ImportError:
-        try:
-            from airflow.sdk.definitions.context import Context as _Airflow3Context
+        from airflow.sdk.definitions.context import Context as _Airflow3Context
 
-            Context = _Airflow3Context  # type: ignore[no-redef]
-        except ImportError:
-            Context = Dict[str, Any]  # type: ignore[assignment]
+        Context = _Airflow3Context  # type: ignore[no-redef]
 
 
 class DatahubBaseOperator(BaseOperator):
