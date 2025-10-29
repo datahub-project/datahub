@@ -113,7 +113,7 @@ class Db2Config(BasicSQLAlchemyConfig):
 
     # Override defaults
     host_port: str = pydantic.Field(default="localhost:50000")
-    scheme: HiddenFromDocs[str] = pydantic.Field(default="db2")
+    scheme: str = pydantic.Field(default="db2", description="SQLAlchemy URL scheme to use.")
 
     def get_sql_alchemy_url(
         self,
@@ -125,6 +125,10 @@ class Db2Config(BasicSQLAlchemyConfig):
             {**self.uri_args, **(uri_opts or {})}, database
         )
 
+
+class Db2ODBCConfig(Db2Config):
+    # Override
+    scheme: str = pydantic.Field(default="db2+pyodbc", description="SQLAlchemy URL scheme to use.")
 
 def _quote_identifier(value):
     return '"' + value.replace('"', '""') + '"'
@@ -146,10 +150,10 @@ class Db2Source(SQLAlchemySource):
         if not sqlglot.Dialect.get("db2"):
             sqlglot.Dialect.classes["db2"] = CustomDb2SqlGlotDialect
 
-    @classmethod
-    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Db2Source":
-        config = Db2Config.parse_obj(config_dict)
-        return cls(config, ctx)
+    # @classmethod
+    # def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Db2Source":
+    #     config = Db2Config.parse_obj(config_dict)
+    #     return cls(config, ctx)
 
     def get_inspectors(self) -> Iterable[Inspector]:
         for inspector in super().get_inspectors():
@@ -371,3 +375,9 @@ def _db2_get_procedures(
         raise NotImplementedError(
             "Couldn't find SYSCAT.ROUTINES, SYSIBM.SYSROUTINES, or QSYS2.SYSROUTINES"
         )
+
+class Db2ODBCSource(Db2Source):
+    @classmethod
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Db2ODBCSource":
+        config = Db2ODBCConfig.parse_obj(config_dict)
+        return cls(config=config, ctx=ctx)
