@@ -514,3 +514,50 @@ def test_truncate_descriptions() -> None:
             ]
         }
     }
+
+
+def test_get_lineage_normalizes_null_string() -> None:
+    """Test that get_lineage normalizes the string 'null' to None for the column parameter."""
+    from datahub_integrations.mcp.mcp_server import get_lineage
+
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.raw_schema.users,PROD)"
+
+    # Mock the DataHub client and related components
+    with patch(
+        "datahub_integrations.mcp.mcp_server.get_datahub_client"
+    ) as mock_get_client:
+        mock_client = Mock()
+        mock_graph = Mock()
+        mock_client._graph = mock_graph
+        mock_get_client.return_value = mock_client
+
+        # Mock the lineage API
+        mock_lineage_api = Mock()
+        mock_lineage = {
+            "searchResults": [],
+            "total": 0,
+        }
+        mock_lineage_api.get_lineage.return_value = mock_lineage
+
+        with patch(
+            "datahub_integrations.mcp.mcp_server.AssetLineageAPI",
+            return_value=mock_lineage_api,
+        ):
+            # Test with string "null" - should be normalized to None
+            get_lineage(urn=dataset_urn, column="null")
+
+            # Verify that maybe_convert_to_schema_field_urn was called with None for column
+            # This is verified by checking the AssetLineageDirective was created with dataset URN (not schema field URN)
+            call_args = mock_lineage_api.get_lineage.call_args
+            directive = call_args[0][0]
+            assert (
+                directive.urn == dataset_urn
+            )  # Should be dataset URN, not schema field URN
+
+            # Also test with an actual column name to ensure normal behavior still works
+            get_lineage(urn=dataset_urn, column="user_id")
+            call_args = mock_lineage_api.get_lineage.call_args
+            directive = call_args[0][0]
+            # Should be converted to schema field URN
+            assert directive.urn.startswith("urn:li:schemaField:")
+            assert "user_id" in directive.urn

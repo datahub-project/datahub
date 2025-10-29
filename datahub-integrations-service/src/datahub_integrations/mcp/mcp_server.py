@@ -1207,6 +1207,12 @@ def get_lineage(
     - Large lineage (>30 items) → Keep count=30, use facets for aggregation
     - Need complete list → Increase count only if total ≤100
     """
+    # Normalize column parameter: Some LLMs pass the string "null" instead of JSON null.
+    # Note: This means columns literally named "null" cannot be queried.
+    # If this becomes a problem, we could add an escape mechanism (e.g., "column_name:null" prefix).
+    if column == "null":
+        column = None
+
     client = get_datahub_client()
     # NOTE: See comment in search tool for why we parse filters as strings.
     if isinstance(filters, str):
