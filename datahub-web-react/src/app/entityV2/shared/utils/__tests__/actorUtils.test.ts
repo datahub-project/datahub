@@ -59,15 +59,6 @@ const mockCorpGroup: CorpGroup = {
     },
 } as CorpGroup;
 
-const mockCorpGroup2: CorpGroup = {
-    urn: 'urn:li:corpGroup:group2',
-    type: EntityType.CorpGroup,
-    name: 'marketing',
-    properties: {
-        displayName: 'Marketing Team',
-    },
-} as CorpGroup;
-
 // Non-actor entities for negative tests
 const mockDataset = {
     urn: 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)',
@@ -118,14 +109,7 @@ describe('actorUtils', () => {
 
     describe('filterActors', () => {
         it('should filter out only actor entities', () => {
-            const mixedEntities = [
-                mockCorpUser,
-                mockDataset,
-                mockCorpGroup,
-                mockDomain,
-                null,
-                undefined,
-            ];
+            const mixedEntities = [mockCorpUser, mockDataset, mockCorpGroup, mockDomain, null, undefined];
 
             const result = filterActors(mixedEntities);
 
@@ -156,7 +140,7 @@ describe('actorUtils', () => {
     describe('findActorByUrn', () => {
         it('should find actor by URN when it exists and is an actor', () => {
             const entities = [mockCorpUser, mockDataset, mockCorpGroup];
-            
+
             const userResult = findActorByUrn(entities, mockCorpUser.urn);
             const groupResult = findActorByUrn(entities, mockCorpGroup.urn);
 
@@ -185,9 +169,9 @@ describe('actorUtils', () => {
     describe('resolveActorsFromUrns', () => {
         it('should resolve actors from multiple sources in priority order', () => {
             const urns = [
-                mockCorpUser.urn,    // Will be found in placeholderActors
-                mockCorpUser2.urn,   // Will be found in searchResults
-                mockCorpGroup.urn,   // Will be found in selectedActors
+                mockCorpUser.urn, // Will be found in placeholderActors
+                mockCorpUser2.urn, // Will be found in searchResults
+                mockCorpGroup.urn, // Will be found in selectedActors
             ];
 
             const sources = {
@@ -331,8 +315,10 @@ describe('actorUtils', () => {
             const userWithoutNames = {
                 ...mockCorpUser,
                 username: undefined,
-                properties: {},
-            } as CorpUser;
+                properties: {
+                    active: true,
+                },
+            } as unknown as CorpUser;
 
             expect(getActorDisplayName(userWithoutNames)).toBeUndefined();
         });
@@ -409,12 +395,7 @@ describe('actorUtils', () => {
     describe('integration scenarios', () => {
         it('should handle a complete actor resolution workflow', () => {
             // Simulate a typical component workflow
-            const allUrns = [
-                mockCorpUser.urn,
-                mockCorpUser2.urn,
-                mockCorpGroup.urn,
-                'urn:li:corpuser:missing',
-            ];
+            const allUrns = [mockCorpUser.urn, mockCorpUser2.urn, mockCorpGroup.urn, 'urn:li:corpuser:missing'];
 
             // Mixed entity search results (including non-actors)
             const searchResults = [mockCorpUser2, mockDataset, mockDomain];

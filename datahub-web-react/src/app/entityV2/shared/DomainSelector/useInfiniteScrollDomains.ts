@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 
+import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType, FilterOperator, SortOrder } from '@src/types.generated';
 
-import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
+export const DOMAIN_SELECTOR_COUNT = 2;
 
-export const DOMAIN_SELECTOR_COUNT = 25;
-
+/**
+ * Generates the GraphQL scroll input for fetching domains with pagination
+ * Used for both root-level and nested domain fetching
+ *
+ * @param parentDomain - URN of parent domain (null for root domains)
+ * @param scrollId - Cursor for pagination (null for first page)
+ */
 export function getDomainSelectorScrollInput(parentDomain: string | null, scrollId: string | null) {
     return {
         input: {
@@ -62,10 +68,11 @@ export default function useInfiniteScrollDomains({ parentDomain, skip }: Props) 
     // Handle initial data and updates from scroll
     useEffect(() => {
         if (scrollData?.scrollAcrossEntities?.searchResults) {
-            const newResults = (scrollData.scrollAcrossEntities.searchResults
-                .filter((r) => !domainsUrnsSet.has(r.entity.urn))
-                .map((r) => r.entity)
-                .filter((e) => e.type === EntityType.Domain) || []);
+            const newResults =
+                scrollData.scrollAcrossEntities.searchResults
+                    .filter((r) => !domainsUrnsSet.has(r.entity.urn))
+                    .map((r) => r.entity)
+                    .filter((e) => e.type === EntityType.Domain) || [];
 
             if (newResults.length > 0) {
                 setDomains((currDomains) => [...currDomains, ...newResults]);

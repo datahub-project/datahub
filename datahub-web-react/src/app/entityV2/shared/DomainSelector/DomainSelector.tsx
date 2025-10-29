@@ -1,19 +1,25 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { debounce } from 'lodash';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { InfiniteScrollNestedSelect } from '@app/entityV2/shared/DomainSelector/InfiniteScrollNestedSelect';
+import useInfiniteScrollDomains, {
+    getDomainSelectorScrollInput,
+} from '@app/entityV2/shared/DomainSelector/useInfiniteScrollDomains';
 import {
     buildEntityCache,
     entitiesToNestedSelectOptions,
     isEntityResolutionRequired,
     mergeSelectedNestedOptions,
 } from '@app/entityV2/shared/utils/selectorUtils';
-import { InfiniteScrollNestedSelect } from './InfiniteScrollNestedSelect';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useListDomainsLazyQuery } from '@src/graphql/domain.generated';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
+import {
+    useGetAutoCompleteMultipleResultsLazyQuery,
+    useScrollAcrossEntitiesLazyQuery,
+} from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
-import useInfiniteScrollDomains from './useInfiniteScrollDomains';
 
 type DomainSelectorProps = {
     selectedDomains: string[];
@@ -27,7 +33,12 @@ type DomainSelectorProps = {
  * Standalone domain selector component that doesn't rely on Ant Design form state
  * Supports both single and multiple domain selection based on isMultiSelect prop
  * Works with URN strings instead of Domain objects for simpler integration
- * Now includes infinite scroll support for large domain hierarchies
+ *
+ * Features:
+ * - Infinite scroll support at root level for domains without parents
+ * - Paginated loading of nested children using scrollAcrossEntities (no 1000 limit)
+ * - Debounced search with autocomplete
+ * - Entity caching for selected domains
  */
 const DomainSelector: React.FC<DomainSelectorProps> = ({
     selectedDomains,
@@ -53,6 +64,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     // Build cache from resolved entities
     useEffect(() => {
         if (resolvedEntitiesData && resolvedEntitiesData.entities?.length) {
+            // Should be a safe cast since we're only querying for entities
             const entities: Entity[] = (resolvedEntitiesData?.entities as Entity[]) || [];
             setEntityCache(buildEntityCache(entities));
         }
@@ -66,8 +78,8 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         loading: rootDomainsLoading,
         hasMoreDomains,
         scrollRef,
-    } = useInfiniteScrollDomains({ 
-        skip: useSearch // Skip infinite scroll when in search mode
+    } = useInfiniteScrollDomains({
+        skip: useSearch, // Skip infinite scroll when in search mode
     });
 
     // Convert selected domain URNs to NestedSelectOption format using utility
@@ -77,23 +89,68 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     }, [selectedDomains, entityCache, entityRegistry]);
 
     const [childOptions, setChildOptions] = useState<NestedSelectOption[]>([]);
+    const [loadedChildUrns, setLoadedChildUrns] = useState<Set<string>>(new Set());
 
-    const [listDomains] = useListDomainsLazyQuery({
-        onCompleted: (listDomainsData) => {
-            const childOptionsToAdd: NestedSelectOption[] = [];
-            listDomainsData.listDomains?.domains?.forEach((domain) => {
-                const { urn, type } = domain;
-                childOptionsToAdd.push({
-                    value: urn,
-                    label: entityRegistry.getDisplayName(type, domain),
-                    isParent: !!domain.children?.total,
-                    parentValue: domain.parentDomains?.domains?.[0]?.urn,
-                    entity: domain,
-                });
-            });
-            setChildOptions((existingOptions) => [...existingOptions, ...childOptionsToAdd]);
-        },
+    // Track scroll state per parent domain for nested infinite scroll
+    const scrollStateRef = useRef<Map<string, { scrollId: string | null; isComplete: boolean }>>(new Map());
+
+    const [scrollNestedDomains, { data: nestedScrollData }] = useScrollAcrossEntitiesLazyQuery({
+        fetchPolicy: 'cache-and-network',
+        notifyOnNetworkStatusChange: true,
     });
+
+    // Process nested scroll results
+    useEffect(() => {
+        if (nestedScrollData?.scrollAcrossEntities?.searchResults) {
+            const { searchResults: results, nextScrollId } = nestedScrollData.scrollAcrossEntities;
+            const childOptionsToAdd: NestedSelectOption[] = [];
+
+            results.forEach((result) => {
+                const domain = result.entity;
+                // Only add if we haven't loaded this URN yet and it's a domain
+                if (domain.type === EntityType.Domain && !loadedChildUrns.has(domain.urn)) {
+                    childOptionsToAdd.push({
+                        value: domain.urn,
+                        label: entityRegistry.getDisplayName(domain.type, domain),
+                        isParent: !!(domain as any)?.children?.total,
+                        parentValue: (domain as any)?.parentDomains?.domains?.[0]?.urn,
+                        entity: domain,
+                    });
+                }
+            });
+
+            if (childOptionsToAdd.length > 0) {
+                setChildOptions((existingOptions) => [...existingOptions, ...childOptionsToAdd]);
+                setLoadedChildUrns((prev) => {
+                    const updated = new Set(prev);
+                    childOptionsToAdd.forEach((opt) => updated.add(opt.value));
+                    return updated;
+                });
+            }
+
+            // Check if we need to continue fetching for this parent
+            if (nextScrollId && results.length > 0) {
+                // Find the parent domain from the first result
+                const firstResult = results[0]?.entity;
+                const parentUrn = (firstResult as any)?.parentDomains?.domains?.[0]?.urn;
+
+                if (parentUrn) {
+                    // Update scroll state and continue fetching
+                    scrollStateRef.current.set(parentUrn, { scrollId: nextScrollId, isComplete: false });
+                    scrollNestedDomains({
+                        variables: getDomainSelectorScrollInput(parentUrn, nextScrollId),
+                    });
+                }
+            } else if (results.length > 0) {
+                // Mark this parent as complete
+                const firstResult = results[0]?.entity;
+                const parentUrn = (firstResult as any)?.parentDomains?.domains?.[0]?.urn;
+                if (parentUrn) {
+                    scrollStateRef.current.set(parentUrn, { scrollId: null, isComplete: true });
+                }
+            }
+        }
+    }, [nestedScrollData, entityRegistry, loadedChildUrns, scrollNestedDomains]);
 
     // Root level options from infinite scroll (already in NestedSelectOption format)
     const options = rootDomains;
@@ -109,17 +166,35 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         ) || [];
 
     function handleLoad(option: NestedSelectOption) {
-        listDomains({ variables: { input: { start: 0, count: 1000, parentDomain: option.value } } });
+        const parentUrn = option.value;
+
+        // Check if we've already loaded this parent's children
+        const scrollState = scrollStateRef.current.get(parentUrn);
+        if (scrollState?.isComplete) {
+            return; // Already loaded all children
+        }
+
+        // Start fetching children using scrollAcrossEntities for pagination support
+        // This removes the 1000 child limit and fetches in batches
+        scrollStateRef.current.set(parentUrn, { scrollId: null, isComplete: false });
+        scrollNestedDomains({
+            variables: getDomainSelectorScrollInput(parentUrn, null),
+        });
     }
 
-    function handleSearch(query: string) {
-        if (query) {
-            autoComplete({ variables: { input: { query, types: [EntityType.Domain] } } });
-            setUseSearch(true);
-        } else {
-            setUseSearch(false);
-        }
-    }
+    // Debounced search handler to avoid querying on every keystroke
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const handleSearch = useCallback(
+        debounce((query: string) => {
+            if (query) {
+                autoComplete({ variables: { input: { query, types: [EntityType.Domain] } } });
+                setUseSearch(true);
+            } else {
+                setUseSearch(false);
+            }
+        }, DEBOUNCE_SEARCH_MS),
+        [autoComplete],
+    );
 
     function handleUpdate(values: NestedSelectOption[]) {
         if (values.length) {
@@ -157,7 +232,6 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             areParentsSelectable
             shouldAlwaysSyncParentValues
             hideParentCheckbox={false}
-            loadingMessage="Loading more domains..."
         />
     );
 };

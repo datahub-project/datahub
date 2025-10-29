@@ -4,21 +4,21 @@ import styled from 'styled-components';
 
 import { OptionType } from '@components/components/AutoComplete/types';
 
+import {
+    ActorEntity,
+    filterActors,
+    getActorEmail,
+    getActorPictureLink,
+    resolveActorsFromUrns,
+} from '@app/entityV2/shared/utils/actorUtils';
 import { deduplicateEntities, entitiesToSelectOptions } from '@app/entityV2/shared/utils/selectorUtils';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { SimpleSelect } from '@src/alchemy-components/components/Select/SimpleSelect';
 import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { 
-    ActorEntity,
-    filterActors, 
-    resolveActorsFromUrns,
-    getActorEmail,
-    getActorPictureLink 
-} from '@app/entityV2/shared/utils/actorUtils';
 
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
-import { CorpGroup, CorpUser, Entity, EntityType } from '@types';
+import { Entity, EntityType } from '@types';
 
 const IconAndNameContainer = styled.div`
     display: flex;
@@ -123,7 +123,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             const entities = resolveActorsFromUrns(selectedActorUrns, {
                 placeholderActors,
                 searchResults,
-                selectedActors: selectedActorEntities
+                selectedActors: selectedActorEntities,
             });
 
             setSelectedActorEntities(entities);
@@ -194,7 +194,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
 
             const displayName = entityRegistry.getDisplayName(entity.type, entity);
             const imageUrl = getActorPictureLink(entity);
-            
+
             return <Avatar name={displayName || ''} imageUrl={imageUrl} showInPill />;
         },
         [allActorEntities, entityRegistry],
@@ -205,7 +205,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
         (newValues: string[]) => {
             const newEntities = resolveActorsFromUrns(newValues, {
                 placeholderActors: allActorEntities,
-                selectedActors: selectedActorEntities
+                selectedActors: selectedActorEntities,
             });
 
             setSelectedActorEntities(newEntities);

@@ -1,6 +1,6 @@
-import { CorpGroup, CorpUser, Entity, EntityType } from '@src/types.generated';
-import { isCorpUser } from '@app/entityV2/user/utils';
 import { isCorpGroup } from '@app/entityV2/group/utils';
+import { isCorpUser } from '@app/entityV2/user/utils';
+import { CorpGroup, CorpUser, Entity } from '@src/types.generated';
 
 /**
  * Type definition for actor entities (CorpUser or CorpGroup)
@@ -41,24 +41,24 @@ export function resolveActorsFromUrns(
         placeholderActors?: ActorEntity[];
         searchResults?: Entity[];
         selectedActors?: ActorEntity[];
-    }
+    },
 ): ActorEntity[] {
     const { placeholderActors = [], searchResults = [], selectedActors = [] } = sources;
-    
+
     return urns
         .map((urn) => {
             // Try to find in placeholder actors first (already typed)
             const fromPlaceholders = placeholderActors.find((e) => e.urn === urn);
             if (fromPlaceholders) return fromPlaceholders;
-            
+
             // Try to find in search results (need type checking)
             const fromSearch = findActorByUrn(searchResults, urn);
             if (fromSearch) return fromSearch;
-            
+
             // Try to find in selected actors (already typed)
             const fromSelected = selectedActors.find((e) => e.urn === urn);
             if (fromSelected) return fromSelected;
-            
+
             return undefined;
         })
         .filter((entity): entity is ActorEntity => entity !== undefined);
