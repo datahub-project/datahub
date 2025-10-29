@@ -1,9 +1,10 @@
 import logging
 import re
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from looker_sdk.sdk.api40.models import (
     LookmlModelExplore,
@@ -564,11 +565,86 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         return spr, has_errors
 
+    def _process_field_chunk(
+        self, field_chunk: List[str], explore_name: str, chunk_idx: int
+    ) -> Tuple[SqlParsingResult, bool, int, int]:
+        """
+        Process a single field chunk and return results.
+
+        Returns:
+            Tuple of (SqlParsingResult, has_errors, successful_queries, failed_queries)
+        """
+        try:
+            sql_query = self._get_sql_write_query_with_fields(field_chunk, explore_name)
+            sql_response = self._execute_query(sql_query)
+            spr, has_errors = self._parse_sql_response(
+                sql_response, self.config.allow_partial_lineage_results
+            )
+
+            # Check if we should trigger individual field fallback due to parsing errors
+            if has_errors and self.config.enable_individual_field_fallback:
+                logger.warning(
+                    f"Chunk {chunk_idx + 1} had parsing errors, attempting individual field processing for view '{self.view_context.name()}'"
+                )
+                try:
+                    (
+                        individual_tables,
+                        individual_lineage,
+                        individual_success,
+                        individual_failed,
+                    ) = self._process_individual_fields(field_chunk, explore_name)
+
+                    # Combine individual field results with chunk results
+                    spr.in_tables.extend(list(individual_tables))
+                    if individual_lineage and spr.column_lineage:
+                        spr.column_lineage.extend(list(individual_lineage))
+                    elif individual_lineage:
+                        spr.column_lineage = list(individual_lineage)
+
+                    return spr, False, individual_success, individual_failed
+
+                except Exception as individual_error:
+                    logger.error(
+                        f"Individual field processing also failed for chunk {chunk_idx + 1}: {individual_error}"
+                    )
+                    return spr, has_errors, 0, 1
+            else:
+                if has_errors:
+                    return spr, has_errors, 0, 1
+                else:
+                    return spr, has_errors, 1, 0
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to process field chunk {chunk_idx + 1} for view '{self.view_context.name()}': {e}"
+            )
+            self.reporter.report_warning(
+                title="Field Chunk Processing Failed",
+                message=f"Failed to process field chunk {chunk_idx + 1} with {len(field_chunk)} fields",
+                context=f"View-name: {self.view_context.name()}, Chunk: {chunk_idx + 1}",
+                exc=e,
+            )
+
+            return (
+                SqlParsingResult(
+                    in_tables=[],
+                    out_tables=[],
+                    column_lineage=None,
+                    debug_info=SqlParsingDebugInfo(),
+                ),
+                True,
+                0,
+                1,
+            )
+
     def _process_individual_fields(
         self, field_chunk: List[str], explore_name: str
     ) -> tuple[set, list, int, int]:
         """
         Process individual fields when a chunk fails to isolate problematic fields.
+
+        This method processes each field individually in parallel to maximize information
+        extraction and isolate problematic fields that cause SQL parsing or API errors.
 
         Args:
             field_chunk: List of field names that failed as a chunk
@@ -584,51 +660,41 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         problematic_fields = []
 
         logger.info(
-            f"Processing {len(field_chunk)} fields individually for view '{self.view_context.name()}' "
+            f"Processing {len(field_chunk)} fields individually in parallel for view '{self.view_context.name()}' "
             f"to isolate problematic fields"
         )
 
-        for field_name in field_chunk:
-            try:
-                logger.debug(
-                    f"Processing individual field '{field_name}' for view '{self.view_context.name()}'"
-                )
+        # Process fields in parallel
+        with ThreadPoolExecutor(max_workers=min(len(field_chunk), 10)) as executor:
+            # Submit all field processing tasks
+            future_to_field = {
+                executor.submit(
+                    self._process_individual_field, field_name, explore_name
+                ): field_name
+                for field_name in field_chunk
+            }
 
-                # Create query with single field
-                sql_query = self._get_sql_write_query_with_fields(
-                    [field_name], explore_name
-                )
-                sql_response = self._execute_query(sql_query)
+            # Collect results as they complete
+            for future in as_completed(future_to_field):
+                field_name = future_to_field[future]
+                try:
+                    tables, lineage, success = future.result()
 
-                # Parse the SQL response without partial results to catch parsing errors
-                # We want to raise exceptions for individual field processing to properly handle failures
-                spr, has_errors = self._parse_sql_response(
-                    sql_response, allow_partial=False
-                )
+                    if success:
+                        successful_tables.update(tables)
+                        if lineage:
+                            successful_column_lineage.extend(lineage)
+                        successful_count += 1
+                    else:
+                        failed_count += 1
+                        problematic_fields.append(field_name)
 
-                # Collect results
-                successful_tables.update(spr.in_tables)
-                if spr.column_lineage:
-                    successful_column_lineage.extend(spr.column_lineage)
-
-                successful_count += 1
-                logger.debug(
-                    f"Successfully processed individual field '{field_name}' for view '{self.view_context.name()}'"
-                )
-
-            except Exception as e:
-                failed_count += 1
-                problematic_fields.append(field_name)
-                logger.warning(
-                    f"Failed to process individual field '{field_name}' for view '{self.view_context.name()}'': {e}"
-                )
-                self.reporter.report_warning(
-                    title="Individual Field Processing Failed",
-                    message=f"Failed to process individual field '{field_name}'",
-                    context=f"View-name: {self.view_context.name()}, Field: {field_name}",
-                    exc=e,
-                )
-                continue
+                except Exception as e:
+                    failed_count += 1
+                    problematic_fields.append(field_name)
+                    logger.warning(
+                        f"Unexpected error processing individual field '{field_name}' for view '{self.view_context.name()}'': {e}"
+                    )
 
         if problematic_fields:
             logger.warning(
@@ -654,12 +720,55 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             failed_count,
         )
 
+    def _process_individual_field(
+        self, field_name: str, explore_name: str
+    ) -> Tuple[set, list, bool]:
+        """
+        Process a single individual field and return results.
+
+        Returns:
+            Tuple of (tables, lineage, success)
+        """
+        try:
+            sql_query = self._get_sql_write_query_with_fields(
+                [field_name], explore_name
+            )
+            sql_response = self._execute_query(sql_query)
+
+            # Parse the SQL response without partial results to catch parsing errors
+            # We want to raise exceptions for individual field processing to properly handle failures
+            spr, has_errors = self._parse_sql_response(
+                sql_response, allow_partial=False
+            )
+
+            # Collect results
+            tables = set(spr.in_tables) if spr.in_tables else set()
+            lineage = list(spr.column_lineage) if spr.column_lineage else []
+
+            logger.debug(
+                f"Successfully processed individual field '{field_name}' for view '{self.view_context.name()}'"
+            )
+
+            return tables, lineage, True
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to process individual field '{field_name}' for view '{self.view_context.name()}'': {e}"
+            )
+            self.reporter.report_warning(
+                title="Individual Field Processing Failed",
+                message=f"Failed to process individual field '{field_name}'",
+                context=f"View-name: {self.view_context.name()}, Field: {field_name}",
+                exc=e,
+            )
+            return set(), [], False
+
     def _get_spr_with_field_splitting(
         self, view_fields: List[str], explore_name: str
     ) -> SqlParsingResult:
         """
         Handle field splitting when the number of fields exceeds the threshold.
-        Splits fields into chunks and combines the SQL parsing results.
+        Splits fields into chunks and processes them in parallel for better performance.
 
         Args:
             view_fields: List of all field names
@@ -678,7 +787,8 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         ]
 
         logger.info(
-            f"Split {len(view_fields)} fields into {len(field_chunks)} chunks for view '{self.view_context.name()}'"
+            f"Split {len(view_fields)} fields into {len(field_chunks)} chunks for view '{self.view_context.name()}' "
+            f"and processing them in parallel"
         )
 
         all_in_tables = set()
@@ -687,87 +797,45 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         successful_queries = 0
         failed_queries = 0
 
-        for chunk_idx, field_chunk in enumerate(field_chunks):
-            try:
-                logger.debug(
-                    f"Processing field chunk {chunk_idx + 1}/{len(field_chunks)} with {len(field_chunk)} fields "
-                    f"for view '{self.view_context.name()}'"
-                )
+        # Process chunks in parallel
+        with ThreadPoolExecutor(max_workers=min(len(field_chunks), 10)) as executor:
+            # Submit all chunk processing tasks
+            future_to_chunk = {
+                executor.submit(
+                    self._process_field_chunk, field_chunk, explore_name, chunk_idx
+                ): chunk_idx
+                for chunk_idx, field_chunk in enumerate(field_chunks)
+            }
 
-                # Create and execute query for this chunk
-                sql_query = self._get_sql_write_query_with_fields(
-                    field_chunk, explore_name
-                )
-                sql_response = self._execute_query(sql_query)
+            # Collect results as they complete
+            for future in as_completed(future_to_chunk):
+                chunk_idx = future_to_chunk[future]
+                try:
+                    spr, has_errors, chunk_success, chunk_failed = future.result()
 
-                # Parse the SQL response with partial results allowed
-                spr, has_errors = self._parse_sql_response(
-                    sql_response, self.config.allow_partial_lineage_results
-                )
+                    # Combine results
+                    all_in_tables.update(spr.in_tables)
+                    if spr.column_lineage:
+                        all_column_lineage.extend(spr.column_lineage)
 
-                # Combine results
-                all_in_tables.update(spr.in_tables)
-                if spr.column_lineage:
-                    all_column_lineage.extend(spr.column_lineage)
+                    # Use debug info from the first successful query
+                    if combined_debug_info is None and not has_errors:
+                        combined_debug_info = spr.debug_info
 
-                # Use debug info from the first successful query
-                if combined_debug_info is None:
-                    combined_debug_info = spr.debug_info
+                    # Update counters
+                    successful_queries += chunk_success
+                    failed_queries += chunk_failed
 
-                # Check if we should trigger individual field fallback due to parsing errors
-                if has_errors and self.config.enable_individual_field_fallback:
-                    logger.warning(
-                        f"Chunk {chunk_idx + 1} had parsing errors, attempting individual field processing for view '{self.view_context.name()}'"
+                    logger.debug(
+                        f"Completed processing chunk {chunk_idx + 1}/{len(field_chunks)}: "
+                        f"{chunk_success} successful, {chunk_failed} failed"
                     )
-                    try:
-                        (
-                            individual_tables,
-                            individual_lineage,
-                            individual_success,
-                            individual_failed,
-                        ) = self._process_individual_fields(field_chunk, explore_name)
 
-                        # Add individual field results to combined results
-                        all_in_tables.update(individual_tables)
-                        if individual_lineage:
-                            all_column_lineage.extend(individual_lineage)
-
-                        # Update counters
-                        successful_queries += individual_success
-                        failed_queries += individual_failed
-
-                        logger.info(
-                            f"Individual field processing for chunk {chunk_idx + 1} completed: "
-                            f"{individual_success} successful, {individual_failed} failed"
-                        )
-                    except Exception as individual_error:
-                        logger.error(
-                            f"Individual field processing also failed for chunk {chunk_idx + 1}: {individual_error}"
-                        )
-                        failed_queries += 1
-                        if not self.config.allow_partial_lineage_results:
-                            raise
-                else:
-                    if has_errors:
-                        failed_queries += 1
-                        if not self.config.allow_partial_lineage_results:
-                            raise ValueError(
-                                f"SQL parsing errors in chunk {chunk_idx + 1}"
-                            )
-                    else:
-                        successful_queries += 1
-
-            except Exception as e:
-                failed_queries += 1
-                logger.warning(
-                    f"Failed to process field chunk {chunk_idx + 1}/{len(field_chunks)} for view '{self.view_context.name()}': {e}"
-                )
-                self.reporter.report_warning(
-                    title="Field Chunk Processing Failed",
-                    message=f"Failed to process field chunk {chunk_idx + 1} with {len(field_chunk)} fields",
-                    context=f"View-name: {self.view_context.name()}, Chunk: {chunk_idx + 1}/{len(field_chunks)}",
-                    exc=e,
-                )
+                except Exception as e:
+                    failed_queries += 1
+                    logger.warning(
+                        f"Unexpected error processing chunk {chunk_idx + 1}/{len(field_chunks)} for view '{self.view_context.name()}': {e}"
+                    )
 
         if not successful_queries or not all_in_tables or not all_column_lineage:
             logger.debug(
