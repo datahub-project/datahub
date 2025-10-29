@@ -610,7 +610,7 @@ jobs:
     name: Push images after tests pass
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: [setup, smoke_test, base_build]
-    if: ${{ always() && !failure() && !cancelled() }}
+    if: ${{ (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') && always() && !failure() && !cancelled() }}
     steps:
       - name: Check if tests have passed
         id: tests_passed
