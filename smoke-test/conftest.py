@@ -1,8 +1,11 @@
 import logging
 import os
+import json
+from pathlib import Path
 
+from collections import defaultdict
 import pytest
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from _pytest.nodes import Item
 import requests
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph, get_default_graph
@@ -20,6 +23,8 @@ from tests.utils import (
     delete_urns_from_file,
     wait_for_writes_to_sync,
 )
+
+logger = logging.getLogger(__name__)
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -184,34 +189,73 @@ def bin_pack_tasks(tasks, n_buckets):
     return buckets
 
 
-def get_batch_start_end(num_tests: int) -> Tuple[int, int]:
-    batch_count = env_vars.get_batch_count()
+def load_pytest_test_weights() -> Dict[str, float]:
+    """
+    Load pytest test weights from JSON file.
 
-    batch_number = env_vars.get_batch_number()
+    Returns:
+        Dictionary mapping test IDs (classname::test_name) to durations in seconds.
+        Returns empty dict if weights file doesn't exist.
+    """
+    weights_file = Path(__file__).parent / "pytest_test_weights.json"
 
-    if batch_count == 0 or batch_count > num_tests:
-        raise ValueError(
-            f"Invalid batch count {batch_count}: must be >0 and <= {num_tests} (num_tests)"
-        )
-    if batch_number >= batch_count:
-        raise ValueError(
-            f"Invalid batch number: {batch_number}, must be less than {batch_count} (zer0 based index)"
-        )
+    if not weights_file.exists():
+        return {}
 
-    batch_size = round(num_tests / batch_count)
+    try:
+        with open(weights_file) as f:
+            weights_data = json.load(f)
 
-    batch_start = batch_size * batch_number
-    batch_end = batch_start + batch_size
-    # We must have exactly as many batches as specified by BATCH_COUNT.
-    if (
-        batch_number == batch_count - 1  # this is the last batch
-    ):  # If ths is last batch put any remaining tests in the last batch.
-        batch_end = num_tests
+        # Convert to dict: {"test_e2e::test_gms_get_dataset": 262.807, ...}
+        return {
+            item["testId"]: float(item["duration"][:-1])  # Strip 's' suffix
+            for item in weights_data
+        }
+    except Exception as e:
+        logger.warning(f"Warning: Failed to load pytest test weights: {e}")
+        return {}
 
-    if batch_count > 0:
-        logger.info(f"Running tests for batch {batch_number} of {batch_count}")
 
-    return batch_start, batch_end
+def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) -> List[Tuple[str, List[Item], float]]:
+    """
+    Group test items by module and aggregate their weights.
+
+    Args:
+        items: List of pytest test items
+        test_weights: Dictionary mapping test IDs to durations
+
+    Returns:
+        List of (module_path, items_in_module, total_weight) tuples
+    """
+
+    # Group items by module (file path)
+    modules: Dict[str, List[Item]] = defaultdict(list)
+    for item in items:
+        # Get the module path from the item's fspath
+        module_path = str(item.fspath)
+        modules[module_path].append(item)
+
+    # Calculate total weight for each module
+    module_data = []
+    for module_path, module_items in modules.items():
+        total_weight = 0.0
+        for item in module_items:
+            # Build test ID from nodeid
+            # nodeid format: "tests/database/test_database.py::test_method"
+            # weights format: "tests.database.test_database::test_method"
+            nodeid = item.nodeid
+
+            # Convert path separators to dots and remove .py extension
+            # tests/database/test_database.py::test_method -> tests.database.test_database::test_method
+            test_id = nodeid.replace("/", ".").replace(".py::", "::")
+
+            weight = test_weights.get(test_id, 1.0)  # Default to 1.0 if not found
+            total_weight += weight
+
+        module_data.append((module_path, module_items, total_weight))
+
+    return module_data
+
 
 
 def pytest_collection_modifyitems(
@@ -224,35 +268,6 @@ def pytest_collection_modifyitems(
 
     # OSS Merge note: Fork uses a different implementation of pytest_collection_modify_items.
     # There is some pending work to make both oss and fork same for this, but currently
-    # fork uses pytests-split for weighted batching and not by via modifyitems.
-
-    # if env_vars.get_test_strategy() == "cypress":
-    #     return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
-    #
-    # # If BATCH_COUNT and BATCH_ENV vars are set, splits the pytests to batches and runs filters only the BATCH_NUMBER
-    # # batch for execution. Enables multiple parallel launches. Current implementation assumes all test are of equal
-    # # weight for batching. TODO. A weighted batching method can help make batches more equal sized by cost.
-    # # this effectively is a no-op if BATCH_COUNT=1
-    # start_index, end_index = get_batch_start_end(num_tests=len(items))
-    #
-    # # Sort tests but preserve dependency order for library_examples tests
-    # # Library example tests should maintain their manifest order to respect dependencies
-    # library_example_tests = []
-    # other_tests = []
-    #
-    # for item in items:
-    #     if "test_library_examples" in item.nodeid:
-    #         library_example_tests.append(item)
-    #     else:
-    #         other_tests.append(item)
-    #
-    # # Sort non-library tests alphabetically for stability
-    # other_tests.sort(key=lambda x: x.nodeid)
-    #
-    # # Combine: library tests first (in original order), then other tests (sorted)
-    # items[:] = library_example_tests + other_tests
-    #
-    # # replace items with the filtered list
-    # print(f"Running tests for batch {start_index}-{end_index}")
-    # logger.info(f"Collected ")
-    # items[:] = items[start_index:end_index]
+    # fork uses pytests-split for weighted batching and not via modifyitems.
+    # OSS implements weighted batching directly in this function, but Acryl uses pytest-split
+    # with the pytest_test_weights.json file for weighted distribution across batches.
