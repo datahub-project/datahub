@@ -1,5 +1,5 @@
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { PropertyRow, ValueColumnData } from '@app/entity/shared/tabs/Properties/types';
+
+import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 
 import { CustomPropertiesEntry } from '@types';

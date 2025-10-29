@@ -1,5 +1,4 @@
 import {
-    BookOutlined,
     FolderFilled,
 } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
@@ -33,8 +32,6 @@ import {
     Domain,
     Entity,
     EntityType,
-    FacetFilterInput,
-    FacetMetadata,
     GlossaryTerm,
     StructuredPropertyEntity,
 } from '@types';

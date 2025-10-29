@@ -114,18 +114,6 @@ export const validateURL = (fieldName: string) => {
     };
 };
 
-const createStructuredReport = (items: StructuredReportLogEntry[]): StructuredReport => {
-    const errorCount = items.filter((item) => item.level === StructuredReportItemLevel.ERROR).length;
-    const warnCount = items.filter((item) => item.level === StructuredReportItemLevel.WARN).length;
-    const infoCount = items.filter((item) => item.level === StructuredReportItemLevel.INFO).length;
-    return {
-        errorCount,
-        warnCount,
-        infoCount,
-        items,
-    };
-};
-
 const extractStructuredReportPOJO = (result: Partial<ExecutionRequestResult>): any | null => {
     const structuredReportStr = result?.structuredReport?.serializedValue;
     if (!structuredReportStr) {

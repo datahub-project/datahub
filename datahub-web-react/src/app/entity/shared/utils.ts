@@ -32,12 +32,6 @@ export function decodeUrn(encodedUrn: string) {
     return decodeURIComponent(encodedUrn).replace(/{{encoded_percent}}/g, '%');
 }
 
-export function getNumberWithOrdinal(n) {
-    const suffixes = ['th', 'st', 'nd', 'rd'];
-    const v = n % 100;
-    return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
-}
-
 export const encodeComma = (str: string) => {
     return str.replace(/,/g, '%2C');
 };

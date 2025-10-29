@@ -1,8 +1,6 @@
 import { Divider, List } from 'antd';
 import styled from 'styled-components';
 
-import { Entity } from '@types';
-
 export const StyledList = styled(List)`
     overflow-y: auto;
     height: 100%;
