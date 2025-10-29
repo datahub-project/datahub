@@ -181,15 +181,16 @@ public class BusinessAttributeUpdateHookService {
             aspectRetriever.getLatestAspectObjects(
                 entityUrns, Set.of(Constants.BUSINESS_ATTRIBUTE_ASPECT));
 
-        entityAspectMap.entrySet().stream()
-            .filter(entry -> entry.getValue().containsKey(Constants.BUSINESS_ATTRIBUTE_ASPECT))
-            .forEach(
-                entry -> {
-                  final Urn entityUrn = entry.getKey();
-                  final Aspect aspect = entry.getValue().get(Constants.BUSINESS_ATTRIBUTE_ASPECT);
-                  updateIndicesService.handleChangeEvent(
-                      opContext,
-                      PegasusUtils.constructMCL(
+        // Collect all MCLs for batch processing
+        List<com.linkedin.mxe.MetadataChangeLog> mcls =
+            entityAspectMap.entrySet().stream()
+                .filter(entry -> entry.getValue().containsKey(Constants.BUSINESS_ATTRIBUTE_ASPECT))
+                .map(
+                    entry -> {
+                      final Urn entityUrn = entry.getKey();
+                      final Aspect aspect =
+                          entry.getValue().get(Constants.BUSINESS_ATTRIBUTE_ASPECT);
+                      return PegasusUtils.constructMCL(
                           null,
                           Constants.SCHEMA_FIELD_ENTITY_NAME,
                           entityUrn,
@@ -199,8 +200,14 @@ public class BusinessAttributeUpdateHookService {
                           new BusinessAttributes(aspect.data()),
                           null,
                           null,
-                          null));
-                });
+                          null);
+                    })
+                .collect(Collectors.toList());
+
+        // Batch process all MCLs at once
+        if (!mcls.isEmpty()) {
+          updateIndicesService.handleChangeEvents(opContext, mcls);
+        }
         stopWatch.stop();
         String result =
             String.format(
