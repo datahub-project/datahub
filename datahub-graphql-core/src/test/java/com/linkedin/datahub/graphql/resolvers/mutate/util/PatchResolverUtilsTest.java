@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -18,7 +17,6 @@ import com.linkedin.datahub.graphql.generated.SystemMetadataInput;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.mxe.GenericAspect;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,29 +63,28 @@ public class PatchResolverUtilsTest {
 
   @Test
   public void testExtractEntityNameSuccess() {
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/name", "\"Test Name\""),
-        createPatchOperation(PatchOperationType.ADD, "/definition", "\"Test definition\"")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(
+            createPatchOperation(PatchOperationType.ADD, "/name", "\"Test Name\""),
+            createPatchOperation(PatchOperationType.ADD, "/definition", "\"Test definition\""));
     String name = PatchResolverUtils.extractEntityName(operations);
     assertEquals(name, "\"Test Name\"");
   }
 
   @Test
   public void testExtractEntityNameNotFound() {
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/definition", "\"Test definition\""),
-        createPatchOperation(PatchOperationType.ADD, "/termSource", "\"Internal\"")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(
+            createPatchOperation(PatchOperationType.ADD, "/definition", "\"Test definition\""),
+            createPatchOperation(PatchOperationType.ADD, "/termSource", "\"Internal\""));
     String name = PatchResolverUtils.extractEntityName(operations);
     assertNull(name);
   }
 
   @Test
   public void testExtractEntityNameWithNullValue() {
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/name", null)
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(createPatchOperation(PatchOperationType.ADD, "/name", null));
     String name = PatchResolverUtils.extractEntityName(operations);
     assertNull(name);
   }
@@ -134,10 +131,10 @@ public class PatchResolverUtilsTest {
 
   @Test
   public void testCreatePatchAspectBasic() throws Exception {
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/name", "\"Test Term\""),
-        createPatchOperation(PatchOperationType.ADD, "/definition", "\"Test definition\"")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(
+            createPatchOperation(PatchOperationType.ADD, "/name", "\"Test Term\""),
+            createPatchOperation(PatchOperationType.ADD, "/definition", "\"Test definition\""));
 
     var aspect = PatchResolverUtils.createPatchAspect(operations, null, null, _context);
     assertNotNull(aspect);
@@ -146,13 +143,12 @@ public class PatchResolverUtilsTest {
 
   @Test
   public void testCreatePatchAspectWithArrayPrimaryKeys() throws Exception {
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/owners/0/id", "urn:li:corpuser:test")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(
+            createPatchOperation(PatchOperationType.ADD, "/owners/0/id", "urn:li:corpuser:test"));
 
-    List<ArrayPrimaryKeyInput> arrayPrimaryKeys = Arrays.asList(
-        createArrayPrimaryKeyInput("owners", Arrays.asList("id"))
-    );
+    List<ArrayPrimaryKeyInput> arrayPrimaryKeys =
+        Arrays.asList(createArrayPrimaryKeyInput("owners", Arrays.asList("id")));
 
     var aspect = PatchResolverUtils.createPatchAspect(operations, arrayPrimaryKeys, null, _context);
     assertNotNull(aspect);
@@ -160,9 +156,8 @@ public class PatchResolverUtilsTest {
 
   @Test
   public void testCreatePatchAspectWithForceGenericPatch() throws Exception {
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/name", "\"Test Term\"")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(createPatchOperation(PatchOperationType.ADD, "/name", "\"Test Term\""));
 
     var aspect = PatchResolverUtils.createPatchAspect(operations, null, true, _context);
     assertNotNull(aspect);
@@ -170,9 +165,9 @@ public class PatchResolverUtilsTest {
 
   @Test
   public void testCreatePatchAspectWithReplaceOperation() throws Exception {
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.REPLACE, "/name", "\"Updated Term\"")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(
+            createPatchOperation(PatchOperationType.REPLACE, "/name", "\"Updated Term\""));
 
     var aspect = PatchResolverUtils.createPatchAspect(operations, null, null, _context);
     assertNotNull(aspect);
@@ -180,9 +175,8 @@ public class PatchResolverUtilsTest {
 
   @Test
   public void testCreatePatchAspectWithRemoveOperation() throws Exception {
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.REMOVE, "/oldField", null)
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(createPatchOperation(PatchOperationType.REMOVE, "/oldField", null));
 
     var aspect = PatchResolverUtils.createPatchAspect(operations, null, null, _context);
     assertNotNull(aspect);
@@ -190,9 +184,8 @@ public class PatchResolverUtilsTest {
 
   @Test
   public void testCreatePatchAspectWithEmptyStringValue() throws Exception {
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/name", "\"\"")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(createPatchOperation(PatchOperationType.ADD, "/name", "\"\""));
 
     var aspect = PatchResolverUtils.createPatchAspect(operations, null, null, _context);
     assertNotNull(aspect);
@@ -200,9 +193,8 @@ public class PatchResolverUtilsTest {
 
   @Test
   public void testCreatePatchAspectWithNullValue() throws Exception {
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/optionalField", null)
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(createPatchOperation(PatchOperationType.ADD, "/optionalField", null));
 
     var aspect = PatchResolverUtils.createPatchAspect(operations, null, null, _context);
     assertNotNull(aspect);
@@ -215,13 +207,12 @@ public class PatchResolverUtilsTest {
     Urn entityUrn = UrnUtils.getUrn("urn:li:glossaryTerm:test");
     String aspectName = "glossaryTermInfo";
 
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/name", "\"Test\"")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(createPatchOperation(PatchOperationType.ADD, "/name", "\"Test\""));
     var aspect = PatchResolverUtils.createPatchAspect(operations, null, null, _context);
 
-    var mcp = PatchResolverUtils.createMetadataChangeProposal(
-        entityUrn, aspectName, aspect, null, null);
+    var mcp =
+        PatchResolverUtils.createMetadataChangeProposal(entityUrn, aspectName, aspect, null, null);
 
     assertNotNull(mcp);
     assertEquals(mcp.getEntityUrn(), entityUrn);
@@ -238,13 +229,13 @@ public class PatchResolverUtilsTest {
     systemMetadataInput.setRunId("test-run-id");
     systemMetadataInput.setLastObserved(System.currentTimeMillis());
 
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/name", "\"Test\"")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(createPatchOperation(PatchOperationType.ADD, "/name", "\"Test\""));
     var aspect = PatchResolverUtils.createPatchAspect(operations, null, null, _context);
 
-    var mcp = PatchResolverUtils.createMetadataChangeProposal(
-        entityUrn, aspectName, aspect, systemMetadataInput, null);
+    var mcp =
+        PatchResolverUtils.createMetadataChangeProposal(
+            entityUrn, aspectName, aspect, systemMetadataInput, null);
 
     assertNotNull(mcp);
     assertNotNull(mcp.getSystemMetadata());
@@ -264,13 +255,13 @@ public class PatchResolverUtilsTest {
     property2.setValue("value2");
     systemMetadataInput.setProperties(Arrays.asList(property1, property2));
 
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/name", "\"Test\"")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(createPatchOperation(PatchOperationType.ADD, "/name", "\"Test\""));
     var aspect = PatchResolverUtils.createPatchAspect(operations, null, null, _context);
 
-    var mcp = PatchResolverUtils.createMetadataChangeProposal(
-        entityUrn, aspectName, aspect, systemMetadataInput, null);
+    var mcp =
+        PatchResolverUtils.createMetadataChangeProposal(
+            entityUrn, aspectName, aspect, systemMetadataInput, null);
 
     assertNotNull(mcp);
     assertNotNull(mcp.getSystemMetadata());
@@ -290,13 +281,13 @@ public class PatchResolverUtilsTest {
     header2.setValue("v2");
     List<StringMapEntryInput> headers = Arrays.asList(header1, header2);
 
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/name", "\"Test\"")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(createPatchOperation(PatchOperationType.ADD, "/name", "\"Test\""));
     var aspect = PatchResolverUtils.createPatchAspect(operations, null, null, _context);
 
-    var mcp = PatchResolverUtils.createMetadataChangeProposal(
-        entityUrn, aspectName, aspect, null, headers);
+    var mcp =
+        PatchResolverUtils.createMetadataChangeProposal(
+            entityUrn, aspectName, aspect, null, headers);
 
     assertNotNull(mcp);
     assertNotNull(mcp.getHeaders());
@@ -315,13 +306,13 @@ public class PatchResolverUtilsTest {
     header.setValue("test-value");
     List<StringMapEntryInput> headers = Arrays.asList(header);
 
-    List<PatchOperationInput> operations = Arrays.asList(
-        createPatchOperation(PatchOperationType.ADD, "/name", "\"Test\"")
-    );
+    List<PatchOperationInput> operations =
+        Arrays.asList(createPatchOperation(PatchOperationType.ADD, "/name", "\"Test\""));
     var aspect = PatchResolverUtils.createPatchAspect(operations, null, null, _context);
 
-    var mcp = PatchResolverUtils.createMetadataChangeProposal(
-        entityUrn, aspectName, aspect, systemMetadataInput, headers);
+    var mcp =
+        PatchResolverUtils.createMetadataChangeProposal(
+            entityUrn, aspectName, aspect, systemMetadataInput, headers);
 
     assertNotNull(mcp);
     assertNotNull(mcp.getSystemMetadata());
@@ -359,7 +350,9 @@ public class PatchResolverUtilsTest {
     assertEquals(mcps.size(), 2);
   }
 
-  @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Aspect.*not found.*")
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = ".*Aspect.*not found.*")
   public void testCreatePatchEntitiesMcpsInvalidAspect() throws Exception {
     PatchEntityInput input = createGlossaryTermInput("urn:li:glossaryTerm:test", "Test Term");
     input.setAspectName("nonExistentAspect");
@@ -420,9 +413,7 @@ public class PatchResolverUtilsTest {
     input.setPatch(
         Arrays.asList(
             createPatchOperation(PatchOperationType.ADD, "/name", "\"" + name + "\""),
-            createPatchOperation(PatchOperationType.ADD, "/definition", "\"Test definition\"")
-        )
-    );
+            createPatchOperation(PatchOperationType.ADD, "/definition", "\"Test definition\"")));
     return input;
   }
 
@@ -449,4 +440,3 @@ public class PatchResolverUtilsTest {
     when(entitySpec.getAspectSpec("glossaryTermInfo")).thenReturn(aspectSpec);
   }
 }
-
