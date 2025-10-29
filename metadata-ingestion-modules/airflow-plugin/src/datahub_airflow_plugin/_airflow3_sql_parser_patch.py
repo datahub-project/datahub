@@ -7,6 +7,7 @@ SQL parser, which provides better column-level lineage support.
 """
 
 import logging
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 # Airflow 3.x specific imports (wrapped in try/except for version compatibility)
@@ -253,9 +254,126 @@ def _datahub_generate_openlineage_metadata_from_sql(
         )
 
 
+class SQLParserPatch:
+    """
+    Context manager for patching Airflow's SQLParser with DataHub's SQL parser.
+
+    This class encapsulates the patching logic and manages the global state properly.
+    It can be used as a context manager for automatic cleanup, or with explicit
+    patch/unpatch methods for manual control.
+
+    Usage:
+        # As a context manager (recommended for testing)
+        with SQLParserPatch():
+            # Code runs with patched SQLParser
+            pass
+        # Automatically unpatched on exit
+
+        # Or with explicit control
+        patcher = SQLParserPatch()
+        patcher.patch()
+        try:
+            # ... plugin lifetime ...
+        finally:
+            patcher.unpatch()
+
+    The patch stores the original SQLParser method and replaces it with DataHub's
+    enhanced implementation that provides column-level lineage support.
+    """
+
+    def patch(self) -> "SQLParserPatch":
+        """
+        Apply the SQLParser patch.
+
+        Stores the original SQLParser.generate_openlineage_metadata_from_sql method
+        and replaces it with DataHub's enhanced implementation.
+
+        Returns:
+            self for method chaining
+        """
+        global _original_sql_parser_method
+
+        try:
+            from airflow.providers.openlineage.sqlparser import SQLParser
+
+            # Store original method for fallback (only if not already patched)
+            if _original_sql_parser_method is None:
+                _original_sql_parser_method = (
+                    SQLParser.generate_openlineage_metadata_from_sql
+                )
+
+            SQLParser.generate_openlineage_metadata_from_sql = (  # type: ignore[assignment,method-assign]
+                _datahub_generate_openlineage_metadata_from_sql  # type: ignore[assignment,method-assign]
+            )
+            logger.info(
+                "Patched SQLParser.generate_openlineage_metadata_from_sql with DataHub SQL parser"
+            )
+
+        except ImportError:
+            # SQLParser not available (Airflow < 3.0 or openlineage provider not installed)
+            logger.debug(
+                "SQLParser not available, skipping patch (likely Airflow < 3.0)"
+            )
+
+        return self
+
+    def unpatch(self) -> "SQLParserPatch":
+        """
+        Remove the SQLParser patch and restore the original method.
+
+        This is primarily useful for testing to ensure clean state between tests.
+        In production, the patch typically stays active for the process lifetime.
+
+        Returns:
+            self for method chaining
+        """
+        global _original_sql_parser_method
+
+        if _original_sql_parser_method is None:
+            logger.debug("SQLParser not patched, nothing to unpatch")
+            return self
+
+        try:
+            from airflow.providers.openlineage.sqlparser import SQLParser
+
+            # Restore original method
+            SQLParser.generate_openlineage_metadata_from_sql = (  # type: ignore[method-assign]
+                _original_sql_parser_method
+            )
+            logger.info("Unpatched SQLParser, restored original method")
+
+        except ImportError:
+            logger.debug("SQLParser not available, nothing to unpatch")
+        finally:
+            # Clear the stored reference to allow re-patching
+            _original_sql_parser_method = None
+
+        return self
+
+    def __enter__(self) -> "SQLParserPatch":
+        """Context manager entry: apply the patch."""
+        return self.patch()
+
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        """Context manager exit: remove the patch."""
+        self.unpatch()
+
+
+# Global patcher instance for backward compatibility
+_global_patcher = SQLParserPatch()
+
+
 def patch_sqlparser() -> None:
     """
     Patch SQLParser.generate_openlineage_metadata_from_sql to use DataHub's SQL parser.
+
+    This is a convenience function that wraps SQLParserPatch.patch() for backward
+    compatibility with existing code.
 
     This should be called early in the plugin initialization, before any SQL operators are used.
 
@@ -268,24 +386,16 @@ def patch_sqlparser() -> None:
     When only DataHub is enabled (disable_openlineage_plugin=True), only DataHub's
     parser runs and provides both the OperatorLineage structure and the enhanced parsing.
     """
-    global _original_sql_parser_method
+    _global_patcher.patch()
 
-    try:
-        from airflow.providers.openlineage.sqlparser import SQLParser
 
-        # Store original method for fallback
-        if _original_sql_parser_method is None:
-            _original_sql_parser_method = (
-                SQLParser.generate_openlineage_metadata_from_sql
-            )
+def unpatch_sqlparser() -> None:
+    """
+    Remove the SQLParser patch and restore the original method.
 
-        SQLParser.generate_openlineage_metadata_from_sql = (  # type: ignore[assignment,method-assign]
-            _datahub_generate_openlineage_metadata_from_sql  # type: ignore[assignment,method-assign]
-        )
-        logger.info(
-            "Patched SQLParser.generate_openlineage_metadata_from_sql with DataHub SQL parser"
-        )
+    This is a convenience function that wraps SQLParserPatch.unpatch() for consistency.
 
-    except ImportError:
-        # SQLParser not available (Airflow < 3.0 or openlineage provider not installed)
-        logger.debug("SQLParser not available, skipping patch (likely Airflow < 3.0)")
+    This is primarily useful for testing to ensure clean state between tests.
+    In production, the patch typically stays active for the process lifetime.
+    """
+    _global_patcher.unpatch()

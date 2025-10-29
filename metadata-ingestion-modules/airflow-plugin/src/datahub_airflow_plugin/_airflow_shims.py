@@ -20,8 +20,16 @@ except (ModuleNotFoundError, ImportError):
 # Operator type alias and MappedOperator
 # Use version-based logic to avoid deeply nested try/except blocks
 if IS_AIRFLOW_3_OR_HIGHER:
-    # Airflow 3.x: Operator moved to sdk.types
-    from airflow.sdk.types import Operator
+    # Airflow 3.x: Try to import Operator from sdk.types or models
+    try:
+        from airflow.sdk.types import Operator
+    except (ModuleNotFoundError, ImportError):
+        # In some Airflow 3.x versions, Operator might still be in models or not exist
+        try:
+            from airflow.models.operator import Operator  # type: ignore
+        except (ModuleNotFoundError, ImportError):
+            # If Operator type doesn't exist anywhere, fall back to BaseOperator
+            Operator = BaseOperator  # type: ignore
 
     # MappedOperator may or may not exist in Airflow 3.x
     try:

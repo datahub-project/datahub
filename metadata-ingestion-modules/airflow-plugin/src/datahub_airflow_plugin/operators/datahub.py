@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, List, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 from airflow.models import BaseOperator
 from avrogen.dict_wrapper import DictWrapper
@@ -11,18 +11,18 @@ from datahub_airflow_plugin.hooks.datahub import (
     DatahubRestHook,
 )
 
+# Import Context with version compatibility
+# Try Airflow 2.x location first, then Airflow 3.x, then fall back to Dict
+try:
+    from airflow.utils.context import Context
+except ImportError:
+    try:
+        from airflow.sdk.definitions.context import Context
+    except ImportError:
+        Context = Dict[str, Any]  # type: ignore[misc, assignment]
+
 if TYPE_CHECKING:
     from jinja2 import Environment
-
-    try:
-        from airflow.utils.context import Context
-    except ImportError:
-        try:
-            from airflow.sdk.definitions.context import Context
-        except ImportError:
-            from typing import Dict
-
-            Context = Dict[str, Any]  # type: ignore[assignment, misc]
 
 
 class DatahubBaseOperator(BaseOperator):
