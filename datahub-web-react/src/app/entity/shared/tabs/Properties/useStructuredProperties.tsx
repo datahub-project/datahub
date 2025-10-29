@@ -211,7 +211,7 @@ function groupByParentProperty(rows?: Array<PropertyRow>): Array<PropertyRow> {
     return outputRows;
 }
 
-export default function useStructuredProperties(entityRegistry: EntityRegistry, filterText?: string) {
+function useStructuredProperties(entityRegistry: EntityRegistry, filterText?: string) {
     const { entityData } = useEntityData();
 
     let structuredPropertyRowsRaw = getStructuredPropertyRows(entityData);

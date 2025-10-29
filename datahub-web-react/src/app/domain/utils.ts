@@ -124,7 +124,7 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize, parentDo
     });
 };
 
-export function useUpdateDomainEntityDataOnChange(entityData: GenericEntityProperties | null, entityType: EntityType) {
+function useUpdateDomainEntityDataOnChange(entityData: GenericEntityProperties | null, entityType: EntityType) {
     const { setEntityData } = useDomainsContext();
     const previousEntityData = usePrevious(entityData);
 

@@ -11,7 +11,7 @@ import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 
 import { SchemaField } from '@types';
 
-export const ImpactAnalysisIcon = styled(VscGraphLeft)`
+const ImpactAnalysisIcon = styled(VscGraphLeft)`
     transform: scaleX(-1);
     font-size: 18px;
 `;

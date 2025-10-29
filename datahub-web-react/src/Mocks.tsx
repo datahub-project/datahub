@@ -1057,7 +1057,7 @@ export const dataset7WithSelfReferentialLineage = {
     },
 };
 
-export const container1 = {
+const container1 = {
     urn: 'urn:li:container:DATABASE',
     type: EntityType.Container,
     platform: dataPlatform,
@@ -1072,7 +1072,7 @@ export const container1 = {
     __typename: 'Container',
 } as Container;
 
-export const container2 = {
+const container2 = {
     urn: 'urn:li:container:SCHEMA',
     type: EntityType.Container,
     platform: dataPlatform,
@@ -3939,7 +3939,7 @@ export const mocksWithSearchFlagsOff = [
     },
 ];
 
-export const platformPrivileges: PlatformPrivileges = {
+const platformPrivileges: PlatformPrivileges = {
     viewAnalytics: true,
     managePolicies: true,
     manageIdentities: true,

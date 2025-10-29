@@ -105,7 +105,7 @@ export function getEntityPath(
     }${tabParamsString}`;
 }
 
-export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
+function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     const { pathname } = useLocation();
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
     // Match against the regex
@@ -153,7 +153,7 @@ export function formatDateString(time: number) {
     return date.toLocaleDateString('en-US');
 }
 
-export function useEntityQueryParams() {
+function useEntityQueryParams() {
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const response = {};
     if (isHideSiblingMode) {
@@ -163,7 +163,7 @@ export function useEntityQueryParams() {
     return response;
 }
 
-export function useUpdateGlossaryEntityDataOnChange(
+function useUpdateGlossaryEntityDataOnChange(
     entityData: GenericEntityProperties | null,
     entityType: EntityType,
 ) {
@@ -178,7 +178,7 @@ export function useUpdateGlossaryEntityDataOnChange(
     });
 }
 
-export function getOnboardingStepIdsForEntityType(entityType: EntityType): string[] {
+function getOnboardingStepIdsForEntityType(entityType: EntityType): string[] {
     switch (entityType) {
         case EntityType.Chart:
             return [
@@ -225,7 +225,7 @@ function sortTabsWithDefaultTabId(tabs: EntityTab[], defaultTabId: string) {
     });
 }
 
-export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityType, tabs: EntityTab[]) {
+function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityType, tabs: EntityTab[]) {
     const sortedTabs = [...tabs];
 
     if (entityType === EntityType.Domain && appConfig.visualConfig.entityProfiles?.domain?.defaultTab) {
@@ -236,6 +236,6 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
     return sortedTabs;
 }
 
-export function getNestedValue(obj: any, path: string) {
+function getNestedValue(obj: any, path: string) {
     return path.split('.').reduce((o, p) => (o || {})[p], obj);
 }

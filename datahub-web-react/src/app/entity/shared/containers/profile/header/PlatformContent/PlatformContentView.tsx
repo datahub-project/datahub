@@ -55,7 +55,7 @@ const PlatformDivider = styled.div`
     vertical-align: text-top;
 `;
 
-export function getParentContainerNames(containers?: Maybe<Container>[] | null) {
+function getParentContainerNames(containers?: Maybe<Container>[] | null) {
     let parentNames = '';
     if (containers) {
         [...containers].reverse().forEach((container, index) => {

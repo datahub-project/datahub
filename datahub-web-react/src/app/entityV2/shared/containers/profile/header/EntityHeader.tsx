@@ -13,7 +13,7 @@ import { DisplayProperties, EntityType, PlatformPrivileges } from '@types';
 
 const Container = styled.div``;
 
-export function getCanEditName(
+function getCanEditName(
     entityType: EntityType,
     entityData: GenericEntityProperties | null,
     privileges?: PlatformPrivileges,
