@@ -239,15 +239,28 @@ def run_in_thread(f: _F) -> _F:
 
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
+        def safe_target():
+            """
+            Wrapper for the thread target that catches and logs exceptions.
+
+            Without this, exceptions raised inside the thread would be silently
+            lost, making debugging production issues nearly impossible.
+            """
+            try:
+                f(*args, **kwargs)
+            except Exception as e:
+                logger.error(
+                    f"Error in thread executing {f.__name__}: {e}",
+                    exc_info=True,
+                )
+
         try:
             if _RUN_IN_THREAD:
                 # A poor-man's timeout mechanism.
                 # This ensures that we don't hang the task if the extractors
                 # are slow or the DataHub API is slow to respond.
 
-                thread = threading.Thread(
-                    target=f, args=args, kwargs=kwargs, daemon=True
-                )
+                thread = threading.Thread(target=safe_target, daemon=True)
                 thread.start()
 
                 if _RUN_IN_THREAD_TIMEOUT > 0:
@@ -269,7 +282,10 @@ def run_in_thread(f: _F) -> _F:
             else:
                 f(*args, **kwargs)
         except Exception as e:
-            logger.warning(e, exc_info=True)
+            logger.warning(
+                f"Error setting up thread for {f.__name__}: {e}",
+                exc_info=True,
+            )
 
     return cast(_F, wrapper)
 
