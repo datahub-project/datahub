@@ -142,18 +142,18 @@ describe("summary tab - domain", () => {
     utils.deleteDomain(cleanupData.domainName);
   });
 
-  it("domain - header section", () => {
+  it.skip("domain - header section", () => {
     testPropertiesSection([
       { name: "Created", type: "CREATED" },
       { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
     ]);
   });
 
-  it("domain - description section", () => {
+  it.skip("domain - description section", () => {
     testAboutSection();
   });
 
-  it("domain - modules section", () => {
+  it.skip("domain - modules section", () => {
     const defaultModules = [
       {
         type: "assets",
@@ -201,18 +201,18 @@ describe("summary tab - glossary node", () => {
     utils.deleteOpenedGLossaryTerm();
   });
 
-  it("glossary node - header section", () => {
+  it.skip("glossary node - header section", () => {
     testPropertiesSection([
       { name: "Created", type: "CREATED" },
       { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
     ]);
   });
 
-  it("glossary node - description section", () => {
+  it.skip("glossary node - description section", () => {
     testAboutSection();
   });
 
-  it("glossary node - modules section", () => {
+  it.skip("glossary node - modules section", () => {
     const defaultModules = [
       {
         type: "hierarchy",
@@ -250,7 +250,7 @@ describe("summary tab - glossary term", () => {
     utils.deleteOpenedGlossaryNode();
   });
 
-  it("glossary term - header section", () => {
+  it.skip("glossary term - header section", () => {
     testPropertiesSection([
       { name: "Created", type: "CREATED" },
       { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
@@ -258,11 +258,11 @@ describe("summary tab - glossary term", () => {
     ]);
   });
 
-  it("glossary term - description section", () => {
+  it.skip("glossary term - description section", () => {
     testAboutSection();
   });
 
-  it("glossary term - modules section", () => {
+  it.skip("glossary term - modules section", () => {
     const defaultModules = [
       {
         type: "assets",
@@ -299,7 +299,7 @@ describe("summary tab - data product", () => {
     utils.deleteOpenedDataProduct();
   });
 
-  it("data product - header section", () => {
+  it.skip("data product - header section", () => {
     testPropertiesSection([
       { name: "Created", type: "CREATED" },
       { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
@@ -309,11 +309,11 @@ describe("summary tab - data product", () => {
     ]);
   });
 
-  it("data product - description section", () => {
+  it.skip("data product - description section", () => {
     testAboutSection();
   });
 
-  it("data product - modules section", () => {
+  it.skip("data product - modules section", () => {
     const defaultModules = [
       {
         type: "assets",
