@@ -1,5 +1,3 @@
-# mypy: ignore-errors
-# type: ignore  # SerializedDAG and parent_dag compatibility issues
 import json
 from datetime import datetime, tzinfo
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union, cast
@@ -29,6 +27,22 @@ if TYPE_CHECKING:
 
     from datahub_airflow_plugin._airflow_shims import Operator
 
+    try:
+        from airflow.serialization.serialized_objects import (
+            SerializedBaseOperator,
+            SerializedDAG,
+        )
+
+        DagType = Union[DAG, SerializedDAG]
+        OperatorType = Union[Operator, SerializedBaseOperator]
+    except ImportError:
+        DagType = DAG  # type: ignore[misc]
+        OperatorType = Operator  # type: ignore[misc]
+
+    # Add type ignore for ti.task which can be MappedOperator from different modules
+    # airflow.models.mappedoperator.MappedOperator (2.x) vs airflow.sdk.definitions.mappedoperator.MappedOperator (3.x)
+    TaskType = Union[OperatorType, Any]  # type: ignore[misc]
+
 
 def _task_downstream_task_ids(operator: "Operator") -> Set[str]:
     if hasattr(operator, "downstream_task_ids"):
@@ -39,8 +53,8 @@ def _task_downstream_task_ids(operator: "Operator") -> Set[str]:
 class AirflowGenerator:
     @staticmethod
     def _get_dependencies(
-        task: "Operator",
-        dag: "DAG",
+        task: "OperatorType",
+        dag: "DagType",
         flow_urn: DataFlowUrn,
         config: Optional[DatahubLineageConfig] = None,
     ) -> List[DataJobUrn]:
@@ -78,14 +92,17 @@ class AirflowGenerator:
         # subdags are always named with 'parent.child' style or Airflow won't run them
         # add connection from subdag trigger(s) if subdag task has no upstreams
         # Note: is_subdag was removed in Airflow 3.x (subdags deprecated in Airflow 2.0)
+        parent_dag = getattr(dag, "parent_dag", None)
         if (
             getattr(dag, "is_subdag", False)
-            and dag.parent_dag is not None
+            and parent_dag is not None
             and len(task.upstream_task_ids) == 0
         ):
             # filter through the parent dag's tasks and find the subdag trigger(s)
             subdags = [
-                x for x in dag.parent_dag.task_dict.values() if x.subdag is not None
+                x
+                for x in parent_dag.task_dict.values()
+                if x.subdag is not None  # type: ignore[union-attr]
             ]
             matched_subdags = [
                 x for x in subdags if x.subdag and x.subdag.dag_id == dag.dag_id
@@ -95,8 +112,8 @@ class AirflowGenerator:
             subdag_task_id = matched_subdags[0].task_id
 
             # iterate through the parent dag's tasks and find the ones that trigger the subdag
-            for upstream_task_id in dag.parent_dag.task_dict:
-                upstream_task = dag.parent_dag.task_dict[upstream_task_id]
+            for upstream_task_id in parent_dag.task_dict:  # type: ignore[union-attr]
+                upstream_task = parent_dag.task_dict[upstream_task_id]  # type: ignore[union-attr]
                 upstream_task_urn = DataJobUrn.create_from_ids(
                     data_flow_urn=str(flow_urn), job_id=upstream_task_id
                 )
@@ -141,13 +158,13 @@ class AirflowGenerator:
         return upstream_tasks
 
     @staticmethod
-    def _extract_owners(dag: "DAG") -> List[str]:
+    def _extract_owners(dag: "DagType") -> List[str]:
         return [owner.strip() for owner in dag.owner.split(",")]
 
     @staticmethod
     def generate_dataflow(
         config: DatahubLineageConfig,
-        dag: "DAG",
+        dag: "DagType",
     ) -> DataFlow:
         """
         Generates a Dataflow object from an Airflow DAG
@@ -227,7 +244,7 @@ class AirflowGenerator:
         return data_flow
 
     @staticmethod
-    def _get_description(task: "Operator") -> Optional[str]:
+    def _get_description(task: "OperatorType") -> Optional[str]:
         from datahub_airflow_plugin._airflow_shims import BaseOperator
 
         if not isinstance(task, BaseOperator):
@@ -249,8 +266,8 @@ class AirflowGenerator:
     @staticmethod
     def generate_datajob(
         cluster: str,
-        task: "Operator",
-        dag: "DAG",
+        task: "OperatorType",
+        dag: "DagType",
         set_dependencies: bool = True,
         capture_owner: bool = True,
         capture_tags: bool = True,
@@ -480,8 +497,12 @@ class AirflowGenerator:
     ) -> DataProcessInstance:
         if datajob is None:
             assert ti.task is not None
+            # ti.task can be MappedOperator from different modules (airflow.models vs airflow.sdk.definitions)
             datajob = AirflowGenerator.generate_datajob(
-                config.cluster, ti.task, dag, config=config
+                config.cluster,
+                ti.task,  # type: ignore[arg-type]
+                dag,
+                config=config,
             )
 
         assert dag_run.run_id
@@ -568,8 +589,12 @@ class AirflowGenerator:
         """
         if datajob is None:
             assert ti.task is not None
+            # ti.task can be MappedOperator from different modules (airflow.models vs airflow.sdk.definitions)
             datajob = AirflowGenerator.generate_datajob(
-                cluster, ti.task, dag, config=config
+                cluster,
+                ti.task,  # type: ignore[arg-type]
+                dag,
+                config=config,
             )
 
         if end_timestamp_millis is None:

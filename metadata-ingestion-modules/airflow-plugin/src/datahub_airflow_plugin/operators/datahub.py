@@ -1,5 +1,4 @@
-# mypy: ignore-errors
-from typing import Any, List, Union
+from typing import TYPE_CHECKING, Any, List, Union
 
 from airflow.models import BaseOperator
 from avrogen.dict_wrapper import DictWrapper
@@ -11,6 +10,19 @@ from datahub_airflow_plugin.hooks.datahub import (
     DatahubKafkaHook,
     DatahubRestHook,
 )
+
+if TYPE_CHECKING:
+    from jinja2 import Environment
+
+    try:
+        from airflow.utils.context import Context
+    except ImportError:
+        try:
+            from airflow.sdk.definitions.context import Context
+        except ImportError:
+            from typing import Dict
+
+            Context = Dict[str, Any]  # type: ignore[assignment, misc]
 
 
 class DatahubBaseOperator(BaseOperator):
@@ -57,7 +69,9 @@ class DatahubEmitterOperator(DatahubBaseOperator):
         )
         self.metadata = mces
 
-    def _render_template_fields(self, field_value, context, jinja_env):
+    def _render_template_fields(
+        self, field_value: Any, context: "Context", jinja_env: "Environment"
+    ) -> Any:
         if isinstance(field_value, DictWrapper):
             for key, value in field_value.items():
                 setattr(
@@ -74,7 +88,7 @@ class DatahubEmitterOperator(DatahubBaseOperator):
             return super().render_template(field_value, context, jinja_env)
         return field_value
 
-    def execute(self, context):
+    def execute(self, context: "Context") -> None:
         if context:
             jinja_env = self.get_template_env()
 

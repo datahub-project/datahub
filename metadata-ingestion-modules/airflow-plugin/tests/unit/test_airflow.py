@@ -161,7 +161,7 @@ def test_datahub_lineage_operator(mock_emit):
                 )
             ],
         )
-        task.execute(None)
+        task.execute({})
 
         mock_emit.assert_called()
 
