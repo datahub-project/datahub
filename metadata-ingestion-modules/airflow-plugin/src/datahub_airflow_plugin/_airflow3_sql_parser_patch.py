@@ -29,6 +29,7 @@ except ImportError:
 # DataHub imports (always available)
 import datahub.emitter.mce_builder as builder
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 
 if TYPE_CHECKING:
@@ -172,9 +173,6 @@ def _datahub_generate_openlineage_metadata_from_sql(
         logger.debug(f"DataHub SQL parser result: {sql_parsing_result}")
 
         # Store the sql_parsing_result in run_facets for later retrieval by the DataHub listener
-        # We use a custom facet key that the listener can check for
-        DATAHUB_SQL_PARSING_RESULT_KEY = "datahub_sql_parsing_result"
-
         # If OpenLineage plugin is enabled and we got a result from the original parser,
         # use OpenLineage's result but add DataHub's parsing to the facets
         if ol_result is not None:

@@ -83,9 +83,9 @@ else:
         except ImportError:
             SqlExtractor = None  # type: ignore
 
-        # For Airflow 3, TaskMetadata doesn't exist
-        # Define it as a runtime type for compatibility
-        TaskMetadata: Any = type("TaskMetadata", (), {})
+        # For Airflow 3, TaskMetadata doesn't exist (replaced by OperatorLineage)
+        # Set to None explicitly to indicate unavailability
+        TaskMetadata = None  # type: ignore
 
     except (ImportError, ModuleNotFoundError):
         # Airflow 2.x: Use standalone openlineage-airflow package
@@ -100,8 +100,9 @@ else:
         from openlineage.airflow.extractors.sql_extractor import SqlExtractor
         from openlineage.airflow.utils import get_operator_class, try_import_from_string
 
-        # For Airflow 2, OperatorLineage doesn't exist
-        OperatorLineage: Any = type("OperatorLineage", (), {})
+        # For Airflow 2, OperatorLineage doesn't exist (only in Airflow 3)
+        # Set to None explicitly to indicate unavailability
+        OperatorLineage = None  # type: ignore
 
 
 # Export all symbols

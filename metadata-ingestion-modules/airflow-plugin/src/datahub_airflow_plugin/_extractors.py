@@ -19,6 +19,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 from datahub_airflow_plugin._airflow_shims import Operator
+from datahub_airflow_plugin._constants import SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 from datahub_airflow_plugin._openlineage_compat import (
     IS_AIRFLOW_3,
@@ -53,7 +54,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _DATAHUB_GRAPH_CONTEXT_KEY = "datahub_graph"
-SQL_PARSING_RESULT_KEY = "datahub_sql"
 
 # Runtime type alias for the return type of extract() methods
 if not TYPE_CHECKING:

@@ -63,6 +63,10 @@ from datahub_airflow_plugin._airflow_shims import (
 # Import version-specific utilities
 from datahub_airflow_plugin._airflow_version_specific import IS_AIRFLOW_3_OR_HIGHER
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
+from datahub_airflow_plugin._constants import (
+    DATAHUB_SQL_PARSING_RESULT_KEY,
+    SQL_PARSING_RESULT_KEY,
+)
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._version import __package_name__, __version__
 from datahub_airflow_plugin.client.airflow_generator import (  # type: ignore[attr-defined]  # Circular import issue with mypy
@@ -74,17 +78,10 @@ from datahub_airflow_plugin.entities import (
     entities_to_dataset_urn_list,
 )
 
-# SQL parsing result key for Airflow 2.x extractors
-# This constant is only used in Airflow 2.x code paths
-SQL_PARSING_RESULT_KEY = "datahub_sql"
-
 # Only import extractors on Airflow < 3.0
 # On Airflow 3.0+, we use the SQLParser patch and operator patches instead
 if not IS_AIRFLOW_3_OR_HIGHER:
-    from datahub_airflow_plugin._extractors import (
-        SQL_PARSING_RESULT_KEY,  # Import to stay in sync with _extractors.py
-        ExtractorManager,
-    )
+    from datahub_airflow_plugin._extractors import ExtractorManager
 else:
     # On Airflow 3.0+, extractors are not used
     # ExtractorManager is set to None as a sentinel to indicate it's unavailable
@@ -473,7 +470,6 @@ class DataHubListener:
                     )
 
                 # Check if DataHub SQL parsing result is in run_facets (from our patch)
-                DATAHUB_SQL_PARSING_RESULT_KEY = "datahub_sql_parsing_result"
                 if DATAHUB_SQL_PARSING_RESULT_KEY in operator_lineage.run_facets:
                     sql_parsing_result = operator_lineage.run_facets[
                         DATAHUB_SQL_PARSING_RESULT_KEY

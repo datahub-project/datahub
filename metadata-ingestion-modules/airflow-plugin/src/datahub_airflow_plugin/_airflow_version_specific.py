@@ -19,7 +19,76 @@ AIRFLOW_VERSION = packaging.version.parse(airflow.__version__)
 IS_AIRFLOW_3_OR_HIGHER = AIRFLOW_VERSION >= packaging.version.parse("3.0.0")
 
 
-def get_task_instance_attributes(ti: "TaskInstance") -> Dict[str, str]:  # noqa: C901
+def _get_duration_attribute(ti: "TaskInstance") -> Dict[str, str]:
+    """
+    Extract duration attribute, calculating it if necessary.
+
+    Airflow 2.x has duration as a direct attribute.
+    Airflow 3.x requires calculation from end_date - start_date.
+    """
+    if hasattr(ti, "duration"):
+        return {"duration": str(ti.duration)}
+
+    if (
+        hasattr(ti, "end_date")
+        and ti.end_date
+        and hasattr(ti, "start_date")
+        and ti.start_date
+    ):
+        try:
+            duration_seconds = (ti.end_date - ti.start_date).total_seconds()
+            return {"duration": str(duration_seconds)}
+        except Exception as e:
+            logger.debug(f"Could not calculate duration: {e}")
+
+    return {}
+
+
+def _get_operator_attribute(ti: "TaskInstance") -> Dict[str, str]:
+    """
+    Extract operator name in a version-compatible way.
+
+    In Airflow 2.x: Available as database column attribute ti.operator
+    In Airflow 3.x (RuntimeTaskInstance): Must extract from ti.task.__class__.__name__
+    """
+    if hasattr(ti, "operator"):
+        operator_from_db = str(ti.operator)
+        logger.debug(
+            f"Operator from ti.operator (DB): {operator_from_db}, "
+            f"hasattr task: {hasattr(ti, 'task')}, "
+            f"task class: {ti.task.__class__.__name__ if hasattr(ti, 'task') and ti.task else 'N/A'}"
+        )
+        return {"operator": operator_from_db}
+
+    if hasattr(ti, "task") and ti.task is not None:
+        try:
+            return {"operator": ti.task.__class__.__name__}
+        except Exception as e:
+            logger.debug(f"Could not get operator name from task: {e}")
+
+    return {}
+
+
+def _get_date_attributes(ti: "TaskInstance") -> Dict[str, str]:
+    """
+    Extract date-related attributes.
+
+    Handles execution_date -> logical_date rename in Airflow 3.0.
+    """
+    attributes = {}
+
+    if hasattr(ti, "end_date"):
+        attributes["end_date"] = str(ti.end_date)
+
+    if hasattr(ti, "execution_date"):
+        attributes["execution_date"] = str(ti.execution_date)
+    elif hasattr(ti, "logical_date"):
+        attributes["logical_date"] = str(ti.logical_date)
+
+    return attributes
+
+
+def get_task_instance_attributes(ti: "TaskInstance") -> Dict[str, str]:
     """
     Extract attributes from a TaskInstance in a version-compatible way.
 
@@ -44,61 +113,18 @@ def get_task_instance_attributes(ti: "TaskInstance") -> Dict[str, str]:  # noqa:
     if hasattr(ti, "dag_id"):
         attributes["dag_id"] = str(ti.dag_id)
 
-    # Airflow 2.x has duration as a direct attribute
-    # Airflow 3.x doesn't have it, so we calculate it from end_date - start_date
-    # Always include duration (even if None) for backward compatibility
-    if hasattr(ti, "duration"):
-        attributes["duration"] = str(ti.duration)
-    elif (
-        hasattr(ti, "end_date")
-        and ti.end_date
-        and hasattr(ti, "start_date")
-        and ti.start_date
-    ):
-        # Calculate duration for Airflow 3.x
-        try:
-            duration_seconds = (ti.end_date - ti.start_date).total_seconds()
-            attributes["duration"] = str(duration_seconds)
-        except Exception as e:
-            logger.debug(f"Could not calculate duration: {e}")
+    # Complex extractions via helper functions
+    attributes.update(_get_duration_attribute(ti))
+    attributes.update(_get_date_attributes(ti))
+    attributes.update(_get_operator_attribute(ti))
 
-    # end_date is available in both versions (when task is complete)
-    # Always include end_date (even if None) for backward compatibility
-    if hasattr(ti, "end_date"):
-        attributes["end_date"] = str(ti.end_date)
-
-    # execution_date was renamed to logical_date in Airflow 3.0
-    if hasattr(ti, "execution_date"):
-        attributes["execution_date"] = str(ti.execution_date)
-    elif hasattr(ti, "logical_date"):
-        attributes["logical_date"] = str(ti.logical_date)
-
+    # Optional attributes
     if hasattr(ti, "max_tries"):
         attributes["max_tries"] = str(ti.max_tries)
-
-    # Always include external_executor_id (even if None) for backward compatibility
     if hasattr(ti, "external_executor_id"):
         attributes["external_executor_id"] = str(ti.external_executor_id)
-
-    # operator field: In Airflow 2.x it's a database column attribute
-    # In Airflow 3.x (RuntimeTaskInstance), we get it from ti.task.__class__.__name__
-    if hasattr(ti, "operator"):
-        operator_from_db = str(ti.operator)
-        logger.debug(
-            f"Operator from ti.operator (DB): {operator_from_db}, "
-            f"hasattr task: {hasattr(ti, 'task')}, "
-            f"task class: {ti.task.__class__.__name__ if hasattr(ti, 'task') and ti.task else 'N/A'}"
-        )
-        attributes["operator"] = operator_from_db
-    elif hasattr(ti, "task") and ti.task is not None:
-        try:
-            attributes["operator"] = ti.task.__class__.__name__
-        except Exception as e:
-            logger.debug(f"Could not get operator name from task: {e}")
-
     if hasattr(ti, "priority_weight"):
         attributes["priority_weight"] = str(ti.priority_weight)
-
     if hasattr(ti, "log_url"):
         attributes["log_url"] = ti.log_url
 
