@@ -20,11 +20,13 @@ if TYPE_CHECKING:
         from airflow.utils.context import Context
     except ImportError:
         try:
-            from airflow.sdk.definitions.context import Context
+            from airflow.sdk.definitions.context import (
+                Context,  # type: ignore[no-redef]
+            )
         except ImportError:
             from typing import Dict
 
-            Context = Dict[str, Any]  # type: ignore[assignment, misc]
+            Context = Dict[str, Any]  # type: ignore[assignment, misc, no-redef]
 
 
 class DatahubBaseOperator(BaseOperator):
