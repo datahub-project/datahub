@@ -9,15 +9,14 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import filterSearchQuery from '@app/search/utils/filterSearchQuery';
 import { Message } from '@app/shared/Message';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetAnalyticsChartsQuery, useGetMetadataAnalyticsChartsQuery } from '@graphql/analytics.generated';
 import { useListDomainsQuery } from '@graphql/domain.generated';
 import { useGetHighlightsQuery } from '@graphql/highlights.generated';
 
-const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
+const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    background-color: #fff;
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
@@ -29,12 +28,12 @@ const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolea
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        margin-right: ${props.isV2 ? '24px' : '0'};
-        margin-bottom: ${props.isV2 ? '24px' : '0'};
+        margin-right: 24px;
+        margin-bottom: 24px;
     `}
     border-radius: ${(props) => {
-        if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
-        return props.isV2 ? '8px' : '0';
+        if (props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
+        return '8px';
     }};
 `;
 
@@ -75,7 +74,6 @@ const StyledSearchBar = styled(Input)`
 `;
 
 export const AnalyticsPage = () => {
-    const isV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const me = useUserContext();
     const canManageDomains = me?.platformPrivileges?.createDomains;
@@ -118,7 +116,7 @@ export const AnalyticsPage = () => {
 
     const isLoading = highlightLoading || chartLoading || domainLoading || metadataAnalyticsLoading;
     return (
-        <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
+        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             {isLoading && <Message type="loading" content="Loading…" style={{ marginTop: '10%' }} />}
             <HighlightGroup>
                 {highlightError && (

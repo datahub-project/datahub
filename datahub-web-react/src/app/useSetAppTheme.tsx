@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 
 import { useAppConfig } from '@app/useAppConfig';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 import themes from '@conf/theme/themes';
 import { useCustomTheme } from '@src/customThemeContext';
 
@@ -20,7 +19,6 @@ export function useCustomThemeId(): string | null {
 }
 
 export function useSetAppTheme() {
-    const isThemeV2 = useIsThemeV2();
     const { updateTheme } = useCustomTheme();
     const customThemeId = useCustomThemeId();
 
@@ -44,9 +42,9 @@ export function useSetAppTheme() {
         } else if (customThemeId && themes[customThemeId]) {
             updateTheme(themes[customThemeId]);
         } else {
-            updateTheme(isThemeV2 ? themes.themeV2 : themes.themeV1);
+            updateTheme(themes.themeV2);
         }
-    }, [customThemeId, isThemeV2, updateTheme]);
+    }, [customThemeId, updateTheme]);
 }
 
 function setThemeIdLocalStorage(customThemeId: string | null) {

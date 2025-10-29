@@ -9,7 +9,6 @@ import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormCo
 import Form from '@app/entity/shared/entityForm/Form';
 import ProgressBar from '@app/entity/shared/entityForm/ProgressBar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 
 const ContentWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};
@@ -36,15 +35,9 @@ export default function FormByEntity({ formUrn }: Props) {
     const { entityType } = useEntityContext();
     const entityRegistry = useEntityRegistry();
     const sidebarSections = entityRegistry.getSidebarSections(selectedEntity?.type || entityType);
-    const isV2 = useIsThemeV2();
 
-    // Used for v2 - removes repeated entity header (we use EntityInfo in this component)
-    // SidebarEntityHeader is always the first index in sidebarSections, so remove it here
-    // TODO (OBS-677): remove this logic once we get form info into V2 sidebar
     const cleanedSidebarSections = sidebarSections.slice(1);
-
-    // Conditional sections based on theme version
-    const sections = isV2 ? cleanedSidebarSections : sidebarSections;
+    const sections = cleanedSidebarSections;
 
     return (
         <EntityContext.Provider
