@@ -167,22 +167,9 @@ const TEXT_CONDITION_TYPES = [
 
 const BUCKETED_TIMESTAMP_CONDITION_TYPES = [FilterOperatorType.GREATER_THAN, FilterOperatorType.LESS_THAN];
 
-const NUMBER_CONDITION_TYPES = [
-    ...BASE_CONDITION_TYPES,
-    FilterOperatorType.GREATER_THAN,
-    FilterOperatorType.GREATER_THAN_OR_EQUALS,
-    FilterOperatorType.LESS_THAN,
-    FilterOperatorType.LESS_THAN_OR_EQUALS,
-    FilterOperatorType.IS_ANY_OF,
-    FilterOperatorType.IS_NOT_ANY_OF,
-];
-
 const BROWSE_CONDITION_TYPES = [FilterOperatorType.EQUALS];
 
 const BOOLEAN_CONDITION_TYPES = [FilterOperatorType.EQUALS, FilterOperatorType.NOT_EQUALS];
-
-// todo
-const DATE_CONDITION_TYPES = [...BASE_CONDITION_TYPES];
 
 const PLURAL_ONLY_CONDITION_TYPES = [FilterOperatorType.ALL_EQUALS];
 
@@ -234,18 +221,6 @@ export const getOperatorOptionsForPredicate = (predicate: FilterPredicate, isPlu
         /* eslint-enable @typescript-eslint/no-non-null-assertion */
     }
     return applyFiltersToOperatorOptions(predicate.field.field, operatorOptions, isPlural);
-};
-
-const convertBackendToFrontendOperatorInfo = ({
-    operator,
-    negated,
-}: {
-    operator: FilterOperator;
-    negated: boolean;
-}): FilterOperatorInfo | undefined => {
-    return SUPPORTED_OPERATORS.find((info) => {
-        return info.filter.operator === operator && info.filter.negated === negated;
-    });
 };
 
 export const convertBackendToFrontendOperatorType = ({

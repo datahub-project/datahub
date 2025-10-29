@@ -39,8 +39,6 @@ export const HAS_SIBLINGS_FILTER_NAME = 'hasSiblings';
 export const CHART_TYPE_FILTER_NAME = 'type';
 export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';
 export const STRUCTURED_PROPERTIES_FILTER_NAME = 'structuredProperties.';
-const ENTITY_TYPES_FILTER_NAME = 'entityTypes';
-const IS_HIDDEN_PROPERTY_FILTER_NAME = 'isHidden';
 export const SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME = 'showInColumnsTable';
 export const SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME = 'showInAssetSummary';
 export const COMPLETED_FORMS_FILTER_NAME = 'completedForms';
@@ -48,8 +46,6 @@ export const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
 export const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
 export const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
 export const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
-
-const LEGACY_ENTITY_FILTER_FIELDS = [ENTITY_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME];
 
 export const FILTER_DELIMITER = '␞';
 
@@ -59,18 +55,6 @@ export const ENTITY_SUB_TYPE_FILTER_FIELDS = [
     LEGACY_ENTITY_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 ];
-
-const FILTERS_TO_TRUNCATE = [
-    TAGS_FILTER_NAME,
-    GLOSSARY_TERMS_FILTER_NAME,
-    CONTAINER_FILTER_NAME,
-    DOMAINS_FILTER_NAME,
-    OWNERS_FILTER_NAME,
-    ENTITY_FILTER_NAME,
-    TYPE_NAMES_FILTER_NAME,
-    PLATFORM_FILTER_NAME,
-];
-const TRUNCATED_FILTER_LENGTH = 5;
 
 export const ORDERED_FIELDS = [
     ENTITY_FILTER_NAME,

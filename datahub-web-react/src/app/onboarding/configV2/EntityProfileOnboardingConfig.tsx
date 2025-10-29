@@ -5,7 +5,6 @@ import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const ENTITY_PROFILE_V2_COLUMNS_ID = 'entity-profile-v2-columns';
 export const ENTITY_PROFILE_V2_CONTENTS_ID = 'entity-profile-v2-contents';
-const ENTITY_PROFILE_V2_SUBSCRIPTION_ID = 'entity-profile-v2-subscriptions';
 export const ENTITY_PROFILE_V2_DOCUMENTATION_ID = 'entity-profile-v2-documentation';
 const ENTITY_PROFILE_V2_SIDEBAR_ID = 'entity-profile-v2-sidebar';
 export const ENTITY_SIDEBAR_V2_ABOUT_TAB_ID = 'entity-profile-v2-about';

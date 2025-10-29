@@ -54,11 +54,6 @@ export type AssertionListTableRow = {
     name?: string;
 };
 
-type AssertionGroupExtended = Omit<AssertionGroup, 'assertions'> & {
-    assertions: AssertionListTableRow[];
-    groupName?: JSX.Element;
-};
-
 export type AssertionStatusGroup = {
     name: string;
     assertions: AssertionListTableRow[];

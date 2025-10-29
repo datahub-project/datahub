@@ -160,12 +160,3 @@ export const USER_DENY: RecipeField = {
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPathUser),
 };
-
-const SKIP_USERS_WITHOUT_GROUP: RecipeField = {
-    name: 'skip_users_without_a_group',
-    label: 'Skip users without group',
-    tooltip: 'Whether to skip users without group from Okta.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.skip_users_without_a_group',
-    rules: null,
-};

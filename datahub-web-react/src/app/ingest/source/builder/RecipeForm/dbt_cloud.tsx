@@ -8,8 +8,6 @@ const TipSection = styled.div`
     margin-bottom: 12px;
 `;
 
-const DBT_CLOUD = 'dbt-cloud';
-
 export const DBT_CLOUD_TOKEN: RecipeField = {
     name: 'token',
     label: 'API Token',
@@ -232,17 +230,6 @@ export const NODE_DENY: RecipeField = {
     fieldPath: nodeDenyFieldPath,
     rules: null,
     section: 'Nodes',
-};
-
-const METADATA_ENDPOINT: RecipeField = {
-    name: 'metadata_endpoint',
-    label: 'Custom Metadata Endpoint URL',
-    tooltip:
-        'A custom URL used for extracting Metadata. By default, this metadata is extracted from https://metadata.cloud.getdbt.com/graphql. In most cases, users should NOT need to provide this value.',
-    placeholder: 'https://metadata.cloud.getdbt.com/graphql',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.metadata_endpoint',
-    rules: null,
 };
 
 const extractOwnersPath = 'source.config.enable_owner_extraction';

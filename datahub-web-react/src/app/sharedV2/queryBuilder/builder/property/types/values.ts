@@ -65,15 +65,6 @@ export enum ValueTypeId {
 }
 
 /**
- * A single well-supported operator.
- */
-type Value = {
-    id: ValueTypeId;
-    displayName: string;
-    operators: OperatorId[];
-};
-
-/**
  * A list of value types and their corresponding details,
  * including their display names and the operators that they support
  */

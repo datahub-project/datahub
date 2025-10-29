@@ -7,8 +7,3 @@ interface HoverEntityTooltipContextType {
 export const HoverEntityTooltipContext = React.createContext<HoverEntityTooltipContextType>({
     entityCount: undefined,
 });
-
-const useHoverEntityTooltipContext = () => {
-    const { entityCount } = useContext(HoverEntityTooltipContext);
-    return { entityCount };
-};

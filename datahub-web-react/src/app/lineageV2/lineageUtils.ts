@@ -31,13 +31,6 @@ export function processDocumentationString(docString): string {
     return docString.replace(fieldRegex, (_, fieldPath) => `'${downgradeV2FieldPath(fieldPath)}'`);
 }
 
-function convertFieldsToV1FieldPath(fields: SchemaField[]) {
-    return fields.map((field) => ({
-        ...field,
-        fieldPath: downgradeV2FieldPath(field.fieldPath) || '',
-    }));
-}
-
 export function getV1FieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
     return downgradeV2FieldPath(getFieldPathFromSchemaFieldUrn(schemaFieldUrn)) as string;
 }

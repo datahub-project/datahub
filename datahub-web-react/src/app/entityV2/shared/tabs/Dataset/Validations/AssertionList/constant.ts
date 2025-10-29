@@ -14,11 +14,6 @@ export const ASSERTION_DEFAULT_FILTERS = {
     },
 };
 
-const ASSERTION_GROUP_BY_FILTER_OPTIONS = [
-    { label: 'Type', value: 'type' },
-    { label: 'Status', value: 'status' },
-];
-
 export const ASSERTION_SUMMARY_CARD_STATUSES = ['failing', 'passing', 'erroring'];
 
 export const NO_RUNNING_STATE = 'notRunning';

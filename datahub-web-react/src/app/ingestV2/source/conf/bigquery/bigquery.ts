@@ -27,11 +27,3 @@ source:
 
 export const BIGQUERY = 'bigquery';
 
-const bigqueryConfig: SourceConfig = {
-    type: BIGQUERY,
-    placeholderRecipe,
-    displayName: 'BigQuery',
-    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/bigquery/',
-    logoUrl: bigqueryLogo,
-};
-

@@ -121,8 +121,6 @@ export function getExternalUrlDisplayName(entity: GenericEntityProperties | null
 
 export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
 
-const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
-
 export enum SidebarTitleActionType {
     LineageExplore = 'Lineage Explore',
 }
@@ -296,37 +294,6 @@ export function getDashboardLastUpdatedMs(
     if (max === lastModified) return { property: 'lastModified', lastUpdatedMs: lastModified };
     return { property: 'lastRefreshed', lastUpdatedMs: lastRefreshed };
 }
-
-// return title case of the string with handling exceptions
-const toProperTitleCase = (str: string) => {
-    return str
-        .toLowerCase()
-        .split(' ')
-        .map((word, index) =>
-            index === 0 || !TITLE_CASE_EXCEPTION_WORDS.includes(word)
-                ? word.charAt(0).toUpperCase() + word.slice(1)
-                : word,
-        )
-        .join(' ');
-};
-
-/**
- * Attempts to extract a description for a sub-resource of an entity, if it exists.
- * @param entity ie dataset
- * @param subResource ie field name
- * @returns the description of the sub-resource if it exists, otherwise undefined
- */
-const tryExtractSubResourceDescription = (entity: Entity, subResource: string): string | undefined => {
-    // NOTE: we are casting to Dataset, but GlossaryTerms and more future entities can have editableSchemaMetadata
-    // We must do a ? check for editableSchemaMetadata/schemaMetadata to avoid runtime errors
-    const maybeEditableMetadataDescription = (entity as Dataset).editableSchemaMetadata?.editableSchemaFieldInfo?.find(
-        (field) => field.fieldPath === subResource,
-    )?.description;
-    const maybeSchemaMetadataDescription = (entity as Dataset).schemaMetadata?.fields?.find(
-        (field) => field.fieldPath === subResource,
-    )?.description;
-    return maybeEditableMetadataDescription?.valueOf() || maybeSchemaMetadataDescription?.valueOf();
-};
 
 /**
  * Type guard for entity type

@@ -9,19 +9,6 @@ export const FlexWrapper = styled.div`
     line-height: 18px;
 `;
 
-const StyledIcon = styled(Icon)<{ addLineHeight?: boolean }>`
-    font-size: 18px;
-    margin-right: 8px;
-    ${(props) => props.addLineHeight && `line-height: 24px;`}
-`;
-
-const SubTitle = styled.div<{ addMargin?: boolean }>`
-    font-weight: 600;
-    margin-bottom: 4px;
-    ${(props) => props.addMargin && `margin-top: 8px;`}
-    text-wrap: wrap;
-`;
-
 export const Title = styled.div`
     font-size: 16px;
     font-weight: 600;
@@ -29,24 +16,11 @@ export const Title = styled.div`
     align-items: center;
 `;
 
-const StyledDivider = styled(Divider)`
-    margin: 12px 0 0 0;
-`;
-
 export const StyledReadOutlined = styled(ReadOutlined)<{ color?: string; addLineHeight?: boolean }>`
     margin-right: 8px;
     height: 18px;
     width: 18px;
     color: #373d44;
-    ${(props) => props.addLineHeight && `line-height: 24px;`}
-    ${(props) => props.color && `color: ${props.color};`}
-`;
-
-const StyledReadFilled = styled(ReadFilled)<{ color: string; addLineHeight?: boolean }>`
-    margin-right: 8px;
-    height: 18px;
-    width: 18px;
-    color: #7532a4;
     ${(props) => props.addLineHeight && `line-height: 24px;`}
     ${(props) => props.color && `color: ${props.color};`}
 `;

@@ -91,7 +91,3 @@ export type EntitySidebarSection = {
     };
     properties?: any;
 };
-
-type ResourceType = 'incidents' | 'assertions';
-
-type QueryType = 'incident_urn' | 'assertion_urn';

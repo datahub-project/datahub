@@ -33,24 +33,6 @@ export const SideBar = styled.div`
     }
 `;
 
-const SideBarSubSection = styled.div`
-    height: calc(100vh - 135px);
-    overflow: auto;
-    padding-right: 18px;
-    &.fullView {
-        height: calc(100vh - 70px);
-    }
-    &::-webkit-scrollbar {
-        height: 12px;
-        width: 1px;
-        background: #d6d6d6;
-    }
-    &::-webkit-scrollbar-thumb {
-        background: #d6d6d6;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
-    }
-`;
-
 export const EmptyValue = styled.div<{ color?: string }>`
     &:after {
         content: 'None';
@@ -105,12 +87,6 @@ export const RoleName = styled.div`
     }
 `;
 
-const Team = styled.div`
-    font-size: 12px;
-    line-height: 20px;
-    color: #8c8c8c;
-`;
-
 export const SocialDetails = styled.div`
     display: flex;
     align-items: center;
@@ -127,24 +103,6 @@ export const SocialDetails = styled.div`
     .ant-space-item {
         display: flex;
         align-items: center;
-    }
-`;
-
-const EditButton = styled.div`
-    bottom: 24px;
-    position: absolute;
-    right: 27px;
-    width: 80%;
-    left: 50%;
-    -webkit-transform: translateX(-50%);
-    -moz-transform: translateX(-50%);
-    transform: translateX(-50%);
-
-    button {
-        width: 100%;
-        font-size: 12px;
-        line-height: 20px;
-        color: #262626;
     }
 `;
 
@@ -185,41 +143,6 @@ export const TagsSection = styled.div`
     flex-wrap: wrap;
     margin-top: 0.5rem;
     align-self: start;
-`;
-
-const NoDataFound = styled.span`
-    font-size: 12px;
-    color: #262626;
-    font-weight: 100;
-`;
-
-const Tags = styled.div`
-    margin-top: 5px;
-`;
-
-const GroupsSeeMoreText = styled.span`
-    font-weight: 500;
-    font-size: 12px;
-    line-height: 20px;
-    color: #1890ff;
-    cursor: pointer;
-`;
-
-const DisplayCount = styled.span`
-    font-family: Mulish;
-    font-style: normal;
-    font-weight: 500;
-    font-size: 12px;
-    line-height: 20px;
-    color: #8c8c8c;
-`;
-
-const GroupSectionTitle = styled.span`
-    margin-right: 8px;
-`;
-
-const GroupSectionHeader = styled.div`
-    padding-bottom: 12px;
 `;
 
 export const Content = styled.div`
@@ -343,23 +266,9 @@ export const DraftsOutlinedIconStyle = styled(DraftsOutlinedIcon)`
     font-size: 12px !important;
 `;
 
-const SubscriptionContainer = styled(Row)`
-    display: flex;
-    gap: 0.5rem;
-`;
-
 export const OwnershipContainer = styled(Row)`
     display: flex;
     gap: 0.5rem;
-`;
-
-const DisplayNameText = styled.span`
-    color: ${ANTD_GRAY_V2[12]};
-    font-family: Mulish;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 600;
-    line-height: normal;
 `;
 
 export const NameTitleContainer = styled.div`

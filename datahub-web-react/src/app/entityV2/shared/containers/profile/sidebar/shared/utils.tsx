@@ -14,8 +14,6 @@ export enum PopularityTier {
     TIER_4, // Least Popular
 }
 
-const ACRYL_PLATFORM = 'DataHub Core';
-
 export enum ActionType {
     SHARE,
     SYNC,

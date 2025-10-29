@@ -28,11 +28,3 @@ source:
 
 export const POSTGRES = 'postgres';
 
-const postgresConfig: SourceConfig = {
-    type: POSTGRES,
-    placeholderRecipe,
-    displayName: 'Postgres',
-    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/postgres/',
-    logoUrl: postgresLogo,
-};
-

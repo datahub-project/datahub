@@ -22,13 +22,6 @@ interface Props {
     renderType: TabRenderType;
 }
 
-const contextsWithoutLastSynchronized = [
-    TabContextType.CHROME_SIDEBAR,
-    TabContextType.SEARCH_SIDEBAR,
-    TabContextType.LINEAGE_SIDEBAR,
-    TabContextType.FORM_SIDEBAR,
-];
-
 export default function EntitySidebarSectionsTab({ properties, contextType, renderType }: Props) {
     const sections = properties?.sections || [];
 

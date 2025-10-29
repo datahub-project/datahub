@@ -80,23 +80,3 @@ export const addUserFiltersToAutoCompleteInput = (
     }
     return input;
 };
-
-/**
- * Adds filtering on active=true or displayName to AutoCompleteMultipleInput when CorpUser is included in types.
- *
- * @param input - The autocomplete input object to modify
- * @param entityTypes - Array of entity types being searched
- * @returns The modified input object with user filters applied if CorpUser is included
- */
-const addUserFiltersToAutoCompleteMultipleInput = (
-    input: AutoCompleteMultipleInput,
-    entityTypes: EntityType[],
-): AutoCompleteMultipleInput => {
-    if (entityTypes.includes(EntityType.CorpUser)) {
-        return {
-            ...input,
-            orFilters: getUserFilters(),
-        };
-    }
-    return input;
-};

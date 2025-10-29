@@ -20,11 +20,6 @@ import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
 import { PageTemplateFragment, SummaryElementFragment } from '@graphql/template.generated';
 import { SummaryElement, SummaryElementType } from '@types';
 
-// Types for summary element operations
-interface SummaryElementWithId extends SummaryElement {
-    id: string; // Unique identifier for React keys and operations
-}
-
 export interface AddSummaryElementInput {
     elementType: SummaryElementType;
     structuredProperty?: StructuredPropertyFieldsFragment;

@@ -71,11 +71,6 @@ const useBrowseContext = () => {
     return context;
 };
 
-const useBrowseMode = () => {
-    const { mode } = useBrowseContext();
-    return mode;
-};
-
 export const useIsPlatformBrowseMode = () => {
     const { mode } = useBrowseContext();
     return mode === BrowseMode.PLATFORM;

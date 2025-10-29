@@ -2,8 +2,6 @@ import React from 'react';
 
 import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
-const UNITY_CATALOG = 'unity-catalog';
-
 export const TOKEN: RecipeField = {
     name: 'token',
     label: 'Token',
@@ -23,21 +21,6 @@ export const WORKSPACE_URL: RecipeField = {
     fieldPath: 'source.config.workspace_url',
     placeholder: 'https://abcsales.cloud.databricks.com',
     required: true,
-    rules: null,
-};
-
-const INCLUDE_TABLE_LINEAGE: RecipeField = {
-    name: 'include_table_lineage',
-    label: 'Include Table Lineage',
-    tooltip: (
-        <div>
-            Extract Table Lineage from Unity Catalog. Note that this requires that your Databricks accounts meets
-            certain requirements. View them{' '}
-            <a href="https://docs.databricks.com/data-governance/unity-catalog/data-lineage.html#requirements">here</a>
-        </div>
-    ),
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_table_lineage',
     rules: null,
 };
 

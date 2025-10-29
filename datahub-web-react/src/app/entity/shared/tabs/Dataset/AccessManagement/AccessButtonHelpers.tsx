@@ -94,13 +94,3 @@ export const renderAccessButton = (roleData: RoleAccessData): React.ReactElement
         button
     );
 };
-
-/**
- * Determines the button text based on access status
- */
-const getAccessButtonText = (hasAccess: boolean): string => (hasAccess ? 'Granted' : 'Request');
-
-/**
- * Determines if the button should be disabled
- */
-const isAccessButtonDisabled = (hasAccess: boolean): boolean => hasAccess;

@@ -15,14 +15,3 @@ export function useGetAuthenticatedUser(skip?: boolean) {
     }
     return data?.me;
 }
-
-/**
- * Fetch an urn corresponding to the authenticated user.
- */
-function useGetAuthenticatedUserUrn() {
-    const userUrn = Cookies.get(CLIENT_AUTH_COOKIE);
-    if (!userUrn) {
-        throw new Error('Could not find logged in user.');
-    }
-    return userUrn;
-}

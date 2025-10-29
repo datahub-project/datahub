@@ -121,7 +121,6 @@ export const TABLEAU_URN = `urn:li:dataPlatform:${TABLEAU}`;
 const TRINO = 'trino';
 const TRINO_URN = `urn:li:dataPlatform:${TRINO}`;
 export const CUSTOM = 'custom';
-const CUSTOM_URN = `urn:li:dataPlatform:${CUSTOM}`;
 const UNITY_CATALOG = 'unity-catalog';
 const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
 export const DATABRICKS = 'databricks';

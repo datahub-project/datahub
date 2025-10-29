@@ -20,11 +20,3 @@ source:
 
 export const HIVE = 'hive';
 
-const hiveConfig: SourceConfig = {
-    type: HIVE,
-    placeholderRecipe,
-    displayName: 'Hive',
-    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/hive/',
-    logoUrl: hiveLogo,
-};
-

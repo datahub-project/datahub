@@ -33,17 +33,6 @@ export const ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE = {
     },
 };
 
-const ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX = [
-    AssertionStdOperator.EqualTo,
-    AssertionStdOperator.NotEqualTo,
-    AssertionStdOperator.Contain,
-    AssertionStdOperator.RegexMatch,
-    AssertionStdOperator.StartWith,
-    AssertionStdOperator.EndWith,
-    AssertionStdOperator.In,
-    AssertionStdOperator.NotIn,
-];
-
 export const GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP = ({ isPlural }) => ({
     [AssertionStdOperator.EqualTo]: `${isPlural ? 'are' : 'Is'} equal to`,
     [AssertionStdOperator.NotEqualTo]: `${isPlural ? 'are' : 'Is'} not equal to`,

@@ -46,10 +46,6 @@ export const decodeComma = (str: string) => {
     return str.replace(/%2C/g, ',');
 };
 
-function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
-    return value !== null && value !== undefined;
-}
-
 export const truncate = (length: number, input?: string | null) => {
     if (!input) return '';
     if (input.length > length) {
@@ -124,12 +120,6 @@ export function getFineGrainedLineageWithSiblings(
         }
     });
     return fineGrainedLineages;
-}
-function getDataProduct(dataProductResult: Maybe<EntityRelationshipsResult> | undefined) {
-    if (dataProductResult?.relationships && dataProductResult.relationships.length > 0) {
-        return dataProductResult.relationships[0].entity as DataProduct;
-    }
-    return null;
 }
 
 export function getStructuredPropertyValue(value: PropertyValue) {

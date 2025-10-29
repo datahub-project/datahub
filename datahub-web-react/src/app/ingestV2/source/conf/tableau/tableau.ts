@@ -25,11 +25,3 @@ source:
 
 export const TABLEAU = 'tableau';
 
-const tableauConfig: SourceConfig = {
-    type: TABLEAU,
-    placeholderRecipe,
-    displayName: 'Tableau',
-    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/tableau/',
-    logoUrl: tableauLogo,
-};
-

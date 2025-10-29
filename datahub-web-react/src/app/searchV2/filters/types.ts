@@ -8,12 +8,6 @@ export interface FilterOptionType {
     displayName?: string | null;
 }
 
-interface Filter {
-    field: string;
-    displayName: string;
-    options?: FilterOptionType[];
-}
-
 export interface FilterValue {
     value: string;
     entity: Entity | null;

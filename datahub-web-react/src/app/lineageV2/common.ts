@@ -275,16 +275,6 @@ export function removeFromAdjacencyList(
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
 }
 
-function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjacencyList'>): void {
-    const { edges, adjacencyList } = context;
-    adjacencyList[LineageDirection.Upstream].get(urn)?.forEach((upstream) => edges.delete(createEdgeId(upstream, urn)));
-    adjacencyList[LineageDirection.Downstream]
-        .get(urn)
-        ?.forEach((downstream) => edges.delete(createEdgeId(urn, downstream)));
-    adjacencyList[LineageDirection.Upstream].delete(urn);
-    adjacencyList[LineageDirection.Downstream].delete(urn);
-}
-
 // Mapping fromRef -> toRef -> operationRef represents a column-level edge (fromRef -> toRef)
 // with an operationRef attached if this is an edge to that operation's query node
 export type FineGrainedLineageMap = Map<ColumnRef, Map<ColumnRef, FineGrainedOperationRef | null>>;

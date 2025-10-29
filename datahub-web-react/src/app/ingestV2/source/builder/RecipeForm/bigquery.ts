@@ -1,26 +1,5 @@
 import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
-const BIGQUERY_PROJECT_ID: RecipeField = {
-    name: 'project_id',
-    label: 'Project ID',
-    tooltip: 'Project ID where you have rights to run queries and create tables.',
-    placeholder: 'my-project-123',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.project_id',
-    rules: null,
-    required: true,
-};
-
-const BIGQUERY_CREDENTIAL_PROJECT_ID: RecipeField = {
-    name: 'credential.project_id',
-    label: 'Credentials Project ID',
-    tooltip: "The Project ID, which can be found in your service account's JSON Key (project_id)",
-    placeholder: 'my-project-123',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.credential.project_id',
-    rules: null,
-};
-
 export const BIGQUERY_PRIVATE_KEY_ID: RecipeField = {
     name: 'credential.private_key_id',
     label: 'Private Key Id',

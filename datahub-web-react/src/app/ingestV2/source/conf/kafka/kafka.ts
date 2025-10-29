@@ -17,11 +17,3 @@ source:
 
 export const KAFKA = 'kafka';
 
-const kafkaConfig: SourceConfig = {
-    type: KAFKA,
-    placeholderRecipe,
-    displayName: 'Kafka',
-    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/kafka/',
-    logoUrl: kafkaLogo,
-};
-

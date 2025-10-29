@@ -2,11 +2,6 @@ import { dataset3 } from '@src/Mocks';
 
 import { EntityType, Schema, SchemaField, SchemaFieldDataType, SchemaMetadata } from '@types';
 
-// Extending the schema type with an option for tags
-type TaggedSchemaField = {
-    tags: Tag[];
-} & SchemaField;
-
 type Tag = {
     name: string;
     value?: string;

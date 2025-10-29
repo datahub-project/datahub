@@ -72,8 +72,3 @@ export const useHasMatchedFieldByUrn = (urn: string, fieldName: MatchedFieldName
     const matchedFields = useMatchedFieldsByGroup(fieldName);
     return getMatchedFieldsByUrn(matchedFields, urn).length > 0;
 };
-
-const useMatchedFieldLabel = (fieldName: string) => {
-    const entityType = useEntityType();
-    return getMatchedFieldLabel(entityType, fieldName);
-};

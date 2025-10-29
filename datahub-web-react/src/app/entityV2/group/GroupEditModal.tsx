@@ -19,8 +19,6 @@ type Props = {
     editModalData: PropsData;
     updateName?: (name: string) => void; // TODO: Add name to the update mutation for groups to avoid 2 calls.
 };
-/** Regex Validations */
-const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
 export default function GroupEditModal({
     canEditGroupName,

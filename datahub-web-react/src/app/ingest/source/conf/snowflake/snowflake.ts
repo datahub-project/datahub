@@ -19,11 +19,3 @@ source:
 
 export const SNOWFLAKE = 'snowflake';
 
-const snowflakeConfig: SourceConfig = {
-    type: SNOWFLAKE,
-    placeholderRecipe,
-    displayName: 'Snowflake',
-    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/snowflake/',
-    logoUrl: snowflakeLogo,
-};
-

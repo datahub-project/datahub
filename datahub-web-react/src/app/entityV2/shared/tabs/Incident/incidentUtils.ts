@@ -16,33 +16,10 @@ export const INCIDENT_DISPLAY_TYPES = [
     },
 ];
 
-const INCIDENT_DISPLAY_STATES = [
-    {
-        type: undefined,
-        name: 'All',
-    },
-    {
-        type: IncidentState.Active,
-        name: 'Active',
-    },
-    {
-        type: IncidentState.Resolved,
-        name: 'Resolved',
-    },
-];
-
 const incidentTypeToDetails = new Map();
 INCIDENT_DISPLAY_TYPES.forEach((incidentDetails) => {
     incidentTypeToDetails.set(incidentDetails.type, incidentDetails);
 });
-
-const getNameFromType = (type: IncidentType) => {
-    return incidentTypeToDetails.get(type)?.name || type;
-};
-
-const SUCCESS_COLOR_HEX = '#52C41A';
-const FAILURE_COLOR_HEX = '#F5222D';
-const WARNING_COLOR_HEX = '#FA8C16';
 
 // apollo caching
 const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
@@ -113,30 +90,6 @@ const updateListIncidentsCache = (client, urn, incident, pageSize) => {
             },
         },
     });
-};
-
-/**
- * Returns a status summary for the incidents
- */
-const getIncidentsStatusSummary = (incidents: Array<Incident>) => {
-    const summary = {
-        resolvedIncident: 0,
-        activeIncident: 0,
-        totalIncident: 0,
-    };
-    incidents.forEach((assertion) => {
-        if (incidents.length) {
-            const resultType = assertion.incidentStatus?.state;
-            if (IncidentState.Active === resultType) {
-                summary.activeIncident++;
-            }
-            if (IncidentState.Resolved === resultType) {
-                summary.resolvedIncident++;
-            }
-            summary.totalIncident++;
-        }
-    });
-    return summary;
 };
 
 /**

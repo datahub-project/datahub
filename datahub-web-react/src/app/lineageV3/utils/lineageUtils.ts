@@ -23,25 +23,6 @@ function downgradeV2FieldPath(fieldPath?: string | null) {
         .join('.');
 }
 
-function processDocumentationString(docString): string {
-    if (!docString) {
-        return '';
-    }
-    const fieldRegex = /'(\[version=2\.0\](?:\.\[key=True\])?\.\[type=[^\]]+\]\.[^']+)'/g;
-    return docString.replace(fieldRegex, (_, fieldPath) => `'${downgradeV2FieldPath(fieldPath)}'`);
-}
-
-function convertFieldsToV1FieldPath(fields: SchemaField[]) {
-    return fields.map((field) => ({
-        ...field,
-        fieldPath: downgradeV2FieldPath(field.fieldPath) || '',
-    }));
-}
-
-function getV1FieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
-    return downgradeV2FieldPath(getFieldPathFromSchemaFieldUrn(schemaFieldUrn)) as string;
-}
-
 export function getEntityTypeFromEntityUrn(urn: string, registry: EntityRegistry): EntityType | undefined {
     const [, , entityType] = urn.split(':');
     return registry.getTypeFromGraphName(entityType);

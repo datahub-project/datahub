@@ -54,7 +54,3 @@ export const TextButton = styled(Button)<{ marginTop?: number; height?: number }
 export const Label = styled(Typography.Text)`
     max-width: 125px;
 `;
-
-const IconSpacer = styled.span`
-    width: 4px;
-`;

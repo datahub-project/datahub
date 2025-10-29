@@ -11,7 +11,6 @@ import {
 
 export enum TabType {
     Discover = 'Discover',
-    Activity = 'Activity',
     Announcements = 'Announcements',
 }
 

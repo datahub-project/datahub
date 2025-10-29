@@ -3,19 +3,6 @@ import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 
 import { IngestionSource } from '@types';
 
-/**
- * The size of the builder modal
- */
-enum ModalSize {
-    SMALL = 800,
-    LARGE = 1200,
-}
-
-/**
- * The default executor id used for ingestion
- */
-const DEFAULT_EXECUTOR_ID = 'default';
-
 export interface SourceConfig {
     urn: string;
     name: string;

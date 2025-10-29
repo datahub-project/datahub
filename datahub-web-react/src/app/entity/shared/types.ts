@@ -201,10 +201,6 @@ export type SchemaContextType = {
     refetch?: () => Promise<any>;
 };
 
-type RequiredAndNotNull<T> = {
-    [P in keyof T]-?: Exclude<T[P], null | undefined>;
-};
-
 export type EntityAndType = {
     urn: string;
     type: EntityType;

@@ -17,11 +17,3 @@ source:
 
 export const LOOKER = 'looker';
 
-const lookerConfig: SourceConfig = {
-    type: LOOKER,
-    placeholderRecipe,
-    displayName: 'Looker',
-    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/looker/',
-    logoUrl: lookerLogo,
-};
-

@@ -30,11 +30,6 @@ const FlexSpacer = styled.div`
     justify-content: space-between;
 `;
 
-const FilterButtonsWrapper = styled.div`
-    display: flex;
-    flex-wrap: nowrap;
-`;
-
 const AnyAllToggle = styled.div`
     margin-top: 8px;
 `;

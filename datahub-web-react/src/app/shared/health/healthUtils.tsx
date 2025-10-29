@@ -137,19 +137,6 @@ const getIncidentsHealthIcon = (status: HealthStatus, fontSize: number) => {
     }
 };
 
-const getHealthIcon = (type: HealthStatusType, status: HealthStatus, fontSize: number) => {
-    switch (type) {
-        case HealthStatusType.Assertions: {
-            return getAssertionsHealthIcon(status, fontSize);
-        }
-        case HealthStatusType.Incidents: {
-            return getIncidentsHealthIcon(status, fontSize);
-        }
-        default:
-            throw new Error(`Unrecognized Health Status Type ${type} provided`);
-    }
-};
-
 export const getHealthRedirectPath = (type: HealthStatusType) => {
     switch (type) {
         case HealthStatusType.Assertions: {

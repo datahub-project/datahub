@@ -109,9 +109,3 @@ export const CardIcons = styled.div`
         }
     }
 `;
-
-const StyledSelect = styled(Select)`
-    min-width: 200px;
-    display: flex;
-    align-items: center;
-`;

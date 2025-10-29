@@ -5,15 +5,6 @@ import styled from 'styled-components';
 
 import { RotatingButton } from '@app/shared/components';
 
-const SidebarWrapper = styled.div<{ width: number }>`
-    max-height: 100%;
-    width: ${(props) => props.width}px;
-    min-width: ${(props) => props.width}px;
-    display: ${(props) => (props.width ? 'block' : 'none')};
-    display: flex;
-    flex-direction: column;
-`;
-
 export function RotatingTriangle({
     isOpen,
     onClick,
@@ -34,22 +25,4 @@ export function RotatingTriangle({
             data-testid={testId}
         />
     );
-}
-
-function getCountryName(countryCode: string) {
-    let countryName;
-    const findCountryName = (code) => {
-        try {
-            countryName = countries[code].name;
-        } catch (error) {
-            countryName = null;
-        }
-    };
-
-    if (countryCode === '' || countryCode === undefined || countryCode == null) {
-        return null;
-    }
-
-    findCountryName(countryCode);
-    return countryName;
 }

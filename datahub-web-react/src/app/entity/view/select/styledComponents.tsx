@@ -9,10 +9,3 @@ export const NoMarginButton = styled(Button)`
         margin: 0px;
     }
 `;
-
-const StyledRightOutlined = styled(RightOutlined)`
-    && {
-        font-size: 8px;
-        color: ${ANTD_GRAY[7]};
-    }
-`;

@@ -37,11 +37,6 @@ export const VALUE_TYPE_FIELD_NAME = 'valueType';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const OUTPUT_PORTS_FIELD = 'isOutputPort';
-const COMPLETED_FORMS_FILTER_NAME = 'completedForms';
-const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
-const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
-const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
-const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
 export const SCHEMA_FIELD_ALIASES_FILTER_NAME = 'schemaFieldAliases';
 export const IS_DEPRECATED_FILTER_NAME = 'deprecated';
 
@@ -54,17 +49,6 @@ export const ENTITY_SUB_TYPE_FILTER_FIELDS = [
     ENTITY_SUB_TYPE_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
-];
-
-const FILTERS_TO_TRUNCATE = [
-    TAGS_FILTER_NAME,
-    GLOSSARY_TERMS_FILTER_NAME,
-    CONTAINER_FILTER_NAME,
-    DOMAINS_FILTER_NAME,
-    OWNERS_FILTER_NAME,
-    ENTITY_FILTER_NAME,
-    TYPE_NAMES_FILTER_NAME,
-    PLATFORM_FILTER_NAME,
 ];
 export const TRUNCATED_FILTER_LENGTH = 5;
 

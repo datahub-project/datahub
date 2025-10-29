@@ -241,14 +241,6 @@ export const getShowInColumnsTablePropertyFilter = () => {
     return columnsTableFilter;
 };
 
-const getShowInAssetSummaryPropertyFilter = () => {
-    const assetSummaryFilter: FacetFilterInput = {
-        field: SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
-        values: ['true'],
-    };
-    return assetSummaryFilter;
-};
-
 export const getEntityTypesPropertyFilter = (
     entityRegistry: EntityRegistry,
     isSchemaField: boolean,

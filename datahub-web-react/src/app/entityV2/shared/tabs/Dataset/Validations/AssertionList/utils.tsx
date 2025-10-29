@@ -109,54 +109,6 @@ const getGroupNameBySummary = (record) => {
     );
 };
 
-/**
- * Gets sibling options that a user can author assertions with
- * This includes direct links that will open the respective siblings' assertion builder UI
- * @param entityData
- * @param urn
- * @param entityType
- * @returns {AssertionBuilderSiblingOptions[]}
- */
-const useSiblingOptionsForAssertionBuilder = (
-    entityData: GenericEntityProperties | null,
-    urn: string,
-    entityType: EntityType,
-): AssertionBuilderSiblingOptions[] => {
-    const optionsToAuthorOn: AssertionBuilderSiblingOptions[] = [];
-    // push main entity data
-    optionsToAuthorOn.push({
-        title:
-            entityData?.platform?.properties?.displayName ??
-            entityData?.platform?.name ??
-            entityData?.dataPlatformInstance?.platform.name ??
-            entityData?.platform?.urn ??
-            urn,
-        disabled: true,
-        urn,
-        platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
-        entityType,
-    });
-    // push siblings data
-    const siblings: GenericEntityProperties[] = entityData?.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
-    siblings.forEach((sibling) => {
-        if (sibling.urn === urn || !sibling.urn) {
-            return;
-        }
-        optionsToAuthorOn.push({
-            urn: sibling.urn,
-            title:
-                getPlatformNameFromEntityData(sibling) ??
-                sibling?.dataPlatformInstance?.platform?.name ??
-                sibling?.platform?.urn ??
-                sibling.urn,
-            disabled: true,
-            platform: sibling?.platform ?? sibling?.dataPlatformInstance?.platform,
-            entityType: sibling.type,
-        });
-    });
-    return optionsToAuthorOn;
-};
-
 // transform assertions into table data
 const mapAssertionData = (assertions: Assertion[]): AssertionListTableRow[] => {
     return assertions.map((assertion: Assertion) => {

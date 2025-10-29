@@ -6,10 +6,6 @@ export const MAX_QUERIES_COUNT = 25;
  * Default page size for Queries Tab Section
  */
 export const DEFAULT_PAGE_SIZE = 5;
-/**
- * The Max number of "Recent Queries" to surface.
- */
-const DEFAULT_MAX_RECENT_QUERIES = 9;
 
 /**
  * Searching Queries

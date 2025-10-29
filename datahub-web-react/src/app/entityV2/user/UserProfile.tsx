@@ -74,15 +74,6 @@ const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
 `;
 
-const EmptyValue = styled.div`
-    &:after {
-        content: 'None';
-        color: #b7b7b7;
-        font-style: italic;
-        font-weight: 100;
-    }
-`;
-
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
     ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}

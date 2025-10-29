@@ -38,10 +38,6 @@ export const getNameFromType = (type: OwnershipType) => {
     return ownershipTypeToDetails.get(type)?.name || type;
 };
 
-const getDescriptionFromType = (type: OwnershipType) => {
-    return ownershipTypeToDetails.get(type)?.description || 'No description';
-};
-
 export function getOwnershipTypeName(ownershipType?: OwnershipTypeEntity | null) {
     return (ownershipType?.info?.name && forcePluralize(ownershipType?.info?.name)) || 'Other';
 }

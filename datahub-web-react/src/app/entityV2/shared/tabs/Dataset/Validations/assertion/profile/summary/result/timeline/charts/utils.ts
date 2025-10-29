@@ -8,12 +8,10 @@ import {
 import { AssertionInfo, AssertionResultType, AssertionType, Maybe } from '@types';
 
 export const ACCENT_COLOR_HEX = '#222222';
-const EXTRA_HIGHLIGHT_COLOR_HEX = '#4050E7';
 const SUCCESS_COLOR_HEX = '#52C41A';
 const FAILURE_COLOR_HEX = '#F5222D';
 const ERROR_COLOR_HEX = '#FAAD14';
 const INIT_COLOR_HEX = '#8C8C8C';
-const EXPECTED_RANGE_SHADE_COLOR = '#11d469';
 
 export const getFillColor = (type: AssertionResultType) => {
     switch (type) {
@@ -29,16 +27,6 @@ export const getFillColor = (type: AssertionResultType) => {
             throw new Error(`Unsupported Assertion Result Type ${type} provided.`);
     }
 };
-
-/**
- * For now we're keeping it simple by only showing the range of values being displayed on the chart
- * @param minY
- * @param maxY
- * @returns {number[]}
- */
-function generateYScaleTickValues(minY: number, maxY: number): number[] {
-    return [minY, maxY];
-}
 
 export function generateTimeScaleTickValues(startMs: number, endMs: number): Date[] {
     const ticks: Date[] = [];
@@ -108,40 +96,3 @@ export function getCustomTimeScaleTickValue(v, timeRange) {
     // Format as month and day if the range is more than one day
     return v.toLocaleDateString('en-us', { month: 'short', day: 'numeric' });
 }
-
-const getBestChartTypeForAssertion = (
-    assertionInfo?: AssertionInfo | Maybe<AssertionInfo>,
-): AssertionChartType => {
-    switch (assertionInfo?.type) {
-        case AssertionType.Freshness:
-            return AssertionChartType.Freshness;
-        case AssertionType.Field:
-            return AssertionChartType.ValuesOverTime;
-        case AssertionType.Sql:
-            return AssertionChartType.ValuesOverTime;
-        case AssertionType.Volume:
-            return AssertionChartType.ValuesOverTime;
-        default:
-            break;
-    }
-    return AssertionChartType.StatusOverTime; // safest catch-all fallback
-};
-
-/**
- * Duplicates a datapoint with +- a certain amount of buffer on the timestamp
- * Useful to extend a line with some buffer to the left and right
- * @param dataPoint
- * @param timestampMillisModifiers
- * @returns {AssertionDataPoint[]}
- */
-const duplicateDataPointsAcrossBufferedTimeRange = (
-    dataPoint: AssertionDataPoint,
-    timestampMillisBuffer: number,
-): AssertionDataPoint[] => {
-    const timestampMillisModifiers = [-timestampMillisBuffer, 0, timestampMillisBuffer];
-    const points: AssertionDataPoint[] = timestampMillisModifiers.map((tsModifier) => ({
-        ...dataPoint,
-        time: dataPoint.time + tsModifier,
-    }));
-    return points;
-};

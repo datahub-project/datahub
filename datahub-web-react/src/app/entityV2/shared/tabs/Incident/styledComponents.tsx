@@ -66,12 +66,6 @@ export const ModalHeading = styled.span`
     color: ${colors.gray[600]};
 `;
 
-const ModalDescription = styled.p`
-    font-weight: 500;
-    font-size: 14px;
-    color: ${colors.gray[1700]};
-`;
-
 export const FormItem = styled(Form.Item)`
     .ant-form-item-label > label {
         color: ${colors.gray[600]} !important;
@@ -81,16 +75,6 @@ export const FormItem = styled(Form.Item)`
         font-weight: 400;
         font-size: 14px;
     }
-`;
-
-const IconContainer = styled.div`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 50%;
-    border: 1px solid #ebecf0;
-    height: 22px;
-    width: 22px;
 `;
 
 export const ResolverNameContainer = styled.div`

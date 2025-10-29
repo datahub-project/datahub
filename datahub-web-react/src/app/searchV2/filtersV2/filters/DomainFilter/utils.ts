@@ -28,11 +28,3 @@ export function extractParentDomains(domains: Domain[]) {
 
     return getUniqueItemsByKey(allParentDomains, domainKeyAccessor);
 }
-
-function domainFilteringPredicate(option: NestedSelectOption, query: string) {
-    const { entity } = option;
-    if (!isDomain(entity)) return false;
-
-    const searchText = (entity.properties?.name ?? '').toLowerCase();
-    return searchText.includes(query.toLowerCase()) || entity.urn.toLowerCase().includes(query.toLowerCase());
-}

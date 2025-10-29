@@ -105,13 +105,6 @@ export function getEntityPath(
     }${tabParamsString}`;
 }
 
-function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {
-    const isLineageMode = useIsLineageMode();
-    const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const entityRegistry = useEntityRegistry();
-    return getEntityPath(entityType, urn, entityRegistry, isLineageMode, isHideSiblingMode, tabName, tabParams);
-}
-
 export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     const { pathname } = useLocation();
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;

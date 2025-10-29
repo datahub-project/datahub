@@ -71,22 +71,6 @@ const buildViewDefinition = (filters: Array<FacetFilterInput>, operatorType: Log
 };
 
 /**
- * Build an object representation of a View Definition, which consists of a list of entity types +
- * a set of filters joined in either conjunction or disjunction.
- *
- * @param filters a list of Facet Filter Inputs representing the view filters. This can include the entity type filter.
- * @param operatorType a logical operator to be used when joining the filters into the View definition.
- */
-const buildInitialViewState = (filters: Array<FacetFilterInput>, operatorType: LogicalOperator) => {
-    return {
-        viewType: DataHubViewType.Personal,
-        name: '',
-        description: null,
-        definition: buildViewDefinition(filters, operatorType),
-    };
-};
-
-/**
  * Convert a LogicalOperator to the equivalent UnionType.
  */
 export const toUnionType = (operator: LogicalOperator) => {

@@ -24,39 +24,3 @@ interface Arguments {
     skip?: boolean;
     count?: number;
 }
-
-function generateQueryVariables({
-    urn,
-    startTimeMillis,
-    filterField,
-    start,
-    includeAssertions,
-    includeIncidents,
-    skip,
-    count,
-}: Arguments) {
-    return {
-        skip,
-        variables: {
-            input: {
-                urn,
-                startTimeMillis,
-                query: '*',
-                types: [EntityType.Dataset],
-                start,
-                count: count !== undefined ? count : DATASET_COUNT,
-                direction: LineageDirection.Upstream,
-                orFilters: [
-                    {
-                        and: [
-                            { field: 'degree', condition: FilterOperator.Equal, values: ['1', '2', '3+'] },
-                            { field: filterField, condition: FilterOperator.Equal, values: ['true'] },
-                        ],
-                    },
-                ],
-            },
-            includeAssertions,
-            includeIncidents,
-        },
-    };
-}

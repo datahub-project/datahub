@@ -67,12 +67,6 @@ const useGetActivityExists = (): Tab | null => {
     return null;
 };
 
-type ActiveTab = {
-    key: TabType;
-    count?: number;
-    onSelectTab?: () => void; // Refetch count, etc
-};
-
 export const useGetActiveTabs = (): Tab[] => {
     const activeTabs: Tab[] = [{ ...DISCOVER_TAB, onSelectTab: () => handleTabClick(HomePageModule.Discover) }];
 

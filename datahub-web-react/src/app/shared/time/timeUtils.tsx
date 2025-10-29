@@ -117,19 +117,6 @@ export const toLocalDateTimeString = (timeMs: number) => {
     });
 };
 
-const toUTCDateTimeString = (timeMs: number) => {
-    const date = new Date(timeMs);
-    return date.toLocaleString([], {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'UTC',
-        timeZoneName: 'short',
-    });
-};
-
 export const getLocaleTimezone = () => {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
 };

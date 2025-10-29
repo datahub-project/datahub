@@ -4,55 +4,6 @@ import styled, { keyframes } from 'styled-components';
 import { Button, colors } from '@src/alchemy-components';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
-const IncidentListStyledTable = styled(Table)`
-    max-width: none;
-    &&& .ant-table-thead .ant-table-cell {
-        font-weight: 600;
-        font-size: 12px;
-        color: ${ANTD_GRAY[8]};
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    &&& .ant-table-expanded-row > .ant-table-cell {
-        padding-left: 0px;
-    }
-    &&& .ant-table-tbody > tr > td > .ant-table-wrapper:only-child .ant-table,
-    .ant-table-tbody > tr > td > .ant-table-expanded-row-fixed > .ant-table-wrapper:only-child .ant-table {
-        margin-left: 0px;
-    }
-    &&
-        .ant-table-thead
-        > tr
-        > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
-            [colspan]
-        )::before {
-        border: 1px solid ${ANTD_GRAY[4]};
-    }
-    &&& .ant-table-thead > tr > th {
-        line-height: 5px;
-    }
-    &&& .ant-table-cell {
-        background-color: transparent;
-    }
-
-    &&& .acryl-selected-incidents-table-row {
-        background-color: ${ANTD_GRAY[4]};
-    }
-
-    .group-header {
-        cursor: pointer;
-        background-color: ${ANTD_GRAY[3]};
-    }
-    &&& .acryl-incidents-table-row {
-        cursor: pointer;
-        background-color: ${ANTD_GRAY[2]};
-        :hover {
-            background-color: ${ANTD_GRAY[3]};
-        }
-    }
-`;
-
 export const ListContainer = styled.div`
     display: flex;
     flex-wrap: wrap;
@@ -152,10 +103,6 @@ export const Header = styled.div`
     display: flex;
     align-items: center;
     margin-bottom: 1rem;
-`;
-
-const ToggleIcon = styled.span`
-    color: #666;
 `;
 
 export const Divider = styled.div`

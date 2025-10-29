@@ -183,21 +183,6 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
     return summary;
 };
 
-/**
- * TODO: We will remove this mapping code once we replace the OSS legacy assertions summary with the new
- * format.
- */
-const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
-    const newSummary = getAssertionsSummary(assertions);
-    return {
-        failedRuns: newSummary.failing,
-        succeededRuns: newSummary.passing,
-        erroredRuns: newSummary.erroring,
-        totalRuns: newSummary.total,
-        totalAssertions: newSummary.totalAssertions,
-    };
-};
-
 export const getAssertionType = (assertion: Assertion): string | undefined => {
     return assertion?.info?.customAssertion?.type?.toUpperCase() || assertion?.info?.type?.toUpperCase();
 };
@@ -238,83 +223,6 @@ export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGr
     });
 
     return assertionGroups;
-};
-
-// TODO: Make this the default inside DatasetAssertionsSummary.tsx.
-const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) => {
-    if (summary.total === 0) {
-        return null;
-    }
-    if (summary.passing === summary.total) {
-        return <StyledCheckOutlined />;
-    }
-    if (summary.erroring > 0) {
-        return <StyledExclamationOutlined />;
-    }
-    return <StyledCloseOutlined />;
-};
-
-// TODO: Make this the default inside DatasetAssertionsSummary.tsx.
-const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary) => {
-    if (summary.total === 0) {
-        return 'No assertions have run';
-    }
-    if (summary.passing === summary.total) {
-        return 'All assertions are passing';
-    }
-    if (summary.erroring > 0) {
-        return 'An error is preventing some assertions from running';
-    }
-    if (summary.failing === summary.total) {
-        return 'All assertions are failing';
-    }
-    return 'Some assertions are failing';
-};
-
-/**
- * Returns the next scheduled run of a cron schedule, in the local timezone of the user.
- *
- * @param schedule a cron schedule
- */
-const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
-    try {
-        const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
-        const nextDate = interval.next().toDate(); // Get next date as JavaScript Date object
-        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const nextDateInUserTz = moment.tz(nextDate, userTimezone); // Convert to user's timezone
-        return nextDateInUserTz.valueOf();
-    } catch (e) {
-        console.log('Failed to parse cron expression', e);
-        return undefined;
-    }
-};
-
-/**
- * Returns the previously scheduled run of a cron schedule, in the local timezone of the user.
- *
- * @param schedule a cron schedule
- * @param maybeFromDateTS
- */
-const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, maybeFromDateTS?: number) => {
-    try {
-        const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
-        if (typeof maybeFromDateTS !== 'undefined') {
-            interval.reset(maybeFromDateTS);
-        }
-        const prevDate = interval.prev().toDate(); // Get prev date as JavaScript Date object
-        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const prevDateInUserTz = moment.tz(prevDate, userTimezone); // Convert to user's timezone
-        return prevDateInUserTz.valueOf();
-    } catch (e) {
-        console.log('Failed to parse cron expression', e);
-        return undefined;
-    }
-};
-const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
-    return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
-        ...type,
-        enabled: type.enabled && (!type.requiresConnectionSupportedByMonitors || monitorsConnectionForEntityExists),
-    }));
 };
 
 export const getCronAsText = (interval: string, options: { verbose: boolean } = { verbose: false }) => {

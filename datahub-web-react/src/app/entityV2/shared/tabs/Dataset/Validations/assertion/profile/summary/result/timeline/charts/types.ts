@@ -28,7 +28,4 @@ export type TimeRange = {
 };
 
 export enum AssertionChartType {
-    ValuesOverTime,
-    StatusOverTime,
-    Freshness,
-}
+    }

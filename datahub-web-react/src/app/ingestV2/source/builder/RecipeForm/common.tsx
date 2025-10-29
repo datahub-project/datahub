@@ -126,36 +126,8 @@ export const DATABASE_DENY: RecipeField = {
 };
 
 const dashboardAllowFieldPath = 'source.config.dashboard_pattern.allow';
-const DASHBOARD_ALLOW: RecipeField = {
-    name: 'dashboard_pattern.allow',
-    label: 'Allow Patterns',
-    tooltip:
-        'Only include specific Dashboards by providing the name of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included.',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: dashboardAllowFieldPath,
-    rules: null,
-    section: 'Dashboards',
-    placeholder: 'my_dashboard',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, dashboardAllowFieldPath),
-};
 
 const dashboardDenyFieldPath = 'source.config.dashboard_pattern.deny';
-const DASHBOARD_DENY: RecipeField = {
-    name: 'dashboard_pattern.deny',
-    label: 'Deny Patterns',
-    tooltip:
-        'Exclude specific Dashboards by providing the name of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included. Deny patterns always take precendence over Allow patterns.',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: dashboardDenyFieldPath,
-    rules: null,
-    section: 'Dashboards',
-    placeholder: 'my_dashboard',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, dashboardDenyFieldPath),
-};
 
 const schemaAllowFieldPath = 'source.config.schema_pattern.allow';
 export const SCHEMA_ALLOW: RecipeField = {
@@ -318,15 +290,6 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     rules: null,
 };
 
-const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
-    name: 'upstream_lineage_in_report',
-    label: 'Include Upstream Lineage In Report.',
-    tooltip: 'Useful for debugging lineage information. Set to True to see the raw lineage created internally.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.upstream_lineage_in_report',
-    rules: null,
-};
-
 export const TABLE_LINEAGE_MODE: RecipeField = {
     name: 'table_lineage_mode',
     label: 'Table Lineage Mode',
@@ -408,25 +371,6 @@ export const INCLUDE_VIEWS: RecipeField = {
         }
         return true;
     },
-    rules: null,
-};
-
-const GITHUB_INFO_REPO: RecipeField = {
-    name: 'github_info.repo',
-    label: 'GitHub Repo',
-    tooltip: (
-        <div>
-            <p>
-                Name of your github repo. e.g. repo for{' '}
-                <a href="https://github.com/datahub-project/datahub" target="_blank" rel="noreferrer">
-                    https://github.com/datahub-project/datahub
-                </a>{' '}
-                is datahub-project/datahub.
-            </p>
-        </div>
-    ),
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.github_info.repo',
     rules: null,
 };
 

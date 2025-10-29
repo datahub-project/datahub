@@ -138,39 +138,8 @@ export const ViewFieldsContainer = styled.div`
     gap: 24px;
 `;
 
-const CheckboxWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 10px 0;
-    color: #374066;
-    p {
-        color: #374066;
-        font-weight: 500;
-    }
-`;
-
-const StyledCheckbox = styled(Checkbox)`
-    .ant-checkbox-checked .ant-checkbox-inner {
-        background-color: ${(props) => props.theme.styles['primary-color']};
-        border-color: ${(props) => props.theme.styles['primary-color']} !important;
-    }
-`;
-
-const StyledText = styled.div`
-    display: inline-flex;
-    margin-left: -4px;
-`;
-
 export const StyledFormItem = styled(Form.Item)`
     margin: 0;
-`;
-
-const SupItemsContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 32px;
-    padding-top: 32px;
 `;
 
 export const StyledFormSubItem = styled(StyledFormItem)`
@@ -310,26 +279,6 @@ export const ValueType = styled.div`
     padding: 2px 4px;
 `;
 
-const StyledModal = styled(Modal)`
-    font-family: Mulish;
-
-    &&& .ant-modal-content {
-        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
-        border-radius: 12px;
-        width: 452px;
-    }
-
-    .ant-modal-header {
-        border-top-left-radius: 12px !important;
-        border-top-right-radius: 12px !important;
-        padding: 20px 20px 8px 20px;
-    }
-
-    .ant-modal-body {
-        padding: 0;
-    }
-`;
-
 export const FieldGroupContainer = styled.div`
     display: grid;
     margin-bottom: 8px;
@@ -389,64 +338,10 @@ export const FormContainer = styled.div`
     display: grid;
 `;
 
-const ModalFooter = styled.div`
-    display: flex;
-    gap: 16px;
-    justify-content: end;
-`;
-
 export const VerticalDivider = styled(Divider)`
     color: ${colors.gray[1400]};
     height: 20px;
     width: 2px;
-`;
-
-const StyledSelect = styled(Select)`
-    font-family: ${typography.fonts.body};
-
-    .ant-select-selector {
-        height: 50px !important;
-        border-radius: 8px !important;
-        outline: 2px solid transparent !important;
-
-        &:hover,
-        &:focus-within {
-            border: 1px solid ${colors.violet[200]} !important;
-            outline: 2px solid ${colors.violet[200]} !important;
-            box-shadow: none !important;
-        }
-    }
-
-    .ant-select-selection-item {
-        p {
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            overflow: hidden;
-        }
-    }
-
-    .ant-select-selection-placeholder {
-        display: flex;
-        align-items: center;
-        font-size: 14px;
-        color: ${colors.gray[400]};
-    }
-`;
-
-const CustomDropdown = styled.div`
-    .ant-select-item-option-content {
-        white-space: normal;
-    }
-`;
-
-const SelectOptionContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    padding: 4px 0;
-
-    p {
-        line-height: 20px;
-    }
 `;
 
 export const StyledDivider = styled(Divider)`

@@ -369,17 +369,6 @@ function customMerge(isPrimary, key) {
     };
 }
 
-const getEntitySiblingData = <T>(baseEntity: T): Maybe<SiblingProperties> => {
-    if (!baseEntity) {
-        return null;
-    }
-    const baseEntityKey = Object.keys(baseEntity)[0];
-    const extractedBaseEntity = baseEntity[baseEntityKey];
-
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    return extractedBaseEntity?.['siblings'];
-};
-
 // should the entity's metadata win out against its siblings?
 export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: {
     siblings?: SiblingProperties | null;
@@ -435,16 +424,6 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
 
     return combinedBaseEntity;
 };
-
-function combineEntityData<T>(entityValue: T, siblingValue: T, isPrimary: boolean) {
-    if (!entityValue) return siblingValue;
-    if (!siblingValue) return entityValue;
-
-    return merge(clean(isPrimary ? siblingValue : entityValue), clean(isPrimary ? entityValue : siblingValue), {
-        arrayMerge: combineMerge,
-        customMerge: customMerge.bind({}, isPrimary),
-    });
-}
 
 export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     if (!baseEntity) {

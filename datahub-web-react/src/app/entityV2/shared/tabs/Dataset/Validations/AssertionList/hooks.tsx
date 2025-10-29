@@ -166,30 +166,6 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
     }, [renderAssertionName, renderCategory, renderLastRun, renderTags, renderActions]);
 };
 
-const usePinnedAssertionTableHeaderProps = () => {
-    // Dynamic height calculation
-    const tableContainerRef = useRef<HTMLDivElement>(null);
-    const [scrollY, setScrollY] = useState<number>(0);
-
-    useEffect(() => {
-        const handleResize = () => {
-            if (tableContainerRef.current) {
-                const containerHeight = tableContainerRef.current.getBoundingClientRect().height;
-                setScrollY(containerHeight - TABLE_HEADER_HEIGHT);
-            }
-        };
-
-        handleResize();
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, []);
-
-    return { tableContainerRef, scrollY };
-};
-
 /** set filter as per the params we are getting from URL set assertion type and status as per the url */
 export const useSetFilterFromURLParams = (
     filter: AssertionListFilter,

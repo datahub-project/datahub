@@ -16,11 +16,3 @@ export const BrowserTitleProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     return <BrowserTitleContext.Provider value={{ title, updateTitle }}>{children}</BrowserTitleContext.Provider>;
 };
-
-const useBrowserTitle = () => {
-    const context = useContext(BrowserTitleContext);
-    if (!context) {
-        throw new Error('useBrowserTitle must be used within a BrowserTitleProvider');
-    }
-    return context;
-};

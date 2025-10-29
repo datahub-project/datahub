@@ -137,16 +137,6 @@ export type IncidentBuilderSiblingOptions = {
     disabled?: boolean;
 } & Partial<EntityStagedForIncident>;
 
-type IncidentHandlerProps = {
-    mode: IncidentAction;
-    onSubmit?: () => void;
-    incidentUrn: string | undefined;
-    user: CorpUser | null | undefined;
-    entity: EntityStagedForIncident | undefined;
-    assignees: CorpUser[];
-    linkedAssets: string[];
-};
-
 export type CreateIncidentButtonProps = {
     privileges: EntityPrivileges;
     setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;

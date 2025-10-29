@@ -47,17 +47,6 @@ const descriptors = {
     },
 };
 
-const getFreshnessTitle = (property: string | undefined) => {
-    switch (property) {
-        case 'lastModified':
-            return descriptors.lastModified.sectionTitle;
-        case 'lastRefreshed':
-            return descriptors.lastRefreshed.sectionTitle;
-        default: // default to "lastUpdated"
-            return descriptors.lastUpdated.sectionTitle;
-    }
-};
-
 const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
     const lastUpdatedAgo = toRelativeTimeString(time);
 

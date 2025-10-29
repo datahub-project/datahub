@@ -19,12 +19,6 @@ function getAssertionsSummary(dataset: Dataset) {
     return { numAssertionsPassing, numAssertionsFailing };
 }
 
-interface UpstreamSummary {
-    passingUpstreams: number;
-    failingUpstreams: number;
-    datasetsWithFailingAssertions: Dataset[];
-}
-
 export function extractUpstreamSummary(upstreams: Entity[]) {
     let passingUpstreams = 0;
     let failingUpstreams = 0;

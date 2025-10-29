@@ -1330,19 +1330,6 @@ export const glossaryNode4 = {
     __typename: 'GlossaryNode',
 } as GlossaryNode;
 
-const glossaryNode5 = {
-    urn: 'urn:li:glossaryNode:example.glossarynode5',
-    type: 'GLOSSARY_NODE',
-    properties: {
-        name: 'Glossary Node 5',
-    },
-    parentNodes: {
-        count: 1,
-        nodes: [glossaryNode4],
-    },
-    __typename: 'GlossaryNode',
-} as GlossaryNode;
-
 export const sampleTag = {
     urn: 'urn:li:tag:abc-sample-tag',
     type: EntityType.Tag,
@@ -1544,107 +1531,6 @@ export const dataJob1 = {
     activeIncidents: null,
     health: [],
 } as DataJob;
-
-const businessAttribute = {
-    urn: 'urn:li:businessAttribute:ba1',
-    type: EntityType.BusinessAttribute,
-    __typename: 'BusinessAttribute',
-    properties: {
-        name: 'TestBusinessAtt-2',
-        description: 'lorem upsum updated 12',
-        created: {
-            time: 1705857132786,
-        },
-        lastModified: {
-            time: 1705857132786,
-        },
-        glossaryTerms: {
-            terms: [
-                {
-                    term: {
-                        urn: 'urn:li:glossaryTerm:1',
-                        type: EntityType.GlossaryTerm,
-                        hierarchicalName: 'SampleHierarchicalName',
-                        name: 'SampleName',
-                    },
-                    attribution: null,
-                    associatedUrn: 'urn:li:businessAttribute:ba1',
-                },
-            ],
-            __typename: 'GlossaryTerms',
-        },
-        tags: {
-            __typename: 'GlobalTags',
-            tags: [
-                {
-                    tag: {
-                        urn: 'urn:li:tag:abc-sample-tag',
-                        __typename: 'Tag',
-                        type: EntityType.Tag,
-                        name: 'abc-sample-tag',
-                    },
-                    __typename: 'TagAssociation',
-                    associatedUrn: 'urn:li:businessAttribute:ba1',
-                    attribution: null,
-                },
-                {
-                    tag: {
-                        urn: 'urn:li:tag:TestTag',
-                        __typename: 'Tag',
-                        type: EntityType.Tag,
-                        name: 'TestTag',
-                    },
-                    __typename: 'TagAssociation',
-                    associatedUrn: 'urn:li:businessAttribute:ba1',
-                    attribution: null,
-                },
-            ],
-        },
-        customProperties: [
-            {
-                key: 'prop2',
-                value: 'val2',
-                associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry',
-            },
-            {
-                key: 'prop1',
-                value: 'val1',
-                associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry',
-            },
-            {
-                key: 'prop3',
-                value: 'val3',
-                associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry',
-            },
-        ],
-    },
-    ownership: {
-        owners: [
-            {
-                owner: {
-                    ...user1,
-                },
-                associatedUrn: 'urn:li:businessAttribute:ba',
-                type: 'DATAOWNER',
-                attribution: null,
-            },
-            {
-                owner: {
-                    ...user2,
-                },
-                associatedUrn: 'urn:li:businessAttribute:ba',
-                type: 'DELEGATE',
-                attribution: null,
-            },
-        ],
-        lastModified: {
-            time: 0,
-        },
-    },
-} as BusinessAttribute;
 
 export const dataJob2 = {
     __typename: 'DataJob',

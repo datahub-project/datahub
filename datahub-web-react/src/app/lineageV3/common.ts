@@ -157,14 +157,6 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>, root
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
 }
 
-function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
-    return (
-        (type === EntityType.Dataset || type === EntityType.SchemaField) &&
-        getPlatformUrnFromEntityUrn(urn) === DBT_CLOUD_URN
-    );
-}
-
 export function isUrnQuery(urn: string): boolean {
     const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
     return type === EntityType.Query;
@@ -173,11 +165,6 @@ export function isUrnQuery(urn: string): boolean {
 export function isUrnDataProcessInstance(urn: string): boolean {
     const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
     return type === EntityType.DataProcessInstance;
-}
-
-function isUrnDataJob(urn: string): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
-    return type === EntityType.DataJob;
 }
 
 export function isUrnTransformational(urn: string, rootType: EntityType): boolean {
@@ -332,16 +319,6 @@ export function removeFromAdjacencyList(
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
 }
 
-function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjacencyList'>): void {
-    const { edges, adjacencyList } = context;
-    adjacencyList[LineageDirection.Upstream].get(urn)?.forEach((upstream) => edges.delete(createEdgeId(upstream, urn)));
-    adjacencyList[LineageDirection.Downstream]
-        .get(urn)
-        ?.forEach((downstream) => edges.delete(createEdgeId(urn, downstream)));
-    adjacencyList[LineageDirection.Upstream].delete(urn);
-    adjacencyList[LineageDirection.Downstream].delete(urn);
-}
-
 // Mapping fromRef -> toRef -> operationRef represents a column-level edge (fromRef -> toRef)
 // with an operationRef attached if this is an edge to that operation's query node
 export type FineGrainedLineageMap = Map<ColumnRef, Map<ColumnRef, FineGrainedOperationRef | null>>;
@@ -412,22 +389,3 @@ const DATA_STORE_COLOR = '#ffd279';
 const BI_TOOL_COLOR = '#8682a2';
 const ML_COLOR = '#206de8';
 const DEFAULT_COLOR = '#ff7979';
-
-function getNodeColor(type?: EntityType): [string, string] {
-    if (type === EntityType.Chart || type === EntityType.Dashboard) {
-        return [BI_TOOL_COLOR, 'Field'];
-    }
-    if (type === EntityType.Dataset) {
-        return [DATA_STORE_COLOR, 'Column'];
-    }
-    if (
-        type === EntityType.Mlmodel ||
-        type === EntityType.MlmodelGroup ||
-        type === EntityType.Mlfeature ||
-        type === EntityType.MlfeatureTable ||
-        type === EntityType.MlprimaryKey
-    ) {
-        return [ML_COLOR, ''];
-    }
-    return [DEFAULT_COLOR, ''];
-}

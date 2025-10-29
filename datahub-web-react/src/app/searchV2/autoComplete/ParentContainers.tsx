@@ -30,31 +30,3 @@ export const ArrowWrapper = styled.span`
 interface Props {
     parentContainers: Container[];
 }
-
-function ParentContainers({ parentContainers }: Props) {
-    const entityRegistry = useEntityRegistry();
-
-    const visibleIndex = Math.max(parentContainers.length - NUM_VISIBLE_CONTAINERS, 0);
-    const visibleContainers = parentContainers.slice(visibleIndex);
-    const hiddenContainers = parentContainers.slice(0, visibleIndex);
-
-    return (
-        <ParentContainersWrapper>
-            {hiddenContainers.map((container) => (
-                <Fragment key={container.urn}>
-                    <FolderOpenOutlined />
-                    <ArrowWrapper>{'>'}</ArrowWrapper>
-                </Fragment>
-            ))}
-            {visibleContainers.map((container, index) => (
-                <Fragment key={container.urn}>
-                    <FolderOpenOutlined />
-                    <ParentContainer ellipsis={{ tooltip: '' }}>
-                        {entityRegistry.getDisplayName(EntityType.Container, container)}
-                    </ParentContainer>
-                    {index !== visibleContainers.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
-                </Fragment>
-            ))}
-        </ParentContainersWrapper>
-    );
-}

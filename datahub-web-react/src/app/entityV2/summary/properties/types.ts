@@ -16,18 +16,6 @@ export interface AssetProperty {
     structuredProperty?: StructuredPropertyFieldsFragment;
 }
 
-interface AssetPropertiesContextType {
-    // Whether properties are editable
-    editable?: boolean;
-
-    properties: AssetProperty[];
-    propertiesLoading?: boolean;
-
-    replace: (newProperty: AssetProperty, position: number) => void;
-    remove: (position: number) => void;
-    add: (newProperty: AssetProperty) => void;
-}
-
 export interface PropertyComponentProps {
     property: AssetProperty;
     position: number;

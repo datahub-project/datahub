@@ -31,12 +31,6 @@ export type EntitySelectParams = {
     urn: string;
 };
 
-type LineageExpandParams = {
-    type: EntityType;
-    urn: string;
-    direction: Direction;
-};
-
 export type FetchedEntity = {
     urn: string;
     name: string;
@@ -129,11 +123,6 @@ export enum Direction {
     Downstream = 'Downstream',
 }
 
-type LineageExplorerParams = {
-    type: string;
-    urn: string;
-};
-
 export type TreeProps = {
     margin?: { top: number; right: number; bottom: number; left: number };
     entityAndType?: EntityAndType | null;
@@ -183,12 +172,6 @@ export type EntityAndType =
           type: EntityType.MlprimaryKey;
           entity: MlPrimaryKey;
       };
-
-interface LineageResult {
-    urn: string;
-    upstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
-    downstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
-}
 
 export interface UpdatedLineages {
     [urn: string]: UpdatedLineage;
