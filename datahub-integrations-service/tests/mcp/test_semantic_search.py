@@ -284,6 +284,128 @@ class TestSearchImplementation:
         assert "total" in result  # total should remain
         assert "facets" in result  # facets should remain (non-empty so not cleaned out)
 
+    @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
+    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    def test_search_implementation_with_sorting(
+        self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
+    ) -> None:
+        """Test that sorting parameters are correctly passed to GraphQL."""
+        # Setup mocks
+        mock_graph = mock.Mock()
+        mock_client = mock.Mock()
+        mock_client._graph = mock_graph
+        mock_get_client.return_value = mock_client
+
+        mock_response = {
+            "scrollAcrossEntities": {
+                "count": 5,
+                "total": 100,
+                "searchResults": [],
+                "facets": [],
+            }
+        }
+        mock_execute_graphql.return_value = mock_response
+
+        # Call with sorting parameters
+        _search_implementation(
+            query="*",
+            filters=None,
+            num_results=10,
+            search_strategy="keyword",
+            sort_by="queryCountLast30DaysFeature",
+            sort_order="desc",
+        )
+
+        # Verify correct sorting parameters in variables
+        assert mock_execute_graphql.call_count == 2
+        search_call = mock_execute_graphql.call_args_list[1]
+        variables = search_call[1]["variables"]
+
+        # Check sortInput is present and correct
+        assert "sortInput" in variables
+        assert variables["sortInput"] == {
+            "sortCriteria": [
+                {"field": "queryCountLast30DaysFeature", "sortOrder": "DESCENDING"}
+            ]
+        }
+
+    @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
+    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    def test_search_implementation_with_ascending_sort(
+        self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
+    ) -> None:
+        """Test that ascending sort order is correctly mapped."""
+        # Setup mocks
+        mock_graph = mock.Mock()
+        mock_client = mock.Mock()
+        mock_client._graph = mock_graph
+        mock_get_client.return_value = mock_client
+
+        mock_response = {
+            "scrollAcrossEntities": {
+                "count": 5,
+                "total": 100,
+                "searchResults": [],
+                "facets": [],
+            }
+        }
+        mock_execute_graphql.return_value = mock_response
+
+        # Call with ascending sort order
+        _search_implementation(
+            query="*",
+            filters=None,
+            num_results=10,
+            search_strategy="keyword",
+            sort_by="sizeInBytesFeature",
+            sort_order="asc",
+        )
+
+        # Verify ASCENDING is used
+        search_call = mock_execute_graphql.call_args_list[1]
+        variables = search_call[1]["variables"]
+
+        assert variables["sortInput"] == {
+            "sortCriteria": [{"field": "sizeInBytesFeature", "sortOrder": "ASCENDING"}]
+        }
+
+    @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
+    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    def test_search_implementation_without_sorting(
+        self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
+    ) -> None:
+        """Test that sortInput is not included when sort_by is None."""
+        # Setup mocks
+        mock_graph = mock.Mock()
+        mock_client = mock.Mock()
+        mock_client._graph = mock_graph
+        mock_get_client.return_value = mock_client
+
+        mock_response = {
+            "scrollAcrossEntities": {
+                "count": 5,
+                "total": 100,
+                "searchResults": [],
+                "facets": [],
+            }
+        }
+        mock_execute_graphql.return_value = mock_response
+
+        # Call without sorting parameters
+        _search_implementation(
+            query="*",
+            filters=None,
+            num_results=10,
+            search_strategy="keyword",
+            sort_by=None,
+        )
+
+        # Verify sortInput is NOT in variables (preserves default behavior)
+        search_call = mock_execute_graphql.call_args_list[1]
+        variables = search_call[1]["variables"]
+
+        assert "sortInput" not in variables
+
 
 @pytest.mark.anyio
 async def test_tool_binding_basic_search() -> None:

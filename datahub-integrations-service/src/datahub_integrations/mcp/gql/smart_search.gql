@@ -226,6 +226,7 @@ query smartSearch(
   $count: Int!
   $scrollId: String
   $viewUrn: String
+  $sortInput: SearchSortInput
 ) {
   scrollAcrossEntities(
     input: {
@@ -235,6 +236,7 @@ query smartSearch(
       types: $types
       orFilters: $orFilters
       viewUrn: $viewUrn
+      sortInput: $sortInput
       searchFlags: { skipHighlighting: true, maxAggValues: 5 }
     }
   ) {
