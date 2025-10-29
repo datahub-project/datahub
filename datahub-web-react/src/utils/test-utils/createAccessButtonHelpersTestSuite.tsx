@@ -2,10 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
 
-import defaultThemeConfig from '@conf/theme/theme_light.config.json';
+import themeV2 from '@conf/theme/themeV2';
 
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <ThemeProvider theme={defaultThemeConfig}>{children}</ThemeProvider>
+    <ThemeProvider theme={themeV2}>{children}</ThemeProvider>
 );
 
 /**

@@ -46,7 +46,6 @@ import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTa
 import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
-    getDataProduct,
     getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
@@ -282,8 +281,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 container={data.container}
                 parentContainers={data.parentContainers}
                 deprecation={data.deprecation}
@@ -317,8 +314,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 container={data.container}
                 parentContainers={data.parentContainers}
                 deprecation={data.deprecation}

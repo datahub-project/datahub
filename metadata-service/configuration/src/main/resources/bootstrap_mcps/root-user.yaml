@@ -5,5 +5,13 @@
   aspect:
     active: true
     displayName: DataHub
-    title: DataHub Root User
+    title: DataHub
     system: true
+- entityUrn: urn:li:corpuser:datahub
+  entityType: corpuser
+  aspectName: corpUserEditableInfo
+  changeType: CREATE
+  aspect:
+    teams: []
+    skills: []
+    pictureLink: "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"

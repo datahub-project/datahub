@@ -87,7 +87,7 @@ describe("auto-complete dropdown, filter plus query search test", () => {
   it("Verify the 'filter by tag' section + query", () => {
     // CypressFeatureTag
     searchToExecute("*");
-    selectFilteredEntity("Tag", "CypressFeatureTag", "filter_tags");
+    selectFilteredEntity("Tagged-With", "CypressFeatureTag", "filter_tags");
     clickAndVerifyEntity("Tags");
     cy.mouseover('[data-testid="tag-CypressFeatureTag"]');
     verifyFilteredEntity("CypressFeatureTag");

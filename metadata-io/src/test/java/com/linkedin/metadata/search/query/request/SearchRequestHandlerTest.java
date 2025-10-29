@@ -7,6 +7,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.Mockito.mock;
@@ -127,6 +128,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     .wordGram(wordGramConfiguration)
                     .partial(partialConfiguration)
                     .build())
+            .entityIndex(
+                TEST_ES_SEARCH_CONFIG.getEntityIndex()) // Preserve entityIndex configuration
+            .bulkDelete(TEST_ES_SEARCH_CONFIG.getBulkDelete())
+            .bulkProcessor(TEST_ES_SEARCH_CONFIG.getBulkProcessor())
+            .buildIndices(TEST_ES_SEARCH_CONFIG.getBuildIndices())
+            .idHashAlgo(TEST_ES_SEARCH_CONFIG.getIdHashAlgo())
+            .index(TEST_ES_SEARCH_CONFIG.getIndex())
+            .scroll(TEST_ES_SEARCH_CONFIG.getScroll())
             .build();
   }
 
@@ -656,6 +665,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     BoolQueryBuilder test =
         SearchRequestHandler.getFilterQuery(
             operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            Collections.emptyList(),
             filter,
             new HashMap<>(),
             QueryFilterRewriteChain.EMPTY);
@@ -711,6 +721,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     BoolQueryBuilder test =
         SearchRequestHandler.getFilterQuery(
             mockRetrieverContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            Collections.emptyList(),
             filter,
             new HashMap<>(),
             QueryFilterRewriteChain.EMPTY);
@@ -1309,10 +1320,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     ScrollResult result =
         handler.extractScrollResult(operationContext, mockResponse, null, "5m", null, true);
 
-    // Should use the default from the service config default
-    assertEquals(
-        result.getPageSize().intValue(),
-        TEST_SEARCH_SERVICE_CONFIG.getLimit().getResults().getApiDefault());
+    // Should use the default from the service config default, but limited by total results
+    assertEquals(result.getPageSize().intValue(), 100); // Math.min(1000, 100) = 100
     assertEquals(result.getNumEntities().intValue(), 100);
   }
 
@@ -1381,6 +1390,43 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     assertEquals(result.getPageSize().intValue(), 10);
     assertFalse(result.hasScrollId());
+  }
+
+  @Test
+  public void testExtractScrollResultWithZeroCount() {
+    // Test the edge case where count=0 is passed, which should not cause
+    // ArrayIndexOutOfBoundsException
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+
+    // Create empty search hits array (simulating no results)
+    SearchHit[] hits = new SearchHit[0];
+
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(0L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(hits);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.pointInTimeId()).thenReturn("test-pit-id");
+
+    // This should not throw ArrayIndexOutOfBoundsException
+    ScrollResult result =
+        handler.extractScrollResult(operationContext, mockResponse, null, "5m", 0, true);
+
+    // Verify the result
+    assertNotNull(result);
+    assertEquals(result.getPageSize().intValue(), 0);
+    assertEquals(result.getNumEntities().intValue(), 0);
+    assertFalse(result.hasScrollId()); // No scroll ID since no results
   }
 
   // Helper method to create scroll results with specific sizes

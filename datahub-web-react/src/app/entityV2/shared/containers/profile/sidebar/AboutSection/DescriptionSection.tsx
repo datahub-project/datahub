@@ -10,6 +10,7 @@ const ContentWrapper = styled.div`
     color: ${REDESIGN_COLORS.DARK_GREY};
     line-height: 20px;
     white-space: break-spaces;
+    width: 100%;
 `;
 
 interface Props {

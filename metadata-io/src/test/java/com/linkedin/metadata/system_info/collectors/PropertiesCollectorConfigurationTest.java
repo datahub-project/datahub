@@ -456,6 +456,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.plugin.retention.path",
           "datahub.serverEnv",
           "datahub.serverType",
+          "datahub.s3.bucketName",
+          "datahub.s3.roleArn",
+          "datahub.s3.presignedUploadUrlExpirationSeconds",
+          "datahub.s3.presignedDownloadUrlExpirationSeconds",
+          "datahub.s3.assetPathPrefix",
 
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
@@ -499,6 +504,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showManageTags",
           "featureFlags.showNavBarRedesign",
           "featureFlags.showProductUpdates",
+          "featureFlags.productUpdatesJsonUrl",
+          "featureFlags.productUpdatesJsonFallbackResource",
           "featureFlags.showStatsTabRedesign",
           "featureFlags.showSearchBarAutocompleteRedesign",
           "featureFlags.showSearchFiltersV2",
@@ -516,6 +523,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cassandra.useSsl",
           "ebean.autoCreateDdl",
           "ebean.batchGetMethod",
+          "ebean.cloudProvider",
           "ebean.driver",
           "ebean.leakTimeMinutes",
           "ebean.maxAgeMinutes",
@@ -523,6 +531,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ebean.maxInactiveTimeSeconds",
           "ebean.minConnections",
           "ebean.url",
+          "ebean.useIamAuth",
           "ebean.username",
           "ebean.waitTimeoutMillis",
           "neo4j.connectionLivenessCheckTimeout",
@@ -785,6 +794,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "platformAnalytics.usageExport.userFilters",
           "searchBar.apiVariant",
           "searchCard.showDescription",
+          "searchFlags.defaultSkipHighlighting",
           "searchService.cache.hazelcast.serviceName",
           "searchService.cache.hazelcast.service-dns-timeout",
           "searchService.cache.hazelcast.kubernetes-api-retries",
@@ -892,7 +902,16 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.plugin.name",
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.table.include.list",
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.server.id",
-          "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.include.list"
+          "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.include.list",
+          "elasticsearch.entityIndex.v2.cleanup",
+          "elasticsearch.entityIndex.v3.analyzerConfig",
+          "elasticsearch.entityIndex.v3.mappingConfig",
+          "elasticsearch.entityIndex.v3.cleanup",
+          "elasticsearch.entityIndex.v3.maxFieldsLimit",
+
+          // Metadata Change Log configuration
+          "metadataChangeLog.consumer.batch.enabled",
+          "metadataChangeLog.consumer.batch.size"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

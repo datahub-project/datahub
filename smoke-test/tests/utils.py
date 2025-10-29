@@ -1,6 +1,6 @@
 import json
 import logging
-import os
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -16,6 +16,7 @@ from datahub.cli import cli_utils, env_utils
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities import env_vars
 
 TIME: int = 1581407189000
 logger = logging.getLogger(__name__)
@@ -42,18 +43,18 @@ def get_admin_username() -> str:
 
 def get_admin_credentials():
     return (
-        os.getenv("ADMIN_USERNAME", "datahub"),
-        os.getenv("ADMIN_PASSWORD", "datahub"),
+        env_vars.get_admin_username(),
+        env_vars.get_admin_password(),
     )
 
 
 def get_base_path():
-    base_path = os.getenv("DATAHUB_BASE_PATH", "")
+    base_path = env_vars.get_base_path()
     return "" if base_path == "/" else base_path
 
 
 def get_gms_base_path():
-    base_gms_path = os.getenv("DATAHUB_GMS_BASE_PATH", "")
+    base_gms_path = env_vars.get_gms_base_path()
     return "" if base_gms_path == "/" else base_gms_path
 
 
@@ -62,34 +63,32 @@ def get_root_urn():
 
 
 def get_gms_url():
-    return os.getenv("DATAHUB_GMS_URL") or f"http://localhost:8080{get_gms_base_path()}"
+    return env_vars.get_gms_url() or f"http://localhost:8080{get_gms_base_path()}"
 
 
 def get_frontend_url():
-    return (
-        os.getenv("DATAHUB_FRONTEND_URL") or f"http://localhost:9002{get_base_path()}"
-    )
+    return env_vars.get_frontend_url() or f"http://localhost:9002{get_base_path()}"
 
 
 def get_kafka_broker_url():
-    return os.getenv("DATAHUB_KAFKA_URL") or "localhost:9092"
+    return env_vars.get_kafka_url() or "localhost:9092"
 
 
 def get_kafka_schema_registry():
     #  internal registry "http://localhost:8080/schema-registry/api/"
     return (
-        os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL")
+        env_vars.get_kafka_schema_registry_url()
         or f"http://localhost:8080{get_gms_base_path()}/schema-registry/api"
     )
 
 
 def get_db_type():
-    db_type = os.getenv("DB_TYPE")
+    db_type = env_vars.get_db_type()
     if db_type:
         return db_type
     else:
         # infer from profile
-        profile_name = os.getenv("PROFILE_NAME")
+        profile_name = env_vars.get_profile_name()
         if profile_name and "postgres" in profile_name:
             return "postgres"
         else:
@@ -98,34 +97,66 @@ def get_db_type():
 
 def get_db_url():
     if get_db_type() == "mysql":
-        return os.getenv("DATAHUB_MYSQL_URL") or "localhost:3306"
+        return env_vars.get_mysql_url()
     else:
-        return os.getenv("DATAHUB_POSTGRES_URL") or "localhost:5432"
+        return env_vars.get_postgres_url()
 
 
 def get_db_username():
     if get_db_type() == "mysql":
-        return os.getenv("DATAHUB_MYSQL_USERNAME") or "datahub"
+        return env_vars.get_mysql_username()
     else:
-        return os.getenv("DATAHUB_POSTGRES_USERNAME") or "datahub"
+        return env_vars.get_postgres_username()
 
 
 def get_db_password():
     if get_db_type() == "mysql":
-        return os.getenv("DATAHUB_MYSQL_PASSWORD") or "datahub"
+        return env_vars.get_mysql_password()
     else:
-        return os.getenv("DATAHUB_POSTGRES_PASSWORD") or "datahub"
+        return env_vars.get_postgres_password()
 
 
 def get_sleep_info() -> Tuple[int, int]:
     return (
-        int(os.getenv("DATAHUB_TEST_SLEEP_BETWEEN", 20)),
-        int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 3)),
+        env_vars.get_test_sleep_between(),
+        env_vars.get_test_sleep_times(),
+    )
+
+
+def with_test_retry(
+    max_attempts: Optional[int] = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """
+    Decorator that retries with environment-based sleep settings from get_sleep_info().
+
+    Returns a configured tenacity.retry decorator using DATAHUB_TEST_SLEEP_BETWEEN
+    and DATAHUB_TEST_SLEEP_TIMES environment variables for eventual consistency.
+
+    Args:
+        max_attempts: Optional maximum number of retry attempts. If not provided,
+                     uses DATAHUB_TEST_SLEEP_TIMES environment variable (default 3).
+
+    Usage:
+        @with_test_retry()
+        def test_function():
+            # Function will retry with configured sleep settings
+            ...
+
+        @with_test_retry(max_attempts=10)
+        def test_with_more_retries():
+            # Function will retry up to 10 times
+            ...
+    """
+    sleep_sec, sleep_times = get_sleep_info()
+    retry_count = max_attempts if max_attempts is not None else sleep_times
+    return tenacity.retry(
+        stop=tenacity.stop_after_attempt(retry_count),
+        wait=tenacity.wait_fixed(sleep_sec),
     )
 
 
 def is_k8s_enabled():
-    return os.getenv("K8S_CLUSTER_ENABLED", "false").lower() in ["true", "yes"]
+    return env_vars.get_k8s_cluster_enabled()
 
 
 def wait_for_healthcheck_util(auth_session):

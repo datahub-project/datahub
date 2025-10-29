@@ -85,4 +85,9 @@ public class PartialEntitySpec implements EntitySpec {
     throw new UnsupportedOperationException(
         "Partial entity specs do not contain aspect typeref schemas");
   }
+
+  @Override
+  public String getSearchGroup() {
+    return _entityAnnotation.getSearchGroup();
+  }
 }
