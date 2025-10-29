@@ -69,7 +69,7 @@ export interface ModalProps {
     subtitle?: string;
     titlePill?: React.ReactNode;
     children?: React.ReactNode;
-    onCancel: () => void;
+    onCancel?: () => void;
     dataTestId?: string;
 }
 
@@ -88,7 +88,7 @@ export function Modal({
             open
             centered
             onCancel={onCancel}
-            closeIcon={<Icon icon="X" source="phosphor" />}
+            closeIcon={onCancel ? <Icon icon="X" source="phosphor" /> : undefined}
             hasChildren={!!children}
             data-testid={dataTestId}
             title={
