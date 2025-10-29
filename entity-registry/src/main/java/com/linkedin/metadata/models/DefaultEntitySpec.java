@@ -140,4 +140,9 @@ public class DefaultEntitySpec implements EntitySpec {
 
     return fieldPathToSearchableFieldMap;
   }
+
+  @Override
+  public String getSearchGroup() {
+    return _entityAnnotation.getSearchGroup();
+  }
 }

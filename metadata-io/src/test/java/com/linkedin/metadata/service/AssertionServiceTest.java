@@ -586,6 +586,11 @@ public class AssertionServiceTest {
             mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
+    AssertionSource assertionSource = new AssertionSource();
+    assertionSource.setType(AssertionSourceType.NATIVE);
+    assertionSource.setCreated(
+        new AuditStamp().setTime(System.currentTimeMillis()).setActor(TEST_ACTOR_URN));
+
     Urn result =
         service.upsertDatasetFreshnessAssertion(
             opContext,
@@ -659,6 +664,11 @@ public class AssertionServiceTest {
             mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
+    AssertionSource assertionSource = new AssertionSource();
+    assertionSource.setType(AssertionSourceType.NATIVE);
+    assertionSource.setCreated(
+        new AuditStamp().setTime(System.currentTimeMillis()).setActor(TEST_ACTOR_URN));
+
     Urn result =
         service.upsertDatasetFreshnessAssertion(
             opContext,
@@ -717,6 +727,11 @@ public class AssertionServiceTest {
             mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
+    AssertionSource assertionSource = new AssertionSource();
+    assertionSource.setType(AssertionSourceType.NATIVE);
+    assertionSource.setCreated(
+        new AuditStamp().setTime(System.currentTimeMillis()).setActor(TEST_ACTOR_URN));
+
     Urn result =
         service.upsertDatasetVolumeAssertion(
             opContext,
@@ -796,6 +811,11 @@ public class AssertionServiceTest {
             mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
+    AssertionSource assertionSource = new AssertionSource();
+    assertionSource.setType(AssertionSourceType.NATIVE);
+    assertionSource.setCreated(
+        new AuditStamp().setTime(System.currentTimeMillis()).setActor(TEST_ACTOR_URN));
+
     Urn result =
         service.upsertDatasetVolumeAssertion(
             opContext,
@@ -862,6 +882,11 @@ public class AssertionServiceTest {
             mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
+    AssertionSource assertionSource = new AssertionSource();
+    assertionSource.setType(AssertionSourceType.NATIVE);
+    assertionSource.setCreated(
+        new AuditStamp().setTime(System.currentTimeMillis()).setActor(TEST_ACTOR_URN));
+
     Urn result =
         service.upsertDatasetSqlAssertion(
             opContext,
@@ -942,6 +967,11 @@ public class AssertionServiceTest {
             mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
+    AssertionSource assertionSource = new AssertionSource();
+    assertionSource.setType(AssertionSourceType.NATIVE);
+    assertionSource.setCreated(
+        new AuditStamp().setTime(System.currentTimeMillis()).setActor(TEST_ACTOR_URN));
+
     Urn result =
         service.upsertDatasetSqlAssertion(
             opContext,
@@ -1017,6 +1047,11 @@ public class AssertionServiceTest {
             mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
+    AssertionSource assertionSource = new AssertionSource();
+    assertionSource.setType(AssertionSourceType.NATIVE);
+    assertionSource.setCreated(
+        new AuditStamp().setTime(System.currentTimeMillis()).setActor(TEST_ACTOR_URN));
+
     Urn result =
         service.upsertDatasetFieldAssertion(
             opContext,
@@ -1104,6 +1139,11 @@ public class AssertionServiceTest {
             mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
+    AssertionSource assertionSource = new AssertionSource();
+    assertionSource.setType(AssertionSourceType.NATIVE);
+    assertionSource.setCreated(
+        new AuditStamp().setTime(System.currentTimeMillis()).setActor(TEST_ACTOR_URN));
+
     Urn result =
         service.upsertDatasetFieldAssertion(
             opContext,

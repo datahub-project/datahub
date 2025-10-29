@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.test.TestDefinitionParserTest.*;
+import static io.datahubproject.test.metadata.context.TestOperationContexts.TEST_USER_AUTH;
 import static org.testng.Assert.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -11,7 +12,9 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.test.definition.TestDefinition;
 import com.linkedin.metadata.test.definition.TestDefinitionParser;
@@ -22,7 +25,9 @@ import com.linkedin.metadata.test.definition.operator.Operand;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
+import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.HashMap;
@@ -49,7 +54,16 @@ public class ESPredicateUtilsTest {
   private static final Urn TEST_URN = UrnUtils.getUrn("urn:li:test:test");
   private static final OperationContext OPERATION_CONTEXT =
       TestOperationContexts.userContextNoSearchAuthorization(
-          UrnUtils.getUrn("urn:li:corpuser:name"));
+              UrnUtils.getUrn("urn:li:corpuser:name"))
+          .toBuilder()
+          .searchContext(
+              SearchContext.builder()
+                  .indexConvention(IndexConventionImpl.noPrefix("", new EntityIndexConfiguration()))
+                  .searchableFieldTypes(Collections.emptyMap())
+                  .searchableFieldPaths(Collections.emptyMap())
+                  .searchFlags(new SearchFlags().setFilterNonLatestVersions(true))
+                  .build())
+          .build(TEST_USER_AUTH, true);
 
   @Test
   public void testBuildFilterQuery() throws JsonProcessingException {

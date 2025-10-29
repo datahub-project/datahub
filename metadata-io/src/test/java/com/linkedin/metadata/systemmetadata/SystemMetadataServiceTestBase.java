@@ -15,6 +15,9 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -39,19 +42,23 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
   @Nonnull
   protected abstract ESIndexBuilder getIndexBuilder();
 
+  protected OperationContext operationContext;
+
   private final IndexConvention _indexConvention =
       new IndexConventionImpl(
           IndexConventionImpl.IndexConventionConfig.builder()
               .prefix("es_system_metadata_service_test")
               .hashIdAlgo("MD5")
-              .build());
+              .build(),
+          SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
   private ElasticSearchSystemMetadataService _client;
 
   @BeforeClass
   public void setup() {
+    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
     _client = buildService();
-    _client.reindexAll(Collections.emptySet());
+    _client.reindexAll(operationContext, Collections.emptySet());
   }
 
   @BeforeMethod

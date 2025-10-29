@@ -14,6 +14,7 @@ import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotationValidator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,6 +33,8 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
   private final List<SearchableFieldSpec> _specs = new ArrayList<>();
   private final Map<String, String> _searchFieldNamesToPatch = new HashMap<>();
+  private final List<SearchableAnnotationValidator.AnnotatedField> _annotatedFields =
+      new ArrayList<>();
 
   private static final String MAP = "map";
 
@@ -49,7 +52,24 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
       ImmutableSet.<String>builder().add("URN").add("URN_PARTIAL").build();
 
   public List<SearchableFieldSpec> getSpecs() {
-    return _specs;
+    // Perform cross-annotation validation before returning specs
+    SearchableAnnotationValidator.validateCrossAnnotationCompatibility(_annotatedFields);
+
+    // Filter out specs with problematic field names (containing double underscores)
+    // These are generated from null values in path-based @Searchable annotations
+    return _specs.stream()
+        .filter(
+            spec -> {
+              String fieldName = spec.getSearchableAnnotation().getFieldName();
+              if (fieldName != null && fieldName.contains("__")) {
+                log.warn(
+                    "Filtering out searchable field spec with problematic field name: {}",
+                    fieldName);
+                return false;
+              }
+              return true;
+            })
+        .collect(java.util.stream.Collectors.toList());
   }
 
   @Override
@@ -152,12 +172,14 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
       final Object annotationObj, final DataSchema currentSchema, final TraverserContext context) {
     final PathSpec path = new PathSpec(context.getSchemaPathSpec());
     final Optional<PathSpec> fullPath = FieldSpecUtils.getPathSpecWithAspectName(context);
+
     SearchableAnnotation annotation =
         SearchableAnnotation.fromPegasusAnnotationObject(
             annotationObj,
             FieldSpecUtils.getSchemaFieldName(path),
             currentSchema.getDereferencedType(),
             path.toString());
+
     String schemaPathSpec = context.getSchemaPathSpec().toString();
     if (_searchFieldNamesToPatch.containsKey(annotation.getFieldName())
         && !_searchFieldNamesToPatch.get(annotation.getFieldName()).equals(schemaPathSpec)) {
@@ -191,13 +213,23 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
                 annotation.getFieldNameAliases(),
                 annotation.isIncludeQueryEmptyAggregation(),
                 annotation.isIncludeSystemModifiedAt(),
-                annotation.getSystemModifiedAtFieldName());
+                annotation.getSystemModifiedAtFieldName(),
+                annotation.getSearchTier(),
+                annotation.getSearchLabel(),
+                annotation.getSearchIndexed(),
+                annotation.getEntityFieldName(),
+                annotation.getEagerGlobalOrdinals());
       }
     }
     log.debug("Searchable annotation for field: {} : {}", schemaPathSpec, annotation);
     final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
     _specs.add(fieldSpec);
     _searchFieldNamesToPatch.put(annotation.getFieldName(), context.getSchemaPathSpec().toString());
+
+    // Collect annotated field for cross-annotation validation
+    _annotatedFields.add(
+        new SearchableAnnotationValidator.AnnotatedField(
+            annotation, currentSchema.getDereferencedType(), path.toString()));
   }
 
   @Override

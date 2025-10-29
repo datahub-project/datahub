@@ -9,11 +9,14 @@ import static org.testng.Assert.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
+import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -123,7 +126,8 @@ public class SemanticSearchServiceIT {
             entityDocCountCacheConfiguration);
 
     SemanticEntitySearchService semanticService =
-        new SemanticEntitySearchService(client, new ZerosEmbeddingProvider());
+        new SemanticEntitySearchService(
+            client, new ZerosEmbeddingProvider(), new NoOpMappingsBuilder());
 
     // Create a configuration with semantic search enabled
     SearchServiceConfiguration searchConfig =
@@ -141,7 +145,13 @@ public class SemanticSearchServiceIT {
 
   public void testSemanticSearchAcrossEntitiesWithFacets() {
     OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
-    IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5");
+    IndexConvention indexConvention =
+        IndexConventionImpl.noPrefix(
+            "MD5",
+            EntityIndexConfiguration.builder()
+                .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build())
+                .v3(EntityIndexVersionConfiguration.builder().enabled(false).cleanup(false).build())
+                .build());
     OperationContext opContext = base;
 
     SemanticSearchService semanticSearchService =
@@ -161,7 +171,13 @@ public class SemanticSearchServiceIT {
 
   public void testSemanticSearchAcrossEntitiesNoFacetsRequested() {
     OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
-    IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5");
+    IndexConvention indexConvention =
+        IndexConventionImpl.noPrefix(
+            "MD5",
+            EntityIndexConfiguration.builder()
+                .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build())
+                .v3(EntityIndexVersionConfiguration.builder().enabled(false).cleanup(false).build())
+                .build());
     OperationContext opContext = base;
 
     SemanticSearchService semanticSearchService =
@@ -179,7 +195,13 @@ public class SemanticSearchServiceIT {
 
   public void testSemanticSearchSingleEntity() {
     OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
-    IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5");
+    IndexConvention indexConvention =
+        IndexConventionImpl.noPrefix(
+            "MD5",
+            EntityIndexConfiguration.builder()
+                .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build())
+                .v3(EntityIndexVersionConfiguration.builder().enabled(false).cleanup(false).build())
+                .build());
     OperationContext opContext = base;
 
     SemanticSearchService semanticSearchService =
@@ -201,11 +223,18 @@ public class SemanticSearchServiceIT {
     // exist in the base index and have all expected fields populated correctly
 
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5");
+    IndexConvention indexConvention =
+        IndexConventionImpl.noPrefix(
+            "MD5",
+            EntityIndexConfiguration.builder()
+                .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build())
+                .v3(EntityIndexVersionConfiguration.builder().enabled(false).cleanup(false).build())
+                .build());
 
     // Create semantic search service
     var semanticEntitySearchService =
-        new SemanticEntitySearchService(client, new ZerosEmbeddingProvider());
+        new SemanticEntitySearchService(
+            client, new ZerosEmbeddingProvider(), new NoOpMappingsBuilder());
 
     // Search for "customers" using semantic search
     SearchResult semanticResult =
@@ -330,7 +359,13 @@ public class SemanticSearchServiceIT {
 
     // Set up the operation context for semantic search
     OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
-    IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5");
+    IndexConvention indexConvention =
+        IndexConventionImpl.noPrefix(
+            "MD5",
+            EntityIndexConfiguration.builder()
+                .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build())
+                .v3(EntityIndexVersionConfiguration.builder().enabled(false).cleanup(false).build())
+                .build());
     OperationContext opContext = base;
 
     SemanticSearchService semanticSearchService =

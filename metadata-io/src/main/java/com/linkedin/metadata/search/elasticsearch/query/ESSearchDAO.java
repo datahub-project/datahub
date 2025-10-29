@@ -716,8 +716,8 @@ public class ESSearchDAO {
                 transformFilterForEntities(requestParams, indexConvention),
                 limit);
     if (entityNames == null) {
-      String indexName = indexConvention.getAllEntityIndicesPattern();
-      searchRequest.indices(indexName);
+      List<String> indexPatterns = indexConvention.getAllEntityIndicesPatterns();
+      searchRequest.indices(indexPatterns.toArray(new String[0]));
     } else {
       Stream<String> stream =
           entityNames.stream()

@@ -10,6 +10,8 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -17,6 +19,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nonnull;
 import lombok.SneakyThrows;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -24,6 +27,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ElasticSearchIndexedTweakReplicasTest {
+
+  private OperationContext opContext = TestOperationContexts.systemContextNoValidate();
 
   // Test implementation of ElasticSearchIndexed
   private static class TestElasticSearchIndexed implements ElasticSearchIndexed {
@@ -42,7 +47,9 @@ public class ElasticSearchIndexedTweakReplicasTest {
 
     @Override
     public List<ReindexConfig> buildReindexConfigs(
-        Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
+        @Nonnull final OperationContext opContext,
+        Collection<Pair<Urn, StructuredPropertyDefinition>> properties)
+        throws IOException {
       if (throwOnBuildReindexConfigs) {
         throw new IOException("Test exception in buildReindexConfigs");
       }
@@ -55,7 +62,9 @@ public class ElasticSearchIndexedTweakReplicasTest {
     }
 
     @Override
-    public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties)
+    public void reindexAll(
+        @Nonnull final OperationContext opContext,
+        Collection<Pair<Urn, StructuredPropertyDefinition>> properties)
         throws IOException {
       // Not needed for this test
     }
@@ -90,8 +99,11 @@ public class ElasticSearchIndexedTweakReplicasTest {
 
   @Test
   public void testTweakReplicasAll_Success() throws IOException {
+    // Stub the tweakReplicas method to do nothing
+    doNothing().when(mockIndexBuilder).tweakReplicas(any(ReindexConfig.class), anyBoolean());
+
     // Execute the method
-    testService.tweakReplicasAll(properties, false);
+    testService.tweakReplicasAll(opContext, properties, false);
 
     // Verify that tweakReplicas was called for each config
     verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
@@ -100,8 +112,11 @@ public class ElasticSearchIndexedTweakReplicasTest {
 
   @Test
   public void testTweakReplicasAll_DryRunTrue() throws IOException {
+    // Stub the tweakReplicas method to do nothing
+    doNothing().when(mockIndexBuilder).tweakReplicas(any(ReindexConfig.class), anyBoolean());
+
     // Execute the method with dryRun=true
-    testService.tweakReplicasAll(properties, true);
+    testService.tweakReplicasAll(opContext, properties, true);
 
     // Verify that tweakReplicas was called with dryRun=true
     verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, true);
@@ -110,11 +125,14 @@ public class ElasticSearchIndexedTweakReplicasTest {
 
   @Test
   public void testTweakReplicasAll_EmptyConfigs() throws IOException {
+    // Stub the tweakReplicas method to do nothing
+    doNothing().when(mockIndexBuilder).tweakReplicas(any(ReindexConfig.class), anyBoolean());
+
     // Create a service with empty configs
     testService = new TestElasticSearchIndexed(mockIndexBuilder, Collections.emptyList());
 
     // Execute the method
-    testService.tweakReplicasAll(properties, false);
+    testService.tweakReplicasAll(opContext, properties, false);
 
     // Verify that tweakReplicas was not called
     verify(mockIndexBuilder, never()).tweakReplicas(any(), anyBoolean());
@@ -126,7 +144,7 @@ public class ElasticSearchIndexedTweakReplicasTest {
     // Set up the test service to throw an IOException
     testService.setThrowOnBuildReindexConfigs(true);
     try {
-      testService.tweakReplicasAll(properties, false);
+      testService.tweakReplicasAll(opContext, properties, false);
       fail("Expected RuntimeException was not thrown");
     } catch (RuntimeException exception) {
       // Verify the cause of the exception
@@ -144,7 +162,7 @@ public class ElasticSearchIndexedTweakReplicasTest {
         .when(mockIndexBuilder)
         .tweakReplicas(mockReindexConfig1, false);
     try {
-      testService.tweakReplicasAll(properties, false);
+      testService.tweakReplicasAll(opContext, properties, false);
       fail("Expected RuntimeException was not thrown");
     } catch (RuntimeException exception) {
       // Verify the exception message
@@ -157,8 +175,11 @@ public class ElasticSearchIndexedTweakReplicasTest {
 
   @Test
   public void testTweakReplicasAll_NullProperties() throws IOException {
+    // Stub the tweakReplicas method to do nothing
+    doNothing().when(mockIndexBuilder).tweakReplicas(any(ReindexConfig.class), anyBoolean());
+
     // Execute the method with null properties
-    testService.tweakReplicasAll(null, false);
+    testService.tweakReplicasAll(opContext, null, false);
 
     // Verify that buildReindexConfigs was called with null
     // and tweakReplicas was called for each config
@@ -168,6 +189,9 @@ public class ElasticSearchIndexedTweakReplicasTest {
 
   @Test
   public void testTweakReplicasAll_MultipleConfigs() throws IOException {
+    // Stub the tweakReplicas method to do nothing
+    doNothing().when(mockIndexBuilder).tweakReplicas(any(ReindexConfig.class), anyBoolean());
+
     // Add more configs
     List<ReindexConfig> manyConfigs = new ArrayList<>();
     manyConfigs.add(mockReindexConfig1);
@@ -181,7 +205,7 @@ public class ElasticSearchIndexedTweakReplicasTest {
     testService = new TestElasticSearchIndexed(mockIndexBuilder, manyConfigs);
 
     // Execute the method
-    testService.tweakReplicasAll(properties, false);
+    testService.tweakReplicasAll(opContext, properties, false);
 
     // Verify that tweakReplicas was called for each config
     verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
@@ -198,7 +222,7 @@ public class ElasticSearchIndexedTweakReplicasTest {
         .when(mockIndexBuilder)
         .tweakReplicas(mockReindexConfig2, false);
     try {
-      testService.tweakReplicasAll(properties, false);
+      testService.tweakReplicasAll(opContext, properties, false);
       fail("Expected RuntimeException was not thrown");
     } catch (RuntimeException exception) {
       // Verify the exception message
@@ -211,6 +235,9 @@ public class ElasticSearchIndexedTweakReplicasTest {
 
   @Test
   public void testTweakReplicasAll_MultiplePropertiesWithDryRun() throws IOException {
+    // Stub the tweakReplicas method to do nothing
+    doNothing().when(mockIndexBuilder).tweakReplicas(any(ReindexConfig.class), anyBoolean());
+
     // Create multiple properties
     Set<Pair<Urn, StructuredPropertyDefinition>> multipleProperties = new HashSet<>();
     multipleProperties.add(new Pair<>(mockUrn, mockPropertyDef));
@@ -220,7 +247,7 @@ public class ElasticSearchIndexedTweakReplicasTest {
     multipleProperties.add(new Pair<>(mockUrn2, mockPropertyDef2));
 
     // Execute the method with dryRun=true
-    testService.tweakReplicasAll(multipleProperties, true);
+    testService.tweakReplicasAll(opContext, multipleProperties, true);
 
     // Verify that buildReindexConfigs was called with the multiple properties
     // and tweakReplicas was called for each config with dryRun=true

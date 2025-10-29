@@ -23,16 +23,19 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
@@ -171,13 +174,15 @@ public class SystemUpdateConfig {
   public UpdateIndicesService searchIndicesServiceGMS(
       final GraphService graphService,
       final ElasticSearchService elasticSearchService,
-      final TimeseriesAspectService timeseriesAspectService,
       final SystemMetadataService systemMetadataService,
-      final SearchDocumentTransformer searchDocumentTransformer,
       final EntityService<?> entityService,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
-          final List<String> fineGrainedLineageNotAllowedForPlatforms) {
+          final List<String> fineGrainedLineageNotAllowedForPlatforms,
+      @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
+      @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy) {
+
+    Collection<UpdateIndicesStrategy> strategies =
+        Stream.of(v2Strategy, v3Strategy).filter(Objects::nonNull).toList();
 
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(
@@ -187,10 +192,8 @@ public class SystemUpdateConfig {
                 graphStatusEnabled,
                 fineGrainedLineageNotAllowedForPlatforms),
             elasticSearchService,
-            timeseriesAspectService,
             systemMetadataService,
-            searchDocumentTransformer,
-            idHashAlgo,
+            strategies,
             searchDiffMode,
             structuredPropertiesHookEnabled,
             structuredPropertiesWriteEnabled);

@@ -1813,7 +1813,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return result.toString();
   }
 
-  private boolean preprocessEvent(
+  boolean preprocessEvent(
       @Nonnull OperationContext opContext, MetadataChangeLog metadataChangeLog) {
     // Deletes cannot rely on System Metadata being passed through so can't always be determined by
     // system metadata,

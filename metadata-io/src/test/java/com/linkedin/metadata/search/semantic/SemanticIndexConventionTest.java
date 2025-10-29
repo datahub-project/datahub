@@ -5,10 +5,12 @@
  */
 package com.linkedin.metadata.search.semantic;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 
@@ -18,6 +20,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.util.Pair;
+import java.util.Arrays;
 import java.util.Optional;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -117,7 +120,9 @@ public class SemanticIndexConventionTest {
     when(mockDelegateConvention.getPrefix()).thenReturn(Optional.of("test"));
     when(mockDelegateConvention.getIndexName("baseIndex")).thenReturn("test_baseindex_v2");
     when(mockDelegateConvention.getIdHashAlgo()).thenReturn("MD5");
-    when(mockDelegateConvention.getAllEntityIndicesPattern()).thenReturn("*entity*");
+    when(mockDelegateConvention.getAllEntityIndicesPatterns())
+        .thenReturn(Arrays.asList("*entity*"));
+    when(mockDelegateConvention.getV3EntityIndexPatterns()).thenReturn(Arrays.asList("*v3*"));
     when(mockDelegateConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn("*timeseries*");
 
     // Test delegation of non-entity methods
@@ -137,9 +142,14 @@ public class SemanticIndexConventionTest {
         "Should delegate getIdHashAlgo() to underlying convention");
 
     assertEquals(
-        semanticIndexConvention.getAllEntityIndicesPattern(),
-        "*entity*",
-        "Should delegate getAllEntityIndicesPattern() to underlying convention");
+        semanticIndexConvention.getAllEntityIndicesPatterns(),
+        Arrays.asList("*entity*"),
+        "Should delegate getAllEntityIndicesPatterns() to underlying convention");
+
+    assertEquals(
+        semanticIndexConvention.getV3EntityIndexPatterns(),
+        Arrays.asList("*v3*"),
+        "Should delegate getV3EntityIndexPatterns() to underlying convention");
 
     assertEquals(
         semanticIndexConvention.getAllTimeseriesAspectIndicesPattern(),
@@ -150,7 +160,8 @@ public class SemanticIndexConventionTest {
     verify(mockDelegateConvention).getPrefix();
     verify(mockDelegateConvention).getIndexName("baseIndex");
     verify(mockDelegateConvention).getIdHashAlgo();
-    verify(mockDelegateConvention).getAllEntityIndicesPattern();
+    verify(mockDelegateConvention).getAllEntityIndicesPatterns();
+    verify(mockDelegateConvention).getV3EntityIndexPatterns();
     verify(mockDelegateConvention).getAllTimeseriesAspectIndicesPattern();
   }
 
@@ -227,6 +238,38 @@ public class SemanticIndexConventionTest {
 
     verify(mockDelegateConvention).getIndexName(mockEntitySpec);
     verify(mockDelegateConvention).getIndexName(mockClass);
+  }
+
+  @Test
+  public void testNewIndexConventionMethods() {
+    // Test the new methods that were added to IndexConvention interface
+    when(mockDelegateConvention.getEntityIndexNameV3("dataset")).thenReturn("datasetindex_v3");
+    when(mockDelegateConvention.getEntityIndicesCleanupPatterns(any()))
+        .thenReturn(Arrays.asList("*cleanup*"));
+    when(mockDelegateConvention.isV2EntityIndex("datasetindex_v2")).thenReturn(true);
+    when(mockDelegateConvention.isV3EntityIndex("datasetindex_v3")).thenReturn(true);
+
+    assertEquals(
+        semanticIndexConvention.getEntityIndexNameV3("dataset"),
+        "datasetindex_v3",
+        "Should delegate getEntityIndexNameV3() to underlying convention");
+
+    assertEquals(
+        semanticIndexConvention.getEntityIndicesCleanupPatterns(null),
+        Arrays.asList("*cleanup*"),
+        "Should delegate getEntityIndicesCleanupPatterns() to underlying convention");
+
+    // SemanticIndexConvention always returns false for these methods
+    assertFalse(
+        semanticIndexConvention.isV2EntityIndex("datasetindex_v2"),
+        "Should always return false for isV2EntityIndex");
+
+    assertFalse(
+        semanticIndexConvention.isV3EntityIndex("datasetindex_v3"),
+        "Should always return false for isV3EntityIndex");
+
+    verify(mockDelegateConvention).getEntityIndexNameV3("dataset");
+    verify(mockDelegateConvention).getEntityIndicesCleanupPatterns(any());
   }
 
   @Test

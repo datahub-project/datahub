@@ -6,11 +6,14 @@ package com.linkedin.metadata.search.semantic;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.util.Pair;
+import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Index convention wrapper that applies the semantic search naming convention by appending
@@ -66,10 +69,39 @@ public class SemanticIndexConvention implements IndexConvention {
     return delegate.getTimeseriesAspectIndexName(entityName, aspectName);
   }
 
+  @NotNull
   @Override
-  @Nonnull
-  public String getAllEntityIndicesPattern() {
-    return delegate.getAllEntityIndicesPattern();
+  public String getEntityIndexNameV3(String searchGroup) {
+    return delegate.getEntityIndexNameV3(searchGroup);
+  }
+
+  @NotNull
+  @Override
+  public List<String> getAllEntityIndicesPatterns() {
+    return delegate.getAllEntityIndicesPatterns();
+  }
+
+  @NotNull
+  @Override
+  public List<String> getV3EntityIndexPatterns() {
+    return delegate.getV3EntityIndexPatterns();
+  }
+
+  @NotNull
+  @Override
+  public List<String> getEntityIndicesCleanupPatterns(
+      @NotNull EntityIndexConfiguration entityIndexConfiguration) {
+    return delegate.getEntityIndicesCleanupPatterns(entityIndexConfiguration);
+  }
+
+  @Override
+  public boolean isV2EntityIndex(@NotNull String indexName) {
+    return false;
+  }
+
+  @Override
+  public boolean isV3EntityIndex(@NotNull String indexName) {
+    return false;
   }
 
   @Override

@@ -18,9 +18,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -33,7 +31,6 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -2211,21 +2208,5 @@ public class ESUtilsTest {
     }
     // primitives: require equality
     return actual.equals(expected);
-  }
-
-  @Test
-  public void testBuildSearchableFieldTypes() {
-    // Test with empty entity specs
-    EntityRegistry registry = mock(EntityRegistry.class);
-    List<EntitySpec> emptySpecs = Collections.emptyList();
-    Map<String, Set<SearchableAnnotation.FieldType>> result =
-        ESUtils.buildSearchableFieldTypes(registry, emptySpecs);
-    Assert.assertTrue(result.isEmpty());
-
-    // Note: Full testing of buildSearchableFieldTypes with entity specs requires
-    // complex mocking of MappingsBuilder.getMappings (static method) and DataSchema types.
-    // The method's logic is tested through integration tests like SearchRequestHandlerTest
-    // and SemanticEntitySearchIT which exercise the full search path including field type
-    // resolution.
   }
 }

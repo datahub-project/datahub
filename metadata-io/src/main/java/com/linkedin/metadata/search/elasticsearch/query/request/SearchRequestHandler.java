@@ -65,7 +65,6 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.unit.TimeValue;
@@ -138,21 +137,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
     aggregationQueryBuilder =
         new AggregationQueryBuilder(configs.getSearch(), entitySearchAnnotations);
     this.searchServiceConfig = searchServiceConfig;
-    this.searchableFieldTypes =
-        ESUtils.buildSearchableFieldTypes(opContext.getEntityRegistry(), entitySpecs);
-    searchableFieldPaths =
-        this.entitySpecs.stream()
-            .flatMap(entitySpec -> entitySpec.getSearchableFieldPathMap().entrySet().stream())
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    Map.Entry::getValue,
-                    (s1, s2) -> {
-                      if (!StringUtils.equals(s1, s2)) {
-                        log.error("Merging values {} and {}, field paths should be unique", s1, s2);
-                      }
-                      return s1;
-                    }));
+    searchableFieldTypes = opContext.getSearchContext().getSearchableFieldTypes();
+    searchableFieldPaths = opContext.getSearchContext().getSearchableFieldPaths();
     this.queryFilterRewriteChain = queryFilterRewriteChain;
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(configs.getSearch().getCustom(), customSearchConfiguration)

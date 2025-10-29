@@ -16,6 +16,8 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -86,9 +88,10 @@ public class SemanticEntitySearchIT {
   public void testSemanticSearchAgainstLocalOpenSearch() {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     EmbeddingProvider embeddingProvider = new ZerosEmbeddingProvider();
+    MappingsBuilder mappingsBuilder = new NoOpMappingsBuilder();
 
     SemanticEntitySearchService service =
-        new SemanticEntitySearchService(client, embeddingProvider);
+        new SemanticEntitySearchService(client, embeddingProvider, mappingsBuilder);
 
     // Query "anything"; embedding is zeros; expect request to succeed and return 0..N hits
     SearchResult result =
@@ -104,9 +107,10 @@ public class SemanticEntitySearchIT {
   public void testSemanticSearchWithFilters() {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     EmbeddingProvider embeddingProvider = new ZerosEmbeddingProvider();
+    MappingsBuilder mappingsBuilder = new NoOpMappingsBuilder();
 
     SemanticEntitySearchService service =
-        new SemanticEntitySearchService(client, embeddingProvider);
+        new SemanticEntitySearchService(client, embeddingProvider, mappingsBuilder);
 
     // Build a simple doc-level filter: platform == hive (adjust to a value present in your data)
     Criterion platformEq = new Criterion();

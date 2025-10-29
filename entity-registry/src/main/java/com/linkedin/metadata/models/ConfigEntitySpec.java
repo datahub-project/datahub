@@ -29,10 +29,11 @@ public class ConfigEntitySpec implements EntitySpec {
   public ConfigEntitySpec(
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
-      @Nonnull final Collection<AspectSpec> aspectSpecs) {
+      @Nonnull final Collection<AspectSpec> aspectSpecs,
+      @Nonnull final String searchGroup) {
     _aspectSpecs =
         aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
-    _entityAnnotation = new EntityAnnotation(entityName, keyAspect);
+    _entityAnnotation = new EntityAnnotation(entityName, keyAspect, searchGroup);
   }
 
   @Override
@@ -121,5 +122,10 @@ public class ConfigEntitySpec implements EntitySpec {
     }
 
     return fieldPathToSearchableFieldMap;
+  }
+
+  @Override
+  public String getSearchGroup() {
+    return _entityAnnotation.getSearchGroup();
   }
 }

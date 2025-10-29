@@ -48,7 +48,7 @@ dependencies {
 
     testImplementation externalDependency.mockitoInline
     testImplementation externalDependency.testng
-    testImplementation externalDependency.mockitoInline
+    testImplementation project(':metadata-operation-context')
 }
 
 graphqlCodegen {

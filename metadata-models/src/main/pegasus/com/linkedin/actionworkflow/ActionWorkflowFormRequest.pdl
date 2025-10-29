@@ -47,7 +47,7 @@ record ActionWorkflowFormRequest {
         /**
         * Expiration time for the action request (optional, if part of the template).
         */
-        @Searchable = {}
+        @Searchable = { "fieldType": "DATETIME" }
         expiresAt: optional long
     }
 

@@ -25,10 +25,10 @@ import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
@@ -77,10 +77,9 @@ public class ElasticSearchServiceTest {
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mock(ESSearchDAO.class),
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -98,10 +97,9 @@ public class ElasticSearchServiceTest {
     esSearchServiceLimited =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             searchServiceConfig,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mock(ESSearchDAO.class),
             esBrowseDAO,
             mock(ESWriteDAO.class));
@@ -202,10 +200,9 @@ public class ElasticSearchServiceTest {
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -264,10 +261,9 @@ public class ElasticSearchServiceTest {
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -322,10 +318,9 @@ public class ElasticSearchServiceTest {
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -362,10 +357,9 @@ public class ElasticSearchServiceTest {
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -554,10 +548,9 @@ public class ElasticSearchServiceTest {
     ElasticSearchService nonStrictService =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             nonStrictSearchConfig,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mock(ESSearchDAO.class),
             esBrowseDAO,
             mock(ESWriteDAO.class));
@@ -637,10 +630,9 @@ public class ElasticSearchServiceTest {
     ElasticSearchService serviceWithMockDAO =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mockSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -707,10 +699,9 @@ public class ElasticSearchServiceTest {
     ElasticSearchService serviceWithMockDAO =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mockSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -762,10 +753,9 @@ public class ElasticSearchServiceTest {
     ElasticSearchService serviceWithMockDAO =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mockSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -831,10 +821,9 @@ public class ElasticSearchServiceTest {
     ElasticSearchService serviceWithMockDAO =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mockSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -894,78 +883,15 @@ public class ElasticSearchServiceTest {
   }
 
   @Test
-  public void testScrollWithNullSize() {
-    // Setup
-    ESSearchDAO mockSearchDAO = mock(ESSearchDAO.class);
-    ElasticSearchService serviceWithMockDAO =
-        new ElasticSearchService(
-            mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
-            TEST_SEARCH_SERVICE_CONFIG,
-            mockSearchDAO,
-            mock(ESBrowseDAO.class),
-            mockEsWriteDAO);
-
-    List<String> entities = Arrays.asList("dataset");
-    Filter filters = null;
-    List<SortCriterion> sortCriteria = Collections.emptyList();
-    String scrollId = "scroll-123";
-    String keepAliveDuration = "10m";
-    SearchDocFieldFetchConfig fetchConfig = null;
-
-    ScrollResult expectedResult =
-        new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(50).setPageSize(100);
-
-    when(mockSearchDAO.scroll(
-            eq(opContext),
-            eq(entities),
-            eq(filters),
-            eq(sortCriteria),
-            eq(null), // null size
-            eq(scrollId),
-            eq(keepAliveDuration),
-            eq(fetchConfig)))
-        .thenReturn(expectedResult);
-
-    // Execute
-    ScrollResult result =
-        serviceWithMockDAO.scroll(
-            opContext,
-            entities,
-            filters,
-            sortCriteria,
-            null, // null size
-            scrollId,
-            keepAliveDuration,
-            fetchConfig);
-
-    // Verify
-    assertEquals(result, expectedResult);
-    verify(mockSearchDAO)
-        .scroll(
-            eq(opContext),
-            eq(entities),
-            eq(filters),
-            eq(sortCriteria),
-            eq(null),
-            eq(scrollId),
-            eq(keepAliveDuration),
-            eq(fetchConfig));
-  }
-
-  @Test
   public void testAggregateByValueWithNullLimit() {
     // Setup
     ESSearchDAO mockSearchDAO = mock(ESSearchDAO.class);
     ElasticSearchService serviceWithMockDAO =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mockSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -1007,10 +933,9 @@ public class ElasticSearchServiceTest {
     ElasticSearchService serviceWithMockDAO =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mockSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -1059,10 +984,9 @@ public class ElasticSearchServiceTest {
     ElasticSearchService serviceWithMockDAO =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
             mock(ESSearchDAO.class),
             mockBrowseDAO,
             mockEsWriteDAO);

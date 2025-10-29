@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -95,6 +96,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private final SearchClientShim<?> searchClient;
   private final EmbeddingProvider embeddingProvider;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
+  private final MappingsBuilder mappingsBuilder;
 
   /**
    * Constructs a semantic entity search service backed by OpenSearch's low-level REST client.
@@ -103,11 +105,14 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * @param embeddingProvider provider capable of generating query embeddings
    */
   public SemanticEntitySearchService(
-      @Nonnull SearchClientShim<?> searchClient, @Nonnull EmbeddingProvider embeddingProvider) {
+      @Nonnull SearchClientShim<?> searchClient,
+      @Nonnull EmbeddingProvider embeddingProvider,
+      MappingsBuilder mappingsBuilder) {
     this.searchClient = Objects.requireNonNull(searchClient, "searchClientShim");
     this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "embeddingProvider");
     // Initialize with empty chain for POC - in production this would be injected
     this.queryFilterRewriteChain = QueryFilterRewriteChain.EMPTY;
+    this.mappingsBuilder = mappingsBuilder;
   }
 
   /**
@@ -172,7 +177,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     // 4) Build searchable field types from entity specs
     Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes =
         !entitySpecs.isEmpty()
-            ? ESUtils.buildSearchableFieldTypes(opContext.getEntityRegistry(), entitySpecs)
+            ? ESUtils.buildSearchableFieldTypes(opContext.getEntityRegistry(), mappingsBuilder)
             : new HashMap<>();
 
     if (searchableFieldTypes.isEmpty()) {

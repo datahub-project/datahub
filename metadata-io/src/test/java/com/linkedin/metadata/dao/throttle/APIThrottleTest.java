@@ -49,6 +49,11 @@ public class APIThrottleTest {
     mockRequestContext = mock(RequestContext.class);
     RequestContext.RequestContextBuilder builder = mock(RequestContext.RequestContextBuilder.class);
     when(builder.metricUtils(any())).thenReturn(builder);
+    when(builder.actorUrn(any())).thenReturn(builder);
+    when(builder.sourceIP(any())).thenReturn(builder);
+    when(builder.requestAPI(any())).thenReturn(builder);
+    when(builder.requestID(any())).thenReturn(builder);
+    when(builder.userAgent(any())).thenReturn(builder);
     when(builder.build()).thenReturn(mockRequestContext);
     opContext = TestOperationContexts.userContextNoSearchAuthorization(builder);
   }

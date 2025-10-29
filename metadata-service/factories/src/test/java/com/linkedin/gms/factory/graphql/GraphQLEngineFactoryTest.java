@@ -16,7 +16,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
-import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.MappingsBuilderFactory;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
@@ -31,7 +31,7 @@ import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.service.*;
@@ -75,7 +75,7 @@ import org.testng.annotations.Test;
     classes = {
       ConfigurationProvider.class,
       GraphQLEngineFactory.class,
-      BaseElasticSearchComponentsFactory.class
+      MappingsBuilderFactory.class
     })
 @ContextConfiguration(classes = GraphQLEngineFactoryTest.TestConfig.class)
 @TestPropertySource(

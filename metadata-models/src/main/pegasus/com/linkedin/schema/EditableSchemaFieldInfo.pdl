@@ -18,7 +18,8 @@ record EditableSchemaFieldInfo {
   @Searchable = {
     "fieldName": "editedFieldDescriptions",
     "fieldType": "TEXT",
-    "boostScore": 0.1
+    "boostScore": 0.1,
+    "searchTier": 2
   }
   description: optional string
 

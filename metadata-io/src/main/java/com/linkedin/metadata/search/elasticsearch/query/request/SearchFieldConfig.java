@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.Constants.SKIP_REFERENCE_ASPECT;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.*;
 
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;

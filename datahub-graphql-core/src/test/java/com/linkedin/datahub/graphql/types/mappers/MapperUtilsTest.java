@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
@@ -113,9 +114,7 @@ public class MapperUtilsTest {
                 TestOperationContexts.systemContextNoSearchAuthorization().getEntityRegistry(),
                 invalidUrn));
 
-    QueryContext mockContext = mock(QueryContext.class);
-    when(mockContext.getOperationContext())
-        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+    QueryContext mockContext = TestUtils.getMockAllowContext();
 
     List<MatchedField> actualMatched =
         MapperUtils.getMatchedFieldEntry(

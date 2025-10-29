@@ -30,6 +30,8 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -67,6 +69,8 @@ public class SemanticEntitySearchServiceTest {
   @Mock private HttpEntity mockHttpEntity;
   @Mock private StatusLine mockStatusLine;
 
+  private MappingsBuilder mappingsBuilder;
+
   private ObjectMapper objectMapper;
   private SemanticEntitySearchService service;
   private AutoCloseable mocks;
@@ -81,6 +85,7 @@ public class SemanticEntitySearchServiceTest {
   public void setUp() {
     mocks = MockitoAnnotations.openMocks(this);
     objectMapper = new ObjectMapper();
+    mappingsBuilder = new NoOpMappingsBuilder();
 
     // Setup basic mock behavior
     when(mockIndexConvention.getEntityIndexName(TEST_ENTITY_NAME)).thenReturn(TEST_BASE_INDEX);
@@ -92,7 +97,8 @@ public class SemanticEntitySearchServiceTest {
     when(mockSearchContext.getSearchFlags()).thenReturn(mockSearchFlags);
     when(mockSearchFlags.isFilterNonLatestVersions()).thenReturn(false);
 
-    service = new SemanticEntitySearchService(searchClientShim, mockEmbeddingProvider);
+    service =
+        new SemanticEntitySearchService(searchClientShim, mockEmbeddingProvider, mappingsBuilder);
   }
 
   @AfterMethod
@@ -108,15 +114,16 @@ public class SemanticEntitySearchServiceTest {
     // Test null searchClient
     assertThrows(
         NullPointerException.class,
-        () -> new SemanticEntitySearchService(null, mockEmbeddingProvider));
+        () -> new SemanticEntitySearchService(null, mockEmbeddingProvider, mappingsBuilder));
 
     // Test null embeddingProvider
     assertThrows(
-        NullPointerException.class, () -> new SemanticEntitySearchService(searchClientShim, null));
+        NullPointerException.class,
+        () -> new SemanticEntitySearchService(searchClientShim, null, mappingsBuilder));
 
     // Test successful construction
     SemanticEntitySearchService validService =
-        new SemanticEntitySearchService(searchClientShim, mockEmbeddingProvider);
+        new SemanticEntitySearchService(searchClientShim, mockEmbeddingProvider, mappingsBuilder);
     assertNotNull(validService);
   }
 

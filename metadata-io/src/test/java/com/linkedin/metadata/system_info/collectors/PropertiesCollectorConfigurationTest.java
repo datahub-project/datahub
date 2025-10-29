@@ -915,6 +915,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.table.include.list",
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.server.id",
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.include.list",
+          "elasticsearch.entityIndex.v2.cleanup",
+          "elasticsearch.entityIndex.v3.analyzerConfig",
+          "elasticsearch.entityIndex.v3.mappingConfig",
+          "elasticsearch.entityIndex.v3.cleanup",
+          "elasticsearch.entityIndex.v3.maxFieldsLimit",
+
+          // Metadata Change Log configuration
+          "metadataChangeLog.consumer.batch.enabled",
+          "metadataChangeLog.consumer.batch.size",
 
           // SaaS properties
           "assertionMonitors.resolveIngestionSourceForAspects",

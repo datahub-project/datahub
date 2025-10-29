@@ -5,6 +5,7 @@
  */
 package com.linkedin.gms.factory.search.semantic;
 
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
@@ -28,7 +29,8 @@ public class SemanticEntitySearchServiceFactory {
 
   @Bean(name = "semanticEntitySearchService")
   @Nonnull
-  protected SemanticEntitySearch getInstance() {
-    return new SemanticEntitySearchService(searchClient, embeddingProvider);
+  protected SemanticEntitySearch getInstance(
+      @Qualifier("mappingsBuilder") final MappingsBuilder mappingsBuilder) {
+    return new SemanticEntitySearchService(searchClient, embeddingProvider, mappingsBuilder);
   }
 }

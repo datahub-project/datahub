@@ -47,8 +47,8 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
             configurationProvider.getElasticSearch().getIndex().getFinalPrefix();
 
         boolean useOpenSearch = esComponents.getSearchClient().getEngineType().isOpenSearch();
-        int numShards = esComponents.getIndexBuilder().getNumShards();
-        int numReplicas = esComponents.getIndexBuilder().getNumReplicas();
+        int numShards = configurationProvider.getElasticSearch().getIndex().getNumShards();
+        int numReplicas = configurationProvider.getElasticSearch().getIndex().getNumReplicas();
 
         if (useOpenSearch) {
           setupOpenSearchUsageEvents(indexPrefix, numShards, numReplicas, context.opContext());

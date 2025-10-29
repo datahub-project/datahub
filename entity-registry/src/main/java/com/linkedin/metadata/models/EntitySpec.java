@@ -44,6 +44,13 @@ public interface EntitySpec {
 
   TyperefDataSchema getAspectTyperefSchema();
 
+  /**
+   * Gets the search group for this entity.
+   *
+   * @return the search group name
+   */
+  String getSearchGroup();
+
   default List<SearchableFieldSpec> getSearchableFieldSpecs() {
     return getAspectSpecs().stream()
         .map(AspectSpec::getSearchableFieldSpecs)
