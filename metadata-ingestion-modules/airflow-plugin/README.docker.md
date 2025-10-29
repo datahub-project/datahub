@@ -25,6 +25,7 @@ This directory contains a complete Docker-based test environment for the Airflow
 ```
 
 **Benefits:**
+
 - ✅ Automatic volume mounts (no manual `-v` flags)
 - ✅ Correct file permissions (no root-owned files)
 - ✅ Auto-builds image if needed
@@ -45,11 +46,13 @@ docker-compose -f docker-compose.test.yml run --rm airflow-plugin-test py311-air
 ### Automatic Volume Mounts
 
 Both the wrapper script and Docker Compose automatically mount:
+
 - **Source code** (`metadata-ingestion` and `airflow-plugin`)
 - **Golden files** (`tests/integration/goldens`)
 - **Tox cache** (`.tox` directory - Docker Compose only)
 
 This means:
+
 - ✅ No manual volume mount commands
 - ✅ Golden files are automatically updated on your local filesystem
 - ✅ Source code changes are immediately available
@@ -58,12 +61,14 @@ This means:
 ### Tox-Based Dependency Management
 
 The Docker image uses **tox** to install all dependencies:
+
 - Airflow versions (2.7, 2.8, 2.9, 2.10, 3.1)
 - Airflow constraints files (for reproducible builds)
 - Provider packages (Airflow 3.x)
 - All test dependencies
 
 This ensures:
+
 - ✅ No duplicate dependency logic
 - ✅ Same dependencies as local development
 - ✅ Automatic constraint file handling
@@ -80,17 +85,18 @@ Test against any Airflow version in one image:
 
 ## Why Use Docker?
 
-| Use Case | Recommended Approach |
-|----------|---------------------|
-| **Local development** | Local tox (faster iteration) |
-| **CI/CD pipelines** | Docker (complete isolation) |
-| **Cross-platform testing** | Docker (consistent environment) |
-| **Sharing test environment** | Docker (works everywhere) |
-| **Testing on different OS** | Docker (same Linux base) |
+| Use Case                     | Recommended Approach            |
+| ---------------------------- | ------------------------------- |
+| **Local development**        | Local tox (faster iteration)    |
+| **CI/CD pipelines**          | Docker (complete isolation)     |
+| **Cross-platform testing**   | Docker (consistent environment) |
+| **Sharing test environment** | Docker (works everywhere)       |
+| **Testing on different OS**  | Docker (same Linux base)        |
 
 ## Documentation
 
 See **`DOCKER_TEST_GUIDE.md`** for:
+
 - Detailed usage examples
 - All three methods (wrapper, compose, CLI)
 - Advanced configuration

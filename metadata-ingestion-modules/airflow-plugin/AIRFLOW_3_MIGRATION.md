@@ -864,4 +864,3 @@ For issues related to Airflow 3.x compatibility:
 | Version | Date       | Changes                           |
 | ------- | ---------- | --------------------------------- |
 | 1.0     | 2025-01-XX | Initial Airflow 3.x support added |
-

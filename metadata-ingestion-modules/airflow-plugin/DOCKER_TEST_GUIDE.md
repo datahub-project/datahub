@@ -5,6 +5,7 @@ This guide explains how to run Airflow plugin tests in Docker with automatic vol
 ## Overview
 
 The Docker test environment uses **tox** to manage all dependencies:
+
 - ✅ Airflow (multiple versions: 2.7, 2.8, 2.9, 2.10, 3.1)
 - ✅ Airflow constraints files (for reproducible builds)
 - ✅ Provider packages (for Airflow 3.x)
@@ -12,6 +13,7 @@ The Docker test environment uses **tox** to manage all dependencies:
 - ✅ **Automatic volume mounts** for source code and golden files
 
 **Three ways to run tests:**
+
 1. **Wrapper Script** (easiest) - `./run-tests.sh`
 2. **Docker Compose** (recommended for CI/CD)
 3. **Docker CLI** (most control)
@@ -42,6 +44,7 @@ REBUILD=true ./run-tests.sh
 ```
 
 **Benefits:**
+
 - ✅ Automatic volume mounts (source code + golden files)
 - ✅ Correct user permissions (no root-owned files)
 - ✅ Auto-builds image if needed
@@ -71,6 +74,7 @@ docker-compose -f docker-compose.test.yml build
 ```
 
 **Benefits:**
+
 - ✅ Automatic volume mounts (source code + golden files)
 - ✅ Persistent tox cache (faster subsequent runs)
 - ✅ Easy to customize via docker-compose.test.yml
@@ -130,6 +134,7 @@ docker build -f metadata-ingestion-modules/airflow-plugin/Dockerfile.test \
 ### Available Tox Environments
 
 From `tox.ini`:
+
 - `py39-airflow27` - Python 3.9, Airflow 2.7
 - `py310-airflow27` - Python 3.10, Airflow 2.7
 - `py310-airflow28` - Python 3.10, Airflow 2.8
@@ -250,6 +255,7 @@ docker run -v $(pwd):/app airflow-plugin-test py311-airflow31 -- tests/integrati
 ```
 
 **Note:** You may need to rebuild the tox environment after code changes:
+
 ```bash
 docker run -v $(pwd):/app airflow-plugin-test py311-airflow31 --recreate
 ```
@@ -397,6 +403,7 @@ test:
 ### Tox Configuration
 
 The `tox.ini` file defines all test environments with:
+
 - Airflow version constraints
 - Official Airflow constraints files for reproducible builds
 - Provider packages for Airflow 3.x
@@ -426,24 +433,26 @@ docker run airflow-plugin-test py311-airflow31 -- tests/integration/test_plugin.
 
 ## Comparison: Docker vs Local Tox
 
-| Aspect | Docker | Local Tox |
-|--------|--------|-----------|
-| **Setup** | Build once, run anywhere | Requires local Python setup |
-| **Reproducibility** | Guaranteed (same OS, packages) | Varies by local environment |
-| **CI/CD** | Native support | Needs Python pre-installed |
-| **Speed (first run)** | Slower (Docker build) | Slower (tox setup) |
-| **Speed (subsequent)** | Fast if cached | Fast if cached |
-| **Disk Usage** | Higher (Docker layers) | Lower |
-| **Isolation** | Complete (OS level) | Python environment only |
-| **Golden Files** | Volume mounts needed | Direct access |
+| Aspect                 | Docker                         | Local Tox                   |
+| ---------------------- | ------------------------------ | --------------------------- |
+| **Setup**              | Build once, run anywhere       | Requires local Python setup |
+| **Reproducibility**    | Guaranteed (same OS, packages) | Varies by local environment |
+| **CI/CD**              | Native support                 | Needs Python pre-installed  |
+| **Speed (first run)**  | Slower (Docker build)          | Slower (tox setup)          |
+| **Speed (subsequent)** | Fast if cached                 | Fast if cached              |
+| **Disk Usage**         | Higher (Docker layers)         | Lower                       |
+| **Isolation**          | Complete (OS level)            | Python environment only     |
+| **Golden Files**       | Volume mounts needed           | Direct access               |
 
 **Use Docker for:**
+
 - CI/CD pipelines
 - Consistent cross-platform testing
 - Complete environment isolation
 - Sharing test environments
 
 **Use Local Tox for:**
+
 - Day-to-day development
 - Faster iteration
 - Direct file access
@@ -461,6 +470,7 @@ docker run airflow-plugin-test py311-airflow31 -- tests/integration/test_plugin.
 ## Support
 
 For issues:
+
 - **Tox configuration**: See `tox.ini` in the airflow-plugin directory
 - **Docker logs**: `docker logs <container-id>`
 - **Build output**: `docker build --progress=plain`
