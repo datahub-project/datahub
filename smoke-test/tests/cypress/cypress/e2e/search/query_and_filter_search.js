@@ -19,6 +19,26 @@ const selectFilteredEntity = (textToClick, entity, url) => {
   });
 };
 
+const selectFilteredEntityThroughMoreFilters = (textToClick, entity, url) => {
+  cy.clickOptionWithTestId("more-filters-dropdown");
+  cy.clickOptionWithTestId(`more-filter-${textToClick}`);
+  cy.getWithTestId("filter-dropdown").within(() => {
+    cy.clickOptionWithText(entity);
+    cy.clickOptionWithTestId("update-filters");
+  });
+
+  cy.url().should("include", `${url}`);
+  cy.get(".ant-pagination-next").scrollIntoView().should("be.visible");
+
+  // Assert that update-filters is either not present or not visible
+  cy.get("body").then(($body) => {
+    if ($body.find("[data-testid=update-filters]").length > 0) {
+      cy.get("[data-testid=update-filters]").should("not.be.visible");
+    }
+    // If element doesn't exist, assertion passes (element not present = test passes)
+  });
+};
+
 const verifyFilteredEntity = (text) => {
   cy.get(".ant-typography").contains(text).should("be.visible");
 };
@@ -87,7 +107,11 @@ describe("auto-complete dropdown, filter plus query search test", () => {
   it("Verify the 'filter by tag' section + query", () => {
     // CypressFeatureTag
     searchToExecute("*");
-    selectFilteredEntity("Tagged-With", "CypressFeatureTag", "filter_tags");
+    selectFilteredEntityThroughMoreFilters(
+      "Tag",
+      "CypressFeatureTag",
+      "filter_tags",
+    );
     clickAndVerifyEntity("Tags");
     cy.mouseover('[data-testid="tag-CypressFeatureTag"]');
     verifyFilteredEntity("CypressFeatureTag");

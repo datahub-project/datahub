@@ -119,7 +119,6 @@ describe("summary tab - glossary node", () => {
   });
 
   it("glossary node - header section", () => {
-
     testPropertiesSection([
       { name: "Created", type: "CREATED" },
       { name: "Owners", type: "OWNERS", value: TEST_USER_DISPLAY_NAME },
@@ -225,7 +224,6 @@ describe("summary tab - data product", () => {
       ...defaultModules,
       ...ADDITIONAL_MODULES_AVAILABLE_TO_ADD,
     ];
-
 
     testTemplateSection(defaultModules, modulesAvailableToAdd);
   });
