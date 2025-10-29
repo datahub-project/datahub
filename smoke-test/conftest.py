@@ -196,7 +196,8 @@ def load_pytest_test_weights() -> Dict[str, float]:
         Dictionary mapping test IDs (classname::test_name) to durations in seconds.
         Returns empty dict if weights file doesn't exist.
     """
-    weights_file = Path(__file__).parent / "pytest_test_weights.json"
+    # OSS Merge notes: Fork has different tests, so will use weights that are different from oss
+    weights_file = Path(__file__).parent / "pytest_test_weights-fork.json"
 
     if not weights_file.exists():
         return {}
