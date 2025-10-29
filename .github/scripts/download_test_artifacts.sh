@@ -115,14 +115,14 @@ echo
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Fetch recent successful workflow runs from master branch
-echo "Fetching recent successful workflow runs from master branch..."
-RUN_IDS=$(gh api "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs" \
-    --jq ".workflow_runs[] | select(.conclusion==\"success\" and .head_branch==\"master\") | .id" \
+# Fetch recent successful workflow runs from acryl-main branch
+echo "Fetching recent successful workflow runs from acryl-main branch..."
+RUN_IDS=$(gh api "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs?branch=acryl-main" \
+    --jq ".workflow_runs[] | select(.conclusion==\"success\" and .head_branch==\"acryl-main\") | .id" \
     | head -n "$RUN_COUNT")
 
 if [[ -z "$RUN_IDS" ]]; then
-    echo "Error: No successful workflow runs found on master branch"
+    echo "Error: No successful workflow runs found on acryl-main branch"
     exit 1
 fi
 

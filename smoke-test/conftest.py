@@ -12,8 +12,6 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph, ge
 from tests.test_result_msg import send_message, get_module_tracker
 from tests.utilities import env_vars
 
-logger = logging.getLogger(__name__)
-
 from tests.utils import (
     TestSessionWrapper,
     get_frontend_session,
@@ -189,6 +187,7 @@ def bin_pack_tasks(tasks, n_buckets):
     return buckets
 
 
+
 def load_pytest_test_weights() -> Dict[str, float]:
     """
     Load pytest test weights from JSON file.
@@ -234,7 +233,6 @@ def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) 
         # Get the module path from the item's fspath
         module_path = str(item.fspath)
         modules[module_path].append(item)
-
     # Calculate total weight for each module
     module_data = []
     for module_path, module_items in modules.items():
@@ -256,18 +254,58 @@ def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) 
 
     return module_data
 
-
-
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: List[Item]
 ) -> None:
+
     tracker = get_module_tracker()
     tracker.total_tests = len(items)
     logger.info(f"Collected {len(items)} tests")
     tracker.send_collection_message()
 
-    # OSS Merge note: Fork uses a different implementation of pytest_collection_modify_items.
-    # There is some pending work to make both oss and fork same for this, but currently
-    # fork uses pytests-split for weighted batching and not via modifyitems.
-    # OSS implements weighted batching directly in this function, but Acryl uses pytest-split
-    # with the pytest_test_weights.json file for weighted distribution across batches.
+    if env_vars.get_test_strategy() == "cypress":
+        return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
+
+    # Get batch configuration
+    batch_count_env = env_vars.get_batch_count()
+    batch_count = int(batch_count_env)
+    batch_number_env = env_vars.get_batch_number()
+    batch_number = int(batch_number_env)
+
+    if batch_count <= 1:
+        # No batching needed
+        return
+
+    # Load test weights
+    test_weights = load_pytest_test_weights()
+
+    # Group items by module and aggregate weights
+    module_data = aggregate_module_weights(items, test_weights)
+
+    # Sort modules by path for stability
+    module_data.sort(key=lambda x: x[0])
+
+    # Create weighted tuples for bin-packing: (module_path, weight)
+    # We'll also keep track of the items for each module
+    module_map = {module_path: module_items for module_path, module_items, _ in module_data}
+    weighted_modules = [(module_path, total_weight) for module_path, _, total_weight in module_data]
+
+    logger.info(f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches")
+
+    # Apply bin-packing to modules
+    module_batches = bin_pack_tasks(weighted_modules, batch_count)
+
+    # Get the modules for this batch
+    selected_modules = module_batches[batch_number]
+
+    # Flatten back to individual test items
+    # Tests within each module maintain their original collection order
+    selected_items = []
+    for module_path in selected_modules:
+        selected_items.extend(module_map[module_path])
+
+    logger.info(f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules")
+
+    # Replace items with the filtered list
+    items[:] = selected_items
+

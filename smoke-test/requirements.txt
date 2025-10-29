@@ -9,7 +9,6 @@ slack-sdk==3.18.1
 aiohttp
 joblib
 pytest-xdist
-pytest-split
 networkx
 # libaries for linting below this
 mypy==1.14.1
