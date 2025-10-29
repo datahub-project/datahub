@@ -225,6 +225,13 @@ class LookMLSourceConfig(
         "and ensures some lineage information is available rather than complete failure.",
     )
 
+    enable_individual_field_fallback: bool = Field(
+        True,
+        description="When enabled, if a field chunk fails, the system will attempt to process each field "
+        "individually to maximize information and isolate problematic fields. This helps identify "
+        "which specific fields are causing issues while still getting lineage for working fields.",
+    )
+
     @model_validator(mode="before")
     @classmethod
     def convert_string_to_connection_def(cls, values: Dict[str, Any]) -> Dict[str, Any]:

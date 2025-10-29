@@ -347,6 +347,8 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
     - All lineage extraction is based on the SQL returned by the Looker API, ensuring accurate and up-to-date lineage.
     - **Field Splitting**: When the number of fields exceeds the configured threshold (default: 100), fields are automatically
       split into multiple API calls to avoid SQL parsing failures and provide partial lineage for large field sets.
+    - **Individual Field Fallback**: When a field chunk fails, the system can attempt to process each field individually
+      to maximize information and isolate problematic fields, helping identify which specific fields cause issues.
 
     Why view_to_explore_map is required:
     The Looker Query API expects the explore name (not the view name) as the "view" parameter in the WriteQuery.
@@ -360,6 +362,14 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
     - Provide partial column and table lineage even when some field chunks fail
     - Improve reliability for views with hundreds of fields
     - Maintain performance by processing manageable chunks
+
+    Individual Field Fallback:
+    When `enable_individual_field_fallback` is enabled (default: True), if a field chunk fails,
+    the system attempts to process each field individually. This helps:
+    - Maximize lineage information by processing working fields even when chunks fail
+    - Isolate problematic fields that cause SQL parsing or API errors
+    - Identify specific fields that need attention or exclusion
+    - Provide detailed reporting about which fields are problematic
 
     Example WriteQuery request (see `_execute_query` for details):
         {
@@ -376,6 +386,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
     For further details, see the method-level docstrings, especially:
       - `__get_spr`: SQL parsing and lineage extraction workflow with field splitting
       - `_get_spr_with_field_splitting`: Field splitting logic for large field sets
+      - `_process_individual_fields`: Individual field processing when chunks fail
       - `_get_sql_write_query`: WriteQuery construction and field enumeration
       - `_execute_query`: Looker API invocation and SQL retrieval - this only generates the SQL query, does not execute it
       - Field name translation: `_get_looker_api_field_name` and `_get_field_name_from_looker_api_field_name`
@@ -548,6 +559,95 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         return spr
 
+    def _process_individual_fields(
+        self, field_chunk: List[str], explore_name: str
+    ) -> tuple[set, list, int, int]:
+        """
+        Process individual fields when a chunk fails to isolate problematic fields.
+
+        Args:
+            field_chunk: List of field names that failed as a chunk
+            explore_name: The explore name to use in queries
+
+        Returns:
+            Tuple of (successful_tables, successful_column_lineage, successful_count, failed_count)
+        """
+        successful_tables = set()
+        successful_column_lineage = []
+        successful_count = 0
+        failed_count = 0
+        problematic_fields = []
+
+        logger.info(
+            f"Processing {len(field_chunk)} fields individually for view '{self.view_context.name()}' "
+            f"to isolate problematic fields"
+        )
+
+        for field_name in field_chunk:
+            try:
+                logger.debug(
+                    f"Processing individual field '{field_name}' for view '{self.view_context.name()}'"
+                )
+
+                # Create query with single field
+                sql_query = self._get_sql_write_query_with_fields(
+                    [field_name], explore_name
+                )
+                sql_response = self._execute_query(sql_query)
+
+                # Parse the SQL response with partial results allowed
+                spr = self._parse_sql_response(
+                    sql_response, self.config.allow_partial_lineage_results
+                )
+
+                # Collect results
+                successful_tables.update(spr.in_tables)
+                if spr.column_lineage:
+                    successful_column_lineage.extend(spr.column_lineage)
+
+                successful_count += 1
+                logger.debug(
+                    f"Successfully processed individual field '{field_name}' for view '{self.view_context.name()}'"
+                )
+
+            except Exception as e:
+                failed_count += 1
+                problematic_fields.append(field_name)
+                logger.warning(
+                    f"Failed to process individual field '{field_name}' for view '{self.view_context.name()}'': {e}"
+                )
+                self.reporter.report_warning(
+                    title="Individual Field Processing Failed",
+                    message=f"Failed to process individual field '{field_name}'",
+                    context=f"View-name: {self.view_context.name()}, Field: {field_name}",
+                    exc=e,
+                )
+                continue
+
+        if problematic_fields:
+            logger.warning(
+                f"Identified {len(problematic_fields)} problematic fields for view '{self.view_context.name()}': "
+                f"{problematic_fields[:5]}{'...' if len(problematic_fields) > 5 else ''}"
+            )
+            self.reporter.report_warning(
+                title="Problematic Fields Identified",
+                message=f"Identified {len(problematic_fields)} problematic fields that cannot be processed: "
+                f"{', '.join(problematic_fields[:10])}{'...' if len(problematic_fields) > 10 else ''}",
+                context=f"View-name: {self.view_context.name()}, Total problematic: {len(problematic_fields)}",
+            )
+
+        logger.info(
+            f"Individual field processing completed for view '{self.view_context.name()}: "
+            f"{successful_count} successful, {failed_count} failed"
+        )
+
+        return (
+            successful_tables,
+            successful_column_lineage,
+            successful_count,
+            failed_count,
+        )
+
     def _get_spr_with_field_splitting(
         self, view_fields: List[str], explore_name: str
     ) -> SqlParsingResult:
@@ -622,14 +722,54 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     exc=e,
                 )
 
-                if self.config.allow_partial_lineage_results:
-                    continue
+                # Try individual field processing if enabled
+                if self.config.enable_individual_field_fallback:
+                    logger.info(
+                        f"Attempting individual field processing for failed chunk {chunk_idx + 1} "
+                        f"with {len(field_chunk)} fields for view '{self.view_context.name()}'"
+                    )
 
-                # If partial lineage is not allowed, raise the exception
-                raise
+                    try:
+                        (
+                            individual_tables,
+                            individual_lineage,
+                            individual_success,
+                            individual_failed,
+                        ) = self._process_individual_fields(field_chunk, explore_name)
+
+                        # Add individual field results to combined results
+                        all_in_tables.update(individual_tables)
+                        if individual_lineage:
+                            all_column_lineage.extend(individual_lineage)
+
+                        # Update counters
+                        successful_queries += individual_success
+                        failed_queries += (
+                            individual_failed - 1
+                        )  # Subtract 1 because we already counted the chunk failure
+
+                        logger.info(
+                            f"Individual field processing for chunk {chunk_idx + 1} completed: "
+                            f"{individual_success} successful, {individual_failed} failed"
+                        )
+
+                    except Exception as individual_error:
+                        logger.error(
+                            f"Individual field processing also failed for chunk {chunk_idx + 1}: {individual_error}"
+                        )
+                        if not self.config.allow_partial_lineage_results:
+                            raise
+                else:
+                    if not self.config.allow_partial_lineage_results:
+                        raise
 
         if not successful_queries or not all_in_tables or not all_column_lineage:
-            logger.debug(successful_queries, all_in_tables, all_column_lineage)
+            logger.debug(
+                f"All field chunks failed for view '{self.view_context.name()}'. Total chunks: {len(field_chunks)}, Failed: {failed_queries}",
+                successful_queries,
+                all_in_tables,
+                all_column_lineage,
+            )
             raise ValueError(
                 f"All field chunks failed for view '{self.view_context.name()}'. "
                 f"Total chunks: {len(field_chunks)}, Failed: {failed_queries}"
@@ -645,7 +785,8 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         logger.info(
             f"Successfully combined results for view '{self.view_context.name()}': "
-            f"{len(all_in_tables)} upstream tables, {len(all_column_lineage)} column lineages"
+            f"{len(all_in_tables)} upstream tables, {len(all_column_lineage)} column lineages. "
+            f"Success rate: {(successful_queries / (successful_queries + failed_queries)) * 100:.1f}%"
         )
 
         # Report field splitting statistics
@@ -656,6 +797,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             failed_queries=failed_queries,
             upstream_tables=len(all_in_tables),
             column_lineages=len(all_column_lineage),
+            individual_field_fallback_enabled=self.config.enable_individual_field_fallback,
         )
 
         return combined_result
@@ -668,6 +810,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         failed_queries: int,
         upstream_tables: int,
         column_lineages: int,
+        individual_field_fallback_enabled: bool = False,
     ) -> None:
         """
         Report statistics about field splitting processing.
@@ -679,16 +822,25 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             failed_queries: Number of failed API queries
             upstream_tables: Number of upstream tables found
             column_lineages: Number of column lineages found
+            individual_field_fallback_enabled: Whether individual field fallback was enabled
         """
         # Use different reporting levels based on success rate
-        success_rate = (successful_queries / total_chunks) * 100
+        total_queries = successful_queries + failed_queries
+        success_rate = (
+            (successful_queries / total_queries) * 100 if total_queries > 0 else 0
+        )
+
+        fallback_info = ""
+        if individual_field_fallback_enabled:
+            fallback_info = " (Individual field fallback enabled)"
+
         if success_rate == 100:
-            # All chunks succeeded
+            # All queries succeeded
             self.reporter.report_warning(
                 title="Field Splitting Statistics - Complete Success",
                 message=f"Field splitting completed successfully for view '{self.view_context.name()}': "
                 f"Total fields: {total_fields}, Chunks: {total_chunks}, "
-                f"Upstream tables: {upstream_tables}, Column lineages: {column_lineages}",
+                f"Upstream tables: {upstream_tables}, Column lineages: {column_lineages}{fallback_info}",
                 context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%",
             )
         elif success_rate > 0:
@@ -697,8 +849,8 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 title="Field Splitting Statistics - Partial Success",
                 message=f"Field splitting completed with partial results for view '{self.view_context.name()}': "
                 f"Total fields: {total_fields}, Chunks: {total_chunks}, "
-                f"Successful: {successful_queries}, Failed: {failed_queries}, "
-                f"Upstream tables: {upstream_tables}, Column lineages: {column_lineages}",
+                f"Successful queries: {successful_queries}, Failed queries: {failed_queries}, "
+                f"Upstream tables: {upstream_tables}, Column lineages: {column_lineages}{fallback_info}",
                 context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%",
             )
         else:
@@ -707,7 +859,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 title="Field Splitting Statistics - Complete Failure",
                 message=f"Field splitting failed completely for view '{self.view_context.name()}': "
                 f"Total fields: {total_fields}, Chunks: {total_chunks}, "
-                f"All {failed_queries} chunks failed",
+                f"All {failed_queries} queries failed{fallback_info}",
                 context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%",
             )
 
