@@ -60,6 +60,7 @@ export default function EditDescriptionModal({
             onCancel={closeModal}
             width="80vw"
             style={{ maxWidth: '1200px' }}
+            maskClosable={false}
             buttons={[
                 {
                     text: 'Cancel',
