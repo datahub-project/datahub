@@ -8,6 +8,7 @@ export type Theme = {
     };
     styles: {
         'primary-color': string;
+        'primary-color-gradient': string;
         'primary-color-light': string;
         'primary-color-dark': string;
         'layout-header-color': string;
@@ -22,6 +23,7 @@ export type Theme = {
         'border-radius-navbar-redesign': string;
         'highlight-color': string;
         'highlight-border-color': string;
+        'link-color'?: string;
         'layout-header-background'?: string;
         'layout-body-background'?: string;
         'component-background'?: string;
