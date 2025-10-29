@@ -125,10 +125,6 @@ export const DATABASE_DENY: RecipeField = {
         setListValuesOnRecipe(recipe, values, databaseDenyFieldPath),
 };
 
-const dashboardAllowFieldPath = 'source.config.dashboard_pattern.allow';
-
-const dashboardDenyFieldPath = 'source.config.dashboard_pattern.deny';
-
 const schemaAllowFieldPath = 'source.config.schema_pattern.allow';
 export const SCHEMA_ALLOW: RecipeField = {
     name: 'schema_pattern.allow',

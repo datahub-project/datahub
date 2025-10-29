@@ -1,7 +1,7 @@
 import { getExistingIncidents } from '@app/entityV2/shared/tabs/Incident/utils';
 
 import { GetEntityIncidentsDocument } from '@graphql/incident.generated';
-import { Incident, IncidentState, IncidentType } from '@types';
+import { Incident, IncidentType } from '@types';
 
 export const PAGE_SIZE = 100;
 

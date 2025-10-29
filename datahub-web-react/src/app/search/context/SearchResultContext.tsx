@@ -2,7 +2,6 @@ import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 
 import { MatchedFieldName } from '@app/search/matches/constants';
 import {
-    getMatchedFieldLabel,
     getMatchedFieldNames,
     getMatchedFieldsByNames,
     getMatchedFieldsByUrn,

@@ -1,4 +1,4 @@
-import { EntityType } from '@types';
+
 
 export const toTitleCase = (str: string): string => {
     // eslint-disable-next-line no-useless-escape

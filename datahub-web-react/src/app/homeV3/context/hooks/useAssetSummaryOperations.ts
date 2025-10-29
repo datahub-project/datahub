@@ -18,7 +18,7 @@ import {
 
 import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
 import { PageTemplateFragment, SummaryElementFragment } from '@graphql/template.generated';
-import { SummaryElement, SummaryElementType } from '@types';
+import { SummaryElementType } from '@types';
 
 export interface AddSummaryElementInput {
     elementType: SummaryElementType;

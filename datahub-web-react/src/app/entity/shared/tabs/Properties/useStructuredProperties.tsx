@@ -210,31 +210,3 @@ function groupByParentProperty(rows?: Array<PropertyRow>): Array<PropertyRow> {
     }
     return outputRows;
 }
-
-function useStructuredProperties(entityRegistry: EntityRegistry, filterText?: string) {
-    const { entityData } = useEntityData();
-
-    let structuredPropertyRowsRaw = getStructuredPropertyRows(entityData);
-    const parentRows = identifyAndAddParentRows(structuredPropertyRowsRaw);
-
-    structuredPropertyRowsRaw = [...structuredPropertyRowsRaw, ...parentRows];
-
-    const { filteredRows, expandedRowsFromFilter } = filterStructuredProperties(
-        entityRegistry,
-        structuredPropertyRowsRaw,
-        filterText,
-    );
-
-    // Sort by fqn before nesting algorithm
-    const copy = [...filteredRows].sort((a, b) => {
-        return a.qualifiedName.localeCompare(b.qualifiedName);
-    });
-
-    // group properties by path
-    const structuredPropertyRows = groupByParentProperty(copy);
-
-    return {
-        structuredPropertyRows,
-        expandedRowsFromFilter: expandedRowsFromFilter as Set<string>,
-    };
-}

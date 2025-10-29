@@ -3,7 +3,5 @@ import { RootGlossaryNodeWithFourLayersFragment } from '@graphql/fragments.gener
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 import { GlossaryNode, GlossaryTerm } from '@types';
 
-type DomainsArray = NonNullable<ListDomainsQuery['listDomains']>['domains'];
-
 export type GlossaryNodeType = GlossaryNode | RootGlossaryNodeWithFourLayersFragment;
 export type GlossaryTermType = GlossaryTerm | ChildGlossaryTermFragment;

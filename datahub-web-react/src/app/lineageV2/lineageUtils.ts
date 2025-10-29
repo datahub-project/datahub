@@ -5,7 +5,7 @@ import { getFieldPathFromSchemaFieldUrn } from '@app/entityV2/schemaField/utils'
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
-import { EntityType, SchemaField } from '@types';
+import { EntityType } from '@types';
 
 export function downgradeV2FieldPath(fieldPath: string): string;
 export function downgradeV2FieldPath(fieldPath?: string | null) {

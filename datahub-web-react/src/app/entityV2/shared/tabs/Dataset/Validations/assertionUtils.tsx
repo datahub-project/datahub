@@ -1,4 +1,4 @@
-import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, StopOutlined } from '@ant-design/icons';
+
 import { Location } from 'history';
 import QueryString from 'query-string';
 import React from 'react';
@@ -14,9 +14,6 @@ import {
     AssertionResultType,
     AssertionStdParameter,
     AssertionStdParameterType,
-    DatasetAssertionInfo,
-    Maybe,
-    StringMapEntry,
 } from '@types';
 
 import AssertionErrorIcon from '@images/assertion_error_dot.svg?react';

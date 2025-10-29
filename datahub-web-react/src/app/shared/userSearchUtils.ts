@@ -1,7 +1,6 @@
 import {
     AndFilterInput,
     AutoCompleteInput,
-    AutoCompleteMultipleInput,
     EntityType,
     FilterOperator,
     SearchAcrossEntitiesInput,

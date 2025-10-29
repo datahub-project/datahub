@@ -1,4 +1,4 @@
-import { geekblue } from '@ant-design/colors';
+
 import { Tooltip } from '@components';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import React from 'react';

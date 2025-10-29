@@ -1,7 +1,5 @@
 import { ViewBuilderState } from '@app/entity/view/types';
 
-import { DataHubView, DataHubViewType, EntityType, LogicalOperator } from '@types';
-
 /**
  *  The max single-page results in both the View Select and Manage Views list.
  *

@@ -1,4 +1,4 @@
-import { AccessTokenDuration, AccessTokenType } from '@types';
+import { AccessTokenDuration } from '@types';
 
 /** The duration for which an Access Token is valid. */
 export const ACCESS_TOKEN_DURATIONS = [

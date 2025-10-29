@@ -1,4 +1,4 @@
-import React, { ReactNode, createContext, useContext } from 'react';
+import React, { ReactNode, createContext } from 'react';
 
 interface BrowserTitleContextProps {
     title: string;

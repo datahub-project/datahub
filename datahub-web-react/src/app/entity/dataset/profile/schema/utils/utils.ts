@@ -1,14 +1,9 @@
 import * as diff from 'diff';
-
-import { SchemaDiffSummary } from '@app/entity/dataset/profile/schema/components/SchemaVersionSummary';
 import { KEY_SCHEMA_PREFIX, UNION_TOKEN, VERSION_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
 import { ExtendedSchemaFields } from '@app/entity/dataset/profile/schema/utils/types';
-import { convertTagsForUpdate } from '@app/shared/tags/utils/convertTagsForUpdate';
 
 import {
     EditableSchemaFieldInfo,
-    EditableSchemaMetadata,
-    EditableSchemaMetadataUpdate,
     PlatformSchema,
     SchemaField,
 } from '@types';

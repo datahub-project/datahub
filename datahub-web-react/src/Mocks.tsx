@@ -32,7 +32,6 @@ import { GetTagDocument } from '@graphql/tag.generated';
 import { GetUserDocument } from '@graphql/user.generated';
 import {
     AppConfig,
-    BusinessAttribute,
     Container,
     DataFlow,
     DataHubView,
@@ -1056,36 +1055,6 @@ export const dataset7WithSelfReferentialLineage = {
         ],
     },
 };
-
-const container1 = {
-    urn: 'urn:li:container:DATABASE',
-    type: EntityType.Container,
-    platform: dataPlatform,
-    lastIngested: null,
-    exists: true,
-    properties: {
-        name: 'database1',
-        externalUrl: null,
-        __typename: 'ContainerProperties',
-    },
-    autoRenderAspects: [],
-    __typename: 'Container',
-} as Container;
-
-const container2 = {
-    urn: 'urn:li:container:SCHEMA',
-    type: EntityType.Container,
-    platform: dataPlatform,
-    lastIngested: null,
-    exists: true,
-    properties: {
-        name: 'schema1',
-        externalUrl: null,
-        __typename: 'ContainerProperties',
-    },
-    autoRenderAspects: [],
-    __typename: 'Container',
-} as Container;
 
 export const glossaryTerm1 = {
     urn: 'urn:li:glossaryTerm:1',
@@ -3938,35 +3907,6 @@ export const mocksWithSearchFlagsOff = [
         },
     },
 ];
-
-const platformPrivileges: PlatformPrivileges = {
-    viewAnalytics: true,
-    managePolicies: true,
-    manageIdentities: true,
-    generatePersonalAccessTokens: true,
-    manageDomains: true,
-    manageIngestion: true,
-    manageSecrets: true,
-    manageTokens: true,
-    viewTests: false,
-    manageTests: true,
-    manageGlossaries: true,
-    manageUserCredentials: true,
-    manageTags: true,
-    viewManageTags: true,
-    createTags: true,
-    createDomains: true,
-    manageGlobalViews: true,
-    manageOwnershipTypes: true,
-    manageGlobalAnnouncements: true,
-    createBusinessAttributes: true,
-    manageBusinessAttributes: true,
-    manageStructuredProperties: true,
-    viewStructuredPropertiesPage: true,
-    manageApplications: true,
-    manageFeatures: true,
-    manageHomePageTemplates: true,
-};
 
 export const DomainMock1 = {
     urn: 'urn:li:domain:afbdad41-c523-469f-9b62-de94f938f702',

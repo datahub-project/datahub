@@ -1,7 +1,5 @@
 import { ApiOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import * as cronParser from 'cron-parser';
 import cronstrue from 'cronstrue';
-import * as moment from 'moment-timezone';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -14,7 +12,7 @@ import { lowerFirstLetter } from '@app/shared/textUtil';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 
-import { Assertion, AssertionResultType, AssertionType, CronSchedule, EntityType } from '@types';
+import { Assertion, AssertionResultType, AssertionType, EntityType } from '@types';
 
 const StyledApiOutlined = styled(ApiOutlined)`
     && {
@@ -22,33 +20,6 @@ const StyledApiOutlined = styled(ApiOutlined)`
         padding: 0px;
         margin-right: 8px;
         font-size: 18px;
-    }
-`;
-
-const StyledCheckOutlined = styled(CheckOutlined)`
-    && {
-        color: ${SUCCESS_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
-    }
-`;
-
-const StyledCloseOutlined = styled(CloseOutlined)`
-    && {
-        color: ${FAILURE_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
-    }
-`;
-
-const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
-    && {
-        color: ${WARNING_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
     }
 `;
 

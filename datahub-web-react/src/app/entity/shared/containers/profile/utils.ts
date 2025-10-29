@@ -8,7 +8,6 @@ import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { EntityTab, GenericEntityProperties } from '@app/entity/shared/types';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import {
     ENTITY_PROFILE_DOCUMENTATION_ID,
     ENTITY_PROFILE_DOMAINS_ID,
@@ -21,7 +20,6 @@ import {
     ENTITY_PROFILE_TAGS_ID,
 } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import usePrevious from '@app/shared/usePrevious';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { AppConfig, EntityType } from '@types';
 
@@ -105,20 +103,6 @@ export function getEntityPath(
     }${tabParamsString}`;
 }
 
-function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
-    const { pathname } = useLocation();
-    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-    // Match against the regex
-    const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
-    if (match && match[1]) {
-        const selectedTabPath = match[1];
-        const routedTab = tabs.find((tab) => tab.name === selectedTabPath);
-        return routedTab;
-    }
-    // No match found!
-    return undefined;
-}
-
 export function useIsOnTab(tabName: string): boolean {
     const { pathname } = useLocation();
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
@@ -153,89 +137,10 @@ export function formatDateString(time: number) {
     return date.toLocaleDateString('en-US');
 }
 
-function useEntityQueryParams() {
-    const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const response = {};
-    if (isHideSiblingMode) {
-        response[SEPARATE_SIBLINGS_URL_PARAM] = true;
-    }
-
-    return response;
-}
-
-function useUpdateGlossaryEntityDataOnChange(
-    entityData: GenericEntityProperties | null,
-    entityType: EntityType,
-) {
-    const { setEntityData } = useGlossaryEntityData();
-    const previousEntityData = usePrevious(entityData);
-
-    useEffect(() => {
-        // first check this is a glossary entity to prevent unnecessary comparisons in non-glossary context
-        if (GLOSSARY_ENTITY_TYPES.includes(entityType) && !isEqual(entityData, previousEntityData)) {
-            setEntityData(entityData);
-        }
-    });
-}
-
-function getOnboardingStepIdsForEntityType(entityType: EntityType): string[] {
-    switch (entityType) {
-        case EntityType.Chart:
-            return [
-                ENTITY_PROFILE_DOCUMENTATION_ID,
-                ENTITY_PROFILE_PROPERTIES_ID,
-                ENTITY_PROFILE_LINEAGE_ID,
-                ENTITY_PROFILE_TAGS_ID,
-                ENTITY_PROFILE_GLOSSARY_TERMS_ID,
-                ENTITY_PROFILE_OWNERS_ID,
-                ENTITY_PROFILE_DOMAINS_ID,
-            ];
-        case EntityType.Container:
-            return [
-                ENTITY_PROFILE_ENTITIES_ID,
-                ENTITY_PROFILE_DOCUMENTATION_ID,
-                ENTITY_PROFILE_PROPERTIES_ID,
-                ENTITY_PROFILE_OWNERS_ID,
-                ENTITY_PROFILE_TAGS_ID,
-                ENTITY_PROFILE_GLOSSARY_TERMS_ID,
-                ENTITY_PROFILE_DOMAINS_ID,
-            ];
-        case EntityType.Dataset:
-            return [
-                ENTITY_PROFILE_SCHEMA_ID,
-                ENTITY_PROFILE_DOCUMENTATION_ID,
-                ENTITY_PROFILE_LINEAGE_ID,
-                ENTITY_PROFILE_PROPERTIES_ID,
-                ENTITY_PROFILE_OWNERS_ID,
-                ENTITY_PROFILE_TAGS_ID,
-                ENTITY_PROFILE_GLOSSARY_TERMS_ID,
-                ENTITY_PROFILE_DOMAINS_ID,
-            ];
-            break;
-        default:
-            return [];
-    }
-}
-
 function sortTabsWithDefaultTabId(tabs: EntityTab[], defaultTabId: string) {
     return tabs.sort((tabA, tabB) => {
         if (tabA.id === defaultTabId) return -1;
         if (tabB.id === defaultTabId) return 1;
         return 0;
     });
-}
-
-function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityType, tabs: EntityTab[]) {
-    const sortedTabs = [...tabs];
-
-    if (entityType === EntityType.Domain && appConfig.visualConfig.entityProfiles?.domain?.defaultTab) {
-        const defaultTabId = appConfig.visualConfig.entityProfiles?.domain?.defaultTab;
-        sortTabsWithDefaultTabId(sortedTabs, defaultTabId);
-    }
-
-    return sortedTabs;
-}
-
-function getNestedValue(obj: any, path: string) {
-    return path.split('.').reduce((o, p) => (o || {})[p], obj);
 }

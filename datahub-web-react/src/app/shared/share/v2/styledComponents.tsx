@@ -1,7 +1,5 @@
-import { Button, Checkbox, Form, Menu, Modal, Typography } from 'antd';
+import { Button, Menu } from 'antd';
 import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const StyledMenuItem = styled(Menu.Item)`
     min-width: 120px;

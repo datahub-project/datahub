@@ -1,13 +1,7 @@
-import {
-    OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
-    OWNERSHIP_TYPE_REFERENCE_REGEX,
-    STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
-    STRUCTURED_PROPERTY_REFERENCE_REGEX,
-} from '@app/sharedV2/queryBuilder/builder/property/constants';
+
 import {
     OPERATOR_ID_TO_DETAILS,
     Operator,
-    OperatorId,
     isUnaryOperator,
 } from '@app/sharedV2/queryBuilder/builder/property/types/operators';
 import { Property, entityProperties } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
@@ -19,7 +13,7 @@ import {
 } from '@app/sharedV2/queryBuilder/builder/property/types/values';
 import { PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
-import { EntityType, PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@types';
+import { EntityType } from '@types';
 
 /**
  * Returns true if a well-supported Property supports searchable

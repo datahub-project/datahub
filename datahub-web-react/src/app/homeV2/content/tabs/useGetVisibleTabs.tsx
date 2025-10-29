@@ -2,7 +2,7 @@ import { Tab } from '@components/components/Tabs/Tabs';
 
 import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANNOUNCEMENTS_TAB, DISCOVER_TAB, TabType } from '@app/homeV2/content/tabs/tabs';
+import { ANNOUNCEMENTS_TAB, DISCOVER_TAB } from '@app/homeV2/content/tabs/tabs';
 import { useUpdateLastViewedAnnouncementTime } from '@app/homeV2/shared/updateLastViewedAnnouncementTime';
 import { useGetLastViewedAnnouncementTime } from '@app/homeV2/shared/useGetLastViewedAnnouncementTime';
 import { hasViewedAnnouncement } from '@app/homeV2/shared/utils';

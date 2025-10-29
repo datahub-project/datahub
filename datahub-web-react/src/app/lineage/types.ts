@@ -1,6 +1,4 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
-
-import { FullLineageResultsFragment } from '@graphql/lineage.generated';
 import {
     Chart,
     Dashboard,

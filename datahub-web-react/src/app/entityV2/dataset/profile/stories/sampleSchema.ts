@@ -2,14 +2,6 @@ import { dataset3 } from '@src/Mocks';
 
 import { EntityType, Schema, SchemaField, SchemaFieldDataType, SchemaMetadata } from '@types';
 
-type Tag = {
-    name: string;
-    value?: string;
-    color: string;
-    category: string;
-    descriptor?: boolean;
-};
-
 export const sampleSchema: SchemaMetadata | Schema | null = {
     name: 'MockSchema',
     platformUrn: 'mock:urn',

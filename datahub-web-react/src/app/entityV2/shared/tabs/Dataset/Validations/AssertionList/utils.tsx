@@ -9,7 +9,6 @@ import {
     ASSERTION_SOURCES,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
 import {
-    AssertionBuilderSiblingOptions,
     AssertionColumnGroup,
     AssertionFilterOptions,
     AssertionListFilter,
@@ -28,8 +27,6 @@ import {
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 import {
     Assertion,
     AssertionInfo,
@@ -39,7 +36,6 @@ import {
     AssertionSourceType,
     AssertionType,
     AuditStamp,
-    EntityType,
     TagAssociation,
 } from '@src/types.generated';
 

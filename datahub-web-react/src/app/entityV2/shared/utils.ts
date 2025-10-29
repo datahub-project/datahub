@@ -1,7 +1,6 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { TITLE_CASE_EXCEPTION_WORDS } from '@app/entityV2/shared/constants';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { TimeWindowSize } from '@app/shared/time/timeUtils';
@@ -12,7 +11,6 @@ import {
     DashboardStatsSummary,
     DataPlatform,
     DataProduct,
-    Dataset,
     DatasetProfile,
     DatasetProperties,
     DatasetStatsSummary,

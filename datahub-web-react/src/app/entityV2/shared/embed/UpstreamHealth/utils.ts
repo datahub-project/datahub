@@ -1,4 +1,4 @@
-import { Dataset, EntityType, FilterOperator, LineageDirection } from '@types';
+import { Dataset } from '@types';
 
 export function getNumAssertionsFailing(dataset: Dataset) {
     let numFailing = 0;
@@ -13,14 +13,3 @@ export function getNumAssertionsFailing(dataset: Dataset) {
 }
 
 export const DATASET_COUNT = 5;
-
-interface Arguments {
-    urn: string;
-    filterField: string;
-    start: number;
-    includeAssertions: boolean;
-    includeIncidents: boolean;
-    startTimeMillis: number | null;
-    skip?: boolean;
-    count?: number;
-}

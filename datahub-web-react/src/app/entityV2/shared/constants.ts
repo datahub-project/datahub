@@ -198,8 +198,6 @@ export const EMPTY_MESSAGES = {
     },
 };
 
-const ELASTIC_MAX_COUNT = 10000;
-
 export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
     EntityType.Dashboard,
     EntityType.Chart,

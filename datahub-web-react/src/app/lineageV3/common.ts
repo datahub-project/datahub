@@ -4,7 +4,6 @@ import React, { Dispatch, SetStateAction } from 'react';
 
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
 import { DBT_URN } from '@app/ingestV2/source/builder/constants';
@@ -384,8 +383,3 @@ export function onClickPreventSelect(event: React.MouseEvent): true {
     event.stopPropagation(); // Prevents focusing node
     return true;
 }
-
-const DATA_STORE_COLOR = '#ffd279';
-const BI_TOOL_COLOR = '#8682a2';
-const ML_COLOR = '#206de8';
-const DEFAULT_COLOR = '#ff7979';

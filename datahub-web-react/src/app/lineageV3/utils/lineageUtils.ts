@@ -1,13 +1,10 @@
 import { useLocation } from 'react-router-dom';
 
 import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
-import { getFieldPathFromSchemaFieldUrn } from '@app/entityV2/schemaField/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
-import { EntityType, SchemaField } from '@types';
-
-function downgradeV2FieldPath(fieldPath: string): string;
+import { EntityType } from '@types';
 function downgradeV2FieldPath(fieldPath?: string | null) {
     if (!fieldPath) {
         return fieldPath;

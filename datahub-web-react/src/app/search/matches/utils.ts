@@ -1,7 +1,6 @@
 import * as QueryString from 'query-string';
 
 import {
-    HIGHLIGHTABLE_ENTITY_TYPES,
     MATCHED_FIELD_CONFIG,
     MatchedFieldConfig,
     MatchedFieldName,
@@ -115,6 +114,3 @@ export const getMatchesPrioritized = (
     const matches = fromQueryGetBestMatch(matchedFields, query, prioritizedField);
     return getMatchesGroupedByFieldName(entityType, matches);
 };
-
-const SURROUNDING_DESCRIPTION_CHARS = 10;
-const MAX_DESCRIPTION_CHARS = 50;

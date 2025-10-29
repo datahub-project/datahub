@@ -1,7 +1,6 @@
-import { countries } from 'country-data-list';
+
 import { CaretRight } from 'phosphor-react';
 import React from 'react';
-import styled from 'styled-components';
 
 import { RotatingButton } from '@app/shared/components';
 

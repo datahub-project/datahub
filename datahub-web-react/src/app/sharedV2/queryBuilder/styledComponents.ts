@@ -1,4 +1,4 @@
-import { Collapse, Select } from 'antd';
+import { Collapse } from 'antd';
 import styled from 'styled-components/macro';
 
 import { Button, colors } from '@src/alchemy-components';

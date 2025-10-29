@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router';
 
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
@@ -60,5 +60,3 @@ export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
 
     return { assertionUrnParam };
 };
-
-const OPEN_ASSERTION_BUILDER_QUERY_PARAM = 'open_assertion_builder';

@@ -1,5 +1,4 @@
-import { RightOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
+
 import styled from 'styled-components';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';

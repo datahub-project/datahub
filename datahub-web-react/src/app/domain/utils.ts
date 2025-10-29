@@ -124,17 +124,6 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize, parentDo
     });
 };
 
-function useUpdateDomainEntityDataOnChange(entityData: GenericEntityProperties | null, entityType: EntityType) {
-    const { setEntityData } = useDomainsContext();
-    const previousEntityData = usePrevious(entityData);
-
-    useEffect(() => {
-        if (EntityType.Domain === entityType && !isEqual(entityData, previousEntityData)) {
-            setEntityData(entityData);
-        }
-    });
-}
-
 export function useSortedDomains<T extends Entity>(domains?: Array<T>, sortBy?: 'displayName') {
     const entityRegistry = useEntityRegistry();
     if (!domains || !sortBy) return domains;

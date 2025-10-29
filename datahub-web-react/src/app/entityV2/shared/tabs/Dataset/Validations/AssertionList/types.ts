@@ -1,4 +1,4 @@
-import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
+
 import {
     Assertion,
     AssertionResultType,

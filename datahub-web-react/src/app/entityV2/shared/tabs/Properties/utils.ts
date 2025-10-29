@@ -1,8 +1,6 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
+
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { PropertyRow, ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
-
-import { CustomPropertiesEntry } from '@types';
 
 function matchesName(name: string, filterText: string) {
     return name.toLocaleLowerCase().includes(filterText.toLocaleLowerCase());

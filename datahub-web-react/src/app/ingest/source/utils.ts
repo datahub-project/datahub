@@ -14,8 +14,6 @@ import EntityRegistry from '@app/entity/EntityRegistry';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingest/source/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
-
-import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '@graphql/ingestion.generated';
 import { EntityType, ExecutionRequestResult, FacetMetadata } from '@types';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
