@@ -17,7 +17,6 @@ public class OwnershipTemplate extends CompoundKeyTemplate<Ownership> {
   private static final String OWNERS_FIELD_NAME = "owners";
   private static final String OWNER_FIELD_NAME = "owner";
   private static final String TYPE_FIELD_NAME = "type";
-  private static final String TYPE_URN_FIELD_NAME = "typeUrn";
 
   @Override
   public Ownership getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
@@ -49,17 +48,13 @@ public class OwnershipTemplate extends CompoundKeyTemplate<Ownership> {
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
     return arrayFieldToMap(
-        baseNode,
-        OWNERS_FIELD_NAME,
-        Arrays.asList(OWNER_FIELD_NAME, TYPE_FIELD_NAME, TYPE_URN_FIELD_NAME));
+        baseNode, OWNERS_FIELD_NAME, Arrays.asList(OWNER_FIELD_NAME, TYPE_FIELD_NAME));
   }
 
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
     return transformedMapToArray(
-        patched,
-        OWNERS_FIELD_NAME,
-        Arrays.asList(OWNER_FIELD_NAME, TYPE_FIELD_NAME, TYPE_URN_FIELD_NAME));
+        patched, OWNERS_FIELD_NAME, Arrays.asList(OWNER_FIELD_NAME, TYPE_FIELD_NAME));
   }
 }
