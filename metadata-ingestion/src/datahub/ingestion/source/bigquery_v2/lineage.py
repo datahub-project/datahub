@@ -221,6 +221,7 @@ class BigqueryLineageExtractor:
         schema_resolver: SchemaResolver,
         identifiers: BigQueryIdentifierBuilder,
         redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
+        graph: Optional["DataHubGraph"] = None,
     ):
         self.config = config
         self.report = report
@@ -246,6 +247,7 @@ class BigqueryLineageExtractor:
             platform_instance=self.identifiers.identifier_config.platform_instance,
             env=self.identifiers.identifier_config.env,
             schema_resolver=self.schema_resolver,
+            graph=graph,
             eager_graph_load=False,
             generate_lineage=True,
             generate_queries=True,

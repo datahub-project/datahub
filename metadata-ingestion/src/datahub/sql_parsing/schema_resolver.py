@@ -75,6 +75,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self.graph = graph
         self.report = report
 
+        # Log warning if no graph client is provided for schema resolution
+        if graph is None:
+            logger.warning(
+                f"SchemaResolver initialized without DataHub graph client for platform '{platform}'. "
+                "This may result in missing lineage when SQL parsing cannot resolve table schemas "
+                "that exist in DataHub but are not in the current ingestion cache."
+            )
+
         # Init cache, potentially restoring from a previous run.
         shared_conn = None
         if _cache_filename:

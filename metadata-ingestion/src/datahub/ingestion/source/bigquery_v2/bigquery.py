@@ -164,6 +164,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             schema_resolver=self.sql_parser_schema_resolver,
             identifiers=self.identifiers,
             redundant_run_skip_handler=redundant_lineage_run_skip_handler,
+            graph=self.ctx.graph,
         )
 
         redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None

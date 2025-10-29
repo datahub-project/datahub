@@ -356,3 +356,36 @@ def test_lineage_for_external_table_path_not_matching_specs(
     )
 
     assert upstream_lineage is None
+
+
+def test_lineage_extractor_graph_client_passed_to_aggregator(
+    mock_datahub_graph_instance,
+):
+    """Test that the graph client is properly passed to SqlParsingAggregator for schema resolution."""
+    pipeline_context = PipelineContext(run_id="test-graph-client")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": "my_project",
+            "include_table_lineage": True,
+            "lineage_use_sql_parser": True,
+        }
+    )
+
+    report = BigQueryV2Report()
+    identifiers = BigQueryIdentifierBuilder(config, report)
+
+    extractor = BigqueryLineageExtractor(
+        config,
+        report,
+        schema_resolver=SchemaResolver(
+            platform="bigquery", env="PROD", graph=pipeline_context.graph
+        ),
+        identifiers=identifiers,
+        graph=pipeline_context.graph,
+    )
+
+    # Verify that the aggregator's schema resolver has the graph client
+    assert extractor.aggregator is not None
+    assert extractor.aggregator._schema_resolver.graph is pipeline_context.graph
