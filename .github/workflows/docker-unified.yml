@@ -440,8 +440,6 @@ jobs:
         # increase as a new tests added increase the duration where an additional parallel batch helps.
         # python_batch_count is used to split pytests in the smoke-test (batches of actual test functions)
         # cypress_batch_count is used to split the collection of cypress test specs into batches.
-
-        # OSS Merge note: The batch counts are different for fork since there are more tests. Do not merge from oss
         run: |
           if [[ "${{ needs.setup.outputs.test_runner_type }}" == "ubuntu-latest" ]]; then
             echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"

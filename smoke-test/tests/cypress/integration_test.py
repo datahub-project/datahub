@@ -249,10 +249,11 @@ def _get_cypress_tests_batch():
 
     tests_with_weights = []
 
-    # OSS Merge note: fork has different tests, so will need to use weights that are different from oss.
-    with open("tests/cypress/test_weights-fork.json") as f:
+    with open("tests/cypress/test_weights.json") as f:
         weights_data = json.load(f)
 
+    # File has file path relative to cypress/e2e folder and duration in seconds (with s suffix), pulled from codecov report.
+    # Use some other method to automate finding the weights - may be use junits directly
     test_weights = {
         item["filePath"]: float(item["duration"][:-1]) for item in weights_data
     }
