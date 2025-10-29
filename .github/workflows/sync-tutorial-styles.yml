@@ -1,0 +1,98 @@
+name: Sync Tutorial Component Styles
+
+on:
+  # Run when DataHub web-react styles are updated
+  push:
+    paths:
+      - "datahub-web-react/src/alchemy-components/theme/**"
+      - "datahub-web-react/src/alchemy-components/theme/foundations/colors.ts"
+      - "datahub-web-react/src/alchemy-components/theme/semantic-tokens.ts"
+
+  # Allow manual triggering
+  workflow_dispatch:
+
+  # Run weekly to catch any missed updates
+  schedule:
+    - cron: "0 2 * * 1" # Every Monday at 2 AM UTC
+
+jobs:
+  sync-styles:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "yarn"
+          cache-dependency-path: docs-website/yarn.lock
+
+      - name: Install dependencies
+        working-directory: docs-website
+        run: yarn install --frozen-lockfile
+
+      - name: Sync DataHub styles
+        working-directory: docs-website
+        run: yarn sync-datahub-styles
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs-website/src/components/*/styles.module.css
+          git commit -m "🎨 Auto-sync tutorial component styles with DataHub UI
+
+          - Updated design tokens from DataHub web-react
+          - Synced colors, spacing, and styling
+          - Ensures tutorial components match actual DataHub UI"
+          git push
+
+      - name: Create PR comment (if applicable)
+        if: steps.changes.outputs.changed == 'true' && github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.sha;
+
+            // Find associated PR
+            const prs = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head: `${owner}:${context.ref.replace('refs/heads/', '')}`
+            });
+
+            if (prs.data.length > 0) {
+              const pr = prs.data[0];
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pr.number,
+                body: `🎨 **Tutorial styles auto-updated!**
+                
+                The tutorial components have been automatically updated to match the latest DataHub UI styling changes.
+                
+                **What changed:**
+                - Design tokens synced from \`datahub-web-react\`
+                - Component colors and styling updated
+                - Tutorial components now match production DataHub UI
+                
+                This ensures users see consistent styling between tutorials and the actual DataHub interface.`
+              });
+            }

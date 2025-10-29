@@ -1,0 +1,76 @@
+.stepCompletion {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  transition: all 0.3s ease;
+}
+
+.stepCompletion.completed {
+  background: #d4edda;
+  border-color: #28a745;
+}
+
+.content {
+  margin-bottom: 12px;
+}
+
+.completionControl {
+  border-top: 1px solid #e9ecef;
+  padding-top: 12px;
+}
+
+.completionLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin: 0;
+  font-weight: 500;
+}
+
+.checkbox {
+  display: none;
+}
+
+.checkmark {
+  font-size: 16px;
+  transition: transform 0.1s ease;
+}
+
+.completionLabel:hover .checkmark {
+  transform: scale(1.1);
+}
+
+.completionText {
+  color: #495057;
+  font-size: 14px;
+}
+
+.completed .completionText {
+  color: #155724;
+}
+
+/* Dark mode support */
+[data-theme='dark'] .stepCompletion {
+  background: #2d2d2d;
+  border-color: #444;
+}
+
+[data-theme='dark'] .stepCompletion.completed {
+  background: #1e3a1e;
+  border-color: #28a745;
+}
+
+[data-theme='dark'] .completionControl {
+  border-top-color: #444;
+}
+
+[data-theme='dark'] .completionText {
+  color: #e9ecef;
+}
+
+[data-theme='dark'] .completed .completionText {
+  color: #90ee90;
+}

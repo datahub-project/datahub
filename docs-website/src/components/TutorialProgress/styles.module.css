@@ -1,0 +1,379 @@
+.tutorialProgress {
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 32px 0;
+  font-family: var(--ifm-font-family-base);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 20px;
+  z-index: 10;
+}
+
+.header {
+  margin-bottom: 16px;
+}
+
+.header h4 {
+  margin: 0 0 16px 0;
+  color: var(--ifm-color-primary);
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progressBar {
+  position: relative;
+  background: #e9ecef;
+  border-radius: 10px;
+  height: 20px;
+  overflow: hidden;
+}
+
+.progressFill {
+  background: linear-gradient(90deg, var(--ifm-color-primary) 0%, var(--ifm-color-primary-light) 100%);
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progressText {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ifm-color-content);
+  text-shadow: 0 0 3px var(--ifm-background-color);
+}
+
+.stepsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.step {
+  padding: 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.step:hover {
+  background: rgba(0, 123, 255, 0.05);
+}
+
+.step.current {
+  background: var(--ifm-color-primary-lightest);
+  border-left: 4px solid var(--ifm-color-primary);
+  padding-left: 16px;
+  border-radius: 8px;
+}
+
+.stepLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.checkbox {
+  display: none;
+}
+
+.checkmark {
+  font-size: 18px;
+  line-height: 1;
+  user-select: none;
+  transition: transform 0.1s ease;
+}
+
+.stepLabel:hover .checkmark {
+  transform: scale(1.1);
+}
+
+.stepText {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.stepText strong {
+  color: #495057;
+  font-weight: 600;
+}
+
+.time {
+  color: #6c757d;
+  font-size: 14px;
+  margin-left: 8px;
+}
+
+.currentBadge {
+  color: var(--ifm-color-primary);
+  font-weight: 600;
+  font-size: 14px;
+  margin-left: 12px;
+  background: var(--ifm-color-primary-lightest);
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--ifm-color-primary-light);
+}
+
+.stepDescription {
+  margin-top: 6px;
+  margin-left: 30px;
+  font-size: 14px;
+  color: #6c757d;
+  line-height: 1.4;
+}
+
+.actions {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.resetButton {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.resetButton:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.completionMessage {
+  color: var(--ifm-color-success);
+  font-weight: 600;
+  font-size: 14px;
+  background: var(--ifm-color-success-lightest);
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--ifm-color-success-light);
+  text-align: center;
+}
+
+/* Dark mode support */
+[data-theme='dark'] .tutorialProgress {
+  background: #1e1e1e;
+  border-color: #444;
+  color: #e9ecef;
+}
+
+[data-theme='dark'] .header h4 {
+  color: #e9ecef;
+}
+
+[data-theme='dark'] .progressBar {
+  background: #444;
+}
+
+[data-theme='dark'] .progressText {
+  color: #e9ecef;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+}
+
+[data-theme='dark'] .step:hover {
+  background: rgba(0, 123, 255, 0.15);
+}
+
+[data-theme='dark'] .step.current {
+  background: rgba(0, 123, 255, 0.2);
+}
+
+[data-theme='dark'] .stepText strong {
+  color: #e9ecef;
+}
+
+[data-theme='dark'] .actions {
+  border-top-color: #444;
+}
+
+[data-theme='dark'] .resetButton {
+  background: #2d2d2d;
+  border-color: #444;
+  color: #adb5bd;
+}
+
+[data-theme='dark'] .resetButton:hover {
+  background: #3d3d3d;
+  border-color: #555;
+}
+
+/* Compact mode styles */
+.compact {
+  position: relative;
+  top: auto;
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--ifm-color-emphasis-100);
+  border: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.compactHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.compactTitle {
+  font-weight: 600;
+  color: var(--ifm-color-content);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.compactBar {
+  flex: 1;
+  height: 8px;
+  background: var(--ifm-color-emphasis-200);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.compactBar .progressFill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+[data-theme='dark'] .compact {
+  background: var(--ifm-color-emphasis-200);
+  border-color: var(--ifm-color-emphasis-300);
+}
+
+/* Header content layout */
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* Minimize/Expand buttons */
+.minimizeButton,
+.expandButton {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.minimizeButton:hover,
+.expandButton:hover {
+  opacity: 1;
+  background: var(--ifm-color-emphasis-100);
+}
+
+/* Minimized state styles */
+.minimized {
+  position: fixed;
+  top: 80px; /* Below the DataHub header banner */
+  right: 20px;
+  width: 300px;
+  z-index: 100; /* Lower z-index to stay below header */
+  margin: 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.minimized.scrolled {
+  top: 70px; /* Slightly higher when scrolled but still below header */
+  width: 280px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.minimizedHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.minimizedHeader:hover {
+  background: var(--ifm-color-emphasis-50);
+}
+
+.minimizedContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.minimizedTitle {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ifm-color-content);
+}
+
+.minimizedBar {
+  height: 6px;
+  background: var(--ifm-color-emphasis-200);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.minimizedBar .progressFill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.expandButton {
+  margin-left: 12px;
+  font-size: 14px;
+}
+
+/* Dark mode adjustments for minimized state */
+[data-theme='dark'] .minimized {
+  background: var(--ifm-color-emphasis-200);
+  border-color: var(--ifm-color-emphasis-400);
+}
+
+[data-theme='dark'] .minimizedHeader:hover {
+  background: var(--ifm-color-emphasis-300);
+}
+
+[data-theme='dark'] .minimizedBar {
+  background: var(--ifm-color-emphasis-400);
+}
+
+/* Responsive design for minimized state */
+@media (max-width: 768px) {
+  .minimized {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    margin: 16px 0;
+  }
+  
+  .minimized.scrolled {
+    position: fixed;
+    top: 60px; /* Account for mobile header */
+    left: 10px;
+    right: 10px;
+    width: auto;
+  }
+}

@@ -1,0 +1,503 @@
+/* Auto-generated DataHub Design Tokens */
+:root {
+  --datahub-primary: #533FD1;
+  --datahub-primary-dark: #4C39BE;
+  --datahub-primary-light: #7565DA;
+  --datahub-primary-lightest: #F1F3FD;
+  --datahub-gray-100: #EBECF0;
+  --datahub-gray-600: #374066;
+  --datahub-gray-1700: #5F6685;
+  --datahub-gray-1800: #8088A3;
+  --datahub-gray-1500: #F9FAFC;
+  --datahub-white: #FFFFFF;
+  --datahub-success: #77B750;
+  --datahub-warning: #EEAE09;
+  --datahub-error: #CD0D24;
+  --datahub-border: #E9EAEE;
+  --datahub-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+  --datahub-shadow-hover: 0 2px 8px rgba(83, 63, 209, 0.15);
+  --datahub-node-width: 320px;
+  --datahub-node-height: 90px;
+  --datahub-transformation-size: 40px;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* DataHub Entity Card - Uses actual DataHub design tokens */
+
+/* Import DataHub color variables */
+:root {
+  /* DataHub Alchemy Design System Colors */
+  --datahub-primary: #533FD1;
+  --datahub-primary-dark: #4C39BE;
+  --datahub-primary-light: #7565DA;
+  --datahub-primary-lightest: #F1F3FD;
+  --datahub-gray-100: #EBECF0;
+  --datahub-gray-600: #374066;
+  --datahub-gray-1700: #5F6685;
+  --datahub-gray-1800: #8088A3;
+  --datahub-gray-1500: #F9FAFC;
+  --datahub-white: #FFFFFF;
+  --datahub-success: #77B750;
+  --datahub-warning: #EEAE09;
+  --datahub-error: #CD0D24;
+  --datahub-border: #E9EAEE;
+  --datahub-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+  --datahub-shadow-hover: 0 2px 8px rgba(83, 63, 209, 0.15);
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+.entityCard {
+  background: var(--datahub-white);
+  border: 1px solid var(--datahub-border);
+  border-radius: 12px; /* Match DataHub's border-radius */
+  padding: 16px;
+  margin: 12px 0;
+  transition: all 0.2s ease;
+  box-shadow: var(--datahub-shadow);
+  cursor: pointer;
+}
+
+.entityCard:hover {
+  border-color: var(--datahub-primary);
+  box-shadow: var(--datahub-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.platformInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--datahub-gray-1700);
+}
+
+.platformLogo {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.type {
+  font-weight: 500;
+  color: var(--datahub-gray-600);
+}
+
+.divider {
+  color: var(--datahub-gray-1800);
+}
+
+.platform {
+  color: var(--datahub-gray-1700);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.entityName {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--datahub-gray-600);
+}
+
+.entityLink {
+  color: var(--datahub-primary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.entityLink:hover {
+  color: var(--datahub-primary-dark);
+  text-decoration: underline;
+}
+
+.description {
+  margin: 0;
+  font-size: 14px;
+  color: var(--datahub-gray-1700);
+  line-height: 1.4;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  background: var(--datahub-primary-lightest);
+  color: var(--datahub-primary-dark);
+  padding: 4px 8px;
+  border-radius: 6px; /* Match DataHub's tag styling */
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--datahub-primary-light);
+}
+
+/* Tags and Glossary Terms */
+.tagTermGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.tag {
+  display: flex;
+  align-items: center;
+  background: var(--datahub-white);
+  border: 1px solid var(--datahub-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--datahub-gray-600);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tagColorDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.tagText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.term {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: #f8f8f8;
+  border: 1px solid #ccd1dd;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #565657;
+  max-width: 200px;
+  overflow: hidden;
+  cursor: pointer;
+  margin-left: 8px; /* Make room for ribbon */
+}
+
+.term:hover {
+  background-color: #f2f2f2;
+}
+
+.termRibbon {
+  position: absolute;
+  left: -20px;
+  top: 4px;
+  width: 50px;
+  transform: rotate(-45deg);
+  padding: 4px;
+  opacity: 1;
+}
+
+.termText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+/* Ownership Section */
+.ownership {
+  margin-top: 12px;
+}
+
+.ownershipHeader {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--datahub-gray-600);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ownershipTypeGroup {
+  margin-bottom: 8px;
+}
+
+.ownershipTypeGroup:last-child {
+  margin-bottom: 0;
+}
+
+.ownershipTypeHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.ownershipTypeIcon {
+  font-size: 12px;
+}
+
+.ownershipTypeName {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--datahub-gray-1700);
+}
+
+.ownersList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 18px; /* Indent under type header */
+}
+
+.owner {
+  background: var(--datahub-gray-100);
+  color: var(--datahub-gray-600);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.assertions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.assertionsLabel {
+  font-size: 12px;
+  color: var(--datahub-gray-1700);
+  font-weight: 500;
+}
+
+.assertionStatus {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--datahub-gray-100);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.assertionText {
+  font-weight: 500;
+  color: var(--datahub-gray-600);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .entityCard {
+    margin: 8px 0;
+    padding: 12px;
+  }
+  
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .tags {
+    gap: 4px;
+  }
+}

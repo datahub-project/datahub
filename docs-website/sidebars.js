@@ -36,6 +36,195 @@ module.exports = {
     },
     {
       type: "category",
+      label: "Learn DataHub",
+      collapsed: false,
+      link: { type: "doc", id: "docs/learn-datahub/overview" },
+      items: [
+        {
+          type: "category",
+          label: "DataHub Quickstart (30 min)",
+          collapsed: true,
+          link: { type: "doc", id: "docs/learn-datahub/quickstart/overview" },
+          items: [
+            {
+              type: "doc",
+              label: "Setup DataHub (5 min)",
+              id: "docs/learn-datahub/quickstart/setup",
+            },
+            {
+              type: "doc",
+              label: "First Data Ingestion (10 min)",
+              id: "docs/learn-datahub/quickstart/first-ingestion",
+            },
+            {
+              type: "doc",
+              label: "Discovery Basics (10 min)",
+              id: "docs/learn-datahub/quickstart/discovery-basics",
+            },
+            {
+              type: "doc",
+              label: "Your First Lineage (5 min)",
+              id: "docs/learn-datahub/quickstart/first-lineage",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Data Discovery & Search (45 min)",
+          collapsed: true,
+          link: { type: "doc", id: "docs/learn-datahub/discovery/overview" },
+          items: [
+            {
+              type: "doc",
+              label: "Advanced Search Techniques (15 min)",
+              id: "docs/learn-datahub/discovery/advanced-search",
+            },
+            {
+              type: "doc",
+              label: "Understanding Dataset Profiles (20 min)",
+              id: "docs/learn-datahub/discovery/dataset-profiles",
+            },
+            {
+              type: "doc",
+              label: "Collaborative Discovery (10 min)",
+              id: "docs/learn-datahub/discovery/collaborative-discovery",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Data Lineage & Impact Analysis (40 min)",
+          collapsed: true,
+          link: { type: "doc", id: "docs/learn-datahub/lineage/overview" },
+          items: [
+            {
+              type: "doc",
+              label: "Reading Lineage Graphs (15 min)",
+              id: "docs/learn-datahub/lineage/reading-lineage",
+            },
+            {
+              type: "doc",
+              label: "Performing Impact Analysis (15 min)",
+              id: "docs/learn-datahub/lineage/impact-analysis",
+            },
+            {
+              type: "doc",
+              label: "Lineage Troubleshooting (10 min)",
+              id: "docs/learn-datahub/lineage/troubleshooting",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Data Governance Fundamentals (50 min)",
+          collapsed: true,
+          link: { type: "doc", id: "docs/learn-datahub/governance/overview" },
+          items: [
+            {
+              type: "doc",
+              label: "Ownership Management (12 min)",
+              id: "docs/learn-datahub/governance/ownership-management",
+            },
+            {
+              type: "doc",
+              label: "Data Classification (15 min)",
+              id: "docs/learn-datahub/governance/data-classification",
+            },
+            {
+              type: "doc",
+              label: "Business Glossary (12 min)",
+              id: "docs/learn-datahub/governance/business-glossary",
+            },
+            {
+              type: "doc",
+              label: "Governance Policies (11 min)",
+              id: "docs/learn-datahub/governance/governance-policies",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Data Quality & Monitoring (45 min)",
+          collapsed: true,
+          link: { type: "doc", id: "docs/learn-datahub/quality/overview" },
+          items: [
+            {
+              type: "doc",
+              label: "Data Assertions (15 min)",
+              id: "docs/learn-datahub/quality/data-assertions",
+            },
+            {
+              type: "doc",
+              label: "Quality Monitoring (12 min)",
+              id: "docs/learn-datahub/quality/quality-monitoring",
+            },
+            {
+              type: "doc",
+              label: "Incident Management (10 min)",
+              id: "docs/learn-datahub/quality/incident-management",
+            },
+            {
+              type: "doc",
+              label: "Quality Automation (8 min)",
+              id: "docs/learn-datahub/quality/quality-automation",
+            },
+          ],
+        },
+        // {
+        //   type: "category",
+        //   label: "Data Ingestion Mastery (60 min)",
+        //   collapsed: true,
+        //   link: { type: "doc", id: "docs/learn-datahub/ingestion/overview" },
+        //   items: [
+        //     {
+        //       type: "doc",
+        //       label: "Recipe Fundamentals (15 min)",
+        //       id: "docs/learn-datahub/ingestion/recipe-fundamentals",
+        //     },
+        //     {
+        //       type: "doc",
+        //       label: "Stateful Ingestion (15 min)",
+        //       id: "docs/learn-datahub/ingestion/stateful-ingestion",
+        //     },
+        //     {
+        //       type: "doc",
+        //       label: "Data Profiling (15 min)",
+        //       id: "docs/learn-datahub/ingestion/data-profiling",
+        //     },
+        //     {
+        //       type: "doc",
+        //       label: "Advanced Patterns (15 min)",
+        //       id: "docs/learn-datahub/ingestion/advanced-patterns",
+        //     },
+        //   ],
+        // },
+        // {
+        //   type: "category",
+        //   label: "Privacy & Compliance (35 min)",
+        //   collapsed: true,
+        //   link: { type: "doc", id: "docs/learn-datahub/privacy/overview" },
+        //   items: [
+        //     {
+        //       type: "doc",
+        //       label: "PII Detection (12 min)",
+        //       id: "docs/learn-datahub/privacy/pii-detection",
+        //     },
+        //     {
+        //       type: "doc",
+        //       label: "Privacy Controls (12 min)",
+        //       id: "docs/learn-datahub/privacy/privacy-controls",
+        //     },
+        //     {
+        //       type: "doc",
+        //       label: "Compliance Workflows (11 min)",
+        //       id: "docs/learn-datahub/privacy/compliance-workflows",
+        //     },
+        //   ],
+        // },
+      ],
+    },
+    {
+      type: "category",
       label: "Features",
       link: {
         type: "generated-index",

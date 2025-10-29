@@ -1,0 +1,284 @@
+/* Import DataHub design tokens */
+@import url('../../css/datahub-tokens.css');
+
+.exerciseContainer {
+  background: var(--datahub-white);
+  border: 1px solid var(--datahub-border);
+  border-radius: 12px;
+  box-shadow: var(--datahub-shadow);
+  margin: 24px 0;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.exerciseContainer:hover {
+  box-shadow: var(--datahub-shadow-hover);
+  border-color: var(--datahub-primary-light);
+}
+
+.exerciseHeader {
+  background: linear-gradient(135deg, var(--datahub-gray-50) 0%, var(--datahub-white) 100%);
+  border-bottom: 1px solid var(--datahub-border);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.typeIcon {
+  width: 40px;
+  height: 40px;
+  background: var(--datahub-primary);
+  color: var(--datahub-white);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.titleSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exerciseTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--datahub-text-primary);
+  line-height: 1.3;
+}
+
+.metadata {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.difficulty {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--datahub-white);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.timeEstimate {
+  font-size: 12px;
+  color: var(--datahub-text-secondary);
+  background: var(--datahub-gray-100);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.platform {
+  font-size: 12px;
+  color: var(--datahub-primary);
+  background: var(--datahub-primary-light);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.exerciseContent {
+  padding: 20px;
+}
+
+/* Search Exercise Styles */
+.searchList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.searchItem {
+  background: var(--datahub-gray-50);
+  border: 1px solid var(--datahub-border-light);
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.searchItem:hover {
+  background: var(--datahub-white);
+  border-color: var(--datahub-primary-light);
+}
+
+.searchQuery {
+  margin-bottom: 8px;
+}
+
+.searchQuery code {
+  background: var(--datahub-primary-dark);
+  color: var(--datahub-white);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-block;
+  min-width: 200px;
+}
+
+.searchDescription {
+  color: var(--datahub-text-secondary);
+  font-size: 14px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.searchExpected {
+  color: var(--datahub-text-primary);
+  font-size: 13px;
+  background: var(--datahub-success-light);
+  padding: 6px 10px;
+  border-radius: 4px;
+  border-left: 3px solid var(--datahub-success);
+}
+
+/* Hands-On Exercise Styles */
+.stepsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stepItem {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.stepNumber {
+  width: 28px;
+  height: 28px;
+  background: var(--datahub-primary);
+  color: var(--datahub-white);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.stepContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stepTitle {
+  font-weight: 600;
+  color: var(--datahub-text-primary);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.stepDescription {
+  color: var(--datahub-text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.stepCode {
+  background: var(--datahub-gray-900);
+  color: var(--datahub-white);
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+/* Interactive Demo Styles */
+.interactiveContent {
+  background: linear-gradient(135deg, var(--datahub-primary-light) 0%, var(--datahub-white) 100%);
+  border: 1px solid var(--datahub-primary-light);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .exerciseHeader {
+    padding: 12px 16px;
+  }
+  
+  .headerLeft {
+    gap: 8px;
+  }
+  
+  .typeIcon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  .exerciseTitle {
+    font-size: 14px;
+  }
+  
+  .exerciseContent {
+    padding: 16px;
+  }
+  
+  .metadata {
+    gap: 6px;
+  }
+  
+  .searchQuery code {
+    min-width: auto;
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+  
+  .stepItem {
+    gap: 8px;
+  }
+  
+  .stepNumber {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+}
+
+/* Dark mode support */
+[data-theme='dark'] .exerciseContainer {
+  background: var(--datahub-gray-800);
+  border-color: var(--datahub-gray-700);
+}
+
+[data-theme='dark'] .exerciseHeader {
+  background: linear-gradient(135deg, var(--datahub-gray-700) 0%, var(--datahub-gray-800) 100%);
+  border-bottom-color: var(--datahub-gray-700);
+}
+
+[data-theme='dark'] .searchItem {
+  background: var(--datahub-gray-700);
+  border-color: var(--datahub-gray-600);
+}
+
+[data-theme='dark'] .searchItem:hover {
+  background: var(--datahub-gray-600);
+}
+
+[data-theme='dark'] .interactiveContent {
+  background: linear-gradient(135deg, var(--datahub-primary-dark) 0%, var(--datahub-gray-800) 100%);
+}

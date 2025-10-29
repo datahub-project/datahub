@@ -1,0 +1,166 @@
+/* Enhanced Mermaid Diagram Styling for DataHub */
+
+/* Container styling */
+.mermaid {
+  background: var(--ifm-background-color);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 24px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  overflow: visible;
+}
+
+/* Dark mode adjustments */
+[data-theme='dark'] .mermaid {
+  background: var(--ifm-color-emphasis-100);
+  border-color: var(--ifm-color-emphasis-300);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhanced node styling */
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node ellipse,
+.mermaid .node polygon {
+  stroke-width: 2px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  transition: all 0.2s ease;
+}
+
+.mermaid .node:hover rect,
+.mermaid .node:hover circle,
+.mermaid .node:hover ellipse,
+.mermaid .node:hover polygon {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+  transform: translateY(-1px);
+}
+
+/* Enhanced edge/arrow styling */
+.mermaid .edgePath path {
+  stroke-width: 2px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.mermaid .arrowheadPath {
+  fill: var(--ifm-color-primary);
+  stroke: var(--ifm-color-primary);
+}
+
+/* Text styling improvements */
+.mermaid .nodeLabel,
+.mermaid .edgeLabel {
+  font-family: var(--ifm-font-family-base);
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+[data-theme='dark'] .mermaid .nodeLabel,
+[data-theme='dark'] .mermaid .edgeLabel {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* Cluster/subgraph styling */
+.mermaid .cluster rect {
+  fill: var(--ifm-color-primary-lightest);
+  stroke: var(--ifm-color-primary-light);
+  stroke-width: 2px;
+  stroke-dasharray: 5,5;
+  rx: 8px;
+  ry: 8px;
+}
+
+/* Flowchart specific enhancements */
+.mermaid .flowchart-link {
+  stroke: var(--ifm-color-primary);
+  stroke-width: 2px;
+}
+
+/* Sequence diagram enhancements */
+.mermaid .actor {
+  fill: var(--ifm-color-primary-lightest);
+  stroke: var(--ifm-color-primary);
+  stroke-width: 2px;
+}
+
+.mermaid .messageLine0,
+.mermaid .messageLine1 {
+  stroke: var(--ifm-color-primary);
+  stroke-width: 2px;
+}
+
+/* Gantt chart enhancements */
+.mermaid .section0,
+.mermaid .section1,
+.mermaid .section2,
+.mermaid .section3 {
+  fill: var(--ifm-color-primary);
+  opacity: 0.8;
+}
+
+/* Git graph enhancements */
+.mermaid .commit-id,
+.mermaid .commit-msg,
+.mermaid .branch-label {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 12px;
+}
+
+/* State diagram enhancements */
+.mermaid .state-start circle,
+.mermaid .state-end circle {
+  fill: var(--ifm-color-primary);
+  stroke: var(--ifm-color-primary-dark);
+  stroke-width: 2px;
+}
+
+/* Journey diagram enhancements */
+.mermaid .journey-section {
+  fill: var(--ifm-color-primary-lightest);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .mermaid {
+    padding: 16px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+}
+
+/* Animation for diagram loading */
+.mermaid {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom styling for tutorial-specific diagrams */
+.mermaid .tutorial-start {
+  fill: var(--ifm-color-success-lightest) !important;
+  stroke: var(--ifm-color-success) !important;
+}
+
+.mermaid .tutorial-end {
+  fill: var(--ifm-color-primary-lightest) !important;
+  stroke: var(--ifm-color-primary) !important;
+}
+
+.mermaid .tutorial-process {
+  fill: var(--ifm-color-info-lightest) !important;
+  stroke: var(--ifm-color-info) !important;
+}
+
+.mermaid .tutorial-decision {
+  fill: var(--ifm-color-warning-lightest) !important;
+  stroke: var(--ifm-color-warning) !important;
+}

@@ -1,0 +1,270 @@
+/* Process Flow Styles */
+.processFlow {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid var(--ifm-color-primary-lightest);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.flowTitle {
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--ifm-color-primary-dark);
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--ifm-color-primary-lightest);
+}
+
+.flowContainer {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ifm-color-primary-light) transparent;
+}
+
+/* Custom scrollbar for webkit browsers */
+.flowContainer::-webkit-scrollbar {
+  height: 6px;
+}
+
+.flowContainer::-webkit-scrollbar-track {
+  background: var(--ifm-color-emphasis-200);
+  border-radius: 3px;
+}
+
+.flowContainer::-webkit-scrollbar-thumb {
+  background: var(--ifm-color-primary-light);
+  border-radius: 3px;
+}
+
+.flowContainer::-webkit-scrollbar-thumb:hover {
+  background: var(--ifm-color-primary);
+}
+
+/* Horizontal Layout */
+.horizontal .flowContainer {
+  flex-direction: row;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+}
+
+.horizontal .step {
+  flex: 0 0 auto;
+  min-width: 180px;
+  max-width: 220px;
+}
+
+/* Scroll hint for horizontal flows with many steps */
+.horizontal.hasOverflow::after {
+  content: "← Scroll horizontally to see all steps →";
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--ifm-color-emphasis-600);
+  white-space: nowrap;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.horizontal .connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: var(--ifm-color-primary);
+  font-weight: bold;
+  flex-shrink: 0;
+  width: 40px;
+}
+
+/* Vertical Layout */
+.vertical .flowContainer {
+  flex-direction: column;
+  align-items: center;
+}
+
+.vertical .step {
+  width: 100%;
+  max-width: 500px;
+}
+
+.vertical .connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: var(--ifm-color-primary);
+  font-weight: bold;
+  height: 30px;
+  width: 100%;
+}
+
+/* Step Styles */
+.step {
+  background: white;
+  border: 2px solid var(--ifm-color-primary-light);
+  border-radius: 8px;
+  padding: 16px;
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.step:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  border-color: var(--ifm-color-primary);
+}
+
+.stepNumber {
+  position: absolute;
+  top: -12px;
+  left: 16px;
+  background: var(--ifm-color-primary);
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.stepContent {
+  margin-top: 8px;
+}
+
+.stepTitle {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--ifm-color-emphasis-800);
+  margin-bottom: 8px;
+}
+
+.stepDescription {
+  font-size: 0.9rem;
+  color: var(--ifm-color-emphasis-600);
+  margin-bottom: 12px;
+  font-style: italic;
+}
+
+.stepDetails {
+  font-size: 0.8rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.stepDetail {
+  margin-bottom: 4px;
+  padding-left: 8px;
+}
+
+/* Animation */
+.animated {
+  animation: slideIn 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+.animated:nth-child(1) { animation-delay: 0.1s; }
+.animated:nth-child(3) { animation-delay: 0.2s; }
+.animated:nth-child(5) { animation-delay: 0.3s; }
+.animated:nth-child(7) { animation-delay: 0.4s; }
+.animated:nth-child(9) { animation-delay: 0.5s; }
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Connector Animation */
+.connector {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .horizontal .flowContainer {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .horizontal .step {
+    width: 100%;
+    max-width: 400px;
+  }
+  
+  .horizontal .connector {
+    transform: rotate(90deg);
+    width: 100%;
+    height: 30px;
+  }
+  
+  .stepNumber {
+    left: 12px;
+  }
+}
+
+/* Dark Mode Support */
+[data-theme='dark'] .processFlow {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-color: var(--ifm-color-primary-dark);
+}
+
+[data-theme='dark'] .step {
+  background: var(--ifm-color-emphasis-100);
+  border-color: var(--ifm-color-primary-dark);
+  color: var(--ifm-color-emphasis-800);
+}
+
+[data-theme='dark'] .step:hover {
+  border-color: var(--ifm-color-primary);
+  background: var(--ifm-color-emphasis-200);
+}
+
+/* Step Type Variations */
+.step.start {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+}
+
+.step.process {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.step.decision {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.step.end {
+  border-color: #8b5cf6;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+}

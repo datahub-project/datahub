@@ -1,0 +1,216 @@
+/* Architecture Diagram Styles */
+.architectureDiagram {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 2px solid var(--ifm-color-primary-light);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.diagramTitle {
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--ifm-color-primary-dark);
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--ifm-color-primary-lightest);
+}
+
+.diagramContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.layer {
+  flex: 1;
+  min-width: 200px;
+}
+
+.layerTitle {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-700);
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: var(--ifm-color-primary-lightest);
+  border-radius: 6px;
+  border: 1px solid var(--ifm-color-primary-light);
+}
+
+.nodeGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.node {
+  background: white;
+  border: 2px solid;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.sourceNode {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+}
+
+.sourceNode:hover {
+  border-color: #059669;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+}
+
+.coreNode {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.coreNode:hover {
+  border-color: #2563eb;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
+.uiNode {
+  border-color: #8b5cf6;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+.uiNode:hover {
+  border-color: #7c3aed;
+  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+}
+
+.nodeIcon {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.nodeLabel {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ifm-color-emphasis-800);
+  margin-bottom: 4px;
+}
+
+.nodeSubtext {
+  font-size: 0.75rem;
+  color: var(--ifm-color-emphasis-600);
+  font-style: italic;
+}
+
+.arrowLayer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.arrow {
+  font-size: 1.5rem;
+  color: var(--ifm-color-primary);
+  font-weight: bold;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.diagramFooter {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ifm-color-primary-lightest);
+}
+
+.dataFlow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.flowLabel {
+  font-weight: 600;
+  color: var(--ifm-color-primary-dark);
+}
+
+.flowStep {
+  background: var(--ifm-color-primary-lightest);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ifm-color-primary-dark);
+  border: 1px solid var(--ifm-color-primary-light);
+}
+
+.flowArrow {
+  color: var(--ifm-color-primary);
+  font-weight: bold;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .diagramContainer {
+    flex-direction: column;
+  }
+  
+  .arrowLayer {
+    flex-direction: row;
+    transform: rotate(90deg);
+  }
+  
+  .arrow {
+    transform: rotate(90deg);
+  }
+  
+  .dataFlow {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* Dark mode support */
+[data-theme='dark'] .architectureDiagram {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-color: var(--ifm-color-primary-dark);
+}
+
+[data-theme='dark'] .node {
+  background: var(--ifm-color-emphasis-100);
+  color: var(--ifm-color-emphasis-800);
+}
+
+[data-theme='dark'] .sourceNode {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+  color: #ecfdf5;
+}
+
+[data-theme='dark'] .coreNode {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  color: #eff6ff;
+}
+
+[data-theme='dark'] .uiNode {
+  background: linear-gradient(135deg, #581c87 0%, #6b21a8 100%);
+  color: #f3f4f6;
+}

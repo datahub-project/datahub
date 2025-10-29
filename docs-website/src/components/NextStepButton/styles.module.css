@@ -1,0 +1,65 @@
+.nextStepButton {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+  margin: 16px 0;
+}
+
+.nextStepButton:hover {
+  text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.primary {
+  background: var(--ifm-color-primary);
+  color: white;
+}
+
+.primary:hover {
+  background: var(--ifm-color-primary-dark);
+  color: white;
+}
+
+.secondary {
+  background: transparent;
+  color: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+}
+
+.secondary:hover {
+  background: var(--ifm-color-primary);
+  color: white;
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  font-size: 18px;
+  transition: transform 0.2s ease;
+}
+
+.nextStepButton:hover .icon {
+  transform: translateX(2px);
+}
+
+/* Dark mode support */
+[data-theme='dark'] .secondary {
+  border-color: var(--ifm-color-primary-light);
+  color: var(--ifm-color-primary-light);
+}
+
+[data-theme='dark'] .secondary:hover {
+  background: var(--ifm-color-primary-light);
+  color: var(--ifm-color-primary-darkest);
+}

@@ -1,0 +1,77 @@
+/* OS Detection Tabs Styling */
+.osDetectionTabs {
+  margin: 1rem 0;
+}
+
+.detectedLabel {
+  color: var(--ifm-color-primary);
+  font-weight: 600;
+}
+
+.osIcon {
+  margin-right: 0.5rem;
+  font-size: 1.1em;
+}
+
+/* OS-specific icons */
+.windowsIcon::before {
+  content: "🪟";
+}
+
+.macosIcon::before {
+  content: "🍎";
+}
+
+.linuxIcon::before {
+  content: "🐧";
+}
+
+/* Enhanced tab styling for detected OS */
+.detectedTab {
+  background-color: var(--ifm-color-primary-lightest);
+  border-color: var(--ifm-color-primary);
+}
+
+/* Code block enhancements for different shells */
+.windowsCode {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+
+.macosCode {
+  background-color: #2d2d2d;
+  color: #f8f8f2;
+}
+
+.linuxCode {
+  background-color: #300a24;
+  color: #ffffff;
+}
+
+/* Troubleshooting sections */
+.troubleshooting {
+  background-color: var(--ifm-color-warning-lightest);
+  border-left: 4px solid var(--ifm-color-warning);
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.troubleshooting h4 {
+  color: var(--ifm-color-warning-dark);
+  margin-bottom: 0.5rem;
+}
+
+/* System requirements styling */
+.systemRequirements {
+  background-color: var(--ifm-color-info-lightest);
+  border: 1px solid var(--ifm-color-info-light);
+  border-radius: 4px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.systemRequirements h4 {
+  color: var(--ifm-color-info-dark);
+  margin-bottom: 0.5rem;
+}

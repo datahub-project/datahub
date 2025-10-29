@@ -20,7 +20,8 @@
     "lint-check": "prettier -l generateDocsDir.ts sidebars.js src/pages/index.js",
     "lint-fix": "prettier --write generateDocsDir.ts sidebars.js src/pages/index.js",
     "_list-link-check-files": "find ./genDocs -name '*.md' -not \\( -path './genDocs/python-sdk/*' -o -path './genDocs/releases.md' \\)",
-    "check-links": "yarn run -s _list-link-check-files -print0 | xargs -0 -n1 -t markdown-link-check -q -c markdown-link-check-config.json"
+    "check-links": "yarn run -s _list-link-check-files -print0 | xargs -0 -n1 -t markdown-link-check -q -c markdown-link-check-config.json",
+    "sync-datahub-styles": "node scripts/sync-datahub-styles.js"
   },
   "dependencies": {
     "@ant-design/icons": "^4.7.0",
@@ -48,6 +49,7 @@
     "react": "^18.2.0",
     "react-dom": "18.2.0",
     "react-use-draggable-scroll": "^0.4.7",
+    "reactflow": "^11.11.4",
     "sass": "^1.43.2",
     "swc-loader": "^0.2.6",
     "swiper": "^11.1.4",

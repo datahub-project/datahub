@@ -1,0 +1,864 @@
+/* Auto-generated DataHub Design Tokens */
+:root {
+  --datahub-primary: #533FD1;
+  --datahub-primary-dark: #4C39BE;
+  --datahub-primary-light: #7565DA;
+  --datahub-primary-lightest: #F1F3FD;
+  --datahub-gray-100: #EBECF0;
+  --datahub-gray-600: #374066;
+  --datahub-gray-1700: #5F6685;
+  --datahub-gray-1800: #8088A3;
+  --datahub-gray-1500: #F9FAFC;
+  --datahub-white: #FFFFFF;
+  --datahub-success: #77B750;
+  --datahub-warning: #EEAE09;
+  --datahub-error: #CD0D24;
+  --datahub-border: #E9EAEE;
+  --datahub-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+  --datahub-shadow-hover: 0 2px 8px rgba(83, 63, 209, 0.15);
+  --datahub-node-width: 320px;
+  --datahub-node-height: 90px;
+  --datahub-transformation-size: 40px;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* DataHub Lineage Node - Uses actual DataHub design tokens */
+
+/* Import DataHub color variables */
+:root {
+  /* DataHub Alchemy Design System Colors */
+  --datahub-primary: #533FD1;
+  --datahub-primary-dark: #4C39BE;
+  --datahub-primary-light: #7565DA;
+  --datahub-primary-lightest: #F1F3FD;
+  --datahub-gray-100: #EBECF0;
+  --datahub-gray-600: #374066;
+  --datahub-gray-1700: #5F6685;
+  --datahub-gray-1800: #8088A3;
+  --datahub-gray-1500: #F9FAFC;
+  --datahub-white: #FFFFFF;
+  --datahub-success: #77B750;
+  --datahub-warning: #EEAE09;
+  --datahub-error: #CD0D24;
+  --datahub-border: #E9EAEE;
+  --datahub-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+  --datahub-shadow-hover: 0 2px 8px rgba(83, 63, 209, 0.15);
+  --datahub-node-width: 280px; /* Reduced width to prevent horizontal scroll */
+  --datahub-node-height: 90px; /* Match LINEAGE_NODE_HEIGHT */
+  --datahub-transformation-size: 40px; /* Match TRANSFORMATION_NODE_SIZE */
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+.lineageNode {
+  background: var(--datahub-white);
+  border: 1px solid var(--datahub-border);
+  border-radius: 12px; /* Match DataHub V3 styling */
+  width: var(--datahub-node-width);
+  min-height: var(--datahub-node-height); /* Use min-height to allow expansion */
+  max-width: var(--datahub-node-width); /* Prevent overflow */
+  flex-shrink: 0; /* Prevent nodes from shrinking in flex container */
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--datahub-shadow);
+  position: relative;
+  display: flex;
+  align-items: stretch; /* Allow content to stretch */
+  flex-direction: column;
+  padding: 0; /* Remove padding to match DataHub structure */
+  overflow: hidden; /* Prevent content overflow */
+}
+
+.lineageNode:hover {
+  border-color: var(--datahub-primary);
+  box-shadow: var(--datahub-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.lineageNode.selected {
+  border-color: var(--datahub-primary);
+  border-width: 2px;
+  box-shadow: 0 4px 12px rgba(83, 63, 209, 0.25);
+}
+
+.lineageNode.center {
+  border-width: 2px;
+  border-color: var(--datahub-primary);
+  background: var(--datahub-primary-lightest);
+}
+
+/* Transformation Node (Data Jobs, Queries) - Small Square */
+.transformationNode {
+  background: var(--datahub-white);
+  border: 1px solid var(--datahub-border);
+  border-radius: 4px; /* Small rounded corners for square transformation nodes */
+  width: var(--datahub-transformation-size);
+  height: var(--datahub-transformation-size);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--datahub-shadow);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: center; /* Center within flow */
+}
+
+.transformationNode:hover {
+  border-color: var(--datahub-primary);
+  box-shadow: var(--datahub-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.transformationNode.selected {
+  border-color: var(--datahub-primary);
+  border-width: 2px;
+  box-shadow: 0 4px 12px rgba(83, 63, 209, 0.25);
+}
+
+.transformationNode.center {
+  border-width: 2px;
+  border-color: var(--datahub-primary);
+  background: var(--datahub-primary-lightest);
+}
+
+.transformationIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.transformationLogo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.transformationHealthIcon {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--datahub-white);
+  border-radius: 50%;
+  padding: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Card wrapper - matches DataHub's CardWrapper */
+.cardWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: var(--datahub-node-height); /* Use min-height instead of height */
+  width: 100%;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  flex: 1; /* Allow it to grow */
+}
+
+.nodeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.expandButton {
+  background: var(--datahub-gray-100);
+  border: 1px solid var(--datahub-border);
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--datahub-gray-600);
+  transition: all 0.2s ease;
+}
+
+.expandButton:hover {
+  background: var(--datahub-primary-lightest);
+  border-color: var(--datahub-primary);
+  color: var(--datahub-primary);
+}
+
+.platformInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.platformLogo {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.type {
+  font-weight: 500;
+  color: var(--datahub-gray-1700);
+  font-size: 12px;
+}
+
+.healthIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  flex-grow: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.nodeContent {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+}
+
+.nameWithHealth {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  width: 100%;
+}
+
+.nodeName {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--datahub-gray-600);
+  line-height: 1.2;
+  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto; /* Don't grow, but allow shrinking */
+  min-width: 0; /* Allow flex item to shrink below content size */
+  max-width: calc(100% - 22px); /* Reserve space for health icon (16px + 6px gap) */
+}
+
+.platform {
+  font-size: 12px;
+  color: var(--datahub-gray-1700);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+/* Expandable Columns Section */
+.columnsWrapper {
+  border-top: 1px solid var(--datahub-border);
+  background: var(--datahub-gray-1500);
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+  width: 100%;
+  margin-top: 4px; /* Reduced spacing */
+}
+
+.columnsHeader {
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--datahub-border);
+  background: var(--datahub-white);
+  min-height: 20px; /* Ensure visibility */
+}
+
+.columnsTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--datahub-gray-600); /* Darker for better visibility */
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.columnsList {
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--datahub-gray-1500);
+}
+
+.columnItem {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--datahub-border);
+  transition: background-color 0.2s ease;
+  background: var(--datahub-gray-1500);
+  min-height: 32px; /* Reduced height for more compact layout */
+  position: relative; /* For handle positioning */
+}
+
+.columnHandle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--datahub-primary);
+  border: 2px solid var(--datahub-white);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 3;
+}
+
+.columnHandle[data-position="left"] {
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.columnHandle[data-position="right"] {
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.columnItem:hover .columnHandle {
+  opacity: 1;
+}
+
+.columnItem:hover {
+  background: var(--datahub-white);
+}
+
+.columnItem:last-child {
+  border-bottom: none;
+}
+
+.columnIcon {
+  width: 32px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  background: var(--datahub-white);
+  border-radius: 4px;
+  border: 1px solid var(--datahub-border);
+  flex-shrink: 0;
+  min-width: 32px; /* Prevent shrinking and provide adequate space */
+}
+
+.columnInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Allow shrinking */
+  overflow: hidden;
+}
+
+.columnName {
+  font-size: 11px;
+  font-weight: 600; /* Slightly bolder for better visibility */
+  color: var(--datahub-gray-600);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 1px;
+  max-width: 100%;
+}
+
+.columnType {
+  font-size: 9px;
+  color: var(--datahub-gray-1700);
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  line-height: 1;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineageIndicator {
+  color: var(--datahub-primary);
+  font-weight: bold;
+  font-size: 12px;
+  margin-left: 8px;
+  opacity: 0.7;
+}
+
+/* Tags and Glossary Terms */
+.tagTermGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+  align-items: center;
+}
+
+.tag {
+  display: flex;
+  align-items: center;
+  background: var(--datahub-white);
+  border: 1px solid var(--datahub-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--datahub-gray-600);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tagColorDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.tagText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.term {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--datahub-white);
+  border: 1px solid var(--datahub-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--datahub-gray-600);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 12px; /* Make room for ribbon */
+}
+
+.termRibbon {
+  position: absolute;
+  left: -8px;
+  top: 2px;
+  width: 20px;
+  height: 100%;
+  transform: rotate(-45deg);
+  transform-origin: center;
+  opacity: 0.8;
+  border-radius: 2px;
+}
+
+.termText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+}
+
+.moreCount {
+  font-size: 10px;
+  color: var(--datahub-gray-1700);
+  background: var(--datahub-gray-100);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-weight: 500;
+}
+
+/* Lineage Flow Container */
+.lineageFlow {
+  margin: 20px 0;
+  padding: 16px;
+  background: var(--datahub-gray-1500);
+  border-radius: 12px;
+  border: 1px solid var(--datahub-border);
+}
+
+.flowTitle {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--datahub-gray-600);
+  text-align: center;
+}
+
+.flowContainer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 10px 0;
+  box-sizing: border-box;
+}
+
+/* Specific handling for flows with many nodes (5+) */
+.flowContainer:has(.lineageNode:nth-child(5)) {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+}
+
+/* Fallback for browsers that don't support :has() */
+.flowContainer[data-node-count="5"],
+.flowContainer[data-node-count="6"],
+.flowContainer[data-node-count="7"] {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 16px; /* Slightly smaller gap for many nodes */
+}
+
+/* Add scroll hint for flows with many nodes */
+.flowContainer[data-node-count="5"]::after,
+.flowContainer[data-node-count="6"]::after,
+.flowContainer[data-node-count="7"]::after {
+  content: "← Scroll horizontally to see all nodes →";
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--datahub-gray-500);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.lineageFlow {
+  position: relative;
+  padding-bottom: 30px; /* Make room for scroll hint */
+}
+
+.flowConnection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center; /* Always center vertically */
+  position: relative;
+  min-height: 60px;
+  flex: 0 0 auto; /* Don't grow or shrink, maintain fixed size */
+  align-self: center; /* Center within the parent flex container */
+}
+
+.flowArrow {
+  font-size: 24px;
+  color: var(--datahub-primary);
+  font-weight: bold;
+  z-index: 2;
+  position: relative;
+  animation: pulse 2s infinite;
+  display: block;
+  margin: 0 auto;
+}
+
+.flowConnection:hover .flowArrow {
+  color: var(--datahub-primary-dark);
+  transform: scale(1.1);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+/* Column-level lineage connections */
+.columnConnections {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 250px;
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.connectionSvg {
+  width: 100%;
+  height: 250px;
+  max-width: 400px;
+}
+
+.connectionLabel {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.lineageHint {
+  text-align: center;
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: var(--datahub-primary-lightest);
+  border: 1px solid var(--datahub-primary);
+  border-radius: 6px;
+  color: var(--datahub-primary-dark);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Interactive states */
+.lineageNode:focus {
+  outline: 2px solid var(--datahub-primary);
+  outline-offset: 2px;
+}
+
+.lineageNode:active {
+  transform: translateY(0);
+  box-shadow: var(--datahub-shadow);
+}
+
+/* Responsive design */
+@media (min-width: 769px) {
+  .flowContainer {
+    /* For wide screens with many nodes, allow horizontal scrolling */
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding: 10px;
+  }
+  
+  .flowContainer::-webkit-scrollbar {
+    height: 6px;
+  }
+  
+  .flowContainer::-webkit-scrollbar-track {
+    background: var(--datahub-gray-100);
+    border-radius: 3px;
+  }
+  
+  .flowContainer::-webkit-scrollbar-thumb {
+    background: var(--datahub-gray-300);
+    border-radius: 3px;
+  }
+  
+  .flowContainer::-webkit-scrollbar-thumb:hover {
+    background: var(--datahub-gray-400);
+  }
+}
+
+@media (max-width: 768px) {
+  .flowContainer {
+    flex-direction: column;
+    gap: 8px;
+    overflow-x: visible;
+  }
+  
+  .flowArrow {
+    transform: rotate(90deg);
+    font-size: 16px;
+  }
+  
+  .lineageNode {
+    width: 100%;
+    max-width: 280px;
+    min-width: 260px;
+  }
+  
+  .cardWrapper {
+    padding: 10px 12px;
+  }
+  
+  .nodeName {
+    font-size: 14px;
+  }
+  
+  .nameWithHealth {
+    gap: 5px;
+  }
+  
+  .nodeName {
+    max-width: calc(100% - 21px); /* Adjust for smaller gap */
+  }
+}
+
+@media (max-width: 480px) {
+  .lineageNode {
+    min-width: 250px;
+    height: auto;
+    min-height: var(--datahub-node-height);
+  }
+  
+  .nodeName {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+  
+  .nameWithHealth {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  
+  .nodeName {
+    max-width: calc(100% - 20px); /* Adjust for smallest gap */
+  }
+}
