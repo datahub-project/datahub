@@ -600,9 +600,10 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 )
                 sql_response = self._execute_query(sql_query)
 
-                # Parse the SQL response with partial results allowed
+                # Parse the SQL response without partial results to catch parsing errors
+                # We want to raise exceptions for individual field processing to properly handle failures
                 spr, has_errors = self._parse_sql_response(
-                    sql_response, self.config.allow_partial_lineage_results
+                    sql_response, allow_partial=False
                 )
 
                 # Collect results
