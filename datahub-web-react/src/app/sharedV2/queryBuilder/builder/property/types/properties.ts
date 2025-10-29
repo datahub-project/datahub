@@ -35,7 +35,7 @@ export type Property = {
  *          "If an asset has > 10 downstreams, then mark it as Heavy node"
  *          "Must have an owner of type Technical Owner"
  */
-export const commonProps: Property[] = [
+const commonProps: Property[] = [
     {
         id: 'urn',
         displayName: 'Urn',

@@ -1,6 +1,6 @@
 import { ListSecretsDocument, ListSecretsQuery } from '@graphql/ingestion.generated';
 
-export const removeSecretFromListSecretsCache = (urn, client, page, pageSize) => {
+const removeSecretFromListSecretsCache = (urn, client, page, pageSize) => {
     const currData: ListSecretsQuery | null = client.readQuery({
         query: ListSecretsDocument,
         variables: {
@@ -32,7 +32,7 @@ export const removeSecretFromListSecretsCache = (urn, client, page, pageSize) =>
     });
 };
 
-export const addSecretToListSecretsCache = (secret, client, pageSize) => {
+const addSecretToListSecretsCache = (secret, client, pageSize) => {
     const currData: ListSecretsQuery | null = client.readQuery({
         query: ListSecretsDocument,
         variables: {
@@ -64,7 +64,7 @@ export const addSecretToListSecretsCache = (secret, client, pageSize) => {
     });
 };
 
-export const updateSecretInListSecretsCache = (updatedSecret, client, pageSize, page) => {
+const updateSecretInListSecretsCache = (updatedSecret, client, pageSize, page) => {
     const currData: ListSecretsQuery | null = client.readQuery({
         query: ListSecretsDocument,
         variables: {

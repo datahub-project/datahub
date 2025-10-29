@@ -28,4 +28,3 @@ const hiveConfig: SourceConfig = {
     logoUrl: hiveLogo,
 };
 
-export default hiveConfig;

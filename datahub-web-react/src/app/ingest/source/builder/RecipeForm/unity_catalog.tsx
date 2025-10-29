@@ -2,7 +2,7 @@ import React from 'react';
 
 import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
-export const UNITY_CATALOG = 'unity-catalog';
+const UNITY_CATALOG = 'unity-catalog';
 
 export const TOKEN: RecipeField = {
     name: 'token',
@@ -26,7 +26,7 @@ export const WORKSPACE_URL: RecipeField = {
     rules: null,
 };
 
-export const INCLUDE_TABLE_LINEAGE: RecipeField = {
+const INCLUDE_TABLE_LINEAGE: RecipeField = {
     name: 'include_table_lineage',
     label: 'Include Table Lineage',
     tooltip: (

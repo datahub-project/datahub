@@ -21,7 +21,7 @@ import { PageTemplateFragment, SummaryElementFragment } from '@graphql/template.
 import { SummaryElement, SummaryElementType } from '@types';
 
 // Types for summary element operations
-export interface SummaryElementWithId extends SummaryElement {
+interface SummaryElementWithId extends SummaryElement {
     id: string; // Unique identifier for React keys and operations
 }
 

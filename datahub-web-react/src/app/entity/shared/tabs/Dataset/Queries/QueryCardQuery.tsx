@@ -25,7 +25,7 @@ const NestedSyntax = styled(SyntaxHighlighter)`
     } !important;
 `;
 
-export type Props = {
+type Props = {
     query: string;
     showDetails: boolean;
     onClickExpand?: (newQuery) => void;

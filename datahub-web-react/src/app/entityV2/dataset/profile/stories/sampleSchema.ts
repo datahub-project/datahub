@@ -3,11 +3,11 @@ import { dataset3 } from '@src/Mocks';
 import { EntityType, Schema, SchemaField, SchemaFieldDataType, SchemaMetadata } from '@types';
 
 // Extending the schema type with an option for tags
-export type TaggedSchemaField = {
+type TaggedSchemaField = {
     tags: Tag[];
 } & SchemaField;
 
-export type Tag = {
+type Tag = {
     name: string;
     value?: string;
     color: string;

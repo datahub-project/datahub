@@ -11,8 +11,8 @@ import { ProfileSidebarResizer } from '@src/app/entityV2/shared/containers/profi
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const PLATFORM_BROWSE_TRANSITION_MS = 200;
-export const MAX_BROWSER_WIDTH = 500;
-export const MIN_BROWSWER_WIDTH = 260;
+const MAX_BROWSER_WIDTH = 500;
+const MIN_BROWSWER_WIDTH = 260;
 
 const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
@@ -50,7 +50,7 @@ const StyledEntitySidebarContainer = styled.div<{
             : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
 `;
 
-export const StyledSidebar = styled.div`
+const StyledSidebar = styled.div`
     overflow: auto;
     height: 100%;
     display: flex;

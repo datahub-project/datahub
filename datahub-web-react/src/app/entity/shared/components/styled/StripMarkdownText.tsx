@@ -11,7 +11,7 @@ const RemoveMarkdownContainer = styled.div<{ shouldWrap: boolean }>`
     text-overflow: ellipsis;
 `;
 
-export type Props = {
+type Props = {
     children: string | undefined | null;
     readMore?: JSX.Element;
     suffix?: JSX.Element;

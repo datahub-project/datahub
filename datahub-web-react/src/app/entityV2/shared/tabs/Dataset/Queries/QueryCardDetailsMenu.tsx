@@ -9,7 +9,7 @@ const StyledMoreOutlined = styled(MoreOutlined)`
     font-size: 14px;
 `;
 
-export type Props = {
+type Props = {
     urn: string;
     onDeleted?: (urn: string) => void;
     index?: number;

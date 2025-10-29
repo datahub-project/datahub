@@ -117,7 +117,7 @@ const getGroupNameBySummary = (record) => {
  * @param entityType
  * @returns {AssertionBuilderSiblingOptions[]}
  */
-export const useSiblingOptionsForAssertionBuilder = (
+const useSiblingOptionsForAssertionBuilder = (
     entityData: GenericEntityProperties | null,
     urn: string,
     entityType: EntityType,

@@ -1,4 +1,4 @@
-export const INGESTION_TAB_QUERY_PARAMS = {
+const INGESTION_TAB_QUERY_PARAMS = {
     searchQuery: 'query',
 };
 

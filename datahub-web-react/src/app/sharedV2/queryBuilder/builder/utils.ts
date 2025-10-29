@@ -7,7 +7,7 @@ const LOGICAL_OPERATORS = new Set(Object.values(LogicalOperatorType));
 /**
  * Retrieves the display name for a specific Logical Operator Type.
  */
-export const getOperatorDisplayName = (operator: LogicalOperatorType) => {
+const getOperatorDisplayName = (operator: LogicalOperatorType) => {
     return operator.toLocaleUpperCase();
 };
 

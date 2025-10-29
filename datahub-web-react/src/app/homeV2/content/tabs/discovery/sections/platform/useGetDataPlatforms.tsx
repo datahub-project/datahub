@@ -1,7 +1,7 @@
 import { useGetDataPlatformsQuery } from '@graphql/dataPlatform.generated';
 import { DataPlatform } from '@types';
 
-export const DATA_PLATFORMS_URNS = [
+const DATA_PLATFORMS_URNS = [
     'urn:li:dataPlatform:snowflake',
     'urn:li:dataPlatform:bigquery',
     'urn:li:dataPlatform:redshift',

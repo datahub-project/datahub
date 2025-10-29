@@ -2,7 +2,7 @@ import { SortOrder } from '@types';
 
 export const RELEVANCE = 'relevance';
 export const ENTITY_NAME_FIELD = '_entityName';
-export const LAST_MODIFIED_TIME_FIELD = 'lastModifiedAt';
+const LAST_MODIFIED_TIME_FIELD = 'lastModifiedAt';
 
 export const DEFAULT_SORT_OPTION = RELEVANCE;
 

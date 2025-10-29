@@ -10,7 +10,7 @@ export interface ExtendedSchemaFields extends SchemaField {
     parent?: ExtendedSchemaFields;
 }
 
-export enum SchemaViewType {
+enum SchemaViewType {
     NORMAL,
     BLAME,
 }

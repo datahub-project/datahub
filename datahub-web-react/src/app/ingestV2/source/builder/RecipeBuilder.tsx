@@ -16,7 +16,7 @@ import { Button } from '@src/alchemy-components';
 
 import { IngestionSource } from '@types';
 
-export const ControlsContainer = styled.div`
+const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 8px;

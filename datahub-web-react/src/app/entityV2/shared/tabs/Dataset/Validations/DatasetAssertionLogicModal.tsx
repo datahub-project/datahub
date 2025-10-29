@@ -3,7 +3,7 @@ import React from 'react';
 
 import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
 
-export type AssertionsSummary = {
+type AssertionsSummary = {
     totalAssertions: number;
     totalRuns: number;
     failedRuns: number;

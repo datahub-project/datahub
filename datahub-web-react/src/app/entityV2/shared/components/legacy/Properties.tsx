@@ -4,7 +4,7 @@ import React from 'react';
 
 import { StringMapEntry } from '@types';
 
-export type Props = {
+type Props = {
     properties: StringMapEntry[];
 };
 

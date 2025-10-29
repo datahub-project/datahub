@@ -9,7 +9,7 @@ export const DEFAULT_PAGE_SIZE = 5;
 /**
  * The Max number of "Recent Queries" to surface.
  */
-export const DEFAULT_MAX_RECENT_QUERIES = 9;
+const DEFAULT_MAX_RECENT_QUERIES = 9;
 
 /**
  * Searching Queries

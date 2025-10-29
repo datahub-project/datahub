@@ -10,7 +10,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, GlossaryNode } from '@types';
 
-export const StyledRightOutlined = styled(RightOutlined)`
+const StyledRightOutlined = styled(RightOutlined)`
     color: ${ANTD_GRAY[7]};
     font-size: 8px;
     margin: 0 4px;
@@ -59,7 +59,7 @@ interface Props {
     parentNodes?: GlossaryNode[] | null;
 }
 
-export default function ParentNodesView({ parentNodes }: Props) {
+function ParentNodesView({ parentNodes }: Props) {
     const entityRegistry = useEntityRegistry();
     const { contentRef, isContentTruncated } = useContentTruncation(parentNodes);
 

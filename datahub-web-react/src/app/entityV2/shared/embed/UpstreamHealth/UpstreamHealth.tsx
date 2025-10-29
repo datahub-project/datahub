@@ -21,7 +21,7 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useSearchAcrossLineageQuery } from '@graphql/search.generated';
 import { FilterOperator, LineageDirection } from '@types';
 
-export const StyledDivider = styled(Divider)`
+const StyledDivider = styled(Divider)`
     margin: 16px 0;
 `;
 

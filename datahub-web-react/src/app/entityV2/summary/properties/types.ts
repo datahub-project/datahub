@@ -5,10 +5,6 @@ export enum PropertyType {
     Domain = 'domain',
     Owners = 'owners',
     Tags = 'tags',
-    Terms = 'terms',
-    Created = 'created',
-    LastUpdated = 'lastUpdated',
-    VerificationStatus = 'verificationStatus',
     StructuredProperty = 'structuredProperty',
 }
 
@@ -20,7 +16,7 @@ export interface AssetProperty {
     structuredProperty?: StructuredPropertyFieldsFragment;
 }
 
-export interface AssetPropertiesContextType {
+interface AssetPropertiesContextType {
     // Whether properties are editable
     editable?: boolean;
 

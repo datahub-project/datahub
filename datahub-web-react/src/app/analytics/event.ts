@@ -34,7 +34,6 @@ export enum EventType {
     HomePageSearchEvent,
     SearchResultsViewEvent,
     SearchResultClickEvent,
-    EntitySearchResultClickEvent,
     SearchFiltersClearAllEvent,
     SearchFiltersShowMoreEvent,
     BrowseResultClickEvent,
@@ -191,7 +190,7 @@ interface BaseEvent {
 /**
  * Viewed a page on the UI.
  */
-export interface PageViewEvent extends BaseEvent {
+interface PageViewEvent extends BaseEvent {
     type: EventType.PageViewEvent;
     originPath: string;
 }
@@ -199,14 +198,14 @@ export interface PageViewEvent extends BaseEvent {
 /**
  * Viewed the Introduce Yourself page on the UI.
  */
-export interface IntroduceYourselfViewEvent extends BaseEvent {
+interface IntroduceYourselfViewEvent extends BaseEvent {
     type: EventType.IntroduceYourselfViewEvent;
 }
 
 /**
  * Submitted the "Introduce Yourself" page through the UI.
  */
-export interface IntroduceYourselfSubmitEvent extends BaseEvent {
+interface IntroduceYourselfSubmitEvent extends BaseEvent {
     type: EventType.IntroduceYourselfSubmitEvent;
     role: string;
     platformUrns: Array<string>;
@@ -215,21 +214,21 @@ export interface IntroduceYourselfSubmitEvent extends BaseEvent {
 /**
  * Skipped the "Introduce Yourself" page through the UI.
  */
-export interface IntroduceYourselfSkipEvent extends BaseEvent {
+interface IntroduceYourselfSkipEvent extends BaseEvent {
     type: EventType.IntroduceYourselfSkipEvent;
 }
 
 /**
  * Viewed the Home Page on the UI.
  */
-export interface HomePageViewEvent extends BaseEvent {
+interface HomePageViewEvent extends BaseEvent {
     type: EventType.HomePageViewEvent;
 }
 
 /**
  * Logged on successful new user sign up.
  */
-export interface SignUpEvent extends BaseEvent {
+interface SignUpEvent extends BaseEvent {
     type: EventType.SignUpEvent;
     title: string;
 }
@@ -237,28 +236,28 @@ export interface SignUpEvent extends BaseEvent {
 /**
  * Logged on user successful login.
  */
-export interface LogInEvent extends BaseEvent {
+interface LogInEvent extends BaseEvent {
     type: EventType.LogInEvent;
 }
 
 /**
  * Logged on user successful logout.
  */
-export interface LogOutEvent extends BaseEvent {
+interface LogOutEvent extends BaseEvent {
     type: EventType.LogOutEvent;
 }
 
 /**
  * Logged on user resetting their credentials
  */
-export interface ResetCredentialsEvent extends BaseEvent {
+interface ResetCredentialsEvent extends BaseEvent {
     type: EventType.ResetCredentialsEvent;
 }
 
 /**
  * Logged on user successful search query.
  */
-export interface SearchEvent extends BaseEvent {
+interface SearchEvent extends BaseEvent {
     type: EventType.SearchEvent;
     query: string;
     entityTypeFilter?: EntityType;
@@ -271,7 +270,7 @@ export interface SearchEvent extends BaseEvent {
 /**
  * Logged on user successful search query from the home page.
  */
-export interface HomePageSearchEvent extends BaseEvent {
+interface HomePageSearchEvent extends BaseEvent {
     type: EventType.HomePageSearchEvent;
     query: string;
     entityTypeFilter?: EntityType;
@@ -283,7 +282,7 @@ export interface HomePageSearchEvent extends BaseEvent {
 /**
  * Logged on user search result click.
  */
-export interface SearchResultsViewEvent extends BaseEvent {
+interface SearchResultsViewEvent extends BaseEvent {
     type: EventType.SearchResultsViewEvent;
     query: string;
     entityTypeFilter?: EntityType;
@@ -299,7 +298,7 @@ export interface SearchResultsViewEvent extends BaseEvent {
 /**
  * Logged on user search result click.
  */
-export interface SearchResultClickEvent extends BaseEvent {
+interface SearchResultClickEvent extends BaseEvent {
     type: EventType.SearchResultClickEvent;
     query: string;
     entityUrn: string;
@@ -310,12 +309,12 @@ export interface SearchResultClickEvent extends BaseEvent {
     pageNumber: number;
 }
 
-export interface SearchFiltersClearAllEvent extends BaseEvent {
+interface SearchFiltersClearAllEvent extends BaseEvent {
     type: EventType.SearchFiltersClearAllEvent;
     total: number;
 }
 
-export interface SearchFiltersShowMoreEvent extends BaseEvent {
+interface SearchFiltersShowMoreEvent extends BaseEvent {
     type: EventType.SearchFiltersShowMoreEvent;
     activeFilterCount: number;
     hiddenFilterCount: number;
@@ -324,7 +323,7 @@ export interface SearchFiltersShowMoreEvent extends BaseEvent {
 /**
  * Logged on user browse result click.
  */
-export interface BrowseResultClickEvent extends BaseEvent {
+interface BrowseResultClickEvent extends BaseEvent {
     type: EventType.BrowseResultClickEvent;
     browsePath: string;
     entityType: EntityType;
@@ -336,7 +335,7 @@ export interface BrowseResultClickEvent extends BaseEvent {
 /**
  * Logged on user browse result click from the home page.
  */
-export interface HomePageBrowseResultClickEvent extends BaseEvent {
+interface HomePageBrowseResultClickEvent extends BaseEvent {
     type: EventType.HomePageBrowseResultClickEvent;
     entityType: EntityType;
 }
@@ -344,7 +343,7 @@ export interface HomePageBrowseResultClickEvent extends BaseEvent {
 /**
  * Logged when a user opens or closes the browse v2 sidebar
  */
-export interface BrowseV2ToggleSidebarEvent extends BaseEvent {
+interface BrowseV2ToggleSidebarEvent extends BaseEvent {
     type: EventType.BrowseV2ToggleSidebarEvent;
     action: 'open' | 'close';
 }
@@ -390,7 +389,7 @@ export interface BrowseV2EntityLinkClickEvent extends BaseEvent {
 /**
  * Logged when user views an entity profile.
  */
-export interface EntityViewEvent extends BaseEvent {
+interface EntityViewEvent extends BaseEvent {
     type: EventType.EntityViewEvent;
     entityType: EntityType;
     entityUrn: string;
@@ -399,7 +398,7 @@ export interface EntityViewEvent extends BaseEvent {
 /**
  * Logged when user views a particular section of an entity profile.
  */
-export interface EntitySectionViewEvent extends BaseEvent {
+interface EntitySectionViewEvent extends BaseEvent {
     type: EventType.EntitySectionViewEvent;
     entityType: EntityType;
     entityUrn: string;
@@ -434,7 +433,7 @@ export enum ExternalLinkType {
     Default = 'DEFAULT_EXTERNAL_URL',
 }
 
-export interface EntityActionEvent extends BaseEvent {
+interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
     actionType: string;
     entityType?: EntityType;
@@ -442,13 +441,13 @@ export interface EntityActionEvent extends BaseEvent {
     externalLinkType?: ExternalLinkType;
 }
 
-export interface BatchEntityActionEvent extends BaseEvent {
+interface BatchEntityActionEvent extends BaseEvent {
     type: EventType.BatchEntityActionEvent;
     actionType: string;
     entityUrns: string[];
 }
 
-export interface RecommendationImpressionEvent extends BaseEvent {
+interface RecommendationImpressionEvent extends BaseEvent {
     type: EventType.RecommendationImpressionEvent;
     moduleId: string;
     renderType: RecommendationRenderType;
@@ -456,7 +455,7 @@ export interface RecommendationImpressionEvent extends BaseEvent {
     // TODO: Determine whether we need to collect context parameters.
 }
 
-export interface RecommendationClickEvent extends BaseEvent {
+interface RecommendationClickEvent extends BaseEvent {
     type: EventType.RecommendationClickEvent;
     renderId: string; // TODO : Determine whether we need a render id to join with click event.
     moduleId: string;
@@ -465,7 +464,7 @@ export interface RecommendationClickEvent extends BaseEvent {
     index?: number;
 }
 
-export interface HomePageRecommendationClickEvent extends BaseEvent {
+interface HomePageRecommendationClickEvent extends BaseEvent {
     type: EventType.HomePageRecommendationClickEvent;
     renderId: string; // TODO : Determine whether we need a render id to join with click event.
     moduleId: string;
@@ -474,7 +473,7 @@ export interface HomePageRecommendationClickEvent extends BaseEvent {
     index?: number;
 }
 
-export interface VisualLineageViewEvent extends BaseEvent {
+interface VisualLineageViewEvent extends BaseEvent {
     type: EventType.VisualLineageViewEvent;
     entityType: EntityType;
     numUpstreams: number;
@@ -486,12 +485,12 @@ export interface VisualLineageViewEvent extends BaseEvent {
     hasExpandableDownstreamsV3?: boolean;
 }
 
-export interface VisualLineageExpandGraphEvent extends BaseEvent {
+interface VisualLineageExpandGraphEvent extends BaseEvent {
     type: EventType.VisualLineageExpandGraphEvent;
     targetEntityType?: EntityType;
 }
 
-export interface SearchAcrossLineageEvent extends BaseEvent {
+interface SearchAcrossLineageEvent extends BaseEvent {
     type: EventType.SearchAcrossLineageEvent;
     query: string;
     entityTypeFilter?: EntityType;
@@ -499,7 +498,7 @@ export interface SearchAcrossLineageEvent extends BaseEvent {
     originPath: string;
     maxDegree?: string;
 }
-export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
+interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     type: EventType.SearchAcrossLineageResultsViewEvent;
     query: string;
     entityTypeFilter?: EntityType;
@@ -511,7 +510,7 @@ export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     isSchemaFieldContext?: boolean;
 }
 
-export interface DownloadAsCsvEvent extends BaseEvent {
+interface DownloadAsCsvEvent extends BaseEvent {
     type: EventType.DownloadAsCsvEvent;
     query: string;
     // optional parameter if its coming from inside an entity page
@@ -519,48 +518,48 @@ export interface DownloadAsCsvEvent extends BaseEvent {
     path: string;
 }
 
-export interface CreateAccessTokenEvent extends BaseEvent {
+interface CreateAccessTokenEvent extends BaseEvent {
     type: EventType.CreateAccessTokenEvent;
     accessTokenType: string;
     duration: string;
 }
 
-export interface RevokeAccessTokenEvent extends BaseEvent {
+interface RevokeAccessTokenEvent extends BaseEvent {
     type: EventType.RevokeAccessTokenEvent;
 }
 
-export interface CreateGroupEvent extends BaseEvent {
+interface CreateGroupEvent extends BaseEvent {
     type: EventType.CreateGroupEvent;
 }
-export interface CreateInviteLinkEvent extends BaseEvent {
+interface CreateInviteLinkEvent extends BaseEvent {
     type: EventType.CreateInviteLinkEvent;
     roleUrn?: string;
 }
 
-export interface CreateResetCredentialsLinkEvent extends BaseEvent {
+interface CreateResetCredentialsLinkEvent extends BaseEvent {
     type: EventType.CreateResetCredentialsLinkEvent;
     userUrn: string;
 }
 
-export interface DeleteEntityEvent extends BaseEvent {
+interface DeleteEntityEvent extends BaseEvent {
     type: EventType.DeleteEntityEvent;
     entityUrn: string;
     entityType: EntityType;
 }
 
-export interface SelectUserRoleEvent extends BaseEvent {
+interface SelectUserRoleEvent extends BaseEvent {
     type: EventType.SelectUserRoleEvent;
     roleUrn: string;
     userUrn: string;
 }
 
-export interface SelectGroupRoleEvent extends BaseEvent {
+interface SelectGroupRoleEvent extends BaseEvent {
     type: EventType.SelectGroupRoleEvent;
     roleUrn: string;
     groupUrn?: string;
 }
 
-export interface BatchSelectUserRoleEvent extends BaseEvent {
+interface BatchSelectUserRoleEvent extends BaseEvent {
     type: EventType.BatchSelectUserRoleEvent;
     roleUrn: string;
     userUrns: string[];
@@ -568,67 +567,67 @@ export interface BatchSelectUserRoleEvent extends BaseEvent {
 
 // Policy events
 
-export interface CreatePolicyEvent extends BaseEvent {
+interface CreatePolicyEvent extends BaseEvent {
     type: EventType.CreatePolicyEvent;
 }
 
-export interface UpdatePolicyEvent extends BaseEvent {
+interface UpdatePolicyEvent extends BaseEvent {
     type: EventType.UpdatePolicyEvent;
     policyUrn: string;
 }
 
-export interface DeactivatePolicyEvent extends BaseEvent {
+interface DeactivatePolicyEvent extends BaseEvent {
     type: EventType.DeactivatePolicyEvent;
     policyUrn: string;
 }
 
-export interface ActivatePolicyEvent extends BaseEvent {
+interface ActivatePolicyEvent extends BaseEvent {
     type: EventType.ActivatePolicyEvent;
     policyUrn: string;
 }
 
-export interface ShowSimplifiedHomepageEvent extends BaseEvent {
+interface ShowSimplifiedHomepageEvent extends BaseEvent {
     type: EventType.ShowSimplifiedHomepageEvent;
 }
 
-export interface ShowStandardHomepageEvent extends BaseEvent {
+interface ShowStandardHomepageEvent extends BaseEvent {
     type: EventType.ShowStandardHomepageEvent;
 }
 
-export interface ShowV2ThemeEvent extends BaseEvent {
+interface ShowV2ThemeEvent extends BaseEvent {
     type: EventType.ShowV2ThemeEvent;
 }
 
-export interface RevertV2ThemeEvent extends BaseEvent {
+interface RevertV2ThemeEvent extends BaseEvent {
     type: EventType.RevertV2ThemeEvent;
 }
 
-export interface HomePageExploreAllClickEvent extends BaseEvent {
+interface HomePageExploreAllClickEvent extends BaseEvent {
     type: EventType.HomePageExploreAllClickEvent;
 }
 
-export interface SearchBarExploreAllClickEvent extends BaseEvent {
+interface SearchBarExploreAllClickEvent extends BaseEvent {
     type: EventType.SearchBarExploreAllClickEvent;
 }
 
-export interface SearchResultsExploreAllClickEvent extends BaseEvent {
+interface SearchResultsExploreAllClickEvent extends BaseEvent {
     type: EventType.SearchResultsExploreAllClickEvent;
 }
 
 // Business glossary events
 
-export interface CreateGlossaryEntityEvent extends BaseEvent {
+interface CreateGlossaryEntityEvent extends BaseEvent {
     type: EventType.CreateGlossaryEntityEvent;
     entityType: EntityType;
     parentNodeUrn?: string;
 }
 
-export interface CreateDomainEvent extends BaseEvent {
+interface CreateDomainEvent extends BaseEvent {
     type: EventType.CreateDomainEvent;
     parentDomainUrn?: string;
 }
 
-export interface MoveDomainEvent extends BaseEvent {
+interface MoveDomainEvent extends BaseEvent {
     type: EventType.MoveDomainEvent;
     oldParentDomainUrn?: string;
     parentDomainUrn?: string;
@@ -636,38 +635,38 @@ export interface MoveDomainEvent extends BaseEvent {
 
 // Managed Ingestion Events
 
-export interface IngestionTestConnectionEvent extends BaseEvent {
+interface IngestionTestConnectionEvent extends BaseEvent {
     type: EventType.IngestionTestConnectionEvent;
     sourceType: string;
     sourceUrn?: string;
     outcome?: string;
 }
 
-export interface IngestionViewAllClickEvent extends BaseEvent {
+interface IngestionViewAllClickEvent extends BaseEvent {
     type: EventType.IngestionViewAllClickEvent;
     executionUrn?: string;
 }
 
-export interface IngestionViewAllClickWarningEvent extends BaseEvent {
+interface IngestionViewAllClickWarningEvent extends BaseEvent {
     type: EventType.IngestionViewAllClickWarningEvent;
     executionUrn?: string;
 }
 
-export interface IngestionExecutionResultViewedEvent extends BaseEvent {
+interface IngestionExecutionResultViewedEvent extends BaseEvent {
     type: EventType.IngestionExecutionResultViewedEvent;
     executionUrn: string;
     executionStatus: string;
     viewedSection: string;
 }
 
-export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
+interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
     type: EventType.IngestionSourceConfigurationImpressionEvent;
     viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
     sourceType?: string;
     sourceUrn?: string;
 }
 
-export interface CreateIngestionSourceEvent extends BaseEvent {
+interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
     sourceUrn?: string;
@@ -676,7 +675,7 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     outcome?: string;
 }
 
-export interface UpdateIngestionSourceEvent extends BaseEvent {
+interface UpdateIngestionSourceEvent extends BaseEvent {
     type: EventType.UpdateIngestionSourceEvent;
     sourceType: string;
     sourceUrn: string;
@@ -685,22 +684,22 @@ export interface UpdateIngestionSourceEvent extends BaseEvent {
     outcome?: string;
 }
 
-export interface DeleteIngestionSourceEvent extends BaseEvent {
+interface DeleteIngestionSourceEvent extends BaseEvent {
     type: EventType.DeleteIngestionSourceEvent;
 }
 
-export interface ExecuteIngestionSourceEvent extends BaseEvent {
+interface ExecuteIngestionSourceEvent extends BaseEvent {
     type: EventType.ExecuteIngestionSourceEvent;
     sourceType?: string;
     sourceUrn?: string;
 }
 
 // TODO: Find a way to use this event
-export interface SsoEvent extends BaseEvent {
+interface SsoEvent extends BaseEvent {
     type: EventType.SsoEvent;
 }
 
-export interface ManuallyCreateLineageEvent extends BaseEvent {
+interface ManuallyCreateLineageEvent extends BaseEvent {
     type: EventType.ManuallyCreateLineageEvent;
     direction: Direction;
     sourceEntityType?: EntityType;
@@ -709,7 +708,7 @@ export interface ManuallyCreateLineageEvent extends BaseEvent {
     destinationEntityPlatform?: string;
 }
 
-export interface ManuallyDeleteLineageEvent extends BaseEvent {
+interface ManuallyDeleteLineageEvent extends BaseEvent {
     type: EventType.ManuallyDeleteLineageEvent;
     direction: Direction;
     sourceEntityType?: EntityType;
@@ -721,7 +720,7 @@ export interface ManuallyDeleteLineageEvent extends BaseEvent {
 /**
  * Emitted when a new View is created.
  */
-export interface CreateViewEvent extends BaseEvent {
+interface CreateViewEvent extends BaseEvent {
     type: EventType.CreateViewEvent;
     viewType?: DataHubViewType;
     filterFields: string[];
@@ -732,7 +731,7 @@ export interface CreateViewEvent extends BaseEvent {
 /**
  * Emitted when an existing View is updated.
  */
-export interface UpdateViewEvent extends BaseEvent {
+interface UpdateViewEvent extends BaseEvent {
     type: EventType.UpdateViewEvent;
     viewType?: DataHubViewType;
     urn: string;
@@ -744,7 +743,7 @@ export interface UpdateViewEvent extends BaseEvent {
 /**
  * Emitted when a user sets or clears their personal default view.
  */
-export interface SetUserDefaultViewEvent extends BaseEvent {
+interface SetUserDefaultViewEvent extends BaseEvent {
     type: EventType.SetUserDefaultViewEvent;
     urn: string | null;
     viewType: DataHubViewType | null;
@@ -753,36 +752,36 @@ export interface SetUserDefaultViewEvent extends BaseEvent {
 /**
  * Emitted when a user sets or clears the global default view.
  */
-export interface SetGlobalDefaultViewEvent extends BaseEvent {
+interface SetGlobalDefaultViewEvent extends BaseEvent {
     type: EventType.SetGlobalDefaultViewEvent;
     urn: string | null;
 }
 
-export interface LineageGraphTimeRangeSelectionEvent extends BaseEvent {
+interface LineageGraphTimeRangeSelectionEvent extends BaseEvent {
     type: EventType.LineageGraphTimeRangeSelectionEvent;
     relativeStartDate: string;
     relativeEndDate: string;
 }
 
-export interface LineageTabTimeRangeSelectionEvent extends BaseEvent {
+interface LineageTabTimeRangeSelectionEvent extends BaseEvent {
     type: EventType.LineageTabTimeRangeSelectionEvent;
     relativeStartDate: string;
     relativeEndDate: string;
 }
 
-export interface CreateQueryEvent extends BaseEvent {
+interface CreateQueryEvent extends BaseEvent {
     type: EventType.CreateQueryEvent;
 }
 
-export interface UpdateQueryEvent extends BaseEvent {
+interface UpdateQueryEvent extends BaseEvent {
     type: EventType.UpdateQueryEvent;
 }
 
-export interface DeleteQueryEvent extends BaseEvent {
+interface DeleteQueryEvent extends BaseEvent {
     type: EventType.DeleteQueryEvent;
 }
 
-export interface SelectAutoCompleteOption extends BaseEvent {
+interface SelectAutoCompleteOption extends BaseEvent {
     type: EventType.SelectAutoCompleteOption;
     optionType: string;
     entityType?: EntityType;
@@ -791,52 +790,51 @@ export interface SelectAutoCompleteOption extends BaseEvent {
     apiVariant?: SearchBarApi;
 }
 
-export interface SelectQuickFilterEvent extends BaseEvent {
+interface SelectQuickFilterEvent extends BaseEvent {
     type: EventType.SelectQuickFilterEvent;
     quickFilterType: string;
     quickFilterValue: string;
 }
 
-export interface DeselectQuickFilterEvent extends BaseEvent {
+interface DeselectQuickFilterEvent extends BaseEvent {
     type: EventType.DeselectQuickFilterEvent;
     quickFilterType: string;
     quickFilterValue: string;
 }
 
-export interface EmbedProfileViewEvent extends BaseEvent {
+interface EmbedProfileViewEvent extends BaseEvent {
     type: EventType.EmbedProfileViewEvent;
     entityType: string;
     entityUrn: string;
 }
 
-export interface EmbedProfileViewInDataHubEvent extends BaseEvent {
+interface EmbedProfileViewInDataHubEvent extends BaseEvent {
     type: EventType.EmbedProfileViewInDataHubEvent;
     entityType: string;
     entityUrn: string;
 }
 
-export interface EmbedLookupNotFoundEvent extends BaseEvent {
+interface EmbedLookupNotFoundEvent extends BaseEvent {
     type: EventType.EmbedLookupNotFoundEvent;
     url: string;
     reason: EmbedLookupNotFoundReason;
 }
 
-export interface CreateBusinessAttributeEvent extends BaseEvent {
+interface CreateBusinessAttributeEvent extends BaseEvent {
     type: EventType.CreateBusinessAttributeEvent;
     name: string;
 }
 
 export enum DocRequestCTASource {
-    TaskCenter = 'TaskCenter',
     AssetPage = 'AssetPage',
 }
 
-export interface ClickDocRequestCTA extends BaseEvent {
+interface ClickDocRequestCTA extends BaseEvent {
     type: EventType.ClickDocRequestCTA;
     source: DocRequestCTASource;
 }
 
-export interface ExpandLineageEvent extends BaseEvent {
+interface ExpandLineageEvent extends BaseEvent {
     type: EventType.ExpandLineageEvent;
     direction: LineageDirection;
     levelsExpanded: '1' | 'all';
@@ -844,14 +842,14 @@ export interface ExpandLineageEvent extends BaseEvent {
     entityType: EntityType;
 }
 
-export interface ContractLineageEvent extends BaseEvent {
+interface ContractLineageEvent extends BaseEvent {
     type: EventType.ContractLineageEvent;
     direction: LineageDirection;
     entityUrn: string;
     entityType?: EntityType;
 }
 
-export interface ShowHideLineageColumnsEvent extends BaseEvent {
+interface ShowHideLineageColumnsEvent extends BaseEvent {
     type: EventType.ShowHideLineageColumnsEvent;
     action: 'show' | 'hide';
     entityUrn: string;
@@ -859,14 +857,14 @@ export interface ShowHideLineageColumnsEvent extends BaseEvent {
     entityPlatformUrn?: string;
 }
 
-export interface SearchLineageColumnsEvent extends BaseEvent {
+interface SearchLineageColumnsEvent extends BaseEvent {
     type: EventType.SearchLineageColumnsEvent;
     entityUrn: string;
     entityType: EntityType;
     searchTextLength: number;
 }
 
-export interface FilterLineageColumnsEvent extends BaseEvent {
+interface FilterLineageColumnsEvent extends BaseEvent {
     type: EventType.FilterLineageColumnsEvent;
     action: 'enable' | 'disable';
     entityUrn: string;
@@ -874,7 +872,7 @@ export interface FilterLineageColumnsEvent extends BaseEvent {
     shownCount: number;
 }
 
-export interface DrillDownLineageEvent extends BaseEvent {
+interface DrillDownLineageEvent extends BaseEvent {
     type: EventType.DrillDownLineageEvent;
     action: 'select' | 'deselect';
     entityUrn: string;
@@ -884,7 +882,7 @@ export interface DrillDownLineageEvent extends BaseEvent {
     dataType?: string;
 }
 
-export interface CreateStructuredPropertyClickEvent extends BaseEvent {
+interface CreateStructuredPropertyClickEvent extends BaseEvent {
     type: EventType.CreateStructuredPropertyClickEvent;
 }
 
@@ -904,21 +902,21 @@ interface StructuredPropertyEvent extends BaseEvent {
     showInColumnsTable: boolean;
 }
 
-export interface CreateStructuredPropertyEvent extends StructuredPropertyEvent {
+interface CreateStructuredPropertyEvent extends StructuredPropertyEvent {
     type: EventType.CreateStructuredPropertyEvent;
 }
 
-export interface EditStructuredPropertyEvent extends StructuredPropertyEvent {
+interface EditStructuredPropertyEvent extends StructuredPropertyEvent {
     type: EventType.EditStructuredPropertyEvent;
     propertyUrn: string;
 }
 
-export interface DeleteStructuredPropertyEvent extends StructuredPropertyEvent {
+interface DeleteStructuredPropertyEvent extends StructuredPropertyEvent {
     type: EventType.DeleteStructuredPropertyEvent;
     propertyUrn: string;
 }
 
-export interface ViewStructuredPropertyEvent extends BaseEvent {
+interface ViewStructuredPropertyEvent extends BaseEvent {
     type: EventType.ViewStructuredPropertyEvent;
     propertyUrn: string;
 }
@@ -929,21 +927,21 @@ interface StructuredPropertyOnAssetEvent extends BaseEvent {
     assetUrn: string;
     assetType: EntityType;
 }
-export interface ApplyStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
+interface ApplyStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
     type: EventType.ApplyStructuredPropertyEvent;
     values: PropertyValueInput[];
 }
 
-export interface UpdateStructuredPropertyOnAssetEvent extends StructuredPropertyOnAssetEvent {
+interface UpdateStructuredPropertyOnAssetEvent extends StructuredPropertyOnAssetEvent {
     type: EventType.UpdateStructuredPropertyOnAssetEvent;
     values: PropertyValueInput[];
 }
 
-export interface RemoveStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
+interface RemoveStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
     type: EventType.RemoveStructuredPropertyEvent;
 }
 
-export interface LinkAssetVersionEvent extends BaseEvent {
+interface LinkAssetVersionEvent extends BaseEvent {
     type: EventType.LinkAssetVersionEvent;
     newAssetUrn: string;
     oldAssetUrn?: string;
@@ -951,14 +949,14 @@ export interface LinkAssetVersionEvent extends BaseEvent {
     entityType: EntityType;
 }
 
-export interface UnlinkAssetVersionEvent extends BaseEvent {
+interface UnlinkAssetVersionEvent extends BaseEvent {
     type: EventType.UnlinkAssetVersionEvent;
     assetUrn: string;
     versionSetUrn?: string;
     entityType: EntityType;
 }
 
-export interface ShowAllVersionsEvent extends BaseEvent {
+interface ShowAllVersionsEvent extends BaseEvent {
     type: EventType.ShowAllVersionsEvent;
     assetUrn: string;
     versionSetUrn?: string;
@@ -967,12 +965,12 @@ export interface ShowAllVersionsEvent extends BaseEvent {
     uiLocation: 'preview' | 'more-options';
 }
 
-export interface ClickUserProfileEvent extends BaseEvent {
+interface ClickUserProfileEvent extends BaseEvent {
     type: EventType.ClickUserProfile;
     location?: 'statsTabTopUsers'; // add more locations here
 }
 
-export interface ClickViewDocumentationEvent extends BaseEvent {
+interface ClickViewDocumentationEvent extends BaseEvent {
     type: EventType.ClickViewDocumentation;
     link: string;
     location: 'statsTab'; // add more locations here
@@ -983,10 +981,9 @@ export enum HomePageModule {
     Discover = 'Discover',
     Announcements = 'Announcements',
     PersonalSidebar = 'PersonalSidebar',
-    SidebarAnnouncements = 'SidebarAnnouncements',
-}
+    }
 
-export interface HomePageClickEvent extends BaseEvent {
+interface HomePageClickEvent extends BaseEvent {
     type: EventType.HomePageClick;
     module: HomePageModule;
     section?: string;
@@ -994,67 +991,67 @@ export interface HomePageClickEvent extends BaseEvent {
     value?: string; // what was actually clicked ie. an entity urn to go to a page, or "View all" for a section
 }
 
-export interface SearchBarFilterEvent extends BaseEvent {
+interface SearchBarFilterEvent extends BaseEvent {
     type: EventType.SearchBarFilter;
     field: string; // the filter field
     values: string[]; // the values being filtered for
 }
 
-export interface NavBarExpandCollapseEvent extends BaseEvent {
+interface NavBarExpandCollapseEvent extends BaseEvent {
     type: EventType.NavBarExpandCollapse;
     isExpanding: boolean; // whether this action is expanding or collapsing the nav bar
 }
 
-export interface NavBarItemClickEvent extends BaseEvent {
+interface NavBarItemClickEvent extends BaseEvent {
     type: EventType.NavBarItemClick;
     label: string; // the label of the item that is clicks from the nav sidebar
 }
 
-export interface FilterStatsPageEvent extends BaseEvent {
+interface FilterStatsPageEvent extends BaseEvent {
     type: EventType.FilterStatsPage;
     platform: string | null;
 }
 
-export interface FilterStatsChartLookBackEvent extends BaseEvent {
+interface FilterStatsChartLookBackEvent extends BaseEvent {
     type: EventType.FilterStatsChartLookBack;
     lookBackValue: string;
     chartName: string;
 }
 
-export interface WelcomeToDataHubModalViewEvent extends BaseEvent {
+interface WelcomeToDataHubModalViewEvent extends BaseEvent {
     type: EventType.WelcomeToDataHubModalViewEvent;
 }
 
-export interface WelcomeToDataHubModalInteractEvent extends BaseEvent {
+interface WelcomeToDataHubModalInteractEvent extends BaseEvent {
     type: EventType.WelcomeToDataHubModalInteractEvent;
     currentSlide: number;
     totalSlides: number;
 }
 
-export interface WelcomeToDataHubModalExitEvent extends BaseEvent {
+interface WelcomeToDataHubModalExitEvent extends BaseEvent {
     type: EventType.WelcomeToDataHubModalExitEvent;
     currentSlide: number;
     totalSlides: number;
     exitMethod: 'close_button' | 'get_started_button' | 'outside_click' | 'escape_key';
 }
 
-export interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEvent {
+interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEvent {
     type: EventType.WelcomeToDataHubModalClickViewDocumentationEvent;
     url: string;
 }
 
-export interface ProductTourButtonClickEvent extends BaseEvent {
+interface ProductTourButtonClickEvent extends BaseEvent {
     type: EventType.ProductTourButtonClickEvent;
     originPage: string; // Page where the button was clicked
 }
 
-export interface ClickProductUpdateEvent extends BaseEvent {
+interface ClickProductUpdateEvent extends BaseEvent {
     type: EventType.ClickProductUpdate;
     id: string;
     url: string;
 }
 
-export interface HomePageTemplateModuleCreateEvent extends BaseEvent {
+interface HomePageTemplateModuleCreateEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleCreate;
     templateUrn: string;
     isPersonal: boolean;
@@ -1062,7 +1059,7 @@ export interface HomePageTemplateModuleCreateEvent extends BaseEvent {
     location: PageTemplateSurfaceType;
 }
 
-export interface HomePageTemplateModuleAddEvent extends BaseEvent {
+interface HomePageTemplateModuleAddEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleAdd;
     templateUrn: string;
     isPersonal: boolean;
@@ -1070,7 +1067,7 @@ export interface HomePageTemplateModuleAddEvent extends BaseEvent {
     location: PageTemplateSurfaceType;
 }
 
-export interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
+interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleUpdate;
     templateUrn: string;
     isPersonal: boolean;
@@ -1078,7 +1075,7 @@ export interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
     location: PageTemplateSurfaceType;
 }
 
-export interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
+interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleDelete;
     templateUrn: string;
     isPersonal: boolean;
@@ -1086,99 +1083,99 @@ export interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
     location: PageTemplateSurfaceType;
 }
 
-export interface HomePageTemplateModuleMoveEvent extends BaseEvent {
+interface HomePageTemplateModuleMoveEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleMove;
     templateUrn: string;
     isPersonal: boolean;
     location: PageTemplateSurfaceType;
 }
 
-export interface HomePageTemplateModuleModalCreateOpenEvent extends BaseEvent {
+interface HomePageTemplateModuleModalCreateOpenEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalCreateOpen;
     moduleType: DataHubPageModuleType;
     location: PageTemplateSurfaceType;
 }
 
-export interface HomePageTemplateModuleModalEditOpenEvent extends BaseEvent {
+interface HomePageTemplateModuleModalEditOpenEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalEditOpen;
     moduleType: DataHubPageModuleType;
     location: PageTemplateSurfaceType;
 }
 
-export interface HomePageTemplateModuleModalCancelEvent extends BaseEvent {
+interface HomePageTemplateModuleModalCancelEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalCancel;
     moduleType: DataHubPageModuleType;
     location: PageTemplateSurfaceType;
 }
 
-export interface HomePageTemplateGlobalTemplateEditingStartEvent extends BaseEvent {
+interface HomePageTemplateGlobalTemplateEditingStartEvent extends BaseEvent {
     type: EventType.HomePageTemplateGlobalTemplateEditingStart;
 }
 
-export interface HomePageTemplateGlobalTemplateEditingDoneEvent extends BaseEvent {
+interface HomePageTemplateGlobalTemplateEditingDoneEvent extends BaseEvent {
     type: EventType.HomePageTemplateGlobalTemplateEditingDone;
 }
 
-export interface HomePageTemplateResetToGlobalTemplateEvent extends BaseEvent {
+interface HomePageTemplateResetToGlobalTemplateEvent extends BaseEvent {
     type: EventType.HomePageTemplateResetToGlobalTemplate;
 }
 
-export interface HomePageTemplateModuleAssetClickEvent extends BaseEvent {
+interface HomePageTemplateModuleAssetClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleAssetClick;
     moduleType: DataHubPageModuleType;
     assetUrn: string;
     location: PageTemplateSurfaceType;
 }
 
-export interface HomePageTemplateModuleExpandClickEvent extends BaseEvent {
+interface HomePageTemplateModuleExpandClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleExpandClick;
     moduleType: DataHubPageModuleType;
     assetUrn: string;
     location: PageTemplateSurfaceType;
 }
 
-export interface HomePageTemplateModuleViewAllClickEvent extends BaseEvent {
+interface HomePageTemplateModuleViewAllClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleViewAllClick;
     moduleType: DataHubPageModuleType;
     location: PageTemplateSurfaceType;
 }
 
-export interface HomePageTemplateModuleLinkClickEvent extends BaseEvent {
+interface HomePageTemplateModuleLinkClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleLinkClick;
     link: string;
 }
 
-export interface HomePageTemplateModuleAnnouncementDismissEvent extends BaseEvent {
+interface HomePageTemplateModuleAnnouncementDismissEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleAnnouncementDismiss;
 }
 
-export interface SetDeprecationEvent extends BaseEvent {
+interface SetDeprecationEvent extends BaseEvent {
     type: EventType.SetDeprecation;
     entityUrns: string[];
     deprecated: boolean;
     resources?: ResourceRefInput[];
 }
 
-export interface AssetPageAddSummaryElementEvent extends BaseEvent {
+interface AssetPageAddSummaryElementEvent extends BaseEvent {
     type: EventType.AssetPageAddSummaryElement;
     templateUrn: string;
     elementType: SummaryElementType;
 }
 
-export interface AssetPageRemoveSummaryElementEvent extends BaseEvent {
+interface AssetPageRemoveSummaryElementEvent extends BaseEvent {
     type: EventType.AssetPageRemoveSummaryElement;
     templateUrn: string;
     elementType: SummaryElementType;
 }
 
-export interface AssetPageReplaceSummaryElementEvent extends BaseEvent {
+interface AssetPageReplaceSummaryElementEvent extends BaseEvent {
     type: EventType.AssetPageReplaceSummaryElement;
     templateUrn: string;
     currentElementType: SummaryElementType;
     newElementType: SummaryElementType;
 }
 
-export interface FileUploadAttemptEvent extends BaseEvent {
+interface FileUploadAttemptEvent extends BaseEvent {
     type: EventType.FileUploadAttemptEvent;
     fileType: string;
     fileSize: number;
@@ -1188,7 +1185,7 @@ export interface FileUploadAttemptEvent extends BaseEvent {
     schemaFieldUrn?: string;
 }
 
-export interface FileUploadFailedEvent extends BaseEvent {
+interface FileUploadFailedEvent extends BaseEvent {
     type: EventType.FileUploadFailedEvent;
     fileType: string;
     fileSize: number;
@@ -1200,7 +1197,7 @@ export interface FileUploadFailedEvent extends BaseEvent {
     comment?: string;
 }
 
-export interface FileUploadSucceededEvent extends BaseEvent {
+interface FileUploadSucceededEvent extends BaseEvent {
     type: EventType.FileUploadSucceededEvent;
     fileType: string;
     fileSize: number;
@@ -1210,7 +1207,7 @@ export interface FileUploadSucceededEvent extends BaseEvent {
     schemaFieldUrn?: string;
 }
 
-export interface FileDownloadViewEvent extends BaseEvent {
+interface FileDownloadViewEvent extends BaseEvent {
     type: EventType.FileDownloadViewEvent;
     // These fields aren't accessible while downloading
     // fileType: string;

@@ -4,7 +4,7 @@ import EntityRegistry from '@src/app/entity/EntityRegistry';
 
 import { EntityType, StructuredPropertiesEntry } from '@types';
 
-export function getDisplayedEntityType(
+function getDisplayedEntityType(
     entityData: GenericEntityProperties | null,
     entityRegistry: EntityRegistry,
     entityType: EntityType,
@@ -17,7 +17,7 @@ export function getDisplayedEntityType(
     );
 }
 
-export function getEntityPlatforms(entityType: EntityType | null, entityData: GenericEntityProperties | null) {
+function getEntityPlatforms(entityType: EntityType | null, entityData: GenericEntityProperties | null) {
     const platform = entityType === EntityType.SchemaField ? entityData?.parent?.platform : entityData?.platform;
     const platforms =
         entityType === EntityType.SchemaField ? entityData?.parent?.siblingPlatforms : entityData?.siblingPlatforms;

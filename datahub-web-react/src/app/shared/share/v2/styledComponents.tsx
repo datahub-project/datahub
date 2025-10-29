@@ -26,7 +26,7 @@ export const StyledMenu = styled(Menu)`
     border-right: none;
 `;
 
-export const StyledCheckbox = styled(Checkbox)<{ $color?: string }>`
+const StyledCheckbox = styled(Checkbox)<{ $color?: string }>`
     .ant-checkbox-inner,
     .ant-checkbox-input {
         border-radius: 2px;
@@ -45,7 +45,7 @@ export const StyledCheckbox = styled(Checkbox)<{ $color?: string }>`
     }
 `;
 
-export const StyledButton = styled(Button)<{ $type?: string; $color?: string; $hoverColor?: string }>`
+const StyledButton = styled(Button)<{ $type?: string; $color?: string; $hoverColor?: string }>`
     && {
         font-size: 14px;
         border-radius: 6px;
@@ -67,7 +67,7 @@ export const StyledButton = styled(Button)<{ $type?: string; $color?: string; $h
     }
 `;
 
-export const StyledModal = styled(Modal)`
+const StyledModal = styled(Modal)`
     font-family: Mulish;
     width: 580px !important;
     max-width: 680px;
@@ -107,7 +107,7 @@ export const StyledModal = styled(Modal)`
     }
 `;
 
-export const ModalTitle = styled.span`
+const ModalTitle = styled.span`
     display: flex;
     align-items: center;
     gap: 8px;
@@ -116,7 +116,7 @@ export const ModalTitle = styled.span`
     color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
 `;
 
-export const StyledFormItem = styled(Form.Item)`
+const StyledFormItem = styled(Form.Item)`
     margin-bottom: 8px;
 
     .ant-input {
@@ -139,7 +139,7 @@ export const StyledFormItem = styled(Form.Item)`
     }
 `;
 
-export const FormItemTitle = styled(Typography.Text)`
+const FormItemTitle = styled(Typography.Text)`
     margin-bottom: 8px;
     font-size: 14px;
     font-weight: 500;

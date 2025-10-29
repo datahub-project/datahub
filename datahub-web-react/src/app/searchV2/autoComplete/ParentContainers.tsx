@@ -31,7 +31,7 @@ interface Props {
     parentContainers: Container[];
 }
 
-export default function ParentContainers({ parentContainers }: Props) {
+function ParentContainers({ parentContainers }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const visibleIndex = Math.max(parentContainers.length - NUM_VISIBLE_CONTAINERS, 0);

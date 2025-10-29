@@ -13,7 +13,7 @@ import { EntityType, IncidentSourceType, IncidentState } from '@src/types.genera
 
 import { IncidentResultFieldsFragment } from '@graphql/incident.generated';
 
-export const getCacheIncident = ({
+const getCacheIncident = ({
     values,
     responseData,
     user,

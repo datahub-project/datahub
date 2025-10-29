@@ -54,7 +54,7 @@ const calculateExpectedNumericalValueWithPreviousNumericalValue = (
  * @param key
  * @returns {number | undefined}
  */
-export function tryExtractNumericalValueFromNativeResults(
+function tryExtractNumericalValueFromNativeResults(
     nativeResults: Maybe<StringMapEntry[]> | undefined,
     key: string,
 ): number | undefined {
@@ -68,7 +68,7 @@ export function tryExtractNumericalValueFromNativeResults(
  * @param key
  * @returns {number | undefined}
  */
-export function tryExtractArrayValueFromNativeResults(
+function tryExtractArrayValueFromNativeResults(
     nativeResults: Maybe<StringMapEntry[]> | undefined,
     key: string,
 ): any[] | undefined {
@@ -76,7 +76,7 @@ export function tryExtractArrayValueFromNativeResults(
     return parseJsonArrayOrDefault(maybeValue, undefined);
 }
 
-export function tryExtractNumericalValueFromAssertionStdParameter(
+function tryExtractNumericalValueFromAssertionStdParameter(
     param?: Maybe<AssertionStdParameter>,
 ): number | undefined {
     let maybeNumber: undefined | number;
@@ -87,13 +87,13 @@ export function tryExtractNumericalValueFromAssertionStdParameter(
     return maybeNumber;
 }
 
-export const tryGetFieldMetricAssertionNumericalResult = (result?: Maybe<AssertionResult>): number | undefined => {
+const tryGetFieldMetricAssertionNumericalResult = (result?: Maybe<AssertionResult>): number | undefined => {
     return tryExtractNumericalValueFromNativeResults(
         result?.nativeResults,
         ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.METRIC_VALUES.Y_VALUE_KEY_NAME,
     );
 };
-export const tryGetFieldValueAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
+const tryGetFieldValueAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
     if (result?.type === AssertionResultType.Init) return 0;
     return tryExtractNumericalValueFromNativeResults(
         result?.nativeResults,
@@ -101,32 +101,32 @@ export const tryGetFieldValueAssertionNumericalResult = (result?: Maybe<Assertio
     );
 };
 
-export const tryGetSqlAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
+const tryGetSqlAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
     return tryExtractNumericalValueFromNativeResults(
         result?.nativeResults,
         ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SQL_ASSERTIONS.Y_VALUE_KEY_NAME,
     );
 };
 
-export const tryGetPreviousSqlAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
+const tryGetPreviousSqlAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
     return tryExtractNumericalValueFromNativeResults(
         result?.nativeResults,
         ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SQL_ASSERTIONS.PREVIOUS_Y_VALUE_KEY_NAME,
     );
 };
 
-export const tryGetAbsoluteVolumeAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
+const tryGetAbsoluteVolumeAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
     const rowCount = result?.rowCount;
     return rowCount || undefined;
 };
 
-export const tryGetPreviousVolumeAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
+const tryGetPreviousVolumeAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
     return tryExtractNumericalValueFromNativeResults(
         result?.nativeResults,
         ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.VOLUME_ASSERTIONS.PREVIOUS_Y_VALUE_KEY_NAME,
     );
 };
-export const tryGetActualUpdatedTimestampFromAssertionResult = (result?: Maybe<AssertionResult>) => {
+const tryGetActualUpdatedTimestampFromAssertionResult = (result?: Maybe<AssertionResult>) => {
     const eventsArrString = result?.nativeResults?.find((pair) => pair.key === 'events')?.value;
     const eventsArr = eventsArrString ? JSON.parse(eventsArrString) : [];
     const timestamps = eventsArr.map((event) => event.time);
@@ -135,21 +135,21 @@ export const tryGetActualUpdatedTimestampFromAssertionResult = (result?: Maybe<A
     return maxTimestamp;
 };
 
-export const tryGetExtraFieldsInActual = (result?: AssertionResult | null) => {
+const tryGetExtraFieldsInActual = (result?: AssertionResult | null) => {
     return tryExtractArrayValueFromNativeResults(
         result?.nativeResults,
         ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SCHEMA_ASSERTIONS.EXTRA_FIELDS_IN_ACTUAL_KEY_NAME,
     );
 };
 
-export const tryGetExtraFieldsInExpected = (result?: AssertionResult | null) => {
+const tryGetExtraFieldsInExpected = (result?: AssertionResult | null) => {
     return tryExtractArrayValueFromNativeResults(
         result?.nativeResults,
         ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SCHEMA_ASSERTIONS.EXTRA_FIELDS_IN_EXPECTED_KEY_NAME,
     );
 };
 
-export const tryGetMismatchedTypeFields = (result?: AssertionResult | null) => {
+const tryGetMismatchedTypeFields = (result?: AssertionResult | null) => {
     return tryExtractArrayValueFromNativeResults(
         result?.nativeResults,
         ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SCHEMA_ASSERTIONS.MISMATCHED_TYPE_FIELDS_KEY_NAME,
@@ -166,8 +166,8 @@ export const tryGetPrimaryMetricValueFromAssertionRunEvent = (): number | undefi
 };
 
 // This captures context around the expected range of values
-export type AssertionRangeEndType = 'inclusive' | 'exclusive';
-export type AssertionExpectedRange = {
+type AssertionRangeEndType = 'inclusive' | 'exclusive';
+type AssertionExpectedRange = {
     // These are the actual values we expect (ie. actual row count)
     high?: number;
     low?: number;
@@ -190,7 +190,7 @@ export type AssertionExpectedRange = {
  * @param totals
  * @returns
  */
-export function tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(
+function tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(
     totals?:
         | Maybe<IncrementingSegmentRowCountTotal>
         | Maybe<RowCountTotal>
@@ -248,7 +248,7 @@ export function tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(
  * @param previousCount
  * @returns {AssertionExpectedRange}
  */
-export function tryGetExpectedRangeFromAssertionAgainstRelativeValues(
+function tryGetExpectedRangeFromAssertionAgainstRelativeValues(
     changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>,
     changeType?: Maybe<AssertionValueChangeType>,
     previousCount?: Maybe<number>,
@@ -340,7 +340,7 @@ export function tryGetExpectedRangeFromAssertionAgainstRelativeValues(
     };
 }
 
-export function tryGetExpectedRangeFromFailThreshold(
+function tryGetExpectedRangeFromFailThreshold(
     fieldValuesAssertion?: Maybe<FieldValuesAssertion>,
 ): AssertionExpectedRange {
     const highType: AssertionRangeEndType = 'inclusive';

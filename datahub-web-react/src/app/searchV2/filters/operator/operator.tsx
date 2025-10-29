@@ -76,7 +76,7 @@ export const NOT_EXISTS_OPERATOR = {
     icon: <StopOutlined />,
 };
 
-export const CONTAINS_OPERATOR = {
+const CONTAINS_OPERATOR = {
     type: FilterOperatorType.CONTAINS,
     text: 'contains',
     pluralText: 'contains any of',
@@ -86,7 +86,7 @@ export const CONTAINS_OPERATOR = {
     },
 };
 
-export const NOT_CONTAINS_OPERATOR = {
+const NOT_CONTAINS_OPERATOR = {
     type: FilterOperatorType.NOT_CONTAINS,
     text: 'does not contain',
     pluralText: 'does not contain any of',
@@ -96,7 +96,7 @@ export const NOT_CONTAINS_OPERATOR = {
     },
 };
 
-export const GREATER_THAN_OPERATOR = {
+const GREATER_THAN_OPERATOR = {
     type: FilterOperatorType.GREATER_THAN,
     text: 'is greater than',
     filter: {
@@ -105,7 +105,7 @@ export const GREATER_THAN_OPERATOR = {
     },
 };
 
-export const GREATER_THAN_OR_EQUALS_OPERATOR = {
+const GREATER_THAN_OR_EQUALS_OPERATOR = {
     type: FilterOperatorType.GREATER_THAN_OR_EQUALS,
     text: 'is greater than or equal to',
     filter: {
@@ -114,7 +114,7 @@ export const GREATER_THAN_OR_EQUALS_OPERATOR = {
     },
 };
 
-export const LESS_THAN_OPERATOR = {
+const LESS_THAN_OPERATOR = {
     type: FilterOperatorType.LESS_THAN,
     text: 'is less than',
     filter: {
@@ -123,7 +123,7 @@ export const LESS_THAN_OPERATOR = {
     },
 };
 
-export const LESS_THAN_OR_EQUALS_OPERATOR = {
+const LESS_THAN_OR_EQUALS_OPERATOR = {
     type: FilterOperatorType.LESS_THAN_OR_EQUALS,
     text: 'is less than or equal to',
     filter: {
@@ -132,7 +132,7 @@ export const LESS_THAN_OR_EQUALS_OPERATOR = {
     },
 };
 
-export const SUPPORTED_OPERATORS: FilterOperatorInfo[] = [
+const SUPPORTED_OPERATORS: FilterOperatorInfo[] = [
     EQUALS_OPERATOR,
     ALL_EQUALS_OPERATOR,
     NOT_EQUALS_OPERATOR,
@@ -151,7 +151,7 @@ export const SEARCH_FILTER_CONDITION_TYPE_TO_INFO = new Map<FilterOperatorType, 
 );
 
 // Fallback used when we don't know the type of the field.
-export const BASE_CONDITION_TYPES = [
+const BASE_CONDITION_TYPES = [
     FilterOperatorType.EQUALS,
     FilterOperatorType.ALL_EQUALS,
     FilterOperatorType.NOT_EQUALS,
@@ -159,15 +159,15 @@ export const BASE_CONDITION_TYPES = [
     FilterOperatorType.NOT_EXISTS,
 ];
 
-export const TEXT_CONDITION_TYPES = [
+const TEXT_CONDITION_TYPES = [
     FilterOperatorType.CONTAINS,
     FilterOperatorType.NOT_CONTAINS,
     ...BASE_CONDITION_TYPES,
 ];
 
-export const BUCKETED_TIMESTAMP_CONDITION_TYPES = [FilterOperatorType.GREATER_THAN, FilterOperatorType.LESS_THAN];
+const BUCKETED_TIMESTAMP_CONDITION_TYPES = [FilterOperatorType.GREATER_THAN, FilterOperatorType.LESS_THAN];
 
-export const NUMBER_CONDITION_TYPES = [
+const NUMBER_CONDITION_TYPES = [
     ...BASE_CONDITION_TYPES,
     FilterOperatorType.GREATER_THAN,
     FilterOperatorType.GREATER_THAN_OR_EQUALS,
@@ -177,16 +177,16 @@ export const NUMBER_CONDITION_TYPES = [
     FilterOperatorType.IS_NOT_ANY_OF,
 ];
 
-export const BROWSE_CONDITION_TYPES = [FilterOperatorType.EQUALS];
+const BROWSE_CONDITION_TYPES = [FilterOperatorType.EQUALS];
 
-export const BOOLEAN_CONDITION_TYPES = [FilterOperatorType.EQUALS, FilterOperatorType.NOT_EQUALS];
+const BOOLEAN_CONDITION_TYPES = [FilterOperatorType.EQUALS, FilterOperatorType.NOT_EQUALS];
 
 // todo
-export const DATE_CONDITION_TYPES = [...BASE_CONDITION_TYPES];
+const DATE_CONDITION_TYPES = [...BASE_CONDITION_TYPES];
 
-export const PLURAL_ONLY_CONDITION_TYPES = [FilterOperatorType.ALL_EQUALS];
+const PLURAL_ONLY_CONDITION_TYPES = [FilterOperatorType.ALL_EQUALS];
 
-export const FIELDS_WITHOUT_ALL_EQUALS_OPERATOR = [PLATFORM_FILTER_NAME, ENTITY_SUB_TYPE_FILTER_NAME];
+const FIELDS_WITHOUT_ALL_EQUALS_OPERATOR = [PLATFORM_FILTER_NAME, ENTITY_SUB_TYPE_FILTER_NAME];
 
 const applyFiltersToOperatorOptions = (fieldName: string, operatorOptions: FilterOperatorInfo[], isPlural: boolean) => {
     const excludePluralConditions = FIELDS_WITHOUT_ALL_EQUALS_OPERATOR.includes(fieldName);
@@ -236,7 +236,7 @@ export const getOperatorOptionsForPredicate = (predicate: FilterPredicate, isPlu
     return applyFiltersToOperatorOptions(predicate.field.field, operatorOptions, isPlural);
 };
 
-export const convertBackendToFrontendOperatorInfo = ({
+const convertBackendToFrontendOperatorInfo = ({
     operator,
     negated,
 }: {

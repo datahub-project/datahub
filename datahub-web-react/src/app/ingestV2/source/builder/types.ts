@@ -5,7 +5,7 @@ import { Entity, IngestionSource } from '@types';
 /**
  * The size of the builder modal
  */
-export enum ModalSize {
+enum ModalSize {
     SMALL = 800,
     LARGE = 1200,
 }

@@ -8,7 +8,7 @@ const NUM_CARDS_LATEST_STATS = 2;
 const NUM_CARDS_LAST_MONTH_STATS = 3;
 const LATEST_STATS_MAX_WIDTH = 470;
 
-export const highlightsSectionStyles = css`
+const highlightsSectionStyles = css`
     display: flex;
     flex-direction: column;
     gap: 8px;

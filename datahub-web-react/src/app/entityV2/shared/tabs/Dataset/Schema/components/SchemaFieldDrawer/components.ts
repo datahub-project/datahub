@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { colors } from '@src/alchemy-components';
 
-export const SectionHeader = styled.div`
+const SectionHeader = styled.div`
     margin-bottom: 8px;
     color: ${REDESIGN_COLORS.DARK_GREY};
     font-size: 14px;

@@ -25,12 +25,12 @@ const VerticalWrapper = styled.div`
     gap: 4px;
 `;
 
-export const FlexSpacer = styled.div`
+const FlexSpacer = styled.div`
     display: flex;
     justify-content: space-between;
 `;
 
-export const FilterButtonsWrapper = styled.div`
+const FilterButtonsWrapper = styled.div`
     display: flex;
     flex-wrap: nowrap;
 `;

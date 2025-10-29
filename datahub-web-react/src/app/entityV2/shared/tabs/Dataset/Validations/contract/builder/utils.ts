@@ -8,7 +8,7 @@ import { DataContract } from '@types';
 /**
  * Creates a builder state instance from a Data Contract object.
  */
-export const createBuilderState = (contract?: DataContract | null): DataContractBuilderState | undefined => {
+const createBuilderState = (contract?: DataContract | null): DataContractBuilderState | undefined => {
     if (contract) {
         return {
             schema:

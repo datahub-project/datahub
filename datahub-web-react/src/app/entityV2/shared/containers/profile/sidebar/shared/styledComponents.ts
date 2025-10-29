@@ -24,7 +24,7 @@ export const LabelText = styled(Typography.Text)`
     color: ${REDESIGN_COLORS.BODY_TEXT};
 `;
 
-export const InstanceIcon = styled.div`
+const InstanceIcon = styled.div`
     height: 22px;
     width: 22px;
     background-color: #c9fff2;
@@ -39,7 +39,7 @@ export const InstanceIcon = styled.div`
     }
 `;
 
-export const StyledLabel = styled.span`
+const StyledLabel = styled.span`
     font-size: 16px;
     font-weight: 400;
     color: ${REDESIGN_COLORS.BODY_TEXT};

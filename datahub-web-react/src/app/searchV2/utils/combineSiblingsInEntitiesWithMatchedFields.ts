@@ -7,7 +7,7 @@ export type EntityWithMatchedFields = {
     matchedFields?: MatchedField[];
 };
 
-export type CombinedEntityWithMatchedFields = CombinedEntity & Pick<EntityWithMatchedFields, 'matchedFields'>;
+type CombinedEntityWithMatchedFields = CombinedEntity & Pick<EntityWithMatchedFields, 'matchedFields'>;
 
 export function combineSiblingsInEntitiesWithMatchedFields(
     entities: EntityWithMatchedFields[] | undefined,

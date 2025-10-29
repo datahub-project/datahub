@@ -4,7 +4,7 @@ import { PropertyRow, ValueColumnData } from '@app/entityV2/shared/tabs/Properti
 
 import { CustomPropertiesEntry } from '@types';
 
-export function mapCustomPropertiesToPropertyRows(customProperties: CustomPropertiesEntry[]) {
+function mapCustomPropertiesToPropertyRows(customProperties: CustomPropertiesEntry[]) {
     return (customProperties?.map((customProp) => ({
         displayName: customProp.key,
         values: [{ value: customProp.value || '' }],
@@ -23,7 +23,7 @@ function matchesAnyFromValues(values: ValueColumnData[], filterText: string, ent
     );
 }
 
-export function getFilteredCustomProperties(filterText: string, entityData?: GenericEntityProperties | null) {
+function getFilteredCustomProperties(filterText: string, entityData?: GenericEntityProperties | null) {
     return entityData?.customProperties?.filter(
         (property) => matchesName(property.key, filterText) || matchesName(property.value || '', filterText),
     );

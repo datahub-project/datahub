@@ -88,7 +88,7 @@ export const getHealthSummaryMessage = (healths: Health[]) => {
     return unhealthy ? 'This asset may be unhealthy' : 'This asset is healthy';
 };
 
-export const getHealthColor = (status: HealthStatus) => {
+const getHealthColor = (status: HealthStatus) => {
     switch (status) {
         case HealthStatus.Pass: {
             return 'green';
@@ -104,7 +104,7 @@ export const getHealthColor = (status: HealthStatus) => {
     }
 };
 
-export const getAssertionsHealthIcon = (status: HealthStatus, fontSize: number) => {
+const getAssertionsHealthIcon = (status: HealthStatus, fontSize: number) => {
     switch (status) {
         case HealthStatus.Pass: {
             return <CheckOutlined style={{ color: getHealthColor(status), fontSize }} />;
@@ -120,7 +120,7 @@ export const getAssertionsHealthIcon = (status: HealthStatus, fontSize: number) 
     }
 };
 
-export const getIncidentsHealthIcon = (status: HealthStatus, fontSize: number) => {
+const getIncidentsHealthIcon = (status: HealthStatus, fontSize: number) => {
     switch (status) {
         case HealthStatus.Pass: {
             // No "success" logo.
@@ -137,7 +137,7 @@ export const getIncidentsHealthIcon = (status: HealthStatus, fontSize: number) =
     }
 };
 
-export const getHealthIcon = (type: HealthStatusType, status: HealthStatus, fontSize: number) => {
+const getHealthIcon = (type: HealthStatusType, status: HealthStatus, fontSize: number) => {
     switch (type) {
         case HealthStatusType.Assertions: {
             return getAssertionsHealthIcon(status, fontSize);

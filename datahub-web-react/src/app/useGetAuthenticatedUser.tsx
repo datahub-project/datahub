@@ -19,7 +19,7 @@ export function useGetAuthenticatedUser(skip?: boolean) {
 /**
  * Fetch an urn corresponding to the authenticated user.
  */
-export function useGetAuthenticatedUserUrn() {
+function useGetAuthenticatedUserUrn() {
     const userUrn = Cookies.get(CLIENT_AUTH_COOKIE);
     if (!userUrn) {
         throw new Error('Could not find logged in user.');

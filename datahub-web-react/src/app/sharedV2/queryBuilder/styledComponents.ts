@@ -110,7 +110,7 @@ export const CardIcons = styled.div`
     }
 `;
 
-export const StyledSelect = styled(Select)`
+const StyledSelect = styled(Select)`
     min-width: 200px;
     display: flex;
     align-items: center;

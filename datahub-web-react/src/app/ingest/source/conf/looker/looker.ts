@@ -25,4 +25,3 @@ const lookerConfig: SourceConfig = {
     logoUrl: lookerLogo,
 };
 
-export default lookerConfig;

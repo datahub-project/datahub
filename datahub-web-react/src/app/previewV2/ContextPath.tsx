@@ -26,7 +26,7 @@ const PlatformContentWrapper = styled.div`
     color: ${colors.gray[1700]};
 `;
 
-export const PlatformText = styled.div<{
+const PlatformText = styled.div<{
     $maxWidth?: number;
     $isCompactView?: boolean;
 }>`

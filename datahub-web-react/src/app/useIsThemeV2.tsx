@@ -11,7 +11,7 @@ import { useAppConfig } from '@app/useAppConfig';
  * 2. If theme v2 is enabled and toggleable, the user has not set a preference, and v2 is the default theme.
  * 3. If theme v2 is enabled not toggleable, and v2 is the default theme.
  */
-export function useIsThemeV2() {
+function useIsThemeV2() {
     const appConfig = useAppConfig();
     const { themeV2Enabled, themeV2Default, themeV2Toggleable } = appConfig.config.featureFlags;
     const [isThemeV2EnabledForUser, isUserLoaded] = useIsThemeV2EnabledForUser();
@@ -38,7 +38,7 @@ export function useIsThemeV2Toggleable() {
 /**
  * Returns [isThemeV2EnabledForUser, isUserLoaded]: whether the V2 theme is turned on for the user.
  */
-export function useIsThemeV2EnabledForUser(): [boolean, boolean] {
+function useIsThemeV2EnabledForUser(): [boolean, boolean] {
     const appConfig = useAppConfig();
     const { user } = useUserContext();
     return [

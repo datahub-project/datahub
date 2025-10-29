@@ -46,7 +46,7 @@ export const decodeComma = (str: string) => {
     return str.replace(/%2C/g, ',');
 };
 
-export function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
+function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
     return value !== null && value !== undefined;
 }
 
@@ -125,7 +125,7 @@ export function getFineGrainedLineageWithSiblings(
     });
     return fineGrainedLineages;
 }
-export function getDataProduct(dataProductResult: Maybe<EntityRelationshipsResult> | undefined) {
+function getDataProduct(dataProductResult: Maybe<EntityRelationshipsResult> | undefined) {
     if (dataProductResult?.relationships && dataProductResult.relationships.length > 0) {
         return dataProductResult.relationships[0].entity as DataProduct;
     }
@@ -143,7 +143,7 @@ export function getStructuredPropertyValue(value: PropertyValue) {
 }
 
 // Utility for formatting any casing of type to the expected casing for the API
-export function formatEntityType(type: string): string {
+function formatEntityType(type: string): string {
     if (!type) return '';
 
     switch (type.toLowerCase()) {

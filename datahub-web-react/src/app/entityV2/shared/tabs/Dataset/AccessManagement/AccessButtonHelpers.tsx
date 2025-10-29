@@ -7,13 +7,13 @@ import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 /**
  * Tooltip message for when user already has access
  */
-export const ACCESS_GRANTED_TOOLTIP = 'You already have access to this role';
+const ACCESS_GRANTED_TOOLTIP = 'You already have access to this role';
 
 /**
  * Styled button component for access management actions.
  * Supports both enabled (request) and disabled (granted) states.
  */
-export const AccessButton = styled(Button)`
+const AccessButton = styled(Button)`
     background-color: ${REDESIGN_COLORS.BLUE};
     color: ${REDESIGN_COLORS.WHITE};
     width: 80px;
@@ -56,7 +56,7 @@ export interface RoleAccessData {
  * Handles the click event for access request buttons.
  * Only opens the URL if the user doesn't already have access.
  */
-export const handleAccessButtonClick = (hasAccess: boolean, url?: string) => (e: React.MouseEvent) => {
+const handleAccessButtonClick = (hasAccess: boolean, url?: string) => (e: React.MouseEvent) => {
     if (!hasAccess && url) {
         e.preventDefault();
         window.open(url);
@@ -98,9 +98,9 @@ export const renderAccessButton = (roleData: RoleAccessData): React.ReactElement
 /**
  * Determines the button text based on access status
  */
-export const getAccessButtonText = (hasAccess: boolean): string => (hasAccess ? 'Granted' : 'Request');
+const getAccessButtonText = (hasAccess: boolean): string => (hasAccess ? 'Granted' : 'Request');
 
 /**
  * Determines if the button should be disabled
  */
-export const isAccessButtonDisabled = (hasAccess: boolean): boolean => hasAccess;
+const isAccessButtonDisabled = (hasAccess: boolean): boolean => hasAccess;

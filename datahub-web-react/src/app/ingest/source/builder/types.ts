@@ -6,7 +6,7 @@ import { IngestionSource } from '@types';
 /**
  * The size of the builder modal
  */
-export enum ModalSize {
+enum ModalSize {
     SMALL = 800,
     LARGE = 1200,
 }
@@ -14,7 +14,7 @@ export enum ModalSize {
 /**
  * The default executor id used for ingestion
  */
-export const DEFAULT_EXECUTOR_ID = 'default';
+const DEFAULT_EXECUTOR_ID = 'default';
 
 export interface SourceConfig {
     urn: string;

@@ -241,7 +241,7 @@ export const getShowInColumnsTablePropertyFilter = () => {
     return columnsTableFilter;
 };
 
-export const getShowInAssetSummaryPropertyFilter = () => {
+const getShowInAssetSummaryPropertyFilter = () => {
     const assetSummaryFilter: FacetFilterInput = {
         field: SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
         values: ['true'],

@@ -12,7 +12,7 @@ import {
     TagAssociation,
 } from '@src/types.generated';
 
-export type EntityStagedForAssertion = {
+type EntityStagedForAssertion = {
     urn: string;
     platform: DataPlatform;
     entityType: EntityType;
@@ -54,7 +54,7 @@ export type AssertionListTableRow = {
     name?: string;
 };
 
-export type AssertionGroupExtended = Omit<AssertionGroup, 'assertions'> & {
+type AssertionGroupExtended = Omit<AssertionGroup, 'assertions'> & {
     assertions: AssertionListTableRow[];
     groupName?: JSX.Element;
 };

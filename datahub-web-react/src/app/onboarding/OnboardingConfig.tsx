@@ -31,4 +31,4 @@ export const OnboardingConfig: OnboardingStep[] = ALL_ONBOARDING_CONFIGS.reduce(
     [],
 );
 
-export const CURRENT_ONBOARDING_IDS: string[] = OnboardingConfig.map((step) => step.id as string);
+const CURRENT_ONBOARDING_IDS: string[] = OnboardingConfig.map((step) => step.id as string);

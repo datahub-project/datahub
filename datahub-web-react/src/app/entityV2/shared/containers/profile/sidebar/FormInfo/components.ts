@@ -9,13 +9,13 @@ export const FlexWrapper = styled.div`
     line-height: 18px;
 `;
 
-export const StyledIcon = styled(Icon)<{ addLineHeight?: boolean }>`
+const StyledIcon = styled(Icon)<{ addLineHeight?: boolean }>`
     font-size: 18px;
     margin-right: 8px;
     ${(props) => props.addLineHeight && `line-height: 24px;`}
 `;
 
-export const SubTitle = styled.div<{ addMargin?: boolean }>`
+const SubTitle = styled.div<{ addMargin?: boolean }>`
     font-weight: 600;
     margin-bottom: 4px;
     ${(props) => props.addMargin && `margin-top: 8px;`}
@@ -29,7 +29,7 @@ export const Title = styled.div`
     align-items: center;
 `;
 
-export const StyledDivider = styled(Divider)`
+const StyledDivider = styled(Divider)`
     margin: 12px 0 0 0;
 `;
 
@@ -42,7 +42,7 @@ export const StyledReadOutlined = styled(ReadOutlined)<{ color?: string; addLine
     ${(props) => props.color && `color: ${props.color};`}
 `;
 
-export const StyledReadFilled = styled(ReadFilled)<{ color: string; addLineHeight?: boolean }>`
+const StyledReadFilled = styled(ReadFilled)<{ color: string; addLineHeight?: boolean }>`
     margin-right: 8px;
     height: 18px;
     width: 18px;

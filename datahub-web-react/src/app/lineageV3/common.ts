@@ -47,7 +47,7 @@ export interface Filters {
     searchUrns?: Set<string>;
 }
 
-export interface NodeBase {
+interface NodeBase {
     id: string;
     isExpanded: Record<LineageDirection, boolean>;
     direction?: LineageDirection; // Root node has no direction. One day can try to support cycles in the same way.
@@ -66,7 +66,7 @@ export interface LineageEntity extends NodeBase {
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
-export const LINEAGE_FILTER_ID_PREFIX = 'lf:';
+const LINEAGE_FILTER_ID_PREFIX = 'lf:';
 
 export function createLineageFilterNodeId(urn: Urn, direction: LineageDirection): string {
     const dir = direction === LineageDirection.Upstream ? 'u:' : 'd:';
@@ -157,7 +157,7 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>, root
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
 }
 
-export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
+function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
     const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
     return (
         (type === EntityType.Dataset || type === EntityType.SchemaField) &&
@@ -175,7 +175,7 @@ export function isUrnDataProcessInstance(urn: string): boolean {
     return type === EntityType.DataProcessInstance;
 }
 
-export function isUrnDataJob(urn: string): boolean {
+function isUrnDataJob(urn: string): boolean {
     const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
     return type === EntityType.DataJob;
 }
@@ -254,7 +254,7 @@ export function reverseDirection(direction: LineageDirection): LineageDirection 
     return direction === LineageDirection.Upstream ? LineageDirection.Downstream : LineageDirection.Upstream;
 }
 
-export type NeighborMap = Map<Urn, Set<Urn>>;
+type NeighborMap = Map<Urn, Set<Urn>>;
 
 export type GraphStoreFields = 'nodes' | 'edges' | 'adjacencyList';
 export type LineageToggles = 'hideTransformations' | 'showDataProcessInstances' | 'showGhostEntities';
@@ -332,7 +332,7 @@ export function removeFromAdjacencyList(
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
 }
 
-export function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjacencyList'>): void {
+function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjacencyList'>): void {
     const { edges, adjacencyList } = context;
     adjacencyList[LineageDirection.Upstream].get(urn)?.forEach((upstream) => edges.delete(createEdgeId(upstream, urn)));
     adjacencyList[LineageDirection.Downstream]
@@ -413,7 +413,7 @@ const BI_TOOL_COLOR = '#8682a2';
 const ML_COLOR = '#206de8';
 const DEFAULT_COLOR = '#ff7979';
 
-export function getNodeColor(type?: EntityType): [string, string] {
+function getNodeColor(type?: EntityType): [string, string] {
     if (type === EntityType.Chart || type === EntityType.Dashboard) {
         return [BI_TOOL_COLOR, 'Field'];
     }

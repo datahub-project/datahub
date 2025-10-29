@@ -14,7 +14,7 @@ import {
     SchemaField,
 } from '@types';
 
-export function convertEditableSchemaMeta(
+function convertEditableSchemaMeta(
     editableSchemaMeta?: Array<EditableSchemaFieldInfo>,
     fields?: Array<SchemaField>,
 ): Array<SchemaField> {
@@ -34,7 +34,7 @@ export function convertEditableSchemaMeta(
     return updatedFields;
 }
 
-export function convertEditableSchemaMetadataForUpdate(
+function convertEditableSchemaMetadataForUpdate(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
 ): EditableSchemaMetadataUpdate {
     return {
@@ -151,7 +151,7 @@ export function groupByFieldPath(
     return outputRows;
 }
 
-export function diffMarkdown(oldStr: string, newStr: string) {
+function diffMarkdown(oldStr: string, newStr: string) {
     const diffArray = diff.diffChars(oldStr || '', newStr || '');
     return diffArray
         .map((diffOne) => {
@@ -207,7 +207,7 @@ export function getRawSchema(schema: PlatformSchema | undefined | null, showKeyS
 }
 
 // Get diff summary between two versions and prepare to visualize description diff changes
-export function getDiffSummary(
+function getDiffSummary(
     currentVersionRows?: Array<SchemaField>,
     previousVersionRows?: Array<SchemaField>,
     options: { showKeySchema: boolean } = { showKeySchema: false },

@@ -6,7 +6,7 @@ import { OwnershipType, OwnershipTypeEntity } from '@types';
  * A mapping from OwnershipType to it's display name & description. In the future,
  * we intend to make this configurable.
  */
-export const OWNERSHIP_DISPLAY_TYPES = [
+const OWNERSHIP_DISPLAY_TYPES = [
     {
         type: OwnershipType.TechnicalOwner,
         name: 'Technical Owner',
@@ -38,7 +38,7 @@ export const getNameFromType = (type: OwnershipType) => {
     return ownershipTypeToDetails.get(type)?.name || type;
 };
 
-export const getDescriptionFromType = (type: OwnershipType) => {
+const getDescriptionFromType = (type: OwnershipType) => {
     return ownershipTypeToDetails.get(type)?.description || 'No description';
 };
 

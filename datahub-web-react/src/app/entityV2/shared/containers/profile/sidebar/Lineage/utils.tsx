@@ -12,13 +12,13 @@ const SummaryText = styled.span`
     font-weight: bold;
 `;
 
-export type LineageDirectionTypeSummary = {
+type LineageDirectionTypeSummary = {
     type: string;
     count: number;
     isEntityType: boolean; // If false, this represents a sub-type.
 };
 
-export type LineageDirectionSummary = {
+type LineageDirectionSummary = {
     total: number;
     types: LineageDirectionTypeSummary[];
 };

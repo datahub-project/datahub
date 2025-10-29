@@ -7,7 +7,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, UserUsageCounts } from '@types';
 
-export type Props = {
+type Props = {
     users?: (UserUsageCounts | null)[] | null;
     maxNumberDisplayed?: number;
 };

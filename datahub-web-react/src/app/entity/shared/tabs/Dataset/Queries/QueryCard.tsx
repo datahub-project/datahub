@@ -17,7 +17,7 @@ const Card = styled.div`
     margin-bottom: 20px;
 `;
 
-export type Props = {
+type Props = {
     urn?: string;
     query: string;
     title?: string;

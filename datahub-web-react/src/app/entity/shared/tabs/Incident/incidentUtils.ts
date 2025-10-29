@@ -40,10 +40,10 @@ export const getNameFromType = (type: IncidentType) => {
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
-export const WARNING_COLOR_HEX = '#FA8C16';
+const WARNING_COLOR_HEX = '#FA8C16';
 
 // apollo caching
-export const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
+const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
     const incidents = [...existingIncidents];
     let didUpdate = false;
     const updatedIncidents = incidents.map((incident) => {
@@ -59,7 +59,7 @@ export const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
 /**
  * Add an entry to the ListIncident cache.
  */
-export const updateListIncidentsCache = (client, urn, incident, pageSize) => {
+const updateListIncidentsCache = (client, urn, incident, pageSize) => {
     // Read the data from our cache for this query.
     const currData: any = client.readQuery({
         query: GetEntityIncidentsDocument,

@@ -25,7 +25,7 @@ interface Arguments {
     count?: number;
 }
 
-export function generateQueryVariables({
+function generateQueryVariables({
     urn,
     startTimeMillis,
     filterField,

@@ -23,7 +23,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform, DisplayProperties, Domain, EntityType, Post } from '@types';
 
-export const TitleWrapper = styled.div`
+const TitleWrapper = styled.div`
     max-width: 100%;
 
     display: flex;
@@ -55,7 +55,7 @@ const TitleRow = styled(HeaderRow)`
     font-size: 16px;
 `;
 
-export const Row = styled.div`
+const Row = styled.div`
     padding: 18px;
     display: flex;
     flex-direction: row;
@@ -65,7 +65,7 @@ export const Row = styled.div`
     overflow: hidden;
 `;
 
-export const LeftColumn = styled.div`
+const LeftColumn = styled.div`
     min-width: 0;
 
     display: flex;
@@ -73,7 +73,7 @@ export const LeftColumn = styled.div`
     align-items: center;
 `;
 
-export const RightColumn = styled.div`
+const RightColumn = styled.div`
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -83,7 +83,7 @@ export const RightColumn = styled.div`
     padding-left: 8px;
 `;
 
-export const TopButtonsWrapper = styled.div`
+const TopButtonsWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
     gap: 8px;
@@ -95,7 +95,7 @@ const HeaderIconsWrapper = styled.span`
     margin-right: 8px;
 `;
 
-export type Props = {
+type Props = {
     urn: string;
     entityType: EntityType;
     entityUrl: string;

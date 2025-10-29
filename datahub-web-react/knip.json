@@ -1,0 +1,3 @@
+{
+    "ignore": ["src/generated.ts", "src/alchemy-components/**", "functions/**", ".storybook/**"]
+}

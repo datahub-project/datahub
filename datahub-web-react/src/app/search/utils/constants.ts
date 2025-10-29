@@ -17,12 +17,12 @@ export const OWNERS_FILTER_NAME = 'owners';
 export const TYPE_NAMES_FILTER_NAME = 'typeNames';
 export const PLATFORM_FILTER_NAME = 'platform';
 export const FIELD_TAGS_FILTER_NAME = 'fieldTags';
-export const EDITED_FIELD_TAGS_FILTER_NAME = 'editedFieldTags';
+const EDITED_FIELD_TAGS_FILTER_NAME = 'editedFieldTags';
 export const FIELD_GLOSSARY_TERMS_FILTER_NAME = 'fieldGlossaryTerms';
-export const EDITED_FIELD_GLOSSARY_TERMS_FILTER_NAME = 'editedFieldGlossaryTerms';
+const EDITED_FIELD_GLOSSARY_TERMS_FILTER_NAME = 'editedFieldGlossaryTerms';
 export const FIELD_PATHS_FILTER_NAME = 'fieldPaths';
 export const FIELD_DESCRIPTIONS_FILTER_NAME = 'fieldDescriptions';
-export const EDITED_FIELD_DESCRIPTIONS_FILTER_NAME = 'editedFieldDescriptions';
+const EDITED_FIELD_DESCRIPTIONS_FILTER_NAME = 'editedFieldDescriptions';
 export const DESCRIPTION_FILTER_NAME = 'description';
 export const REMOVED_FILTER_NAME = 'removed';
 export const ORIGIN_FILTER_NAME = 'origin';
@@ -37,11 +37,11 @@ export const VALUE_TYPE_FIELD_NAME = 'valueType';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const OUTPUT_PORTS_FIELD = 'isOutputPort';
-export const COMPLETED_FORMS_FILTER_NAME = 'completedForms';
-export const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
-export const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
-export const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
-export const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
+const COMPLETED_FORMS_FILTER_NAME = 'completedForms';
+const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
+const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
+const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
+const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
 export const SCHEMA_FIELD_ALIASES_FILTER_NAME = 'schemaFieldAliases';
 export const IS_DEPRECATED_FILTER_NAME = 'deprecated';
 
@@ -56,7 +56,7 @@ export const ENTITY_SUB_TYPE_FILTER_FIELDS = [
     TYPE_NAMES_FILTER_NAME,
 ];
 
-export const FILTERS_TO_TRUNCATE = [
+const FILTERS_TO_TRUNCATE = [
     TAGS_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
     CONTAINER_FILTER_NAME,

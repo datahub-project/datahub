@@ -546,7 +546,7 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
  * @param availableFilters - An array of available facet filters metadata.
  * @returns The resulting FilterPredicate.
  */
-export function convertToFilterPredicate(filter: FacetFilterInput, availableFilters: FacetMetadata[]): FilterPredicate {
+function convertToFilterPredicate(filter: FacetFilterInput, availableFilters: FacetMetadata[]): FilterPredicate {
     // First, check whether this is a well-supported filter field.
     const field = getKnownFilterField(filter.field) || getDynamicFilterField(filter.field, availableFilters);
     const operator =

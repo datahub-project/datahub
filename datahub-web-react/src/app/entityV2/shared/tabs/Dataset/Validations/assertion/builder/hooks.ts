@@ -69,7 +69,7 @@ const OPEN_ASSERTION_BUILDER_QUERY_PARAM = 'open_assertion_builder';
  * @param {Function} onOpenAssertionBuilder - Function to open assertion builder.
  * @returns {Object} Object containing the 'open_assertion_builder' from the URL.
  */
-export const useOpenAssertionBuilder = (onOpenAssertionBuilder: () => void) => {
+const useOpenAssertionBuilder = (onOpenAssertionBuilder: () => void) => {
     const location = useLocation();
     const history = useHistory();
     const openBuilderParam = getQueryParams(OPEN_ASSERTION_BUILDER_QUERY_PARAM, location);
@@ -106,7 +106,7 @@ export const useOpenAssertionBuilder = (onOpenAssertionBuilder: () => void) => {
  *  - expandedRowKeys: Array of currently expanded row keys.
  *  - setExpandedRowKeys: Function to manually set the expanded row keys.
  */
-export const useExpandedRowKeys = (groups, { isGroupBy }: { isGroupBy: boolean }) => {
+const useExpandedRowKeys = (groups, { isGroupBy }: { isGroupBy: boolean }) => {
     const location = useLocation();
     const assertionUrnParam = new URLSearchParams(location.search).get('assertion_urn');
     const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);

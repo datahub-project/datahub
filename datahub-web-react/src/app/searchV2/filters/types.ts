@@ -8,7 +8,7 @@ export interface FilterOptionType {
     displayName?: string | null;
 }
 
-export interface Filter {
+interface Filter {
     field: string;
     displayName: string;
     options?: FilterOptionType[];
@@ -54,7 +54,7 @@ interface FilterFieldBase {
     entity?: Entity; // if the filter itself is an entity ie. Structured Properties
 }
 
-export interface BasicFilterField extends FilterFieldBase {
+interface BasicFilterField extends FilterFieldBase {
     type: Exclude<FieldType, FieldType.BUCKETED_TIMESTAMP | FieldType.ENTITY>;
 }
 

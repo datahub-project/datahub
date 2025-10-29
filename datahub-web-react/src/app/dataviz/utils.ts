@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import { COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR } from '@app/dataviz/constants';
 
 // Mock Data Util
-export const generateDateSeries = (numOfDays) =>
+const generateDateSeries = (numOfDays) =>
     Array(numOfDays)
         .fill(0)
         .map((d, i) => ({
@@ -13,7 +13,7 @@ export const generateDateSeries = (numOfDays) =>
         }));
 
 // Status Ordinal Scale
-export const statusOrdinalScale = scaleOrdinal({
+const statusOrdinalScale = scaleOrdinal({
     domain: ['Not Started', 'In Progress', 'Completed'],
     range: [NOT_STARTED_COLOR, IN_PROGRESS_COLOR, COMPLETED_COLOR],
 });
@@ -29,7 +29,7 @@ function roundToPrecision(n: number, precision: number) {
  * ie. 24044 -> 24k
  * @param n
  */
-export const truncateNumberForDisplay = (n: number, skipRounding?: boolean): string => {
+const truncateNumberForDisplay = (n: number, skipRounding?: boolean): string => {
     let base = Math.floor(Math.log(Math.abs(n)) / Math.log(1000));
     const suffix = NUMERICAL_ABBREVIATIONS[Math.min(NUMERICAL_ABBREVIATIONS.length - 1, base - 1)];
     base = NUMERICAL_ABBREVIATIONS.indexOf(suffix) + 1;
@@ -50,7 +50,7 @@ export const abbreviateNumber = (str) => {
 };
 
 // Byte Abbreviations
-export const abbreviateBytes = (str): string => {
+const abbreviateBytes = (str): string => {
     const bytes = parseFloat(str);
     if (Number.isNaN(bytes)) return str;
     if (bytes < 1024) return `${bytes} B`;
@@ -73,7 +73,7 @@ type CalculateYScaleExtentForChartOptions = {
  * @param yValues
  * @param options
  */
-export const calculateYScaleExtentForChart = (
+const calculateYScaleExtentForChart = (
     yValues: number[],
     options: CalculateYScaleExtentForChartOptions = { defaultYValue: 0 },
 ): { min: number; max: number } => {
@@ -112,7 +112,7 @@ export const calculateYScaleExtentForChart = (
  * @param marker2
  * @returns {number | undefined} undefined if no overlap
  */
-export function calculateOverlapBetweenTwoMarkers(
+function calculateOverlapBetweenTwoMarkers(
     marker1: { xOffset: number; width: number },
     marker2: { xOffset: number; width: number },
 ): undefined | number {

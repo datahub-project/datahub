@@ -201,7 +201,7 @@ export type SchemaContextType = {
     refetch?: () => Promise<any>;
 };
 
-export type RequiredAndNotNull<T> = {
+type RequiredAndNotNull<T> = {
     [P in keyof T]-?: Exclude<T[P], null | undefined>;
 };
 

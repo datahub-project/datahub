@@ -36,7 +36,7 @@ export enum TabContextType {
     SEARCH_SIDEBAR,
 }
 
-export type EntityTabProps = {
+type EntityTabProps = {
     /**
      * The render type for the tab, e.g. whether it's full screen / horizontal or compact / vertical
      */
@@ -92,6 +92,6 @@ export type EntitySidebarSection = {
     properties?: any;
 };
 
-export type ResourceType = 'incidents' | 'assertions';
+type ResourceType = 'incidents' | 'assertions';
 
-export type QueryType = 'incident_urn' | 'assertion_urn';
+type QueryType = 'incident_urn' | 'assertion_urn';

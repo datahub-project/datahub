@@ -16,7 +16,7 @@ const Card = styled.div<{ isCompact?: boolean }>`
     ${(props) => props.isCompact && `max-width: 650px;`}
 `;
 
-export type Props = {
+type Props = {
     urn?: string;
     query: string;
     title?: string;

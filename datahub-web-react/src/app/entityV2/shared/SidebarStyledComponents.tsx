@@ -33,7 +33,7 @@ export const SideBar = styled.div`
     }
 `;
 
-export const SideBarSubSection = styled.div`
+const SideBarSubSection = styled.div`
     height: calc(100vh - 135px);
     overflow: auto;
     padding-right: 18px;
@@ -105,7 +105,7 @@ export const RoleName = styled.div`
     }
 `;
 
-export const Team = styled.div`
+const Team = styled.div`
     font-size: 12px;
     line-height: 20px;
     color: #8c8c8c;
@@ -130,7 +130,7 @@ export const SocialDetails = styled.div`
     }
 `;
 
-export const EditButton = styled.div`
+const EditButton = styled.div`
     bottom: 24px;
     position: absolute;
     right: 27px;
@@ -187,17 +187,17 @@ export const TagsSection = styled.div`
     align-self: start;
 `;
 
-export const NoDataFound = styled.span`
+const NoDataFound = styled.span`
     font-size: 12px;
     color: #262626;
     font-weight: 100;
 `;
 
-export const Tags = styled.div`
+const Tags = styled.div`
     margin-top: 5px;
 `;
 
-export const GroupsSeeMoreText = styled.span`
+const GroupsSeeMoreText = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
@@ -205,7 +205,7 @@ export const GroupsSeeMoreText = styled.span`
     cursor: pointer;
 `;
 
-export const DisplayCount = styled.span`
+const DisplayCount = styled.span`
     font-family: Mulish;
     font-style: normal;
     font-weight: 500;
@@ -214,11 +214,11 @@ export const DisplayCount = styled.span`
     color: #8c8c8c;
 `;
 
-export const GroupSectionTitle = styled.span`
+const GroupSectionTitle = styled.span`
     margin-right: 8px;
 `;
 
-export const GroupSectionHeader = styled.div`
+const GroupSectionHeader = styled.div`
     padding-bottom: 12px;
 `;
 
@@ -343,7 +343,7 @@ export const DraftsOutlinedIconStyle = styled(DraftsOutlinedIcon)`
     font-size: 12px !important;
 `;
 
-export const SubscriptionContainer = styled(Row)`
+const SubscriptionContainer = styled(Row)`
     display: flex;
     gap: 0.5rem;
 `;
@@ -353,7 +353,7 @@ export const OwnershipContainer = styled(Row)`
     gap: 0.5rem;
 `;
 
-export const DisplayNameText = styled.span`
+const DisplayNameText = styled.span`
     color: ${ANTD_GRAY_V2[12]};
     font-family: Mulish;
     font-size: 12px;

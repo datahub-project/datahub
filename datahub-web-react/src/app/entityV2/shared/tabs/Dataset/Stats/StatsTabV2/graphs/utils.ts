@@ -7,7 +7,7 @@ import { DateInterval, TimeRange } from '@src/types.generated';
 
 dayjs.extend(utc);
 
-export type TimeSeriesDatum = {
+type TimeSeriesDatum = {
     time: number;
     value: number;
 };
@@ -15,8 +15,8 @@ export type TimeSeriesDatum = {
 export type AggregationFunction = (values: number[]) => number | undefined;
 
 export const MAX_VALUE_AGGREGATION: AggregationFunction = (values) => Math.max(...values);
-export const MIN_VALUE_AGGREGATION: AggregationFunction = (values) => Math.min(...values);
-export const LATEST_VALUE_AGGREGATION: AggregationFunction = (values) => values.at(-1);
+const MIN_VALUE_AGGREGATION: AggregationFunction = (values) => Math.min(...values);
+const LATEST_VALUE_AGGREGATION: AggregationFunction = (values) => values.at(-1);
 export const SUM_VALUES_AGGREGATION: AggregationFunction = (values) => values.reduce((sum, val) => sum + val, 0);
 
 /**

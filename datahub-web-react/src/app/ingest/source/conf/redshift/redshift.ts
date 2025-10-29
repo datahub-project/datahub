@@ -34,4 +34,3 @@ const redshiftConfig: SourceConfig = {
     logoUrl: redshiftLogo,
 };
 
-export default redshiftConfig;

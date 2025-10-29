@@ -83,7 +83,7 @@ const SelectContainer = styled.div`
 
 const DEFAULT_PAGE_SIZE = 10;
 
-export enum StatusType {
+enum StatusType {
     ALL,
     EXPIRED,
 }

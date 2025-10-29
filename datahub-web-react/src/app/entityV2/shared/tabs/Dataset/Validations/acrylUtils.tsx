@@ -137,7 +137,7 @@ export const getAssertionGroupName = (type: string): string => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 
-export const getAssertionGroupTypeIcon = (type: string) => {
+const getAssertionGroupTypeIcon = (type: string) => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : <StyledApiOutlined />;
 };
 
@@ -187,7 +187,7 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
  * TODO: We will remove this mapping code once we replace the OSS legacy assertions summary with the new
  * format.
  */
-export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
+const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
     const newSummary = getAssertionsSummary(assertions);
     return {
         failedRuns: newSummary.failing,
@@ -241,7 +241,7 @@ export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGr
 };
 
 // TODO: Make this the default inside DatasetAssertionsSummary.tsx.
-export const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) => {
+const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) => {
     if (summary.total === 0) {
         return null;
     }
@@ -255,7 +255,7 @@ export const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) =>
 };
 
 // TODO: Make this the default inside DatasetAssertionsSummary.tsx.
-export const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary) => {
+const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary) => {
     if (summary.total === 0) {
         return 'No assertions have run';
     }
@@ -276,7 +276,7 @@ export const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary)
  *
  * @param schedule a cron schedule
  */
-export const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
+const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
     try {
         const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
         const nextDate = interval.next().toDate(); // Get next date as JavaScript Date object
@@ -295,7 +295,7 @@ export const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
  * @param schedule a cron schedule
  * @param maybeFromDateTS
  */
-export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, maybeFromDateTS?: number) => {
+const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, maybeFromDateTS?: number) => {
     try {
         const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
         if (typeof maybeFromDateTS !== 'undefined') {
@@ -310,7 +310,7 @@ export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, mayb
         return undefined;
     }
 };
-export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
+const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
     return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
         ...type,
         enabled: type.enabled && (!type.requiresConnectionSupportedByMonitors || monitorsConnectionForEntityExists),

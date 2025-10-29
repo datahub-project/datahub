@@ -369,7 +369,7 @@ function customMerge(isPrimary, key) {
     };
 }
 
-export const getEntitySiblingData = <T>(baseEntity: T): Maybe<SiblingProperties> => {
+const getEntitySiblingData = <T>(baseEntity: T): Maybe<SiblingProperties> => {
     if (!baseEntity) {
         return null;
     }
@@ -436,7 +436,7 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
     return combinedBaseEntity;
 };
 
-export function combineEntityData<T>(entityValue: T, siblingValue: T, isPrimary: boolean) {
+function combineEntityData<T>(entityValue: T, siblingValue: T, isPrimary: boolean) {
     if (!entityValue) return siblingValue;
     if (!siblingValue) return entityValue;
 
@@ -476,7 +476,7 @@ type CombinedEntityResult =
           combinedEntity: CombinedEntity;
       };
 
-export function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set<string>): CombinedEntityResult {
+function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set<string>): CombinedEntityResult {
     if (visitedSiblingUrns.has(entity.urn)) return { skipped: true };
 
     const combinedEntity: CombinedEntity = { entity: combineEntityWithSiblings({ ...entity }) };

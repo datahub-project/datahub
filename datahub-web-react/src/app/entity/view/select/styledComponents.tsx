@@ -10,7 +10,7 @@ export const NoMarginButton = styled(Button)`
     }
 `;
 
-export const StyledRightOutlined = styled(RightOutlined)`
+const StyledRightOutlined = styled(RightOutlined)`
     && {
         font-size: 8px;
         color: ${ANTD_GRAY[7]};

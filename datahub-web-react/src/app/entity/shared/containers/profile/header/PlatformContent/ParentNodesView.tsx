@@ -55,7 +55,7 @@ interface Props {
     parentNodes?: GlossaryNode[] | null;
 }
 
-export default function ParentNodesView({ parentNodes }: Props) {
+function ParentNodesView({ parentNodes }: Props) {
     const entityRegistry = useEntityRegistry();
     const { contentRef, isContentTruncated } = useContentTruncation(parentNodes);
 

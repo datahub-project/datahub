@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { RotatingButton } from '@app/shared/components';
 
-export const SidebarWrapper = styled.div<{ width: number }>`
+const SidebarWrapper = styled.div<{ width: number }>`
     max-height: 100%;
     width: ${(props) => props.width}px;
     min-width: ${(props) => props.width}px;
@@ -36,7 +36,7 @@ export function RotatingTriangle({
     );
 }
 
-export function getCountryName(countryCode: string) {
+function getCountryName(countryCode: string) {
     let countryName;
     const findCountryName = (code) => {
         try {

@@ -166,7 +166,7 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
     }, [renderAssertionName, renderCategory, renderLastRun, renderTags, renderActions]);
 };
 
-export const usePinnedAssertionTableHeaderProps = () => {
+const usePinnedAssertionTableHeaderProps = () => {
     // Dynamic height calculation
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const [scrollY, setScrollY] = useState<number>(0);

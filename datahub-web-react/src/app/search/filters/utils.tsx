@@ -412,7 +412,7 @@ export function useElementDimensions(ref) {
     return dimensions;
 }
 
-export function getStructuredPropFilterDisplayName(field: string, value: string, entity?: Entity | null) {
+function getStructuredPropFilterDisplayName(field: string, value: string, entity?: Entity | null) {
     const isStructuredPropertyValue = field.startsWith('structuredProperties.');
     if (!isStructuredPropertyValue) return undefined;
 

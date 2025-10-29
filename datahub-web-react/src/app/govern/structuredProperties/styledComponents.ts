@@ -138,7 +138,7 @@ export const ViewFieldsContainer = styled.div`
     gap: 24px;
 `;
 
-export const CheckboxWrapper = styled.div`
+const CheckboxWrapper = styled.div`
     display: flex;
     align-items: center;
     gap: 10px;
@@ -150,14 +150,14 @@ export const CheckboxWrapper = styled.div`
     }
 `;
 
-export const StyledCheckbox = styled(Checkbox)`
+const StyledCheckbox = styled(Checkbox)`
     .ant-checkbox-checked .ant-checkbox-inner {
         background-color: ${(props) => props.theme.styles['primary-color']};
         border-color: ${(props) => props.theme.styles['primary-color']} !important;
     }
 `;
 
-export const StyledText = styled.div`
+const StyledText = styled.div`
     display: inline-flex;
     margin-left: -4px;
 `;
@@ -166,7 +166,7 @@ export const StyledFormItem = styled(Form.Item)`
     margin: 0;
 `;
 
-export const SupItemsContainer = styled.div`
+const SupItemsContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 32px;
@@ -310,7 +310,7 @@ export const ValueType = styled.div`
     padding: 2px 4px;
 `;
 
-export const StyledModal = styled(Modal)`
+const StyledModal = styled(Modal)`
     font-family: Mulish;
 
     &&& .ant-modal-content {
@@ -389,7 +389,7 @@ export const FormContainer = styled.div`
     display: grid;
 `;
 
-export const ModalFooter = styled.div`
+const ModalFooter = styled.div`
     display: flex;
     gap: 16px;
     justify-content: end;
@@ -401,7 +401,7 @@ export const VerticalDivider = styled(Divider)`
     width: 2px;
 `;
 
-export const StyledSelect = styled(Select)`
+const StyledSelect = styled(Select)`
     font-family: ${typography.fonts.body};
 
     .ant-select-selector {
@@ -433,13 +433,13 @@ export const StyledSelect = styled(Select)`
     }
 `;
 
-export const CustomDropdown = styled.div`
+const CustomDropdown = styled.div`
     .ant-select-item-option-content {
         white-space: normal;
     }
 `;
 
-export const SelectOptionContainer = styled.div`
+const SelectOptionContainer = styled.div`
     display: flex;
     flex-direction: column;
     padding: 4px 0;

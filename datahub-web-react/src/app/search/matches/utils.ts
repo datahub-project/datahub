@@ -26,7 +26,7 @@ export const getMatchedFieldLabel = (entityType: EntityType | undefined, fieldNa
     return configs.find((config) => config.name === fieldName)?.label ?? '';
 };
 
-export const getGroupedFieldName = (
+const getGroupedFieldName = (
     entityType: EntityType | undefined,
     fieldName: string,
 ): MatchedFieldName | undefined => {
@@ -116,15 +116,15 @@ export const getMatchesPrioritized = (
     return getMatchesGroupedByFieldName(entityType, matches);
 };
 
-export const isHighlightableEntityField = (field: MatchedField) =>
+const isHighlightableEntityField = (field: MatchedField) =>
     !!field.entity && HIGHLIGHTABLE_ENTITY_TYPES.includes(field.entity.type);
 
-export const isDescriptionField = (field: MatchedField) => field.name.toLowerCase().includes('description');
+const isDescriptionField = (field: MatchedField) => field.name.toLowerCase().includes('description');
 
 const SURROUNDING_DESCRIPTION_CHARS = 10;
 const MAX_DESCRIPTION_CHARS = 50;
 
-export const getDescriptionSlice = (text: string, target: string) => {
+const getDescriptionSlice = (text: string, target: string) => {
     const queryIndex = text.indexOf(target);
     const start = Math.max(0, queryIndex - SURROUNDING_DESCRIPTION_CHARS);
     const end = Math.min(

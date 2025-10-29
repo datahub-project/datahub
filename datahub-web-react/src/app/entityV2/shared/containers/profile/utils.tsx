@@ -135,7 +135,7 @@ export function getEntityPath(
     }${tabParamsString}`;
 }
 
-export function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {
+function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {
     const isLineageMode = useIsLineageMode();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
@@ -156,7 +156,7 @@ export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     return undefined;
 }
 
-export function useIsOnTab(tabName: string): boolean {
+function useIsOnTab(tabName: string): boolean {
     const { pathname } = useLocation();
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
     // Match against the regex

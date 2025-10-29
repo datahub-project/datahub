@@ -25,7 +25,7 @@ const EntityTitleContainer = styled.div`
     min-width: 15em;
 `;
 
-export const StyledLink = styled(Link)`
+const StyledLink = styled(Link)`
     min-width: 0;
 `;
 

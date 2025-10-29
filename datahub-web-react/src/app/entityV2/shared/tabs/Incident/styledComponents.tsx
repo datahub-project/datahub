@@ -66,7 +66,7 @@ export const ModalHeading = styled.span`
     color: ${colors.gray[600]};
 `;
 
-export const ModalDescription = styled.p`
+const ModalDescription = styled.p`
     font-weight: 500;
     font-size: 14px;
     color: ${colors.gray[1700]};
@@ -83,7 +83,7 @@ export const FormItem = styled(Form.Item)`
     }
 `;
 
-export const IconContainer = styled.div`
+const IconContainer = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;

@@ -8,11 +8,11 @@ import { formatBytes, formatNumberWithoutAbbreviation } from '@app/shared/format
 
 import { DatasetProfile } from '@types';
 
-export const ChartTable = styled(Table)`
+const ChartTable = styled(Table)`
     margin-top: 16px;
 `;
 
-export type Props = {
+type Props = {
     profiles: Array<DatasetProfile>;
 };
 

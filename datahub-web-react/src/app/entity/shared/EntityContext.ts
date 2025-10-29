@@ -19,7 +19,6 @@ export const EntityContext = React.createContext<EntityContextType>({
     entityState: { shouldRefetchContents: false, setShouldRefetchContents: () => {} },
 });
 
-export default EntityContext;
 
 export function useEntityContext() {
     return useContext(EntityContext);
@@ -55,7 +54,7 @@ export const useRefetch = () => {
     return refetch;
 };
 
-export const useLineageData = () => {
+const useLineageData = () => {
     const { lineage } = useContext(EntityContext);
     return lineage;
 };

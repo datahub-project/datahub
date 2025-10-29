@@ -50,7 +50,7 @@ const StyledFormItem = styled(Form.Item)`
     }
 `;
 
-export type ResetCredentialsProps = Record<string, never>;
+type ResetCredentialsProps = Record<string, never>;
 
 export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);

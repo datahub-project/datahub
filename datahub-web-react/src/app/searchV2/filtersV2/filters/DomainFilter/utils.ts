@@ -29,7 +29,7 @@ export function extractParentDomains(domains: Domain[]) {
     return getUniqueItemsByKey(allParentDomains, domainKeyAccessor);
 }
 
-export function domainFilteringPredicate(option: NestedSelectOption, query: string) {
+function domainFilteringPredicate(option: NestedSelectOption, query: string) {
     const { entity } = option;
     if (!isDomain(entity)) return false;
 

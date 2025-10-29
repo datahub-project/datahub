@@ -8,7 +8,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, EntityType } from '@types';
 
-export type Props = {
+type Props = {
     users: Array<CorpUser>;
     max?: number;
     checkExistence?: boolean;

@@ -39,7 +39,7 @@ export const StyledTable = styled(Table)`
 ` as typeof Table;
 // this above line preserves the Table component's generic-ness
 
-export const CompactStyledTable = styled(Table)`
+const CompactStyledTable = styled(Table)`
     overflow: inherit;
     height: inherit;
 

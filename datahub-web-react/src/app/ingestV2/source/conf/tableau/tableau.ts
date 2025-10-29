@@ -33,4 +33,3 @@ const tableauConfig: SourceConfig = {
     logoUrl: tableauLogo,
 };
 
-export default tableauConfig;

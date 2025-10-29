@@ -47,7 +47,7 @@ const descriptors = {
     },
 };
 
-export const getFreshnessTitle = (property: string | undefined) => {
+const getFreshnessTitle = (property: string | undefined) => {
     switch (property) {
         case 'lastModified':
             return descriptors.lastModified.sectionTitle;

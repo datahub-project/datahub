@@ -1,8 +1,8 @@
 import { useCustomTheme } from '@src/customThemeContext';
 
-export type ColorPalette = { [key: string]: string };
+type ColorPalette = { [key: string]: string };
 
-export const GlossaryV2PaletteColors: ColorPalette = {
+const GlossaryV2PaletteColors: ColorPalette = {
     PASTEL_LAVENDER: '#9386E2',
     PURPLE: '#9254DE',
     LIGHT_BLUE: '#85A5FF',

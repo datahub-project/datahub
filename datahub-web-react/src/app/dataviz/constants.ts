@@ -1,4 +1,4 @@
-export type STATUS = 'Completed' | 'In Progress' | 'Not Started';
+type STATUS = 'Completed' | 'In Progress' | 'Not Started';
 
 export const COMPLETED_COLOR = '#20D3BD';
 export const IN_PROGRESS_COLOR = '#7532A4';

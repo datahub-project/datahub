@@ -35,4 +35,3 @@ const bigqueryConfig: SourceConfig = {
     logoUrl: bigqueryLogo,
 };
 
-export default bigqueryConfig;

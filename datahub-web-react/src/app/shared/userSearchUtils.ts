@@ -13,7 +13,7 @@ import {
  *
  * @returns Array of AndFilterInput for server-side user filtering
  */
-export const getUserFilters = (): AndFilterInput[] => [
+const getUserFilters = (): AndFilterInput[] => [
     {
         // Include users with active status = true
         and: [{ field: 'active', values: ['true'] }],
@@ -88,7 +88,7 @@ export const addUserFiltersToAutoCompleteInput = (
  * @param entityTypes - Array of entity types being searched
  * @returns The modified input object with user filters applied if CorpUser is included
  */
-export const addUserFiltersToAutoCompleteMultipleInput = (
+const addUserFiltersToAutoCompleteMultipleInput = (
     input: AutoCompleteMultipleInput,
     entityTypes: EntityType[],
 ): AutoCompleteMultipleInput => {

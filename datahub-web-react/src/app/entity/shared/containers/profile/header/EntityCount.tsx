@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 
-export const EntityCountText = styled(Typography.Text)`
+const EntityCountText = styled(Typography.Text)`
     display: inline-block;
     font-size: 12px;
     line-height: 20px;

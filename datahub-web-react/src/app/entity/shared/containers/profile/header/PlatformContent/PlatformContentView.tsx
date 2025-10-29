@@ -17,20 +17,20 @@ import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 
 import { Container, Dataset, Entity } from '@types';
 
-export const LogoIcon = styled.span`
+const LogoIcon = styled.span`
     display: flex;
     gap: 4px;
     margin-right: 8px;
 `;
 
-export const PreviewImage = styled(Image)`
+const PreviewImage = styled(Image)`
     max-height: 17px;
     width: auto;
     object-fit: contain;
     background-color: transparent;
 `;
 
-export const PlatformContentWrapper = styled.div`
+const PlatformContentWrapper = styled.div`
     display: flex;
     align-items: center;
     margin: 0 8px 6px 0;
@@ -38,7 +38,7 @@ export const PlatformContentWrapper = styled.div`
     flex: 1;
 `;
 
-export const PlatformText = styled(Typography.Text)`
+const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;

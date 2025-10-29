@@ -77,7 +77,7 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
 
 const NUM_CHARACTERS_TO_REMOVE_FROM_DATE = 5;
 
-export function setDateValueOnRecipe(recipe: any, value: Moment | undefined, fieldPath: string) {
+function setDateValueOnRecipe(recipe: any, value: Moment | undefined, fieldPath: string) {
     const updatedRecipe = { ...recipe };
     if (value !== undefined) {
         if (!value) {
@@ -126,7 +126,7 @@ export const DATABASE_DENY: RecipeField = {
 };
 
 const dashboardAllowFieldPath = 'source.config.dashboard_pattern.allow';
-export const DASHBOARD_ALLOW: RecipeField = {
+const DASHBOARD_ALLOW: RecipeField = {
     name: 'dashboard_pattern.allow',
     label: 'Allow Patterns',
     tooltip:
@@ -142,7 +142,7 @@ export const DASHBOARD_ALLOW: RecipeField = {
 };
 
 const dashboardDenyFieldPath = 'source.config.dashboard_pattern.deny';
-export const DASHBOARD_DENY: RecipeField = {
+const DASHBOARD_DENY: RecipeField = {
     name: 'dashboard_pattern.deny',
     label: 'Deny Patterns',
     tooltip:
@@ -318,7 +318,7 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     rules: null,
 };
 
-export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
+const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
     name: 'upstream_lineage_in_report',
     label: 'Include Upstream Lineage In Report.',
     tooltip: 'Useful for debugging lineage information. Set to True to see the raw lineage created internally.',
@@ -411,7 +411,7 @@ export const INCLUDE_VIEWS: RecipeField = {
     rules: null,
 };
 
-export const GITHUB_INFO_REPO: RecipeField = {
+const GITHUB_INFO_REPO: RecipeField = {
     name: 'github_info.repo',
     label: 'GitHub Repo',
     tooltip: (

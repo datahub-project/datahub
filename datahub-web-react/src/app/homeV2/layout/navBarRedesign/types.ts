@@ -8,7 +8,7 @@ export enum NavBarMenuItemTypes {
     Custom = 'CUSTOM',
 }
 
-export interface NavBarMenuBaseElement {
+interface NavBarMenuBaseElement {
     type: NavBarMenuItemTypes;
     key: string;
     description?: string;
@@ -25,7 +25,7 @@ export interface NavBarMenuBaseElement {
     dataTestId?: string;
 }
 
-export type Badge = {
+type Badge = {
     count: number;
     show?: boolean;
 };
@@ -37,7 +37,7 @@ export interface NavBarMenuBaseItem extends NavBarMenuBaseElement {
     badge?: Badge;
 }
 
-export type NavBarMenuLinkItem = NavBarMenuBaseItem & {
+type NavBarMenuLinkItem = NavBarMenuBaseItem & {
     type: NavBarMenuItemTypes.Item;
     title: string;
 };
@@ -52,13 +52,13 @@ export type NavBarMenuDropdownItemElement = NavBarMenuBaseElement & {
     title: string;
 };
 
-export type NavBarMenuGroup = NavBarMenuBaseElement & {
+type NavBarMenuGroup = NavBarMenuBaseElement & {
     title?: string;
     type: NavBarMenuItemTypes.Group;
     items?: Array<NavBarMenuLinkItem | NavBarMenuDropdownItem>;
 };
 
-export type NavBarCustomElement = NavBarMenuBaseElement & {
+type NavBarCustomElement = NavBarMenuBaseElement & {
     type: NavBarMenuItemTypes.Custom;
     render: () => React.ReactNode;
 };

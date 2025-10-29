@@ -53,7 +53,7 @@ const ColumnName = styled.span`
     font-weight: bold;
 `;
 
-export const StyledDivider = styled(Divider)`
+const StyledDivider = styled(Divider)`
     background-color: ${ANTD_GRAY[6]};
     margin: 0 7px;
 `;

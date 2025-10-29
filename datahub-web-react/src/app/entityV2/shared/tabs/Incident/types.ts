@@ -123,10 +123,8 @@ export interface TimelineContentDetails extends BaseItemType {
 
 export enum IncidentConstant {
     PRIORITY = 'priority',
-    STAGE = 'stage',
     CATEGORY = 'category',
-    STATE = 'state',
-}
+    }
 
 export type EntityStagedForIncident = {
     urn: string;
@@ -139,7 +137,7 @@ export type IncidentBuilderSiblingOptions = {
     disabled?: boolean;
 } & Partial<EntityStagedForIncident>;
 
-export type IncidentHandlerProps = {
+type IncidentHandlerProps = {
     mode: IncidentAction;
     onSubmit?: () => void;
     incidentUrn: string | undefined;

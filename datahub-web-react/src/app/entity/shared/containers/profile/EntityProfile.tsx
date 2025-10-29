@@ -138,7 +138,7 @@ const defaultTabDisplayConfig = {
     enabled: (_, _1) => true,
 };
 
-export const DEFAULT_SIDEBAR_SECTION = {
+const DEFAULT_SIDEBAR_SECTION = {
     visible: (_, _1) => true,
 };
 

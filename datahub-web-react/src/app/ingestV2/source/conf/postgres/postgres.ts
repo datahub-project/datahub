@@ -36,4 +36,3 @@ const postgresConfig: SourceConfig = {
     logoUrl: postgresLogo,
 };
 
-export default postgresConfig;

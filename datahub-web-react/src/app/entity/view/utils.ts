@@ -46,7 +46,7 @@ export const convertStateToUpdateInput = (state: ViewBuilderState) => {
  * @param urn urn of the View
  * @param state state of the View
  */
-export const convertStateToView = (urn: string, state: ViewBuilderState): DataHubView => {
+const convertStateToView = (urn: string, state: ViewBuilderState): DataHubView => {
     return {
         urn,
         type: EntityType.DatahubView,
@@ -75,7 +75,7 @@ export const convertStateToView = (urn: string, state: ViewBuilderState): DataHu
  * @param views: A list of DataHub View objects.
  * @param q: An optional search query.
  */
-export const searchViews = (views: Array<DataHubView>, q?: string) => {
+const searchViews = (views: Array<DataHubView>, q?: string) => {
     if (q && q.length > 0) {
         const qLower = q.toLowerCase();
         return views.filter((view) => view.name.toLowerCase().includes(qLower) || view.description?.includes(qLower));

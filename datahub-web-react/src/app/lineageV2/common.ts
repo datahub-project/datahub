@@ -38,7 +38,7 @@ export interface Filters {
     searchUrns?: Set<string>;
 }
 
-export interface NodeBase {
+interface NodeBase {
     id: string;
     isExpanded: Record<LineageDirection, boolean>;
     direction?: LineageDirection; // Root node has no direction. One day can try to support cycles in the same way.
@@ -56,7 +56,7 @@ export interface LineageEntity extends NodeBase {
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
-export const LINEAGE_FILTER_ID_PREFIX = 'lf:';
+const LINEAGE_FILTER_ID_PREFIX = 'lf:';
 
 export function createLineageFilterNodeId(urn: Urn, direction: LineageDirection): string {
     const dir = direction === LineageDirection.Upstream ? 'u:' : 'd:';
@@ -117,7 +117,7 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>): boo
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
 }
 
-export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
+function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
     const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
     return (
         (type === EntityType.Dataset || type === EntityType.SchemaField) &&
@@ -200,7 +200,7 @@ export function reverseDirection(direction: LineageDirection): LineageDirection 
     return direction === LineageDirection.Upstream ? LineageDirection.Downstream : LineageDirection.Upstream;
 }
 
-export type NeighborMap = Map<Urn, Set<Urn>>;
+type NeighborMap = Map<Urn, Set<Urn>>;
 
 export interface NodeContext {
     rootUrn: string;
@@ -275,7 +275,7 @@ export function removeFromAdjacencyList(
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
 }
 
-export function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjacencyList'>): void {
+function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjacencyList'>): void {
     const { edges, adjacencyList } = context;
     adjacencyList[LineageDirection.Upstream].get(urn)?.forEach((upstream) => edges.delete(createEdgeId(upstream, urn)));
     adjacencyList[LineageDirection.Downstream]

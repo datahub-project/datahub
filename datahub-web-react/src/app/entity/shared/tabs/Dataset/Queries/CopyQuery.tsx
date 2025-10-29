@@ -2,7 +2,7 @@ import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from 'antd';
 import React, { useState } from 'react';
 
-export type Props = {
+type Props = {
     query: string;
     showCopyText?: boolean;
     style?: any;

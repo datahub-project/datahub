@@ -34,7 +34,7 @@ type AxisConfig = {
     formatter: (tick: number) => string;
 };
 
-export type Props = {
+type Props = {
     title: string;
     values: Array<Point>;
     tickInterval: DateInterval;

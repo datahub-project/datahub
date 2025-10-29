@@ -7,8 +7,8 @@ import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, SchemaField } from '@types';
 
-export function downgradeV2FieldPath(fieldPath: string): string;
-export function downgradeV2FieldPath(fieldPath?: string | null) {
+function downgradeV2FieldPath(fieldPath: string): string;
+function downgradeV2FieldPath(fieldPath?: string | null) {
     if (!fieldPath) {
         return fieldPath;
     }
@@ -23,7 +23,7 @@ export function downgradeV2FieldPath(fieldPath?: string | null) {
         .join('.');
 }
 
-export function processDocumentationString(docString): string {
+function processDocumentationString(docString): string {
     if (!docString) {
         return '';
     }
@@ -31,14 +31,14 @@ export function processDocumentationString(docString): string {
     return docString.replace(fieldRegex, (_, fieldPath) => `'${downgradeV2FieldPath(fieldPath)}'`);
 }
 
-export function convertFieldsToV1FieldPath(fields: SchemaField[]) {
+function convertFieldsToV1FieldPath(fields: SchemaField[]) {
     return fields.map((field) => ({
         ...field,
         fieldPath: downgradeV2FieldPath(field.fieldPath) || '',
     }));
 }
 
-export function getV1FieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
+function getV1FieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
     return downgradeV2FieldPath(getFieldPathFromSchemaFieldUrn(schemaFieldUrn)) as string;
 }
 

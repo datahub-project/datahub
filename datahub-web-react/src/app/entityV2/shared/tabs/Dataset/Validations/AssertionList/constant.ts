@@ -14,7 +14,7 @@ export const ASSERTION_DEFAULT_FILTERS = {
     },
 };
 
-export const ASSERTION_GROUP_BY_FILTER_OPTIONS = [
+const ASSERTION_GROUP_BY_FILTER_OPTIONS = [
     { label: 'Type', value: 'type' },
     { label: 'Status', value: 'status' },
 ];

@@ -31,7 +31,7 @@ type Props = {
     onRefresh: () => void;
 };
 
-export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onRefresh }: Props) => {
+const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onRefresh }: Props) => {
     const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
     const [page, setPage] = useState(1);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);

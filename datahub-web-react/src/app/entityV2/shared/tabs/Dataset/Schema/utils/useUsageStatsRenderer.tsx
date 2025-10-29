@@ -10,7 +10,7 @@ import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { UsageQueryResult } from '@types';
 
-export const UsageBar = styled.div<{ width: number }>`
+const UsageBar = styled.div<{ width: number }>`
     width: ${(props) => props.width}px;
     height: 4px;
     background-color: ${geekblue[3]};

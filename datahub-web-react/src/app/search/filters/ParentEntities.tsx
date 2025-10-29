@@ -24,7 +24,7 @@ const ParentNode = styled(Typography.Text)<{ color?: string }>`
     color: ${(props) => (props.color ? props.color : ANTD_GRAY[7])};
 `;
 
-export const ArrowWrapper = styled.span`
+const ArrowWrapper = styled.span`
     margin: 0 3px;
     display: flex;
     align-items: center;

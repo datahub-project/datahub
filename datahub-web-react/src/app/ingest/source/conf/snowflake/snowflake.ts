@@ -27,4 +27,3 @@ const snowflakeConfig: SourceConfig = {
     logoUrl: snowflakeLogo,
 };
 
-export default snowflakeConfig;

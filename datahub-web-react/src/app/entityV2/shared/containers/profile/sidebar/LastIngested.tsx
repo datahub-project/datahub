@@ -179,4 +179,3 @@ function LastIngested({ lastIngested }: Props) {
     );
 }
 
-export default LastIngested;

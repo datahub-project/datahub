@@ -7,7 +7,7 @@ export const PLATFORMS_MODULE_ID = 'Platforms';
 
 const MAX_PLATFORMS_TO_FETCH = 10;
 
-export type PlatformAndCount = {
+type PlatformAndCount = {
     platform: DataPlatform;
     count: number;
 };

@@ -25,4 +25,3 @@ const kafkaConfig: SourceConfig = {
     logoUrl: kafkaLogo,
 };
 
-export default kafkaConfig;

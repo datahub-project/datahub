@@ -67,7 +67,7 @@ const useGetActivityExists = (): Tab | null => {
     return null;
 };
 
-export type ActiveTab = {
+type ActiveTab = {
     key: TabType;
     count?: number;
     onSelectTab?: () => void; // Refetch count, etc

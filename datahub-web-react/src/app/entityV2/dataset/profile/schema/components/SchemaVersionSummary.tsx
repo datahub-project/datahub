@@ -21,7 +21,7 @@ type Props = {
     diffSummary: SchemaDiffSummary;
 };
 
-export default function SchemaVersionSummary({ diffSummary }: Props) {
+function SchemaVersionSummary({ diffSummary }: Props) {
     return (
         <SummaryContainer>
             <ul>

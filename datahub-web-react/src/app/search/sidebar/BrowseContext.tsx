@@ -67,7 +67,7 @@ const useBrowseContext = () => {
     return context;
 };
 
-export const useMaybeEntityAggregation = () => {
+const useMaybeEntityAggregation = () => {
     return useBrowseContext().entityAggregation;
 };
 
@@ -106,7 +106,7 @@ export const usePlatformAggregation = () => {
     return platformAggregation;
 };
 
-export const useMaybeBrowseResultGroup = () => {
+const useMaybeBrowseResultGroup = () => {
     return useBrowseContext().browseResultGroup;
 };
 
@@ -133,7 +133,7 @@ export const useBrowsePathLength = () => {
     return useBrowsePath().length;
 };
 
-export const useBrowseSearchFilter = () => {
+const useBrowseSearchFilter = () => {
     return createBrowseV2SearchFilter(useBrowsePath());
 };
 

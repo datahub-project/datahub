@@ -42,7 +42,7 @@ export const sortAssertions = (a, b) => {
 /**
  * Returns the display text assoociated with an AssertionResultType
  */
-export const getResultText = (result: AssertionResultType) => {
+const getResultText = (result: AssertionResultType) => {
     switch (result) {
         case AssertionResultType.Success:
             return 'Passed';
@@ -84,7 +84,7 @@ export const getResultColor = (result?: AssertionResultType) => {
 /**
  * Returns the display icon associated with an AssertionResultType
  */
-export const getResultIcon = (result: AssertionResultType, color?: string) => {
+const getResultIcon = (result: AssertionResultType, color?: string) => {
     const resultColor = color || getResultColor(result);
     switch (result) {
         case AssertionResultType.Success:
@@ -103,7 +103,7 @@ export const getResultIcon = (result: AssertionResultType, color?: string) => {
 /**
  * Convert an array of StringMapEntry into a map, for easy retrieval.
  */
-export const convertNativeParametersArrayToMap = (nativeParameters: Maybe<Array<StringMapEntry>> | undefined) => {
+const convertNativeParametersArrayToMap = (nativeParameters: Maybe<Array<StringMapEntry>> | undefined) => {
     if (nativeParameters) {
         const map = new Map();
         nativeParameters.forEach((parameter) => {
@@ -166,7 +166,7 @@ export const getFormattedParameterValue = (parameter: AssertionStdParameter | un
 /**
  * Throws if an assertion has no input fields
  */
-export const validateAssertionsHasInputFields = (info: DatasetAssertionInfo) => {
+const validateAssertionsHasInputFields = (info: DatasetAssertionInfo) => {
     if (info.fields && info.fields.length === 1) {
         return info.fields[0].path;
     }

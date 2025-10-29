@@ -1,8 +1,8 @@
 import { SortOrder } from '@types';
 
 export const RELEVANCE = 'relevance';
-export const ENTITY_NAME_FIELD = '_entityName';
-export const LAST_OPERATION_TIME_FIELD = 'lastOperationTime';
+const ENTITY_NAME_FIELD = '_entityName';
+const LAST_OPERATION_TIME_FIELD = 'lastOperationTime';
 
 export const DEFAULT_SORT_OPTION = RELEVANCE;
 

@@ -65,7 +65,7 @@ const StyledFormItem = styled(Form.Item)`
     }
 `;
 
-export type SignUpProps = Record<string, never>;
+type SignUpProps = Record<string, never>;
 
 export const SignUp: React.VFC<SignUpProps> = () => {
     const history = useHistory();

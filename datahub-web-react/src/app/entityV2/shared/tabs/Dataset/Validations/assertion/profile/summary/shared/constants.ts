@@ -33,7 +33,7 @@ export const ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE = {
     },
 };
 
-export const ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX = [
+const ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX = [
     AssertionStdOperator.EqualTo,
     AssertionStdOperator.NotEqualTo,
     AssertionStdOperator.Contain,

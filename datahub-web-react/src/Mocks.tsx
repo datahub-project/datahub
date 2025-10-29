@@ -62,7 +62,7 @@ import {
     SearchResult,
 } from '@types';
 
-export const entityPrivileges: EntityPrivileges = {
+const entityPrivileges: EntityPrivileges = {
     canEditLineage: true,
     canEditDomains: true,
     canEditDataProducts: true,
@@ -820,7 +820,7 @@ export const dataset5 = {
     },
 };
 
-export const dataset6 = {
+const dataset6 = {
     ...dataset3,
     name: 'Sixth Test Dataset',
     urn: 'urn:li:dataset:6',
@@ -835,7 +835,7 @@ export const dataset6 = {
     },
 };
 
-export const dataset7 = {
+const dataset7 = {
     ...dataset3,
     name: 'Seventh Test Dataset',
     urn: 'urn:li:dataset:7',
@@ -1211,7 +1211,7 @@ const glossaryTerm2 = {
     __typename: 'GlossaryTerm',
 };
 
-export const glossaryTerm3 = {
+const glossaryTerm3 = {
     urn: 'urn:li:glossaryTerm:example.glossaryterm2',
     type: 'GLOSSARY_TERM',
     name: 'glossaryterm2',
@@ -1330,7 +1330,7 @@ export const glossaryNode4 = {
     __typename: 'GlossaryNode',
 } as GlossaryNode;
 
-export const glossaryNode5 = {
+const glossaryNode5 = {
     urn: 'urn:li:glossaryNode:example.glossarynode5',
     type: 'GLOSSARY_NODE',
     properties: {
@@ -1545,7 +1545,7 @@ export const dataJob1 = {
     health: [],
 } as DataJob;
 
-export const businessAttribute = {
+const businessAttribute = {
     urn: 'urn:li:businessAttribute:ba1',
     type: EntityType.BusinessAttribute,
     __typename: 'BusinessAttribute',
@@ -1799,7 +1799,7 @@ export const dataJob3 = {
     health: [],
 } as DataJob;
 
-export const mlModel = {
+const mlModel = {
     __typename: 'MLModel',
     urn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
     type: EntityType.Mlmodel,
@@ -1907,7 +1907,7 @@ export const dataset2FetchedEntity = {
     downstreamChildren: [],
 } as FetchedEntity;
 
-export const mlModelGroup = {
+const mlModelGroup = {
     __typename: 'MLModelGroup',
     urn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
     type: EntityType.MlmodelGroup,
@@ -1976,7 +1976,7 @@ export const mlModelGroup = {
     deprecation: null,
 } as MlModelGroup;
 
-export const recommendationModules = [
+const recommendationModules = [
     {
         title: 'Most Popular',
         moduleId: 'MostPopular',
@@ -4117,7 +4117,7 @@ export const DomainMock1 = {
     supportedCapabilities: () => new Set(),
 } as Entity<any>;
 
-export const DomainMock2 = {
+const DomainMock2 = {
     urn: 'urn:li:domain:bebdad41-c523-469f-9b62-de94f938f603',
     id: 'bebdad41-c523-469f-9b62-de94f938f603',
     type: 'DOMAIN',

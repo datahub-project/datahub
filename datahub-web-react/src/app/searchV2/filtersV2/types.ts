@@ -4,13 +4,13 @@ import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
 
 export type FieldName = string;
 
-export type FacetsGetterResponse = {
+type FacetsGetterResponse = {
     facets?: FacetMetadata[] | undefined;
     loading?: boolean;
 };
-export type FacetsGetter = (fieldNames: FieldName[]) => FieldToFacetStateMap | undefined;
+type FacetsGetter = (fieldNames: FieldName[]) => FieldToFacetStateMap | undefined;
 
-export type FilterValue = string;
+type FilterValue = string;
 
 export interface AppliedFieldFilterValue {
     filters: FacetFilterInput[];
@@ -44,7 +44,7 @@ export type FeildFacetState = {
 
 export type FieldToFacetStateMap = Map<FieldName, FeildFacetState>;
 
-export type FieldFacetGetter = (fieldName: FieldName) => FeildFacetState | undefined;
+type FieldFacetGetter = (fieldName: FieldName) => FeildFacetState | undefined;
 
 export type FiltersRenderer = React.FC<FiltersRendererProps>;
 

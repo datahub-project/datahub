@@ -40,7 +40,7 @@ const NestedSyntax = styled(StyledSyntaxHighlighter)<{ isCompact?: boolean }>`
     `}
 `;
 
-export type Props = {
+type Props = {
     query: string;
     showDetails: boolean;
     onClickExpand?: (newQuery) => void;

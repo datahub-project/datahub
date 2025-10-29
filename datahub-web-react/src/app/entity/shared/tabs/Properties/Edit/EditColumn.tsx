@@ -12,7 +12,7 @@ import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils
 import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
 import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
 
-export const MoreOptionsContainer = styled.div`
+const MoreOptionsContainer = styled.div`
     display: flex;
     gap: 12px;
     justify-content: end;

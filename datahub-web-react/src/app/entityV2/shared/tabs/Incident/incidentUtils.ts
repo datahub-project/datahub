@@ -16,7 +16,7 @@ export const INCIDENT_DISPLAY_TYPES = [
     },
 ];
 
-export const INCIDENT_DISPLAY_STATES = [
+const INCIDENT_DISPLAY_STATES = [
     {
         type: undefined,
         name: 'All',
@@ -36,16 +36,16 @@ INCIDENT_DISPLAY_TYPES.forEach((incidentDetails) => {
     incidentTypeToDetails.set(incidentDetails.type, incidentDetails);
 });
 
-export const getNameFromType = (type: IncidentType) => {
+const getNameFromType = (type: IncidentType) => {
     return incidentTypeToDetails.get(type)?.name || type;
 };
 
-export const SUCCESS_COLOR_HEX = '#52C41A';
-export const FAILURE_COLOR_HEX = '#F5222D';
-export const WARNING_COLOR_HEX = '#FA8C16';
+const SUCCESS_COLOR_HEX = '#52C41A';
+const FAILURE_COLOR_HEX = '#F5222D';
+const WARNING_COLOR_HEX = '#FA8C16';
 
 // apollo caching
-export const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
+const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
     const incidents = [...existingIncidents];
     let didUpdate = false;
     const updatedIncidents = incidents.map((incident) => {
@@ -64,7 +64,7 @@ export const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
 /**
  * Add an entry to the ListIncident cache.
  */
-export const updateListIncidentsCache = (client, urn, incident, pageSize) => {
+const updateListIncidentsCache = (client, urn, incident, pageSize) => {
     // Read the data from our cache for this query.
     const currData: any = client.readQuery({
         query: GetEntityIncidentsDocument,
@@ -118,7 +118,7 @@ export const updateListIncidentsCache = (client, urn, incident, pageSize) => {
 /**
  * Returns a status summary for the incidents
  */
-export const getIncidentsStatusSummary = (incidents: Array<Incident>) => {
+const getIncidentsStatusSummary = (incidents: Array<Incident>) => {
     const summary = {
         resolvedIncident: 0,
         activeIncident: 0,

@@ -4,7 +4,7 @@ import QueryBuilderModal from '@app/entity/shared/tabs/Dataset/Queries/QueryBuil
 import QueryCard from '@app/entity/shared/tabs/Dataset/Queries/QueryCard';
 import QueryModal from '@app/entity/shared/tabs/Dataset/Queries/QueryModal';
 
-export type Props = {
+type Props = {
     urn?: string;
     query: string;
     title?: string;

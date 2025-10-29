@@ -121,7 +121,7 @@ export function getExternalUrlDisplayName(entity: GenericEntityProperties | null
 
 export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
 
-export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
+const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
 
 export enum SidebarTitleActionType {
     LineageExplore = 'Lineage Explore',
@@ -298,7 +298,7 @@ export function getDashboardLastUpdatedMs(
 }
 
 // return title case of the string with handling exceptions
-export const toProperTitleCase = (str: string) => {
+const toProperTitleCase = (str: string) => {
     return str
         .toLowerCase()
         .split(' ')
@@ -316,7 +316,7 @@ export const toProperTitleCase = (str: string) => {
  * @param subResource ie field name
  * @returns the description of the sub-resource if it exists, otherwise undefined
  */
-export const tryExtractSubResourceDescription = (entity: Entity, subResource: string): string | undefined => {
+const tryExtractSubResourceDescription = (entity: Entity, subResource: string): string | undefined => {
     // NOTE: we are casting to Dataset, but GlossaryTerms and more future entities can have editableSchemaMetadata
     // We must do a ? check for editableSchemaMetadata/schemaMetadata to avoid runtime errors
     const maybeEditableMetadataDescription = (entity as Dataset).editableSchemaMetadata?.editableSchemaFieldInfo?.find(

@@ -22,7 +22,7 @@ interface Props {
     renderType: TabRenderType;
 }
 
-export const contextsWithoutLastSynchronized = [
+const contextsWithoutLastSynchronized = [
     TabContextType.CHROME_SIDEBAR,
     TabContextType.SEARCH_SIDEBAR,
     TabContextType.LINEAGE_SIDEBAR,

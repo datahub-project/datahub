@@ -89,7 +89,7 @@ const FixedLineHeightEditor = styled(CompactEditor)<{ customStyle?: React.CSSPro
     }
 `;
 
-export type Props = {
+type Props = {
     content: string;
     lineLimit?: number | null;
     fixedLineHeight?: boolean;

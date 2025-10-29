@@ -19,7 +19,7 @@ function getAssertionsSummary(dataset: Dataset) {
     return { numAssertionsPassing, numAssertionsFailing };
 }
 
-export interface UpstreamSummary {
+interface UpstreamSummary {
     passingUpstreams: number;
     failingUpstreams: number;
     datasetsWithFailingAssertions: Dataset[];

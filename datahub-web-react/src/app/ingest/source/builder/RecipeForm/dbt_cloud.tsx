@@ -8,7 +8,7 @@ const TipSection = styled.div`
     margin-bottom: 12px;
 `;
 
-export const DBT_CLOUD = 'dbt-cloud';
+const DBT_CLOUD = 'dbt-cloud';
 
 export const DBT_CLOUD_TOKEN: RecipeField = {
     name: 'token',
@@ -234,7 +234,7 @@ export const NODE_DENY: RecipeField = {
     section: 'Nodes',
 };
 
-export const METADATA_ENDPOINT: RecipeField = {
+const METADATA_ENDPOINT: RecipeField = {
     name: 'metadata_endpoint',
     label: 'Custom Metadata Endpoint URL',
     tooltip:

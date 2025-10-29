@@ -2,7 +2,7 @@ import styled from 'styled-components';
 
 import { ANTD_GRAY, LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 
-export const ExpandContractButton = styled.div<{ expandOnHover?: boolean }>`
+const ExpandContractButton = styled.div<{ expandOnHover?: boolean }>`
     background-color: white;
     border: 1px solid ${ANTD_GRAY[5]};
     border-radius: 10px;

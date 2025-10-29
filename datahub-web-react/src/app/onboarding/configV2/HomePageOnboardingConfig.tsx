@@ -13,7 +13,7 @@ export const V2_HOME_PAGE_DISCOVER_ID = 'v2-home-page-discover';
 export const V2_HOME_PAGE_ANNOUNCEMENTS_ID = 'v2-home-page-announcements';
 export const V2_HOME_PAGE_PERSONAL_SIDEBAR_ID = 'v2-home-page-personal-sidebar';
 export const V2_HOME_PAGE_PENDING_TASKS_ID = 'v2-home-page-pending-tasks';
-export const V2_HOME_PAGE_LEARNING_CENTER_ID = 'v2-home-page-learning-center';
+const V2_HOME_PAGE_LEARNING_CENTER_ID = 'v2-home-page-learning-center';
 export const GLOBAL_WELCOME_TO_ACRYL_ID = 'global-welcome-to-acryl';
 
 const HomePageOnboardingConfig: OnboardingStep[] = [

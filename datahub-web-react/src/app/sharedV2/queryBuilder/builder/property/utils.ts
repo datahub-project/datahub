@@ -47,7 +47,7 @@ const isTimeProperty = (property: Property): boolean => {
 /**
  * Returns a list of properties supported fora given entity type.
  */
-export const getPropertiesForEntityType = (type: EntityType): Property[] => {
+const getPropertiesForEntityType = (type: EntityType): Property[] => {
     const maybeProperties = entityProperties.filter((entry) => entry.type === type);
     return maybeProperties.length > 0 ? maybeProperties[0].properties : [];
 };
@@ -79,7 +79,7 @@ export const getPropertiesForEntityTypes = (types: EntityType[]): Property[] => 
  * Retrieves a specific Property from a list of properties given the
  * property's unique id, or undefined if one cannot be found.
  */
-export const getPropertyById = (propertyId: string, properties: Property[]): Property | undefined => {
+const getPropertyById = (propertyId: string, properties: Property[]): Property | undefined => {
     // eslint-disable-next-line
     for (const prop of properties) {
         if (prop.id === propertyId) {
@@ -160,7 +160,7 @@ export const getValueOptions = (property: Property, predicate: PropertyPredicate
  *
  * @param propertyId the property id that may refer to the structured property concept.
  */
-export const isStructuredPropertyId = (propertyId: string) => {
+const isStructuredPropertyId = (propertyId: string) => {
     return (
         propertyId === STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID ||
         STRUCTURED_PROPERTY_REFERENCE_REGEX.test(propertyId)
@@ -182,7 +182,7 @@ export const isStructuredPropertyId = (propertyId: string) => {
  *
  * @param propertyId the property id that may refer to the structured property concept.
  */
-export const isOwnershipTypeId = (propertyId: string) => {
+const isOwnershipTypeId = (propertyId: string) => {
     return propertyId === OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID || OWNERSHIP_TYPE_REFERENCE_REGEX.test(propertyId);
 };
 
@@ -195,7 +195,7 @@ export const isOwnershipTypeId = (propertyId: string) => {
  * @param propertyId the property id that may contain reference to a specific structured property.
  * Returns undefined if a structured property urn cannot be found (meaning one is not yet selected).
  */
-export const extractStructuredPropertyReferenceUrn = (propertyId: string) => {
+const extractStructuredPropertyReferenceUrn = (propertyId: string) => {
     const match = propertyId.match(STRUCTURED_PROPERTY_REFERENCE_REGEX);
     return match ? match[1] : undefined;
 };
@@ -209,7 +209,7 @@ export const extractStructuredPropertyReferenceUrn = (propertyId: string) => {
  * @param propertyId the property id that may contain reference to a specific ownership type.
  * Returns undefined if a ownership type urn cannot be found (meaning one is not yet selected).
  */
-export const extractOwnershipTypeReferenceUrn = (propertyId: string) => {
+const extractOwnershipTypeReferenceUrn = (propertyId: string) => {
     const match = propertyId.match(OWNERSHIP_TYPE_REFERENCE_REGEX);
     return match ? match[1] : undefined;
 };
@@ -218,7 +218,7 @@ export const extractOwnershipTypeReferenceUrn = (propertyId: string) => {
  * Returns a set of valid operator options given a structured property definition.
  * This is achieved by considering the valueType of the property.
  */
-export const getStructuredPropertiesOperatorOptions = (property: StructuredPropertyEntity) => {
+const getStructuredPropertiesOperatorOptions = (property: StructuredPropertyEntity) => {
     const valueType = property.definition?.valueType;
     const stdValueType = valueType.info?.type;
     const cardinality = property.definition?.cardinality;
@@ -263,7 +263,7 @@ export const getStructuredPropertiesOperatorOptions = (property: StructuredPrope
 /**
  * Returns a set of valid operator options given a ownership type definition.
  */
-export const getOwnershipTypeOperatorOptions = () => {
+const getOwnershipTypeOperatorOptions = () => {
     return [
         OPERATOR_ID_TO_DETAILS.get(OperatorId.EXISTS),
         OPERATOR_ID_TO_DETAILS.get(OperatorId.EQUAL_TO),
@@ -277,7 +277,7 @@ export const getOwnershipTypeOperatorOptions = () => {
  * Returns a set of valid operator options given a structured property definition.
  * This is achieved by considering the valueType and the allowedValues of the property.
  */
-export const getStructuredPropertyValueOptions = (property: StructuredPropertyEntity) => {
+const getStructuredPropertyValueOptions = (property: StructuredPropertyEntity) => {
     const valueType = property.definition?.valueType;
     const stdValueType = valueType.info?.type;
     const allowedValues = property.definition?.allowedValues;
@@ -369,7 +369,7 @@ export const getStructuredPropertyValueOptions = (property: StructuredPropertyEn
 /**
  * Returns a set of valid operator options given a ownership type definition.
  */
-export const getOwnershipTypeValueOptions = (predicate: PropertyPredicate): ValueOptions | undefined => {
+const getOwnershipTypeValueOptions = (predicate: PropertyPredicate): ValueOptions | undefined => {
     if (!predicate.operator || isUnaryOperator(predicate.operator)) {
         return undefined;
     }

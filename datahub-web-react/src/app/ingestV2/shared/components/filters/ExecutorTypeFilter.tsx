@@ -2,7 +2,7 @@ import { SimpleSelect } from '@components';
 import React, { useCallback, useState } from 'react';
 
 export const EXECUTOR_TYPE_ALL_VALUE = 'All';
-export const EXECUTOR_TYPE_UI_VALUE = 'UI';
+const EXECUTOR_TYPE_UI_VALUE = 'UI';
 export const EXECUTOR_TYPE_CLI_VALUE = 'CLI';
 
 interface Props {
