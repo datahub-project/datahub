@@ -108,7 +108,7 @@ describe("auto-complete dropdown, filter plus query search test", () => {
     // CypressFeatureTag
     searchToExecute("*");
     selectFilteredEntityThroughMoreFilters(
-      "Tag",
+      "Tagged-With",
       "CypressFeatureTag",
       "filter_tags",
     );
