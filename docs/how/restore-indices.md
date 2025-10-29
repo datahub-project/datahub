@@ -52,10 +52,10 @@ When running the `RestoreIndices` job, you can pass additional arguments to cust
 
 ### 🧱 Other Options
 
-| Argument               | Description                                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `createDefaultAspects` | Whether to create default aspects in SQL & index if missing. **Disable** this if using a read-only replica. |
-| `clean`                | **Deletes existing index documents before restoring.** Use with caution.                                    |
+| Argument               | Description                                                                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createDefaultAspects` | Whether to create default aspects in SQL & index if missing. **Disable** this if using a read-only replica.                                                                                                   |
+| `clean`                | **Deletes existing index documents before restoring.** Use with caution. Note, it will clean the entire index before running the reindex step, thus ignoring any filters based on urn and aspect for reindex. |
 
 ---
 
