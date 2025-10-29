@@ -1,6 +1,6 @@
 import { DataTypeEntity, Entity, StructuredPropertyEntity } from '@types';
 
-export interface ValueColumnData {
+interface ValueColumnData {
     value: string | number | null;
     entity: Entity | null;
 }

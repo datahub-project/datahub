@@ -5,16 +5,13 @@ export enum StructuredReportItemLevel {
     /**
      * An error log
      */
-    ERROR,
     /**
      * A warn log
      */
-    WARN,
     /**
      * An info log - generally unused.
      */
-    INFO,
-}
+    }
 
 /**
  * A type describing an individual warning / failure item in a structured report.

@@ -10,7 +10,6 @@ import {
 } from 'phosphor-react';
 import YAML from 'yamljs';
 import { SourceConfig } from '@app/ingest/source/builder/types';
-import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingest/source/types';
 import { ExecutionRequestResult } from '@types';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
