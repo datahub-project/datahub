@@ -22,7 +22,9 @@ from datahub_integrations.notifications.sinks.email.email_sink import (
 
 @pytest.fixture
 def notification_sink() -> EmailNotificationSink:
-    return EmailNotificationSink()
+    sink = EmailNotificationSink()
+    sink.init()
+    return sink
 
 
 @pytest.fixture
@@ -53,6 +55,7 @@ def notification_request_custom() -> NotificationRequestClass:
 @pytest.fixture
 def sink_with_base_url() -> EmailNotificationSink:
     sink = EmailNotificationSink()
+    sink.init()
     sink.base_url = "https://example.acryl.io"
     return sink
 
@@ -234,9 +237,13 @@ def test_send_custom_notification(
     notification_request_custom: NotificationRequestClass,
 ) -> None:
     notification_sink._send_custom_notification(notification_request_custom)
-    mock_send_custom_email.assert_called_once_with(
-        notification_request_custom.recipients, "Custom Title", "Custom Message"
-    )
+    # Verify the function was called with the correct parameters including sg_client
+    assert mock_send_custom_email.call_count == 1
+    args, kwargs = mock_send_custom_email.call_args
+    assert args[0] == notification_request_custom.recipients
+    assert args[1] == "Custom Title"
+    assert args[2] == "Custom Message"
+    assert args[3] == notification_sink.sg_client
 
 
 @patch("datahub_integrations.notifications.sinks.email.email_sink.retry_with_backoff")

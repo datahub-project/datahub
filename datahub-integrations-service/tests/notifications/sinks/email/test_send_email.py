@@ -1,5 +1,5 @@
 from typing import Any, List
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from datahub.metadata.schema_classes import (
@@ -31,6 +31,11 @@ def mock_send_email() -> Any:
 
 
 @pytest.fixture
+def mock_sg_client() -> MagicMock:
+    return MagicMock()
+
+
+@pytest.fixture
 def recipients() -> List[NotificationRecipientClass]:
     # Assuming NotificationRecipientClass has an id attribute
     return [
@@ -46,12 +51,14 @@ def recipients() -> List[NotificationRecipientClass]:
 
 
 def test_send_custom_email_to_recipients_success(
-    recipients: List[NotificationRecipientClass], mock_send_email: Any
+    recipients: List[NotificationRecipientClass],
+    mock_send_email: Any,
+    mock_sg_client: MagicMock,
 ) -> None:
     subject = "Test Subject"
     message = "Test message body"
 
-    send_custom_email_to_recipients(recipients, subject, message)
+    send_custom_email_to_recipients(recipients, subject, message, mock_sg_client)
 
     # Ensure that each recipient received an email.
     assert mock_send_email.call_count == len(recipients)
@@ -71,7 +78,9 @@ def test_send_custom_email_to_recipients_success(
 
 
 def test_send_change_notification_to_recipients_success(
-    recipients: List[NotificationRecipientClass], mock_send_email: Any
+    recipients: List[NotificationRecipientClass],
+    mock_send_email: Any,
+    mock_sg_client: MagicMock,
 ) -> None:
     parameters = {
         "subject": "Test Subject",
@@ -83,7 +92,7 @@ def test_send_change_notification_to_recipients_success(
         "recipientName": "John",
     }
 
-    send_change_notification_to_recipients(recipients, parameters)
+    send_change_notification_to_recipients(recipients, parameters, mock_sg_client)
 
     expected_parameters_1 = parameters.copy()
     expected_parameters_1["recipientName"] = "Test Name"
