@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search.indexbuilder;
 
 import static com.linkedin.metadata.Constants.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
@@ -10,6 +12,7 @@ import static org.testng.Assert.assertTrue;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
@@ -102,53 +105,62 @@ public class ESIndexBuilderTest {
     when(buildIndicesConfig.isCloneIndices()).thenReturn(false);
     when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(true);
 
+    // Create a configuration with the test values
+    when(elasticSearchConfiguration.getIndex())
+        .thenReturn(
+            IndexConfiguration.builder()
+                .numShards(NUM_SHARDS)
+                .numReplicas(NUM_REPLICAS)
+                .numRetries(NUM_RETRIES)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .maxReindexHours(0)
+                .build());
+
     indexBuilder =
         new ESIndexBuilder(
             searchClient,
-            NUM_SHARDS,
-            NUM_REPLICAS,
-            NUM_RETRIES,
-            REFRESH_INTERVAL_SECONDS,
-            new HashMap<>(),
-            true,
-            true,
-            true,
             elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
             gitVersion);
   }
 
   @Test
   void testConstructor() {
-    assertEquals(indexBuilder.getNumShards(), NUM_SHARDS);
-    assertEquals(indexBuilder.getNumReplicas(), NUM_REPLICAS);
-    assertEquals(indexBuilder.getNumRetries(), NUM_RETRIES);
-    assertEquals(indexBuilder.getRefreshIntervalSeconds(), REFRESH_INTERVAL_SECONDS);
-    assertTrue(indexBuilder.isEnableIndexSettingsReindex());
-    assertTrue(indexBuilder.isEnableIndexMappingsReindex());
-    assertTrue(indexBuilder.isEnableStructuredPropertiesReindex());
-    Assert.assertNotNull(indexBuilder.getElasticSearchConfiguration());
+    // Verify that the configuration objects are properly set
+    Assert.assertNotNull(indexBuilder.getConfig());
     Assert.assertNotNull(indexBuilder.getGitVersion());
+    Assert.assertNotNull(indexBuilder.getStructPropConfig());
+
+    // Verify the configuration contains the expected values
+    assertEquals(indexBuilder.getStructPropConfig(), TEST_ES_STRUCT_PROPS_DISABLED);
+    assertEquals(indexBuilder.getGitVersion(), gitVersion);
+    assertEquals(indexBuilder.getConfig().getIndex().getNumShards(), NUM_SHARDS);
+    assertEquals(indexBuilder.getConfig().getIndex().getNumReplicas(), NUM_REPLICAS);
+    assertEquals(indexBuilder.getConfig().getIndex().getNumRetries(), NUM_RETRIES);
+    assertEquals(
+        indexBuilder.getConfig().getIndex().getRefreshIntervalSeconds(), REFRESH_INTERVAL_SECONDS);
   }
 
   @Test
   void testConstructorWithMaxReindexHours() {
     int maxReindexHours = 24;
+
+    // Create a configuration with the max reindex hours
+    ElasticSearchConfiguration configWithTimeout =
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .index(
+                TEST_ES_SEARCH_CONFIG.getIndex().toBuilder()
+                    .maxReindexHours(maxReindexHours)
+                    .build())
+            .build();
+
     ESIndexBuilder builderWithTimeout =
         new ESIndexBuilder(
-            searchClient,
-            NUM_SHARDS,
-            NUM_REPLICAS,
-            NUM_RETRIES,
-            REFRESH_INTERVAL_SECONDS,
-            new HashMap<>(),
-            true,
-            true,
-            true,
-            elasticSearchConfiguration,
-            gitVersion,
-            maxReindexHours);
+            searchClient, configWithTimeout, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
 
-    assertEquals(builderWithTimeout.getMaxReindexHours(), maxReindexHours);
+    // Verify the configuration contains the expected max reindex hours
+    assertEquals(configWithTimeout.getIndex().getMaxReindexHours(), maxReindexHours);
   }
 
   @Test
@@ -426,19 +438,20 @@ public class ESIndexBuilderTest {
         .thenReturn(mappingsResponse);
 
     // Execute with 6 shards configured
+    ElasticSearchConfiguration configWith6Shards =
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .index(
+                TEST_ES_SEARCH_CONFIG.getIndex().toBuilder()
+                    .numShards(6)
+                    .numReplicas(NUM_REPLICAS)
+                    .numRetries(NUM_RETRIES)
+                    .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                    .build())
+            .build();
+
     ESIndexBuilder builderWith6Shards =
         new ESIndexBuilder(
-            searchClient,
-            6,
-            NUM_REPLICAS,
-            NUM_RETRIES,
-            REFRESH_INTERVAL_SECONDS,
-            new HashMap<>(),
-            true,
-            true,
-            true,
-            elasticSearchConfiguration,
-            gitVersion);
+            searchClient, configWith6Shards, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
 
     ReindexConfig result =
         builderWith6Shards.buildReindexState(TEST_INDEX_NAME, currentMappings, targetSettings);
@@ -588,9 +601,9 @@ public class ESIndexBuilderTest {
 
     ReindexConfig config = mock(ReindexConfig.class);
 
-    // Put NUMBER_OF_SHARDS directly in targetSettings
+    // Put number_of_shards directly in targetSettings
     Map<String, Object> targetSettings = new HashMap<>();
-    targetSettings.put(ESIndexBuilder.NUMBER_OF_SHARDS, 6);
+    targetSettings.put("number_of_shards", 6);
 
     when(config.targetSettings()).thenReturn(targetSettings);
     when(config.targetMappings()).thenReturn(createTestMappings());
@@ -750,15 +763,9 @@ public class ESIndexBuilderTest {
     ESIndexBuilder builderWithOverrides =
         new ESIndexBuilder(
             searchClient,
-            NUM_SHARDS,
-            NUM_REPLICAS,
-            NUM_RETRIES,
-            REFRESH_INTERVAL_SECONDS,
-            indexOverrides,
-            true,
-            true,
-            true,
             elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            indexOverrides,
             gitVersion);
 
     when(searchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
@@ -833,15 +840,9 @@ public class ESIndexBuilderTest {
     ESIndexBuilder optimizationDisabledIndexBuilder =
         new ESIndexBuilder(
             searchClient,
-            NUM_SHARDS,
-            NUM_REPLICAS,
-            NUM_RETRIES,
-            REFRESH_INTERVAL_SECONDS,
-            new HashMap<>(),
-            true,
-            true,
-            true,
             elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
             gitVersion);
 
     // Setup index state that requires reindexing
@@ -855,9 +856,9 @@ public class ESIndexBuilderTest {
 
     // Setup target settings with index structure
     Map<String, Object> indexSettings = new HashMap<>();
-    indexSettings.put(ESIndexBuilder.NUMBER_OF_SHARDS, 6);
-    indexSettings.put(ESIndexBuilder.NUMBER_OF_REPLICAS, 1);
-    indexSettings.put(ESIndexBuilder.REFRESH_INTERVAL, "1s");
+    indexSettings.put("number_of_shards", 6);
+    indexSettings.put("number_of_replicas", 1);
+    indexSettings.put("refresh_interval", "1s");
     Map<String, Object> targetSettings = new HashMap<>();
     targetSettings.put("index", indexSettings);
     when(indexState.targetSettings()).thenReturn(targetSettings);

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.models;
 
+import static com.linkedin.metadata.models.FieldSpecUtils.isNullAnnotation;
+
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.DataSchemaTraverse;
 import com.linkedin.data.schema.PathSpec;
@@ -51,7 +53,7 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
       final Object resolvedAnnotationObj =
           resolvedProperties.get(RelationshipAnnotation.ANNOTATION_NAME);
 
-      if (resolvedAnnotationObj != null) {
+      if (!isNullAnnotation(resolvedAnnotationObj)) {
         if (currentSchema.isPrimitive()
             && isValidPrimitiveType((PrimitiveDataSchema) currentSchema)) {
           final PathSpec path = new PathSpec(context.getSchemaPathSpec());

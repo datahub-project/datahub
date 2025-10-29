@@ -4,11 +4,14 @@ import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.util.Pair;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,40 +24,75 @@ import org.apache.commons.lang3.StringUtils;
 
 // Default implementation of search index naming convention
 public class IndexConventionImpl implements IndexConvention {
-  public static IndexConvention noPrefix(@Nonnull String idHashAlgo) {
-    return new IndexConventionImpl(IndexConventionConfig.builder().hashIdAlgo(idHashAlgo).build());
+  public static IndexConvention noPrefix(
+      @Nonnull String idHashAlgo, @Nonnull EntityIndexConfiguration entityIndexConfiguration) {
+    return new IndexConventionImpl(
+        IndexConventionConfig.builder().hashIdAlgo(idHashAlgo).build(), entityIndexConfiguration);
   }
 
   // Map from Entity name -> Index name
   private final Map<String, String> indexNameMapping = new ConcurrentHashMap<>();
   private final Optional<String> _prefix;
-  private final String _getAllEntityIndicesPattern;
+  private final List<String> _getAllEntityIndicesPatterns;
   private final String _getAllTimeseriesIndicesPattern;
+  private final String _v3EntityIndexPatterns;
   @Getter private final IndexConventionConfig indexConventionConfig;
+  private final EntityIndexConfiguration entityIndexConfiguration;
 
   private static final String ENTITY_INDEX_VERSION = "v2";
+  private static final String ENTITY_INDEX_VERSION_V3 = "v3";
   private static final String ENTITY_INDEX_SUFFIX = "index";
   private static final String TIMESERIES_INDEX_VERSION = "v1";
   private static final String TIMESERIES_ENTITY_INDEX_SUFFIX = "aspect";
 
-  public IndexConventionImpl(IndexConventionConfig indexConventionConfig) {
+  public IndexConventionImpl(
+      IndexConventionConfig indexConventionConfig,
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration) {
     this.indexConventionConfig = indexConventionConfig;
+    this.entityIndexConfiguration = entityIndexConfiguration;
     _prefix =
         StringUtils.isEmpty(indexConventionConfig.getPrefix())
             ? Optional.empty()
             : Optional.of(indexConventionConfig.getPrefix());
-    _getAllEntityIndicesPattern =
-        _prefix.map(p -> p + "_").orElse("")
-            + "*"
-            + ENTITY_INDEX_SUFFIX
-            + "_"
-            + ENTITY_INDEX_VERSION;
+    // Build patterns based on configuration
+    _getAllEntityIndicesPatterns = buildEntityIndicesPatterns();
     _getAllTimeseriesIndicesPattern =
         _prefix.map(p -> p + "_").orElse("")
             + "*"
             + TIMESERIES_ENTITY_INDEX_SUFFIX
             + "_"
             + TIMESERIES_INDEX_VERSION;
+    _v3EntityIndexPatterns = buildV3Pattern();
+  }
+
+  private List<String> buildEntityIndicesPatterns() {
+    List<String> patterns = new ArrayList<>();
+
+    if (isV2Enabled(entityIndexConfiguration)) {
+      patterns.add(buildV2Pattern());
+    }
+
+    if (isV3Enabled(entityIndexConfiguration)) {
+      patterns.add(buildV3Pattern());
+    }
+
+    return patterns;
+  }
+
+  private String buildV2Pattern() {
+    return _prefix.map(p -> p + "_").orElse("")
+        + "*"
+        + ENTITY_INDEX_SUFFIX
+        + "_"
+        + ENTITY_INDEX_VERSION;
+  }
+
+  private String buildV3Pattern() {
+    return _prefix.map(p -> p + "_").orElse("")
+        + "*"
+        + ENTITY_INDEX_SUFFIX
+        + "_"
+        + ENTITY_INDEX_VERSION_V3;
   }
 
   @Nonnull
@@ -115,6 +153,12 @@ public class IndexConventionImpl implements IndexConvention {
 
   @Nonnull
   @Override
+  public String getEntityIndexNameV3(String searchGroup) {
+    return this.getIndexName(searchGroup + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION_V3);
+  }
+
+  @Nonnull
+  @Override
   public String getTimeseriesAspectIndexName(String entityName, String aspectName) {
     return this.getIndexName(entityName + "_" + aspectName)
         + TIMESERIES_ENTITY_INDEX_SUFFIX
@@ -124,14 +168,39 @@ public class IndexConventionImpl implements IndexConvention {
 
   @Nonnull
   @Override
-  public String getAllEntityIndicesPattern() {
-    return _getAllEntityIndicesPattern;
+  public List<String> getAllEntityIndicesPatterns() {
+    return _getAllEntityIndicesPatterns;
+  }
+
+  @Nonnull
+  @Override
+  public List<String> getV3EntityIndexPatterns() {
+    return List.of(_v3EntityIndexPatterns);
   }
 
   @Nonnull
   @Override
   public String getAllTimeseriesAspectIndicesPattern() {
     return _getAllTimeseriesIndicesPattern;
+  }
+
+  @Nonnull
+  @Override
+  public List<String> getEntityIndicesCleanupPatterns(
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration) {
+    List<String> patterns = new ArrayList<>();
+
+    // Add V2 pattern if V2 is enabled and cleanup is enabled
+    if (isV2Enabled(entityIndexConfiguration) && isV2CleanupEnabled(entityIndexConfiguration)) {
+      patterns.add(buildV2Pattern());
+    }
+
+    // Add V3 pattern if V3 is enabled and cleanup is enabled
+    if (isV3Enabled(entityIndexConfiguration) && isV3CleanupEnabled(entityIndexConfiguration)) {
+      patterns.add(buildV3Pattern());
+    }
+
+    return patterns;
   }
 
   @Override
@@ -166,6 +235,72 @@ public class IndexConventionImpl implements IndexConvention {
     }
 
     return URLEncoder.encode(unencodedId, StandardCharsets.UTF_8);
+  }
+
+  /** Checks if V2 entity index is enabled based on configuration */
+  private boolean isV2Enabled(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
+    return entityIndexConfiguration.getV2() != null && entityIndexConfiguration.getV2().isEnabled();
+  }
+
+  /** Checks if V3 entity index is enabled based on configuration */
+  private boolean isV3Enabled(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
+    return entityIndexConfiguration.getV3() != null && entityIndexConfiguration.getV3().isEnabled();
+  }
+
+  /** Checks if V2 cleanup is enabled based on configuration */
+  private boolean isV2CleanupEnabled(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
+    return entityIndexConfiguration.getV2() != null && entityIndexConfiguration.getV2().isCleanup();
+  }
+
+  /** Checks if V3 cleanup is enabled based on configuration */
+  private boolean isV3CleanupEnabled(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
+    return entityIndexConfiguration.getV3() != null && entityIndexConfiguration.getV3().isCleanup();
+  }
+
+  @Override
+  public boolean isV2EntityIndex(@Nonnull String indexName) {
+    // Pattern: [prefix]_[entityName]index_v2
+    // The index name should end with exactly "index_v2" and have at least one character before it
+    String expectedSuffix = ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION;
+    if (!indexName.endsWith(expectedSuffix)) {
+      return false;
+    }
+    // Check that there's at least one character before "index_v2"
+    int suffixStart = indexName.length() - expectedSuffix.length();
+    if (suffixStart <= 0) {
+      return false;
+    }
+
+    // If we have a prefix configured, check that the index name starts with it
+    if (_prefix.isPresent()) {
+      String expectedPrefix = _prefix.get() + "_";
+      return indexName.startsWith(expectedPrefix);
+    }
+
+    return true;
+  }
+
+  @Override
+  public boolean isV3EntityIndex(@Nonnull String indexName) {
+    // Pattern: [prefix]_[entityName]index_v3
+    // The index name should end with exactly "index_v3" and have at least one character before it
+    String expectedSuffix = ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION_V3;
+    if (!indexName.endsWith(expectedSuffix)) {
+      return false;
+    }
+    // Check that there's at least one character before "index_v3"
+    int suffixStart = indexName.length() - expectedSuffix.length();
+    if (suffixStart <= 0) {
+      return false;
+    }
+
+    // If we have a prefix configured, check that the index name starts with it
+    if (_prefix.isPresent()) {
+      String expectedPrefix = _prefix.get() + "_";
+      return indexName.startsWith(expectedPrefix);
+    }
+
+    return true;
   }
 
   /** Since this is used outside of Spring */
