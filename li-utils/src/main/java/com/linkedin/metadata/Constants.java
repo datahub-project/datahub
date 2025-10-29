@@ -550,5 +550,8 @@ public class Constants {
   // EntityPrivilegesResolver
   public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
 
+  // AWS S3
+  public static final String S3_FILE_ID_NAME_SEPARATOR = "__";
+
   private Constants() {}
 }

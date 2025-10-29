@@ -8,6 +8,9 @@ import { resolveRuntimePath } from '@utils/runtimeBasePath';
 import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
 import { UploadDownloadScenario } from '@types';
 
+// keep this consistent with same const in li-utils/src/main/java/com/linkedin/metadata/Constants.java
+const S3_FILE_ID_NAME_SEPARATOR = '__';
+
 interface Props {
     scenario: UploadDownloadScenario;
     assetUrn?: string;
@@ -53,7 +56,8 @@ export default function useFileUpload({ scenario, assetUrn, schemaField }: Props
 
         // Confirming of file uploading
         try {
-            await createFile(fileId, file);
+            const uuidFromFileId = fileId.split(S3_FILE_ID_NAME_SEPARATOR)[0];
+            await createFile(uuidFromFileId, file);
         } catch (error) {
             throw new Error(`Failed to upload file: ${error}`);
         }

@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlInput;
 import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlResponse;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.aws.S3Util;
 import graphql.schema.DataFetcher;
@@ -107,7 +108,9 @@ public class GetPresignedUploadUrlResolver
   }
 
   private String generateNewFileId(final GetPresignedUploadUrlInput input) {
-    return String.format("%s-%s", UUID.randomUUID().toString(), input.getFileName());
+    return String.format(
+        "%s%s%s",
+        UUID.randomUUID().toString(), Constants.S3_FILE_ID_NAME_SEPARATOR, input.getFileName());
   }
 
   private String getS3Key(
