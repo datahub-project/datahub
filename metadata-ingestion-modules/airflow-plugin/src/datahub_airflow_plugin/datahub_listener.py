@@ -130,13 +130,26 @@ def _get_dagrun_from_task_instance(task_instance: "TaskInstance") -> "DagRun":
     # For Airflow 3.x RuntimeTaskInstance, create a dag_run-like object
     # with the attributes we need
     class DagRunProxy:
-        """Proxy object that provides dag_run-like attributes from RuntimeTaskInstance."""
+        """
+        Compatibility shim that provides DagRun-like interface for Airflow 3.x RuntimeTaskInstance.
+
+        Airflow 3.x's RuntimeTaskInstance doesn't have a dag_run attribute, so we create a proxy
+        that provides the minimal DagRun interface needed by on_dag_start().
+
+        Implements only the attributes actually used by the listener:
+        - dag: The DAG object
+        - dag_id: The DAG identifier
+        - run_id: The DAG run identifier
+
+        This is NOT a complete DagRun implementation. If you need additional attributes,
+        add them here with corresponding property methods.
+        """
 
         def __init__(self, ti: "TaskInstance"):
             self.ti = ti
 
         @property
-        def dag(self):
+        def dag(self) -> Any:
             """Get DAG from task.dag instead of dag_run.dag"""
             task = getattr(self.ti, "task", None)
             if task:
@@ -144,14 +157,18 @@ def _get_dagrun_from_task_instance(task_instance: "TaskInstance") -> "DagRun":
             return None
 
         @property
-        def dag_id(self):
+        def dag_id(self) -> Any:
             """Get dag_id directly from task instance"""
             return getattr(self.ti, "dag_id", None)
 
         @property
-        def run_id(self):
+        def run_id(self) -> Any:
             """Get run_id directly from task instance"""
             return getattr(self.ti, "run_id", None)
+
+        def __repr__(self) -> str:
+            """Provide clear representation for debugging"""
+            return f"DagRunProxy(dag_id={self.dag_id!r}, run_id={self.run_id!r})"
 
     return DagRunProxy(task_instance)  # type: ignore[return-value]
 
@@ -651,6 +668,96 @@ class DataHubListener:
                 logger.debug(f"Error checking kill switch variable: {e}")
         return False
 
+    def _prepare_task_context(
+        self, task_instance: "TaskInstance", for_completion: bool = False
+    ) -> Optional[Tuple["DagRun", "Operator", "DAG"]]:
+        """
+        Prepare task context by extracting DAG run, task, and DAG from task instance.
+
+        Args:
+            task_instance: The Airflow task instance
+            for_completion: If True, retrieves task from holder for completion events
+
+        Returns:
+            Tuple of (dagrun, task, dag) or None if context cannot be prepared
+        """
+        # Get dagrun in a version-compatible way (Airflow 2.x vs 3.x)
+        dagrun: "DagRun" = _get_dagrun_from_task_instance(task_instance)
+
+        if self.config.render_templates:
+            task_instance = _render_templates(task_instance)
+
+        # Get task - different logic for start vs completion events
+        if for_completion:
+            # For completion: prefer task attribute, fallback to holder
+            if getattr(task_instance, "task", None):
+                task = task_instance.task
+            elif hasattr(self._task_holder, "get_task"):
+                task = self._task_holder.get_task(task_instance)
+            else:
+                task = None
+        else:
+            # For start: task should be directly available
+            task = task_instance.task
+
+        if task is None:
+            return None
+
+        dag: "DAG" = task.dag  # type: ignore[assignment]
+
+        # Check if DAG is allowed by filter pattern
+        if not self.config.dag_filter_pattern.allowed(dag.dag_id):
+            logger.debug(f"DAG {dag.dag_id} is not allowed by the pattern")
+            return None
+
+        # Task type can vary between Airflow versions (MappedOperator, SerializedBaseOperator, etc.)
+        return dagrun, task, dag  # type: ignore[return-value]
+
+    def _generate_and_emit_datajob(
+        self,
+        dagrun: "DagRun",
+        task: "Operator",
+        dag: "DAG",
+        task_instance: "TaskInstance",
+        complete: bool = False,
+    ) -> DataJob:
+        """
+        Generate DataJob with lineage and emit it to DataHub.
+
+        Args:
+            dagrun: The DAG run
+            task: The task operator
+            dag: The DAG
+            task_instance: The task instance
+            complete: Whether this is for task completion
+
+        Returns:
+            The generated DataJob
+        """
+        datajob = AirflowGenerator.generate_datajob(
+            cluster=self.config.cluster,
+            task=task,  # type: ignore[arg-type]
+            dag=dag,
+            capture_tags=self.config.capture_tags_info,
+            capture_owner=self.config.capture_ownership_info,
+            config=self.config,
+        )
+
+        # Add lineage info
+        self._extract_lineage(datajob, dagrun, task, task_instance, complete=complete)  # type: ignore[arg-type]
+
+        # Emit DataJob MCPs
+        for mcp in datajob.generate_mcp(
+            generate_lineage=self.config.enable_datajob_lineage,
+            materialize_iolets=self.config.materialize_iolets,
+        ):
+            self.emitter.emit(mcp, self._make_emit_callback())
+
+        status_text = f"finish w/ status {complete}" if complete else "start"
+        logger.debug(f"Emitted DataHub Datajob {status_text}: {datajob}")
+
+        return datajob
+
     @hookimpl
     @run_in_thread
     def on_task_instance_running(  # type: ignore[no-untyped-def]  # Airflow 3.0 removed previous_state parameter
@@ -663,7 +770,6 @@ class DataHubListener:
 
         # This if statement mirrors the logic in https://github.com/OpenLineage/OpenLineage/pull/508.
         if not hasattr(task_instance, "task"):
-            # The type ignore is to placate mypy on Airflow 2.1.x.
             logger.warning(
                 f"No task set for task_id: {task_instance.task_id} - "  # type: ignore[attr-defined]
                 f"dag_id: {task_instance.dag_id} - run_id {task_instance.run_id}"  # type: ignore[attr-defined]
@@ -674,22 +780,10 @@ class DataHubListener:
             f"DataHub listener got notification about task instance start for {task_instance.task_id} of dag {task_instance.dag_id}"
         )
 
+        # Check if DAG is allowed before doing any expensive operations
         if not self.config.dag_filter_pattern.allowed(task_instance.dag_id):
             logger.debug(f"DAG {task_instance.dag_id} is not allowed by the pattern")
             return
-
-        if self.config.render_templates:
-            task_instance = _render_templates(task_instance)
-
-        # Get dagrun in a version-compatible way (Airflow 2.x vs 3.x)
-        dagrun: "DagRun" = _get_dagrun_from_task_instance(task_instance)
-        task = task_instance.task
-        assert task is not None
-        dag: "DAG" = task.dag  # type: ignore[assignment]  # task.dag may return SerializedDAG in Airflow 3.0
-
-        # Store task for later retrieval (only needed for Airflow < 3.0)
-        if hasattr(self._task_holder, "set_task"):
-            self._task_holder.set_task(task_instance)
 
         # Handle async operators in Airflow 2.3 by skipping deferred state.
         # Inspired by https://github.com/OpenLineage/OpenLineage/pull/1601
@@ -700,36 +794,34 @@ class DataHubListener:
         ):  # type: ignore[attr-defined]
             return
 
-        # If we don't have the DAG listener API, we just pretend that
-        # the start of the task is the start of the DAG.
-        # This generates duplicate events, but it's better than not
-        # generating anything.
+        # Render templates and extract context
+        if self.config.render_templates:
+            task_instance = _render_templates(task_instance)
+
+        dagrun: "DagRun" = _get_dagrun_from_task_instance(task_instance)
+        task = task_instance.task
+        assert task is not None
+        dag: "DAG" = task.dag  # type: ignore[assignment]
+
+        # Store task for later retrieval (only needed for Airflow < 3.0)
+        if hasattr(self._task_holder, "set_task"):
+            self._task_holder.set_task(task_instance)
+
+        # If we don't have the DAG listener API, emit DAG start event
         if not HAS_AIRFLOW_DAG_LISTENER_API:
             self.on_dag_start(dagrun)
 
-        datajob = AirflowGenerator.generate_datajob(
-            cluster=self.config.cluster,
-            task=task,  # type: ignore[arg-type]
-            dag=dag,
-            capture_tags=self.config.capture_tags_info,
-            capture_owner=self.config.capture_ownership_info,
-            config=self.config,
+        # Generate and emit datajob
+        # Task type can vary between Airflow versions (MappedOperator from different modules)
+        datajob = self._generate_and_emit_datajob(
+            dagrun,
+            task,  # type: ignore[arg-type]
+            dag,
+            task_instance,
+            complete=False,
         )
 
-        # TODO: Make use of get_task_location to extract github urls.
-
-        # Add lineage info.
-        self._extract_lineage(datajob, dagrun, task, task_instance)  # type: ignore[arg-type]
-
-        # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
-
-        for mcp in datajob.generate_mcp(
-            generate_lineage=self.config.enable_datajob_lineage,
-            materialize_iolets=self.config.materialize_iolets,
-        ):
-            self.emitter.emit(mcp, self._make_emit_callback())
-        logger.debug(f"Emitted DataHub Datajob start: {datajob}")
-
+        # Emit process instance if capturing executions
         if self.config.capture_executions:
             dpi = AirflowGenerator.run_datajob(
                 emitter=self.emitter,
@@ -779,49 +871,19 @@ class DataHubListener:
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
-        # Get dagrun in a version-compatible way (Airflow 2.x vs 3.x)
-        dagrun: "DagRun" = _get_dagrun_from_task_instance(task_instance)
-
-        if self.config.render_templates:
-            task_instance = _render_templates(task_instance)
-
-        # We must prefer the task attribute, in case modifications to the task's inlets/outlets
-        # were made by the execute() method.
-        if getattr(task_instance, "task", None):
-            task = task_instance.task
-        elif hasattr(self._task_holder, "get_task"):
-            # For Airflow < 3.0, retrieve task from TaskHolder if needed
-            task = self._task_holder.get_task(task_instance)
-        else:
-            # For Airflow 3.0+, task should always be available on task_instance
-            task = None
-        assert task is not None
-
-        dag: "DAG" = task.dag  # type: ignore[assignment]  # task.dag may return SerializedDAG in Airflow 3.0
-
-        if not self.config.dag_filter_pattern.allowed(dag.dag_id):
-            logger.debug(f"DAG {dag.dag_id} is not allowed by the pattern")
+        # Prepare task context (handles template rendering, task retrieval, DAG filtering)
+        context = self._prepare_task_context(task_instance, for_completion=True)
+        if context is None:
             return
 
-        datajob = AirflowGenerator.generate_datajob(
-            cluster=self.config.cluster,
-            task=task,  # type: ignore[arg-type]
-            dag=dag,
-            capture_tags=self.config.capture_tags_info,
-            capture_owner=self.config.capture_ownership_info,
-            config=self.config,
+        dagrun, task, dag = context
+
+        # Generate and emit datajob with lineage
+        datajob = self._generate_and_emit_datajob(
+            dagrun, task, dag, task_instance, complete=True
         )
 
-        # Add lineage info.
-        self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)  # type: ignore[arg-type]
-
-        for mcp in datajob.generate_mcp(
-            generate_lineage=self.config.enable_datajob_lineage,
-            materialize_iolets=self.config.materialize_iolets,
-        ):
-            self.emitter.emit(mcp, self._make_emit_callback())
-        logger.debug(f"Emitted DataHub Datajob finish w/ status {status}: {datajob}")
-
+        # Emit process instance if capturing executions
         if self.config.capture_executions:
             dpi = AirflowGenerator.complete_datajob(
                 emitter=self.emitter,

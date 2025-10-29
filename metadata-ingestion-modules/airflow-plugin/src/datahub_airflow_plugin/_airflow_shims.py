@@ -9,6 +9,7 @@ from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 
 # Determine Airflow version early for conditional imports
 AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
+IS_AIRFLOW_3_OR_HIGHER = AIRFLOW_VERSION >= packaging.version.parse("3.0.0")
 
 # BaseOperator import - prefer new location in Airflow 3.x
 try:
@@ -17,27 +18,26 @@ except (ModuleNotFoundError, ImportError):
     from airflow.models.baseoperator import BaseOperator  # type: ignore
 
 # Operator type alias and MappedOperator
-try:
-    # Airflow 3.x moved Operator to sdk.types
+# Use version-based logic to avoid deeply nested try/except blocks
+if IS_AIRFLOW_3_OR_HIGHER:
+    # Airflow 3.x: Operator moved to sdk.types
     from airflow.sdk.types import Operator
 
+    # MappedOperator may or may not exist in Airflow 3.x
     try:
         from airflow.models.mappedoperator import MappedOperator
     except (ModuleNotFoundError, ImportError):
         MappedOperator = None  # type: ignore
-except (ModuleNotFoundError, ImportError):
+else:
+    # Airflow 2.x: Try to import from models
     try:
-        # Airflow 2.x location
         from airflow.models.mappedoperator import MappedOperator
         from airflow.models.operator import Operator
     except (ModuleNotFoundError, ImportError):
-        # Operator isn't a real class, but rather a type alias defined
-        # as the union of BaseOperator and MappedOperator.
-        # Since older versions of Airflow don't have MappedOperator, we can just use BaseOperator.
-        try:
-            from airflow.models.mappedoperator import MappedOperator
-        except (ModuleNotFoundError, ImportError):
-            MappedOperator = None  # type: ignore
+        # Older Airflow 2.x versions don't have MappedOperator (added in 2.3.0)
+        # Operator is a type alias for Union[BaseOperator, MappedOperator],
+        # so when MappedOperator doesn't exist, we just use BaseOperator.
+        MappedOperator = None  # type: ignore
         Operator = BaseOperator  # type: ignore
 
 # ExternalTaskSensor import - prefer standard provider in Airflow 3.x
@@ -154,6 +154,7 @@ def get_task_outlets(operator: "Operator") -> List:
 
 __all__ = [
     "AIRFLOW_VERSION",
+    "IS_AIRFLOW_3_OR_HIGHER",
     "BaseOperator",
     "Operator",
     "MappedOperator",
