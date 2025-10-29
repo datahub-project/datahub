@@ -9,12 +9,9 @@ import {
     X,
 } from 'phosphor-react';
 import YAML from 'yamljs';
-
-import EntityRegistry from '@app/entity/EntityRegistry';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingest/source/types';
-import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
-import { EntityType, ExecutionRequestResult, FacetMetadata } from '@types';
+import { EntityType, ExecutionRequestResult } from '@types';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -212,20 +209,6 @@ const extractStructuredReportPOJO = (result: Partial<ExecutionRequestResult>): a
     }
 };
 
-const getStructuredReport = (result: Partial<ExecutionRequestResult>): StructuredReport | null => {
-    // 1. Extract Serialized Structured Report
-    const structuredReportObject = extractStructuredReportPOJO(result);
-    if (!structuredReportObject) {
-        return null;
-    }
-
-    // 3. Transform into the typed model that we have.
-    const structuredReport = transformToStructuredReport(structuredReportObject);
-
-    // 4. Return JSON report
-    return structuredReport;
-};
-
 /** *
  * This function is used to get the entities ingested by type from the structured report.
  * It returns an array of objects with the entity type and the count of entities ingested.
@@ -314,13 +297,6 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
         return null;
     }
 };
-
-const ENTITIES_WITH_SUBTYPES = new Set([
-    EntityType.Dataset.toLowerCase(),
-    EntityType.Container.toLowerCase(),
-    EntityType.Notebook.toLowerCase(),
-    EntityType.Dashboard.toLowerCase(),
-]);
 
 type EntityTypeCount = {
     count: number;

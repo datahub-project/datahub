@@ -3,25 +3,6 @@ import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 
-export const HomePageButton = styled(Button)`
-    margin-right: 12px;
-    margin-left: 12px;
-    margin-bottom: 12px;
-    width: 160px;
-    height: 140px;
-    display: flex;
-    justify-content: center;
-    border-radius: 4px;
-    align-items: center;
-    flex-direction: column;
-    border: 1px solid ${ANTD_GRAY[4]};
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
-    &&:hover {
-        box-shadow: ${(props) => props.theme.styles['box-shadow-hover']};
-    }
-    white-space: unset;
-`;
-
 export const BaseButton = styled(Button)`
     &&& {
         display: flex;

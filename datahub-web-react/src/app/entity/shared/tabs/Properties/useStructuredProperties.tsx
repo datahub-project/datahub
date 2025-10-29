@@ -1,6 +1,5 @@
 
 import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 
 import { PropertyValue, StructuredPropertiesEntry } from '@types';
@@ -39,25 +38,5 @@ export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: St
                 : undefined,
         associatedUrn: structuredPropertiesEntry.associatedUrn,
         attribution: structuredPropertiesEntry.attribution,
-    };
-}
-
-function findAllSubstrings(s: string): Array<string> {
-    const substrings: Array<string> = [];
-
-    for (let i = 0; i < s.length; i++) {
-        if (s[i] === '.') {
-            substrings.push(s.substring(0, i));
-        }
-    }
-    substrings.push(s);
-    return substrings;
-}
-
-function createParentPropertyRow(displayName: string, qualifiedName: string): PropertyRow {
-    return {
-        displayName,
-        qualifiedName,
-        isParentRow: true,
     };
 }

@@ -5,7 +5,6 @@ import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { ViewBuilderState } from '@app/entity/view/types';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
-import { FetchedEntity } from '@app/lineage/types';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
@@ -829,19 +828,6 @@ const dataset6 = {
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:6' }],
         externalUrl: 'https://data.hub',
         lastModified: dataset3.properties?.lastModified,
-    },
-};
-
-const dataset7 = {
-    ...dataset3,
-    name: 'Seventh Test Dataset',
-    urn: 'urn:li:dataset:7',
-    properties: {
-        name: 'Seventh Test Dataset',
-        description: 'This and here we have yet another Dataset (YAN). Are there more?',
-        origin: 'PROD',
-        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
-        externalUrl: 'https://data.hub',
     },
 };
 

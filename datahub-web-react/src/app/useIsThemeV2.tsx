@@ -25,17 +25,6 @@ function useIsThemeV2() {
 }
 
 /**
- * Returns [isThemeV2Toggleable, isAppConfigLoaded]: whether the V2 theme can be toggled by users.
- */
-export function useIsThemeV2Toggleable() {
-    const appConfig = useAppConfig();
-    return [
-        appConfig.config.featureFlags.themeV2Enabled && appConfig.config.featureFlags.themeV2Toggleable,
-        appConfig.loaded,
-    ];
-}
-
-/**
  * Returns [isThemeV2EnabledForUser, isUserLoaded]: whether the V2 theme is turned on for the user.
  */
 function useIsThemeV2EnabledForUser(): [boolean, boolean] {

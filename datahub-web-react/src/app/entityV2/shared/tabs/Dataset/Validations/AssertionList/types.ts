@@ -12,12 +12,6 @@ import {
     TagAssociation,
 } from '@src/types.generated';
 
-type EntityStagedForAssertion = {
-    urn: string;
-    platform: DataPlatform;
-    entityType: EntityType;
-};
-
 export type AssertionListFilter = {
     sortBy: string;
     groupBy: string;

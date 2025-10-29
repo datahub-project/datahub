@@ -1,7 +1,5 @@
 import { green, orange, red } from '@ant-design/colors';
 import moment from 'moment-timezone';
-import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 export function getLastIngestedColor(lastIngested: number) {
     const lastIngestedDate = moment(lastIngested);

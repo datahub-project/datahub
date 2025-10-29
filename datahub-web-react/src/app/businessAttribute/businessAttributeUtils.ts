@@ -1,6 +1,6 @@
 import EntityRegistry from '@app/entity/EntityRegistry';
 
-import { Entity, EntityType } from '@types';
+import { EntityType } from '@types';
 
 export function getRelatedEntitiesUrl(entityRegistry: EntityRegistry, urn: string) {
     return `${entityRegistry.getEntityUrl(EntityType.BusinessAttribute, urn)}/${encodeURIComponent(

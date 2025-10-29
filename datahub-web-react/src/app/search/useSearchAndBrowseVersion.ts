@@ -15,15 +15,3 @@ export const useSearchVersion = () => {
 const useBrowseVersion = () => {
     return useSearchAndBrowseVersion().browseVersion;
 };
-
-export const useIsSearchV2 = () => {
-    return useSearchVersion() === 'v2';
-};
-
-// only show browseV2 if search filtersV2 is also enabled
-export const useIsBrowseV2 = () => {
-    const browseVersion = useBrowseVersion();
-    const searchFiltersVersion = useSearchVersion();
-
-    return browseVersion === 'v2' && searchFiltersVersion === 'v2';
-};

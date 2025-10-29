@@ -39,8 +39,6 @@ export const OUTPUT_PORTS_FIELD = 'isOutputPort';
 export const SCHEMA_FIELD_ALIASES_FILTER_NAME = 'schemaFieldAliases';
 export const IS_DEPRECATED_FILTER_NAME = 'deprecated';
 
-export const LEGACY_ENTITY_FILTER_FIELDS = [ENTITY_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME];
-
 export const FILTER_DELIMITER = '␞';
 
 export const ENTITY_SUB_TYPE_FILTER_FIELDS = [
@@ -121,7 +119,7 @@ export enum UnionType {
 
 export const UNIT_SEPARATOR = '␟';
 
-export const FilterModes = {
+const FilterModes = {
     BASIC: 'basic',
     ADVANCED: 'advanced',
 } as const;

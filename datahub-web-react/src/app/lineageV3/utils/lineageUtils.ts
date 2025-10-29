@@ -1,6 +1,4 @@
 import { useLocation } from 'react-router-dom';
-
-import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 

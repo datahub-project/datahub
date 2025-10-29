@@ -6,7 +6,7 @@ import {
     UnionType,
 } from '@app/search/utils/constants';
 
-import { Entity, EntityType, FacetFilterInput, LogicalOperator } from '@types';
+import { Entity, FacetFilterInput, LogicalOperator } from '@types';
 
 /**
  * Converts the nested subtype filter to be split into entity type filters and subType filters.

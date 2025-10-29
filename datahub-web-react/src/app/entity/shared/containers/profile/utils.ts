@@ -4,7 +4,6 @@ import { useLocation } from 'react-router';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
 import { SEPARATE_SIBLINGS_URL_PARAM } from '@app/entity/shared/siblingUtils';
-import { EntityTab, GenericEntityProperties } from '@app/entity/shared/types';
 
 import { EntityType } from '@types';
 
