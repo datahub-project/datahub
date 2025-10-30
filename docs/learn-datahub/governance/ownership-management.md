@@ -188,4 +188,4 @@ Track these metrics to measure the impact of your ownership program:
 
 Now that you've established clear ownership, you're ready to implement data classification to identify and protect sensitive information.
 
-<NextStepButton href="./data-classification" />
+<NextStepButton to="./data-classification" />

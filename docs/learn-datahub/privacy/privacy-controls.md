@@ -78,6 +78,6 @@ description: 'Document retention period and automate deletion where possible'
 ]}
 />
 
-<NextStepButton href="./compliance-workflows">
+<NextStepButton to="./compliance-workflows">
 Next: Compliance Workflows
 </NextStepButton>

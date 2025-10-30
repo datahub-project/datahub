@@ -388,4 +388,4 @@ Ready to explore more DataHub capabilities? Check out these related tutorials:
 
 - [Data Quality & Monitoring](../quality/overview.md) - Ensure data reliability
 
-<NextStepButton href="../quality/overview" />
+<NextStepButton to="../quality/overview" />

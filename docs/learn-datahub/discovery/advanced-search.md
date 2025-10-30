@@ -80,8 +80,7 @@ description: "Use analysis-focused keywords",
 expected: "Analytical views and processed datasets"
 }
 ]}
-
->
+/>
 
 **What You'll Find**: Here are examples of the datasets your search would discover:
 
@@ -113,7 +112,7 @@ expected: "Analytical views and processed datasets"
   />
 </div>
 
-</SearchExercise>
+
 
 :::tip Pro Tip
 Business users often name things differently than technical teams. Try both perspectives!
@@ -441,9 +440,7 @@ description: "Combine multiple conditions with advanced grouping",
 code: "(name:customer* OR name:user*) AND (description:segment* OR description:cohort*) AND platform:snowflake",
 expected: "Snowflake datasets about customer/user segmentation or cohorts"
 }
-]}
-
->
+]}>
 
 **Your Mission**: Try each level in DataHub and observe how results change. Notice how each level gives you more control and precision. Which approach gives you the most relevant results for marketing analysis?
 
@@ -606,6 +603,6 @@ Try to solve this in 90 seconds: _"Find production-ready customer analytics data
 
 ---
 
-<NextStepButton href="./dataset-profiles">
+<NextStepButton to="./dataset-profiles">
 Next: Understand and Evaluate Your Data
 </NextStepButton>

@@ -142,23 +142,23 @@ This hands-on tutorial uses **real search scenarios** you'll encounter daily:
 
 Throughout this tutorial, you'll work through practical scenarios:
 
-::::info Scenario 1: Targeted Data Discovery
+:::info Scenario 1: Targeted Data Discovery
 **Use Case**: Locate customer segmentation data for a marketing campaign without knowing exact table names.
 
 **Focus Areas**: Exploratory search, filtering, schema analysis
-::::
+:::
 
-::::info Scenario 2: Root Cause Analysis  
+:::info Scenario 2: Root Cause Analysis  
 **Use Case**: Investigate suspicious dashboard numbers by tracing data lineage to identify the source of the issue.
 
 **Focus Areas**: Lineage navigation, data quality assessment, root cause analysis
-::::
+:::
 
-::::info Scenario 3: Knowledge Sharing at Scale
+:::info Scenario 3: Knowledge Sharing at Scale
 **Use Case**: Document insights and context so others can reliably discover and apply the dataset.
 
 **Focus Areas**: Documentation, tagging, collaborative features
-::::
+:::
 
 ## Interactive Learning Features
 

@@ -84,6 +84,6 @@ description: 'Set technical and business owners for accountability'
 ]}
 />
 
-<NextStepButton href="./privacy-controls">
+<NextStepButton to="./privacy-controls">
 Next: Privacy Controls
 </NextStepButton>

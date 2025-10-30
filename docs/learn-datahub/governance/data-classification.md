@@ -269,4 +269,4 @@ Use automated detection for:
 
 With data properly classified, you're ready to create a business glossary that provides consistent definitions and context for your data assets.
 
-<NextStepButton href="./business-glossary" />
+<NextStepButton to="./business-glossary" />

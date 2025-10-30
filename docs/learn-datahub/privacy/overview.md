@@ -137,7 +137,7 @@ description: 'Confirm owners and access controls are documented'
 ]}
 />
 
-<NextStepButton href="./pii-detection">
+<NextStepButton to="./pii-detection">
 Start: PII Detection
 </NextStepButton>
 
@@ -309,4 +309,4 @@ glossaryTerms: ['Privacy by Design', 'Automated Compliance']
 
 Start your privacy compliance journey by implementing automated PII detection that provides complete visibility into personal data across your organization.
 
-<NextStepButton href="./pii-detection" />
+<NextStepButton to="./pii-detection" />

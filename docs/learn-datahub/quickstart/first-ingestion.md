@@ -485,9 +485,9 @@ table_pattern:
 **Next Phase**: With metadata ingestion complete, you can now enable systematic data discovery and analysis across the organization.
 
 <NextStepButton
-to="discovery-basics.md"
+to="discovery-basics"
 tutorialId="quickstart"
 currentStep={1}
-
-> Next: Discover and Explore Your Data
-> </NextStepButton>
+>
+Next: Discover and Explore Your Data
+</NextStepButton>

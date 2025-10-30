@@ -107,13 +107,10 @@ query: "warehouse analytics",
 description: "Find processed analytics data",
 expected: "Warehouse analytics tables and views"
 }
-]}
-
->
+]} />
 
 **Why this works**: This enterprise follows standard naming conventions (`fct_` for fact tables, descriptive names for events).
 
-</SearchExercise>
 
 </TabItem>
 <TabItem value="platform-filters" label="Platform-Based Filtering">
@@ -421,9 +418,9 @@ This lineage view shows you the complete data journey - from raw user events thr
 - How to understand data relationships
 
 <NextStepButton
-to="first-lineage.md"
+to="first-lineage"
 tutorialId="quickstart"
 currentStep={2}
-
-> Next: Explore Data Lineage
-> </NextStepButton>
+>
+Next: Explore Data Lineage
+</NextStepButton>

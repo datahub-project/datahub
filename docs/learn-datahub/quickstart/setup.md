@@ -454,6 +454,6 @@ datahub docker quickstart --port 9003
 to="first-ingestion"
 tutorialId="quickstart"
 currentStep={0}
-
-> Next: Ingest Your First Dataset
-> </NextStepButton>
+>
+Next: Ingest Your First Dataset
+</NextStepButton>

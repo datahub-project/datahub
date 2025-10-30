@@ -569,4 +569,4 @@ Ready to explore more DataHub capabilities? Check out these related tutorials:
 - [Privacy & Compliance](../privacy/overview.md) - Comprehensive privacy protection
 - [Data Governance Fundamentals](../governance/overview.md) - Review governance best practices
 
-<NextStepButton href="../ingestion/overview.md" />
+<NextStepButton to="../ingestion/overview" />

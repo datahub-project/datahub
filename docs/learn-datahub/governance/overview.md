@@ -185,4 +185,4 @@ Each chapter includes:
 
 Start your data governance journey by establishing clear ownership and accountability for your organization's data assets.
 
-<NextStepButton href="./ownership-management" />
+<NextStepButton to="./ownership-management" />

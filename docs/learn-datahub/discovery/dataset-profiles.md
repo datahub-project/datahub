@@ -559,6 +559,6 @@ Choose the best customer dataset for a marketing campaign analysis. Justify your
 
 ---
 
-<NextStepButton href="./collaborative-discovery">
+<NextStepButton to="./collaborative-discovery">
 Next: Collaborate and Share Knowledge
 </NextStepButton>

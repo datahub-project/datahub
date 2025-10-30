@@ -282,4 +282,4 @@ Focus on terms that:
 
 With a comprehensive business glossary in place, you're ready to implement automated governance policies that enforce your data standards at scale.
 
-<NextStepButton href="./governance-policies" />
+<NextStepButton to="./governance-policies" />

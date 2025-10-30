@@ -50,6 +50,6 @@ animated={true}
 </TabItem>
 </Tabs>
 
-<NextStepButton href="./overview">
+<NextStepButton to="./overview">
 Back to Privacy & Compliance Overview
 </NextStepButton>

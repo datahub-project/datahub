@@ -795,9 +795,7 @@ description: "Identify the top 3 assets that need the most protection and monito
 expected: "Create a data reliability action plan"
 }
 ]}
-
->
-
+ 
 **Scenario**: You're the Data Reliability Engineer at TechFlow Analytics. The CEO wants to know which data assets are most critical to business operations.
 
 <DataHubLineageFlow
