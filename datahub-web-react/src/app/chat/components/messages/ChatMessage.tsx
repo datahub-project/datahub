@@ -14,7 +14,7 @@ import {
 
 const MessageContainer = styled.div<{ isUser: boolean }>`
     display: flex;
-    padding: 4px 24px 16px 24px;
+    padding: 4px 24px 0px 24px;
     justify-content: ${(props) => (props.isUser ? 'flex-end' : 'flex-start')};
 `;
 

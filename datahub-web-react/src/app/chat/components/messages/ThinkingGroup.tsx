@@ -1,5 +1,6 @@
-import { Button, colors } from '@components';
+import { Button, Loader, colors } from '@components';
 import { Lightning } from '@phosphor-icons/react';
+import MDEditor from '@uiw/react-md-editor';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -37,11 +38,38 @@ const ThinkingLabelContent = styled.div`
     padding: 4px 0;
 `;
 
+const LiveThinkingContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    color: ${colors.gray[600]};
+    font-size: 12px;
+    line-height: 1.5;
+`;
+
+const LoaderWrapper = styled.div`
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+
+    /* Scale down the loader to half size */
+    & > * {
+        transform: scale(0.5);
+        transform-origin: center;
+    }
+`;
+
+const TextWrapper = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+`;
+
 const ThinkingBubble = styled.div`
-    background-color: ${colors.gray[100]};
-    padding: 8px 12px;
-    border-radius: 8px;
-    max-height: 80px;
+    padding: 8px 0;
+    max-height: 300px;
     overflow-y: auto;
     width: 100%;
     margin-bottom: 8px;
@@ -65,34 +93,68 @@ const ThinkingBubble = styled.div`
     }
 `;
 
-const ThinkingList = styled.ul`
-    margin: 0;
-    padding: 0 0 0 20px;
-    list-style: disc;
-`;
-
-const ThinkingItem = styled.li`
-    font-size: 13px;
+const ThinkingMessageBlock = styled.div`
+    font-size: 12px;
     line-height: 1.5;
-    color: ${colors.gray[700]};
-    margin-bottom: 4px;
+    color: ${colors.gray[600]};
+    margin-bottom: 12px;
 
     &:last-child {
         margin-bottom: 0;
     }
 `;
 
-const ToolItem = styled.ul`
-    margin: 4px 0 0 0;
-    padding: 0 0 0 20px;
-    list-style: circle;
-`;
+const MarkdownContent = styled.div`
+    color: ${colors.gray[600]} !important;
+    font-size: 12px !important;
+    line-height: 1.5;
 
-const ToolSubItem = styled.li`
-    font-size: 12px;
-    line-height: 1.4;
-    color: ${colors.gray[600]};
-    margin-bottom: 2px;
+    & * {
+        color: ${colors.gray[600]} !important;
+        font-size: 12px !important;
+    }
+
+    & p {
+        margin: 0 0 8px 0;
+        color: ${colors.gray[600]} !important;
+    }
+
+    & p:last-child {
+        margin-bottom: 0;
+    }
+
+    & div,
+    & span {
+        color: ${colors.gray[600]} !important;
+    }
+
+    & .wmde-markdown,
+    & .wmde-markdown * {
+        color: ${colors.gray[600]} !important;
+        font-size: 12px !important;
+    }
+
+    & code {
+        background-color: rgba(0, 0, 0, 0.06);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 11px !important;
+        color: ${colors.gray[600]} !important;
+    }
+
+    & pre {
+        background-color: #f6f8fa;
+        padding: 8px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 4px 0;
+    }
+
+    & pre code {
+        background-color: transparent;
+        padding: 0;
+    }
 `;
 
 interface ThinkingGroupProps {
@@ -133,44 +195,64 @@ export const ThinkingGroup: React.FC<ThinkingGroupProps> = ({ messages, verboseM
         }
     }, [messages, isExpanded, isComplete]);
 
-    const renderMessageContent = (message: DataHubAiConversationMessage) => {
-        const { text } = message.content;
-
-        if (message.type === DataHubAiConversationMessageType.Thinking) {
-            return <ThinkingItem key={message.time}>{text}</ThinkingItem>;
+    // Get only thinking messages (filter out tool calls/results unless in verbose mode)
+    const thinkingMessages = messages.filter((msg) => {
+        if (msg.type === DataHubAiConversationMessageType.Thinking) {
+            return true;
         }
-
-        // Only show tool calls/results in verbose mode
-        if (!verboseMode) {
-            return null;
+        // Only include tool messages in verbose mode
+        if (
+            verboseMode &&
+            (msg.type === DataHubAiConversationMessageType.ToolCall ||
+                msg.type === DataHubAiConversationMessageType.ToolResult)
+        ) {
+            return true;
         }
+        return false;
+    });
 
-        if (message.type === DataHubAiConversationMessageType.ToolCall) {
-            return (
-                <ToolItem key={message.time}>
-                    <ToolSubItem>
-                        <strong>Tool:</strong> {text.substring(0, 50)}
-                        {text.length > 50 && '...'}
-                    </ToolSubItem>
-                </ToolItem>
-            );
-        }
+    const lastThinkingMessage = thinkingMessages.length > 0 ? thinkingMessages[thinkingMessages.length - 1] : null;
 
-        if (message.type === DataHubAiConversationMessageType.ToolResult) {
-            return (
-                <ToolItem key={message.time}>
-                    <ToolSubItem>
-                        <strong>Result:</strong> {text.substring(0, 50)}
-                        {text.length > 50 && '...'}
-                    </ToolSubItem>
-                </ToolItem>
-            );
-        }
-
-        return null;
+    const renderLiveThinking = () => {
+        return (
+            <LiveThinkingContainer>
+                <LoaderWrapper>
+                    <Loader size="sm" />
+                </LoaderWrapper>
+                <TextWrapper>
+                    {lastThinkingMessage ? (
+                        <MarkdownContent>
+                            <MDEditor.Markdown
+                                source={lastThinkingMessage.content.text}
+                                style={{ backgroundColor: 'transparent', color: 'inherit' }}
+                            />
+                        </MarkdownContent>
+                    ) : (
+                        <span>Thinking...</span>
+                    )}
+                </TextWrapper>
+            </LiveThinkingContainer>
+        );
     };
 
-    const showBubble = !isComplete || isExpanded;
+    const renderCompletedThinking = () => {
+        return (
+            <ThinkingBubble ref={bubbleRef}>
+                {thinkingMessages.map((message) => (
+                    <ThinkingMessageBlock key={message.time}>
+                        <MarkdownContent>
+                            <MDEditor.Markdown
+                                source={message.content.text}
+                                style={{ backgroundColor: 'transparent', color: 'inherit' }}
+                            />
+                        </MarkdownContent>
+                    </ThinkingMessageBlock>
+                ))}
+            </ThinkingBubble>
+        );
+    };
+
+    const showExpandedContent = isComplete && isExpanded;
 
     const renderLabel = () => {
         const labelText =
@@ -206,18 +288,22 @@ export const ThinkingGroup: React.FC<ThinkingGroupProps> = ({ messages, verboseM
     return (
         <ThinkingContainer>
             <ThinkingContent>
-                <ThinkingHeader>
-                    {renderLabel()}
-                    {isComplete && isExpanded && (
-                        <Button variant="text" size="sm" color="gray" onClick={() => setIsExpanded(false)}>
-                            Hide
-                        </Button>
-                    )}
-                </ThinkingHeader>
-                {showBubble && (
-                    <ThinkingBubble ref={bubbleRef}>
-                        <ThinkingList>{messages.map((message) => renderMessageContent(message))}</ThinkingList>
-                    </ThinkingBubble>
+                {!isComplete ? (
+                    // Live thinking - show spinner with last message
+                    renderLiveThinking()
+                ) : (
+                    // Completed thinking - show collapsible header and content
+                    <>
+                        <ThinkingHeader>
+                            {renderLabel()}
+                            {isExpanded && (
+                                <Button variant="text" size="sm" color="gray" onClick={() => setIsExpanded(false)}>
+                                    Hide
+                                </Button>
+                            )}
+                        </ThinkingHeader>
+                        {showExpandedContent && renderCompletedThinking()}
+                    </>
                 )}
             </ThinkingContent>
         </ThinkingContainer>

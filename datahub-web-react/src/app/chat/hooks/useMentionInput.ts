@@ -91,15 +91,20 @@ export function useMentionInput({ value, onChange, onEntitySelect }: UseMentionI
             return;
         }
 
-        // Ensure there's no whitespace between @ and cursor
-        const query = uptoCursor.slice(atIndexInNode + 1);
-        if (/\s/.test(query)) {
+        // Only trigger mention if @ is at start or preceded by whitespace (to avoid email addresses)
+        const charBeforeAt = atIndexInNode > 0 ? text[atIndexInNode - 1] : '';
+        if (atIndexInNode > 0 && !/\s/.test(charBeforeAt)) {
             if (mentionState.isActive) {
                 setMentionState({ isActive: false, query: '', startIndex: -1, coordinates: { top: 0, left: 0 } });
                 mentionRangeRef.current = null;
             }
+            // Still emit latest text to keep parent value in sync
+            onChange(htmlToMarkdown(root.innerHTML));
             return;
         }
+
+        // Get the query text after @ (allow spaces to search for multi-word asset names)
+        const query = uptoCursor.slice(atIndexInNode + 1);
 
         // Create and store a range that spans @... up to the caret
         const mentionRange = document.createRange();

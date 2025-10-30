@@ -8,7 +8,6 @@ import { SuggestedQuestions } from '@app/chat/components/SuggestedQuestions';
 import { ChatInput } from '@app/chat/components/input/ChatInput';
 import { ChatMessage } from '@app/chat/components/messages/ChatMessage';
 import { ThinkingGroup } from '@app/chat/components/messages/ThinkingGroup';
-import { TypingIndicator } from '@app/chat/components/messages/TypingIndicator';
 import { useChatStream } from '@app/chat/hooks/useChatStream';
 import { ChatFeatureFlags } from '@app/chat/types';
 import { extractReferencesFromMarkdown } from '@app/chat/utils/extractUrnsFromMarkdown';
@@ -27,6 +26,7 @@ const Container = styled.div`
     flex-direction: column;
     min-height: 0;
     flex: 1;
+    overflow: hidden;
 `;
 
 const Header = styled.div`
@@ -401,7 +401,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                 />
                             );
                         })}
-                        {isStreaming && <TypingIndicator />}
+                        {isStreaming &&
+                            (messageGroups.length === 0 ||
+                                messageGroups[messageGroups.length - 1].type !== 'thinking') && (
+                                <ThinkingGroup
+                                    key="streaming-thinking"
+                                    messages={[]}
+                                    verboseMode={featureFlags.verboseMode}
+                                    isComplete={false}
+                                />
+                            )}
                         <div ref={messagesEndRef} />
                     </>
                 )}

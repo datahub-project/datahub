@@ -5,12 +5,9 @@
  * @returns HTML-safe string
  */
 function escapeHtml(text: string): string {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#x27;');
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    // Note: Apostrophes don't need escaping in HTML content (only in attributes)
+    // Escaping them causes cursor position issues due to browser entity decoding
 }
 
 /**
