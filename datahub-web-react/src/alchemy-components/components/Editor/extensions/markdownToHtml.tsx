@@ -14,7 +14,7 @@ marked.use({
 
             /* Check if this is a file link (URL points to our file storage) */
             if (href && isFileUrl(href)) {
-                return `<div class="file-node" ${FILE_ATTRS.url}="${href}" ${FILE_ATTRS.name}="${text}"></div>`;
+                return `<span class="file-node" ${FILE_ATTRS.url}="${href}" ${FILE_ATTRS.name}="${text}"></span>`;
             }
 
             /* Returning false allows marked to use the default link parser */

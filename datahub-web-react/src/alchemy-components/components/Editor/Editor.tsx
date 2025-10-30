@@ -10,6 +10,7 @@ import {
     CodeExtension,
     DropCursorExtension,
     FontSizeExtension,
+    GapCursorExtension,
     HardBreakExtension,
     HeadingExtension,
     HistoryExtension,
@@ -82,6 +83,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 onFileUploadSucceeded,
                 onFileDownloadView,
             }),
+            new GapCursorExtension(), // required to allow cursor placement next to non-editable inline elements
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
