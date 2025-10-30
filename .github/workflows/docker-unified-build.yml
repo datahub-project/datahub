@@ -202,6 +202,10 @@ jobs:
           restore-keys: |
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
+      - uses: gradle/actions/setup-gradle@v4
+      #        with:
+      #          cache-read-only: ${{ github.ref != 'refs/heads/master' }}
+
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@v1
