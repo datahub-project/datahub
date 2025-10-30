@@ -39,6 +39,13 @@ fragment glossaryTerms on GlossaryTerms {
   }
 }
 
+fragment deprecationFields on Deprecation {
+  actor
+  deprecated
+  note
+  decommissionTime
+}
+
 fragment ownershipFields on Ownership {
   owners {
     owner {
@@ -62,12 +69,25 @@ fragment ownershipFields on Ownership {
 fragment schemaMetadataFields on SchemaMetadata {
   fields {
     fieldPath
+    label
+    jsonPath
     nullable
     description
     type
     nativeDataType
+    recursive
+    isPartOfKey
+    isPartitioningKey
     tags {
       ...globalTagsFields
+    }
+    glossaryTerms {
+      ...glossaryTerms
+    }
+    schemaFieldEntity {
+      deprecation {
+        ...deprecationFields
+      }
     }
   }
 }
@@ -110,6 +130,12 @@ fragment ErsatzSearchEntityInfo on Entity {
       editableSchemaFieldInfo {
         fieldPath
         description
+        tags {
+          ...globalTagsFields
+        }
+        glossaryTerms {
+          ...glossaryTerms
+        }
       }
     }
     statsSummary {                                               #[CLOUD]

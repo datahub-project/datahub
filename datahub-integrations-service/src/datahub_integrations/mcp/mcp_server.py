@@ -529,7 +529,7 @@ def clean_get_entities_response(raw_response: dict) -> dict:
                 del schema_metadata["platformSchema"]
 
         # Clean schemaMetadata.fields to keep important fields while reducing size
-        # Keep: fieldPath (required), type, description (truncated), and truthy isPartOfKey/recursive
+        # Keep fields essential for SQL generation and understanding schema structure
         if fields := schema_metadata.get("fields"):
             cleaned_fields = []
             for f in fields:
@@ -538,21 +538,68 @@ def clean_get_entities_response(raw_response: dict) -> dict:
 
                 field_dict = {"fieldPath": f.get("fieldPath")}
 
-                # Add type if present
+                # Add type if present (essential for SQL)
                 if field_type := f.get("type"):
                     field_dict["type"] = field_type
+
+                # Add nativeDataType if present (important for SQL type casting)
+                if native_type := f.get("nativeDataType"):
+                    field_dict["nativeDataType"] = native_type
 
                 # Add description if present (truncated)
                 if description := f.get("description"):
                     field_dict["description"] = description[:120]
 
-                # Add isPartOfKey only if truthy
+                # Add nullable if present (important for SQL NULL handling)
+                if f.get("nullable") is not None:
+                    field_dict["nullable"] = f.get("nullable")
+
+                # Add label if present (useful for human-readable names)
+                if label := f.get("label"):
+                    field_dict["label"] = label
+
+                # Add isPartOfKey only if truthy (important for joins)
                 if f.get("isPartOfKey"):
                     field_dict["isPartOfKey"] = True
+
+                # Add isPartitioningKey only if truthy (important for query optimization)
+                if f.get("isPartitioningKey"):
+                    field_dict["isPartitioningKey"] = True
 
                 # Add recursive only if truthy
                 if f.get("recursive"):
                     field_dict["recursive"] = True
+
+                # Add deprecation status if present (warn about deprecated fields)
+                if schema_field_entity := f.get("schemaFieldEntity"):
+                    if deprecation := schema_field_entity.get("deprecation"):
+                        if deprecation.get("deprecated"):
+                            field_dict["deprecated"] = {
+                                "deprecated": True,
+                                "note": deprecation.get("note", "")[
+                                    :120
+                                ],  # Truncate note
+                            }
+
+                # Add tags if present (keep minimal info for classification context)
+                if tags := f.get("tags"):
+                    if tag_list := tags.get("tags"):
+                        # Keep just tag names for context
+                        field_dict["tags"] = [
+                            t["tag"]["properties"]["name"]
+                            for t in tag_list
+                            if t.get("tag", {}).get("properties", {}).get("name")
+                        ]
+
+                # Add glossary terms if present (keep minimal info for business context)
+                if glossary_terms := f.get("glossaryTerms"):
+                    if terms_list := glossary_terms.get("terms"):
+                        # Keep just term names for context
+                        field_dict["glossaryTerms"] = [
+                            t["term"]["properties"]["name"]
+                            for t in terms_list
+                            if t.get("term", {}).get("properties", {}).get("name")
+                        ]
 
                 cleaned_fields.append(field_dict)
 

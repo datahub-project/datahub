@@ -398,18 +398,37 @@ def test_clean_get_entities_response_with_schema_metadata() -> None:
                     "recursive": False,  # Should be removed
                     "isPartOfKey": False,  # Should be removed
                     "type": "STRING",
+                    "nativeDataType": "VARCHAR(255)",
+                    "nullable": True,
+                    "label": "User ID",
                 },
                 {
                     "fieldPath": "email",
                     "recursive": True,  # Should be kept
                     "isPartOfKey": True,  # Should be kept
+                    "isPartitioningKey": True,  # Should be kept
                     "type": "STRING",
+                    "nullable": False,
+                    "schemaFieldEntity": {
+                        "deprecation": {
+                            "deprecated": True,
+                            "note": "Use user_email instead",
+                        }
+                    },
+                    "tags": {"tags": [{"tag": {"properties": {"name": "PII"}}}]},
                 },
                 {
                     "fieldPath": "created_at",
                     "recursive": None,  # Should be removed
                     "isPartOfKey": None,  # Should be removed
                     "type": "TIMESTAMP",
+                    "nativeDataType": "TIMESTAMP_NTZ",
+                    "nullable": False,
+                    "glossaryTerms": {
+                        "terms": [
+                            {"term": {"properties": {"name": "Record Creation Time"}}}
+                        ]
+                    },
                 },
             ],
         },
@@ -422,16 +441,32 @@ def test_clean_get_entities_response_with_schema_metadata() -> None:
         "name": "users",
         "schemaMetadata": {
             "fields": [
-                {"fieldPath": "user_id", "type": "STRING"},
+                {
+                    "fieldPath": "user_id",
+                    "type": "STRING",
+                    "nativeDataType": "VARCHAR(255)",
+                    "nullable": True,
+                    "label": "User ID",
+                },
                 {
                     "fieldPath": "email",
+                    "type": "STRING",
+                    "nullable": False,
                     "recursive": True,
                     "isPartOfKey": True,
-                    "type": "STRING",
+                    "isPartitioningKey": True,
+                    "deprecated": {
+                        "deprecated": True,
+                        "note": "Use user_email instead",
+                    },
+                    "tags": ["PII"],
                 },
                 {
                     "fieldPath": "created_at",
                     "type": "TIMESTAMP",
+                    "nativeDataType": "TIMESTAMP_NTZ",
+                    "nullable": False,
+                    "glossaryTerms": ["Record Creation Time"],
                 },
             ]
         },
