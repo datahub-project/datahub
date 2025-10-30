@@ -154,15 +154,17 @@ export function useMFEConfigFromYAML(): MFESchema | null {
 export function useDynamicRoutes(): JSX.Element[] {
     const mfeConfig = useMFEConfigFromYAML();
 
+    // Type guard to narrow MFEConfigEntry to MFEConfig
+    const isValidMFEConfig = (entry: MFEConfigEntry): entry is MFEConfig => !('invalid' in entry && entry.invalid);
+
     return useMemo(() => {
         if (!mfeConfig) {
             console.warn('[DynamicRoute] No MFE config available');
             return [];
         }
         console.log('[DynamicRoute] MFE Config:', mfeConfig);
-        // Only include valid MFEs in routes
         return mfeConfig.microFrontends
-            .filter((mfe) => !('invalid' in mfe && mfe.invalid))
+            .filter(isValidMFEConfig)
             .map((mfe) => (
                 <Route key={mfe.path} path={mfe.path} render={() => <MFEBaseConfigurablePage config={mfe} />} />
             ));
