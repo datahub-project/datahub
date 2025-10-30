@@ -23,9 +23,27 @@ export function useIsProductAnnouncementEnabled() {
 
 /**
  * Hook to fetch the announcement data (eventually can replace with fetch).
+ * Dynamically injects the current app version into version placeholders.
  */
 export function useGetLatestProductAnnouncementData() {
-    return latestUpdate;
+    const { config } = useAppConfig();
+    const appVersion = config?.appVersion;
+
+    // If no version available, return template as-is
+    if (!appVersion) {
+        return latestUpdate;
+    }
+
+    // Replace version placeholders with actual version
+    // Convert version for URL (e.g., v1.3.0 -> v1-3-0)
+    const urlVersion = appVersion.replace(/\./g, '-');
+
+    return {
+        ...latestUpdate,
+        id: latestUpdate.id.replace(/{{VERSION}}/g, appVersion),
+        description: latestUpdate.description?.replace(/{{VERSION}}/g, appVersion) || latestUpdate.description,
+        ctaLink: latestUpdate.ctaLink.replace(/{{VERSION}}/g, urlVersion),
+    };
 }
 
 export type ProductAnnouncementResult = {

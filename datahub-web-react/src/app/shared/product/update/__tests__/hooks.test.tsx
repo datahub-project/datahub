@@ -110,9 +110,41 @@ describe('product update hooks', () => {
     });
 
     describe('useGetLatestProductAnnouncementData', () => {
-        it('returns latest update object', () => {
+        it('returns template with placeholders when no version is available', () => {
+            vi.spyOn(useAppConfigModule, 'useAppConfig').mockReturnValue({
+                config: {
+                    appVersion: undefined,
+                },
+            } as any);
+
             const { result } = renderHook(() => useGetLatestProductAnnouncementData());
             expect(result.current).toBe(latestUpdate);
+            expect(result.current.id).toBe('{{VERSION}}');
+            expect(result.current.description).toBe('Explore version {{VERSION}}');
+        });
+
+        it('injects version into placeholders when appVersion is available', () => {
+            vi.spyOn(useAppConfigModule, 'useAppConfig').mockReturnValue({
+                config: {
+                    appVersion: 'v1.3.0',
+                },
+            } as any);
+
+            const { result } = renderHook(() => useGetLatestProductAnnouncementData());
+            expect(result.current.id).toBe('v1.3.0');
+            expect(result.current.description).toBe('Explore version v1.3.0');
+            expect(result.current.ctaLink).toBe('https://docs.datahub.com/docs/releases#v1-3-0');
+        });
+
+        it('handles version format correctly for URL conversion', () => {
+            vi.spyOn(useAppConfigModule, 'useAppConfig').mockReturnValue({
+                config: {
+                    appVersion: 'v1.4.5',
+                },
+            } as any);
+
+            const { result } = renderHook(() => useGetLatestProductAnnouncementData());
+            expect(result.current.ctaLink).toBe('https://docs.datahub.com/docs/releases#v1-4-5');
         });
     });
 
