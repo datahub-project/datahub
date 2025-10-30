@@ -9,5 +9,9 @@ source:
     username: db2inst1
     password: password
 
-sink:
-  # sink configs
+    # Optional TLS
+    # uri_args:
+    #   Security: SSL
+
+    # Use the IBM i Access ODBC Driver to connect to Db2 for IBM i (AS/400)
+    # scheme: db2+pyodbc400
