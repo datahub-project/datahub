@@ -620,8 +620,8 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             )
             self.reporter.report_warning(
                 title="Field Chunk Processing Failed",
-                message=f"Failed to process field chunk {chunk_idx + 1} with {len(field_chunk)} fields",
-                context=f"View-name: {self.view_context.name()}, Chunk: {chunk_idx + 1}",
+                message="Failed to process field chunk with fields",
+                context=f"View-name: {self.view_context.name()}, Chunk: {chunk_idx + 1}, Field count: {len(field_chunk)}",
                 exc=e,
             )
 
@@ -701,13 +701,12 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         if problematic_fields:
             logger.warning(
                 f"Identified {len(problematic_fields)} problematic fields for view '{self.view_context.name()}': "
-                f"{problematic_fields[:5]}{'...' if len(problematic_fields) > 5 else ''}"
+                f"{problematic_fields}"
             )
             self.reporter.report_warning(
                 title="Problematic Fields Identified",
-                message=f"Identified {len(problematic_fields)} problematic fields that cannot be processed: "
-                f"{', '.join(problematic_fields[:10])}{'...' if len(problematic_fields) > 10 else ''}",
-                context=f"View-name: {self.view_context.name()}, Total problematic: {len(problematic_fields)}",
+                message="Identified problematic fields that cannot be processed",
+                context=f"View-name: {self.view_context.name()}, Total problematic: {len(problematic_fields)}, Fields: {', '.join(problematic_fields[:10])}{'...' if len(problematic_fields) > 10 else ''}",
             )
 
         logger.info(
@@ -759,7 +758,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             )
             self.reporter.report_warning(
                 title="Individual Field Processing Failed",
-                message=f"Failed to process individual field '{field_name}'",
+                message="Failed to process individual field",
                 context=f"View-name: {self.view_context.name()}, Field: {field_name}",
                 exc=e,
             )
@@ -916,29 +915,22 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             # All queries succeeded
             self.reporter.report_warning(
                 title="Field Splitting Statistics - Complete Success",
-                message=f"Field splitting completed successfully for view '{self.view_context.name()}': "
-                f"Total fields: {total_fields}, Chunks: {total_chunks}, "
-                f"Upstream tables: {upstream_tables}, Column lineages: {column_lineages}{fallback_info}",
-                context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%",
+                message="Field splitting completed successfully",
+                context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%, Total fields: {total_fields}, Chunks: {total_chunks}, Upstream tables: {upstream_tables}, Column lineages: {column_lineages}{fallback_info}",
             )
         elif success_rate > 0:
             # Partial success
             self.reporter.report_warning(
                 title="Field Splitting Statistics - Partial Success",
-                message=f"Field splitting completed with partial results for view '{self.view_context.name()}': "
-                f"Total fields: {total_fields}, Chunks: {total_chunks}, "
-                f"Successful queries: {successful_queries}, Failed queries: {failed_queries}, "
-                f"Upstream tables: {upstream_tables}, Column lineages: {column_lineages}{fallback_info}",
-                context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%",
+                message="Field splitting completed with partial results",
+                context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%, Total fields: {total_fields}, Chunks: {total_chunks}, Successful queries: {successful_queries}, Failed queries: {failed_queries}, Upstream tables: {upstream_tables}, Column lineages: {column_lineages}{fallback_info}",
             )
         else:
             # Complete failure
             self.reporter.report_warning(
                 title="Field Splitting Statistics - Complete Failure",
-                message=f"Field splitting failed completely for view '{self.view_context.name()}': "
-                f"Total fields: {total_fields}, Chunks: {total_chunks}, "
-                f"All {failed_queries} queries failed{fallback_info}",
-                context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%",
+                message="Field splitting failed completely",
+                context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%, Total fields: {total_fields}, Chunks: {total_chunks}, All {failed_queries} queries failed{fallback_info}",
             )
 
     def _get_time_dim_group_field_name(self, dim_group: dict) -> str:
@@ -1396,11 +1388,19 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 lineage.downstream.column.lower().startswith(name)
                 for name in field_api_names
             ):
+                # Log if there are no upstreams
+                if not lineage.upstreams:
+                    logger.debug(
+                        f"view-name={self.view_context.name()}, field-name={field_name}, field-api-names={field_api_names}, lineage-downstream-column={lineage.downstream.column}, no-upstreams"
+                    )
                 for upstream in lineage.upstreams:
                     upstream_refs.append(
                         ColumnRef(table=upstream.table, column=upstream.column)
                     )
-
+            else:
+                logger.debug(
+                    f"view-name={self.view_context.name()}, field-name={field_name}, field-api-names={field_api_names}, no-match"
+                )
         return _drop_hive_dot_from_upstream(upstream_refs)
 
     def create_fields(self) -> List[ViewField]:
