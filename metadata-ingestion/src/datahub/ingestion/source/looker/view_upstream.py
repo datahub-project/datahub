@@ -444,6 +444,19 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             assert explore_name  # Happy linter
 
             view_fields = self._get_fields_from_looker_api(explore_name)
+            # TODO: Remove this after debugging
+            logger.debug(
+                f"view-name={self.view_context.name()}, total-fields-from-looker-api={len(view_fields)}, total-fields-from-view-context={len(self._get_fields_from_view_context())}"
+            )
+            # Compare diff between view fields, if any, print the diff
+            # Compute set differences in both directions to identify fields missing from Looker API and fields extra in Looker API
+            view_context_fields = set(self._get_fields_from_view_context())
+            view_fields_set = set(view_fields)
+            missing_from_looker_api = view_context_fields - view_fields_set
+            extra_in_looker_api = view_fields_set - view_context_fields
+            logger.debug(
+                f"view-name={self.view_context.name()}, missing-from-looker-api={missing_from_looker_api}, extra-in-looker-api={extra_in_looker_api}"
+            )
             if not view_fields:
                 view_fields = self._get_fields_from_view_context()
 
