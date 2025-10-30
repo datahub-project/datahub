@@ -93,6 +93,7 @@ public class ElasticSearchServiceFactory {
     return new ElasticSearchService(
         components.getIndexBuilder(),
         configurationProvider.getSearchService(),
+        configurationProvider.getElasticSearch(),
         mappingsBuilder,
         settingsBuilder,
         esSearchDAO,

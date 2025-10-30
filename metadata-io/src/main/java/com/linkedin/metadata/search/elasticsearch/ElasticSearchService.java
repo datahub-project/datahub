@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
@@ -44,6 +45,7 @@ import org.opensearch.action.search.SearchResponse;
 public class ElasticSearchService implements EntitySearchService, ElasticSearchIndexed {
   private final ESIndexBuilder indexBuilder;
   @Getter private final SearchServiceConfiguration searchServiceConfig;
+  private final ElasticSearchConfiguration elasticSearchConfiguration;
   private final MappingsBuilder mappingsBuilder;
   private final SettingsBuilder settingsBuilder;
 

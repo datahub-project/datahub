@@ -19,6 +19,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
@@ -78,6 +79,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mock(ESSearchDAO.class),
@@ -98,6 +100,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             searchServiceConfig,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mock(ESSearchDAO.class),
@@ -201,6 +204,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,
@@ -262,6 +266,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,
@@ -319,6 +324,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,
@@ -358,6 +364,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,
@@ -549,6 +556,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             nonStrictSearchConfig,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mock(ESSearchDAO.class),
@@ -631,6 +639,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockSearchDAO,
@@ -700,6 +709,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockSearchDAO,
@@ -754,6 +764,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockSearchDAO,
@@ -822,6 +833,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockSearchDAO,
@@ -890,6 +902,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockSearchDAO,
@@ -934,6 +947,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockSearchDAO,
@@ -985,6 +999,7 @@ public class ElasticSearchServiceTest {
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
             TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
             mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mock(ESSearchDAO.class),

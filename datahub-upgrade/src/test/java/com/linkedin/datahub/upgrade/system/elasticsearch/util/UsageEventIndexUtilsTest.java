@@ -34,6 +34,9 @@ public class UsageEventIndexUtilsTest {
   public void setUp() {
     MockitoAnnotations.openMocks(this);
     Mockito.when(esComponents.getSearchClient()).thenReturn(searchClient);
+    // Mock OperationContext to return a real ObjectMapper for JSON parsing
+    Mockito.when(operationContext.getObjectMapper())
+        .thenReturn(new com.fasterxml.jackson.databind.ObjectMapper());
   }
 
   @Test
@@ -103,6 +106,48 @@ public class UsageEventIndexUtilsTest {
   }
 
   @Test
+  public void testCreateIlmPolicy_OuterResponseException409() throws IOException {
+    // Arrange
+    String policyName = "test_policy";
+
+    // Mock ResponseException with 409 status directly (not through retry logic)
+    // This covers the outer catch block: } catch (ResponseException e) { if
+    // (e.getResponse().getStatusLine().getStatusCode() == 409) { log.info("ILM policy {} already
+    // exists", policyName); } else { throw e; } }
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException); // Direct ResponseException with 409
+
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 409; // Outer ResponseException with 409
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Conflict";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return new org.apache.http.ProtocolVersion("HTTP", 1, 1);
+              }
+            });
+
+    // Act
+    UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+
+    // Assert - Should succeed due to outer catch block handling 409
+    // Should make 1 call that throws ResponseException with 409
+    Mockito.verify(searchClient, Mockito.times(1))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
   public void testCreateIlmPolicy_Conflict() throws IOException {
     // Arrange
     String policyName = "test_policy";
@@ -164,6 +209,39 @@ public class UsageEventIndexUtilsTest {
 
     // Act
     UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+  }
+
+  @Test(expectedExceptions = IOException.class)
+  public void testCreateIlmPolicy_NonSuccessStatusCode() throws IOException {
+    // Arrange
+    String policyName = "test_policy";
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 400; // Bad Request - not 200, 201, or 409
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Bad Request";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Act
+    UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+
+    // Assert - Should throw IOException after retries fail
+    // This tests the specific error handling: log.error("ILM policy creation returned status: {}",
+    // statusCode);
   }
 
   @Test
@@ -343,6 +421,407 @@ public class UsageEventIndexUtilsTest {
   }
 
   @Test
+  public void testCreateIsmPolicy_OuterExceptionHandling() throws IOException {
+    // Arrange
+    String policyName = "test_policy";
+    String prefix = "test_";
+
+    // Create a mock esComponents that throws an exception when getSearchClient() is called
+    // This will trigger the outer catch block: catch (Exception e) { log.error("Unexpected error
+    // creating ISM policy {}: {}", policyName, e.getMessage(), e); return false; }
+    BaseElasticSearchComponentsFactory.BaseElasticSearchComponents mockEsComponents =
+        Mockito.mock(BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class);
+    Mockito.when(mockEsComponents.getSearchClient())
+        .thenThrow(new RuntimeException("Search client initialization failed"));
+
+    // Act
+    boolean result =
+        UsageEventIndexUtils.createIsmPolicy(
+            mockEsComponents, policyName, prefix, operationContext);
+
+    // Assert - Should return false due to outer exception handling
+    Assert.assertFalse(result);
+    // No calls to performLowLevelRequest should be made since the exception occurs before retry
+    // logic
+    Mockito.verify(searchClient, Mockito.never())
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateIsmPolicy_GetResponse404() throws IOException {
+    // Arrange
+    String policyName = "test_policy";
+    String prefix = "test_";
+
+    // Mock GET request returning 404 status (policy doesn't exist)
+    // This covers the code path: if (getStatusCode == 404) { return createNewPolicy(esComponents,
+    // endpoint, policyJson, policyName); }
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse) // Mock successful GET response with 404
+        .thenReturn(rawResponse); // Mock successful PUT response for policy creation
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 404; // First call returns 404 (GET), second call returns 201 (PUT)
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Not Found";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return new org.apache.http.ProtocolVersion("HTTP", 1, 1);
+              }
+            })
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 201; // Second call returns 201 (PUT)
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Created";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return new org.apache.http.ProtocolVersion("HTTP", 1, 1);
+              }
+            });
+
+    // Act
+    boolean result =
+        UsageEventIndexUtils.createIsmPolicy(esComponents, policyName, prefix, operationContext);
+
+    // Assert - Should return true since policy was successfully created
+    Assert.assertTrue(result);
+    // Should make 2 calls: GET (404) then PUT (201)
+    Mockito.verify(searchClient, Mockito.times(2))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateIsmPolicy_ResponseExceptionRetryableError() throws IOException {
+    // Arrange
+    String policyName = "test_policy";
+    String prefix = "test_";
+
+    // Mock ResponseException with 400 status (retryable error)
+    // This covers the code path: log.warn("ISM policy operation failed with status: {}. Response:
+    // {}. Will retry.", statusCode, responseBody); throw new RuntimeException("Retryable error: " +
+    // statusCode + " - " + responseBody);
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException);
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 400; // Retryable error status
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Bad Request";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return new org.apache.http.ProtocolVersion("HTTP", 1, 1);
+              }
+            });
+
+    // Act
+    boolean result =
+        UsageEventIndexUtils.createIsmPolicy(esComponents, policyName, prefix, operationContext);
+
+    // Assert - Should return false due to retryable error after exhausting retries
+    Assert.assertFalse(result);
+    // Should make 5 calls due to retry logic
+    Mockito.verify(searchClient, Mockito.times(5))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateIsmPolicy_HandleExistingPolicyUpdateFailure() throws IOException {
+    // Arrange
+    String policyName = "test_policy";
+    String prefix = "test_";
+
+    // Mock ResponseException with 200 status (policy already exists)
+    // This will trigger handleExistingPolicy, but we'll mock updateIsmPolicy to throw an exception
+    // This covers the code path: } catch (Exception updateException) { log.warn("Failed to update
+    // existing ISM policy {} (non-fatal): {}", policyName, updateException.getMessage()); return
+    // true; }
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException);
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 200; // Policy already exists
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "OK";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return new org.apache.http.ProtocolVersion("HTTP", 1, 1);
+              }
+            });
+
+    // Mock the updateIsmPolicy call to throw an exception
+    // This simulates the scenario where the policy exists but updating it fails
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException) // First call throws 200 ResponseException
+        .thenThrow(
+            new RuntimeException(
+                "Update failed")); // Second call (from updateIsmPolicy) throws exception
+
+    // Act
+    boolean result =
+        UsageEventIndexUtils.createIsmPolicy(esComponents, policyName, prefix, operationContext);
+
+    // Assert - Should return true even though update failed (non-fatal)
+    Assert.assertTrue(result);
+    // Should make 2 calls: first GET (200), then PUT (throws exception)
+    Mockito.verify(searchClient, Mockito.times(2))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateIsmPolicy_CreateNewPolicy409Conflict() throws IOException {
+    // Arrange
+    String policyName = "test_policy";
+    String prefix = "test_";
+
+    // Mock GET request returning 404 status (policy doesn't exist)
+    // This will trigger createNewPolicy, but we'll mock the PUT request to return 409 Conflict
+    // This covers the code path: if (createStatusCode == 409) { log.info("ISM policy {} already
+    // exists", policyName); return true; }
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse) // Mock successful GET response with 404
+        .thenReturn(rawResponse); // Mock successful PUT response with 409 Conflict
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 404; // First call returns 404 (GET)
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Not Found";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return new org.apache.http.ProtocolVersion("HTTP", 1, 1);
+              }
+            })
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 409; // Second call returns 409 Conflict (PUT)
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Conflict";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return new org.apache.http.ProtocolVersion("HTTP", 1, 1);
+              }
+            });
+
+    // Act
+    boolean result =
+        UsageEventIndexUtils.createIsmPolicy(esComponents, policyName, prefix, operationContext);
+
+    // Assert - Should return true since 409 means policy already exists (success)
+    Assert.assertTrue(result);
+    // Should make 2 calls: GET (404) then PUT (409)
+    Mockito.verify(searchClient, Mockito.times(2))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateIsmPolicy_CreateNewPolicyErrorStatus() throws IOException {
+    // Arrange
+    String policyName = "test_policy";
+    String prefix = "test_";
+
+    // Mock GET request returning 404 status (policy doesn't exist)
+    // This will trigger createNewPolicy, but we'll mock the PUT request to return 500 Internal
+    // Server Error
+    // This covers the code path: log.error("ISM policy creation returned status: {}",
+    // createStatusCode); return false;
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse) // Mock successful GET response with 404
+        .thenReturn(rawResponse); // Mock successful PUT response with 500
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 404; // First call returns 404 (GET)
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Not Found";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return new org.apache.http.ProtocolVersion("HTTP", 1, 1);
+              }
+            })
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 500; // Second call returns 500 (PUT) - error status
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Internal Server Error";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return new org.apache.http.ProtocolVersion("HTTP", 1, 1);
+              }
+            });
+
+    // Act
+    boolean result =
+        UsageEventIndexUtils.createIsmPolicy(esComponents, policyName, prefix, operationContext);
+
+    // Assert - Should return false due to error status
+    Assert.assertFalse(result);
+    // Should make 2 calls: GET (404) then PUT (500)
+    Mockito.verify(searchClient, Mockito.times(2))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateIsmPolicy_CreateNewPolicyIOException() throws IOException {
+    // Arrange
+    String policyName = "test_policy";
+    String prefix = "test_";
+
+    // Mock GET request returning 404 status (policy doesn't exist)
+    // This will trigger createNewPolicy, but we'll mock the PUT request to throw IOException
+    // This covers the code path: } catch (IOException e) { log.error("Failed to create ISM policy
+    // {}: {}", policyName, e.getMessage()); return false; }
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse) // Mock successful GET response with 404
+        .thenThrow(new IOException("Network connection failed")); // Second call throws IOException
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 404; // First call returns 404 (GET)
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Not Found";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return new org.apache.http.ProtocolVersion("HTTP", 1, 1);
+              }
+            });
+
+    // Act
+    boolean result =
+        UsageEventIndexUtils.createIsmPolicy(esComponents, policyName, prefix, operationContext);
+
+    // Assert - Should return false due to IOException
+    Assert.assertFalse(result);
+    // Should make 2 calls: GET (404) then PUT (throws IOException)
+    Mockito.verify(searchClient, Mockito.times(2))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateIsmPolicy_ExtractResponseBodyIOException() throws IOException {
+    // Arrange
+    String policyName = "test_policy";
+    String prefix = "test_";
+
+    // Mock ResponseException with 400 status (retryable error)
+    // This will trigger handleResponseException, which calls extractResponseBody
+    // We'll mock the response entity to throw IOException when reading content
+    // This covers the code path: } catch (IOException e) { return "Error reading response body: " +
+    // e.getMessage(); }
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException); // ResponseException with 400 status
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 400; // Retryable error status
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Bad Request";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return new org.apache.http.ProtocolVersion("HTTP", 1, 1);
+              }
+            });
+
+    // Mock the response entity to throw IOException when reading content
+    org.opensearch.client.Response mockResponse =
+        Mockito.mock(org.opensearch.client.Response.class);
+    org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
+    Mockito.when(responseException.getResponse()).thenReturn(mockResponse);
+    Mockito.when(mockResponse.getEntity()).thenReturn(mockEntity);
+    Mockito.when(mockEntity.getContent())
+        .thenThrow(new IOException("Failed to read response content"));
+
+    // Act
+    boolean result =
+        UsageEventIndexUtils.createIsmPolicy(esComponents, policyName, prefix, operationContext);
+
+    // Assert - Should return false due to retryable error after exhausting retries
+    Assert.assertFalse(result);
+    // Should make 5 calls due to retry logic
+    Mockito.verify(searchClient, Mockito.times(5))
+        .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
   public void testCreateDataStream_Success() throws IOException {
     // Arrange
     String dataStreamName = "test_datastream";
@@ -450,6 +929,32 @@ public class UsageEventIndexUtilsTest {
         .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
         .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
+  }
+
+  @Test
+  public void testCreateOpenSearchIndex_NotAcknowledged() throws IOException {
+    // Arrange
+    String indexName = "test_index";
+    String prefix = "test_";
+    Mockito.when(
+            searchClient.indexExists(
+                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(false);
+    Mockito.when(
+            searchClient.createIndex(
+                Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(createIndexResponse);
+    Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(false); // Not acknowledged
+
+    // Act
+    UsageEventIndexUtils.createOpenSearchIndex(esComponents, indexName, prefix);
+
+    // Assert
+    Mockito.verify(searchClient)
+        .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+    Mockito.verify(searchClient)
+        .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
+    // The method should complete without throwing an exception, but log a warning
   }
 
   @Test
@@ -600,6 +1105,39 @@ public class UsageEventIndexUtilsTest {
   }
 
   @Test
+  public void testCreateIndexTemplate_Success201() throws IOException {
+    // Arrange
+    String templateName = "test_template";
+    String prefix = "test_";
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 201; // Created status code
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Created";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Act
+    UsageEventIndexUtils.createIndexTemplate(esComponents, templateName, "policy", 1, 1, prefix);
+
+    // Assert
+    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
   public void testCreateIndexTemplate_Conflict() throws IOException {
     // Arrange
     String templateName = "test_template";
@@ -684,6 +1222,39 @@ public class UsageEventIndexUtilsTest {
               @Override
               public String getReasonPhrase() {
                 return "OK";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Act
+    UsageEventIndexUtils.createOpenSearchIndexTemplate(esComponents, templateName, 1, 1, prefix);
+
+    // Assert
+    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testCreateOpenSearchIndexTemplate_Success201() throws IOException {
+    // Arrange
+    String templateName = "test_template";
+    String prefix = "test_";
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+    Mockito.when(rawResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 201; // Created status code
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Created";
               }
 
               @Override
@@ -805,8 +1376,9 @@ public class UsageEventIndexUtilsTest {
     // Act
     UsageEventIndexUtils.updateIsmPolicy(esComponents, policyName, prefix, operationContext);
 
-    // Assert - Only one GET request should be made since we can't extract seq_no and primary_term
-    Mockito.verify(searchClient, Mockito.times(1))
+    // Assert - Should make 2 calls: GET to retrieve policy, then PUT to update with concurrency
+    // control
+    Mockito.verify(searchClient, Mockito.times(2))
         .performLowLevelRequest(Mockito.any(Request.class));
   }
 

@@ -119,6 +119,7 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
         new ElasticSearchService(
             getIndexBuilder(),
             TEST_SEARCH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
             new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
             settingsBuilder,
             searchDAO,

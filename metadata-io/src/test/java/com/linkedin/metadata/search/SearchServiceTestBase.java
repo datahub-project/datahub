@@ -196,6 +196,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
         new ElasticSearchService(
             getIndexBuilder(),
             TEST_SEARCH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
             new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
             settingsBuilder,
             searchDAO,
@@ -227,6 +228,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
         new ElasticSearchService(
             getIndexBuilder(),
             TEST_SEARCH_SERVICE_CONFIG,
+            esConfig,
             new V2MappingsBuilder(esConfig.getEntityIndex()),
             settingsBuilder,
             searchDAO,

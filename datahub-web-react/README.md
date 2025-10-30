@@ -82,16 +82,20 @@ you can change two things without rebuilding.
 
 #### Selecting a theme
 
-Theme configurations are stored in `./src/conf/theme`. To select a theme, choose one and update the `REACT_APP_THEME_CONFIG` env variable stored in `.env`.
-To change the selected theme, update the `.env` file and re-run `yarn start` from `datahub/datahub-web-react`.
+Theme configurations are defined in `./src/conf/theme/themes.ts`. By default, the theme is chosen based on the `REACT_APP_CUSTOM_THEME_ID` env variable in GMS. If no theme is specified, the default themes `themeV2` or `themeV1` are used based on whether the V2 UI is enabled, which is controlled by environment variables `THEME_V2_ENABLED`, `THEME_V2_DEFAULT`, and `THEME_V2_TOGGLEABLE` in GMS. See `metadata-service/configuration/src/main/resources/application.yaml` for more details.
+
+For quick local development, you can set env variable `REACT_APP_THEME` in `.env` to any of the themes defined in `themes.ts`.
+
+We are transitioning away from Ant theming, but still depend on it for some styling. The Ant theme is stored in json files, in `./src/conf/theme`. To select the Ant theme, choose a json file and set env variable `ANT_THEME_CONFIG` in `.env` to the theme's filename, including `.json`, then re-run `yarn start` from `datahub/datahub-web-react`.
 
 #### Editing a theme
 
-To edit an existing theme, the recommendation is to clone one of the existing themes into a new file with the name `<your_themes_name>.config.json`,
-and then update the env variable as descibed above. The theme files have three sections, `styles`, `assets` and `content`. The type of the theme configs is specified
-in `./src/conf/theme/types.ts`.
+To edit an existing theme, the recommendation is to clone one of the existing themes into a new file with the name `<your_themes_name>.ts`, then update `themes.ts` by importing your theme and adding it to the `themes` object. You can also create a json theme by creating a new file in `./src/conf/theme` with the name `<your_themes_name>.config.json`. The theme interface is defined in `./src/conf/theme/types.ts` and has four sections:
 
-`styles` configure overrides for the apps theming variables.
+`colors` configures semantic color tokens.
+These are not yet widely used but will be the primary way to configure colors in the app going forward.
+
+`styles` configures overrides for the app's deprecated theming variables and for Ant components.
 
 `assets` configures the logo url.
 
