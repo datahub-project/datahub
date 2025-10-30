@@ -1620,6 +1620,12 @@ def _sqlglot_lineage_nocache(
             override_dialect=override_dialect,
         )
     except Exception as e:
+        sql_str = str(sql) if not isinstance(sql, str) else sql
+        logger.error(
+            f"SQL parsing failed with table_error: {type(e).__name__}: {e}. "
+            f"SQL statement: {sql_str[:500]}...",
+            exc_info=True,
+        )
         return SqlParsingResult.make_from_error(e)
     except BaseException as e:
         # Check if this is a PanicException from SQLGlot's Rust tokenizer
@@ -1635,10 +1641,16 @@ def _sqlglot_lineage_nocache(
             # KeyboardInterrupt) rather than Exception, so it bypasses normal exception handling.
             # Avoid catching BaseException, as it includes KeyboardInterrupt
             # and would prevent Ctrl+C from working.
+            sql_str = str(sql) if not isinstance(sql, str) else sql
             wrapped_exception = Exception(
                 f"pyo3_runtime.PanicException during SQL parsing: {e}"
             )
             wrapped_exception.__cause__ = e
+            logger.error(
+                f"SQL parsing failed with table_error: PanicException: {e}. "
+                f"SQL statement: {sql_str[:500]}...",
+                exc_info=True,
+            )
             return SqlParsingResult.make_from_error(wrapped_exception)
         else:
             # Re-raise other BaseException types (SystemExit, KeyboardInterrupt, etc.)
@@ -1738,6 +1750,11 @@ def create_lineage_sql_parsed_result(
             override_dialect=override_dialect,
         )
     except Exception as e:
+        logger.error(
+            f"SQL lineage parsing failed with table_error: {type(e).__name__}: {e}. "
+            f"Query: {str(query)[:500]}...",
+            exc_info=True,
+        )
         return SqlParsingResult.make_from_error(e)
     finally:
         if needs_close:

@@ -332,6 +332,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     filters=self.filters,
                     identifiers=self.identifiers,
                     redundant_run_skip_handler=redundant_queries_run_skip_handler,
+                    graph=self.ctx.graph,
                     schema_resolver=self.sql_parser_schema_resolver,
                     discovered_tables=self.bq_schema_extractor.table_refs,
                 ) as queries_extractor,
