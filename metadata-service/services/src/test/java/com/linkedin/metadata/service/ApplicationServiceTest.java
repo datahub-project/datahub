@@ -351,7 +351,8 @@ public class ApplicationServiceTest {
   public void testBatchUnsetApplicationRemovesSpecificApplication() throws Exception {
     // Mock: Resource has two applications, we want to remove one
     Applications existingApps = new Applications();
-    existingApps.setApplications(new UrnArray(ImmutableList.of(TEST_APPLICATION_URN, TEST_APPLICATION_URN_2)));
+    existingApps.setApplications(
+        new UrnArray(ImmutableList.of(TEST_APPLICATION_URN, TEST_APPLICATION_URN_2)));
 
     EntityResponse response = new EntityResponse();
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
