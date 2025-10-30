@@ -202,6 +202,14 @@ jobs:
           restore-keys: |
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ./datahub-web-react/node_modules
+          key: node_modules-${{ needs.setup.outputs.yarn_cache_key }}
+          restore-keys: |
+            node_modules_${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
       # - uses: gradle/actions/setup-gradle@v4
       #        with:
       #          cache-read-only: ${{ github.ref != 'refs/heads/master' }}
@@ -230,3 +238,13 @@ jobs:
             BUILD_TASK=":docker:buildImagesQuickstart"
           fi
           ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} --info --no-parallel
+
+      - name: Delete yarn-integrity key before caching
+        run: |
+          rm ./datahub-web-react/node_modules/.yarn-integrity
+
+      - uses: actions/cache/save@v4
+        with:
+          path: |
+            ./datahub-web-react/node_modules
+          key: node_modules-${{ needs.setup.outputs.yarn_cache_key }}
