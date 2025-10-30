@@ -264,6 +264,9 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
     const prevSubscriptions = (previousSearchResults?.searchAcrossEntities?.searchResults?.map(
         (result) => result.entity,
     ) || []) as DataHubSubscription[];
+    const actorUrnFacet = searchResults?.searchAcrossEntities?.facets?.find((facet) => facet.field === 'actorUrn');
+    const allSubscriptionOwners: (CorpUser | CorpGroup)[] =
+        actorUrnFacet?.aggregations?.map((aggregation) => aggregation.entity as CorpUser | CorpGroup) || [];
     const numSubscriptions = searchResults?.searchAcrossEntities?.total || 0;
 
     const handleFilterChange = (filter: SubscriptionListFilter) => {
@@ -416,6 +419,7 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
         <SubscriptionContentWrapper>
             <SubscriptionListFilters
                 subscriptions={subscriptions}
+                allSubscriptionOwners={allSubscriptionOwners}
                 selectedFilters={selectedFilters}
                 handleFilterChange={handleFilterChange}
                 viewer={user}
@@ -427,6 +431,9 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
                 refetch={refetch}
                 isPersonal={isPersonal}
                 hasPagination={numSubscriptions >= PAGE_SIZE}
+                selectedFilters={selectedFilters}
+                orFilters={orFilters}
+                totalSubscriptionsCount={numSubscriptions}
             />
             {isSubscriptionsLoading && !hasPreviousResults ? <TableLoadingSkeleton /> : null}
             {!isSubscriptionsLoading && !hasResults && !hasUserAppliedRefinements ? (

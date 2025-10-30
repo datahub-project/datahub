@@ -6,7 +6,7 @@ import { SubscriptionFilterOptions, SubscriptionListFilter } from '@app/settings
 import { extractFilterOptionListFromSubscriptions } from '@app/settingsV2/personal/subscriptions/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { CorpUser, DataHubSubscription, EntityType } from '@types';
+import { CorpGroup, CorpUser, DataHubSubscription, EntityType } from '@types';
 
 interface SubscriptionListFiltersProps {
     viewer: CorpUser;
@@ -14,6 +14,7 @@ interface SubscriptionListFiltersProps {
     handleFilterChange: (filter: SubscriptionListFilter) => void;
     subscriptions: DataHubSubscription[];
     ownedAndMemberGroupUrns: string[];
+    allSubscriptionOwners: (CorpUser | CorpGroup)[];
 }
 
 const SearchFilterContainer = styled.div`
@@ -34,6 +35,7 @@ export const SubscriptionListFilters: React.FC<SubscriptionListFiltersProps> = (
     handleFilterChange,
     selectedFilters,
     ownedAndMemberGroupUrns,
+    allSubscriptionOwners,
 }) => {
     const entityRegistry = useEntityRegistryV2();
     const [initialFilterOptions, setInitialFilterOptions] = useState<SubscriptionFilterOptions | null>(null);
@@ -46,15 +48,22 @@ export const SubscriptionListFilters: React.FC<SubscriptionListFiltersProps> = (
                 entityRegistry,
                 viewer,
                 ownedAndMemberGroupUrns,
+                allSubscriptionOwners,
             );
             setInitialFilterOptions(filterOptions);
         }
-    }, [subscriptions, entityRegistry, viewer, ownedAndMemberGroupUrns, initialFilterOptions]);
+    }, [subscriptions, entityRegistry, viewer, ownedAndMemberGroupUrns, allSubscriptionOwners, initialFilterOptions]);
 
     // Use the stored initial filter options, or generate them if not yet stored
     const filterOptions =
         initialFilterOptions ||
-        extractFilterOptionListFromSubscriptions(subscriptions, entityRegistry, viewer, ownedAndMemberGroupUrns);
+        extractFilterOptionListFromSubscriptions(
+            subscriptions,
+            entityRegistry,
+            viewer,
+            ownedAndMemberGroupUrns,
+            allSubscriptionOwners,
+        );
 
     const handleSearchTextChange = (searchText: string) => {
         handleFilterChange({

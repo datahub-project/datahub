@@ -2,7 +2,12 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { SubscriptionDeleteBulkActionsBarItem } from '@app/settingsV2/personal/subscriptions/SubscriptionDeleteBulkActionsBarItem';
+import { SubscriptionEditEventsBulkActionsBarItem } from '@app/settingsV2/personal/subscriptions/SubscriptionEditEventsBulkActionsBarItem';
+import { SubscriptionSelectAllBulkActionsBarItem } from '@app/settingsV2/personal/subscriptions/SubscriptionSelectAllBulkActionsBarItem';
+import { SubscriptionListFilter } from '@app/settingsV2/personal/subscriptions/types';
 import { Text } from '@src/alchemy-components';
+
+import { AndFilterInput } from '@types';
 
 const ActionsContainer = styled.div<{ $hasPagination?: boolean }>`
     display: flex;
@@ -30,10 +35,10 @@ const SelectedContainer = styled.div`
     gap: 4px;
 `;
 
-const StyledIcon = styled.i`
+const StyledIcon = styled.span`
     cursor: pointer;
     font-size: 16px;
-    color: #595959;
+    color: #8088a3;
 `;
 
 interface Props {
@@ -42,6 +47,9 @@ interface Props {
     refetch: () => void;
     isPersonal: boolean;
     hasPagination?: boolean;
+    selectedFilters: SubscriptionListFilter;
+    orFilters: AndFilterInput[];
+    totalSubscriptionsCount: number;
 }
 
 export const SubscriptionBulkActionsBar = ({
@@ -50,6 +58,9 @@ export const SubscriptionBulkActionsBar = ({
     refetch,
     isPersonal,
     hasPagination,
+    selectedFilters,
+    orFilters,
+    totalSubscriptionsCount,
 }: Props) => {
     if (selectedUrns.length === 0) {
         return null;
@@ -61,6 +72,18 @@ export const SubscriptionBulkActionsBar = ({
                 <Text color="gray">{`${selectedUrns.length} Selected`}</Text>
                 <StyledIcon onClick={() => setSelectedUrns([])}>✕</StyledIcon>
             </SelectedContainer>
+            <SubscriptionSelectAllBulkActionsBarItem
+                selectedFilters={selectedFilters}
+                orFilters={orFilters}
+                setSelectedUrns={setSelectedUrns}
+                totalSubscriptionsCount={totalSubscriptionsCount}
+            />
+            <SubscriptionEditEventsBulkActionsBarItem
+                selectedUrns={selectedUrns}
+                setSelectedUrns={setSelectedUrns}
+                refetch={refetch}
+                isPersonal={isPersonal}
+            />
             <SubscriptionDeleteBulkActionsBarItem
                 selectedUrns={selectedUrns}
                 setSelectedUrns={setSelectedUrns}

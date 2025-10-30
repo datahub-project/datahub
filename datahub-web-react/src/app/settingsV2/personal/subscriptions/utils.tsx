@@ -120,6 +120,7 @@ export const extractFilterOptionListFromSubscriptions = (
     entityRegistry: EntityRegistry,
     viewer: CorpUser,
     groupUrns: string[],
+    allSubscriptionOwners: (CorpUser | CorpGroup)[],
     recommendedFilterMaxCount = 10,
 ): SubscriptionFilterOptions => {
     const filterOptions: SubscriptionFilterOptions = {
@@ -176,30 +177,21 @@ export const extractFilterOptionListFromSubscriptions = (
 
         // Process owner (actor)
         const { actor } = subscription;
-        let displayName: string | undefined;
+        const displayName =
+            actor?.__typename === 'CorpUser' && actor.urn === viewer.urn
+                ? 'Owned by me'
+                : entityRegistry.getDisplayName(actor.type, actor);
 
-        if (actor?.__typename === 'CorpUser') {
-            if (actor.urn === viewer.urn) {
-                displayName = 'Owned by me';
-            } else {
-                displayName = actor.editableProperties?.displayName || actor.properties?.displayName || undefined;
-            }
-        } else if (actor?.__typename === 'CorpGroup') {
-            displayName = actor.properties?.displayName || actor.info?.displayName || undefined;
-        }
-
-        if (displayName) {
-            const existingOption = filterOptions.filterGroupOptions.owner.find((opt) => opt.name === actor.urn);
-            if (existingOption) {
-                existingOption.count++;
-            } else {
-                filterOptions.filterGroupOptions.owner.push({
-                    name: actor.urn,
-                    category: 'owner',
-                    count: 1,
-                    displayName,
-                });
-            }
+        const existingOption = filterOptions.filterGroupOptions.owner.find((opt) => opt.name === actor.urn);
+        if (existingOption) {
+            existingOption.count++;
+        } else {
+            filterOptions.filterGroupOptions.owner.push({
+                name: actor.urn,
+                category: 'owner',
+                count: 1,
+                displayName,
+            });
         }
     });
 
@@ -211,6 +203,18 @@ export const extractFilterOptionListFromSubscriptions = (
                 category: 'eventType',
                 count: 0,
                 displayName: getEntityChangeTypeDisplayName(type),
+            });
+        }
+    });
+
+    // Add remaining owners with 0 count
+    allSubscriptionOwners.forEach((owner) => {
+        if (!filterOptions.filterGroupOptions.owner.find((opt) => opt.name === owner.urn)) {
+            filterOptions.filterGroupOptions.owner.push({
+                name: owner.urn,
+                category: 'owner',
+                count: 0,
+                displayName: entityRegistry.getDisplayName(owner.type, owner),
             });
         }
     });
