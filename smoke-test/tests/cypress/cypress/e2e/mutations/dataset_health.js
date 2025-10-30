@@ -3,6 +3,9 @@ const urn =
 const datasetName = "cypress_health_test";
 
 describe("dataset health test", () => {
+  beforeEach(() => {
+    cy.setIsThemeV2Enabled(true);
+  });
   it("go to dataset with failing assertions and active incidents and verify health of dataset", () => {
     cy.login();
     cy.goToDataset(urn, datasetName);
