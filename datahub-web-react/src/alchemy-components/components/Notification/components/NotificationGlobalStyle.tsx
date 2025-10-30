@@ -3,6 +3,10 @@ import { createGlobalStyle } from 'styled-components';
 import { colors } from '@components/theme';
 
 export const NotificationGlobalStyle = createGlobalStyle`
+    .ant-notification {
+        z-index: 1013; // one above antd modal (which is 1012)
+    }
+
     .datahub-notification.ant-notification-notice {
         padding: 8px;
         border-radius: 8px;
