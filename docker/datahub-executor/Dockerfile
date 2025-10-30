@@ -243,6 +243,9 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 # Embed build info into the image
 RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
 
+# Temporarily symlink acryl cloud package for backward compatibility
+RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
+
 USER datahub
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
   uv pip install -r requirements.txt
