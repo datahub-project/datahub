@@ -39,8 +39,10 @@ def check_integrations_service() -> bool:
 
 
 def login_as(username: str, password: str):
+    frontend_url = get_frontend_url()
+    logger.info(f"Attempting login as user: {username} to frontend: {frontend_url}")
     return cli_utils.get_frontend_session_login_as(
-        username=username, password=password, frontend_url=get_frontend_url()
+        username=username, password=password, frontend_url=frontend_url
     )
 
 
@@ -48,11 +50,24 @@ def get_admin_username() -> str:
     return get_admin_credentials()[0]
 
 
-def get_admin_credentials():
+def get_cypress_credentials():
     return (
+        env_vars.get_cypress_admin_username(),
+        env_vars.get_cypress_admin_password(),
+    )
+
+
+def get_admin_credentials():
+    cypress_creds = get_cypress_credentials()
+    if cypress_creds[1] is not None:
+        logger.info(f"Using cypress credentials for user: {cypress_creds[0]}")
+        return cypress_creds
+    default_creds = (
         env_vars.get_admin_username(),
         env_vars.get_admin_password(),
     )
+    logger.info(f"Using default credentials for user: {default_creds[0]}")
+    return default_creds
 
 
 def get_base_path():
@@ -386,6 +401,7 @@ class TestSessionWrapper:
         self._gms_url = get_gms_url()
         self._integrations_url = get_integrations_service_url()
         self._gms_token_id, self._gms_token = self._generate_gms_token()
+        self.default_channel_name = None
 
     def __getattr__(self, name):
         # Intercept method calls
@@ -402,7 +418,6 @@ class TestSessionWrapper:
                         # Clone the headers dict to prevent mutation of caller's data
                         # This fixes test pollution where shared header dicts get contaminated
                         kwargs["headers"] = dict(kwargs["headers"])
-
                     kwargs["headers"].update(
                         {"Authorization": f"Bearer {self._gms_token}"}
                     )
@@ -438,8 +453,12 @@ class TestSessionWrapper:
 
     def _wait(self, *args, **kwargs):
         if "/logIn" not in args[0]:
-            print("TestSessionWrapper sync wait.")
+            logger.debug("TestSessionWrapper sync wait.")
             wait_for_writes_to_sync()
+
+    def get_default_channel_name(self) -> str | None:
+        """Get the default channel name for the module tracker."""
+        return self.default_channel_name
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(10),

@@ -1,10 +1,15 @@
 # ABOUTME: Pytest wrapper for running Cypress tests against remote instances.
 # ABOUTME: Executes tests from directory specified by CYPRESS_TEST_DIR environment variable.
+import logging
 import os
 import subprocess
 import threading
 
 import pytest
+
+from tests.utils import get_cypress_credentials
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.remote_tests
@@ -25,17 +30,18 @@ def test_run_cypress_remote():
         pytest.skip("CYPRESS_TEST_DIR environment variable not set")
 
     base_url = os.getenv("CYPRESS_BASE_URL", "http://localhost:4173")
-    username = os.getenv("CYPRESS_ADMIN_USERNAME", "admin")
-    password = os.getenv("CYPRESS_ADMIN_PASSWORD")
+    username, password = get_cypress_credentials()
 
     if not password:
-        pytest.skip("CYPRESS_ADMIN_PASSWORD environment variable not set")
+        message = "CYPRESS_ADMIN_PASSWORD environment variable not set"
+        logger.info(message)
+        pytest.skip(message)
 
     spec_pattern = f"{cypress_test_dir}/**/*.{{js,jsx,ts,tsx}}"
 
-    print(f"Running Cypress tests from: {cypress_test_dir}")
-    print(f"Base URL: {base_url}")
-    print(f"Username: {username}")
+    logger.info(f"Running Cypress tests from: {cypress_test_dir}")
+    logger.info(f"Base URL: {base_url}")
+    logger.info(f"Username: {username}")
 
     command = (
         f'CYPRESS_SPEC_PATTERN="{spec_pattern}" '
@@ -44,7 +50,8 @@ def test_run_cypress_remote():
         f"--config numTestsKeptInMemory=2"
     )
 
-    print(f"Executing command: {command}")
+    redacted_command = command.replace(password, "***REDACTED***")
+    logger.info(f"Executing command: {redacted_command}")
 
     proc = subprocess.Popen(
         command,
@@ -61,7 +68,7 @@ def test_run_cypress_remote():
 
     def read_and_print(pipe, prefix=""):
         for line in pipe:
-            print(f"{prefix}{line}", end="")
+            logger.info(f"{prefix}{line.rstrip()}")
 
     stdout_thread = threading.Thread(target=read_and_print, args=(proc.stdout,))
     stderr_thread = threading.Thread(
@@ -79,6 +86,6 @@ def test_run_cypress_remote():
     stdout_thread.join()
     stderr_thread.join()
 
-    print(f"Return code: {return_code}")
+    logger.info(f"Return code: {return_code}")
 
     assert return_code == 0, f"Cypress tests failed with return code {return_code}"

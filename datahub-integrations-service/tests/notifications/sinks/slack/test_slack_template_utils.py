@@ -18,6 +18,7 @@ from datahub_integrations.identity.identity_provider import (
 from datahub_integrations.notifications.sinks.slack.template_utils import (
     build_incident_message,
     build_incident_status_change_message,
+    build_release_notification_message,
     build_workflow_request_assignment_message,
     build_workflow_request_status_change_message,
 )
@@ -862,6 +863,118 @@ def test_build_workflow_request_status_change_message_unknown_result(
     attachment_blocks = attachments[0]["blocks"]
     assert "Request Rejected" in attachment_blocks[0]["text"]["text"]
     assert "has been *rejected* by System Admin" in attachment_blocks[0]["text"]["text"]
+
+
+#
+# Tests for build_release_notification_message(...)
+#
+
+
+def test_build_release_notification_message_with_body() -> None:
+    """
+    Test release notification message with both title and body.
+    """
+    request = NotificationRequestClass(
+        recipients=[],
+        message=NotificationMessageClass(
+            template="RELEASE_NOTIFICATION",
+            parameters={
+                "title": "DataHub v0.13.0 Released",
+                "body": "Check out the new features including improved search and better lineage visualization.",
+            },
+        ),
+    )
+
+    text, blocks, attachments = build_release_notification_message(request)
+
+    expected_text = "DataHub v0.13.0 Released\nCheck out the new features including improved search and better lineage visualization."
+    assert text == expected_text
+
+    assert len(blocks) == 1
+    assert blocks[0]["type"] == "section"
+    assert blocks[0]["text"]["type"] == "mrkdwn"
+    assert "*DataHub v0.13.0 Released*\n" in blocks[0]["text"]["text"]
+    assert "Check out the new features" in blocks[0]["text"]["text"]
+
+    assert len(attachments) == 0
+
+
+def test_build_release_notification_message_title_only() -> None:
+    """
+    Test release notification message with title only (no body).
+    """
+    request = NotificationRequestClass(
+        recipients=[],
+        message=NotificationMessageClass(
+            template="RELEASE_NOTIFICATION",
+            parameters={
+                "title": "System Maintenance Scheduled",
+            },
+        ),
+    )
+
+    text, blocks, attachments = build_release_notification_message(request)
+
+    expected_text = "System Maintenance Scheduled"
+    assert text == expected_text
+
+    assert len(blocks) == 1
+    assert blocks[0]["type"] == "section"
+    assert blocks[0]["text"]["type"] == "mrkdwn"
+    assert blocks[0]["text"]["text"] == "*System Maintenance Scheduled*"
+
+    assert len(attachments) == 0
+
+
+def test_build_release_notification_message_no_parameters() -> None:
+    """
+    Test release notification message with no parameters (defaults).
+    """
+    request = NotificationRequestClass(
+        recipients=[],
+        message=NotificationMessageClass(
+            template="RELEASE_NOTIFICATION",
+            parameters=None,
+        ),
+    )
+
+    text, blocks, attachments = build_release_notification_message(request)
+
+    expected_text = "Notification"
+    assert text == expected_text
+
+    assert len(blocks) == 1
+    assert blocks[0]["type"] == "section"
+    assert blocks[0]["text"]["text"] == "*Notification*"
+
+    assert len(attachments) == 0
+
+
+def test_build_release_notification_message_empty_body() -> None:
+    """
+    Test release notification message with empty body string.
+    """
+    request = NotificationRequestClass(
+        recipients=[],
+        message=NotificationMessageClass(
+            template="RELEASE_NOTIFICATION",
+            parameters={
+                "title": "Alert",
+                "body": "",
+            },
+        ),
+    )
+
+    text, blocks, attachments = build_release_notification_message(request)
+
+    expected_text = "Alert"
+    assert text == expected_text
+
+    assert len(blocks) == 1
+    assert blocks[0]["type"] == "section"
+    assert blocks[0]["text"]["text"] == "*Alert*"
+
+    assert len(attachments) == 0
 
 
 # type: ignore[attr]

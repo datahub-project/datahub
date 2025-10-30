@@ -54,6 +54,16 @@ def get_kafka_schema_registry_url() -> Optional[str]:
 # ============================================================================
 
 
+def get_cypress_admin_username() -> str:
+    """Cypress admin username."""
+    return os.getenv("CYPRESS_ADMIN_USERNAME", "admin")
+
+
+def get_cypress_admin_password() -> Optional[str]:
+    """Cypress admin password."""
+    return os.getenv("CYPRESS_ADMIN_PASSWORD")
+
+
 def get_admin_username() -> str:
     """Admin username for smoke tests."""
     return os.getenv("ADMIN_USERNAME", "admin")
@@ -237,6 +247,11 @@ def get_slack_channel() -> Optional[str]:
 def get_slack_thread_ts() -> Optional[str]:
     """Slack thread timestamp for threaded notifications."""
     return os.getenv("SLACK_THREAD_TS")
+
+
+def get_notify_customers() -> str:
+    """Notify customers."""
+    return os.getenv("NOTIFY_CUSTOMERS", "false")
 
 
 def get_test_identifier() -> str:

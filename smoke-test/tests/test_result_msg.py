@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Iterator
 from zoneinfo import ZoneInfo
 
+import requests
 from slack_sdk.web import SlackResponse
 
 from tests.utilities import env_vars
@@ -15,6 +16,7 @@ from tests.utilities.slack_helpers import (
     send_message as slack_send_message,
     update_message as slack_update_message,
 )
+from tests.utils import get_integrations_service_url
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +85,7 @@ class TestProgressTracker:
         self.datahub_stats: dict[str, Any] = {}
         self._slack_thread_ts: str | None = env_vars.get_slack_thread_ts()
         self._main_msg_ts: str | None = None
+        self.default_channel_name: str | None = None
 
     def _format_multi_timezone_timestamp(self) -> str:
         """Format current time in multiple timezones."""
@@ -155,6 +158,24 @@ class TestProgressTracker:
             completed % self.update_frequency == 0
             and time_since_last >= self.min_update_interval
         )
+
+    def _build_test_results_message(self, add_datahub_stats: bool = True) -> str:
+        """Build the test results message body."""
+        message = ""
+        if add_datahub_stats:
+            for key, val in self.datahub_stats.items():
+                if key.startswith("num-"):
+                    entity_type = key.replace("num-", "")
+                    message += f"Num {entity_type} is {val}\n"
+
+        message += (
+            f"\nTest Results:\n"
+            f"✅ Passed: {self.passed}\n"
+            f"❌ Failed: {self.failed}\n"
+            f"⏭️  Skipped: {self.skipped}\n"
+            f"Total: {self.total_tests}"
+        )
+        return message
 
     def send_collection_message(self) -> None:
         """Send initial message when test collection completes."""
@@ -229,6 +250,7 @@ class TestProgressTracker:
 
     def send_final_message(self, exitstatus: int) -> None:
         """Update the main message with final test results."""
+        self.send_final_message_via_integrations_service(exitstatus)
         with slack_operation("send final message") as config:
             if config is None:
                 return
@@ -237,21 +259,7 @@ class TestProgressTracker:
                 logger.warning("No main message timestamp available for final update")
                 return
 
-            message = ""
-            for key, val in self.datahub_stats.items():
-                if key.startswith("num-"):
-                    entity_type = key.replace("num-", "")
-                    message += f"Num {entity_type} is {val}\n"
-
-            # Add test counts
-            message += (
-                f"\nTest Results:\n"
-                f"✅ Passed: {self.passed}\n"
-                f"❌ Failed: {self.failed}\n"
-                f"⏭️  Skipped: {self.skipped}\n"
-                f"Total: {self.total_tests}"
-            )
-
+            message = self._build_test_results_message()
             passed_str = "PASSED" if exitstatus == 0 else "FAILED"
             full_message = (
                 f"{config.test_identifier} Status - {passed_str}\n{message}"
@@ -276,6 +284,41 @@ class TestProgressTracker:
                 f"error: {response.get('error')}"
             )
 
+    def send_final_message_via_integrations_service(self, exitstatus: int) -> None:
+        """Send notification via integrations service if configured."""
+        notify_customers = env_vars.get_notify_customers()
+        logger.info(
+            f"send_final_message_via_integrations_service called with "
+            f"NOTIFY_CUSTOMERS={notify_customers}"
+        )
+
+        if notify_customers != "true":
+            logger.info(
+                "Skipping notification via integrations service because NOTIFY_CUSTOMERS is not true"
+            )
+            return None
+
+        try:
+            default_channel = self.default_channel_name
+            if not default_channel:
+                logger.info(
+                    "No defaultChannelName available in tracker. "
+                    "Make sure test_slack_settings.py runs before this."
+                )
+                return None
+
+            logger.info(
+                f"Sending notification via integrations service to "
+                f"channel: {default_channel}"
+            )
+
+            message_body = self._build_test_results_message(add_datahub_stats=False)
+            status_str = "PASSED" if exitstatus == 0 else "FAILED"
+
+            send_integrations_notification(default_channel, message_body, status_str)
+        except Exception as e:
+            logger.warning(f"Failed to send notification via integrations service: {e}")
+
     def send_update(self):
         """Send progress update to Slack."""
         self.send_progress_message()
@@ -285,6 +328,54 @@ class TestProgressTracker:
 # Module-level tracker instance for backward compatibility
 _module_tracker: TestProgressTracker | None = None
 _module_tracker_lock = threading.Lock()
+
+
+def send_integrations_notification(
+    channel_name: str, message: str, status_str: str
+) -> None:
+    """Send notification via integrations service to specified Slack channel."""
+    try:
+        integrations_url = get_integrations_service_url()
+        endpoint = f"{integrations_url}/private/notifications/send"
+
+        notification_payload = {
+            "message": {
+                "template": "RELEASE_NOTIFICATION",
+                "parameters": {
+                    "title": f"DataHub Smoke Test Results - {status_str}",
+                    "body": message,
+                },
+            },
+            "recipients": [
+                {
+                    "type": "SLACK_CHANNEL",
+                    "id": channel_name,
+                }
+            ],
+        }
+
+        logger.info(
+            f"Sending notification to integrations service at {endpoint} "
+            f"for channel {channel_name}"
+        )
+
+        response = requests.post(
+            endpoint,
+            json=notification_payload,
+            headers={"Content-Type": "application/json"},
+            timeout=30,
+        )
+        response.raise_for_status()
+        logger.info(
+            f"Successfully sent notification to integrations service. "
+            f"Status: {response.status_code}"
+        )
+
+    except Exception as e:
+        logger.warning(
+            f"Failed to send notification via integrations service to "
+            f"channel {channel_name}: {e}"
+        )
 
 
 def get_module_tracker() -> TestProgressTracker:
@@ -313,3 +404,9 @@ def send_collection_message(total_tests: int) -> None:
 def send_message(exitstatus: int, test_counts: dict | None = None) -> None:
     """Send final message - delegates to module tracker for backward compatibility."""
     get_module_tracker().send_final_message(exitstatus)
+
+
+def set_default_channel_name(channel_name: str) -> None:
+    """Set the default channel name for the module tracker."""
+    tracker = get_module_tracker()
+    tracker.default_channel_name = channel_name

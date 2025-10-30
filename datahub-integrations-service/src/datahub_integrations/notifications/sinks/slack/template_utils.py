@@ -954,3 +954,28 @@ def build_workflow_request_status_change_message(
     attachments = [{"color": result_color, "blocks": blocks}]
 
     return text, [], attachments
+
+
+def build_release_notification_message(
+    request: NotificationRequestClass,
+) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Build simple Slack message for release notifications.
+    """
+    parameters = request.message.parameters or {}
+    title = parameters.get("title", "Notification")
+    body = parameters.get("body", "")
+
+    text = f"{title}\n{body}" if body else title
+
+    blocks: List[Dict[str, Any]] = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*{title}*\n{body}" if body else f"*{title}*",
+            },
+        }
+    ]
+
+    return text, blocks, []

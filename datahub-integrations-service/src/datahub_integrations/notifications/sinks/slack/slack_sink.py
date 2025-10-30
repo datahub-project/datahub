@@ -33,6 +33,7 @@ from datahub_integrations.notifications.sinks.slack.template_utils import (
     build_compliance_form_publish_parameters,
     build_incident_message,
     build_incident_status_change_message,
+    build_release_notification_message,
     build_workflow_request_assignment_message,
     build_workflow_request_status_change_message,
 )
@@ -108,6 +109,9 @@ class SlackNotificationSink(NotificationSink):
                 request
             ),
             NotificationTemplateTypeClass.BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE: lambda: self._send_workflow_request_status_change_notification(
+                request
+            ),
+            NotificationTemplateTypeClass.RELEASE_NOTIFICATION: lambda: self._send_release_notification(
                 request
             ),
         }
@@ -212,6 +216,20 @@ class SlackNotificationSink(NotificationSink):
         text, blocks, attachments = build_workflow_request_status_change_message(
             request, self.identity_provider, self.slack_client, self.base_url
         )
+        slack_recipients = self._get_slack_recipients(request)
+
+        return self._send_change_notification(
+            slack_recipients,
+            text,
+            blocks,
+            attachments,
+            RetryMode.ENABLED,
+        )
+
+    def _send_release_notification(
+        self, request: NotificationRequestClass
+    ) -> List[SlackMessageDetails]:
+        text, blocks, attachments = build_release_notification_message(request)
         slack_recipients = self._get_slack_recipients(request)
 
         return self._send_change_notification(

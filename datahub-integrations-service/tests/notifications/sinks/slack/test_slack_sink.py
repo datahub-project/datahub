@@ -321,3 +321,105 @@ def test_unsupported_template_type_logs_warning(
 
     # Should not raise an exception
     slack_notification_sink.send(request, notification_context)
+
+
+#
+# Tests for Release Notifications
+#
+
+
+@patch(
+    "datahub_integrations.notifications.sinks.slack.slack_sink.build_release_notification_message"
+)
+def test_send_release_notification(
+    mock_build_message: Mock,
+    slack_notification_sink: SlackNotificationSink,
+    slack_recipients: List[NotificationRecipientClass],
+    notification_context: NotificationContext,
+) -> None:
+    """
+    Test that release notifications are properly handled in Slack sink.
+    """
+    # Mock the message builder return
+    mock_build_message.return_value = (
+        "DataHub v0.13.0 Released\nCheck out the new features including improved search.",
+        [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*DataHub v0.13.0 Released*\nCheck out the new features including improved search.",
+                },
+            }
+        ],
+        [],  # No attachments for release notifications
+    )
+
+    # Mock the _send_change_notification method
+    slack_notification_sink._send_change_notification = MagicMock()  # type: ignore
+    slack_notification_sink._send_change_notification.return_value = [
+        SlackMessageDetails(
+            channel_id="C67890",
+            channel_name="announcements",
+            message_id="1234567890.123456",
+        )
+    ]
+
+    fake_request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="RELEASE_NOTIFICATION",
+            parameters={
+                "title": "DataHub v0.13.0 Released",
+                "body": "Check out the new features including improved search.",
+            },
+        ),
+        recipients=slack_recipients,
+    )
+
+    # Execute the test
+    slack_notification_sink.send(fake_request, notification_context)
+
+    # Verify build_release_notification_message was called
+    mock_build_message.assert_called_once_with(fake_request)
+
+    # Verify _send_change_notification was called with correct parameters
+    slack_notification_sink._send_change_notification.assert_called_once()
+    args, kwargs = slack_notification_sink._send_change_notification.call_args
+
+    # Check arguments
+    assert args[0] == slack_recipients  # recipients
+    assert (
+        args[1]
+        == "DataHub v0.13.0 Released\nCheck out the new features including improved search."
+    )  # text
+    assert len(args[2]) == 1  # blocks
+    assert args[3] == []  # attachments (empty for release notifications)
+
+
+def test_release_notification_template_type_supported(
+    slack_notification_sink: SlackNotificationSink,
+    notification_context: NotificationContext,
+) -> None:
+    """
+    Test that the RELEASE_NOTIFICATION template type is included in the Slack sink action map.
+    """
+    # Test release notification
+    release_request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="RELEASE_NOTIFICATION",
+            parameters={
+                "title": "New Release",
+                "body": "Version 1.0 is now available.",
+            },
+        ),
+        recipients=[],
+    )
+
+    # Mock the release notification method to verify it gets called
+    slack_notification_sink._send_release_notification = MagicMock()  # type: ignore
+
+    # Send the request
+    slack_notification_sink.send(release_request, notification_context)
+
+    # Verify the appropriate method was called
+    slack_notification_sink._send_release_notification.assert_called_once()  # type: ignore

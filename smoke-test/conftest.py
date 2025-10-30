@@ -20,7 +20,10 @@ from tests.utils import (
     delete_urns,
     delete_urns_from_file,
     wait_for_writes_to_sync,
+    get_admin_credentials,
+    get_frontend_url,
 )
+from tests.utilities.metadata_operations import verify_auth_session
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +34,19 @@ os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 
 
 def build_auth_session():
+    username, _ = get_admin_credentials()
+    frontend_url = get_frontend_url()
+    logger.debug(f"build_auth_session - building auth session")
+    logger.debug(f"build_auth_session - frontend URL: {frontend_url}")
+    logger.debug(f"build_auth_session - username: {username}")
+
     wait_for_healthcheck_util(requests)
-    return TestSessionWrapper(get_frontend_session())
+    session = TestSessionWrapper(get_frontend_session())
+
+    logger.debug("build_auth_session - verifying auth session")
+    verify_auth_session(session, context="after building auth session")
+
+    return session
 
 
 @pytest.fixture(scope="session")
@@ -100,13 +114,13 @@ def _ingest_cleanup_data_impl(
                 "tags_and_terms"
             )
     """
-    logger.info(f"deleting {test_name} test data for idempotency")
+    logger.debug(f"deleting {test_name} test data for idempotency")
     delete_urns_from_file(graph_client, data_file)
-    logger.info(f"ingesting {test_name} test data")
+    logger.debug(f"ingesting {test_name} test data")
     ingest_file_via_rest(auth_session, data_file)
     wait_for_writes_to_sync()
     yield
-    logger.info(f"removing {test_name} test data")
+    logger.debug(f"removing {test_name} test data")
     delete_urns_from_file(graph_client, data_file)
     if to_delete_urns:
         delete_urns(graph_client, to_delete_urns)
@@ -119,10 +133,12 @@ def pytest_runtest_logreport(report):
     This is called for setup, call, and teardown phases.
     We track failures from any phase but only count passes/skips from the call phase.
     """
+    logger.debug(f"pytest_runtest_logreport called for {report.nodeid} phase={report.when} outcome={report.outcome}")
     tracker = get_module_tracker()
     nodeid = report.nodeid
 
     if report.failed:
+        logger.debug(f"Recording failure for {nodeid}")
         tracker.record_failure(nodeid)
         return
 
@@ -135,18 +151,27 @@ def pytest_runtest_logreport(report):
         return
 
     if report.passed:
+        logger.debug(f"Recording pass for {nodeid}")
         tracker.record_outcome(nodeid, "passed")
     elif report.skipped:
+        logger.debug(f"Recording skip for {nodeid}")
         tracker.record_outcome(nodeid, "skipped")
 
     # Send periodic updates
     if tracker.should_send_update():
+        logger.debug("Sending periodic update")
         tracker.send_update()
 
 
 def pytest_sessionfinish(session, exitstatus):
     """whole test run finishes."""
-    get_module_tracker().send_final_message(exitstatus)
+    logger.info(f"pytest_sessionfinish called with exitstatus={exitstatus}")
+    try:
+        tracker = get_module_tracker()
+        tracker.send_final_message(exitstatus)
+        logger.info("pytest_sessionfinish completed")
+    except Exception as e:
+        logger.exception("Error in send_final_message")
 
 
 def bin_pack_tasks(tasks, n_buckets):
@@ -257,7 +282,8 @@ def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) 
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: List[Item]
 ) -> None:
-
+    """Called after collection has been performed and items have been collected."""
+    logger.debug("pytest_collection_modifyitems called")
     tracker = get_module_tracker()
     tracker.total_tests = len(items)
     logger.info(f"Collected {len(items)} tests")
@@ -290,7 +316,7 @@ def pytest_collection_modifyitems(
     module_map = {module_path: module_items for module_path, module_items, _ in module_data}
     weighted_modules = [(module_path, total_weight) for module_path, _, total_weight in module_data]
 
-    logger.info(f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches")
+    logger.debug(f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches")
 
     # Apply bin-packing to modules
     module_batches = bin_pack_tasks(weighted_modules, batch_count)
@@ -304,7 +330,7 @@ def pytest_collection_modifyitems(
     for module_path in selected_modules:
         selected_items.extend(module_map[module_path])
 
-    logger.info(f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules")
+    logger.debug(f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules")
 
     # Replace items with the filtered list
     items[:] = selected_items

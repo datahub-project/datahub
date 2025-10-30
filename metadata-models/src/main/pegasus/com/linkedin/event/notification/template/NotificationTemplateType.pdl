@@ -40,5 +40,9 @@ enum NotificationTemplateType {
      * Broadcast that an action workflow form request has been completed (approved or denied).
      */
     BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE
+    /**
+     * Release notification template for announcing new releases.
+     */
+    RELEASE_NOTIFICATION
     INVALID_TEMPLATE
 }

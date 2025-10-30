@@ -1,9 +1,12 @@
 # ABOUTME: Helper functions for common metadata operations like adding/removing tags and terms.
 # ABOUTME: Reduces boilerplate GraphQL code in smoke tests.
 
+import logging
 from typing import Any, Dict, Optional
 
 from tests.utils import execute_graphql, with_test_retry
+
+logger = logging.getLogger(__name__)
 
 
 def add_tag(
@@ -267,3 +270,152 @@ def get_metadata_analytics_charts(auth_session) -> Dict[str, Any]:
 
     res_data = execute_graphql(auth_session, query, variables)
     return res_data["data"]["getMetadataAnalyticsCharts"]
+
+
+def get_global_settings(auth_session) -> Optional[Dict[str, Any]]:
+    """Get global settings including integration and notification settings."""
+    query = """
+        query getGlobalSettings {
+            globalSettings {
+                integrationSettings {
+                    slackSettings {
+                        defaultChannelName
+                        botToken
+                        datahubAtMentionEnabled
+                        __typename
+                    }
+                    emailSettings {
+                        defaultEmail
+                        __typename
+                    }
+                    teamsSettings {
+                        defaultChannel {
+                            id
+                            name
+                            __typename
+                        }
+                        __typename
+                    }
+                    __typename
+                }
+                notificationSettings {
+                    settings {
+                        type
+                        value
+                        params {
+                            key
+                            value
+                            __typename
+                        }
+                        __typename
+                    }
+                    __typename
+                }
+                visualSettings {
+                    helpLink {
+                        isEnabled
+                        label
+                        link
+                        __typename
+                    }
+                    customLogoUrl
+                    customOrgName
+                    __typename
+                }
+                documentationAi {
+                    enabled
+                    instructions {
+                        id
+                        type
+                        state
+                        instruction
+                        created {
+                            time
+                            actor
+                            __typename
+                        }
+                        lastModified {
+                            time
+                            actor
+                            __typename
+                        }
+                        __typename
+                    }
+                    __typename
+                }
+                aiAssistant {
+                    instructions {
+                        id
+                        type
+                        state
+                        instruction
+                        created {
+                            time
+                            actor
+                            __typename
+                        }
+                        lastModified {
+                            time
+                            actor
+                            __typename
+                        }
+                        __typename
+                    }
+                    __typename
+                }
+                __typename
+            }
+        }
+    """
+
+    try:
+        res_data = execute_graphql(auth_session, query)
+        return res_data["data"]["globalSettings"]
+    except Exception as e:
+        logger.warning(f"Failed to fetch global settings: {e}")
+        return None
+
+
+def verify_auth_session(auth_session, context: str = "") -> bool:
+    """Verify auth session by querying current user info.
+
+    Args:
+        auth_session: The authenticated session to verify
+        context: Optional context string for logging (e.g., "after login", "before token generation")
+
+    Returns:
+        True if auth is valid, False otherwise
+    """
+    query = """
+        query me {
+            me {
+                corpUser {
+                    urn
+                    status
+                }
+                platformPrivileges {
+                    managePolicies
+                    manageIdentities
+                    generatePersonalAccessTokens
+                }
+            }
+        }
+    """
+
+    context_str = f" ({context})" if context else ""
+    try:
+        logger.info(f"Verifying auth session{context_str}")
+        res_data = execute_graphql(auth_session, query)
+        me_data = res_data["data"]["me"]
+        logger.info(
+            f"Auth session verified{context_str}: "
+            f"user={me_data['corpUser']['urn']}, "
+            f"status={me_data['corpUser']['status']}, "
+            f"privileges={me_data['platformPrivileges']}"
+        )
+        return True
+    except Exception as e:
+        logger.error(
+            f"Auth session verification failed{context_str}: {type(e).__name__}: {e}"
+        )
+        return False
