@@ -451,6 +451,7 @@ quickstart_configs.each { taskName, config ->
         } else {
             buildCmd += ["docker",  "buildx" ]
             buildCmd +=bakeCmdArgs
+            buildCmd += ["--provenance=false"]
         }
         commandLine buildCmd
         workingDir rootProject.projectDir
