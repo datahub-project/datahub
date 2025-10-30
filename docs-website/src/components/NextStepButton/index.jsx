@@ -1,29 +1,29 @@
-import React from 'react';
-import Link from '@docusaurus/Link';
-import styles from './styles.module.css';
+import React from "react";
+import Link from "@docusaurus/Link";
+import styles from "./styles.module.css";
 
-const NextStepButton = ({ 
-  to, 
-  children, 
-  tutorialId, 
-  currentStep, 
-  variant = 'primary',
-  icon = '→'
+const NextStepButton = ({
+  to,
+  children,
+  tutorialId,
+  currentStep,
+  variant = "primary",
+  icon = "→",
 }) => {
   const handleClick = () => {
     if (tutorialId && currentStep !== undefined) {
       const storageKey = `datahub-tutorial-${tutorialId}`;
       const savedProgress = localStorage.getItem(storageKey);
       let completedSteps = new Set();
-      
+
       if (savedProgress) {
         try {
           completedSteps = new Set(JSON.parse(savedProgress));
         } catch (e) {
-          console.warn('Failed to parse tutorial progress:', e);
+          console.warn("Failed to parse tutorial progress:", e);
         }
       }
-      
+
       // Mark current step as completed
       completedSteps.add(`step-${currentStep}`);
       localStorage.setItem(storageKey, JSON.stringify([...completedSteps]));
@@ -31,8 +31,8 @@ const NextStepButton = ({
   };
 
   return (
-    <Link 
-      to={to} 
+    <Link
+      to={to}
       className={`${styles.nextStepButton} ${styles[variant]}`}
       onClick={handleClick}
     >

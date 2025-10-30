@@ -1,19 +1,19 @@
 /* Auto-generated DataHub Design Tokens */
 :root {
-  --datahub-primary: #533FD1;
-  --datahub-primary-dark: #4C39BE;
-  --datahub-primary-light: #7565DA;
-  --datahub-primary-lightest: #F1F3FD;
-  --datahub-gray-100: #EBECF0;
+  --datahub-primary: #533fd1;
+  --datahub-primary-dark: #4c39be;
+  --datahub-primary-light: #7565da;
+  --datahub-primary-lightest: #f1f3fd;
+  --datahub-gray-100: #ebecf0;
   --datahub-gray-600: #374066;
-  --datahub-gray-1700: #5F6685;
-  --datahub-gray-1800: #8088A3;
-  --datahub-gray-1500: #F9FAFC;
-  --datahub-white: #FFFFFF;
-  --datahub-success: #77B750;
-  --datahub-warning: #EEAE09;
-  --datahub-error: #CD0D24;
-  --datahub-border: #E9EAEE;
+  --datahub-gray-1700: #5f6685;
+  --datahub-gray-1800: #8088a3;
+  --datahub-gray-1500: #f9fafc;
+  --datahub-white: #ffffff;
+  --datahub-success: #77b750;
+  --datahub-warning: #eeae09;
+  --datahub-error: #cd0d24;
+  --datahub-border: #e9eaee;
   --datahub-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
   --datahub-shadow-hover: 0 2px 8px rgba(83, 63, 209, 0.15);
   --datahub-node-width: 320px;
@@ -22,182 +22,212 @@
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
@@ -206,20 +236,20 @@
 /* Import DataHub color variables */
 :root {
   /* DataHub Alchemy Design System Colors */
-  --datahub-primary: #533FD1;
-  --datahub-primary-dark: #4C39BE;
-  --datahub-primary-light: #7565DA;
-  --datahub-primary-lightest: #F1F3FD;
-  --datahub-gray-100: #EBECF0;
+  --datahub-primary: #533fd1;
+  --datahub-primary-dark: #4c39be;
+  --datahub-primary-light: #7565da;
+  --datahub-primary-lightest: #f1f3fd;
+  --datahub-gray-100: #ebecf0;
   --datahub-gray-600: #374066;
-  --datahub-gray-1700: #5F6685;
-  --datahub-gray-1800: #8088A3;
-  --datahub-gray-1500: #F9FAFC;
-  --datahub-white: #FFFFFF;
-  --datahub-success: #77B750;
-  --datahub-warning: #EEAE09;
-  --datahub-error: #CD0D24;
-  --datahub-border: #E9EAEE;
+  --datahub-gray-1700: #5f6685;
+  --datahub-gray-1800: #8088a3;
+  --datahub-gray-1500: #f9fafc;
+  --datahub-white: #ffffff;
+  --datahub-success: #77b750;
+  --datahub-warning: #eeae09;
+  --datahub-error: #cd0d24;
+  --datahub-border: #e9eaee;
   --datahub-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
   --datahub-shadow-hover: 0 2px 8px rgba(83, 63, 209, 0.15);
   --datahub-node-width: 280px; /* Reduced width to prevent horizontal scroll */
@@ -228,17 +258,17 @@
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
@@ -247,7 +277,9 @@
   border: 1px solid var(--datahub-border);
   border-radius: 12px; /* Match DataHub V3 styling */
   width: var(--datahub-node-width);
-  min-height: var(--datahub-node-height); /* Use min-height to allow expansion */
+  min-height: var(
+    --datahub-node-height
+  ); /* Use min-height to allow expansion */
   max-width: var(--datahub-node-width); /* Prevent overflow */
   flex-shrink: 0; /* Prevent nodes from shrinking in flex container */
   cursor: pointer;
@@ -444,7 +476,9 @@
   white-space: nowrap;
   flex: 0 1 auto; /* Don't grow, but allow shrinking */
   min-width: 0; /* Allow flex item to shrink below content size */
-  max-width: calc(100% - 22px); /* Reserve space for health icon (16px + 6px gap) */
+  max-width: calc(
+    100% - 22px
+  ); /* Reserve space for health icon (16px + 6px gap) */
 }
 
 .platform {
@@ -636,22 +670,23 @@
   font-size: 11px;
   color: var(--datahub-gray-600);
   max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: hidden; /* clip ribbon to match pill corner */
+  text-overflow: ellipsis; /* text overflow handled by .termText */
   white-space: nowrap;
   padding-left: 12px; /* Make room for ribbon */
 }
 
 .termRibbon {
   position: absolute;
-  left: -8px;
-  top: 2px;
-  width: 20px;
-  height: 100%;
+  left: -6px;
+  top: -6px;
+  width: 22px; /* small rotated square to create corner band */
+  height: 22px;
   transform: rotate(-45deg);
   transform-origin: center;
   opacity: 0.8;
   border-radius: 2px;
+  pointer-events: none; /* ensure ribbon doesn't block interactions */
 }
 
 .termText {
@@ -673,11 +708,11 @@
 
 /* Lineage Flow Container */
 .lineageFlow {
-  margin: 20px 0;
-  padding: 16px;
-  background: var(--datahub-gray-1500);
-  border-radius: 12px;
-  border: 1px solid var(--datahub-border);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
 }
 
 /* Hierarchical Layout Styles */
@@ -860,7 +895,7 @@
 
 .lineageFlow {
   position: relative;
-  padding-bottom: 30px; /* Make room for scroll hint */
+  padding-bottom: 0;
 }
 
 .flowConnection {
@@ -891,7 +926,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -921,7 +957,8 @@
 }
 
 .connectionLabel {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 10px;
   font-weight: 500;
 }
@@ -958,21 +995,21 @@
     overflow-x: auto;
     padding: 10px;
   }
-  
+
   .flowContainer::-webkit-scrollbar {
     height: 6px;
   }
-  
+
   .flowContainer::-webkit-scrollbar-track {
     background: var(--datahub-gray-100);
     border-radius: 3px;
   }
-  
+
   .flowContainer::-webkit-scrollbar-thumb {
     background: var(--datahub-gray-300);
     border-radius: 3px;
   }
-  
+
   .flowContainer::-webkit-scrollbar-thumb:hover {
     background: var(--datahub-gray-400);
   }
@@ -984,30 +1021,30 @@
     gap: 8px;
     overflow-x: visible;
   }
-  
+
   .flowArrow {
     transform: rotate(90deg);
     font-size: 16px;
   }
-  
+
   .lineageNode {
     width: 100%;
     max-width: 280px;
     min-width: 260px;
   }
-  
+
   .cardWrapper {
     padding: 10px 12px;
   }
-  
+
   .nodeName {
     font-size: 14px;
   }
-  
+
   .nameWithHealth {
     gap: 5px;
   }
-  
+
   .nodeName {
     max-width: calc(100% - 21px); /* Adjust for smaller gap */
   }
@@ -1019,18 +1056,18 @@
     height: auto;
     min-height: var(--datahub-node-height);
   }
-  
+
   .nodeName {
     white-space: normal;
     overflow: visible;
     text-overflow: unset;
   }
-  
+
   .nameWithHealth {
     gap: 4px;
     flex-wrap: wrap;
   }
-  
+
   .nodeName {
     max-width: calc(100% - 20px); /* Adjust for smallest gap */
   }

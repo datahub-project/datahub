@@ -1,9 +1,19 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
-import TutorialProgress from '@site/src/components/TutorialProgress';
 import DataHubLineageNode, { DataHubLineageFlow } from '@site/src/components/DataHubLineageNode';
+import TutorialProgress from '@site/src/components/TutorialProgress';
 
 # Chapter 1: DataHub Foundation (30 minutes)
+
+<TutorialProgress
+tutorialId="quickstart"
+steps={[
+{ title: "Setup DataHub", time: "5 min", description: "Deploy DataHub locally with Docker" },
+{ title: "Ingest Your First Dataset", time: "15 min", description: "Connect sources and ingest metadata" },
+{ title: "Discovery Basics", time: "10 min", description: "Find, evaluate, and understand datasets" },
+{ title: "Explore Data Lineage", time: "15 min", description: "Trace dependencies and assess impact" }
+]}
+/>
 
 :::tip Professional Development Journey
 This tutorial follows realistic challenges that data professionals face when implementing metadata management in production environments.
@@ -26,36 +36,9 @@ This tutorial follows realistic challenges that data professionals face when imp
 
 ## Tutorial Structure
 
-This tutorial is designed to be completed in sequence. **Track your progress** as you go:
+This tutorial is designed to be completed in sequence.
 
-<TutorialProgress
-tutorialId="quickstart"
-currentStep={-1}
-steps={[
-{
-title: "Setup DataHub",
-time: "5 min",
-description: "Deploy DataHub locally using Docker"
-},
-{
-title: "First Data Ingestion",
-time: "10 min",
-description: "Connect sample data systems and ingest metadata"
-},
-{
-title: "Discovery Basics",
-time: "10 min",
-description: "Locate business-critical metrics using systematic discovery"
-},
-{
-title: "Your First Lineage",
-time: "5 min",
-description: "Trace data flow and understand dependencies"
-}
-]}
-/>
-
-**Total Time: 30 minutes** | **Your Progress: Tracked above**
+**Total Time: 30 minutes**
 
 ## Prerequisites
 
@@ -157,7 +140,7 @@ This tutorial provides the foundation for more advanced DataHub concepts. After 
 
 - **[Data Discovery & Search](../discovery/overview.md)** - Master advanced search techniques
 - **[Data Lineage & Impact Analysis](../lineage/overview.md)** - Deep dive into lineage and impact analysis
-- **Data Governance Fundamentals (coming soon)** - Learn ownership, classification, and glossaries
+- **Data Governance Fundamentals** - Learn ownership, classification, and glossaries
 
 ## Need Help?
 

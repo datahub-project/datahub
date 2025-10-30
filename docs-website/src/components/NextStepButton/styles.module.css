@@ -54,12 +54,12 @@
 }
 
 /* Dark mode support */
-[data-theme='dark'] .secondary {
+[data-theme="dark"] .secondary {
   border-color: var(--ifm-color-primary-light);
   color: var(--ifm-color-primary-light);
 }
 
-[data-theme='dark'] .secondary:hover {
+[data-theme="dark"] .secondary:hover {
   background: var(--ifm-color-primary-light);
   color: var(--ifm-color-primary-darkest);
 }

@@ -170,57 +170,38 @@ module.exports = {
             },
           ],
         },
-        // {
-        //   type: "category",
-        //   label: "Data Ingestion Mastery (60 min)",
-        //   collapsed: true,
-        //   link: { type: "doc", id: "docs/learn-datahub/ingestion/overview" },
-        //   items: [
-        //     {
-        //       type: "doc",
-        //       label: "Recipe Fundamentals (15 min)",
-        //       id: "docs/learn-datahub/ingestion/recipe-fundamentals",
-        //     },
-        //     {
-        //       type: "doc",
-        //       label: "Stateful Ingestion (15 min)",
-        //       id: "docs/learn-datahub/ingestion/stateful-ingestion",
-        //     },
-        //     {
-        //       type: "doc",
-        //       label: "Data Profiling (15 min)",
-        //       id: "docs/learn-datahub/ingestion/data-profiling",
-        //     },
-        //     {
-        //       type: "doc",
-        //       label: "Advanced Patterns (15 min)",
-        //       id: "docs/learn-datahub/ingestion/advanced-patterns",
-        //     },
-        //   ],
-        // },
-        // {
-        //   type: "category",
-        //   label: "Privacy & Compliance (35 min)",
-        //   collapsed: true,
-        //   link: { type: "doc", id: "docs/learn-datahub/privacy/overview" },
-        //   items: [
-        //     {
-        //       type: "doc",
-        //       label: "PII Detection (12 min)",
-        //       id: "docs/learn-datahub/privacy/pii-detection",
-        //     },
-        //     {
-        //       type: "doc",
-        //       label: "Privacy Controls (12 min)",
-        //       id: "docs/learn-datahub/privacy/privacy-controls",
-        //     },
-        //     {
-        //       type: "doc",
-        //       label: "Compliance Workflows (11 min)",
-        //       id: "docs/learn-datahub/privacy/compliance-workflows",
-        //     },
-        //   ],
-        // },
+        {
+          type: "category",
+          label: "Data Ingestion Mastery (60 min)",
+          collapsed: true,
+          link: { type: "doc", id: "docs/learn-datahub/ingestion/overview" },
+          items: [
+            // Stubs or to-be-created pages can be added later
+          ],
+        },
+        {
+          type: "category",
+          label: "Privacy & Compliance (35 min)",
+          collapsed: true,
+          link: { type: "doc", id: "docs/learn-datahub/privacy/overview" },
+          items: [
+            {
+              type: "doc",
+              label: "PII Detection (12 min)",
+              id: "docs/learn-datahub/privacy/pii-detection",
+            },
+            {
+              type: "doc",
+              label: "Privacy Controls (12 min)",
+              id: "docs/learn-datahub/privacy/privacy-controls",
+            },
+            {
+              type: "doc",
+              label: "Compliance Workflows (11 min)",
+              id: "docs/learn-datahub/privacy/compliance-workflows",
+            },
+          ],
+        },
       ],
     },
     {

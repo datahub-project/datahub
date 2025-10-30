@@ -381,4 +381,4 @@ Monitor quality across integrated systems:
 
 With comprehensive quality monitoring in place, you're ready to implement incident management processes that ensure rapid response to quality issues.
 
-<NextStepButton href="./incident-management.md" />
+<NextStepButton href="./incident-management" />

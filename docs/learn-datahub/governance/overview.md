@@ -1,17 +1,16 @@
 import DataHubEntityCard from '@site/src/components/DataHubEntityCard';
 import DataHubLineageNode, { DataHubLineageFlow } from '@site/src/components/DataHubLineageNode';
+import TutorialProgress from '@site/src/components/TutorialProgress';
 
 # Data Governance Fundamentals
 
 <TutorialProgress
 tutorialId="governance"
-currentStep="governance-overview"
 steps={[
-{ id: 'governance-overview', title: 'Overview', time: '5 min', description: 'Professional data governance journey introduction' },
-{ id: 'ownership-management', title: 'Ownership Management', time: '12 min', description: 'Establish clear data ownership and accountability' },
-{ id: 'data-classification', title: 'Data Classification', time: '15 min', description: 'Implement PII detection and sensitivity labeling' },
-{ id: 'business-glossary', title: 'Business Glossary', time: '12 min', description: 'Create standardized business terminology' },
-{ id: 'governance-policies', title: 'Governance Policies', time: '11 min', description: 'Automate governance enforcement at scale' }
+{ title: 'Ownership Management', time: '12 min', description: 'Establish clear data ownership and accountability' },
+{ title: 'Data Classification', time: '15 min', description: 'Implement PII detection and sensitivity labeling' },
+{ title: 'Business Glossary', time: '12 min', description: 'Create standardized business terminology' },
+{ title: 'Governance Policies', time: '11 min', description: 'Automate governance enforcement at scale' }
 ]}
 />
 
@@ -186,4 +185,4 @@ Each chapter includes:
 
 Start your data governance journey by establishing clear ownership and accountability for your organization's data assets.
 
-<NextStepButton href="./ownership-management.md" />
+<NextStepButton href="./ownership-management" />

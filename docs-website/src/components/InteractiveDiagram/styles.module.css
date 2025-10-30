@@ -176,23 +176,23 @@
 }
 
 /* Dark Mode Adjustments */
-[data-theme='dark'] .diagramContainer {
+[data-theme="dark"] .diagramContainer {
   border-color: var(--ifm-color-emphasis-300);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-[data-theme='dark'] .diagramTitle {
+[data-theme="dark"] .diagramTitle {
   background: var(--ifm-color-emphasis-200);
   color: var(--ifm-color-content);
 }
 
-[data-theme='dark'] .reactFlow :global(.react-flow__node) {
+[data-theme="dark"] .reactFlow :global(.react-flow__node) {
   background: var(--ifm-color-emphasis-100);
   border-color: var(--ifm-color-emphasis-400);
   color: var(--ifm-color-content);
 }
 
-[data-theme='dark'] .reactFlow :global(.react-flow__edge-text) {
+[data-theme="dark"] .reactFlow :global(.react-flow__edge-text) {
   fill: var(--ifm-color-content);
 }
 
@@ -208,12 +208,12 @@
   .diagramContainer {
     margin: 16px 0;
   }
-  
+
   .diagramTitle {
     padding: 12px 16px;
     font-size: 14px;
   }
-  
+
   .reactFlow :global(.react-flow__node) {
     font-size: 11px;
     padding: 6px 8px;

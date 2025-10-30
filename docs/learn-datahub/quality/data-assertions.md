@@ -364,4 +364,4 @@ WHERE current_dau < previous_week_avg * 0.8  -- 20% drop threshold
 
 With automated assertions in place, you're ready to build comprehensive quality monitoring dashboards that provide real-time visibility into your data health.
 
-<NextStepButton href="./quality-monitoring.md" />
+<NextStepButton href="./quality-monitoring" />

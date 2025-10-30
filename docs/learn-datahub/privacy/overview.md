@@ -1,14 +1,19 @@
 # Privacy & Compliance
 
+import ProcessFlow from '@site/src/components/ProcessFlow';
+import DataHubEntityCard from '@site/src/components/DataHubEntityCard';
+import { HandsOnExercise } from '@site/src/components/TutorialExercise';
+import NextStepButton from '@site/src/components/NextStepButton';
+
+import TutorialProgress from '@site/src/components/TutorialProgress';
+
 <TutorialProgress
-currentStep="privacy-overview"
+tutorialId="privacy"
 steps={[
-{ id: 'privacy-overview', label: 'Overview', completed: false },
-{ id: 'pii-detection', label: 'PII Detection', completed: false },
-{ id: 'privacy-controls', label: 'Privacy Controls', completed: false },
-{ id: 'compliance-workflows', label: 'Compliance Workflows', completed: false }
+{ title: 'PII Detection', time: '12 min', description: 'Discover personal data across systems' },
+{ title: 'Privacy Controls', time: '12 min', description: 'Implement protection and access controls' },
+{ title: 'Compliance Workflows', time: '11 min', description: 'Automate DSARs and regulatory reporting' }
 ]}
-compact={true}
 />
 
 ## Professional Privacy Protection at Scale
@@ -70,6 +75,71 @@ Each chapter includes:
 - **Audit Preparation**: Building evidence for regulatory compliance
 
 ### Understanding Privacy Compliance Impact
+
+## Privacy Program Lifecycle
+
+<ProcessFlow
+title="Privacy-by-Design Lifecycle"
+steps={[
+{ title: 'Discover', description: 'Identify and classify personal data' },
+{ title: 'Protect', description: 'Minimize, mask, and control access' },
+{ title: 'Monitor', description: 'Track changes, freshness, and lineage' },
+{ title: 'Comply', description: 'Fulfill DSARs and generate audit evidence' }
+]}
+type="horizontal"
+animated={true}
+/>
+
+## Representative Assets
+
+<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', margin: '20px 0'}}>
+  <DataHubEntityCard 
+    name="customer_profiles"
+    type="Table"
+    platform="Snowflake"
+    description="Personal data including names, emails, and addresses"
+    owners={[{ name: 'Privacy Team', type: 'Business Owner' }]}
+    tags={['PII', 'Confidential', 'GDPR']}
+    glossaryTerms={['Personal Data', 'Data Subject']}
+    health="Good"
+  />
+  <DataHubEntityCard 
+    name="marketing_contacts"
+    type="Table"
+    platform="Hive"
+    description="Contact data with consent flags and communication preferences"
+    owners={[{ name: 'Marketing Ops', type: 'Business Owner' }]}
+    tags={['PII', 'Consent-Required']}
+    glossaryTerms={['Consent', 'Retention Policy']}
+    health="Good"
+  />
+</div>
+
+## Hands-On: Validate Your Privacy Posture
+
+<HandsOnExercise
+title="Privacy Readiness Checklist"
+difficulty="intermediate"
+timeEstimate="5 min"
+steps={[
+{
+title: 'Locate PII',
+description: 'Search for datasets tagged PII and review schema fields'
+},
+{
+title: 'Verify Classification',
+description: 'Ensure sensitive columns carry correct terms and tags'
+},
+{
+title: 'Check Access',
+description: 'Confirm owners and access controls are documented'
+}
+]}
+/>
+
+<NextStepButton href="./pii-detection">
+Start: PII Detection
+</NextStepButton>
 
 Privacy violations carry severe consequences:
 
@@ -239,4 +309,4 @@ glossaryTerms: ['Privacy by Design', 'Automated Compliance']
 
 Start your privacy compliance journey by implementing automated PII detection that provides complete visibility into personal data across your organization.
 
-<NextStepButton href="./pii-detection.md" />
+<NextStepButton href="./pii-detection" />

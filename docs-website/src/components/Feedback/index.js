@@ -2,7 +2,11 @@ import React, { useState, useMemo } from "react";
 import clsx from "clsx";
 import { supabase } from "./supabase";
 import styles from "./styles.module.scss";
-import { LikeOutlined, DislikeOutlined, CheckCircleOutlined } from "@ant-design/icons";
+import {
+  LikeOutlined,
+  DislikeOutlined,
+  CheckCircleOutlined,
+} from "@ant-design/icons";
 import { v4 as uuidv4 } from "uuid";
 
 const Feedback = () => {
@@ -67,10 +71,22 @@ const Feedback = () => {
             <div className={styles.feedbackButtons}>
               <strong>Is this page helpful?</strong>
               <div>
-                <button className={clsx(styles.feedbackButton, reaction === "positive" && styles.active)} onClick={() => handleReaction("positive")}>
+                <button
+                  className={clsx(
+                    styles.feedbackButton,
+                    reaction === "positive" && styles.active,
+                  )}
+                  onClick={() => handleReaction("positive")}
+                >
                   <LikeOutlined />
                 </button>
-                <button className={clsx(styles.feedbackButton, reaction === "negative" && styles.active)} onClick={() => handleReaction("negative")}>
+                <button
+                  className={clsx(
+                    styles.feedbackButton,
+                    reaction === "negative" && styles.active,
+                  )}
+                  onClick={() => handleReaction("negative")}
+                >
                   <DislikeOutlined />
                 </button>
               </div>

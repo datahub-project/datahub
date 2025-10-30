@@ -1,15 +1,16 @@
 # Governance Policies
 
+import TutorialProgress from '@site/src/components/TutorialProgress';
+
 <TutorialProgress
-currentStep="governance-policies"
+tutorialId="governance"
+currentStep={3}
 steps={[
-{ id: 'governance-overview', label: 'Overview', completed: true },
-{ id: 'ownership-management', label: 'Ownership Management', completed: true },
-{ id: 'data-classification', label: 'Data Classification', completed: true },
-{ id: 'business-glossary', label: 'Business Glossary', completed: true },
-{ id: 'governance-policies', label: 'Governance Policies', completed: false }
+{ title: 'Ownership Management', time: '12 min', description: 'Establish clear data ownership and accountability' },
+{ title: 'Data Classification', time: '15 min', description: 'Implement PII detection and sensitivity labeling' },
+{ title: 'Business Glossary', time: '12 min', description: 'Create standardized business terminology' },
+{ title: 'Governance Policies', time: '11 min', description: 'Automate governance enforcement at scale' }
 ]}
-compact={true}
 />
 
 ## Automating Governance at Scale
@@ -387,4 +388,4 @@ Ready to explore more DataHub capabilities? Check out these related tutorials:
 
 - [Data Quality & Monitoring](../quality/overview.md) - Ensure data reliability
 
-<NextStepButton href="../quality/overview.md" />
+<NextStepButton href="../quality/overview" />

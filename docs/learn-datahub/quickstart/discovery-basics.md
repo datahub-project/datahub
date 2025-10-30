@@ -1,9 +1,10 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
-import TutorialProgress from '@site/src/components/TutorialProgress';
 import NextStepButton from '@site/src/components/NextStepButton';
 import DataHubEntityCard, { SampleEntities } from '@site/src/components/DataHubEntityCard';
 import DataHubLineageNode, { DataHubLineageFlow } from '@site/src/components/DataHubLineageNode';
+import { SearchExercise } from '@site/src/components/TutorialExercise';
+import TutorialProgress from '@site/src/components/TutorialProgress';
 
 # Step 3: Discovery Basics (10 minutes)
 
@@ -11,10 +12,10 @@ import DataHubLineageNode, { DataHubLineageFlow } from '@site/src/components/Dat
 tutorialId="quickstart"
 currentStep={2}
 steps={[
-{ title: "Setup DataHub", time: "5 min" },
-{ title: "First Data Ingestion", time: "10 min" },
-{ title: "Discovery Basics", time: "10 min" },
-{ title: "Your First Lineage", time: "5 min" }
+{ title: "Setup DataHub", time: "5 min", description: "Deploy DataHub locally with Docker" },
+{ title: "Ingest Your First Dataset", time: "15 min", description: "Connect sources and ingest metadata" },
+{ title: "Discovery Basics", time: "10 min", description: "Find, evaluate, and understand datasets" },
+{ title: "Explore Data Lineage", time: "15 min", description: "Trace dependencies and assess impact" }
 ]}
 />
 
@@ -81,22 +82,38 @@ Notice how searching for "user" found tables with "users" in the name? DataHub's
 <Tabs>
 <TabItem value="business-terms" label="Business-Focused Search">
 
-**Try these enterprise-specific searches:**
+<SearchExercise
+title="Business-Focused Search Patterns"
+difficulty="beginner"
+timeEstimate="3 min"
+searches={[
+{
+query: "fct_users",
+description: "Find analytics tables (fact tables)",
+expected: "Examples: fct_users_created, fct_users_deleted"
+},
+{
+query: "logging events",
+description: "Find event data",
+expected: "Example: logging_events"
+},
+{
+query: "kafka sample",
+description: "Look for sample Kafka topics",
+expected: "Example: SampleKafkaDataset (if available)"
+},
+{
+query: "warehouse analytics",
+description: "Find processed analytics data",
+expected: "Warehouse analytics tables and views"
+}
+]}
 
-```
-# Find analytics tables
-fct_users
-created deleted
-
-# Find event data
-logging events
-kafka sample
-
-# Find processed data
-warehouse analytics
-```
+>
 
 **Why this works**: This enterprise follows standard naming conventions (`fct_` for fact tables, descriptive names for events).
+
+</SearchExercise>
 
 </TabItem>
 <TabItem value="platform-filters" label="Platform-Based Filtering">

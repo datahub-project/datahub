@@ -41,6 +41,7 @@ These components show data pipeline relationships using actual DataHub styling:
 ## Individual Lineage Nodes
 
 ### Dataset Nodes (Rectangular) - With Tags & Glossary Terms
+
 <div style={{display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', margin: '20px 0'}}>
   <DataHubLineageNode 
     name="fct_users_created" 
@@ -91,6 +92,7 @@ These components show data pipeline relationships using actual DataHub styling:
 </div>
 
 ### Data Job Nodes (Circular)
+
 <div style={{display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', margin: '20px 0'}}>
   <DataHubLineageNode 
     name="user_etl_job" 
@@ -121,6 +123,7 @@ These components show data pipeline relationships using actual DataHub styling:
 The components now match DataHub V3 specifications:
 
 ### Dataset Nodes (Rectangular)
+
 - **Width**: 320px (matches `LINEAGE_NODE_WIDTH`)
 - **Height**: 90px base + expandable columns section
 - **Border Radius**: 12px (DataHub V3 styling)
@@ -133,6 +136,7 @@ The components now match DataHub V3 specifications:
 - **Glossary Terms**: Colored ribbon indicators with term names (e.g., User Metrics, Fact Table)
 
 ### Data Job Nodes (Circular)
+
 - **Size**: 40px × 40px (matches `TRANSFORMATION_NODE_SIZE`)
 - **Border Radius**: 8px (slightly rounded for transformation nodes)
 - **Health Icons**: Positioned as badges in top-right corner
@@ -140,6 +144,7 @@ The components now match DataHub V3 specifications:
 - **No Expansion**: Data jobs don't have column-level details
 
 ### Entity Cards
+
 - **Colors**: Synced with DataHub Alchemy design system
 - **Primary**: `#533FD1` (DataHub violet[500])
 - **Border**: `#E9EAEE` (DataHub gray[1400])

@@ -16,7 +16,7 @@ function DataProviderComponent() {
     "DataHub Integrations",
     "Services that integrate with DataHub",
     false,
-    true
+    true,
   );
 }
 

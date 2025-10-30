@@ -34,7 +34,11 @@
 }
 
 .progressFill {
-  background: linear-gradient(90deg, var(--ifm-color-primary) 0%, var(--ifm-color-primary-light) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--ifm-color-primary) 0%,
+    var(--ifm-color-primary-light) 100%
+  );
   height: 100%;
   border-radius: 10px;
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -169,48 +173,48 @@
 }
 
 /* Dark mode support */
-[data-theme='dark'] .tutorialProgress {
+[data-theme="dark"] .tutorialProgress {
   background: #1e1e1e;
   border-color: #444;
   color: #e9ecef;
 }
 
-[data-theme='dark'] .header h4 {
+[data-theme="dark"] .header h4 {
   color: #e9ecef;
 }
 
-[data-theme='dark'] .progressBar {
+[data-theme="dark"] .progressBar {
   background: #444;
 }
 
-[data-theme='dark'] .progressText {
+[data-theme="dark"] .progressText {
   color: #e9ecef;
   text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
 }
 
-[data-theme='dark'] .step:hover {
+[data-theme="dark"] .step:hover {
   background: rgba(0, 123, 255, 0.15);
 }
 
-[data-theme='dark'] .step.current {
+[data-theme="dark"] .step.current {
   background: rgba(0, 123, 255, 0.2);
 }
 
-[data-theme='dark'] .stepText strong {
+[data-theme="dark"] .stepText strong {
   color: #e9ecef;
 }
 
-[data-theme='dark'] .actions {
+[data-theme="dark"] .actions {
   border-top-color: #444;
 }
 
-[data-theme='dark'] .resetButton {
+[data-theme="dark"] .resetButton {
   background: #2d2d2d;
   border-color: #444;
   color: #adb5bd;
 }
 
-[data-theme='dark'] .resetButton:hover {
+[data-theme="dark"] .resetButton:hover {
   background: #3d3d3d;
   border-color: #555;
 }
@@ -251,7 +255,7 @@
   border-radius: 4px;
 }
 
-[data-theme='dark'] .compact {
+[data-theme="dark"] .compact {
   background: var(--ifm-color-emphasis-200);
   border-color: var(--ifm-color-emphasis-300);
 }
@@ -346,16 +350,16 @@
 }
 
 /* Dark mode adjustments for minimized state */
-[data-theme='dark'] .minimized {
+[data-theme="dark"] .minimized {
   background: var(--ifm-color-emphasis-200);
   border-color: var(--ifm-color-emphasis-400);
 }
 
-[data-theme='dark'] .minimizedHeader:hover {
+[data-theme="dark"] .minimizedHeader:hover {
   background: var(--ifm-color-emphasis-300);
 }
 
-[data-theme='dark'] .minimizedBar {
+[data-theme="dark"] .minimizedBar {
   background: var(--ifm-color-emphasis-400);
 }
 
@@ -368,7 +372,7 @@
     width: 100%;
     margin: 16px 0;
   }
-  
+
   .minimized.scrolled {
     position: fixed;
     top: 60px; /* Account for mobile header */

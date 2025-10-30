@@ -12,14 +12,17 @@ module.exports = {
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
   staticDirectories: ["static"],
-  stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
+  stylesheets: [
+    "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap",
+  ],
   headTags: [
     {
-      tagName: 'meta',
+      tagName: "meta",
       attributes: {
-        httpEquiv: 'Content-Security-Policy',
-        content: "frame-ancestors 'self' https://*.acryl.io https://acryldata.io http://localhost:*"
-      }
+        httpEquiv: "Content-Security-Policy",
+        content:
+          "frame-ancestors 'self' https://*.acryl.io https://acryldata.io http://localhost:*",
+      },
     },
   ],
   scripts: [
@@ -34,11 +37,11 @@ module.exports = {
       defer: true,
     },
     {
-      src: "https://app.revenuehero.io/scheduler.min.js"
+      src: "https://app.revenuehero.io/scheduler.min.js",
     },
     {
       src: "https://tag.clearbitscripts.com/v1/pk_2e321cabe30432a5c44c0424781aa35f/tags.js",
-      referrerPolicy: "strict-origin-when-cross-origin"
+      referrerPolicy: "strict-origin-when-cross-origin",
     },
     {
       src: "/scripts/reo.js",
@@ -54,7 +57,8 @@ module.exports = {
       "runllm-keyboard-shortcut": "Mod+j",
       "runllm-preset": "docusaurus",
       "runllm-theme-color": "#1890FF",
-      "runllm-brand-logo": "https://docs.datahub.com/img/datahub-logo-color-mark.svg",
+      "runllm-brand-logo":
+        "https://docs.datahub.com/img/datahub-logo-color-mark.svg",
       "runllm-community-url": "https://datahub.com/slack",
       "runllm-community-type": "slack",
       "runllm-disable-ask-a-person": "true",
@@ -107,7 +111,7 @@ module.exports = {
     },
     colorMode: {
       // Only support light mode.
-      defaultMode: 'light',
+      defaultMode: "light",
       disableSwitch: true,
       respectPrefersColorScheme: false,
     },
@@ -138,12 +142,13 @@ module.exports = {
           dropdownActiveClassDisabled: true,
           dropdownItemsAfter: [
             {
-              type: 'html',
+              type: "html",
               value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
             },
             {
-              type: 'html',
-              value: '<div class="dropdown__link"><b>Archived versions</b></div>',
+              type: "html",
+              value:
+                '<div class="dropdown__link"><b>Archived versions</b></div>',
             },
             {
               value: `
@@ -339,7 +344,7 @@ module.exports = {
           versions: {
             current: {
               label: "Next",
-              banner: 'none',
+              banner: "none",
             },
           },
           path: "genDocs",
@@ -355,7 +360,8 @@ module.exports = {
         blog: {
           blogTitle: "DataHub Learn",
           blogSidebarTitle: "DataHub Learn",
-          blogDescription: "Learn about the hot topics in the data ecosystem and how DataHub can help you with your data journey.",
+          blogDescription:
+            "Learn about the hot topics in the data ecosystem and how DataHub can help you with your data journey.",
           path: "src/learn",
           routeBasePath: "learn",
           postsPerPage: "ALL",
@@ -363,7 +369,9 @@ module.exports = {
         },
         theme: {
           customCss: [
-            isSaas ? require.resolve("./src/styles/acryl.scss") : require.resolve("./src/styles/datahub.scss"),
+            isSaas
+              ? require.resolve("./src/styles/acryl.scss")
+              : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
@@ -374,7 +382,7 @@ module.exports = {
           mdxPageComponent: "@theme/MDXPage",
         },
         googleTagManager: {
-          containerId: 'GTM-5M8T9HNN',
+          containerId: "GTM-5M8T9HNN",
         },
         gtag: {
           trackingID: "G-PKGVLETT4C",
@@ -384,29 +392,32 @@ module.exports = {
   ],
   plugins: [
     [
-      '@docusaurus/plugin-client-redirects',
+      "@docusaurus/plugin-client-redirects",
       {
         createRedirects(existingPath) {
-          if (existingPath.includes('/docs')) {
+          if (existingPath.includes("/docs")) {
             return [
-              existingPath.replace('/docs', '/docs/next'),
-              existingPath.replace('/docs', '/docs/0.13.0'),
-              existingPath.replace('/docs', '/docs/0.12.1'),
-              existingPath.replace('/docs', '/docs/0.11.0'),
-              existingPath.replace('/docs', '/docs/0.10.5'),
+              existingPath.replace("/docs", "/docs/next"),
+              existingPath.replace("/docs", "/docs/0.13.0"),
+              existingPath.replace("/docs", "/docs/0.12.1"),
+              existingPath.replace("/docs", "/docs/0.11.0"),
+              existingPath.replace("/docs", "/docs/0.10.5"),
             ];
           }
           return undefined; // Return a falsy value: no redirect created
         },
         redirects: [
           {
-            from: '/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor',
-            to: '/docs/managed-datahub/remote-executor/about',
+            from: "/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+            to: "/docs/managed-datahub/remote-executor/about",
           },
         ],
       },
     ],
-    ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
+    [
+      "@docusaurus/plugin-ideal-image",
+      { quality: 100, sizes: [320, 640, 1280, 1440, 1600] },
+    ],
     "docusaurus-plugin-sass",
     [
       "docusaurus-graphql-plugin",

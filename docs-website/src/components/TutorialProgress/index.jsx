@@ -1,15 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { useHistory, useLocation } from '@docusaurus/router';
-import styles from './styles.module.css';
+import React, { useState, useEffect } from "react";
+import { useHistory, useLocation } from "@docusaurus/router";
+import styles from "./styles.module.css";
 
-const TutorialProgress = ({ tutorialId, steps, currentStep, compact = false }) => {
+const TutorialProgress = ({
+  tutorialId,
+  steps,
+  currentStep,
+  compact = false,
+}) => {
   const [completedSteps, setCompletedSteps] = useState(new Set());
   const [isMinimized, setIsMinimized] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  
+
   // Handle both old and new formats
-  const actualTutorialId = tutorialId || 'tutorial';
-  const actualCurrentStep = typeof currentStep === 'string' ? currentStep : `step-${currentStep}`;
+  const actualTutorialId = tutorialId || "tutorial";
+  const actualCurrentStep =
+    typeof currentStep === "string" ? currentStep : `step-${currentStep}`;
   const storageKey = `datahub-tutorial-${actualTutorialId}`;
 
   // Load progress from localStorage on component mount
@@ -20,7 +26,7 @@ const TutorialProgress = ({ tutorialId, steps, currentStep, compact = false }) =
         const parsed = JSON.parse(savedProgress);
         setCompletedSteps(new Set(parsed));
       } catch (e) {
-        console.warn('Failed to parse tutorial progress:', e);
+        console.warn("Failed to parse tutorial progress:", e);
       }
     }
   }, [storageKey]);
@@ -31,14 +37,14 @@ const TutorialProgress = ({ tutorialId, steps, currentStep, compact = false }) =
   }, [completedSteps, storageKey]);
 
   const toggleStep = (stepId) => {
-    setCompletedSteps(prev => {
+    setCompletedSteps((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(stepId)) {
         newSet.delete(stepId);
       } else {
         newSet.add(stepId);
         // Auto-mark previous steps as completed
-        const stepIndex = parseInt(stepId.split('-')[1]);
+        const stepIndex = parseInt(stepId.split("-")[1]);
         for (let i = 0; i < stepIndex; i++) {
           newSet.add(`step-${i}`);
         }
@@ -55,7 +61,7 @@ const TutorialProgress = ({ tutorialId, steps, currentStep, compact = false }) =
   // Auto-mark current step as completed when user navigates
   useEffect(() => {
     if (currentStep !== undefined) {
-      setCompletedSteps(prev => {
+      setCompletedSteps((prev) => {
         const newSet = new Set(prev);
         newSet.add(actualCurrentStep);
         return newSet;
@@ -66,28 +72,33 @@ const TutorialProgress = ({ tutorialId, steps, currentStep, compact = false }) =
   // Handle scroll behavior for auto-minimizing
   useEffect(() => {
     const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollTop =
+        window.pageYOffset || document.documentElement.scrollTop;
       setIsScrolled(scrollTop > 100); // Auto-minimize after scrolling 100px
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const toggleMinimized = () => {
     setIsMinimized(!isMinimized);
   };
 
-  const completionPercentage = Math.round((completedSteps.size / steps.length) * 100);
+  const completionPercentage = Math.round(
+    (completedSteps.size / steps.length) * 100,
+  );
 
   if (compact) {
     return (
       <div className={`${styles.tutorialProgress} ${styles.compact}`}>
         <div className={styles.compactHeader}>
-          <span className={styles.compactTitle}>📋 Progress: {completedSteps.size}/{steps.length}</span>
+          <span className={styles.compactTitle}>
+            📋 Progress: {completedSteps.size}/{steps.length}
+          </span>
           <div className={styles.compactBar}>
-            <div 
-              className={styles.progressFill} 
+            <div
+              className={styles.progressFill}
               style={{ width: `${completionPercentage}%` }}
             />
           </div>
@@ -101,20 +112,26 @@ const TutorialProgress = ({ tutorialId, steps, currentStep, compact = false }) =
 
   if (shouldShowMinimized) {
     return (
-      <div className={`${styles.tutorialProgress} ${styles.minimized} ${isScrolled ? styles.scrolled : ''}`}>
+      <div
+        className={`${styles.tutorialProgress} ${styles.minimized} ${isScrolled ? styles.scrolled : ""}`}
+      >
         <div className={styles.minimizedHeader} onClick={toggleMinimized}>
           <div className={styles.minimizedContent}>
             <span className={styles.minimizedTitle}>
-              📋 {completedSteps.size}/{steps.length} completed ({completionPercentage}%)
+              📋 {completedSteps.size}/{steps.length} completed (
+              {completionPercentage}%)
             </span>
             <div className={styles.minimizedBar}>
-              <div 
-                className={styles.progressFill} 
+              <div
+                className={styles.progressFill}
                 style={{ width: `${completionPercentage}%` }}
               />
             </div>
           </div>
-          <button className={styles.expandButton} title="Expand progress details">
+          <button
+            className={styles.expandButton}
+            title="Expand progress details"
+          >
             ⬇️
           </button>
         </div>
@@ -127,7 +144,7 @@ const TutorialProgress = ({ tutorialId, steps, currentStep, compact = false }) =
       <div className={styles.header}>
         <div className={styles.headerContent}>
           <h4>📋 Tutorial Progress</h4>
-          <button 
+          <button
             className={styles.minimizeButton}
             onClick={toggleMinimized}
             title="Minimize progress tracker"
@@ -136,27 +153,28 @@ const TutorialProgress = ({ tutorialId, steps, currentStep, compact = false }) =
           </button>
         </div>
         <div className={styles.progressBar}>
-          <div 
-            className={styles.progressFill} 
+          <div
+            className={styles.progressFill}
             style={{ width: `${completionPercentage}%` }}
           />
           <span className={styles.progressText}>
-            {completedSteps.size} of {steps.length} completed ({completionPercentage}%)
+            {completedSteps.size} of {steps.length} completed (
+            {completionPercentage}%)
           </span>
         </div>
       </div>
-      
+
       <div className={styles.stepsList}>
         {steps.map((step, index) => {
           // Handle both old format (step-${index}) and new format (step.id)
           const stepId = step.id || `step-${index}`;
           const isCompleted = completedSteps.has(stepId);
           const isCurrent = actualCurrentStep === stepId;
-          
+
           return (
-            <div 
-              key={stepId} 
-              className={`${styles.step} ${isCurrent ? styles.current : ''}`}
+            <div
+              key={stepId}
+              className={`${styles.step} ${isCurrent ? styles.current : ""}`}
             >
               <label className={styles.stepLabel}>
                 <input
@@ -166,12 +184,16 @@ const TutorialProgress = ({ tutorialId, steps, currentStep, compact = false }) =
                   className={styles.checkbox}
                 />
                 <span className={styles.checkmark}>
-                  {isCompleted ? '✅' : '⬜'}
+                  {isCompleted ? "✅" : "⬜"}
                 </span>
                 <span className={styles.stepText}>
                   <strong>{step.title || step.label}</strong>
-                  {step.time && <span className={styles.time}>({step.time})</span>}
-                  {isCurrent && <span className={styles.currentBadge}>← You are here</span>}
+                  {step.time && (
+                    <span className={styles.time}>({step.time})</span>
+                  )}
+                  {isCurrent && (
+                    <span className={styles.currentBadge}>← You are here</span>
+                  )}
                 </span>
               </label>
               {step.description && (
@@ -183,7 +205,7 @@ const TutorialProgress = ({ tutorialId, steps, currentStep, compact = false }) =
       </div>
 
       <div className={styles.actions}>
-        <button 
+        <button
           onClick={resetProgress}
           className={styles.resetButton}
           title="Reset all progress for this tutorial"
@@ -192,7 +214,8 @@ const TutorialProgress = ({ tutorialId, steps, currentStep, compact = false }) =
         </button>
         {completedSteps.size === steps.length && (
           <div className={styles.completionMessage}>
-            🎉 <strong>Tutorial Complete!</strong> Great job finishing all steps!
+            🎉 <strong>Tutorial Complete!</strong> Great job finishing all
+            steps!
           </div>
         )}
       </div>

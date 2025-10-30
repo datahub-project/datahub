@@ -1,19 +1,26 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import TutorialProgress from '@site/src/components/TutorialProgress';
 
 # Collaborative Discovery (10 minutes)
 
-:::info Tutorial Progress
-**Step 3 of 3** | **10 minutes** | [Overview](overview.md) → [Advanced Search](advanced-search.md) → [Dataset Profiles](dataset-profiles.md) → **Collaborative Discovery**
-:::
+<TutorialProgress
+tutorialId="discovery"
+currentStep={2}
+steps={[
+{ title: "Advanced Search Techniques", time: "15 min", description: "Master operators, filters, and saved searches" },
+{ title: "Understanding Dataset Profiles", time: "20 min", description: "Interpret profiles, statistics, and data quality" },
+{ title: "Collaborative Discovery", time: "10 min", description: "Document, tag, and share knowledge effectively" }
+]}
+/>
 
 Transform DataHub from a solo tool into a team knowledge platform. Learn to document insights, ask questions, and build collective data intelligence that benefits everyone.
 
-## Discovery Challenge #3: The Collaboration Champion
+## Scenario 3: Knowledge Sharing at Scale
 
-**Your Mission**: You've discovered valuable insights about customer segmentation data and want to ensure future analysts can benefit from your knowledge. Make this dataset more discoverable and useful for your team.
+**Objective**: Capture and share insights so future analysts can easily find and apply the dataset in the correct context.
 
-**What You'll Learn**: Documentation best practices, effective tagging strategies, and how to build a collaborative data culture.
+**What You'll Learn**: Documentation practices, effective tagging strategies, and sustainable collaboration patterns.
 
 ## The Collaboration Multiplier Effect
 
@@ -509,13 +516,13 @@ Choose your next learning adventure based on your role and interests:
 → [Data Lineage & Impact Analysis](../lineage/overview.md) - Understand data dependencies and trace issues
 
 **For Data Engineers:**  
-→ Data Ingestion Mastery (coming soon) - Master recipes, profiling, and production patterns
+→ [Data Ingestion Mastery](../ingestion/overview.md) - Master recipes, profiling, and production patterns
 
 **For Data Governance Teams:**
-→ Data Governance Fundamentals (coming soon) - Ownership, classification, and business glossaries
+→ [Data Governance Fundamentals](../governance/overview.md) - Ownership, classification, and business glossaries
 
 **For Everyone:**
-→ Data Quality & Monitoring (coming soon) - Set up assertions and monitoring for reliable data
+→ [Data Quality & Monitoring](../quality/overview.md) - Set up assertions and monitoring for reliable data
 
 </div>
 

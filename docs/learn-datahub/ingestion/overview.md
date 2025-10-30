@@ -1,15 +1,15 @@
 # Data Ingestion Mastery
 
+import TutorialProgress from '@site/src/components/TutorialProgress';
+
 <TutorialProgress
-currentStep="ingestion-overview"
+tutorialId="ingestion"
 steps={[
-{ id: 'ingestion-overview', label: 'Overview', completed: false },
-{ id: 'recipe-fundamentals', label: 'Recipe Fundamentals', completed: false },
-{ id: 'stateful-ingestion', label: 'Stateful Ingestion', completed: false },
-{ id: 'data-profiling', label: 'Data Profiling', completed: false },
-{ id: 'advanced-patterns', label: 'Advanced Patterns', completed: false }
+{ title: 'Recipe Fundamentals', time: '15 min', description: 'Standardize metadata collection' },
+{ title: 'Stateful Ingestion', time: '15 min', description: 'Efficient incremental updates' },
+{ title: 'Data Profiling', time: '15 min', description: 'Profile and analyze data content' },
+{ title: 'Advanced Patterns', time: '15 min', description: 'Handle complex enterprise scenarios' }
 ]}
-compact={true}
 />
 
 ## Professional Data Integration at Scale
@@ -250,4 +250,4 @@ glossaryTerms: ['ML Optimization', 'Predictive Metadata']
 
 Start your ingestion mastery journey by learning the fundamentals of DataHub recipes and how to configure them for different data sources.
 
-<NextStepButton href="./recipe-fundamentals.md" />
+<NextStepButton href="./recipe-fundamentals" />

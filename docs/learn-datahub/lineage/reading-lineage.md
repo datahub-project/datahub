@@ -7,10 +7,6 @@ import ProcessFlow, { DataHubWorkflows } from '@site/src/components/ProcessFlow'
 
 # Reading Lineage Graphs (15 minutes)
 
-:::info Tutorial Progress
-**Step 1 of 3** | **15 minutes** | [Overview](overview.md) → **Reading Lineage** → [Impact Analysis](impact-analysis.md) → [Troubleshooting](troubleshooting.md)
-:::
-
 <TutorialProgress
 tutorialId="lineage"
 currentStep={0}
@@ -39,7 +35,34 @@ By the end of this step, you'll be able to:
 Professional data engineers follow a systematic approach to lineage analysis:
 
 <ProcessFlow
-{...DataHubWorkflows.lineageAnalysis}
+title="5-Hop Lineage Analysis Method"
+steps={[
+{
+title: "Start at Target",
+description: "Begin with dataset of interest",
+details: ["Open lineage view", "Identify current dataset", "Note business context"]
+},
+{
+title: "Trace Upstream",
+description: "Follow data backwards",
+details: ["Identify transformations", "Check data sources", "Document dependencies"]
+},
+{
+title: "Analyze Hops",
+description: "Examine each connection",
+details: ["Understand business logic", "Check quality gates", "Note critical points"]
+},
+{
+title: "Impact Assessment",
+description: "Evaluate change effects",
+details: ["Identify affected systems", "Assess risk levels", "Plan mitigation"]
+},
+{
+title: "Validate Understanding",
+description: "Confirm analysis",
+details: ["Review with data owners", "Test assumptions", "Document findings"]
+}
+]}
 type="horizontal"
 animated={true}
 />
@@ -225,11 +248,100 @@ glossaryTerms: ['Executive Dashboard']
 
 **5-Hop Lineage Analysis Example:**
 
-```
-← Hop 5        ← Hop 4         ← Hop 3         ← Hop 2         ← Hop 1         Current Dataset
-Raw Source  →  Data Ingestion  →  Validation   →  ETL Process  →  Final Transform  →  fct_users_created
-(HDFS Files)   (Kafka Stream)     (Quality Check) (Business Logic) (Aggregation)     (Analytics Table)
-```
+<DataHubLineageFlow {...{
+title: "6-Hop User Analytics Investigation",
+nodes: [
+{
+name: 'user_events_raw',
+type: 'Table',
+entityType: 'Dataset',
+platform: 'HDFS',
+health: 'Good',
+columns: [
+{ name: 'event_id', type: 'string' },
+{ name: 'user_id', type: 'string' },
+{ name: 'event_timestamp', type: 'timestamp' },
+{ name: 'event_type', type: 'string' },
+{ name: 'session_id', type: 'string' }
+],
+tags: ['Source', 'Raw'],
+glossaryTerms: ['Event Data']
+},
+{
+name: 'kafka_ingestion',
+type: 'Job',
+entityType: 'DataJob',
+platform: 'Kafka',
+health: 'Good',
+tags: ['Streaming', 'Ingestion']
+},
+{
+name: 'events_validated',
+type: 'Table',
+entityType: 'Dataset',
+platform: 'Snowflake',
+health: 'Good',
+columns: [
+{ name: 'event_id', type: 'string' },
+{ name: 'user_id', type: 'string' },
+{ name: 'event_date', type: 'date' },
+{ name: 'event_type', type: 'string' },
+{ name: 'is_valid', type: 'boolean' }
+],
+tags: ['Validated', 'Cleaned'],
+glossaryTerms: ['Clean Event Data']
+},
+{
+name: 'dbt_transform',
+type: 'Job',
+entityType: 'DataJob',
+platform: 'dbt',
+health: 'Warning',
+tags: ['Transformation', 'Business Logic']
+},
+{
+name: 'user_activity_daily',
+type: 'Table',
+entityType: 'Dataset',
+platform: 'Snowflake',
+health: 'Warning',
+columns: [
+{ name: 'user_id', type: 'string' },
+{ name: 'activity_date', type: 'date' },
+{ name: 'event_count', type: 'number' },
+{ name: 'session_count', type: 'number' },
+{ name: 'active_minutes', type: 'number' }
+],
+tags: ['Aggregated', 'Daily'],
+glossaryTerms: ['User Activity', 'Engagement']
+},
+{
+name: 'rollup_aggregation',
+type: 'Job',
+entityType: 'DataJob',
+platform: 'Airflow',
+health: 'Warning',
+tags: ['Aggregation', 'Rollup']
+},
+{
+name: 'fct_users_created',
+type: 'Table',
+entityType: 'Dataset',
+platform: 'Snowflake',
+health: 'Critical',
+columns: [
+{ name: 'user_id', type: 'string' },
+{ name: 'first_seen_date', type: 'date' },
+{ name: 'total_events', type: 'number' },
+{ name: 'total_sessions', type: 'number' },
+{ name: 'lifetime_minutes', type: 'number' },
+{ name: 'user_status', type: 'string' }
+],
+tags: ['Fact Table', 'Analytics'],
+glossaryTerms: ['User Metrics', 'Analytics']
+}
+]
+}} />
 
 **Analysis Questions for Each Hop:**
 
@@ -778,59 +890,13 @@ downstreamConnections: ['executive_datasource', 'churn_model', 'customer_api', '
 {
 name: "outputs",
 title: "Output Layer",
+subLayersLayout: 'columns',
 nodes: [
-{
-name: 'executive_datasource',
-type: 'Published Datasource',
-entityType: 'Dataset',
-platform: 'Tableau',
-health: 'Good',
-tags: ['Published-Data', 'Tableau-Source', 'Executive'],
-glossaryTerms: ['Published Datasource', 'Tableau Data'],
-downstreamConnections: ['executive_chart']
-},
-{
-name: 'executive_chart',
-type: 'Revenue Chart',
-entityType: 'Chart',
-platform: 'Tableau',
-health: 'Good',
-tags: ['Chart', 'Revenue-Visualization', 'Executive'],
-glossaryTerms: ['Revenue Chart', 'Executive Visualization'],
-downstreamConnections: ['executive_dashboard']
-},
-{
-name: 'executive_dashboard',
-type: 'CEO Dashboard',
-entityType: 'Dashboard',
-platform: 'Tableau',
-health: 'Good',
-tags: ['Executive', 'Revenue-Reporting', 'Daily-Brief'],
-glossaryTerms: ['Executive Dashboard', 'Strategic Reporting']
-},
-{
-name: 'sales_dashboard',
-type: 'Sales Team Dashboard',
-entityType: 'Dashboard',
-platform: 'Looker',
-health: 'Good',
-tags: ['Sales', 'Operational', 'Real-Time'],
-glossaryTerms: ['Sales Dashboard', 'Operational Reporting']
-},
-{
-name: 'churn_model',
-type: 'ML Prediction Model',
-entityType: 'MLModel',
-platform: 'MLflow',
-health: 'Good',
-tags: ['Machine-Learning', 'Churn-Prediction', 'Production'],
-glossaryTerms: ['Churn Model', 'Predictive Analytics']
-},
 {
 name: 'customer_api',
 type: 'Customer-Facing API',
 entityType: 'Dataset',
-platform: 'Redis',
+platform: 'DynamoDB',
 health: 'Good',
 tags: ['Customer-Facing', 'Real-Time', 'High-Availability'],
 glossaryTerms: ['Customer API', 'Real-Time Service']
@@ -843,6 +909,73 @@ platform: 'DataHub',
 health: 'Good',
 tags: ['Compliance', 'Regulatory', 'Monthly'],
 glossaryTerms: ['Compliance Reporting', 'Regulatory Data']
+},
+{
+name: 'churn_model',
+type: 'ML Prediction Model',
+entityType: 'MLModel',
+platform: 'MLflow',
+health: 'Good',
+tags: ['Machine-Learning', 'Churn-Prediction', 'Production'],
+glossaryTerms: ['Churn Model', 'Predictive Analytics']
+},
+{
+name: 'sales_dashboard',
+type: 'Sales Team Dashboard',
+entityType: 'Dashboard',
+platform: 'Looker',
+health: 'Good',
+tags: ['Sales', 'Operational', 'Real-Time'],
+glossaryTerms: ['Sales Dashboard', 'Operational Reporting']
+}
+],
+subLayers: [
+{
+nodes: [
+{
+name: 'executive_datasource',
+type: 'Published Datasource',
+entityType: 'Dataset',
+platform: 'Tableau',
+health: 'Good',
+columns: [
+{ name: 'customer_id', type: 'bigint' },
+{ name: 'transaction_count', type: 'bigint' },
+{ name: 'transaction_date', type: 'date' },
+{ name: 'total_spend', type: 'float' }
+],
+tags: [],
+glossaryTerms: ['Published Datasource', 'Tableau Data'],
+downstreamConnections: ['executive_chart']
+}
+]
+},
+{
+nodes: [
+{
+name: 'executive_chart',
+type: 'Revenue Chart',
+entityType: 'Chart',
+platform: 'Tableau',
+health: 'Good',
+tags: ['Chart', 'Revenue-Visualization', 'Executive'],
+glossaryTerms: ['Revenue Chart', 'Executive Visualization'],
+downstreamConnections: ['executive_workbook']
+}
+]
+},
+{
+nodes: [
+{
+name: 'executive_workbook',
+type: 'Workbook',
+entityType: 'Dashboard',
+platform: 'Tableau',
+health: 'Good',
+tags: ['Executive', 'Revenue-Reporting', 'Daily-Brief'],
+glossaryTerms: ['Executive Workbook', 'Strategic Reporting']
+}
+]
 }
 ]
 }
@@ -884,14 +1017,14 @@ Where:
 
 **Step 2**: Rank your top 3 most critical assets:
 
-1. **Most Critical**: ******\_\_\_\_******
-2. **Second Critical**: ******\_\_\_\_******
-3. **Third Critical**: ******\_\_\_\_******
+1. **Most Critical**: **\*\***\_\_\_\_**\*\***
+2. **Second Critical**: **\*\***\_\_\_\_**\*\***
+3. **Third Critical**: **\*\***\_\_\_\_**\*\***
 
 **Step 3**: Justify your choices:
 
-- **Why is #1 most critical?** ******\_\_\_\_******
-- **What monitoring would you implement?** ******\_\_\_\_******
+- **Why is #1 most critical?** **\*\***\_\_\_\_**\*\***
+- **What monitoring would you implement?** **\*\***\_\_\_\_**\*\***
 
 </TabItem>
 <TabItem value="expert-analysis" label="Expert Analysis">

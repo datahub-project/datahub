@@ -1,19 +1,22 @@
-import React, {useState, useRef, useEffect} from 'react';
-import clsx from 'clsx';
+import React, { useState, useRef, useEffect } from "react";
+import clsx from "clsx";
 import {
   isRegexpStringMatch,
   useCollapsible,
   Collapsible,
-} from '@docusaurus/theme-common';
-import {isSamePath, useLocalPathname} from '@docusaurus/theme-common/internal';
-import NavbarNavLink from '@theme/NavbarItem/NavbarNavLink';
-import NavbarItem, {type LinkLikeNavbarItemProps} from '@theme/NavbarItem';
+} from "@docusaurus/theme-common";
+import {
+  isSamePath,
+  useLocalPathname,
+} from "@docusaurus/theme-common/internal";
+import NavbarNavLink from "@theme/NavbarItem/NavbarNavLink";
+import NavbarItem, { type LinkLikeNavbarItemProps } from "@theme/NavbarItem";
 import type {
   DesktopOrMobileNavBarItemProps,
   Props,
-} from '@theme/NavbarItem/DropdownNavbarItem';
-import styles from './styles.module.scss';
-import Link from '@docusaurus/Link';
+} from "@theme/NavbarItem/DropdownNavbarItem";
+import styles from "./styles.module.scss";
+import Link from "@docusaurus/Link";
 
 function isItemActive(
   item: LinkLikeNavbarItemProps,
@@ -47,7 +50,7 @@ function DropdownNavbarItemDesktop({
   ...props
 }: DesktopOrMobileNavBarItemProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [showDropdown, setShowDropdown] = useState(false); 
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (
@@ -62,24 +65,25 @@ function DropdownNavbarItemDesktop({
       setShowDropdown(false);
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
-    document.addEventListener('focusin', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    document.addEventListener("focusin", handleClickOutside);
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
-      document.removeEventListener('focusin', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("focusin", handleClickOutside);
     };
   }, [dropdownRef]);
 
   return (
     <div
       ref={dropdownRef}
-      className={clsx('navbar__item', 'dropdown', 'dropdown--hoverable', {
-        'dropdown--right': position === 'right',
-        'dropdown--show': showDropdown,
-      })}>
+      className={clsx("navbar__item", "dropdown", "dropdown--hoverable", {
+        "dropdown--right": position === "right",
+        "dropdown--show": showDropdown,
+      })}
+    >
       <NavbarNavLink
         aria-haspopup="true"
         aria-expanded={showDropdown}
@@ -88,16 +92,17 @@ function DropdownNavbarItemDesktop({
         // # hash permits to make the <a> tag focusable in case no link target
         // See https://github.com/facebook/docusaurus/pull/6003
         // There's probably a better solution though...
-        href={props.to ? undefined : '#'}
-        className={clsx('navbar__link', className)}
+        href={props.to ? undefined : "#"}
+        className={clsx("navbar__link", className)}
         {...props}
         onClick={props.to ? undefined : (e) => e.preventDefault()}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') {
+          if (e.key === "Enter") {
             e.preventDefault();
             setShowDropdown(!showDropdown);
           }
-        }}>
+        }}
+      >
         {props.children ?? props.label}
       </NavbarNavLink>
       <ul className={clsx("dropdown__menu", styles.dropdown__menu)}>
@@ -137,7 +142,7 @@ function DropdownNavbarItemMobile({
   const localPathname = useLocalPathname();
   const containsActive = containsActiveItems(items, localPathname);
 
-  const {collapsed, toggleCollapsed, setCollapsed} = useCollapsible({
+  const { collapsed, toggleCollapsed, setCollapsed } = useCollapsible({
     initialState: () => !containsActive,
   });
 
@@ -150,21 +155,23 @@ function DropdownNavbarItemMobile({
 
   return (
     <li
-      className={clsx('menu__list-item', {
-        'menu__list-item--collapsed': collapsed,
-      })}>
+      className={clsx("menu__list-item", {
+        "menu__list-item--collapsed": collapsed,
+      })}
+    >
       <NavbarNavLink
         role="button"
         className={clsx(
           styles.dropdownNavbarItemMobile,
-          'menu__link menu__link--sublist menu__link--sublist-caret',
+          "menu__link menu__link--sublist menu__link--sublist-caret",
           className,
         )}
         {...props}
         onClick={(e) => {
           e.preventDefault();
           toggleCollapsed();
-        }}>
+        }}
+      >
         {props.children ?? props.label}
       </NavbarNavLink>
       <Collapsible lazy as="ul" className="menu__list" collapsed={collapsed}>

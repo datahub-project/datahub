@@ -1,4 +1,3 @@
-import TutorialProgress from '@site/src/components/TutorialProgress';
 import DataHubLineageNode, { DataHubLineageFlow } from '@site/src/components/DataHubLineageNode';
 
 # Data Lineage & Impact Analysis (40 minutes)
@@ -115,16 +114,6 @@ glossaryTerms: ['Target Systems']
 
 ## Learning Path Overview
 
-<TutorialProgress
-tutorialId="lineage-overview"
-currentStep={-1}
-steps={[
-{ title: "Reading Lineage Graphs", time: "15 min", description: "Navigate complex lineage graphs like a data flow expert" },
-{ title: "Performing Impact Analysis", time: "15 min", description: "Systematically assess downstream effects before making changes" },
-{ title: "Lineage Troubleshooting", time: "10 min", description: "Debug missing connections and improve lineage accuracy" }
-]}
-/>
-
 ## What You'll Master
 
 ### **Reading Lineage Graphs** (15 minutes)
@@ -213,12 +202,12 @@ By completing this series, you'll be able to:
 - Improve cross-team coordination using lineage insights
 - Build confidence in data reliability and change management
 
-**Career Growth**:
+**Operational Excellence**:
 
-- Become the go-to expert for complex data pipeline analysis
-- Lead system migrations and architecture changes confidently
-- Mentor junior team members on lineage best practices
-- Contribute to data governance and reliability initiatives
+- Establish expertise in complex data pipeline analysis
+- Lead system migrations and architecture changes with confidence
+- Uplift team capability with lineage best practices
+- Strengthen governance and reliability initiatives
 
 ## Ready to Begin?
 

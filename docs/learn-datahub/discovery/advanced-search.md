@@ -3,20 +3,28 @@ import TabItem from '@theme/TabItem';
 import CodeBlock from '@theme/CodeBlock';
 import DataHubEntityCard from '@site/src/components/DataHubEntityCard';
 import { SearchExercise, HandsOnExercise, InteractiveDemo } from '@site/src/components/TutorialExercise';
+import NextStepButton from '@site/src/components/NextStepButton';
+import TutorialProgress from '@site/src/components/TutorialProgress';
 
 # Advanced Search Techniques (15 minutes)
 
-:::info Tutorial Progress
-**Step 1 of 3** | **15 minutes** | [Overview](overview.md) → **Advanced Search** → [Dataset Profiles](dataset-profiles.md) → [Collaborative Discovery](collaborative-discovery.md)
-:::
+<TutorialProgress
+tutorialId="discovery"
+currentStep={0}
+steps={[
+{ title: "Advanced Search Techniques", time: "15 min", description: "Master operators, filters, and saved searches" },
+{ title: "Understanding Dataset Profiles", time: "20 min", description: "Interpret profiles, statistics, and data quality" },
+{ title: "Collaborative Discovery", time: "10 min", description: "Document, tag, and share knowledge effectively" }
+]}
+/>
 
 Master DataHub's powerful search capabilities to find exactly what you need, when you need it. Transform from basic keyword searching to surgical data discovery.
 
-## Discovery Challenge #1: The New Analyst
+## Scenario 1: Targeted Data Discovery
 
-**Your Mission**: You're new at RetailCorp and need to find customer segmentation data for a marketing campaign. You don't know exact table names or locations.
+**Objective**: Find customer segmentation data for a marketing campaign without exact table names or locations.
 
-**What You'll Learn**: Strategic search approaches, advanced operators, and smart filtering techniques.
+**What You'll Learn**: Strategic search approaches, advanced operators, and effective filtering techniques.
 
 ## Search Strategy Framework
 
@@ -598,4 +606,6 @@ Try to solve this in 90 seconds: _"Find production-ready customer analytics data
 
 ---
 
-**Next**: Now that you can find data efficiently, let's learn how to [understand and evaluate what you've found](dataset-profiles.md) →
+<NextStepButton href="./dataset-profiles">
+Next: Understand and Evaluate Your Data
+</NextStepButton>

@@ -1,16 +1,15 @@
 import DataHubEntityCard from '@site/src/components/DataHubEntityCard';
+import TutorialProgress from '@site/src/components/TutorialProgress';
 
 # Data Quality & Monitoring
 
 <TutorialProgress
 tutorialId="quality"
-currentStep="quality-overview"
 steps={[
-{ id: 'quality-overview', title: 'Overview', time: '5 min', description: 'Professional data quality management introduction' },
-{ id: 'data-assertions', title: 'Data Assertions', time: '15 min', description: 'Build automated data quality checks' },
-{ id: 'quality-monitoring', title: 'Quality Monitoring', time: '12 min', description: 'Create comprehensive quality dashboards' },
-{ id: 'incident-management', title: 'Incident Management', time: '10 min', description: 'Implement rapid response to quality issues' },
-{ id: 'quality-automation', title: 'Quality Automation', time: '8 min', description: 'Prevent issues through automation' }
+{ title: 'Data Assertions', time: '15 min', description: 'Create automated quality checks' },
+{ title: 'Quality Monitoring', time: '12 min', description: 'Build dashboards and monitoring' },
+{ title: 'Incident Management', time: '10 min', description: 'Detect and resolve quality incidents' },
+{ title: 'Quality Automation', time: '8 min', description: 'Automate processes at scale' }
 ]}
 />
 
@@ -210,4 +209,4 @@ glossaryTerms: ['ML Optimization', 'Self-Healing Quality']
 
 Start your data quality journey by implementing automated assertions that catch quality issues before they impact your business.
 
-<NextStepButton href="./data-assertions.md" />
+<NextStepButton href="./data-assertions" />

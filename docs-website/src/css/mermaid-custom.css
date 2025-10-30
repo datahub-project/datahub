@@ -12,7 +12,7 @@
 }
 
 /* Dark mode adjustments */
-[data-theme='dark'] .mermaid {
+[data-theme="dark"] .mermaid {
   background: var(--ifm-color-emphasis-100);
   border-color: var(--ifm-color-emphasis-300);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -55,8 +55,8 @@
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
-[data-theme='dark'] .mermaid .nodeLabel,
-[data-theme='dark'] .mermaid .edgeLabel {
+[data-theme="dark"] .mermaid .nodeLabel,
+[data-theme="dark"] .mermaid .edgeLabel {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
@@ -65,7 +65,7 @@
   fill: var(--ifm-color-primary-lightest);
   stroke: var(--ifm-color-primary-light);
   stroke-width: 2px;
-  stroke-dasharray: 5,5;
+  stroke-dasharray: 5, 5;
   rx: 8px;
   ry: 8px;
 }

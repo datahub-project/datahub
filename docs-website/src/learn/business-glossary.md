@@ -24,17 +24,17 @@ A Business Glossary is like a dictionary for your company. It contains definitio
 
 For example, below are some sales-related glossary terms that can be used in an IT company.
 
-| Term | Definition | Usage |
-| --- | --- | --- |
-| CRM (Customer Relationship Management) | Software that manages a company's interactions with current and potential customers. | CRMs help streamline processes and improve customer relationships. |
-| Lead | A potential customer who has shown interest in a company's product or service. | Leads are nurtured by the sales team to convert into customers. |
-| Pipeline | The stages through which a sales prospect moves from initial contact to final sale. | Sales pipelines track progress and forecast future sales. |
-| Quota | A sales target set for a salesperson or team for a specific period. | Quotas motivate sales teams and measure performance. |
-| Conversion Rate | The percentage of leads that turn into actual sales. | High conversion rates indicate effective sales strategies. |
-| Upselling | Encouraging customers to purchase a more expensive or upgraded version of a product. | Upselling increases revenue by enhancing the customer purchase. |
-| Churn Rate | The percentage of customers who stop using a product or service over a given period. | Reducing churn rate is crucial for maintaining steady growth. |
-| MQL (Marketing Qualified Lead) | A lead that has been deemed more likely to become a customer based on marketing efforts. | MQLs are passed from the marketing team to the sales team for further nurturing. |
-| ARR (Annual Recurring Revenue) | The amount of revenue that a company expects to receive from its customers on an annual basis for subscriptions. | ARR helps in financial forecasting and performance measurement. |
+| Term                                   | Definition                                                                                                       | Usage                                                                            |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| CRM (Customer Relationship Management) | Software that manages a company's interactions with current and potential customers.                             | CRMs help streamline processes and improve customer relationships.               |
+| Lead                                   | A potential customer who has shown interest in a company's product or service.                                   | Leads are nurtured by the sales team to convert into customers.                  |
+| Pipeline                               | The stages through which a sales prospect moves from initial contact to final sale.                              | Sales pipelines track progress and forecast future sales.                        |
+| Quota                                  | A sales target set for a salesperson or team for a specific period.                                              | Quotas motivate sales teams and measure performance.                             |
+| Conversion Rate                        | The percentage of leads that turn into actual sales.                                                             | High conversion rates indicate effective sales strategies.                       |
+| Upselling                              | Encouraging customers to purchase a more expensive or upgraded version of a product.                             | Upselling increases revenue by enhancing the customer purchase.                  |
+| Churn Rate                             | The percentage of customers who stop using a product or service over a given period.                             | Reducing churn rate is crucial for maintaining steady growth.                    |
+| MQL (Marketing Qualified Lead)         | A lead that has been deemed more likely to become a customer based on marketing efforts.                         | MQLs are passed from the marketing team to the sales team for further nurturing. |
+| ARR (Annual Recurring Revenue)         | The amount of revenue that a company expects to receive from its customers on an annual basis for subscriptions. | ARR helps in financial forecasting and performance measurement.                  |
 
 ## What is Business Glossary Standardization?
 
@@ -61,17 +61,17 @@ Imagine a financial services company where different teams use varied terminolog
 
 Here's how different teams might interpret CLV and the potential implications:
 
-| Team | Interpretation of CLV | Focus | Implications |
-| --- | --- | --- | --- |
-| Marketing | Total revenue generated from a customer over their entire relationship with the company | Campaign effectiveness, customer acquisition costs, return on marketing investment | Revenue maximization through frequent promotions, potentially ignoring the cost of service and risk associated with certain customer segments |
-| Sales | Projected future sales from a customer based on past purchasing behavior | Sales targets, customer retention, cross-selling/up-selling opportunities | Aggressive sales tactics to boost short-term sales, potentially leading to customer churn if the value delivered does not meet |
-| Finance | Net present value (NPV), factoring in the time value of money and associated costs over the customer relationship period | Profitability, cost management, financial forecasting | Conservative growth strategies, focusing on high-value, low-risk customers, potentially overlooking opportunities for broader market expansion |
+| Team      | Interpretation of CLV                                                                                                    | Focus                                                                              | Implications                                                                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Marketing | Total revenue generated from a customer over their entire relationship with the company                                  | Campaign effectiveness, customer acquisition costs, return on marketing investment | Revenue maximization through frequent promotions, potentially ignoring the cost of service and risk associated with certain customer segments  |
+| Sales     | Projected future sales from a customer based on past purchasing behavior                                                 | Sales targets, customer retention, cross-selling/up-selling opportunities          | Aggressive sales tactics to boost short-term sales, potentially leading to customer churn if the value delivered does not meet                 |
+| Finance   | Net present value (NPV), factoring in the time value of money and associated costs over the customer relationship period | Profitability, cost management, financial forecasting                              | Conservative growth strategies, focusing on high-value, low-risk customers, potentially overlooking opportunities for broader market expansion |
 
- Different interpretations can lead to conflicting strategies and objectives across teams. For instance, Marketing’s aggressive acquisition strategy may lead to a significant increase in new customers and short-term revenue. However, if Finance’s NPV analysis reveals that these customers are not profitable long-term, the company may face financial strain due to high acquisition costs and low profitability.
+Different interpretations can lead to conflicting strategies and objectives across teams. For instance, Marketing’s aggressive acquisition strategy may lead to a significant increase in new customers and short-term revenue. However, if Finance’s NPV analysis reveals that these customers are not profitable long-term, the company may face financial strain due to high acquisition costs and low profitability.
 
- The Sales team’s push for upselling may generate short-term sales increases, aligning with their CLV projections. However, if customers feel pressured and perceive the upsells as unnecessary, this could lead to dissatisfaction and higher churn rates, ultimately reducing the actual lifetime value of these customers.
+The Sales team’s push for upselling may generate short-term sales increases, aligning with their CLV projections. However, if customers feel pressured and perceive the upsells as unnecessary, this could lead to dissatisfaction and higher churn rates, ultimately reducing the actual lifetime value of these customers.
 
- The conflicting strategies can result in misaligned priorities, where Marketing focuses on volume, Sales on immediate revenue, and Finance on long-term profitability. This misalignment can lead to inefficient resource allocation, where Marketing spends heavily on acquisition, Sales focuses on short-term gains, and Finance restricts budgets due to profitability concerns.
+The conflicting strategies can result in misaligned priorities, where Marketing focuses on volume, Sales on immediate revenue, and Finance on long-term profitability. This misalignment can lead to inefficient resource allocation, where Marketing spends heavily on acquisition, Sales focuses on short-term gains, and Finance restricts budgets due to profitability concerns.
 
 ### Example Discovery Questions
 
@@ -101,13 +101,11 @@ DataHub Cloud offers comprehensive features designed to support the authoring of
 
 - **[Centralized Business Glossary](https://docs.datahub.com/docs/glossary/business-glossary):** A repository for all business terms and definitions, ensuring consistency across the organization.
 
-
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/glossary-terms/approval-workflow.png"/>
  <br />
   <i style={{color:"grey"}}>Approval Flows</i>
 </p>
-
 
 - **[Approval Flows](https://docs.datahub.com/docs/managed-datahub/approval-workflows):** Structured workflows for approving changes to the glossary, maintaining quality and consistency through time
 

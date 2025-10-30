@@ -360,4 +360,4 @@ Integrate with broader incident management:
 
 With robust incident management in place, you're ready to implement quality automation that prevents issues before they occur and reduces the need for manual intervention.
 
-<NextStepButton href="./quality-automation.md" />
+<NextStepButton href="./quality-automation" />

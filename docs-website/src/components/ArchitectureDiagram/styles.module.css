@@ -130,8 +130,13 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .diagramFooter {
@@ -173,16 +178,16 @@
   .diagramContainer {
     flex-direction: column;
   }
-  
+
   .arrowLayer {
     flex-direction: row;
     transform: rotate(90deg);
   }
-  
+
   .arrow {
     transform: rotate(90deg);
   }
-  
+
   .dataFlow {
     flex-direction: column;
     gap: 8px;
@@ -190,27 +195,27 @@
 }
 
 /* Dark mode support */
-[data-theme='dark'] .architectureDiagram {
+[data-theme="dark"] .architectureDiagram {
   background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
   border-color: var(--ifm-color-primary-dark);
 }
 
-[data-theme='dark'] .node {
+[data-theme="dark"] .node {
   background: var(--ifm-color-emphasis-100);
   color: var(--ifm-color-emphasis-800);
 }
 
-[data-theme='dark'] .sourceNode {
+[data-theme="dark"] .sourceNode {
   background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
   color: #ecfdf5;
 }
 
-[data-theme='dark'] .coreNode {
+[data-theme="dark"] .coreNode {
   background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
   color: #eff6ff;
 }
 
-[data-theme='dark'] .uiNode {
+[data-theme="dark"] .uiNode {
   background: linear-gradient(135deg, #581c87 0%, #6b21a8 100%);
   color: #f3f4f6;
 }

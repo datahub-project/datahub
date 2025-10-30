@@ -1,12 +1,14 @@
-import React from 'react';
-import styles from './styles.module.css';
+import React from "react";
+import styles from "./styles.module.css";
 
-const ArchitectureDiagram = ({ type = 'integration' }) => {
-  if (type === 'integration') {
+const ArchitectureDiagram = ({ type = "integration" }) => {
+  if (type === "integration") {
     return (
       <div className={styles.architectureDiagram}>
-        <div className={styles.diagramTitle}>DataHub Integration Architecture</div>
-        
+        <div className={styles.diagramTitle}>
+          DataHub Integration Architecture
+        </div>
+
         <div className={styles.diagramContainer}>
           {/* Source Systems Layer */}
           <div className={styles.layer}>

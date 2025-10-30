@@ -14,7 +14,11 @@
 }
 
 .exerciseHeader {
-  background: linear-gradient(135deg, var(--ifm-color-emphasis-100) 0%, var(--ifm-background-color) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--ifm-color-emphasis-100) 0%,
+    var(--ifm-background-color) 100%
+  );
   border-bottom: 1px solid var(--ifm-color-emphasis-300);
   padding: 16px 20px;
   display: flex;
@@ -205,7 +209,11 @@
 
 /* Interactive Demo Styles */
 .interactiveContent {
-  background: linear-gradient(135deg, var(--ifm-color-primary-lightest) 0%, var(--ifm-background-color) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--ifm-color-primary-lightest) 0%,
+    var(--ifm-background-color) 100%
+  );
   border: 1px solid var(--ifm-color-primary-light);
   border-radius: 8px;
   padding: 20px;
@@ -216,39 +224,39 @@
   .exerciseHeader {
     padding: 12px 16px;
   }
-  
+
   .headerLeft {
     gap: 8px;
   }
-  
+
   .typeIcon {
     width: 32px;
     height: 32px;
     font-size: 16px;
   }
-  
+
   .exerciseTitle {
     font-size: 14px;
   }
-  
+
   .exerciseContent {
     padding: 16px;
   }
-  
+
   .metadata {
     gap: 6px;
   }
-  
+
   .searchQuery code {
     min-width: auto;
     font-size: 13px;
     padding: 6px 10px;
   }
-  
+
   .stepItem {
     gap: 8px;
   }
-  
+
   .stepNumber {
     width: 24px;
     height: 24px;
@@ -257,25 +265,33 @@
 }
 
 /* Dark mode support */
-[data-theme='dark'] .exerciseContainer {
+[data-theme="dark"] .exerciseContainer {
   background: var(--ifm-background-surface-color);
   border-color: var(--ifm-color-emphasis-300);
 }
 
-[data-theme='dark'] .exerciseHeader {
-  background: linear-gradient(135deg, var(--ifm-color-emphasis-200) 0%, var(--ifm-background-surface-color) 100%);
+[data-theme="dark"] .exerciseHeader {
+  background: linear-gradient(
+    135deg,
+    var(--ifm-color-emphasis-200) 0%,
+    var(--ifm-background-surface-color) 100%
+  );
   border-bottom-color: var(--ifm-color-emphasis-300);
 }
 
-[data-theme='dark'] .searchItem {
+[data-theme="dark"] .searchItem {
   background: var(--ifm-color-emphasis-200);
   border-color: var(--ifm-color-emphasis-300);
 }
 
-[data-theme='dark'] .searchItem:hover {
+[data-theme="dark"] .searchItem:hover {
   background: var(--ifm-color-emphasis-300);
 }
 
-[data-theme='dark'] .interactiveContent {
-  background: linear-gradient(135deg, var(--ifm-color-primary-dark) 0%, var(--ifm-background-surface-color) 100%);
+[data-theme="dark"] .interactiveContent {
+  background: linear-gradient(
+    135deg,
+    var(--ifm-color-primary-dark) 0%,
+    var(--ifm-background-surface-color) 100%
+  );
 }

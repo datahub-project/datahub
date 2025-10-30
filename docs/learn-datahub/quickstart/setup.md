@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
-import TutorialProgress from '@site/src/components/TutorialProgress';
 import NextStepButton from '@site/src/components/NextStepButton';
+import TutorialProgress from '@site/src/components/TutorialProgress';
 import OSDetectionTabs from '@site/src/components/OSDetectionTabs';
 
 # Step 1: Setup DataHub (5 minutes)
@@ -10,10 +10,10 @@ import OSDetectionTabs from '@site/src/components/OSDetectionTabs';
 tutorialId="quickstart"
 currentStep={0}
 steps={[
-{ title: "Setup DataHub", time: "5 min", description: "Deploy DataHub locally using Docker for learning and experimentation" },
-{ title: "First Data Ingestion", time: "10 min", description: "Connect to sample data and ingest metadata into DataHub" },
-{ title: "Discovery Basics", time: "10 min", description: "Learn to search, browse, and understand your data assets" },
-{ title: "Your First Lineage", time: "5 min", description: "Explore data relationships and dependencies" }
+{ title: "Setup DataHub", time: "5 min", description: "Deploy DataHub locally with Docker" },
+{ title: "Ingest Your First Dataset", time: "15 min", description: "Connect sources and ingest metadata" },
+{ title: "Discovery Basics", time: "10 min", description: "Find, evaluate, and understand datasets" },
+{ title: "Explore Data Lineage", time: "15 min", description: "Trace dependencies and assess impact" }
 ]}
 />
 

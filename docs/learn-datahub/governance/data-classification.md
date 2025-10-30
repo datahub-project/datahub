@@ -1,15 +1,16 @@
 # Data Classification
 
+import TutorialProgress from '@site/src/components/TutorialProgress';
+
 <TutorialProgress
-currentStep="data-classification"
+tutorialId="governance"
+currentStep={1}
 steps={[
-{ id: 'governance-overview', label: 'Overview', completed: true },
-{ id: 'ownership-management', label: 'Ownership Management', completed: true },
-{ id: 'data-classification', label: 'Data Classification', completed: false },
-{ id: 'business-glossary', label: 'Business Glossary', completed: false },
-{ id: 'governance-policies', label: 'Governance Policies', completed: false }
+{ title: 'Ownership Management', time: '12 min', description: 'Establish clear data ownership and accountability' },
+{ title: 'Data Classification', time: '15 min', description: 'Implement PII detection and sensitivity labeling' },
+{ title: 'Business Glossary', time: '12 min', description: 'Create standardized business terminology' },
+{ title: 'Governance Policies', time: '11 min', description: 'Automate governance enforcement at scale' }
 ]}
-compact={true}
 />
 
 ## Protecting Sensitive Data Through Classification
@@ -268,4 +269,4 @@ Use automated detection for:
 
 With data properly classified, you're ready to create a business glossary that provides consistent definitions and context for your data assets.
 
-<NextStepButton href="./business-glossary.md" />
+<NextStepButton href="./business-glossary" />

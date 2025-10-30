@@ -5,10 +5,6 @@ import DataHubLineageNode, { DataHubLineageFlow } from '@site/src/components/Dat
 
 # Performing Impact Analysis (15 minutes)
 
-:::info Tutorial Progress
-**Step 2 of 3** | **15 minutes** | [Overview](overview.md) → [Reading Lineage](reading-lineage.md) → **Impact Analysis** → [Troubleshooting](troubleshooting.md)
-:::
-
 <TutorialProgress
 tutorialId="lineage"
 currentStep={1}

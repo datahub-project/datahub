@@ -65,7 +65,7 @@ function list_markdown_files(): string[] {
     .trim()
     .split("\n");
   let all_generated_markdown_files = execSync(
-    "cd .. && ls docs/generated/**/**/*.md && ls docs/generated/**/*.md"
+    "cd .. && ls docs/generated/**/**/*.md && ls docs/generated/**/*.md",
   )
     .toString()
     .trim()
@@ -76,7 +76,7 @@ function list_markdown_files(): string[] {
   if (!process.env.CI) {
     // If not in CI, we also include "untracked" files.
     const untracked_files = execSync(
-      "(git ls-files --full-name --others --exclude-standard .. | grep '.md$') || true"
+      "(git ls-files --full-name --others --exclude-standard .. | grep '.md$') || true",
     )
       .toString()
       .trim()
@@ -85,14 +85,14 @@ function list_markdown_files(): string[] {
 
     if (untracked_files.length > 0) {
       console.log(
-        `Including untracked files in docs list: [${untracked_files}]`
+        `Including untracked files in docs list: [${untracked_files}]`,
       );
       all_markdown_files = [...all_markdown_files, ...untracked_files];
     }
 
     // But we should also exclude any files that have been deleted.
     const deleted_files = execSync(
-      "(git ls-files --full-name --deleted --exclude-standard .. | grep '.md$') || true"
+      "(git ls-files --full-name --deleted --exclude-standard .. | grep '.md$') || true",
     )
       .toString()
       .trim()
@@ -101,7 +101,7 @@ function list_markdown_files(): string[] {
     if (deleted_files.length > 0) {
       console.log(`Removing deleted files from docs list: [${deleted_files}]`);
       all_markdown_files = all_markdown_files.filter(
-        (filepath) => !deleted_files.includes(filepath)
+        (filepath) => !deleted_files.includes(filepath),
       );
     }
   }
@@ -204,7 +204,7 @@ const allowed_broken_links = [
 
 function markdown_guess_title(
   contents: matter.GrayMatterFile<string>,
-  filepath: string
+  filepath: string,
 ): void {
   if (sidebarsjs_hardcoded_titles.includes(filepath)) {
     return;
@@ -231,7 +231,7 @@ function markdown_guess_title(
 
     if (!headers) {
       throw new Error(
-        `${filepath} must have at least one h1 header for setting the title`
+        `${filepath} must have at least one h1 header for setting the title`,
       );
     }
 
@@ -257,7 +257,7 @@ function markdown_guess_title(
 
 function markdown_add_edit_url(
   contents: matter.GrayMatterFile<string>,
-  filepath: string
+  filepath: string,
 ): void {
   const editUrl = `${GITHUB_EDIT_URL}/${filepath}`;
   contents.data.custom_edit_url = editUrl;
@@ -265,7 +265,7 @@ function markdown_add_edit_url(
 
 function markdown_add_slug(
   contents: matter.GrayMatterFile<string>,
-  filepath: string
+  filepath: string,
 ): void {
   if (contents.data.slug) {
     return;
@@ -352,7 +352,7 @@ function new_url(original: string, filepath: string): string {
       // Detects when the path is a dangling reference, according to the locally
       // checked out repo.
       throw new Error(
-        `broken github repo link to ${updated_path} in ${filepath}`
+        `broken github repo link to ${updated_path} in ${filepath}`,
       );
     }
     const updated_url = `${GITHUB_BROWSE_URL}/${updated_path}`;
@@ -366,7 +366,7 @@ function new_url(original: string, filepath: string): string {
     const up_levels = (filepath.match(/\//g) ?? []).length;
     const relation = path.dirname(filepath);
     const updated = path.normalize(
-      `${"../".repeat(up_levels + 2)}/${relation}/${original}`
+      `${"../".repeat(up_levels + 2)}/${relation}/${original}`,
     );
     //console.log(`Rewriting ${original} ${filepath} as ${updated}`);
     return updated;
@@ -377,7 +377,7 @@ function new_url(original: string, filepath: string): string {
 
 function markdown_rewrite_urls(
   contents: matter.GrayMatterFile<string>,
-  filepath: string
+  filepath: string,
 ): void {
   const new_content = contents.content
     .replace(
@@ -389,7 +389,7 @@ function markdown_rewrite_urls(
       (_, text, url) => {
         const updated = new_url(preprocess_url(url), filepath);
         return `[${text}](${updated})`;
-      }
+      },
     )
     .replace(
       // Also look for the [text]: url syntax.
@@ -397,14 +397,14 @@ function markdown_rewrite_urls(
       (_, text, url) => {
         const updated = new_url(preprocess_url(url), filepath);
         return `[${text}]: ${updated}`;
-      }
+      },
     );
   contents.content = new_content;
 }
 
 function markdown_enable_specials(
   contents: matter.GrayMatterFile<string>,
-  filepath: string
+  filepath: string,
 ): void {
   const new_content = contents.content
     .replace(/^<!--HOSTED_DOCS_ONLY$/gm, "")
@@ -414,7 +414,7 @@ function markdown_enable_specials(
 
 function markdown_process_inline_directives(
   contents: matter.GrayMatterFile<string>,
-  filepath: string
+  filepath: string,
 ): void {
   const new_content = contents.content.replace(
     /^(\s*){{(\s*)inline\s+(\S+)(\s+)(show_path_as_comment\s+)?(\s*)}}$/gm,
@@ -424,7 +424,7 @@ function markdown_process_inline_directives(
       __,
       inline_file_path: string,
       ___,
-      show_path_as_comment: string
+      show_path_as_comment: string,
     ) => {
       if (!inline_file_path.startsWith("/")) {
         throw new Error(`inline path must be absolute: ${inline_file_path}`);
@@ -433,7 +433,7 @@ function markdown_process_inline_directives(
       // console.log(`Inlining ${inline_file_path} into ${filepath}`);
       const referenced_file = fs.readFileSync(
         path.join("..", inline_file_path),
-        "utf8"
+        "utf8",
       );
 
       // TODO: Add support for start_after_line and end_before_line arguments
@@ -450,14 +450,14 @@ function markdown_process_inline_directives(
         .join("\n");
 
       return new_contents;
-    }
+    },
   );
   contents.content = new_content;
 }
 
 function markdown_process_command_output(
   contents: matter.GrayMatterFile<string>,
-  filepath: string
+  filepath: string,
 ): void {
   const new_content = contents.content.replace(
     /^{{\s*command-output\s*([\s\S]*?)\s*}}$/gm,
@@ -486,7 +486,7 @@ function markdown_process_command_output(
           error.stdout ? error.stdout.toString().trim() : ""
         }\n<!-- Error: ${errorMessage.trim()} -->`;
       }
-    }
+    },
   );
   contents.content = new_content;
 }
@@ -501,13 +501,13 @@ function markdown_sanitize_and_linkify(content: string): string {
   // Link to issues/pull requests.
   content = content.replace(
     /#(\d+)\b/g,
-    "[#$1](https://github.com/datahub-project/datahub/pull/$1)"
+    "[#$1](https://github.com/datahub-project/datahub/pull/$1)",
   );
 
   // Prettify bare links to PRs.
   content = content.replace(
     /(\s+)(https:\/\/github\.com\/linkedin\/datahub\/pull\/(\d+))(\s+|$)/g,
-    "$1[#$3]($2)$4"
+    "$1[#$3]($2)$4",
   );
 
   return content;
@@ -541,12 +541,12 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
     repo: "datahub",
   });
   const releases_list = releases_list_full.data.filter(
-    (release) => !release.prerelease && !release.draft
+    (release) => !release.prerelease && !release.draft,
   );
 
   // We only embed release notes for releases in the last 3 months.
   const release_notes_date_cutoff = new Date(
-    Date.now() - 1000 * 60 * 60 * 24 * 30 * 3
+    Date.now() - 1000 * 60 * 60 * 24 * 30 * 3,
   );
 
   // Construct a summary table.
@@ -557,7 +557,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
     const release_date = new Date(Date.parse(release.created_at));
 
     let row = `| **${release.tag_name}** | ${pretty_format_date(
-      release.created_at
+      release.created_at,
     )} |`;
     if (release_date > release_notes_date_cutoff) {
       row += `[Release Notes](#${make_link_anchor(release.tag_name)}), `;
@@ -583,11 +583,11 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
       const heading_regex = /^(#+)\s/gm;
       const max_heading_level = Math.min(
         3,
-        ...[...body.matchAll(heading_regex)].map((v) => v[1].length)
+        ...[...body.matchAll(heading_regex)].map((v) => v[1].length),
       );
       body = body.replace(
         heading_regex,
-        `${"#".repeat(3 - max_heading_level)}$1 `
+        `${"#".repeat(3 - max_heading_level)}$1 `,
       );
     } else {
       // Link to GitHub.
@@ -612,7 +612,7 @@ ${body}\n\n`;
 
 function write_markdown_file(
   contents: matter.GrayMatterFile<string>,
-  output_filepath: string
+  output_filepath: string,
 ): void {
   const pathname = path.dirname(output_filepath);
   fs.mkdirSync(pathname, { recursive: true });
@@ -675,7 +675,7 @@ function write_markdown_file(
     }
     if (!accounted_for_in_sidebar(filepath)) {
       console.warn(
-        `File not accounted for in sidebar: ${filepath} - consider adding it to docs-website/sidebars.js or explicitly ignoring it`
+        `File not accounted for in sidebar: ${filepath} - consider adding it to docs-website/sidebars.js or explicitly ignoring it`,
       );
     }
   }

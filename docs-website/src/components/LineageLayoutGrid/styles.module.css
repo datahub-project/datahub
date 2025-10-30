@@ -11,11 +11,21 @@
 }
 
 .title {
+  position: sticky;
+  top: 0; /* stick to top of scroll container */
+  left: 50%; /* horizontally center within visible area */
+  transform: translateX(-50%);
+  z-index: 2; /* above connections overlay */
   text-align: center;
   margin: 0 0 24px 0;
   font-size: 18px;
   font-weight: 600;
   color: var(--ifm-color-content);
+  background: var(
+    --ifm-background-color
+  ); /* readable over content while scrolling */
+  padding: 8px 12px;
+  border-radius: 12px;
 }
 
 /* CSS Grid Layout for Layers */
@@ -57,6 +67,54 @@
   white-space: nowrap;
 }
 
+/* Sub-layers Container */
+.subLayersContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+  align-items: center;
+}
+
+/* Horizontal sub-layer columns within a single layer */
+.subLayersRowContainer {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(320px, 1fr);
+  gap: 24px;
+  width: 100%;
+  align-items: start;
+  justify-content: start; /* ensure first subcolumn starts at left edge of layer */
+  justify-items: start; /* ensure subcolumn content aligns to left */
+}
+
+.subLayerColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.subLayer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.subLayerTitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ifm-color-emphasis-600);
+  text-align: center;
+  margin-bottom: 16px;
+  padding: 6px 12px;
+  background: var(--ifm-color-emphasis-100);
+  border-radius: 16px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
 /* Nodes within each layer */
 .layerNodes {
   display: flex;
@@ -66,6 +124,17 @@
   width: 100%;
   flex: 1;
   justify-content: center;
+}
+
+/* Left-aligned variant for sublayer columns */
+.layerNodesLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: flex-start;
+  width: 100%;
+  flex: 1;
+  justify-content: flex-start;
 }
 
 .nodeWrapper {
@@ -106,20 +175,30 @@
     grid-auto-columns: minmax(280px, 1fr);
     gap: 60px;
   }
-  
+
   .nodeWrapper {
     max-width: 260px;
+  }
+
+  .subLayersRowContainer {
+    grid-auto-columns: minmax(260px, 1fr);
+    gap: 16px;
   }
 }
 
 /* Dark mode support */
-[data-theme='dark'] .lineageContainer {
+[data-theme="dark"] .lineageContainer {
   background: var(--ifm-background-color);
   border-color: var(--ifm-color-emphasis-300);
 }
 
-[data-theme='dark'] .layerTitle {
+[data-theme="dark"] .layerTitle {
   background: var(--ifm-background-color);
   border-color: var(--ifm-color-emphasis-300);
   color: var(--ifm-color-emphasis-800);
+}
+
+[data-theme="dark"] .subLayerTitle {
+  background: var(--ifm-color-emphasis-200);
+  color: var(--ifm-color-emphasis-700);
 }

@@ -3,8 +3,18 @@ import TabItem from '@theme/TabItem';
 import CodeBlock from '@theme/CodeBlock';
 import DataHubEntityCard from '@site/src/components/DataHubEntityCard';
 import DataHubLineageNode, { DataHubLineageFlow } from '@site/src/components/DataHubLineageNode';
+import TutorialProgress from '@site/src/components/TutorialProgress';
 
 # Data Discovery & Search (45 minutes)
+
+<TutorialProgress
+tutorialId="discovery"
+steps={[
+{ title: "Advanced Search Techniques", time: "15 min", description: "Master operators, filters, and saved searches" },
+{ title: "Understanding Dataset Profiles", time: "20 min", description: "Interpret profiles, statistics, and data quality" },
+{ title: "Collaborative Discovery", time: "10 min", description: "Document, tag, and share knowledge effectively" }
+]}
+/>
 
 :::tip Prerequisites
 Complete the [DataHub Quickstart](../quickstart/overview.md) tutorial first to have DataHub running with sample data.
@@ -128,27 +138,27 @@ This hands-on tutorial uses **real search scenarios** you'll encounter daily:
 
 **Total Time: 45 minutes**
 
-## Real-World Discovery Scenarios
+## Professional Discovery Scenarios
 
-Throughout this tutorial, you'll solve these common data challenges:
+Throughout this tutorial, you'll work through practical scenarios:
 
-:::info Discovery Challenge #1: The New Analyst
-**Scenario**: You're new to RetailCorp and need to find customer segmentation data for a marketing campaign. You don't know the exact table names or where the data lives.
+::::info Scenario 1: Targeted Data Discovery
+**Use Case**: Locate customer segmentation data for a marketing campaign without knowing exact table names.
 
-**Skills**: Exploratory search, filtering, schema analysis
-:::
+**Focus Areas**: Exploratory search, filtering, schema analysis
+::::
 
-:::info Discovery Challenge #2: The Data Detective  
-**Scenario**: The customer dashboard shows suspicious numbers. You need to trace back through the data pipeline to find the source of the issue.
+::::info Scenario 2: Root Cause Analysis  
+**Use Case**: Investigate suspicious dashboard numbers by tracing data lineage to identify the source of the issue.
 
-**Skills**: Lineage navigation, data quality assessment, root cause analysis
-:::
+**Focus Areas**: Lineage navigation, data quality assessment, root cause analysis
+::::
 
-:::info Discovery Challenge #3: The Collaboration Champion
-**Scenario**: You've discovered valuable insights about a dataset and want to share knowledge with your team for future users.
+::::info Scenario 3: Knowledge Sharing at Scale
+**Use Case**: Document insights and context so others can reliably discover and apply the dataset.
 
-**Skills**: Documentation, tagging, collaborative features
-:::
+**Focus Areas**: Documentation, tagging, collaborative features
+::::
 
 ## Interactive Learning Features
 
@@ -202,11 +212,11 @@ Test your setup by searching for "customer" in DataHub. You should see several r
 
 **Coming from:** [DataHub Quickstart](../quickstart/overview.md) - You understand basic navigation and have sample data
 
-**Going to:** Choose your next adventure based on your role:
+**Going to:** Choose your next path based on your role:
 
-- **Data Engineers**: Data Ingestion Mastery (coming soon)
+- **Data Engineers**: [Data Ingestion Mastery](../ingestion/overview.md)
 - **Analysts**: [Data Lineage & Impact Analysis](../lineage/overview.md)
-- **Governance Teams**: Data Governance Fundamentals (coming soon)
+- **Governance Teams**: [Data Governance Fundamentals](../governance/overview.md)
 
 ## Success Metrics
 

@@ -1,9 +1,9 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
-import TutorialProgress from '@site/src/components/TutorialProgress';
 import NextStepButton from '@site/src/components/NextStepButton';
 import DataHubEntityCard, { SampleEntities } from '@site/src/components/DataHubEntityCard';
 import OSDetectionTabs from '@site/src/components/OSDetectionTabs';
+import TutorialProgress from '@site/src/components/TutorialProgress';
 
 # Step 2: First Data Ingestion (10 minutes)
 
@@ -11,10 +11,10 @@ import OSDetectionTabs from '@site/src/components/OSDetectionTabs';
 tutorialId="quickstart"
 currentStep={1}
 steps={[
-{ title: "Setup DataHub", time: "5 min" },
-{ title: "First Data Ingestion", time: "10 min" },
-{ title: "Discovery Basics", time: "10 min" },
-{ title: "Your First Lineage", time: "5 min" }
+{ title: "Setup DataHub", time: "5 min", description: "Deploy DataHub locally with Docker" },
+{ title: "Ingest Your First Dataset", time: "15 min", description: "Connect sources and ingest metadata" },
+{ title: "Discovery Basics", time: "10 min", description: "Find, evaluate, and understand datasets" },
+{ title: "Explore Data Lineage", time: "15 min", description: "Trace dependencies and assess impact" }
 ]}
 />
 

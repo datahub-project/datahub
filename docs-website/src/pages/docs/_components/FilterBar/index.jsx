@@ -155,7 +155,7 @@ function FilterBar({
                     onClick={removeFilters}
                     className={clsx(
                       "DocSearch-Reset-Button",
-                      styles.resetButton
+                      styles.resetButton,
                     )}
                     style={{ marginRight: "1rem" }}
                   >
@@ -166,7 +166,7 @@ function FilterBar({
                     type="primary"
                     className={clsx(
                       "DocSearch-Filter-Button",
-                      styles.filterButton
+                      styles.filterButton,
                     )}
                   >
                     Search

@@ -2,7 +2,11 @@ import React, { useState } from "react";
 import clsx from "clsx";
 
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
-import { PageMetadata, HtmlClassNameProvider, ThemeClassNames } from "@docusaurus/theme-common";
+import {
+  PageMetadata,
+  HtmlClassNameProvider,
+  ThemeClassNames,
+} from "@docusaurus/theme-common";
 import BlogListPaginator from "@theme/BlogListPaginator";
 import SearchMetadata from "@theme/SearchMetadata";
 import { BlogPostProvider } from "@docusaurus/theme-common/internal";
@@ -30,10 +34,20 @@ function BlogListPageContent(props) {
   const { metadata, items } = props;
   const [activeFilters, setActiveFilters] = useState([]);
   // These are currently hardcoded, check the frontmatter of the blog posts to see what audiences are available
-  const audiences = ["Data Governance Leads", "Data Engineers", "Data Architects", "Data Platform Leads", "Data Analysts"];
+  const audiences = [
+    "Data Governance Leads",
+    "Data Engineers",
+    "Data Architects",
+    "Data Platform Leads",
+    "Data Analysts",
+  ];
 
   const filteredItems = activeFilters?.length
-    ? (items || []).filter((post) => activeFilters.some((activeFilter) => post?.content?.frontMatter?.audience?.some((a) => a === activeFilter)))
+    ? (items || []).filter((post) =>
+        activeFilters.some((activeFilter) =>
+          post?.content?.frontMatter?.audience?.some((a) => a === activeFilter),
+        ),
+      )
     : items;
 
   const handleFilterToggle = (audience) => {
@@ -51,14 +65,19 @@ function BlogListPageContent(props) {
           <div className="hero__content">
             <div>
               <h1 className="hero__title">DataHub Learn</h1>
-              <p className="hero__subtitle">Learn about the hot topics in the data ecosystem and how DataHub can help you with your data journey.</p>
+              <p className="hero__subtitle">
+                Learn about the hot topics in the data ecosystem and how DataHub
+                can help you with your data journey.
+              </p>
             </div>
           </div>
           <div className={styles.filterBar}>
             <strong>For: </strong>
             {audiences.map((audience) => (
               <button
-                className={clsx(styles.button, "button button--secondary", { [styles.buttonActive]: activeFilters.includes(audience) })}
+                className={clsx(styles.button, "button button--secondary", {
+                  [styles.buttonActive]: activeFilters.includes(audience),
+                })}
                 onClick={() => handleFilterToggle(audience)}
                 key={audience}
               >
@@ -71,7 +90,10 @@ function BlogListPageContent(props) {
       <div className="container">
         <div className="row">
           {(filteredItems || []).map(({ content: BlogPostContent }) => (
-            <BlogPostProvider key={BlogPostContent.metadata.permalink} content={BlogPostContent}>
+            <BlogPostProvider
+              key={BlogPostContent.metadata.permalink}
+              content={BlogPostContent}
+            >
               <LearnItemCard />
             </BlogPostProvider>
           ))}
@@ -84,7 +106,12 @@ function BlogListPageContent(props) {
 
 export default function BlogListPage(props) {
   return (
-    <HtmlClassNameProvider className={clsx(ThemeClassNames.wrapper.blogPages, ThemeClassNames.page.blogListPage)}>
+    <HtmlClassNameProvider
+      className={clsx(
+        ThemeClassNames.wrapper.blogPages,
+        ThemeClassNames.page.blogListPage,
+      )}
+    >
       <BlogListPageMetadata {...props} />
       <BlogListPageContent {...props} />
     </HtmlClassNameProvider>

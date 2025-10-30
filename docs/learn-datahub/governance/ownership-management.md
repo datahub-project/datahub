@@ -1,14 +1,15 @@
 # Ownership Management
 
+import TutorialProgress from '@site/src/components/TutorialProgress';
+
 <TutorialProgress
 tutorialId="governance"
-currentStep="ownership-management"
+currentStep={0}
 steps={[
-{ id: 'governance-overview', title: 'Overview', time: '5 min', description: 'Professional data governance journey introduction' },
-{ id: 'ownership-management', title: 'Ownership Management', time: '12 min', description: 'Establish clear data ownership and accountability' },
-{ id: 'data-classification', title: 'Data Classification', time: '15 min', description: 'Implement PII detection and sensitivity labeling' },
-{ id: 'business-glossary', title: 'Business Glossary', time: '12 min', description: 'Create standardized business terminology' },
-{ id: 'governance-policies', title: 'Governance Policies', time: '11 min', description: 'Automate governance enforcement at scale' }
+{ title: 'Ownership Management', time: '12 min', description: 'Establish clear data ownership and accountability' },
+{ title: 'Data Classification', time: '15 min', description: 'Implement PII detection and sensitivity labeling' },
+{ title: 'Business Glossary', time: '12 min', description: 'Create standardized business terminology' },
+{ title: 'Governance Policies', time: '11 min', description: 'Automate governance enforcement at scale' }
 ]}
 />
 
@@ -187,4 +188,4 @@ Track these metrics to measure the impact of your ownership program:
 
 Now that you've established clear ownership, you're ready to implement data classification to identify and protect sensitive information.
 
-<NextStepButton href="./data-classification.md" />
+<NextStepButton href="./data-classification" />

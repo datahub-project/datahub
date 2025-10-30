@@ -1,20 +1,29 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import DataHubEntityCard from '@site/src/components/DataHubEntityCard';
+import NextStepButton from '@site/src/components/NextStepButton';
 
 # Understanding Dataset Profiles (20 minutes)
 
-:::info Tutorial Progress
-**Step 2 of 3** | **20 minutes** | [Overview](overview.md) → [Advanced Search](advanced-search.md) → **Dataset Profiles** → [Collaborative Discovery](collaborative-discovery.md)
-:::
+import TutorialProgress from '@site/src/components/TutorialProgress';
+
+<TutorialProgress
+tutorialId="discovery"
+currentStep={1}
+steps={[
+{ title: "Advanced Search Techniques", time: "15 min", description: "Master operators, filters, and saved searches" },
+{ title: "Understanding Dataset Profiles", time: "20 min", description: "Interpret profiles, statistics, and data quality" },
+{ title: "Collaborative Discovery", time: "10 min", description: "Document, tag, and share knowledge effectively" }
+]}
+/>
 
 Learn to quickly assess data quality, understand schemas, and make informed decisions about whether a dataset meets your analysis needs. Transform from guessing to knowing.
 
-## Discovery Challenge #2: The Data Detective
+## Scenario 2: Root Cause Analysis
 
-**Your Mission**: The customer dashboard shows suspicious numbers - customer count dropped 50% overnight. You need to evaluate potential data sources to find the root cause.
+**Objective**: Investigate anomalous dashboard metrics and evaluate candidate datasets to identify the root cause.
 
-**What You'll Learn**: How to rapidly assess data quality, interpret statistics, and identify data issues using DataHub's automated profiling.
+**What You'll Learn**: Rapid quality assessment, statistics interpretation, and issue identification using DataHub profiles.
 
 ## The Dataset Intelligence Framework
 
@@ -550,4 +559,6 @@ Choose the best customer dataset for a marketing campaign analysis. Justify your
 
 ---
 
-**Next**: Now that you can find and evaluate data, let's learn how to [collaborate and share knowledge](collaborative-discovery.md) with your team →
+<NextStepButton href="./collaborative-discovery">
+Next: Collaborate and Share Knowledge
+</NextStepButton>

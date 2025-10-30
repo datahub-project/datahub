@@ -1,19 +1,19 @@
 /* Auto-generated DataHub Design Tokens */
 :root {
-  --datahub-primary: #533FD1;
-  --datahub-primary-dark: #4C39BE;
-  --datahub-primary-light: #7565DA;
-  --datahub-primary-lightest: #F1F3FD;
-  --datahub-gray-100: #EBECF0;
+  --datahub-primary: #533fd1;
+  --datahub-primary-dark: #4c39be;
+  --datahub-primary-light: #7565da;
+  --datahub-primary-lightest: #f1f3fd;
+  --datahub-gray-100: #ebecf0;
   --datahub-gray-600: #374066;
-  --datahub-gray-1700: #5F6685;
-  --datahub-gray-1800: #8088A3;
-  --datahub-gray-1500: #F9FAFC;
-  --datahub-white: #FFFFFF;
-  --datahub-success: #77B750;
-  --datahub-warning: #EEAE09;
-  --datahub-error: #CD0D24;
-  --datahub-border: #E9EAEE;
+  --datahub-gray-1700: #5f6685;
+  --datahub-gray-1800: #8088a3;
+  --datahub-gray-1500: #f9fafc;
+  --datahub-white: #ffffff;
+  --datahub-success: #77b750;
+  --datahub-warning: #eeae09;
+  --datahub-error: #cd0d24;
+  --datahub-border: #e9eaee;
   --datahub-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
   --datahub-shadow-hover: 0 2px 8px rgba(83, 63, 209, 0.15);
   --datahub-node-width: 320px;
@@ -22,212 +22,242 @@
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
@@ -236,36 +266,36 @@
 /* Import DataHub color variables */
 :root {
   /* DataHub Alchemy Design System Colors */
-  --datahub-primary: #533FD1;
-  --datahub-primary-dark: #4C39BE;
-  --datahub-primary-light: #7565DA;
-  --datahub-primary-lightest: #F1F3FD;
-  --datahub-gray-100: #EBECF0;
+  --datahub-primary: #533fd1;
+  --datahub-primary-dark: #4c39be;
+  --datahub-primary-light: #7565da;
+  --datahub-primary-lightest: #f1f3fd;
+  --datahub-gray-100: #ebecf0;
   --datahub-gray-600: #374066;
-  --datahub-gray-1700: #5F6685;
-  --datahub-gray-1800: #8088A3;
-  --datahub-gray-1500: #F9FAFC;
-  --datahub-white: #FFFFFF;
-  --datahub-success: #77B750;
-  --datahub-warning: #EEAE09;
-  --datahub-error: #CD0D24;
-  --datahub-border: #E9EAEE;
+  --datahub-gray-1700: #5f6685;
+  --datahub-gray-1800: #8088a3;
+  --datahub-gray-1500: #f9fafc;
+  --datahub-white: #ffffff;
+  --datahub-success: #77b750;
+  --datahub-warning: #eeae09;
+  --datahub-error: #cd0d24;
+  --datahub-border: #e9eaee;
   --datahub-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
   --datahub-shadow-hover: 0 2px 8px rgba(83, 63, 209, 0.15);
 }
 
 /* Dark mode colors */
-[data-theme='dark'] {
-  --datahub-primary: #7565DA;
-  --datahub-primary-dark: #533FD1;
-  --datahub-primary-light: #8C7EE0;
-  --datahub-primary-lightest: #2E2373;
-  --datahub-gray-100: #2F3657;
-  --datahub-gray-600: #CFD1DA;
-  --datahub-gray-1700: #A9ADBD;
-  --datahub-gray-1800: #81879F;
-  --datahub-gray-1500: #1E2338;
-  --datahub-white: #272D48;
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
   --datahub-border: #374066;
 }
 
@@ -535,13 +565,13 @@
     margin: 8px 0;
     padding: 12px;
   }
-  
+
   .header {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
   }
-  
+
   .tags {
     gap: 4px;
   }

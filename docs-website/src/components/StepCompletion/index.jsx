@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import styles from './styles.module.css';
+import React, { useState, useEffect } from "react";
+import styles from "./styles.module.css";
 
-const StepCompletion = ({ stepId, children, completionText = "✅ Completed!" }) => {
+const StepCompletion = ({
+  stepId,
+  children,
+  completionText = "✅ Completed!",
+}) => {
   const [isCompleted, setIsCompleted] = useState(false);
   const storageKey = `datahub-step-${stepId}`;
 
   // Load completion status from localStorage
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
-    if (saved === 'true') {
+    if (saved === "true") {
       setIsCompleted(true);
     }
   }, [storageKey]);
@@ -23,10 +27,10 @@ const StepCompletion = ({ stepId, children, completionText = "✅ Completed!" })
   };
 
   return (
-    <div className={`${styles.stepCompletion} ${isCompleted ? styles.completed : ''}`}>
-      <div className={styles.content}>
-        {children}
-      </div>
+    <div
+      className={`${styles.stepCompletion} ${isCompleted ? styles.completed : ""}`}
+    >
+      <div className={styles.content}>{children}</div>
       <div className={styles.completionControl}>
         <label className={styles.completionLabel}>
           <input
@@ -35,11 +39,9 @@ const StepCompletion = ({ stepId, children, completionText = "✅ Completed!" })
             onChange={toggleCompletion}
             className={styles.checkbox}
           />
-          <span className={styles.checkmark}>
-            {isCompleted ? '✅' : '⬜'}
-          </span>
+          <span className={styles.checkmark}>{isCompleted ? "✅" : "⬜"}</span>
           <span className={styles.completionText}>
-            {isCompleted ? completionText : 'Mark as complete'}
+            {isCompleted ? completionText : "Mark as complete"}
           </span>
         </label>
       </div>

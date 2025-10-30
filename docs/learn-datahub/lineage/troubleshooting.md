@@ -5,10 +5,6 @@ import TutorialProgress from '@site/src/components/TutorialProgress';
 
 # Lineage Troubleshooting (10 minutes)
 
-:::info Tutorial Progress
-**Step 3 of 3** | **10 minutes** | [Overview](overview.md) → [Reading Lineage](reading-lineage.md) → [Impact Analysis](impact-analysis.md) → **Troubleshooting**
-:::
-
 <TutorialProgress
 tutorialId="lineage"
 currentStep={2}
@@ -36,63 +32,37 @@ By the end of this step, you'll be able to:
 
 Professional lineage debugging follows a systematic approach:
 
-<InteractiveDiagram
-nodes={[
-{
-id: '1',
-type: 'input',
-data: { label: '1. Identify the Gap\nLocate missing lineage' },
-position: { x: 0, y: 100 },
-className: 'source-node',
-},
-{
-id: '2',
-data: { label: '2. Check Data Sources\nVerify source connections' },
-position: { x: 200, y: 100 },
-className: 'process-node',
-},
-{
-id: '3',
-data: { label: '3. Validate Ingestion\nReview ingestion logs' },
-position: { x: 400, y: 100 },
-className: 'process-node',
-},
-{
-id: '4',
-data: { label: '4. Handle Edge Cases\nAddress complex scenarios' },
-position: { x: 600, y: 100 },
-className: 'process-node',
-},
-{
-id: '5',
-type: 'output',
-data: { label: '5. Implement Monitoring\nSet up alerts & tracking' },
-position: { x: 800, y: 100 },
-className: 'success-node',
-},
-{
-id: 'tip1',
-data: { label: 'Pro Tip: Start with the\nmost critical missing link' },
-position: { x: 0, y: 250 },
-className: 'user-node',
-},
-{
-id: 'tip2',
-data: { label: 'Success: Comprehensive\nlineage visibility achieved' },
-position: { x: 800, y: 250 },
-className: 'success-node',
-},
-]}
-edges={[
-{ id: 'e1-2', source: '1', target: '2', animated: true, label: 'analyze' },
-{ id: 'e2-3', source: '2', target: '3', animated: true, label: 'verify' },
-{ id: 'e3-4', source: '3', target: '4', animated: true, label: 'validate' },
-{ id: 'e4-5', source: '4', target: '5', animated: true, label: 'monitor' },
-{ id: 'e1-tip1', source: '1', target: 'tip1', style: { strokeDasharray: '5,5' }, label: 'tip' },
-{ id: 'e5-tip2', source: '5', target: 'tip2', style: { strokeDasharray: '5,5' }, label: 'outcome' },
-]}
+<ProcessFlow
 title="Lineage Troubleshooting Framework"
-height="350px"
+steps={[
+{
+title: "Identify the Gap",
+description: "Locate missing lineage",
+details: ["Start with the most critical missing link", "Confirm expected connections"]
+},
+{
+title: "Check Data Sources",
+description: "Verify source connections",
+details: ["Credentials & access", "Source availability", "Schema changes"]
+},
+{
+title: "Validate Ingestion",
+description: "Review ingestion logs",
+details: ["Recent runs & errors", "Recipe changes", "Stateful diffs"]
+},
+{
+title: "Handle Edge Cases",
+description: "Address complex scenarios",
+details: ["Manual processes", "External systems", "Non-standard lineage"]
+},
+{
+title: "Implement Monitoring",
+description: "Set up alerts & tracking",
+details: ["Assertions on lineage freshness", "Notifications for failures", "Owner escalation paths"]
+}
+]}
+type="horizontal"
+animated={true}
 />
 
 ## Common Lineage Issues
@@ -733,6 +703,6 @@ Check off "Lineage Troubleshooting" in the progress tracker above! You've comple
 
 **Ready for More?** Continue your DataHub expertise journey with:
 
-- **Data Governance Fundamentals (coming soon)** - Master ownership, classification, and business glossary
-- **Data Quality & Monitoring (coming soon)** - Learn assertions, health dashboards, and incident management
-- **Data Ingestion Mastery (coming soon)** - Deep dive into recipes, stateful ingestion, and profiling
+- **Data Governance Fundamentals** - Master ownership, classification, and business glossary
+- **Data Quality & Monitoring** - Learn assertions, health dashboards, and incident management
+- **Data Ingestion Mastery** - Deep dive into recipes, stateful ingestion, and profiling

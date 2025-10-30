@@ -10,7 +10,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import styles from './styles.module.css';
 
-const InteractiveDiagram = ({ 
+const Discovery Challenge #2: The Data Detective = ({ 
   nodes: initialNodes = [], 
   edges: initialEdges = [],
   title,

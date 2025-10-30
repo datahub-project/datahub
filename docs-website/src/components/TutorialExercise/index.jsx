@@ -1,40 +1,40 @@
-import React from 'react';
-import styles from './styles.module.css';
+import React from "react";
+import styles from "./styles.module.css";
 
-const TutorialExercise = ({ 
-  title, 
-  type = 'search', 
-  icon, 
-  children, 
-  difficulty = 'beginner',
+const TutorialExercise = ({
+  title,
+  type = "search",
+  icon,
+  children,
+  difficulty = "beginner",
   timeEstimate,
-  platform = 'DataHub'
+  platform = "DataHub",
 }) => {
   const getTypeIcon = () => {
     switch (type) {
-      case 'search':
-        return '🔍';
-      case 'hands-on':
-        return '💻';
-      case 'analysis':
-        return '📊';
-      case 'exercise':
-        return '🎯';
+      case "search":
+        return "🔍";
+      case "hands-on":
+        return "💻";
+      case "analysis":
+        return "📊";
+      case "exercise":
+        return "🎯";
       default:
-        return '📝';
+        return "📝";
     }
   };
 
   const getDifficultyColor = () => {
     switch (difficulty) {
-      case 'beginner':
-        return 'var(--datahub-success)';
-      case 'intermediate':
-        return 'var(--datahub-warning)';
-      case 'advanced':
-        return 'var(--datahub-error)';
+      case "beginner":
+        return "var(--datahub-success)";
+      case "intermediate":
+        return "var(--datahub-warning)";
+      case "advanced":
+        return "var(--datahub-error)";
       default:
-        return 'var(--datahub-primary)';
+        return "var(--datahub-primary)";
     }
   };
 
@@ -42,33 +42,25 @@ const TutorialExercise = ({
     <div className={styles.exerciseContainer}>
       <div className={styles.exerciseHeader}>
         <div className={styles.headerLeft}>
-          <div className={styles.typeIcon}>
-            {icon || getTypeIcon()}
-          </div>
+          <div className={styles.typeIcon}>{icon || getTypeIcon()}</div>
           <div className={styles.titleSection}>
             <h4 className={styles.exerciseTitle}>{title}</h4>
             <div className={styles.metadata}>
-              <span 
+              <span
                 className={styles.difficulty}
                 style={{ backgroundColor: getDifficultyColor() }}
               >
                 {difficulty}
               </span>
               {timeEstimate && (
-                <span className={styles.timeEstimate}>
-                  ⏱️ {timeEstimate}
-                </span>
+                <span className={styles.timeEstimate}>⏱️ {timeEstimate}</span>
               )}
-              <span className={styles.platform}>
-                {platform}
-              </span>
+              <span className={styles.platform}>{platform}</span>
             </div>
           </div>
         </div>
       </div>
-      <div className={styles.exerciseContent}>
-        {children}
-      </div>
+      <div className={styles.exerciseContent}>{children}</div>
     </div>
   );
 };
@@ -128,9 +120,7 @@ export const HandsOnExercise = ({ title, steps, children, ...props }) => (
 
 export const InteractiveDemo = ({ title, children, ...props }) => (
   <TutorialExercise title={title} type="exercise" icon="🎮" {...props}>
-    <div className={styles.interactiveContent}>
-      {children}
-    </div>
+    <div className={styles.interactiveContent}>{children}</div>
   </TutorialExercise>
 );
 
