@@ -490,9 +490,8 @@ plugins: Dict[str, Set[str]] = {
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common,
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    # TODO: remove git URL once https://github.com/ibmdb/python-ibmdbsa/issues/180 is fixed and released
-    "db2": {"ibm_db_sa @ git+https://github.com/ligfx/python-ibmdbsa@fix_boolean_value_not_defined_as400"} | sql_common,
-    "db2-odbc": {"ibm_db_sa @ git+https://github.com/ligfx/python-ibmdbsa@fix_boolean_value_not_defined_as400", "pyodbc"} | sql_common,
+    # TODO: remove ibm_db_sa git URL once v0.4.3 is released
+    "db2": {"ibm_db_sa @ git+https://github.com/ibmdb/python-ibmdbsa@f7135467150722c5379d3ae951fbe2ad462f0dec", "pyodbc"} | sql_common,
     "dbt": {"requests"} | dbt_common | aws_common,
     "dbt-cloud": {"requests"} | dbt_common,
     "dremio": {"requests"} | sql_common,
@@ -813,7 +812,6 @@ full_test_dev_requirements = {
             "circuit-breaker",
             "clickhouse",
             "db2",
-            "db2-odbc",
             "delta-lake",
             "druid",
             "excel",
@@ -858,7 +856,6 @@ entry_points = {
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "db2 = datahub.ingestion.source.sql.db2:Db2Source",
-        "db2-odbc = datahub.ingestion.source.sql.db2:Db2ODBCSource",
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "dremio = datahub.ingestion.source.dremio.dremio_source:DremioSource",
