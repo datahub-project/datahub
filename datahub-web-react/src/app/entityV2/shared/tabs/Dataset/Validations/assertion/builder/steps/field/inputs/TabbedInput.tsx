@@ -319,7 +319,7 @@ export const TabbedInput = ({
     const isSqlAssertion = fieldValueType === AssertionStdParameterType.Sql;
 
     // Show tabs in both create and edit flows
-    const showTabs = true;
+    const showTabs = isSetOperation;
 
     return (
         <Form.Item name="fieldValue" rules={[{ required: true, message: 'Required' }]}>

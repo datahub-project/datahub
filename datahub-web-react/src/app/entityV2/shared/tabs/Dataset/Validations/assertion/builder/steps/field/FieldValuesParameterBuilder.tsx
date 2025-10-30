@@ -100,8 +100,6 @@ export const FieldValuesParameterBuilder = ({ value, onChange, disabled, isEditM
         form.setFieldValue('fieldValuesOperator', operator);
     }, [form, operator]);
 
-    const isSetOperation = operator && [AssertionStdOperator.In, AssertionStdOperator.NotIn].includes(operator);
-
     return (
         <Section>
             <Typography.Title level={5}>Pass if every value</Typography.Title>
@@ -122,9 +120,8 @@ export const FieldValuesParameterBuilder = ({ value, onChange, disabled, isEditM
                         disabled={disabled}
                     />
                 </StyledFormItem>
-                {!isSetOperation && renderInput()}
             </Row>
-            {isSetOperation && <InputRow>{renderInput()}</InputRow>}
+            <InputRow>{renderInput()}</InputRow>
         </Section>
     );
 };
