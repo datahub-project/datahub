@@ -131,4 +131,38 @@ record AssertionsSummary {
       }
     }
     erroringAssertionDetails: array[AssertionSummaryDetails] = []
+
+    /**
+    * Summary details about the set of initializing assertions
+    */
+    @Searchable = {
+      "/*/urn" : {
+        "fieldType": "URN",
+        "fieldName": "initializingAssertions",
+        "hasValuesFieldName": "hasInitializingAssertions",
+        "numValuesFieldName": "numInitializingAssertions",
+        "queryByDefault": false,
+      },
+      "/*/type" : {
+        "fieldType": "KEYWORD",
+        "fieldName": "initializingAssertionType",
+        "queryByDefault": false,
+      },
+      "/*/lastResultAt" : {
+       "fieldType": "DATETIME",
+       "fieldName": "initializingAssertionResultTimes",
+       "queryByDefault": false,
+      },
+      "/*/source" : {
+        "fieldName": "initializingAssertionSources",
+        "queryByDefault": false,
+      }
+    }
+    @Relationship = {
+      "/*/urn" : {
+        "name": "InitializingAssertions",
+        "entityTypes": [ "assertion" ]
+      }
+    }
+    initializingAssertionDetails: array[AssertionSummaryDetails] = []
 }

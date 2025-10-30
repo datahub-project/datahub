@@ -203,12 +203,14 @@ export const AssertionsByAssertionSummaryTable = ({
                 const failures = record.runEvents?.failed || 0;
                 const errors = record.runEvents?.errored || 0;
                 const passes = record.runEvents?.succeeded || 0;
+                const initializing = record.runEvents?.initializing || 0;
                 const totalResults = record.runEvents?.total || 0;
                 const hasMore = totalResults >= RUN_EVENTS_PREVIEW_LIMIT;
 
                 const failuresToDisplay = hasMore ? `${roundToNearest(failures)}+` : failures.toString();
                 const errorsToDisplay = hasMore ? `${roundToNearest(errors)}+` : errors.toString();
                 const passesToDisplay = hasMore ? `${roundToNearest(passes)}+` : passes.toString();
+                const initializingToDisplay = hasMore ? `${roundToNearest(initializing)}+` : initializing.toString();
                 return (
                     <ResultsWrapper
                         to={getAssertionLink(record.urn, record.dataset?.urn || record.monitor?.entity?.urn || '')}
@@ -235,6 +237,27 @@ export const AssertionsByAssertionSummaryTable = ({
                                 {/* NOTE: we have to wrap the pill in a div to avoid the tooltip from being cut off */}
                                 <div>
                                     <Pill label={failuresToDisplay} color="red" leftIcon="X" iconSource="phosphor" />
+                                </div>
+                            </Tooltip>
+                        ) : null}
+                        {/* ---- Initializing ---- */}
+                        {initializing > 0 ? (
+                            <Tooltip
+                                title={
+                                    hasMore
+                                        ? `Cannot fetch all initializing in this time period. Click to see all results.`
+                                        : `${initializingToDisplay} initializing in this time period`
+                                }
+                                placement="top"
+                            >
+                                {/* NOTE: we have to wrap the pill in a div to avoid the tooltip from being cut off */}
+                                <div>
+                                    <Pill
+                                        label={initializingToDisplay}
+                                        color="blue"
+                                        leftIcon="Clock"
+                                        iconSource="phosphor"
+                                    />
                                 </div>
                             </Tooltip>
                         ) : null}

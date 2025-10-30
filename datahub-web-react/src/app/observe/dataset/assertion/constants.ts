@@ -1,6 +1,6 @@
 import { AssertionSourceType, AssertionType } from '@types';
 
-export type AssertionResultTypeOptions = 'Failing' | 'Passing' | 'Error';
+export type AssertionResultTypeOptions = 'Failing' | 'Passing' | 'Error' | 'Initializing';
 
 // Dataset level
 export const FAILING_ASSERTION_TYPE_FILTER_FIELD = 'failingAssertionType';
@@ -9,20 +9,24 @@ export const ERRORED_ASSERTION_TYPE_FILTER_FIELD = 'erroredAssertionType';
 export const HAS_FAILING_ASSERTIONS_FILTER_FIELD = 'hasFailingAssertions';
 export const HAS_PASSING_ASSERTIONS_FILTER_FIELD = 'hasPassingAssertions';
 export const HAS_ERRORED_ASSERTIONS_FILTER_FIELD = 'hasErroredAssertions';
+export const HAS_INITIALIZING_ASSERTIONS_FILTER_FIELD = 'hasInitializingAssertions';
 export const ASSERTION_RESULT_TYPE_OPTIONS_TO_FILTER_FIELD: Record<AssertionResultTypeOptions, string> = {
     Failing: HAS_FAILING_ASSERTIONS_FILTER_FIELD,
     Passing: HAS_PASSING_ASSERTIONS_FILTER_FIELD,
     Error: HAS_ERRORED_ASSERTIONS_FILTER_FIELD,
+    Initializing: HAS_INITIALIZING_ASSERTIONS_FILTER_FIELD,
 };
 
 // Assertion level
 export const LAST_ASSERTION_FAILED_AT_FILTER_FIELD = 'lastFailedAtMillis';
 export const LAST_ASSERTION_ERRORED_AT_FILTER_FIELD = 'lastErroredAtMillis';
 export const LAST_ASSERTION_PASSED_AT_FILTER_FIELD = 'lastPassedAtMillis';
+export const LAST_ASSERTION_INITIALIZING_AT_FILTER_FIELD = 'lastInitializedAtMillis';
 export const ASSERTION_RESULT_TYPE_OPTIONS_TO_RUN_SUMMARY_FILTER_FIELD: Record<AssertionResultTypeOptions, string> = {
     Failing: LAST_ASSERTION_FAILED_AT_FILTER_FIELD,
     Passing: LAST_ASSERTION_PASSED_AT_FILTER_FIELD,
     Error: LAST_ASSERTION_ERRORED_AT_FILTER_FIELD,
+    Initializing: LAST_ASSERTION_INITIALIZING_AT_FILTER_FIELD,
 };
 
 export const ASSERTIONS_DOCS_LINK = 'https://docs.datahub.com/docs/managed-datahub/observe/assertions';

@@ -254,6 +254,73 @@ public class AssertionRunSummaryHookTest {
   }
 
   @Test
+  public void testHandleAssertionRunInitNoExistingSummary() throws Exception {
+    // Arrange
+    AssertionRunEvent runEvent =
+        createMockAssertionRunEvent(AssertionRunStatus.COMPLETE, AssertionResultType.INIT, 4000L);
+    when(assertionService.getAssertionRunSummary(systemOperationContext, TEST_ASSERTION_URN))
+        .thenReturn(null);
+    when(mockMetadataChangeLog.getAspect())
+        .thenReturn(
+            GenericRecordUtils.serializeAspect(runEvent)); // Mock to return the correct aspect
+
+    // Act
+    assertionRunSummaryHook.invoke(mockMetadataChangeLog);
+
+    AssertionRunSummaryPatchBuilder expectedPatchBuilder =
+        new AssertionRunSummaryPatchBuilder().setLastInitializedAt(4000L);
+
+    // Assert
+    verify(assertionService, times(1))
+        .patchAssertionRunSummary(any(OperationContext.class), eq(expectedPatchBuilder));
+  }
+
+  @Test
+  public void testHandleAssertionRunInitExistingSummary() throws Exception {
+    // Arrange
+    AssertionRunEvent runEvent =
+        createMockAssertionRunEvent(AssertionRunStatus.COMPLETE, AssertionResultType.INIT, 1000L);
+
+    // Case 1: Existing Summary at lower timestamp
+
+    AssertionRunSummary existingSummary = new AssertionRunSummary();
+    existingSummary.setLastInitializedAtMillis(500L);
+
+    when(assertionService.getAssertionRunSummary(systemOperationContext, TEST_ASSERTION_URN))
+        .thenReturn(existingSummary); //
+    when(mockMetadataChangeLog.getAspect())
+        .thenReturn(
+            GenericRecordUtils.serializeAspect(runEvent)); // Mock to return the correct aspect
+
+    // Act
+    assertionRunSummaryHook.invoke(mockMetadataChangeLog);
+
+    AssertionRunSummaryPatchBuilder expectedPatchBuilder =
+        new AssertionRunSummaryPatchBuilder().setLastInitializedAt(1000L);
+
+    // Assert
+    verify(assertionService, times(1))
+        .patchAssertionRunSummary(any(OperationContext.class), eq(expectedPatchBuilder));
+
+    // Case 2: Existing Summary at higher timestamp
+    existingSummary.setLastInitializedAtMillis(1500L);
+
+    when(assertionService.getAssertionRunSummary(systemOperationContext, TEST_ASSERTION_URN))
+        .thenReturn(existingSummary); //
+    when(mockMetadataChangeLog.getAspect())
+        .thenReturn(
+            GenericRecordUtils.serializeAspect(runEvent)); // Mock to return the correct aspect
+
+    // Act
+    assertionRunSummaryHook.invoke(mockMetadataChangeLog);
+
+    // Assert only 1 update (not 2)
+    verify(assertionService, times(1))
+        .patchAssertionRunSummary(
+            any(OperationContext.class), any(AssertionRunSummaryPatchBuilder.class));
+  }
+
+  @Test
   public void testSkipNonEligibleEvent() throws Exception {
     // Arrange
     when(mockMetadataChangeLog.getEntityType()).thenReturn("NonAssertionEntity");

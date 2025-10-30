@@ -299,6 +299,45 @@ public class AssertionsSummaryHookTest {
         .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
   }
 
+  @Test(dataProvider = "assertionsSummaryProvider")
+  public void testInvokeAssertionRunEventInit(AssertionsSummary initialSummary) throws Exception {
+    AssertionService service = mockAssertionService(initialSummary);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+
+    final AssertionInfo info =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL));
+    final AssertionRunEvent runEvent =
+        mockAssertionRunEvent(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.INIT);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, runEvent);
+
+    hook.invoke(event);
+
+    Mockito.verify(service, Mockito.times(1))
+        .getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN));
+
+    Mockito.verify(service, Mockito.times(1))
+        .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+
+    AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
+    patchBuilder.urn(TEST_ASSERTION_URN);
+    patchBuilder.withEntityName(TEST_DATASET_URN.getEntityType());
+    patchBuilder.removeFromPassingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.removeFromFailingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.removeFromErroringAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.addInitializingAssertionDetails(
+        buildAssertionSummaryDetails(TEST_ASSERTION_URN, info, runEvent));
+    patchBuilder.addOverallLastAssertionResultAt(runEvent.getTimestampMillis());
+
+    // Ensure we ingested a new aspect.
+    Mockito.verify(service, Mockito.times(1))
+        .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
+  }
+
   @Test
   public void testInvokeAssertionRunEventSuccessIgnoredIfEarlier() throws Exception {
 

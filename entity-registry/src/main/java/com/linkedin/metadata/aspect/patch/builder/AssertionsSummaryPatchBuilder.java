@@ -20,6 +20,8 @@ public class AssertionsSummaryPatchBuilder
   private static final String LEGACY_PASSING_ASSERTIONS_START = "/passingAssertions/";
   private static final String PASSING_ASSERTION_DETAILS_START = "/passingAssertionDetails/";
   private static final String ERRORING_ASSERTION_DETAILS_START = "/erroringAssertionDetails/";
+  private static final String INITIALIZING_ASSERTION_DETAILS_START =
+      "/initializingAssertionDetails/";
   private static final String LEGACY_FAILING_ASSERTIONS_START = "/failingAssertions/";
   private static final String FAILING_ASSERTION_DETAILS_START = "/failingAssertionDetails/";
   private static final String BASE_PATH = "/";
@@ -107,6 +109,36 @@ public class AssertionsSummaryPatchBuilder
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(),
             ERRORING_ASSERTION_DETAILS_START + encodeValueUrn(assertionUrn),
+            null));
+    return this;
+  }
+
+  public AssertionsSummaryPatchBuilder addInitializingAssertionDetails(
+      @Nonnull final AssertionSummaryDetails details) {
+    ObjectNode value = instance.objectNode();
+    value
+        .put(ASSERTION_URN_KEY, details.getUrn().toString())
+        .put(TYPE_KEY, details.getType())
+        .put(LAST_RESULT_AT_KEY, details.getLastResultAt());
+
+    if (details.hasSource()) {
+      value.put(SOURCE_KEY, details.getSource());
+    }
+
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            INITIALIZING_ASSERTION_DETAILS_START + encodeValueUrn(details.getUrn()),
+            value));
+    return this;
+  }
+
+  public AssertionsSummaryPatchBuilder removeFromInitializingAssertionDetails(
+      @Nonnull final Urn assertionUrn) {
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            INITIALIZING_ASSERTION_DETAILS_START + encodeValueUrn(assertionUrn),
             null));
     return this;
   }

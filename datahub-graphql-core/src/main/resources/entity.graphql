@@ -9212,6 +9212,11 @@ type AssertionRunEventsResult {
   errored: Int!
 
   """
+  The number of initializing run events
+  """
+  initializing: Int!
+
+  """
   The run events themselves
   """
   runEvents: [AssertionRunEvent!]!
@@ -12668,6 +12673,11 @@ enum HealthStatus {
   The Asset is in a failing (unhealthy) state
   """
   FAIL
+
+  """
+  The Asset is in an initializing state
+  """
+  INIT
 }
 
 """

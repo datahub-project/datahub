@@ -3,13 +3,14 @@ import { QueryParamDecoder, QueryParamEncoder } from '@app/observe/dataset/share
 
 export const DEFAULT_PAGE_SIZE = 25;
 
-const STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Error', 'Passing'];
-export const DEFAULT_STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Error', 'Passing'];
+const STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Error', 'Passing', 'Initializing'];
+export const DEFAULT_STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Error', 'Passing', 'Initializing'];
 
 export const STATUS_OPTIONS_TO_LABEL: Record<AssertionResultTypeOptions, string> = {
     Failing: 'At least one failure',
     Error: 'At least one error',
     Passing: 'At least one success',
+    Initializing: 'At least one initializing',
 };
 
 // Time Range

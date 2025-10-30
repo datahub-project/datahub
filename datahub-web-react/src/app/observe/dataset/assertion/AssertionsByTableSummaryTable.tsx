@@ -54,17 +54,20 @@ const HealthStatusToColor = {
     [HealthStatus.Pass]: colors.green[500],
     [HealthStatus.Fail]: colors.red[500],
     [HealthStatus.Warn]: colors.yellow[500],
+    [HealthStatus.Init]: colors.blue[500],
 };
 const HealthStatusToBackgroundColor = {
     [HealthStatus.Pass]: colors.green[100],
     [HealthStatus.Fail]: colors.red[100],
     [HealthStatus.Warn]: colors.yellow[100],
+    [HealthStatus.Init]: colors.blue[300],
 };
 
 const HealthStatusToText = {
     [HealthStatus.Pass]: 'passing',
     [HealthStatus.Fail]: 'failing',
     [HealthStatus.Warn]: 'warning',
+    [HealthStatus.Init]: 'initializing',
     DEFAULT: 'pending run',
 };
 

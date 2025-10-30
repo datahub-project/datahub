@@ -36,4 +36,13 @@ record AssertionRunSummary {
   }
   lastPassedAtMillis: optional long
 
+  /**
+   * The last initialized event timestamp field as epoch at UTC in milliseconds.
+   */
+  @Searchable = {
+    "fieldName": "lastInitializedAtMillis",
+    "fieldType": "DATETIME"
+  }
+  lastInitializedAtMillis: optional long
+
 }

@@ -337,6 +337,261 @@ public class AcrylEntityHealthResolverTest {
   }
 
   @Test
+  public void testGetSuccessInitializingOnly() throws Exception {
+    EntityClient entityClient = Mockito.mock(EntityClient.class);
+
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
+
+    AssertionsSummary summary = new AssertionsSummary();
+    summary.setInitializingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                    .setType(AssertionType.FRESHNESS.name())
+                    .setSource("test")
+                    .setLastResultAt(0L))));
+
+    Mockito.when(
+            entityClient.getV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(summary.data()))))));
+
+    // Execute resolver
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Dataset parentDataset = new Dataset();
+    parentDataset.setUrn(TEST_DATASET_URN);
+    Mockito.when(mockEnv.getSource()).thenReturn(parentDataset);
+
+    List<Health> result = resolver.get(mockEnv).get();
+    assertNotNull(result);
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getStatus(), HealthStatus.INIT);
+    assertEquals(result.get(0).getMessage(), "1 of 1 assertions are initializing");
+
+    // Verify latestAssertionStatusByType
+    List<AssertionHealthStatusByType> assertionStatusByType =
+        result.get(0).getLatestAssertionStatusByType();
+    assertNotNull(assertionStatusByType);
+    assertEquals(assertionStatusByType.size(), 1);
+    assertEquals(assertionStatusByType.get(0).getType().name(), AssertionType.FRESHNESS.name());
+    assertEquals(assertionStatusByType.get(0).getStatus(), HealthStatus.INIT);
+    assertEquals(assertionStatusByType.get(0).getTotal(), 1);
+    assertEquals(assertionStatusByType.get(0).getStatusCount(), 1);
+  }
+
+  @Test
+  public void testGetSuccessInitializingAndPassing() throws Exception {
+    EntityClient entityClient = Mockito.mock(EntityClient.class);
+
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
+
+    AssertionsSummary summary = new AssertionsSummary();
+    summary.setInitializingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                    .setType(AssertionType.FRESHNESS.name())
+                    .setSource("test")
+                    .setLastResultAt(100L))));
+    summary.setPassingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN_2))
+                    .setType(AssertionType.VOLUME.name())
+                    .setSource("test")
+                    .setLastResultAt(0L))));
+
+    Mockito.when(
+            entityClient.getV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(summary.data()))))));
+
+    // Execute resolver
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Dataset parentDataset = new Dataset();
+    parentDataset.setUrn(TEST_DATASET_URN);
+    Mockito.when(mockEnv.getSource()).thenReturn(parentDataset);
+
+    List<Health> result = resolver.get(mockEnv).get();
+    assertNotNull(result);
+    assertEquals(result.size(), 1);
+    // INIT takes precedence over PASS
+    assertEquals(result.get(0).getStatus(), HealthStatus.INIT);
+    assertEquals(result.get(0).getMessage(), "1 of 2 assertions are initializing");
+
+    // Verify latestAssertionStatusByType includes both types
+    List<AssertionHealthStatusByType> assertionStatusByType =
+        result.get(0).getLatestAssertionStatusByType();
+    assertNotNull(assertionStatusByType);
+    assertEquals(assertionStatusByType.size(), 2);
+  }
+
+  @Test
+  public void testGetSuccessFailTakesPrecedenceOverInit() throws Exception {
+    EntityClient entityClient = Mockito.mock(EntityClient.class);
+
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
+
+    AssertionsSummary summary = new AssertionsSummary();
+    summary.setFailingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                    .setType(AssertionType.FRESHNESS.name())
+                    .setSource("test")
+                    .setLastResultAt(100L))));
+    summary.setInitializingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN_2))
+                    .setType(AssertionType.VOLUME.name())
+                    .setSource("test")
+                    .setLastResultAt(50L))));
+
+    Mockito.when(
+            entityClient.getV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(summary.data()))))));
+
+    // Execute resolver
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Dataset parentDataset = new Dataset();
+    parentDataset.setUrn(TEST_DATASET_URN);
+    Mockito.when(mockEnv.getSource()).thenReturn(parentDataset);
+
+    List<Health> result = resolver.get(mockEnv).get();
+    assertNotNull(result);
+    assertEquals(result.size(), 1);
+    // FAIL should take precedence over INIT
+    assertEquals(result.get(0).getStatus(), HealthStatus.FAIL);
+    assertEquals(result.get(0).getMessage(), "1 of 2 assertions are failing");
+  }
+
+  @Test
+  public void testGetSuccessErrorTakesPrecedenceOverInit() throws Exception {
+    EntityClient entityClient = Mockito.mock(EntityClient.class);
+
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
+
+    AssertionsSummary summary = new AssertionsSummary();
+    summary.setErroringAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                    .setType(AssertionType.FRESHNESS.name())
+                    .setSource("test")
+                    .setLastResultAt(100L))));
+    summary.setInitializingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN_2))
+                    .setType(AssertionType.VOLUME.name())
+                    .setSource("test")
+                    .setLastResultAt(50L))));
+
+    Mockito.when(
+            entityClient.getV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(summary.data()))))));
+
+    // Execute resolver
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Dataset parentDataset = new Dataset();
+    parentDataset.setUrn(TEST_DATASET_URN);
+    Mockito.when(mockEnv.getSource()).thenReturn(parentDataset);
+
+    List<Health> result = resolver.get(mockEnv).get();
+    assertNotNull(result);
+    assertEquals(result.size(), 1);
+    // WARN should take precedence over INIT
+    assertEquals(result.get(0).getStatus(), HealthStatus.WARN);
+    assertEquals(result.get(0).getMessage(), "1 of 2 assertions are erroring");
+  }
+
+  @Test
   public void testGetSuccessNullHealthMissingAspectFields() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 

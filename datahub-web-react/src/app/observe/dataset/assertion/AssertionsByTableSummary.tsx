@@ -315,6 +315,10 @@ export const AssertionsByTableSummary = ({ isAnomalyDetectionEnabled }: Props) =
                                 value: 'Error',
                                 label: 'Has an Errored assertion',
                             },
+                            {
+                                value: 'Initializing',
+                                label: 'Has an Initializing assertion',
+                            },
                         ]}
                         initialValues={selectedStatus}
                         onUpdate={(values) => {

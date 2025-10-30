@@ -95,6 +95,7 @@ describe('acrylUtils', () => {
                         failed: 0,
                         errored: 0,
                         total: 1,
+                        initializing: 0,
                     },
                 },
                 {
@@ -113,6 +114,7 @@ describe('acrylUtils', () => {
                         failed: 1,
                         errored: 0,
                         total: 1,
+                        initializing: 0,
                     },
                 },
                 {
@@ -131,6 +133,7 @@ describe('acrylUtils', () => {
                         failed: 0,
                         errored: 1,
                         total: 1,
+                        initializing: 0,
                     },
                 },
             ];
@@ -170,6 +173,7 @@ describe('acrylUtils', () => {
                         failed: 0,
                         errored: 0,
                         total: 1,
+                        initializing: 0,
                     },
                 },
             ];
@@ -199,6 +203,7 @@ describe('acrylUtils', () => {
                         failed: 0,
                         errored: 0,
                         total: 1,
+                        initializing: 0,
                     },
                 },
                 {
@@ -217,6 +222,7 @@ describe('acrylUtils', () => {
                         failed: 1,
                         errored: 0,
                         total: 1,
+                        initializing: 0,
                     },
                 },
             ];
@@ -546,6 +552,7 @@ describe('acrylUtils', () => {
                         failed: 0,
                         errored: 0,
                         total: 1,
+                        initializing: 0,
                     },
                 },
                 {
@@ -567,6 +574,7 @@ describe('acrylUtils', () => {
                         failed: 1,
                         errored: 0,
                         total: 1,
+                        initializing: 0,
                     },
                 },
             ];
@@ -600,6 +608,7 @@ describe('acrylUtils', () => {
                         failed: 0,
                         errored: 0,
                         total: 1,
+                        initializing: 0,
                     },
                 },
             ];
@@ -631,6 +640,7 @@ describe('acrylUtils', () => {
                         failed: 0,
                         errored: 0,
                         total: 1,
+                        initializing: 0,
                     },
                 },
                 {
@@ -652,6 +662,7 @@ describe('acrylUtils', () => {
                         failed: 1,
                         errored: 0,
                         total: 1,
+                        initializing: 0,
                     },
                 },
             ];

@@ -230,8 +230,15 @@ public class AcrylEntityHealthResolver implements DataFetcher<CompletableFuture<
           summary.hasErroringAssertionDetails() ? summary.getErroringAssertionDetails().size() : 0;
       final int passingAssertionCount =
           summary.hasPassingAssertionDetails() ? summary.getPassingAssertionDetails().size() : 0;
+      final int initializingAssertionCount =
+          summary.hasInitializingAssertionDetails()
+              ? summary.getInitializingAssertionDetails().size()
+              : 0;
       final int totalAssertionCount =
-          failingAssertionCount + erroringAssertionCount + passingAssertionCount;
+          failingAssertionCount
+              + erroringAssertionCount
+              + passingAssertionCount
+              + initializingAssertionCount;
 
       final List<String> failingAssertionUrns =
           summary.hasFailingAssertionDetails()
@@ -242,6 +249,13 @@ public class AcrylEntityHealthResolver implements DataFetcher<CompletableFuture<
       final List<String> erroringAssertionUrns =
           summary.hasErroringAssertionDetails()
               ? summary.getErroringAssertionDetails().stream()
+                  .map(details -> details.getUrn().toString())
+                  .toList()
+              : Collections.emptyList();
+
+      final List<String> initializingAssertionUrns =
+          summary.hasInitializingAssertionDetails()
+              ? summary.getInitializingAssertionDetails().stream()
                   .map(details -> details.getUrn().toString())
                   .toList()
               : Collections.emptyList();
@@ -275,6 +289,18 @@ public class AcrylEntityHealthResolver implements DataFetcher<CompletableFuture<
                     .map(AssertionSummaryDetails::getLastResultAt)
                     .toList());
         health.setReportedAt(latestErroringAssertionRun);
+      } else if (initializingAssertionUrns.size() > 0) {
+        health.setStatus(HealthStatus.INIT);
+        health.setMessage(
+            String.format(
+                "%s of %s assertions are initializing",
+                initializingAssertionUrns.size(), totalAssertionCount));
+        final Long latestInitializingAssertionRun =
+            Collections.max(
+                summary.getInitializingAssertionDetails().stream()
+                    .map(AssertionSummaryDetails::getLastResultAt)
+                    .toList());
+        health.setReportedAt(latestInitializingAssertionRun);
       } else {
         health.setStatus(HealthStatus.PASS);
         health.setReportedAt(summary.getLastAssertionResultAt());
@@ -311,12 +337,19 @@ public class AcrylEntityHealthResolver implements DataFetcher<CompletableFuture<
           summary.getPassingAssertionDetails().stream()
               .filter(details -> details.getType().equals(assertionType.name()))
               .toList();
+      final List<AssertionSummaryDetails> initializingAssertionsForType =
+          summary.hasInitializingAssertionDetails()
+              ? summary.getInitializingAssertionDetails().stream()
+                  .filter(details -> details.getType().equals(assertionType.name()))
+                  .toList()
+              : Collections.emptyList();
 
       // 2. Set the overall count of assertions for this type
       assertionHealthStatusByType.setTotal(
           failingAssertionsForType.size()
               + erroringAssertionsForType.size()
-              + passingAssertionsForType.size());
+              + passingAssertionsForType.size()
+              + initializingAssertionsForType.size());
 
       // 3. Set the status related fields
       if (failingAssertionsForType.size() > 0) {
@@ -335,6 +368,14 @@ public class AcrylEntityHealthResolver implements DataFetcher<CompletableFuture<
                     .map(AssertionSummaryDetails::getLastResultAt)
                     .toList()));
         assertionHealthStatusByType.setStatusCount(erroringAssertionsForType.size());
+      } else if (initializingAssertionsForType.size() > 0) {
+        assertionHealthStatusByType.setStatus(HealthStatus.INIT);
+        assertionHealthStatusByType.setLastStatusResultAt(
+            Collections.max(
+                initializingAssertionsForType.stream()
+                    .map(AssertionSummaryDetails::getLastResultAt)
+                    .toList()));
+        assertionHealthStatusByType.setStatusCount(initializingAssertionsForType.size());
       } else if (passingAssertionsForType.size() > 0) {
         assertionHealthStatusByType.setStatus(HealthStatus.PASS);
         assertionHealthStatusByType.setLastStatusResultAt(
@@ -388,8 +429,11 @@ public class AcrylEntityHealthResolver implements DataFetcher<CompletableFuture<
 
   private boolean isEmptyAssertionsSummary(@Nonnull final AssertionsSummary summary) {
     return (!summary.hasPassingAssertionDetails() || summary.getPassingAssertionDetails().isEmpty())
-        && (!summary.hasFailingAssertionDetails()
-            || summary.getFailingAssertionDetails().isEmpty());
+        && (!summary.hasFailingAssertionDetails() || summary.getFailingAssertionDetails().isEmpty())
+        && (!summary.hasErroringAssertionDetails()
+            || summary.getErroringAssertionDetails().isEmpty())
+        && (!summary.hasInitializingAssertionDetails()
+            || summary.getInitializingAssertionDetails().isEmpty());
   }
 
   @Data

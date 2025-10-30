@@ -120,6 +120,9 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
       case ERROR:
         updateAssertionSummaryWithError(assertionUrn, runEvent, assertionRunSummary);
         break;
+      case INIT:
+        updateAssertionSummaryWithInit(assertionUrn, runEvent, assertionRunSummary);
+        break;
       default:
         log.warn(
             "Skipping assertion run event with unsupported result type {} for assertion urn {}",
@@ -141,7 +144,6 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     // Now, compare the timestamp on the new event with the timestamp on the existing summary.
     // If the new event is more recent, update the summary.
     if (maybeLastPassedAt == null || runEvent.getTimestampMillis() > maybeLastPassedAt) {
-      System.out.println(String.format("Last passed at millis is %s", maybeLastPassedAt));
       patchBuilder.setLastPassedAt(runEvent.getTimestampMillis());
       // And also emit.
       emitAssertionSummaryPatch(patchBuilder);
@@ -183,6 +185,27 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     // If the new event is more recent, update the summary.
     if (maybeLastErroredAt == null || runEvent.getTimestampMillis() > maybeLastErroredAt) {
       patchBuilder.setLastErroredAt(runEvent.getTimestampMillis());
+      // And also emit.
+      emitAssertionSummaryPatch(patchBuilder);
+    }
+
+    return patchBuilder;
+  }
+
+  private AssertionRunSummaryPatchBuilder updateAssertionSummaryWithInit(
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final AssertionRunEvent runEvent,
+      @Nonnull final AssertionRunSummary assertionSummary) {
+
+    AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
+    patchBuilder.urn(assertionUrn);
+
+    Long maybeLastInitializedAt = assertionSummary.getLastInitializedAtMillis();
+
+    // Now, compare the timestamp on the new event with the timestamp on the existing summary.
+    // If the new event is more recent, update the summary.
+    if (maybeLastInitializedAt == null || runEvent.getTimestampMillis() > maybeLastInitializedAt) {
+      patchBuilder.setLastInitializedAt(runEvent.getTimestampMillis());
       // And also emit.
       emitAssertionSummaryPatch(patchBuilder);
     }

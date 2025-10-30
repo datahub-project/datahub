@@ -134,6 +134,16 @@ public class AssertionRunEventResolver
                                     && AssertionResultType.ERROR.equals(
                                         runEvent.getResult().getType()))
                         .count()));
+            result.setInitializing(
+                Math.toIntExact(
+                    runEvents.stream()
+                        .filter(
+                            runEvent ->
+                                AssertionRunStatus.COMPLETE.equals(runEvent.getStatus())
+                                    && runEvent.getResult() != null
+                                    && AssertionResultType.INIT.equals(
+                                        runEvent.getResult().getType()))
+                        .count()));
             result.setRunEvents(runEvents);
             return result;
           } catch (RemoteInvocationException e) {

@@ -109,6 +109,7 @@ fragment assertionDetailsForSearch on Assertion {
         failed
         succeeded
         errored
+        initializing
         runEvents {
             ...assertionRunEventDetails
         }

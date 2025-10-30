@@ -3,7 +3,7 @@ import { QueryParamDecoder, QueryParamEncoder } from '@app/observe/dataset/share
 
 export const DEFAULT_PAGE_SIZE = 25;
 
-export const DEFAULT_STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Passing', 'Error'];
+export const DEFAULT_STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Passing', 'Error', 'Initializing'];
 
 export type FilterOptions = {
     page: number;

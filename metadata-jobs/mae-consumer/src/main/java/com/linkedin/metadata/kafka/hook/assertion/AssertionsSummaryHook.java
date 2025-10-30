@@ -318,6 +318,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       patchBuilder = buildAssertionFailureSummaryPatch(assertionUrn, details, entityUrn);
     } else if (AssertionResultType.ERROR.equals(result.getType())) {
       patchBuilder = buildAssertionErrorSummaryPatch(assertionUrn, details, entityUrn);
+    } else if (AssertionResultType.INIT.equals(result.getType())) {
+      patchBuilder = buildAssertionInitSummaryPatch(assertionUrn, details, entityUrn);
     } else {
       log.debug(
           "Ignoring assertion run event with unknown result type {} for assertion with urn {}",
@@ -358,13 +360,33 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
 
   @Nonnull
   private AssertionsSummary getAssertionsSummary(@Nonnull final Urn entityUrn) {
-    AssertionsSummary maybeAssertionsSummary =
+    AssertionsSummary assertionsSummary =
         assertionService.getAssertionsSummary(systemOperationContext, entityUrn);
-    return maybeAssertionsSummary == null
-        ? new AssertionsSummary()
-            .setFailingAssertionDetails(new AssertionSummaryDetailsArray())
-            .setPassingAssertionDetails(new AssertionSummaryDetailsArray())
-        : maybeAssertionsSummary;
+
+    if (assertionsSummary == null) {
+      assertionsSummary =
+          new AssertionsSummary()
+              .setFailingAssertionDetails(new AssertionSummaryDetailsArray())
+              .setPassingAssertionDetails(new AssertionSummaryDetailsArray())
+              .setErroringAssertionDetails(new AssertionSummaryDetailsArray())
+              .setInitializingAssertionDetails(new AssertionSummaryDetailsArray());
+    } else {
+      // Ensure all arrays are initialized for existing summaries (backwards compatibility)
+      if (!assertionsSummary.hasFailingAssertionDetails()) {
+        assertionsSummary.setFailingAssertionDetails(new AssertionSummaryDetailsArray());
+      }
+      if (!assertionsSummary.hasPassingAssertionDetails()) {
+        assertionsSummary.setPassingAssertionDetails(new AssertionSummaryDetailsArray());
+      }
+      if (!assertionsSummary.hasErroringAssertionDetails()) {
+        assertionsSummary.setErroringAssertionDetails(new AssertionSummaryDetailsArray());
+      }
+      if (!assertionsSummary.hasInitializingAssertionDetails()) {
+        assertionsSummary.setInitializingAssertionDetails(new AssertionSummaryDetailsArray());
+      }
+    }
+
+    return assertionsSummary;
   }
 
   @Nonnull
@@ -507,7 +529,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         .withEntityName(entityUrn.getEntityType())
         .removeFromFailingAssertionDetails(assertionUrn)
         .removeFromPassingAssertionDetails(assertionUrn)
-        .removeFromErroringAssertionDetails(assertionUrn);
+        .removeFromErroringAssertionDetails(assertionUrn)
+        .removeFromInitializingAssertionDetails(assertionUrn);
   }
 
   private AssertionsSummaryPatchBuilder buildAssertionSuccessSummaryPatch(
@@ -519,7 +542,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         .withEntityName(entityUrn.getEntityType())
         .addPassingAssertionDetails(details)
         .removeFromFailingAssertionDetails(assertionUrn)
-        .removeFromErroringAssertionDetails(assertionUrn);
+        .removeFromErroringAssertionDetails(assertionUrn)
+        .removeFromInitializingAssertionDetails(assertionUrn);
   }
 
   private AssertionsSummaryPatchBuilder buildAssertionFailureSummaryPatch(
@@ -531,7 +555,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         .withEntityName(entityUrn.getEntityType())
         .addFailingAssertionDetails(details)
         .removeFromPassingAssertionDetails(assertionUrn)
-        .removeFromErroringAssertionDetails(assertionUrn);
+        .removeFromErroringAssertionDetails(assertionUrn)
+        .removeFromInitializingAssertionDetails(assertionUrn);
   }
 
   private AssertionsSummaryPatchBuilder buildAssertionErrorSummaryPatch(
@@ -543,7 +568,21 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         .withEntityName(entityUrn.getEntityType())
         .addErroringAssertionDetails(details)
         .removeFromPassingAssertionDetails(assertionUrn)
-        .removeFromFailingAssertionDetails(assertionUrn);
+        .removeFromFailingAssertionDetails(assertionUrn)
+        .removeFromInitializingAssertionDetails(assertionUrn);
+  }
+
+  private AssertionsSummaryPatchBuilder buildAssertionInitSummaryPatch(
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final AssertionSummaryDetails details,
+      @Nonnull final Urn entityUrn) {
+    return new AssertionsSummaryPatchBuilder()
+        .urn(entityUrn)
+        .withEntityName(entityUrn.getEntityType())
+        .addInitializingAssertionDetails(details)
+        .removeFromPassingAssertionDetails(assertionUrn)
+        .removeFromFailingAssertionDetails(assertionUrn)
+        .removeFromErroringAssertionDetails(assertionUrn);
   }
 
   /** Patches the assertions summary for a given entity */
