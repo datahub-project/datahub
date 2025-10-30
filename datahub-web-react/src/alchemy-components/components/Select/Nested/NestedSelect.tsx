@@ -152,9 +152,10 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
 
     const onClickUpdateButton = useCallback(() => {
         setSelectedOptions(stagedOptions); // update selected options
+        onUpdate?.(stagedOptions);
         closeDropdown();
         handleSearch('');
-    }, [closeDropdown, stagedOptions, handleSearch]);
+    }, [closeDropdown, stagedOptions, handleSearch, onUpdate]);
 
     const onClickCancelButton = useCallback(() => {
         setStagedOptions(selectedOptions); // reset staged options
