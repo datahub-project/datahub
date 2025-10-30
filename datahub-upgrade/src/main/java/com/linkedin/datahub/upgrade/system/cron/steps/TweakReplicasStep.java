@@ -57,7 +57,7 @@ public class TweakReplicasStep implements UpgradeStep {
       CronArgs args = createArgs(context);
       try {
         for (ElasticSearchIndexed service : services) {
-          service.tweakReplicasAll(structuredProperties, args.dryRun);
+          service.tweakReplicasAll(context.opContext(), structuredProperties, args.dryRun);
         }
       } catch (Exception e) {
         log.error("TweakReplicasStep failed.", e);
