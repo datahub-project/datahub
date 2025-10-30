@@ -487,7 +487,7 @@ export const SearchBar = ({
                             onBlur={handleBlur}
                             viewsEnabled={viewsEnabled}
                             $isShowNavBarRedesign={isShowNavBarRedesign}
-                            allowClear={(isFocused && { clearIcon: <ClearIcon /> }) || false}
+                            allowClear={(isFocused && { clearIcon: <ClearIcon data-testid="button-clear" /> }) || false}
                             prefix={
                                 <>
                                     <SearchIcon
