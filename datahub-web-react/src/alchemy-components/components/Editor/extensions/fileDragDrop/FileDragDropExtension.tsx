@@ -57,7 +57,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
     }
 
     createTags() {
-        return [ExtensionTag.Block, ExtensionTag.Behavior, ExtensionTag.FormattingNode];
+        return [ExtensionTag.InlineNode, ExtensionTag.Behavior];
     }
 
     get defaultPriority() {
@@ -332,12 +332,11 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
 
     createNodeSpec(extra: ApplySchemaAttributes, override: Partial<NodeSpecOverride>): NodeExtensionSpec {
         return {
-            inline: false,
-            group: 'block',
-            marks: '',
+            inline: true,
+            group: 'inline',
+            atom: true,
             selectable: true,
             draggable: (state) => state.editable,
-            atom: true,
             ...override,
             attrs: {
                 ...extra.defaults(),
@@ -349,7 +348,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
             },
             parseDOM: [
                 {
-                    tag: `div[${FILE_ATTRS.name}]`,
+                    tag: `span[${FILE_ATTRS.name}]`,
                     getAttrs: (node: string | Node) => this.parseFileNode(node, extra),
                 },
                 {
@@ -369,9 +368,10 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                     [FILE_ATTRS.type]: type,
                     [FILE_ATTRS.size]: size.toString(),
                     [FILE_ATTRS.id]: id,
+                    contenteditable: 'false',
                 };
 
-                return ['div', attrs, name];
+                return ['span', attrs, name];
             },
         };
     }

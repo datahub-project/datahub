@@ -1,4 +1,5 @@
 import { NodeViewComponentProps } from '@remirror/react';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -14,31 +15,35 @@ import { colors } from '@components/theme';
 
 import Loading from '@app/shared/Loading';
 
-const FileContainer = styled.div`
-    max-width: 100%;
-
-    width: max-content;
+const FileContainer = styled.span`
+    width: fit-content;
+    display: inline-block;
     padding: 4px;
+    cursor: pointer;
+    color: ${({ theme }) => theme.styles['primary-color']};
 
     :hover {
         border-radius: 8px;
         background-color: ${colors.gray[1500]};
     }
+
+    .ProseMirror-selectednode > & {
+        border-radius: 8px;
+        background-color: ${colors.gray[1500]};
+    }
 `;
 
-const FileDetails = styled.div`
-    min-width: 0; // Allows text truncation
-    cursor: pointer;
+const FileDetails = styled.span`
+    width: fit-content;
     display: flex;
     gap: 4px;
     align-items: center;
-    color: ${({ theme }) => theme.styles['primary-color']};
     font-weight: 600;
+    max-width: 350px;
 `;
 
-const FileName = styled.span`
+const FileName = styled(Typography.Text)`
     color: ${({ theme }) => theme.styles['primary-color']};
-    display: block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -91,7 +96,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
                 }}
             >
                 <Icon icon={icon} size="lg" source="phosphor" />
-                <FileName>{name}</FileName>
+                <FileName ellipsis={{ tooltip: name }}>{name}</FileName>
             </FileDetails>
         </FileContainer>
     );
