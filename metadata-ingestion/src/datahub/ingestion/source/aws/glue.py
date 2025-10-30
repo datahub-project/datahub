@@ -185,6 +185,11 @@ class GlueSourceConfig(
         description="When True, extracts Lake Formation tags directly assigned to Glue tables/databases. Note: Tags inherited from databases or other parent resources are excluded.",
     )
 
+    lakeformation_tags_prefix: Optional[str] = Field(
+        default=None,
+        description="Adds prefix to Lake Formation tags assigned to Glue tables/databases to distinguish Lake Formation tags from regular tags.",
+    )
+
     profiling: GlueProfilingConfig = Field(
         default_factory=GlueProfilingConfig,
         description="Configs to ingest data profiles from glue table",
@@ -399,6 +404,7 @@ class GlueSource(StatefulIngestionSourceBase):
                         key=tag_key,
                         value=tag_value,
                         catalog=catalog_id,
+                        prefix=self.source_config.lakeformation_tags_prefix,
                     )
                     tags.append(t)
             return tags
@@ -442,6 +448,7 @@ class GlueSource(StatefulIngestionSourceBase):
                         key=tag_key,
                         value=tag_value,
                         catalog=catalog_id,
+                        prefix=self.source_config.lakeformation_tags_prefix,
                     )
                     tags.append(t)
             return tags

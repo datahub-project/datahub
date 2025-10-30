@@ -49,6 +49,22 @@ class LakeFormationTag(ExternalTag):
     key: LakeFormationTagKeyText
     value: Optional[LakeFormationTagValueText] = None
     catalog: Optional[str] = None
+    prefix: Optional[str] = None
+
+    def __init__(
+        self,
+        key: Optional[str] = None,
+        value: Optional[str] = None,
+        prefix: Optional[str] = None,
+        **data: Any,
+    ) -> None:
+        if prefix:
+            key = f"{prefix}/{key}"
+        super().__init__(
+            key=key,
+            value=value,
+            **data,
+        )
 
     # Pydantic v1 validators
     @validator("key", pre=True)
