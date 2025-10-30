@@ -1305,8 +1305,8 @@ def test_empty_column_in_query_subjects(
 ) -> None:
     """Test that QuerySubjects with empty column names doesn't create invalid URNs.
 
-    This simulates the Snowflake scenario where DELETE queries return empty column
-    arrays in access_history, which should not result in invalid schemaField URNs.
+    This simulates a scenario where Snowflake's access_history may contain empty
+    column names, which should not result in invalid schemaField URNs.
     """
     aggregator = SqlParsingAggregator(
         platform="snowflake",
@@ -1324,7 +1324,7 @@ def test_empty_column_in_query_subjects(
         "snowflake", "production.dca_core.snowplow_user_engagement_mart__dbt_tmp"
     ).urn()
 
-    # Simulate a DELETE query with subquery where Snowflake returns empty columns
+    # Simulate a query where Snowflake's access_history contains empty column names.
     preparsed_query = PreparsedQuery(
         query_id="test-delete-query",
         query_text=(
@@ -1337,7 +1337,7 @@ def test_empty_column_in_query_subjects(
         upstreams=[upstream_urn],
         downstream=downstream_urn,
         column_lineage=[
-            # Snowflake returns empty column names for DELETE operations
+            # This simulates a case where an empty column name might be present in the audit log.
             ColumnLineageInfo(
                 downstream=DownstreamColumnRef(table=downstream_urn, column=""),
                 upstreams=[ColumnRef(table=upstream_urn, column="unique_key_input")],
@@ -1381,9 +1381,6 @@ def test_empty_column_in_query_subjects_only_column_usage(
 
     This is the scenario that would send invalid URNs to GMS rather than crash in Python,
     matching the customer's error: "Provided urn urn:li:schemaField:(...,) is invalid"
-
-    Example: SELECT queries on views over Google Sheets or other special data sources
-    where column tracking fails for reads but there's no downstream table.
     """
     aggregator = SqlParsingAggregator(
         platform="snowflake",
@@ -1405,8 +1402,7 @@ def test_empty_column_in_query_subjects_only_column_usage(
         "snowflake", "production.dsd_digital_private.gsheets_legacy_views"
     ).urn()
 
-    # Simulate a SELECT query (no downstream) where Snowflake has empty column tracking
-    # This is common with views over external data sources like Google Sheets
+    # Simulate a SELECT query (no downstream) where the audit log contains empty column names.
     preparsed_query = PreparsedQuery(
         query_id="test-select-gsheets-view",
         query_text="SELECT * FROM production.dsd_digital_private.gsheets_legacy_views WHERE id = 123",
@@ -1414,7 +1410,7 @@ def test_empty_column_in_query_subjects_only_column_usage(
         downstream=None,  # SELECT query has no downstream
         column_lineage=[],  # No column lineage because no downstream
         column_usage={
-            # Snowflake returns empty column names for problematic views
+            # Simulate a case where an empty column name is present in the audit log.
             upstream_urn: {"id", "name", ""},  # Empty column from Snowflake!
         },
         query_type=QueryType.SELECT,

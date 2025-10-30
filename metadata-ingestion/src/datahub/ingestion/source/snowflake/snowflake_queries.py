@@ -78,6 +78,7 @@ from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedList,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -169,6 +170,10 @@ class SnowflakeQueriesExtractorReport(Report):
     num_stream_queries_observed: int = 0
     num_create_temp_view_queries_observed: int = 0
     num_users: int = 0
+    num_queries_with_empty_column_name: int = 0
+    queries_with_empty_column_name: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
 
 
 @dataclass
@@ -617,7 +622,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         upstreams = []
         column_usage = {}
 
-        has_empty_column = False
         for obj in direct_objects_accessed:
             dataset = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
@@ -628,30 +632,30 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             columns = set()
             for modified_column in obj["columns"]:
                 column_name = modified_column["columnName"]
+                # An empty column name in the audit log would cause an error when creating column URNs.
+                # To avoid this and still extract lineage, the raw query text is parsed as a fallback.
                 if not column_name or not column_name.strip():
-                    has_empty_column = True
-                    break
-                columns.add(self.identifiers.snowflake_identifier(column_name))
+                    query_id = res["query_id"]
+                    self.report.num_queries_with_empty_column_name += 1
+                    self.report.queries_with_empty_column_name.append(query_id)
+                    logger.info(f"Query {query_id} has empty column name in audit log.")
 
-            if has_empty_column:
-                break
+                    return ObservedQuery(
+                        query=query_text,
+                        session_id=res["session_id"],
+                        timestamp=timestamp,
+                        user=user,
+                        default_db=res["default_db"],
+                        default_schema=res["default_schema"],
+                        query_hash=get_query_fingerprint(
+                            query_text, self.identifiers.platform, fast=True
+                        ),
+                        extra_info=extra_info,
+                    )
+                columns.add(self.identifiers.snowflake_identifier(column_name))
 
             upstreams.append(dataset)
             column_usage[dataset] = columns
-
-        if has_empty_column:
-            return ObservedQuery(
-                query=query_text,
-                session_id=res["session_id"],
-                timestamp=timestamp,
-                user=user,
-                default_db=res["default_db"],
-                default_schema=res["default_schema"],
-                query_hash=get_query_fingerprint(
-                    query_text, self.identifiers.platform, fast=True
-                ),
-                extra_info=extra_info,
-            )
 
         downstream = None
         column_lineage = None

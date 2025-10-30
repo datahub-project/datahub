@@ -1,4 +1,5 @@
-import datetime
+import json
+from datetime import datetime, timezone
 from typing import Optional
 from unittest.mock import Mock, patch
 
@@ -21,9 +22,13 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractorConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
+)
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantQueriesRunSkipHandler,
 )
+from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery, PreparsedQuery
 
 
 class TestBuildAccessHistoryDatabaseFilterCondition:
@@ -158,8 +163,8 @@ class TestBuildAccessHistoryDatabaseFilterCondition:
         """Test the _build_access_history_database_filter_condition method with various inputs."""
         # Create a QueryLogQueryBuilder instance to test the method
         builder = QueryLogQueryBuilder(
-            start_time=datetime.datetime(year=2021, month=1, day=1),
-            end_time=datetime.datetime(year=2021, month=1, day=2),
+            start_time=datetime(year=2021, month=1, day=1),
+            end_time=datetime(year=2021, month=1, day=2),
             bucket_duration=BucketDuration.HOUR,
             dedup_strategy=QueryDedupStrategyType.STANDARD,
             database_pattern=database_pattern,
@@ -176,8 +181,8 @@ class TestQueryLogQueryBuilder:
     def test_non_implemented_strategy(self):
         with pytest.raises(NotImplementedError):
             QueryLogQueryBuilder(
-                start_time=datetime.datetime(year=2021, month=1, day=1),
-                end_time=datetime.datetime(year=2021, month=1, day=1),
+                start_time=datetime(year=2021, month=1, day=1),
+                end_time=datetime(year=2021, month=1, day=1),
                 bucket_duration=BucketDuration.HOUR,
                 deny_usernames=None,
                 dedup_strategy="DUMMY",  # type: ignore[arg-type]
@@ -186,8 +191,8 @@ class TestQueryLogQueryBuilder:
     def test_fetch_query_for_all_strategies(self):
         for strategy in QueryDedupStrategyType:
             query = QueryLogQueryBuilder(
-                start_time=datetime.datetime(year=2021, month=1, day=1),
-                end_time=datetime.datetime(year=2021, month=1, day=1),
+                start_time=datetime(year=2021, month=1, day=1),
+                end_time=datetime(year=2021, month=1, day=1),
                 bucket_duration=BucketDuration.HOUR,
                 dedup_strategy=strategy,
             ).build_enriched_query_log_query()
@@ -199,8 +204,8 @@ class TestQueryLogQueryBuilder:
         database_pattern = AllowDenyPattern(allow=["PROD_.*"], deny=[".*_TEMP"])
 
         query = QueryLogQueryBuilder(
-            start_time=datetime.datetime(year=2021, month=1, day=1),
-            end_time=datetime.datetime(year=2021, month=1, day=2),
+            start_time=datetime(year=2021, month=1, day=1),
+            end_time=datetime(year=2021, month=1, day=2),
             bucket_duration=BucketDuration.HOUR,
             deny_usernames=None,
             dedup_strategy=QueryDedupStrategyType.STANDARD,
@@ -215,8 +220,8 @@ class TestQueryLogQueryBuilder:
         additional_database_names = ["SPECIAL_DB", "ANALYTICS_DB"]
 
         query = QueryLogQueryBuilder(
-            start_time=datetime.datetime(year=2021, month=1, day=1),
-            end_time=datetime.datetime(year=2021, month=1, day=2),
+            start_time=datetime(year=2021, month=1, day=1),
+            end_time=datetime(year=2021, month=1, day=2),
             bucket_duration=BucketDuration.HOUR,
             dedup_strategy=QueryDedupStrategyType.NONE,
             additional_database_names=additional_database_names,
@@ -231,8 +236,8 @@ class TestQueryLogQueryBuilder:
         additional_database_names = ["SPECIAL_DB"]
 
         query = QueryLogQueryBuilder(
-            start_time=datetime.datetime(year=2021, month=1, day=1),
-            end_time=datetime.datetime(year=2021, month=1, day=2),
+            start_time=datetime(year=2021, month=1, day=1),
+            end_time=datetime(year=2021, month=1, day=2),
             bucket_duration=BucketDuration.HOUR,
             deny_usernames=None,
             dedup_strategy=QueryDedupStrategyType.STANDARD,
@@ -350,8 +355,8 @@ class TestBuildUserFilter:
         """Test the _build_user_filter method with various combinations of deny and allow patterns."""
         # Create a QueryLogQueryBuilder instance to test the method
         builder = QueryLogQueryBuilder(
-            start_time=datetime.datetime(year=2021, month=1, day=1),
-            end_time=datetime.datetime(year=2021, month=1, day=2),
+            start_time=datetime(year=2021, month=1, day=1),
+            end_time=datetime(year=2021, month=1, day=2),
             bucket_duration=BucketDuration.HOUR,
             deny_usernames=deny_usernames,
             allow_usernames=allow_usernames,
@@ -423,8 +428,8 @@ class TestSnowflakeQueriesExtractorOptimization:
 
         config = SnowflakeQueriesExtractorConfig(
             window=BaseTimeWindowConfig(
-                start_time=datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
-                end_time=datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+                start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
             ),
             include_lineage=include_lineage,
             include_queries=include_queries,
@@ -606,17 +611,13 @@ class TestSnowflakeQueriesExtractorOptimization:
 
 
 class TestSnowflakeQueryParser:
-    """Tests for the SnowflakeQueriesExtractor._parse_query method."""
+    """
+    Tests for SnowflakeQueriesExtractor._parse_audit_log_row,
+    focusing on handling of corrupted audit log results from Snowflake.
+    """
 
     def test_parse_query_with_empty_column_name_returns_observed_query(self):
-        """Test that queries with empty column names in direct_objects_accessed return ObservedQuery."""
-        from datetime import datetime, timezone
-
-        from datahub.ingestion.source.snowflake.snowflake_utils import (
-            SnowflakeIdentifierBuilder,
-        )
-        from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
-
+        """Test that a corrupted audit log entry with an empty column name falls back to ObservedQuery."""
         mock_connection = Mock()
         config = SnowflakeQueriesExtractorConfig(
             window=BaseTimeWindowConfig(
@@ -647,8 +648,6 @@ class TestSnowflakeQueryParser:
         )
 
         # Simulate a Snowflake access history row with empty column name
-        import json
-
         row = {
             "QUERY_ID": "test_query_123",
             "ROOT_QUERY_ID": None,
@@ -699,13 +698,6 @@ class TestSnowflakeQueryParser:
 
     def test_parse_query_with_valid_columns_returns_preparsed_query(self):
         """Test that queries with all valid column names return PreparsedQuery."""
-        from datetime import datetime, timezone
-
-        from datahub.ingestion.source.snowflake.snowflake_utils import (
-            SnowflakeIdentifierBuilder,
-        )
-        from datahub.sql_parsing.sql_parsing_aggregator import PreparsedQuery
-
         mock_connection = Mock()
         config = SnowflakeQueriesExtractorConfig(
             window=BaseTimeWindowConfig(
@@ -736,8 +728,6 @@ class TestSnowflakeQueryParser:
         )
 
         # Simulate a Snowflake access history row with valid column names
-        import json
-
         row = {
             "QUERY_ID": "test_query_456",
             "ROOT_QUERY_ID": None,
@@ -798,8 +788,8 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
 
         config = SnowflakeQueriesExtractorConfig(
             window=BaseTimeWindowConfig(
-                start_time=datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
-                end_time=datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+                start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
                 bucket_duration=bucket_duration,
             ),
             include_usage_statistics=include_usage_statistics,
@@ -824,12 +814,8 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
 
     def test_time_window_adjusted_with_handler(self):
         """Test that time window is adjusted when handler is provided."""
-        adjusted_start_time = datetime.datetime(
-            2021, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc
-        )
-        adjusted_end_time = datetime.datetime(
-            2021, 1, 2, 12, 0, 0, tzinfo=datetime.timezone.utc
-        )
+        adjusted_start_time = datetime(2021, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        adjusted_end_time = datetime(2021, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
 
         mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
         mock_handler.suggest_run_time_window.return_value = (
@@ -847,10 +833,8 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
 
     def test_time_window_not_adjusted_without_handler(self):
         """Test that time window is not adjusted when no handler is provided."""
-        original_start_time = datetime.datetime(
-            2021, 1, 1, tzinfo=datetime.timezone.utc
-        )
-        original_end_time = datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc)
+        original_start_time = datetime(2021, 1, 1, tzinfo=timezone.utc)
+        original_end_time = datetime(2021, 1, 2, tzinfo=timezone.utc)
 
         extractor = self._create_mock_extractor(
             redundant_run_skip_handler=None,
@@ -862,13 +846,11 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
     def test_bucket_alignment_with_usage_statistics(self):
         """Test that start_time is aligned to bucket boundaries when usage statistics are enabled."""
         # Start time at 14:30 should be aligned to beginning of day (00:00)
-        start_time_with_offset = datetime.datetime(
-            2021, 1, 1, 14, 30, 0, tzinfo=datetime.timezone.utc
-        )
+        start_time_with_offset = datetime(2021, 1, 1, 14, 30, 0, tzinfo=timezone.utc)
         mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
         mock_handler.suggest_run_time_window.return_value = (
             start_time_with_offset,
-            datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+            datetime(2021, 1, 2, tzinfo=timezone.utc),
         )
 
         extractor = self._create_mock_extractor(
@@ -877,24 +859,18 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
         )
 
         # Start time should be aligned to beginning of day
-        expected_aligned_start = datetime.datetime(
-            2021, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
-        )
+        expected_aligned_start = datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         assert extractor.start_time == expected_aligned_start
         # End time should remain unchanged
-        assert extractor.end_time == datetime.datetime(
-            2021, 1, 2, tzinfo=datetime.timezone.utc
-        )
+        assert extractor.end_time == datetime(2021, 1, 2, tzinfo=timezone.utc)
 
     def test_no_bucket_alignment_without_usage_statistics(self):
         """Test that start_time is NOT aligned when usage statistics are disabled."""
-        start_time_with_offset = datetime.datetime(
-            2021, 1, 1, 14, 30, 0, tzinfo=datetime.timezone.utc
-        )
+        start_time_with_offset = datetime(2021, 1, 1, 14, 30, 0, tzinfo=timezone.utc)
         mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
         mock_handler.suggest_run_time_window.return_value = (
             start_time_with_offset,
-            datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+            datetime(2021, 1, 2, tzinfo=timezone.utc),
         )
 
         extractor = self._create_mock_extractor(
@@ -904,19 +880,15 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
 
         # Start time should NOT be aligned
         assert extractor.start_time == start_time_with_offset
-        assert extractor.end_time == datetime.datetime(
-            2021, 1, 2, tzinfo=datetime.timezone.utc
-        )
+        assert extractor.end_time == datetime(2021, 1, 2, tzinfo=timezone.utc)
 
     def test_bucket_alignment_hourly_with_usage_statistics(self):
         """Test that start_time is aligned to hour boundaries when hourly buckets are configured."""
-        start_time_with_offset = datetime.datetime(
-            2021, 1, 1, 14, 30, 45, tzinfo=datetime.timezone.utc
-        )
+        start_time_with_offset = datetime(2021, 1, 1, 14, 30, 45, tzinfo=timezone.utc)
         mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
         mock_handler.suggest_run_time_window.return_value = (
             start_time_with_offset,
-            datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+            datetime(2021, 1, 2, tzinfo=timezone.utc),
         )
 
         extractor = self._create_mock_extractor(
@@ -925,20 +897,16 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
             bucket_duration=BucketDuration.HOUR,
         )
 
-        expected_aligned_start = datetime.datetime(
-            2021, 1, 1, 14, 0, 0, tzinfo=datetime.timezone.utc
-        )
+        expected_aligned_start = datetime(2021, 1, 1, 14, 0, 0, tzinfo=timezone.utc)
         assert extractor.start_time == expected_aligned_start
-        assert extractor.end_time == datetime.datetime(
-            2021, 1, 2, tzinfo=datetime.timezone.utc
-        )
+        assert extractor.end_time == datetime(2021, 1, 2, tzinfo=timezone.utc)
 
     def test_state_updated_after_successful_extraction(self):
         """Test that state is updated after successful extraction when handler is provided."""
         mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
         mock_handler.suggest_run_time_window.return_value = (
-            datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
-            datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+            datetime(2021, 1, 1, tzinfo=timezone.utc),
+            datetime(2021, 1, 2, tzinfo=timezone.utc),
         )
 
         extractor = self._create_mock_extractor(
@@ -953,8 +921,8 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
             list(extractor.get_workunits_internal())
 
             mock_handler.update_state.assert_called_once_with(
-                datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
-                datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+                datetime(2021, 1, 1, tzinfo=timezone.utc),
+                datetime(2021, 1, 2, tzinfo=timezone.utc),
                 BucketDuration.DAY,
             )
 
@@ -975,8 +943,8 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
         """Test that queries extraction always runs even with a skip handler."""
         mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
         mock_handler.suggest_run_time_window.return_value = (
-            datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
-            datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+            datetime(2021, 1, 1, tzinfo=timezone.utc),
+            datetime(2021, 1, 2, tzinfo=timezone.utc),
         )
 
         extractor = self._create_mock_extractor(
