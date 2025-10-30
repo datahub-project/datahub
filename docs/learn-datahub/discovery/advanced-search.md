@@ -112,8 +112,6 @@ expected: "Analytical views and processed datasets"
   />
 </div>
 
-
-
 :::tip Pro Tip
 Business users often name things differently than technical teams. Try both perspectives!
 :::

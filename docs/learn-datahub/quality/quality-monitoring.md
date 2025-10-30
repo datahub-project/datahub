@@ -1,4 +1,7 @@
 import DataHubEntityCard from '@site/src/components/DataHubEntityCard';
+import TutorialProgress from '@site/src/components/TutorialProgress';
+import NextStepButton from '@site/src/components/NextStepButton';
+import DataHubLineageNode, { DataHubLineageFlow, SampleLineageFlows } from '@site/src/components/DataHubLineageNode';
 
 # Quality Monitoring
 

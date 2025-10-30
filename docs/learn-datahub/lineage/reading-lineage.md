@@ -1125,8 +1125,6 @@ Where:
 ✅ **Advanced**: Recognized revenue_pipeline's Warning status as a risk factor  
 ✅ **Expert**: Proposed specific monitoring strategies for each critical asset
 
-</TutorialExercise>
-
 ## Pro Tips for Lineage Reading
 
 <div className="pro-tips">
