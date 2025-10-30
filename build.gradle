@@ -622,3 +622,16 @@ tasks.register('formatChanged') {
   dependsOn(':datahub-web-react:mdPrettierWriteChanged')
   dependsOn('spotlessApply')
 }
+
+gradle.addListener(new TaskExecutionListener() {
+  def startTimes = [:]
+
+  void beforeExecute(Task task) {
+    startTimes[task.path] = System.currentTimeMillis()
+  }
+
+  void afterExecute(Task task, TaskState state) {
+    def duration = System.currentTimeMillis() - startTimes[task.path]
+    println "TIMING: ${task.path} took ${duration}ms"
+  }
+})
