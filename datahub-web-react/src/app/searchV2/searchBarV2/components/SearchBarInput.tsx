@@ -153,7 +153,15 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                     onFocus={onFocusHandler}
                     onBlur={onBlurHandler}
                     allowClear={isDropdownOpened || isFocused}
-                    clearIcon={<Icon onClick={onClear} icon="XCircle" source="phosphor" size="2xl" />}
+                    clearIcon={
+                        <Icon
+                            onClick={onClear}
+                            icon="XCircle"
+                            source="phosphor"
+                            size="2xl"
+                            data-testid="button-clear"
+                        />
+                    }
                     ref={ref}
                     suffix={
                         <SuffixWrapper>
