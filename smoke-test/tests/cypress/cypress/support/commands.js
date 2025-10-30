@@ -125,7 +125,7 @@ Cypress.Commands.add("goToDomainList", () => {
 
 Cypress.Commands.add("goToViewsSettings", () => {
   cy.visit("/settings/views");
-  cy.waitTextVisible("Manage Views");
+  cy.waitTextVisible("Views");
 });
 
 Cypress.Commands.add("goToOwnershipTypesSettings", () => {
@@ -228,8 +228,20 @@ Cypress.Commands.add("goToDomain", (urn) => {
   cy.visit(`/domain/${urn}`);
 });
 
+Cypress.Commands.add("goToGlossaryNode", (urn) => {
+  cy.visit(`/glossaryNode/${urn}`);
+});
+
+Cypress.Commands.add("goToGlossaryTerm", (urn) => {
+  cy.visit(`/glossaryTerm/${urn}`);
+});
+
 Cypress.Commands.add("goToApplication", (urn) => {
   cy.visit(`/application/${urn}`);
+});
+
+Cypress.Commands.add("goToDataProduct", (urn) => {
+  cy.visit(`/dataProduct/${urn}`);
 });
 
 Cypress.Commands.add("goToAnalytics", () => {

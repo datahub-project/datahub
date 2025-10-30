@@ -84,6 +84,7 @@ x-datahub-system-update-service: &datahub-system-update-service
     DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     USE_CONFLUENT_SCHEMA_REGISTRY: false
+    DATAHUB_SQL_SETUP_ENABLED: ${DATAHUB_SQL_SETUP_ENABLED:-true}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   labels:
@@ -127,6 +128,7 @@ x-datahub-gms-service: &datahub-gms-service
     SHOW_HAS_SIBLINGS_FILTER: ${SHOW_HAS_SIBLINGS_FILTER:-true}
     SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:-true}
     SEARCH_BAR_API_VARIANT: ${SEARCH_BAR_API_VARIANT:-SEARCH_ACROSS_ENTITIES}
+    POLICY_CACHE_REFRESH_INTERVAL_SECONDS: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:-120}
     SHOW_INGESTION_PAGE_REDESIGN: ${SHOW_INGESTION_PAGE_REDESIGN:-true}
     SHOW_HOME_PAGE_REDESIGN: ${SHOW_HOME_PAGE_REDESIGN:-true}
   healthcheck:
@@ -324,12 +326,14 @@ services:
       - debug-backend
       - debug-backend-aws
     depends_on:
-      mysql-setup-dev:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
   system-update-debug-aws: &system-update-debug
     <<: *datahub-system-update-service-dev
+    environment:
+      <<: [*localstack-env]
     profiles:
       - debug-backend-aws
       - debug-aws

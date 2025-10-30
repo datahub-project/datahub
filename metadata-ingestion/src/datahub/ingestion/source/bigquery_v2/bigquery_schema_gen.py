@@ -449,10 +449,12 @@ class BigQuerySchemaGenerator:
                 ):
                     yield wu
             except Exception as e:
-                if self.config.is_profiling_enabled():
-                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
+                # If configuration indicates we need table data access (for profiling or use_tables_list_query_v2),
+                # include bigquery.tables.getData in the error message since that's likely the missing permission
+                if self.config.have_table_data_read_permission:
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list, bigquery.tables.getData permissions?"
                 else:
-                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permissions?"
 
                 self.report.failure(
                     title="Unable to get tables for dataset",

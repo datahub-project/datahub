@@ -5,7 +5,6 @@ from random import randint
 from typing import List
 
 import pytest
-import tenacity
 
 from conftest import _ingest_cleanup_data_impl
 from datahub.emitter.mce_builder import datahub_guid, make_dataset_urn
@@ -21,7 +20,7 @@ from datahub.metadata.schema_classes import (
     DomainsClass,
 )
 from datahub.utilities.urns.urn import Urn
-from tests.utils import get_sleep_info, wait_for_writes_to_sync
+from tests.utils import wait_for_writes_to_sync, with_test_retry
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +74,6 @@ def create_test_data(filename: str):
         file_emitter.emit(mcps)
 
     file_emitter.close()
-
-
-sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module", autouse=False)
@@ -145,9 +141,7 @@ def validate_relationships(
     )
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def test_create_data_product(graph_client, ingest_cleanup_data):
     domain_urn = Urn("domain", [datahub_guid({"name": "Marketing"})])
 

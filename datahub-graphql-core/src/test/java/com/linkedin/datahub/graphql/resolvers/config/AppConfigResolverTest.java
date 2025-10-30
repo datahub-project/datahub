@@ -36,9 +36,11 @@ public class AppConfigResolverTest {
   @Mock private TelemetryConfiguration mockTelemetryConfiguration;
   @Mock private TestsConfiguration mockTestsConfiguration;
   @Mock private DataHubConfiguration mockDatahubConfiguration;
+  @Mock private S3Configuration mockS3Configuration;
   @Mock private ViewsConfiguration mockViewsConfiguration;
   @Mock private SearchBarConfiguration mockSearchBarConfiguration;
   @Mock private SearchCardConfiguration mockSearchCardConfiguration;
+  @Mock private SearchFlagsConfiguration mockSearchFlagsConfiguration;
   @Mock private HomePageConfiguration mockHomePageConfiguration;
   @Mock private FeatureFlags mockFeatureFlags;
   @Mock private ChromeExtensionConfiguration mockChromeExtensionConfiguration;
@@ -67,9 +69,14 @@ public class AppConfigResolverTest {
     when(mockViewsConfiguration.isEnabled()).thenReturn(true);
     when(mockSearchBarConfiguration.getApiVariant()).thenReturn("AUTOCOMPLETE_FOR_MULTIPLE");
     when(mockSearchCardConfiguration.getShowDescription()).thenReturn(true);
+    when(mockSearchFlagsConfiguration.getDefaultSkipHighlighting()).thenReturn(false);
     when(mockHomePageConfiguration.getFirstInPersonalSidebar()).thenReturn("YOUR_ASSETS");
     when(mockChromeExtensionConfiguration.isEnabled()).thenReturn(false);
     when(mockChromeExtensionConfiguration.isLineageEnabled()).thenReturn(false);
+
+    // Setup S3 configuration
+    when(mockDatahubConfiguration.getS3()).thenReturn(mockS3Configuration);
+    when(mockS3Configuration.getBucketName()).thenReturn("test-bucket");
 
     // Setup feature flags
     setupFeatureFlags();
@@ -89,10 +96,12 @@ public class AppConfigResolverTest {
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
-            mockSettingsService);
+            mockSettingsService,
+            false); // isS3Enabled
   }
 
   private void setupFeatureFlags() {
@@ -189,10 +198,12 @@ public class AppConfigResolverTest {
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
-            mockSettingsService);
+            mockSettingsService,
+            false); // isS3Enabled
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -356,11 +367,12 @@ public class AppConfigResolverTest {
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
-            null // null settings service
-            );
+            null, // null settings service
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -386,10 +398,12 @@ public class AppConfigResolverTest {
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
-            mockSettingsService);
+            mockSettingsService,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -408,5 +422,92 @@ public class AppConfigResolverTest {
     // Verify that the privileges lists are populated (they come from static config)
     assertFalse(result.getPoliciesConfig().getPlatformPrivileges().isEmpty());
     assertFalse(result.getPoliciesConfig().getResourcePrivileges().isEmpty());
+  }
+
+  @Test
+  public void testDocumentationFileUploadV1EnabledWhenFeatureFlagAndS3Enabled() throws Exception {
+    when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(true);
+    when(mockS3Configuration.getBucketName()).thenReturn("my-bucket");
+
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true, // isAnalyticsEnabled
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true, // supportsImpactAnalysis
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            true); // isS3Enabled
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getFeatureFlags());
+    assertTrue(result.getFeatureFlags().getDocumentationFileUploadV1());
+  }
+
+  @Test
+  public void testDocumentationFileUploadV1DisabledWhenFeatureFlagDisabledAndS3Enabled()
+      throws Exception {
+    when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(false);
+
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true, // isAnalyticsEnabled
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true, // supportsImpactAnalysis
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            true); // isS3Enabled
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getFeatureFlags());
+    assertFalse(result.getFeatureFlags().getDocumentationFileUploadV1());
+  }
+
+  @Test
+  public void testDocumentationFileUploadV1DisabledWhenFeatureFlagEnabledAndS3Disabled()
+      throws Exception {
+    when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(true);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getFeatureFlags());
+    assertFalse(result.getFeatureFlags().getDocumentationFileUploadV1());
+  }
+
+  @Test
+  public void testDocumentationFileUploadV1DisabledWhenFeatureFlagAndS3Disabled() throws Exception {
+    when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(false);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getFeatureFlags());
+    assertFalse(result.getFeatureFlags().getDocumentationFileUploadV1());
   }
 }

@@ -1,19 +1,21 @@
-import os
-
 from pydantic import Field, validator
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.env_vars import (
+    get_gms_base_path,
+    get_kafka_schema_registry_url,
+)
 from datahub.configuration.kafka_consumer_config import CallableConsumerConfig
 from datahub.configuration.validate_host_port import validate_host_port
 
 
 def _get_schema_registry_url() -> str:
     """Get schema registry URL with proper base path handling."""
-    explicit_url = os.getenv("KAFKA_SCHEMAREGISTRY_URL")
+    explicit_url = get_kafka_schema_registry_url()
     if explicit_url:
         return explicit_url
 
-    base_path = os.getenv("DATAHUB_GMS_BASE_PATH", "")
+    base_path = get_gms_base_path()
     if base_path in ("/", ""):
         base_path = ""
 
