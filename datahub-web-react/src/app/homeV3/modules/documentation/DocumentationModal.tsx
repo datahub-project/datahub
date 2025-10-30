@@ -22,7 +22,7 @@ const DocumentationModal = () => {
         moduleModalState: { position, close, isEditing, initialState },
     } = usePageTemplateContext();
     const [form] = Form.useForm();
-    const currentName = initialState?.properties.name || '';
+    const currentName = initialState?.properties?.name || '';
     const currentContent = initialState?.properties?.params?.richTextParams?.content;
     const urn = initialState?.urn;
 

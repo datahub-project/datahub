@@ -1,0 +1,10 @@
+{
+    "enabled": true,
+    "id": "v1.2.1",
+    "title": "What's New In DataHub",
+    "description": "Explore version v1.2.1",
+    "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/sample-product-update-image.png",
+    "ctaText": "Read updates",
+    "ctaLink": "https://docs.datahub.com/docs/releases#v1-2-1"
+  }
+  

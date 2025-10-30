@@ -23,14 +23,18 @@ record ChartInfo includes CustomProperties, ExternalReference {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   title: string
 
   /**
    * Detailed description about the chart
    */
-  @Searchable = {}
+  @Searchable = {
+    "searchTier": 2
+  }
   description: string
 
   /**
@@ -48,7 +52,8 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart
    */
   @Searchable = {
-    "fieldType": "KEYWORD"
+    "fieldType": "KEYWORD",
+    "searchTier": 4
   }
   chartUrl: optional Url
 
@@ -89,7 +94,8 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "filterNameOverride": "Chart Type"
+    "filterNameOverride": "Chart Type",
+    "searchTier": 3
   }
   type: optional ChartType
 
@@ -99,7 +105,8 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "filterNameOverride": "Access Level"
+    "filterNameOverride": "Access Level",
+    "searchTier": 4
   }
   access: optional AccessLevel
 

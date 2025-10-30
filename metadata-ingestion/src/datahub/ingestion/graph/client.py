@@ -102,6 +102,7 @@ if TYPE_CHECKING:
     from datahub.sql_parsing.schema_resolver import (
         GraphQLSchemaMetadata,
         SchemaResolver,
+        SchemaResolverReport,
     )
     from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 
@@ -1543,6 +1544,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         platform_instance: Optional[str],
         env: str,
         include_graph: bool = True,
+        report: Optional["SchemaResolverReport"] = None,
     ) -> "SchemaResolver":
         from datahub.sql_parsing.schema_resolver import SchemaResolver
 
@@ -1551,6 +1553,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             platform_instance=platform_instance,
             env=env,
             graph=self if include_graph else None,
+            report=report,
         )
 
     def initialize_schema_resolver_from_datahub(
@@ -1559,10 +1562,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         platform_instance: Optional[str],
         env: str,
         batch_size: int = 100,
+        report: Optional["SchemaResolverReport"] = None,
     ) -> "SchemaResolver":
         logger.info("Initializing schema resolver")
         schema_resolver = self._make_schema_resolver(
-            platform, platform_instance, env, include_graph=False
+            platform, platform_instance, env, include_graph=False, report=report
         )
 
         logger.info(f"Fetching schemas for platform {platform}, env {env}")

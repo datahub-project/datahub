@@ -1,5 +1,5 @@
 import { Button, PageTitle, Tabs, colors } from '@components';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -98,8 +98,6 @@ export const ManageViews = () => {
         }
     }, [selectedTab, location.pathname]);
 
-    const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
-
     return (
         <PageContainer>
             <PageHeaderContainer>
@@ -129,7 +127,6 @@ export const ManageViews = () => {
                     onChange={(tab) => setSelectedTab(tab as TabType)}
                     urlMap={tabUrlMap}
                     defaultTab={TabType.Personal}
-                    getCurrentUrl={getCurrentUrl}
                 />
             </ListContainer>
             {showViewBuilder && (

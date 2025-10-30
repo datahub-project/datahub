@@ -1,11 +1,14 @@
 package com.linkedin.metadata.search.opensearch;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.indexbuilder.IndexBuilderTestBase;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
@@ -46,17 +49,13 @@ public class IndexBuilderOpenSearchTest extends IndexBuilderTestBase {
     ESIndexBuilder customIndexBuilder =
         new ESIndexBuilder(
             getSearchClient(),
-            1,
-            0,
-            1,
-            0,
+            TEST_ES_SEARCH_CONFIG,
+            TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            false,
-            false,
-            false,
-            TEST_OS_SEARCH_CONFIG,
             gitVersion);
-    customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    ReindexConfig reindexConfig =
+        customIndexBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
+    customIndexBuilder.buildIndex(reindexConfig);
     GetIndexResponse resp = getTestIndex();
     assertEquals("zstd_no_dict", resp.getSetting(TEST_INDEX_NAME, "index.codec"));
   }

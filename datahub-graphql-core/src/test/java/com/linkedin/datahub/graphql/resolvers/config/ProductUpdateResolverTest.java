@@ -5,10 +5,16 @@ import static org.testng.Assert.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.ProductUpdate;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.ProductUpdateService;
+import com.linkedin.telemetry.TelemetryClientId;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -19,7 +25,10 @@ public class ProductUpdateResolverTest {
 
   @Mock private ProductUpdateService mockProductUpdateService;
   @Mock private FeatureFlags mockFeatureFlags;
+  @Mock private EntityService<?> mockEntityService;
   @Mock private DataFetchingEnvironment mockDataFetchingEnvironment;
+  @Mock private QueryContext mockQueryContext;
+  @Mock private OperationContext mockOperationContext;
 
   private ProductUpdateResolver resolver;
   private ObjectMapper objectMapper;
@@ -28,7 +37,10 @@ public class ProductUpdateResolverTest {
   public void setupTest() {
     MockitoAnnotations.openMocks(this);
     objectMapper = new ObjectMapper();
-    resolver = new ProductUpdateResolver(mockProductUpdateService, mockFeatureFlags);
+    resolver =
+        new ProductUpdateResolver(mockProductUpdateService, mockFeatureFlags, mockEntityService);
+    when(mockDataFetchingEnvironment.getContext()).thenReturn(mockQueryContext);
+    when(mockQueryContext.getOperationContext()).thenReturn(mockOperationContext);
   }
 
   @Test
@@ -356,5 +368,63 @@ public class ProductUpdateResolverTest {
     assertEquals(result.getDescription(), "");
     assertEquals(result.getCtaText(), "");
     assertEquals(result.getCtaLink(), "");
+  }
+
+  @Test
+  public void testGetProductUpdateWithClientIdDecoration() throws Exception {
+    // Setup
+    when(mockFeatureFlags.isShowProductUpdates()).thenReturn(true);
+
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"https://example.com\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    when(mockProductUpdateService.getLatestProductUpdate()).thenReturn(Optional.of(jsonNode));
+
+    TelemetryClientId clientIdAspect = new TelemetryClientId().setClientId("test-client-id-123");
+    when(mockEntityService.getLatestAspect(
+            eq(mockOperationContext),
+            eq(UrnUtils.getUrn(Constants.CLIENT_ID_URN)),
+            eq(Constants.CLIENT_ID_ASPECT)))
+        .thenReturn(clientIdAspect);
+
+    // Execute
+    ProductUpdate result = resolver.get(mockDataFetchingEnvironment).get();
+
+    // Verify
+    assertNotNull(result);
+    assertEquals(result.getId(), "v1.0.0");
+    assertEquals(result.getCtaLink(), "https://example.com?q=test-client-id-123");
+  }
+
+  @Test
+  public void testGetProductUpdateWithClientIdDecorationFailure() throws Exception {
+    // Setup
+    when(mockFeatureFlags.isShowProductUpdates()).thenReturn(true);
+
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"https://example.com\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    when(mockProductUpdateService.getLatestProductUpdate()).thenReturn(Optional.of(jsonNode));
+
+    when(mockEntityService.getLatestAspect(any(), any(), any()))
+        .thenThrow(new RuntimeException("Entity service error"));
+
+    // Execute
+    ProductUpdate result = resolver.get(mockDataFetchingEnvironment).get();
+
+    // Verify - should still return product update without clientId decoration
+    assertNotNull(result);
+    assertEquals(result.getId(), "v1.0.0");
+    assertEquals(result.getCtaLink(), "https://example.com");
   }
 }

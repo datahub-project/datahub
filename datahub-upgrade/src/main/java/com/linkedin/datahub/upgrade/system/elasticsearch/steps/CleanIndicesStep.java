@@ -51,7 +51,7 @@ public class CleanIndicesStep implements UpgradeStep {
     return (context) -> {
       try {
         // Each service enumerates and cleans up their own indices
-        IndexUtils.getAllReindexConfigs(indexedServices, structuredProperties)
+        IndexUtils.getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties)
             .forEach(
                 reindexConfig ->
                     ESIndexBuilder.cleanOrphanedIndices(searchClient, esConfig, reindexConfig));
