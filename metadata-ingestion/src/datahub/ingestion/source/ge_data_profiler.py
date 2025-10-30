@@ -410,18 +410,41 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.any_field_level_metrics_enabled():
             return []
 
+        # Get columns to ignore due to tags
+        (
+            ignore_table_profiling,
+            columns_list_to_ignore_profiling,
+        ) = _get_columns_to_ignore_profiling(
+            self.dataset_name,
+            self.config.tags_to_ignore_profiling,
+            self.platform,
+            self.env,
+        )
+
+        # If the entire table is tagged to ignore profiling, return empty list
+        if ignore_table_profiling:
+            self.report.report_dropped(
+                f"The profile of table {self.dataset_name} (table is tagged with tags_to_ignore_profiling)"
+            )
+            return []
+
         # Compute columns to profile
         columns_to_profile: List[str] = []
 
         # Compute ignored columns
         ignored_columns_by_pattern: List[str] = []
         ignored_columns_by_type: List[str] = []
+        ignored_columns_by_tags: List[str] = []
 
         for col_dict in self.dataset.columns:
             col = col_dict["name"]
             self.column_types[col] = str(col_dict["type"])
+
+            # Check if column is tagged to ignore profiling
+            if col in columns_list_to_ignore_profiling:
+                ignored_columns_by_tags.append(col)
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
-            if (
+            elif (
                 not self.config._allow_deny_patterns.allowed(
                     f"{self.dataset_name}.{col}"
                 )
@@ -441,6 +464,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if ignored_columns_by_type:
             self.report.report_dropped(
                 f"The profile of columns by type {self.dataset_name}({', '.join(sorted(ignored_columns_by_type))})"
+            )
+        if ignored_columns_by_tags:
+            self.report.report_dropped(
+                f"The profile of columns by tags {self.dataset_name}({', '.join(sorted(ignored_columns_by_tags))})"
             )
 
         if self.config.max_number_of_fields_to_profile is not None:
@@ -1694,5 +1721,57 @@ def _get_columns_to_ignore_sampling(
                         for tag_association in schemaField.globalTags.tags
                         if tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
                     )
+
+    return ignore_table, columns_to_ignore
+
+
+def _get_columns_to_ignore_profiling(
+    dataset_name: str, tags_to_ignore: Optional[List[str]], platform: str, env: str
+) -> Tuple[bool, List[str]]:
+    logger.debug("Collecting columns to ignore for profiling")
+
+    ignore_table: bool = False
+    columns_to_ignore: List[str] = []
+
+    if not tags_to_ignore:
+        return ignore_table, columns_to_ignore
+
+    try:
+        dataset_urn = mce_builder.make_dataset_urn(
+            name=dataset_name, platform=platform, env=env
+        )
+
+        datahub_graph = get_default_graph(ClientMode.INGESTION)
+
+        dataset_tags = datahub_graph.get_tags(dataset_urn)
+        if dataset_tags:
+            ignore_table = any(
+                tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
+                for tag_association in dataset_tags.tags
+                if "urn:li:tag:" in tag_association.tag
+                and len(tag_association.tag.split("urn:li:tag:")) > 1
+            )
+
+        if not ignore_table:
+            metadata = datahub_graph.get_aspect(
+                entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
+            )
+
+            if metadata:
+                for schemaField in metadata.editableSchemaFieldInfo:
+                    if schemaField.globalTags:
+                        columns_to_ignore.extend(
+                            schemaField.fieldPath
+                            for tag_association in schemaField.globalTags.tags
+                            if "urn:li:tag:" in tag_association.tag
+                            and len(tag_association.tag.split("urn:li:tag:")) > 1
+                            and tag_association.tag.split("urn:li:tag:")[1]
+                            in tags_to_ignore
+                        )
+
+    except Exception as e:
+        logger.warning(f"Error fetching tags for profiling ignore logic: {e}")
+        # Return default values on error - don't ignore anything
+        return False, []
 
     return ignore_table, columns_to_ignore
