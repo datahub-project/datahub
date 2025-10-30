@@ -15,7 +15,7 @@ import sqlglot
 from sqlalchemy.engine.reflection import Inspector
 from sqlglot.dialects.dialect import NormalizationStrategy
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -36,8 +36,8 @@ class CustomDb2SqlGlotDialect(sqlglot.Dialect):
     NORMALIZATION_STRATEGY = NormalizationStrategy.UPPERCASE
 
 
-def patch_dialect(dialect):
-    # NOTE: why is this manual patching, and not creating a new custom dialect class?
+def patch_dialect(dialect: sqlalchemy.engine.interfaces.Dialect) -> None:
+    # NOTE: why is this manual patching an instance, and not just creating a new custom dialect class?
     # The ibm_db_sa package has multiple possible dialects based on the scheme — e.g.
     # DB2Dialect_ibm_db, DB2Dialect_pyodbc, AS400Dialect, AS400Dialect_pyodbc, etc.
     # We want to make sure this works no matter which dialect class gets used.
@@ -50,44 +50,13 @@ def patch_dialect(dialect):
     # https://github.com/ibmdb/python-ibmdbsa/issues/173
     dialect.requires_name_normalize = False
 
-    # TODO: remove this once ibm_db_sa v??? is released
-    # Incorrect reflector class used for AS400: https://github.com/ibmdb/python-ibmdbsa/issues/182
-    if not isinstance(dialect._reflector, dialect._reflector_cls):
-        logger.debug(
-            f"Resetting reflector from {type(dialect._reflector)} to {dialect._reflector_cls}"
-        )
-        dialect._reflector = dialect._reflector_cls(dialect)
-
     # ibm_db_sa unconditionally lowercases names, making it impossible
     # to distinguish tables with case-sensitive names (and thus impossible
     # to get further metadata on them).
     # https://github.com/ibmdb/python-ibmdbsa/issues/153
     # https://github.com/ibmdb/python-ibmdbsa/issues/170
-    dialect._reflector.normalize_name = lambda s: s
-    dialect._reflector.denormalize_name = lambda s: s
-
-    # TODO: remove this once ibm_db_sa v0.4.3 is released
-    # get_schema_names() can return schema names with extra space on the end
-    # https://github.com/ibmdb/python-ibmdbsa/issues/172
-    original_schema_names = dialect.get_schema_names
-
-    def get_schema_names(connection, **kwargs):
-        for s in original_schema_names(connection, **kwargs):
-            yield s.rstrip()
-
-    dialect.get_schema_names = get_schema_names
-
-    # TODO: remove this once ibm_db_sa v0.4.3 is released
-    # get_table_comment returns nothing for views: https://github.com/ibmdb/python-ibmdbsa/issues/171
-    # get_table_comment doesn't work on z/OS or i/AS400: https://github.com/ibmdb/python-ibmdbsa/issues/174
-    def get_table_comment(connection, table_name, schema=None, **kwargs):
-        return {
-            "text": _db2_get_table_comment(
-                sqlalchemy.inspect(connection), schema, table_name
-            )
-        }
-
-    dialect.get_table_comment = get_table_comment
+    dialect._reflector.normalize_name = lambda name: name
+    dialect._reflector.denormalize_name = lambda name: name
 
 
 class Db2Config(BasicSQLAlchemyConfig):
@@ -113,7 +82,10 @@ class Db2Config(BasicSQLAlchemyConfig):
 
     # Override defaults
     host_port: str = pydantic.Field(default="localhost:50000")
-    scheme: str = pydantic.Field(default="db2", description="SQLAlchemy URL scheme to use.")
+    scheme: str = pydantic.Field(
+        default="db2",
+        description="ibm_db_sa scheme to use (db2, db2+pyodbc, db2+pyodbc400).",
+    )
 
     def get_sql_alchemy_url(
         self,
@@ -126,11 +98,7 @@ class Db2Config(BasicSQLAlchemyConfig):
         )
 
 
-class Db2ODBCConfig(Db2Config):
-    # Override
-    scheme: str = pydantic.Field(default="db2+pyodbc", description="SQLAlchemy URL scheme to use.")
-
-def _quote_identifier(value):
+def _quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'
 
 
@@ -149,11 +117,6 @@ class Db2Source(SQLAlchemySource):
         # register custom SQLGlot dialect
         if not sqlglot.Dialect.get("db2"):
             sqlglot.Dialect.classes["db2"] = CustomDb2SqlGlotDialect
-
-    # @classmethod
-    # def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Db2Source":
-    #     config = Db2Config.parse_obj(config_dict)
-    #     return cls(config, ctx)
 
     def get_inspectors(self) -> Iterable[Inspector]:
         for inspector in super().get_inspectors():
@@ -175,7 +138,7 @@ class Db2Source(SQLAlchemySource):
     def get_view_default_db_schema(
         self, _dataset_name: str, inspector: Inspector, schema: str, view: str
     ) -> Tuple[Optional[str], Optional[str]]:
-        # Db2 views look up unqualified names in the schema from the session
+        # Db2 views on LUW and z/OS look up unqualified names in the schema from the session
         # when the view was created. Not the schema that the view itself lives in!
         schema_name = _db2_get_view_qualifier_quoted(inspector, schema, view)
         db_name = self.get_db_name(inspector)
@@ -186,7 +149,7 @@ class Db2Source(SQLAlchemySource):
     ) -> Iterable[BaseProcedure]:
         for row in _db2_get_procedures(inspector, schema):
             if row["QUALIFIER"]:
-                # similar to views, stored procedures look up unqualified names in the
+                # similar to views, stored procedures can look up unqualified names in the
                 # schema from the session when they were created, not the schema of the
                 # proc itself. also quote the schema name so case-sensitive names make
                 # it through sqlglot without being normalized.
@@ -207,47 +170,6 @@ class Db2Source(SQLAlchemySource):
                 return_type=None,
                 extra_properties={},
             )
-
-
-def _db2_get_table_comment(
-    inspector: Inspector, schema: str, table_name: str
-) -> Optional[str]:
-    if inspector.has_table("TABLES", schema="SYSCAT"):
-        # Db2 LUW
-        query = """
-            select REMARKS
-            from SYSCAT.TABLES
-            where TABSCHEMA = ?
-            and TABNAME = ?
-        """
-
-    elif inspector.has_table("SYSTABLES", schema="SYSIBM"):
-        # Db2 z/OS
-        query = """
-            select REMARKS
-            from SYSIBM.SYSTABLES
-            where CREATOR = ?
-            and NAME = ?
-        """
-
-    elif inspector.has_table("SYSTABLES", schema="QSYS2"):
-        # Db2 for i/AS400
-        query = """
-            select LONG_COMMENT
-            from QSYS2.SYSTABLES
-            where TABLE_SCHEMA = ?
-            and TABLE_NAME = ?
-        """
-
-    else:
-        raise NotImplementedError(
-            "Couldn't find SYSCAT.TABLES, SYSIBM.SYSTABLES, or QSYS2.SYSTABLES"
-        )
-
-    return inspector.bind.execute(
-        query,
-        (schema, table_name),
-    ).scalar()
 
 
 def _db2_get_view_qualifier_quoted(
@@ -301,8 +223,7 @@ def _db2_get_view_qualifier_quoted(
         return pathschemas[0]
 
     elif inspector.has_table("SYSVIEWS", schema="QSYS2"):
-        # Db2 i/AS400
-        # doesn't have this concept.
+        # Db2 i/AS400 doesn't have this concept.
         return None
 
     else:
@@ -375,9 +296,3 @@ def _db2_get_procedures(
         raise NotImplementedError(
             "Couldn't find SYSCAT.ROUTINES, SYSIBM.SYSROUTINES, or QSYS2.SYSROUTINES"
         )
-
-class Db2ODBCSource(Db2Source):
-    @classmethod
-    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Db2ODBCSource":
-        config = Db2ODBCConfig.parse_obj(config_dict)
-        return cls(config=config, ctx=ctx)
