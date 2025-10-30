@@ -8,6 +8,10 @@ import { ApplyTypeSelector, ApplyTypeSelectorStateType } from '@app/automations/
 import { CardinalitySelector, CardinalitySelectorStateType } from '@app/automations/fields/CardinalitySelector';
 import { ConnectionSelector, ConnectionSelectorStateType } from '@app/automations/fields/ConnectionSelector';
 import { ContainerSelector, ContainerSelectorStateType } from '@app/automations/fields/ContainerSelector';
+import {
+    CustomInstructionsField,
+    CustomInstructionsFieldStateType,
+} from '@app/automations/fields/CustomInstructionsField';
 import { Details, DetailsStateType } from '@app/automations/fields/Details';
 import { EntityTypeSelector, EntityTypeSelectorStateType } from '@app/automations/fields/EntityTypeSelector';
 import { HiddenRecipeModifer } from '@app/automations/fields/HiddenRecipeModifer';
@@ -360,6 +364,33 @@ const containerSelector: Field = {
     ],
 };
 
+// Custom Instructions Field
+// This field allows the user to provide custom instructions for AI processing
+const customInstructions: Field = {
+    title: 'Custom Instructions',
+    description: 'Optional custom instructions to guide the AI classification process.',
+    fields: [
+        {
+            // The component that's rendered for this field
+            // Defined in @app/automations/fields/CustomInstructionsField
+            component: CustomInstructionsField,
+
+            // Available Component Props to customize the component
+            // You can set default values for the props here
+            props: {
+                label: 'Custom Instructions',
+                placeholder: 'Enter additional context or instructions to guide the AI...',
+            },
+
+            // State mapping to connect form data to the component's state
+            // You can set default values for the state here
+            state: {
+                customInstructions: '',
+            } as CustomInstructionsFieldStateType,
+        },
+    ],
+};
+
 // Detail Fields
 // This field allows the user to provide a name, description, and category for the automation
 const details = {
@@ -461,6 +492,7 @@ const fields = {
     select_platforms: platformSelector,
     select_containers: containerSelector,
     select_mode: modeSelector,
+    custom_instructions: customInstructions,
     details,
     // select_conditions: conditionSelector,
     // select_custom_actions: customActionSelector,

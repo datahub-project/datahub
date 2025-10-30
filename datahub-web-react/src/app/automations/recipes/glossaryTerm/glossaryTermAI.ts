@@ -33,6 +33,7 @@ const defaultRecipe: AutomationRecipe = {
             cardinality: DEFAULT_CARDINALITY,
             platforms: [],
             containers: [],
+            custom_instructions: '',
         },
     },
 };
@@ -48,6 +49,7 @@ const configMap: Record<string, string> = {
     cardinality: 'action.config.cardinality',
     platforms: 'action.config.platforms',
     containers: 'action.config.containers',
+    customInstructions: 'action.config.custom_instructions',
 };
 
 // Define UI fields for the create & edit forms
@@ -92,6 +94,9 @@ const fields = [
                 },
             },
         ],
+    }),
+    getField('custom_instructions', {
+        fields: [],
     }),
     getField('details', {
         fields: [],

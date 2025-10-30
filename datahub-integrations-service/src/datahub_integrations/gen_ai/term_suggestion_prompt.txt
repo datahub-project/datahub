@@ -95,5 +95,4 @@ Each assigned glossary term should be an object with:
 - For partial matches or ambiguous cases, use a lower confidence score and explain the partial match in the reasoning.
 - In case of overlapping terms, assign the most specific or relevant term and explain the choice in the reasoning.
 
-
 Remember to adhere strictly to the provided glossary terms and format in your response.

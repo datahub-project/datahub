@@ -120,10 +120,11 @@ def call_bedrock_llm(
     max_tokens: int,
     model: BedrockModel | str,
     temperature: float = 0.3,
+    system_messages: Optional[List[BedrockPromptMessage]] = None,
 ) -> str:
     boto3_bedrock = get_bedrock_client()
     response = call_bedrock_llm_inner(
-        boto3_bedrock, prompt, max_tokens, model, temperature
+        boto3_bedrock, prompt, max_tokens, model, temperature, system_messages
     )
     return response.text
 
@@ -134,8 +135,9 @@ def call_bedrock_llm_inner(
     max_tokens: int,
     model: BedrockModel | str,
     temperature: float,
+    system_messages: Optional[List[BedrockPromptMessage]] = None,
 ) -> BedrockResponseBody:
-    body = prepare_body_for_prompt(prompt, max_tokens, temperature)
+    body = prepare_body_for_prompt(prompt, max_tokens, temperature, system_messages)
     accept = "application/json"
     contentType = "application/json"
     modelId = model.value if isinstance(model, BedrockModel) else model
@@ -178,6 +180,7 @@ def prepare_body_for_prompt(
     prompt: Union[str, List[BedrockPromptMessage]],
     max_tokens: int,
     temperature: float,
+    system_messages: Optional[List[BedrockPromptMessage]] = None,
 ) -> dict:
     if isinstance(prompt, str):
         body = {
@@ -215,6 +218,22 @@ def prepare_body_for_prompt(
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
+
+    # Add system messages if provided
+    if system_messages:
+        system_content = [
+            {
+                "type": "text",
+                "text": message.text,
+                "cache_control": {
+                    "type": "ephemeral",
+                },
+            }
+            if message.cache and _ENABLE_BEDROCK_PROMPT_CACHING
+            else {"type": "text", "text": message.text}
+            for message in system_messages
+        ]
+        body["system"] = system_content
 
     return body
 

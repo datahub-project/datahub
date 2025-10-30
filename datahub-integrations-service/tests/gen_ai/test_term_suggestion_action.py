@@ -244,7 +244,10 @@ class TestBulkTermSuggesterShellEntityHandling:
 
         # Mock different responses for different URNs
         def side_effect(
-            graph: Any, entity_urns: list[str], glossary_info: Any
+            graph: Any,
+            entity_urns: list[str],
+            glossary_info: Any,
+            custom_instructions: str | None = None,
         ) -> Dict[str, SuggestedTerms]:
             urn = entity_urns[0]  # Processing one at a time
             if urn == shell_urn:
@@ -411,7 +414,10 @@ class TestShellEntityErrorHandlingIntegration:
         call_count = 0
 
         def side_effect(
-            graph: Any, entity_urns: list[str], glossary_info: Any
+            graph: Any,
+            entity_urns: list[str],
+            glossary_info: Any,
+            custom_instructions: str | None = None,
         ) -> Dict[str, SuggestedTerms]:
             nonlocal call_count
             call_count += 1
@@ -441,6 +447,124 @@ class TestShellEntityErrorHandlingIntegration:
         ]
         assert shell_urn in emitted_urns
         assert success_urn in emitted_urns
+
+
+class TestCustomInstructions:
+    """Test custom instructions feature in term suggestion."""
+
+    @patch("datahub_integrations.gen_ai.term_suggestion_action.fetch_glossary_info")
+    @patch("datahub_integrations.gen_ai.term_suggestion_action._suggest_terms_batch")
+    def test_custom_instructions_passed_to_suggest_terms_batch(
+        self,
+        mock_suggest_terms_batch: MagicMock,
+        mock_fetch_glossary_info: MagicMock,
+        mock_graph: MagicMock,
+    ) -> None:
+        """Test that custom instructions from config are passed to _suggest_terms_batch."""
+
+        # Create config WITH custom instructions
+        config = TermSuggestionActionConfig(
+            entity_types_enabled=["SCHEMA_FIELD"],
+            platforms=["test"],
+            glossary_term_urns=["urn:li:glossaryTerm:TestTerm"],
+            recommendation_action=AutomationApplyType.PROPOSE,
+            custom_instructions="Focus on PII classification and be conservative with confidence scores.",
+        )
+
+        bulk_suggester = BulkTermSuggester(graph=mock_graph, config=config)
+
+        # Mock glossary info and successful suggestions
+        mock_glossary_info = MagicMock()
+        mock_fetch_glossary_info.return_value = mock_glossary_info
+        test_urn = "urn:li:dataset:(urn:li:dataPlatform:test,test_entity,PROD)"
+        mock_suggest_terms_batch.return_value = {
+            test_urn: SuggestedTerms(table_terms=None, column_terms={})
+        }
+
+        # Process URN
+        bulk_suggester.process_urns([test_urn])
+
+        # Verify _suggest_terms_batch was called with custom_instructions
+        mock_suggest_terms_batch.assert_called_once()
+        call_args = mock_suggest_terms_batch.call_args
+        assert call_args[1]["custom_instructions"] == config.custom_instructions
+        assert (
+            call_args[1]["custom_instructions"]
+            == "Focus on PII classification and be conservative with confidence scores."
+        )
+
+    @patch("datahub_integrations.gen_ai.term_suggestion_action.fetch_glossary_info")
+    @patch("datahub_integrations.gen_ai.term_suggestion_action._suggest_terms_batch")
+    def test_custom_instructions_none_by_default(
+        self,
+        mock_suggest_terms_batch: MagicMock,
+        mock_fetch_glossary_info: MagicMock,
+        mock_graph: MagicMock,
+    ) -> None:
+        """Test that custom_instructions defaults to None when not provided."""
+
+        # Create config WITHOUT custom instructions
+        config = TermSuggestionActionConfig(
+            entity_types_enabled=["SCHEMA_FIELD"],
+            platforms=["test"],
+            glossary_term_urns=["urn:li:glossaryTerm:TestTerm"],
+            recommendation_action=AutomationApplyType.PROPOSE,
+        )
+
+        bulk_suggester = BulkTermSuggester(graph=mock_graph, config=config)
+
+        # Mock glossary info and successful suggestions
+        mock_glossary_info = MagicMock()
+        mock_fetch_glossary_info.return_value = mock_glossary_info
+        test_urn = "urn:li:dataset:(urn:li:dataPlatform:test,test_entity,PROD)"
+        mock_suggest_terms_batch.return_value = {
+            test_urn: SuggestedTerms(table_terms=None, column_terms={})
+        }
+
+        # Process URN
+        bulk_suggester.process_urns([test_urn])
+
+        # Verify _suggest_terms_batch was called with custom_instructions=None
+        mock_suggest_terms_batch.assert_called_once()
+        call_args = mock_suggest_terms_batch.call_args
+        assert call_args[1]["custom_instructions"] is None
+
+    @patch("datahub_integrations.gen_ai.term_suggestion_action.fetch_glossary_info")
+    @patch("datahub_integrations.gen_ai.term_suggestion_action._suggest_terms_batch")
+    def test_custom_instructions_empty_string(
+        self,
+        mock_suggest_terms_batch: MagicMock,
+        mock_fetch_glossary_info: MagicMock,
+        mock_graph: MagicMock,
+    ) -> None:
+        """Test that empty string custom_instructions are handled correctly."""
+
+        # Create config with empty string custom instructions
+        config = TermSuggestionActionConfig(
+            entity_types_enabled=["SCHEMA_FIELD"],
+            platforms=["test"],
+            glossary_term_urns=["urn:li:glossaryTerm:TestTerm"],
+            recommendation_action=AutomationApplyType.PROPOSE,
+            custom_instructions="",
+        )
+
+        bulk_suggester = BulkTermSuggester(graph=mock_graph, config=config)
+
+        # Mock glossary info and successful suggestions
+        mock_glossary_info = MagicMock()
+        mock_fetch_glossary_info.return_value = mock_glossary_info
+        test_urn = "urn:li:dataset:(urn:li:dataPlatform:test,test_entity,PROD)"
+        mock_suggest_terms_batch.return_value = {
+            test_urn: SuggestedTerms(table_terms=None, column_terms={})
+        }
+
+        # Process URN
+        bulk_suggester.process_urns([test_urn])
+
+        # Verify _suggest_terms_batch was called with empty string
+        mock_suggest_terms_batch.assert_called_once()
+        call_args = mock_suggest_terms_batch.call_args
+        assert call_args[1]["custom_instructions"] == ""
 
 
 class TestPerformanceOptimization:

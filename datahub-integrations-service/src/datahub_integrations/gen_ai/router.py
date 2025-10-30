@@ -171,10 +171,16 @@ def _extract_recommendations(recs: list[TermSuggestionBundle]) -> list[Suggested
 
 
 def _suggest_terms(
-    graph: DataHubGraph, entity_urn: str, glossary_info: GlossaryInfo
+    graph: DataHubGraph,
+    entity_urn: str,
+    glossary_info: GlossaryInfo,
+    custom_instructions: str | None = None,
 ) -> SuggestedTerms:
     table_terms, column_terms, _raw_llm_response = get_term_recommendations(
-        table_urn=entity_urn, graph_client=graph, glossary_info=glossary_info
+        table_urn=entity_urn,
+        graph_client=graph,
+        glossary_info=glossary_info,
+        custom_instructions=custom_instructions,
     )
     if table_terms is None and column_terms is None:
         logger.debug(f"No terms returned for {entity_urn}: {_raw_llm_response}")
@@ -210,6 +216,7 @@ def _suggest_terms_batch(
     graph: DataHubGraph,
     entity_urns: List[str],
     glossary_info: GlossaryInfo,
+    custom_instructions: str | None = None,
 ) -> dict[str, SuggestedTerms]:
     """Internal helper that processes multiple URNs with pre-fetched glossary info.
 
@@ -219,7 +226,9 @@ def _suggest_terms_batch(
     results = {}
     for entity_urn in entity_urns:
         try:
-            results[entity_urn] = _suggest_terms(graph, entity_urn, glossary_info)
+            results[entity_urn] = _suggest_terms(
+                graph, entity_urn, glossary_info, custom_instructions
+            )
         except ShellEntityError as e:
             last_exception = last_exception or e
             logger.debug(f"Skipping shell entity: {e}")

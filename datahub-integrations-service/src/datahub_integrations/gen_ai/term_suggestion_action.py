@@ -85,6 +85,8 @@ class TermSuggestionActionConfig(TermEntitySelector):
     cardinality: CardinalityType = CardinalityType.MULTIPLE
     recommendation_action: AutomationApplyType = AutomationApplyType.PROPOSE
 
+    custom_instructions: str | None = None
+
     new_urn_interval: timedelta = timedelta(days=1)
     max_urns_per_minute: int = 4
 
@@ -293,6 +295,7 @@ class BulkTermSuggester:
                     graph=self.graph,
                     entity_urns=[urn],
                     glossary_info=glossary_info,
+                    custom_instructions=self.config.custom_instructions,
                 )
                 # TODO add plumbing to include confidence scores
 

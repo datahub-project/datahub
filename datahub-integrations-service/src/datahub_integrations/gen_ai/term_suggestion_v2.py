@@ -12,6 +12,7 @@ from loguru import logger
 from pydantic import BaseModel, Field, ValidationError
 
 from datahub_integrations.gen_ai.bedrock import (
+    BedrockPromptMessage,
     call_bedrock_llm,
 )
 from datahub_integrations.gen_ai.description_context import (
@@ -144,6 +145,7 @@ def generate_prompt(
     else:
         logger.info(f"Reading default prompt from {_PROMPT_PATH}")
         prompt_template = _PROMPT_PATH.read_text()
+
     prompt = prompt_template.format(
         table_info=table_info,
         column_info=column_info,
@@ -194,12 +196,22 @@ async def get_term_recommendations_for_column_splits(
     column_info: dict,
     glossary_info: GlossaryInfo,
     prompt_path: str | None | pathlib.Path,
+    custom_instructions: str | None = None,
 ) -> tuple[
     List[TermSuggestionBundle] | None, Dict[str, List[TermSuggestionBundle]] | None, str
 ]:
     logger.debug(f"Column split lengths: {[len(split) for split in column_splits]}")
     term_splits = get_terms_splits(glossary_info)
     logger.debug(f"Term splits: {len(term_splits)}")
+
+    # Prepare system messages if custom instructions are provided
+    system_messages = None
+    if custom_instructions and custom_instructions.strip():
+        formatted_instructions = (
+            f"CUSTOM INSTRUCTIONS - You must follow these in addition to base instructions:\n\n"
+            f"{custom_instructions.strip()}"
+        )
+        system_messages = [BedrockPromptMessage(text=formatted_instructions)]
 
     # Run the LLM calls in parallel.
     raw_llm_responses: Dict[int, Dict[int, asyncer.SoonValue[str]]] = (
@@ -226,6 +238,7 @@ async def get_term_recommendations_for_column_splits(
                     model=model_config.term_suggestion_ai.model,
                     max_tokens=5000,
                     temperature=TEMPERATURE,
+                    system_messages=system_messages,
                 )
 
     column_terms: Dict[str, List[TermSuggestionBundle]] | None = None
@@ -247,6 +260,7 @@ async def get_term_recommendations_for_column_splits(
                     model=model_config.term_suggestion_ai.model,
                     max_tokens=5000,
                     temperature=TEMPERATURE,
+                    system_messages=system_messages,
                 )
 
             table_terms, column_split_terms = parse_llm_output(
@@ -288,6 +302,7 @@ def get_term_recommendations(
     graph_client: DataHubGraph,
     glossary_info: GlossaryInfo,
     prompt_path: str | None = None,
+    custom_instructions: str | None = None,
 ) -> tuple[
     List[TermSuggestionBundle] | None,
     Dict[str, List[TermSuggestionBundle]] | None,
@@ -312,6 +327,7 @@ def get_term_recommendations(
         column_info=column_info_filtered,
         glossary_info=glossary_info,
         prompt_path=prompt_path,
+        custom_instructions=custom_instructions,
     )
     all_glossary_terms = []
     for term in glossary_info.glossary.values():
