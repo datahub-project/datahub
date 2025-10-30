@@ -10,6 +10,7 @@ from typing import List
 import datahub.metadata.schema_classes as models
 import pandas as pd
 import plotly.graph_objects as go
+import pydantic
 import pydantic.v1.class_validators
 import streamlit as st
 import streamlit_ext as ste
@@ -70,9 +71,6 @@ metrics_client = MetricClient(graph)
 monitor_client = MonitorClient(graph)
 
 graph.execute_graphql = st.cache_data(graph.execute_graphql)  # type: ignore
-metrics_client.fetch_row_count_metric_values = st.cache_data(  # type: ignore
-    metrics_client.fetch_row_count_metric_values
-)
 
 
 def generate_sample_metrics(
@@ -247,7 +245,7 @@ def render_volume_assertion_simulation_ui(monitor: Monitor) -> None:
     if not dataset:
         st.error("No dataset found for assertion")
         return
-    dataset_urn = dataset.urn
+    # dataset_urn = dataset.urn
 
     original_adjustment_settings = (
         monitor.assertion_monitor.settings.inference_settings
@@ -322,11 +320,10 @@ Example exclusion windows:
     # Simulation logic.
     metric_urn = make_monitor_metric_cube_urn(monitor.urn)
     st.write(f"Fetching all metrics for metric_urn {metric_urn}")
-    all_metrics = metrics_client.fetch_row_count_metric_values(
-        metric_urn=metric_urn,
-        dataset_urn=dataset_urn,
-        start_time=last_day_cutoff - timedelta(days=lookback + 5),
-        end_time=datetime.now(timezone.utc),
+    all_metrics = metrics_client.fetch_metric_values(
+        metric_urn,
+        lookback=timedelta(days=lookback + 5),
+        limit=2000,
     )
     st.json(
         {"all_metrics": {m.timestamp().isoformat(): m.value for m in all_metrics}},
@@ -345,11 +342,10 @@ Example exclusion windows:
         sensitivity=AssertionMonitorSensitivity(level=sensitivity),
     )
 
-    historical_metrics = metrics_client.fetch_row_count_metric_values(
-        metric_urn=metric_urn,
-        dataset_urn=dataset_urn,
-        start_time=last_day_cutoff - timedelta(days=lookback),
-        end_time=last_day_cutoff,
+    historical_metrics = metrics_client.fetch_metric_values(
+        metric_urn,
+        lookback=timedelta(days=lookback),
+        limit=2000,
     )
 
     # Fetch anomalies
@@ -418,7 +414,6 @@ Example exclusion windows:
         unit=unit,
         multiple=multiple,
         sensitivity_level=sensitivity,
-        start_time=last_day_cutoff,
         floor_value=metric_floor_value,
         ceiling_value=metric_ceiling_value,
     )
@@ -748,4 +743,4 @@ page = st.navigation(pages)
 page.run()
 
 # See https://github.com/streamlit/streamlit/issues/3218
-pydantic.class_validators._FUNCS.clear()
+pydantic.v1.class_validators._FUNCS.clear()
