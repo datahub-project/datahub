@@ -231,6 +231,36 @@
   --datahub-border: #374066;
 }
 
+/* Dark mode colors */
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme="dark"] {
+  --datahub-primary: #7565da;
+  --datahub-primary-dark: #533fd1;
+  --datahub-primary-light: #8c7ee0;
+  --datahub-primary-lightest: #2e2373;
+  --datahub-gray-100: #2f3657;
+  --datahub-gray-600: #cfd1da;
+  --datahub-gray-1700: #a9adbd;
+  --datahub-gray-1800: #81879f;
+  --datahub-gray-1500: #1e2338;
+  --datahub-white: #272d48;
+  --datahub-border: #374066;
+}
+
 /* DataHub Lineage Node - Uses actual DataHub design tokens */
 
 /* Import DataHub color variables */
