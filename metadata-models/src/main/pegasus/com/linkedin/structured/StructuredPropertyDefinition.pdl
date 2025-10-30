@@ -13,6 +13,9 @@ record StructuredPropertyDefinition {
     */
     @Searchable = {
       "enableAutocomplete": false,
+      "fieldType": "KEYWORD",
+      "searchTier": 1,
+      "searchLabel": "qualifiedName"
     }
     qualifiedName: string
 
@@ -110,7 +113,8 @@ record StructuredPropertyDefinition {
     @Searchable = {
       "/time": {
         "fieldName": "createdTime",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "searchLabel": "createdAt"
       }
     }
     created: optional AuditStamp
@@ -121,7 +125,8 @@ record StructuredPropertyDefinition {
     @Searchable = {
       "/time": {
        "fieldName": "lastModified",
-       "fieldType": "DATETIME"
+       "fieldType": "DATETIME",
+       "searchLabel": "lastModifiedAt"
       }
     }
     lastModified: optional AuditStamp

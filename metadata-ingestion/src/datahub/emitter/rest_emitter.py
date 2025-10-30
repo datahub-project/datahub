@@ -3,7 +3,6 @@ from __future__ import annotations
 import functools
 import json
 import logging
-import os
 import re
 import time
 from collections import defaultdict
@@ -33,7 +32,6 @@ from typing_extensions import deprecated
 from datahub._version import nice_version_name
 from datahub.cli import config_utils
 from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, get_or_else
-from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigModel,
@@ -41,6 +39,14 @@ from datahub.configuration.common import (
     OperationalError,
     TraceTimeoutError,
     TraceValidationError,
+)
+from datahub.configuration.env_vars import (
+    get_emit_mode,
+    get_emitter_trace,
+    get_rest_emitter_batch_max_payload_bytes,
+    get_rest_emitter_batch_max_payload_length,
+    get_rest_emitter_default_endpoint,
+    get_rest_emitter_default_retry_max_times,
 )
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -82,11 +88,9 @@ _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
     504,
 ]
 _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
-_DEFAULT_RETRY_MAX_TIMES = int(
-    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
-)
+_DEFAULT_RETRY_MAX_TIMES = int(get_rest_emitter_default_retry_max_times())
 
-_DATAHUB_EMITTER_TRACE = get_boolean_env_variable("DATAHUB_EMITTER_TRACE", False)
+_DATAHUB_EMITTER_TRACE = get_emitter_trace()
 
 _DEFAULT_CLIENT_MODE: ClientMode = ClientMode.SDK
 
@@ -98,17 +102,13 @@ TRACE_BACKOFF_FACTOR = 2.0  # Double the wait time each attempt
 # The limit is 16,000,000 bytes. We will use a max of 15mb to have some space
 # for overhead like request headers.
 # This applies to pretty much all calls to GMS.
-INGEST_MAX_PAYLOAD_BYTES = int(
-    os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_BYTES", 15 * 1024 * 1024)
-)
+INGEST_MAX_PAYLOAD_BYTES = get_rest_emitter_batch_max_payload_bytes()
 
 # This limit is somewhat arbitrary. All GMS endpoints will timeout
 # and return a 500 if processing takes too long. To avoid sending
 # too much to the backend and hitting a timeout, we try to limit
 # the number of MCPs we send in a batch.
-BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
-    os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", 200)
-)
+BATCH_INGEST_MAX_PAYLOAD_LENGTH = get_rest_emitter_batch_max_payload_length()
 
 
 def preserve_unicode_escapes(obj: Any) -> Any:
@@ -147,7 +147,7 @@ class EmitMode(ConfigEnum):
 
 _DEFAULT_EMIT_MODE = pydantic.parse_obj_as(
     EmitMode,
-    os.getenv("DATAHUB_EMIT_MODE", EmitMode.SYNC_PRIMARY),
+    get_emit_mode() or EmitMode.SYNC_PRIMARY,
 )
 
 
@@ -158,7 +158,7 @@ class RestSinkEndpoint(ConfigEnum):
 
 DEFAULT_REST_EMITTER_ENDPOINT = pydantic.parse_obj_as(
     RestSinkEndpoint,
-    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
+    get_rest_emitter_default_endpoint() or RestSinkEndpoint.RESTLI,
 )
 
 
@@ -478,7 +478,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         if self._openapi_ingestion is None:
             # No constructor parameter
             if (
-                not os.getenv("DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT")
+                not get_rest_emitter_default_endpoint()
                 and self._session_config.client_mode == ClientMode.SDK
                 and self._server_config.supports_feature(ServiceFeature.OPEN_API_SDK)
             ):

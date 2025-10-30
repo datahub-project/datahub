@@ -142,4 +142,10 @@ public class MockEntitySpec implements EntitySpec {
   public TyperefDataSchema getAspectTyperefSchema() {
     return null;
   }
+
+  @Override
+  public String getSearchGroup() {
+    // Return a default search index group for mock entities
+    return "default";
+  }
 }

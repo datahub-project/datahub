@@ -27,7 +27,7 @@ export function deleteOpenedEntity() {
         cy.getWithTestId("view-more-button").click();
       }
     });
-  cy.getWithTestId("entity-menu-delete-button").click();
+  cy.getWithTestId("entity-menu-delete-button").should("be.visible").click();
   cy.clickOptionWithText("Yes");
 }
 
@@ -152,6 +152,10 @@ export function openDomain(name) {
   });
 }
 
+export function openDomainByUrn(urn) {
+  cy.visit(`/domain/${urn}`);
+}
+
 export function deleteOpenedDomain() {
   deleteOpenedEntity();
   cy.waitTextVisible("Deleted Domain!");
@@ -224,8 +228,7 @@ export function addRelatedTerm(termName) {
 
 // Data product
 
-export function createDataProduct(domainName, name) {
-  openDomain(domainName);
+export function createDataProductForOpenedDomain(name) {
   cy.clickOptionWithTestId("Data Products-entity-tab-header");
   cy.clickOptionWithTestId("create-data-product-button");
   cy.getWithTestId("create-data-product-modal").within(() => {
@@ -234,17 +237,32 @@ export function createDataProduct(domainName, name) {
   });
 }
 
-export function openDataProduct(domainName, name) {
+export function createDataProduct(domainName, name) {
   openDomain(domainName);
+  createDataProductForOpenedDomain(name);
+}
+
+export function openDataProductOnOpenedDomain(name) {
   cy.clickOptionWithTestId("Data Products-entity-tab-header");
   cy.getWithTestId("entity-title")
     .filter(`:contains("${name}")`)
     .click({ force: true });
 }
+export function openDataProduct(domainName, name) {
+  openDomain(domainName);
+  openDataProductOnOpenedDomain(name);
+}
 
 export function deleteOpenedDataProduct() {
   deleteOpenedEntity();
   cy.waitTextVisible("Deleted Data Product!");
+}
+
+export function reloadPageWithMemoryManagement() {
+  cy.window().then((win) => {
+    win.location.reload();
+  });
+  cy.wait(2000);
 }
 
 // Summary tab
