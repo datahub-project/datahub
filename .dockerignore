@@ -1,6 +1,5 @@
 **/node_modules/
-*/build/
-*/*/build/
+
 **/venv/
 **/.tox/
 **/.mypy_cache/
@@ -9,19 +8,32 @@
 **/__pycache__/
 out
 **/*.class
-# Have to copy gradle/wrapper/gradle-wrapper.jar, can't exclude ALL jars
-**/build/**/*.jar
-# Jars/Wars that are final outputs of java projects.
+
+# Exclude source code (not needed in Docker images, only build artifacts)
+**/*.java
+
+# Exclude unnecessary build subdirectories but keep libs/
+**/build/classes/
+**/build/generated/
+**/build/reports/
+**/build/test-results/
+**/build/tmp/
+# Jars/Wars that are final outputs of java projects - keep these!
 !**/build/libs/*.war
 !**/build/libs/*.jar
 !datahub-frontend/build/stage/main/**
 
-# Content in .git is used to get the git version
-# Just ignore the heavy parts that are not used
-.git/logs
-.git/COMMIT_*
-.git/index
+# Content in .git is used to get the git version during gradle stage, not in docker builds.
+.git
 .gradle
+**/.gradle/
 
 /metadata-ingestion/tests
 /metadata-ingestion/examples
+
+# Exclude -  included via datahub-frontend
+datahub-web-react/
+
+# Exclude docs build artifacts
+docs-website/build/
+docs-website/.docusaurus/
