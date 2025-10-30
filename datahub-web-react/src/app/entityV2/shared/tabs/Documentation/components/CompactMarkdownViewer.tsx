@@ -1,7 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
-import { Button, Editor, Tooltip } from '@src/alchemy-components';
+import OptionalTooltip from '@app/sharedV2/ant/OptionalTooltip';
+import { Button, Editor } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
 
@@ -141,10 +142,10 @@ export default function CompactMarkdownViewer({
                     readOnly
                 />
             </MarkdownViewContainer>
-            {hideShowMore && isTruncated && !hideTooltip && (
-                <Tooltip title={content}>
+            {hideShowMore && isTruncated && (
+                <OptionalTooltip title={content} enabled={!hideTooltip}>
                     <MoreIndicator>...</MoreIndicator>
-                </Tooltip>
+                </OptionalTooltip>
             )}
 
             {!hideShowMore &&
