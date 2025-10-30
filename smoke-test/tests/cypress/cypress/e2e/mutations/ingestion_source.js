@@ -1,3 +1,5 @@
+import { hasOperationName } from "../utils";
+
 const number = crypto.getRandomValues(new Uint32Array(1))[0];
 const accound_id = `account${number}`;
 const warehouse_id = `warehouse${number}`;
@@ -6,7 +8,21 @@ const password = `password${number}`;
 const role = `role${number}`;
 const ingestion_source_name = `ingestion source ${number}`;
 
+export const setIngestionRedesignFlag = (isOn) => {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.reply((res) => {
+        res.body.data.appConfig.featureFlags.showIngestionPageRedesign = isOn;
+      });
+    }
+  });
+};
+
 describe("ingestion source creation flow", () => {
+  beforeEach(() => {
+    setIngestionRedesignFlag(false); // Set the ingestion redesign flag to false
+  });
+
   it("create a ingestion source using ui, verify ingestion source details saved correctly, remove ingestion source", () => {
     // Go to ingestion page, create a snowflake source
     cy.loginWithCredentials();
