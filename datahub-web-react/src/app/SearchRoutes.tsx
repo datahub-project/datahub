@@ -63,6 +63,8 @@ export const SearchRoutes = (): JSX.Element => {
     const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
     const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
 
+    const showAnalytics = me.platformPrivileges?.viewAnalytics;
+
     return (
         <FinalSearchablePage>
             <Switch>
