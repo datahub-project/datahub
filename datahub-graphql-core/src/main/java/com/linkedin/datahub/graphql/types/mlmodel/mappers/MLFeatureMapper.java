@@ -186,7 +186,7 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
       @Nonnull MLFeature mlFeature,
       @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    mlFeature.setApplication(
-        ApplicationAssociationMapper.map(context, applications, mlFeature.getUrn()));
+    mlFeature.setApplications(
+        ApplicationAssociationMapper.mapList(context, applications, mlFeature.getUrn()));
   }
 }

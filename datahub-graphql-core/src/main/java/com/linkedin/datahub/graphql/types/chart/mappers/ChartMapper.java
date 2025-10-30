@@ -314,6 +314,7 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
   private static void mapApplicationAssociation(
       @Nullable final QueryContext context, @Nonnull Chart chart, @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    chart.setApplication(ApplicationAssociationMapper.map(context, applications, chart.getUrn()));
+    chart.setApplications(
+        ApplicationAssociationMapper.mapList(context, applications, chart.getUrn()));
   }
 }

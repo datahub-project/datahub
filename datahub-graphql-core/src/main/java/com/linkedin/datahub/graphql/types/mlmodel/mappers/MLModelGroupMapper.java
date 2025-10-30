@@ -186,7 +186,7 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
       @Nonnull MLModelGroup mlModelGroup,
       @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    mlModelGroup.setApplication(
-        ApplicationAssociationMapper.map(context, applications, mlModelGroup.getUrn()));
+    mlModelGroup.setApplications(
+        ApplicationAssociationMapper.mapList(context, applications, mlModelGroup.getUrn()));
   }
 }

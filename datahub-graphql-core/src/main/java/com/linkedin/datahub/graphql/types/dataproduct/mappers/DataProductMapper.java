@@ -164,7 +164,7 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
       @Nonnull DataProduct dataProduct,
       @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    dataProduct.setApplication(
-        ApplicationAssociationMapper.map(context, applications, dataProduct.getUrn()));
+    dataProduct.setApplications(
+        ApplicationAssociationMapper.mapList(context, applications, dataProduct.getUrn()));
   }
 }

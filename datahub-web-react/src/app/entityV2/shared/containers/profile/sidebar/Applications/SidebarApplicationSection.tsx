@@ -14,6 +14,7 @@ import { ApplicationLink } from '@app/shared/tags/ApplicationLink';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useBatchSetApplicationMutation } from '@graphql/application.generated';
+import { ApplicationAssociation } from '@types';
 
 const Content = styled.div`
     display: flex;
@@ -48,10 +49,10 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
     const urn = useMutationUrn();
     const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
     const [showModal, setShowModal] = useState(false);
-    const application = entityData?.application?.application;
+    const applications = entityData?.applications || [];
     const canEditApplication = !!entityData?.privileges?.canEditProperties;
 
-    if (!application && !visualConfig.application?.showSidebarSectionWhenEmpty) {
+    if (applications.length === 0 && !visualConfig.application?.showSidebarSectionWhenEmpty) {
         return null;
     }
 
@@ -93,25 +94,30 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
     return (
         <div className="sidebar-application-section">
             <SidebarSection
-                title="Application"
+                title="Applications"
                 content={
                     <Content>
-                        {application && (
-                            <ApplicationLinkWrapper>
-                                <ApplicationLink
-                                    application={application}
-                                    closable={!readOnly && !updateOnly && canEditApplication}
-                                    readOnly={readOnly}
-                                    onClose={(e) => {
-                                        e.preventDefault();
-                                        onRemoveApplication();
-                                    }}
-                                    fontSize={12}
-                                />
-                            </ApplicationLinkWrapper>
-                        )}
-                        {(!application || !!updateOnly) && (
-                            <>{!application && <EmptySectionText message={EMPTY_MESSAGES.application.title} />}</>
+                        {applications.length > 0 &&
+                            applications.map((appAssociation: ApplicationAssociation) => (
+                                <ApplicationLinkWrapper key={appAssociation.application?.urn}>
+                                    <ApplicationLink
+                                        application={appAssociation.application}
+                                        closable={!readOnly && !updateOnly && canEditApplication}
+                                        readOnly={readOnly}
+                                        onClose={(e: React.MouseEvent) => {
+                                            e.preventDefault();
+                                            onRemoveApplication();
+                                        }}
+                                        fontSize={12}
+                                    />
+                                </ApplicationLinkWrapper>
+                            ))}
+                        {(applications.length === 0 || !!updateOnly) && (
+                            <>
+                                {applications.length === 0 && (
+                                    <EmptySectionText message={EMPTY_MESSAGES.application.title} />
+                                )}
+                            </>
                         )}
                     </Content>
                 }
@@ -119,8 +125,8 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
                     !readOnly && (
                         <SectionActionButton
                             dataTestId="add-applications-button"
-                            button={application ? <EditOutlinedIcon /> : <AddRoundedIcon />}
-                            onClick={(event) => {
+                            button={applications.length > 0 ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                            onClick={(event: React.MouseEvent) => {
                                 setShowModal(true);
                                 event.stopPropagation();
                             }}

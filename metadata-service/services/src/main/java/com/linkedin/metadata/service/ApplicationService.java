@@ -187,9 +187,17 @@ public class ApplicationService {
     Objects.requireNonNull(applicationUrn, "applicationUrn must not be null");
     Objects.requireNonNull(resourceUrns, "resourceUrns must not be null");
 
+    log.info(
+        "Batch setting application {} to {} resource(s): {}",
+        applicationUrn,
+        resourceUrns.size(),
+        resourceUrns);
+
     final List<MetadataChangeProposal> proposals =
         resourceUrns.stream()
-            .map(resourceUrn -> buildSetApplicationAssetsProposal(applicationUrn, resourceUrn))
+            .map(
+                resourceUrn ->
+                    buildAddApplicationAssetsProposal(opContext, applicationUrn, resourceUrn))
             .collect(Collectors.toList());
 
     try {
@@ -202,6 +210,23 @@ public class ApplicationService {
     }
   }
 
+  private MetadataChangeProposal buildAddApplicationAssetsProposal(
+      @Nonnull OperationContext opContext, @Nonnull Urn applicationUrn, Urn resourceUrn) {
+    Applications applications = getExistingApplications(opContext, resourceUrn);
+
+    if (!applications.getApplications().contains(applicationUrn)) {
+      applications.getApplications().add(applicationUrn);
+    } else {
+      log.info(
+          "Application {} already exists on resource {}. Skipping duplicate.",
+          applicationUrn,
+          resourceUrn);
+    }
+
+    return AspectUtils.buildMetadataChangeProposal(
+        resourceUrn, Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, applications);
+  }
+
   private MetadataChangeProposal buildSetApplicationAssetsProposal(
       @Nullable Urn applicationUrn, Urn resourceUrn) {
     Applications applications = new Applications(new DataMap());
@@ -212,6 +237,43 @@ public class ApplicationService {
 
     return AspectUtils.buildMetadataChangeProposal(
         resourceUrn, Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, applications);
+  }
+
+  private Applications getExistingApplications(
+      @Nonnull OperationContext opContext, @Nonnull Urn resourceUrn) {
+    try {
+      final EntityResponse response =
+          this.entityClient.getV2(
+              opContext,
+              resourceUrn.getEntityType(),
+              resourceUrn,
+              ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME));
+
+      if (response != null
+          && response.getAspects().containsKey(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)) {
+          return new Applications(
+              response
+                  .getAspects()
+                  .get(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)
+                  .getValue()
+                  .data());
+      } else {
+        log.info(
+            "No existing applications aspect found for resource {} (response: {})",
+            resourceUrn,
+            response != null ? "present but no aspect" : "null");
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Failed to retrieve existing Applications for resource {}, will create new aspect",
+          resourceUrn,
+          e);
+    }
+
+    log.info("Creating new empty Applications aspect for resource {}", resourceUrn);
+    Applications applications = new Applications(new DataMap());
+    applications.setApplications(new UrnArray());
+    return applications;
   }
 
   public void batchRemoveApplicationAssets(

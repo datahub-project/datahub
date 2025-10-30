@@ -308,7 +308,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
       @Nonnull Dashboard dashboard,
       @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    dashboard.setApplication(
-        ApplicationAssociationMapper.map(context, applications, dashboard.getUrn()));
+    dashboard.setApplications(
+        ApplicationAssociationMapper.mapList(context, applications, dashboard.getUrn()));
   }
 }

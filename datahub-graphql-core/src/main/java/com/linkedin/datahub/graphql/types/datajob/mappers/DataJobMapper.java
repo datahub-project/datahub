@@ -236,8 +236,8 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
     if (aspectMap.containsKey(APPLICATION_MEMBERSHIP_ASPECT_NAME)) {
       final Applications applications =
           new Applications(aspectMap.get(APPLICATION_MEMBERSHIP_ASPECT_NAME).getValue().data());
-      dataJob.setApplication(
-          ApplicationAssociationMapper.map(context, applications, dataJob.getUrn()));
+      dataJob.setApplications(
+          ApplicationAssociationMapper.mapList(context, applications, dataJob.getUrn()));
     }
   }
 }

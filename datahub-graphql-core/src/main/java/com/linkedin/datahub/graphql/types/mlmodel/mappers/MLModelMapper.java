@@ -258,7 +258,7 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
   private static void mapApplicationAssociation(
       @Nullable final QueryContext context, @Nonnull MLModel mlModel, @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    mlModel.setApplication(
-        ApplicationAssociationMapper.map(context, applications, mlModel.getUrn()));
+    mlModel.setApplications(
+        ApplicationAssociationMapper.mapList(context, applications, mlModel.getUrn()));
   }
 }

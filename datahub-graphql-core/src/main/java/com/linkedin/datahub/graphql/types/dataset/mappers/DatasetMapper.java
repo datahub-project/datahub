@@ -160,8 +160,6 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             dataset.setDataPlatformInstance(
                 DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(dataMap))));
     mappingHelper.mapToResult(
-        "applications", (dataset, dataMap) -> mapApplicationAssociation(context, dataset, dataMap));
-    mappingHelper.mapToResult(
         SIBLINGS_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setSiblings(SiblingsMapper.map(context, new Siblings(dataMap))));
@@ -324,7 +322,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
   private static void mapApplicationAssociation(
       @Nullable final QueryContext context, @Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    dataset.setApplication(
-        ApplicationAssociationMapper.map(context, applications, dataset.getUrn()));
+    dataset.setApplications(
+        ApplicationAssociationMapper.mapList(context, applications, dataset.getUrn()));
   }
 }

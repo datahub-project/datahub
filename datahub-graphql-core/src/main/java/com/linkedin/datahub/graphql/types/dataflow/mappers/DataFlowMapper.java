@@ -240,7 +240,7 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
   private static void mapApplicationAssociation(
       @Nullable final QueryContext context, @Nonnull DataFlow dataFlow, @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    dataFlow.setApplication(
-        ApplicationAssociationMapper.map(context, applications, dataFlow.getUrn()));
+    dataFlow.setApplications(
+        ApplicationAssociationMapper.mapList(context, applications, dataFlow.getUrn()));
   }
 }

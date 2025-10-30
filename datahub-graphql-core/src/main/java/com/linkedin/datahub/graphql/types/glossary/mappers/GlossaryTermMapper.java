@@ -149,7 +149,7 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
       @Nonnull GlossaryTerm glossaryTerm,
       @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    glossaryTerm.setApplication(
-        ApplicationAssociationMapper.map(context, applications, glossaryTerm.getUrn()));
+    glossaryTerm.setApplications(
+        ApplicationAssociationMapper.mapList(context, applications, glossaryTerm.getUrn()));
   }
 }
