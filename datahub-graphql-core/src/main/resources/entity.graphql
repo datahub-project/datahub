@@ -971,6 +971,14 @@ type Mutation {
   ): Boolean
 
   """
+  Batch unset a specific Application from a list of entities
+  """
+  batchUnsetApplication(
+    "Input for batch unsetting application"
+    input: BatchUnsetApplicationInput!
+  ): Boolean
+
+  """
   Create a Custom Ownership Type. This requires the 'Manage Ownership Types' Metadata Privilege.
   """
   createOwnershipType(
@@ -13466,6 +13474,21 @@ input BatchSetApplicationInput {
 
   """
   The urns of the entities the given application should be set on
+  """
+  resourceUrns: [String!]!
+}
+
+"""
+Input properties required for batch unsetting a specific Application from entities
+"""
+input BatchUnsetApplicationInput {
+  """
+  The urn of the application to be removed from the resources
+  """
+  applicationUrn: String!
+
+  """
+  The urns of the entities the given application should be removed from
   """
   resourceUrns: [String!]!
 }

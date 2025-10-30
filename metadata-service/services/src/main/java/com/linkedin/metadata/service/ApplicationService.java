@@ -251,12 +251,12 @@ public class ApplicationService {
 
       if (response != null
           && response.getAspects().containsKey(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)) {
-          return new Applications(
-              response
-                  .getAspects()
-                  .get(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)
-                  .getValue()
-                  .data());
+        return new Applications(
+            response
+                .getAspects()
+                .get(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)
+                .getValue()
+                .data());
       } else {
         log.info(
             "No existing applications aspect found for resource {} (response: {})",
@@ -270,7 +270,6 @@ public class ApplicationService {
           e);
     }
 
-    log.info("Creating new empty Applications aspect for resource {}", resourceUrn);
     Applications applications = new Applications(new DataMap());
     applications.setApplications(new UrnArray());
     return applications;
@@ -315,6 +314,46 @@ public class ApplicationService {
       throw new RuntimeException(
           String.format("Failed to unset application for resource %s", resourceUrn), e);
     }
+  }
+
+  public void batchUnsetApplication(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn applicationUrn,
+      @Nonnull List<Urn> resourceUrns,
+      @Nonnull Urn actorUrn) {
+    Objects.requireNonNull(applicationUrn, "applicationUrn must not be null");
+    Objects.requireNonNull(resourceUrns, "resourceUrns must not be null");
+    Objects.requireNonNull(actorUrn, "actorUrn must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
+
+    log.info(
+        "Batch unsetting application {} from {} resources", applicationUrn, resourceUrns.size());
+
+    final List<MetadataChangeProposal> proposals =
+        resourceUrns.stream()
+            .map(
+                resourceUrn ->
+                    buildUnsetApplicationProposal(opContext, applicationUrn, resourceUrn))
+            .collect(Collectors.toList());
+
+    try {
+      this.entityClient.batchIngestProposals(opContext, proposals, false);
+    } catch (Exception e) {
+      log.error("Failed to batch unset application {} from resources", applicationUrn, e);
+      throw new RuntimeException(
+          String.format("Failed to batch unset application %s from resources", applicationUrn), e);
+    }
+  }
+
+  private MetadataChangeProposal buildUnsetApplicationProposal(
+      @Nonnull OperationContext opContext, @Nonnull Urn applicationUrn, Urn resourceUrn) {
+    Applications applications = getExistingApplications(opContext, resourceUrn);
+
+    // Remove the specific application from the list
+    applications.getApplications().remove(applicationUrn);
+
+    return AspectUtils.buildMetadataChangeProposal(
+        resourceUrn, Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, applications);
   }
 
   public boolean verifyEntityExists(@Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {

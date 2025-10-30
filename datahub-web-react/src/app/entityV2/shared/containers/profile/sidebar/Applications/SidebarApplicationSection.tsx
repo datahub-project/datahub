@@ -13,7 +13,7 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import { ApplicationLink } from '@app/shared/tags/ApplicationLink';
 import { useAppConfig } from '@app/useAppConfig';
 
-import { useBatchSetApplicationMutation } from '@graphql/application.generated';
+import { useBatchUnsetApplicationMutation } from '@graphql/application.generated';
 import { ApplicationAssociation } from '@types';
 
 const Content = styled.div`
@@ -47,7 +47,7 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
     const { entityData } = useEntityData();
     const refetch = useRefetch();
     const urn = useMutationUrn();
-    const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
+    const [batchUnsetApplicationMutation] = useBatchUnsetApplicationMutation();
     const [showModal, setShowModal] = useState(false);
     const applications = entityData?.applications || [];
     const canEditApplication = !!entityData?.privileges?.canEditProperties;
@@ -56,11 +56,11 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
         return null;
     }
 
-    const removeApplication = () => {
-        batchSetApplicationMutation({
+    const removeApplication = (applicationUrn: string) => {
+        batchUnsetApplicationMutation({
             variables: {
                 input: {
-                    applicationUrn: null,
+                    applicationUrn,
                     resourceUrns: [urn],
                 },
             },
@@ -77,12 +77,12 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
             });
     };
 
-    const onRemoveApplication = () => {
+    const onRemoveApplication = (applicationUrn: string) => {
         Modal.confirm({
             title: `Confirm Application Removal`,
             content: `Are you sure you want to remove this application?`,
             onOk() {
-                removeApplication();
+                removeApplication(applicationUrn);
             },
             onCancel() {},
             okText: 'Yes',
@@ -106,7 +106,9 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
                                         readOnly={readOnly}
                                         onClose={(e: React.MouseEvent) => {
                                             e.preventDefault();
-                                            onRemoveApplication();
+                                            if (appAssociation.application?.urn) {
+                                                onRemoveApplication(appAssociation.application.urn);
+                                            }
                                         }}
                                         fontSize={12}
                                     />

@@ -28,6 +28,7 @@ import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.application.BatchSetApplicationResolver;
+import com.linkedin.datahub.graphql.resolvers.application.BatchUnsetApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.CreateApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.DeleteApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
@@ -1385,6 +1386,9 @@ public class GmsGraphQLEngine {
                   new DeleteApplicationResolver(this.entityClient, this.applicationService))
               .dataFetcher(
                   "batchSetApplication", new BatchSetApplicationResolver(this.applicationService))
+              .dataFetcher(
+                  "batchUnsetApplication",
+                  new BatchUnsetApplicationResolver(this.applicationService))
               .dataFetcher(
                   "createOwnershipType", new CreateOwnershipTypeResolver(this.ownershipTypeService))
               .dataFetcher(
