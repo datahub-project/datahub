@@ -60,8 +60,6 @@ public class SqlSetupConfig {
     boolean createTables = EnvironmentUtils.getBoolean("CREATE_TABLES", true);
     boolean createDatabase = EnvironmentUtils.getBoolean("CREATE_DB", true);
     boolean createUser = EnvironmentUtils.getBoolean("CREATE_USER", false);
-    String createUserIamRole = EnvironmentUtils.getString("IAM_ROLE");
-    boolean iamAuthEnabled = createUserIamRole != null && !createUserIamRole.trim().isEmpty();
     boolean cdcEnabled = EnvironmentUtils.getBoolean("CDC_MCL_PROCESSING_ENABLED", false);
     String cdcUser = EnvironmentUtils.getString("CDC_USER", "datahub_cdc");
     String cdcPassword = EnvironmentUtils.getString("CDC_PASSWORD", "datahub_cdc");
@@ -78,17 +76,22 @@ public class SqlSetupConfig {
     int port = jdbcInfo.port;
 
     // Set user creation credentials based on CREATE_USER setting
+    // If CREATE_USER_PASSWORD is not provided, assume IAM authentication
     String createUserUsername;
     String createUserPassword;
+    boolean iamAuthEnabled = false;
     if (createUser) {
-      if (iamAuthEnabled) {
-        // IAM authentication: only set username, no password
-        createUserUsername = EnvironmentUtils.getString("CREATE_USER_USERNAME");
+      createUserUsername = EnvironmentUtils.getString("CREATE_USER_USERNAME");
+      createUserPassword = EnvironmentUtils.getString("CREATE_USER_PASSWORD");
+
+      // If password is not provided, use IAM authentication
+      if (createUserPassword == null || createUserPassword.trim().isEmpty()) {
+        iamAuthEnabled = true;
         createUserPassword = null; // No password for IAM auth
+        log.info("User creation with IAM authentication detected (no password provided)");
       } else {
-        // Traditional authentication: set both username and password
-        createUserUsername = EnvironmentUtils.getString("CREATE_USER_USERNAME");
-        createUserPassword = EnvironmentUtils.getString("CREATE_USER_PASSWORD");
+        iamAuthEnabled = false;
+        log.info("User creation with traditional password authentication");
       }
     } else {
       // When CREATE_USER is disabled, these fields are not used
@@ -110,8 +113,7 @@ public class SqlSetupConfig {
             createUserPassword,
             host,
             port,
-            databaseName,
-            createUserIamRole);
+            databaseName);
 
     // Validate authentication configuration
     validateAuthenticationConfig(args);
@@ -173,12 +175,10 @@ public class SqlSetupConfig {
     }
 
     if (args.isIamAuthEnabled()) {
-      // IAM authentication enabled - validate IAM role is provided
-      if (args.getCreateUserIamRole() == null || args.getCreateUserIamRole().trim().isEmpty()) {
-        throw new IllegalStateException(
-            "IAM user creation is enabled but IAM_ROLE is not specified. "
-                + "Either set IAM_ROLE environment variable or disable IAM authentication.");
-      }
+      // For both MySQL and PostgreSQL RDS IAM authentication:
+      // - MySQL: Uses constant 'RDS' in CREATE USER statement
+      // - PostgreSQL: Uses rds_iam role grant
+      // The actual IAM permissions are managed by AWS IAM policies, not stored in the database
 
       // Validate username is provided for IAM
       if (args.getCreateUserUsername() == null || args.getCreateUserUsername().trim().isEmpty()) {
@@ -188,8 +188,8 @@ public class SqlSetupConfig {
       }
 
       log.info(
-          "IAM user creation validated: role='{}', username='{}'",
-          args.getCreateUserIamRole(),
+          "IAM user creation validated for {}: username='{}' (IAM permissions managed by AWS IAM policies)",
+          args.getDbType().getValue(),
           args.getCreateUserUsername());
     } else {
       // Traditional authentication - validate username and password are provided
