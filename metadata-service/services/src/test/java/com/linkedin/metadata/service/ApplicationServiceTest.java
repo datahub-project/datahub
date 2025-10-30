@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.application.ApplicationKey;
 import com.linkedin.application.ApplicationProperties;
 import com.linkedin.application.Applications;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.domain.Domains;
@@ -312,5 +313,193 @@ public class ApplicationServiceTest {
     assertThrows(
         RuntimeException.class,
         () -> _applicationService.verifyEntityExists(_opContext, TEST_DOMAIN_URN));
+  }
+
+  @Test
+  public void testBatchUnsetApplicationFromEmptyList() throws Exception {
+    // Mock: Resource has no existing applications
+    when(_entityClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ASSET_URN.getEntityType()),
+            eq(TEST_ASSET_URN),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(null);
+
+    List<Urn> resourceUrns = ImmutableList.of(TEST_ASSET_URN);
+    _applicationService.batchUnsetApplication(
+        _opContext, TEST_APPLICATION_URN, resourceUrns, TEST_USER_URN);
+
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(_entityClient, times(1))
+        .batchIngestProposals(eq(_opContext), mcpListCaptor.capture(), eq(false));
+
+    List<MetadataChangeProposal> mcps = mcpListCaptor.getValue();
+    assertEquals(mcps.size(), 1);
+
+    MetadataChangeProposal mcp = mcps.get(0);
+    assertEquals(mcp.getEntityUrn(), TEST_ASSET_URN);
+    assertEquals(mcp.getAspectName(), Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME);
+
+    Applications apps =
+        GenericRecordUtils.deserializeAspect(
+            mcp.getAspect().getValue(), mcp.getAspect().getContentType(), Applications.class);
+    assertTrue(apps.getApplications().isEmpty());
+  }
+
+  @Test
+  public void testBatchUnsetApplicationRemovesSpecificApplication() throws Exception {
+    // Mock: Resource has two applications, we want to remove one
+    Applications existingApps = new Applications();
+    existingApps.setApplications(new UrnArray(ImmutableList.of(TEST_APPLICATION_URN, TEST_APPLICATION_URN_2)));
+
+    EntityResponse response = new EntityResponse();
+    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
+    envelopedAspect.setValue(new Aspect(existingApps.data()));
+    response.setAspects(
+        new EnvelopedAspectMap(
+            Collections.singletonMap(
+                Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, envelopedAspect)));
+    response.setEntityName(TEST_ASSET_URN.getEntityType());
+    response.setUrn(TEST_ASSET_URN);
+
+    when(_entityClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ASSET_URN.getEntityType()),
+            eq(TEST_ASSET_URN),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(response);
+
+    List<Urn> resourceUrns = ImmutableList.of(TEST_ASSET_URN);
+    _applicationService.batchUnsetApplication(
+        _opContext, TEST_APPLICATION_URN, resourceUrns, TEST_USER_URN);
+
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(_entityClient, times(1))
+        .batchIngestProposals(eq(_opContext), mcpListCaptor.capture(), eq(false));
+
+    List<MetadataChangeProposal> mcps = mcpListCaptor.getValue();
+    assertEquals(mcps.size(), 1);
+
+    MetadataChangeProposal mcp = mcps.get(0);
+    Applications apps =
+        GenericRecordUtils.deserializeAspect(
+            mcp.getAspect().getValue(), mcp.getAspect().getContentType(), Applications.class);
+
+    // Should only have TEST_APPLICATION_URN_2 left
+    assertEquals(apps.getApplications().size(), 1);
+    assertEquals(apps.getApplications().get(0), TEST_APPLICATION_URN_2);
+    assertFalse(apps.getApplications().contains(TEST_APPLICATION_URN));
+  }
+
+  @Test
+  public void testBatchUnsetApplicationHandlesException() throws Exception {
+    List<Urn> resourceUrns = ImmutableList.of(TEST_ASSET_URN);
+
+    when(_entityClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ASSET_URN.getEntityType()),
+            eq(TEST_ASSET_URN),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(null);
+
+    when(_entityClient.batchIngestProposals(eq(_opContext), any(List.class), eq(false)))
+        .thenThrow(new RuntimeException("Batch ingest failed"));
+
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _applicationService.batchUnsetApplication(
+                _opContext, TEST_APPLICATION_URN, resourceUrns, TEST_USER_URN));
+  }
+
+  @Test
+  public void testBatchSetApplicationAssetsWithExistingApplications() throws Exception {
+    // Mock: Resource already has TEST_APPLICATION_URN_2, we're adding TEST_APPLICATION_URN
+    Applications existingApps = new Applications();
+    existingApps.setApplications(new UrnArray(ImmutableList.of(TEST_APPLICATION_URN_2)));
+
+    EntityResponse response = new EntityResponse();
+    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
+    envelopedAspect.setValue(new Aspect(existingApps.data()));
+    response.setAspects(
+        new EnvelopedAspectMap(
+            Collections.singletonMap(
+                Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, envelopedAspect)));
+    response.setUrn(TEST_ASSET_URN);
+
+    when(_entityClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ASSET_URN.getEntityType()),
+            eq(TEST_ASSET_URN),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(response);
+
+    List<Urn> assetUrns = ImmutableList.of(TEST_ASSET_URN);
+    _applicationService.batchSetApplicationAssets(
+        _opContext, TEST_APPLICATION_URN, assetUrns, TEST_USER_URN);
+
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(_entityClient, times(1))
+        .batchIngestProposals(eq(_opContext), mcpListCaptor.capture(), eq(false));
+
+    List<MetadataChangeProposal> mcps = mcpListCaptor.getValue();
+    assertEquals(mcps.size(), 1);
+
+    MetadataChangeProposal mcp = mcps.get(0);
+    Applications apps =
+        GenericRecordUtils.deserializeAspect(
+            mcp.getAspect().getValue(), mcp.getAspect().getContentType(), Applications.class);
+
+    // Should now have both applications
+    assertEquals(apps.getApplications().size(), 2);
+    assertTrue(apps.getApplications().contains(TEST_APPLICATION_URN));
+    assertTrue(apps.getApplications().contains(TEST_APPLICATION_URN_2));
+  }
+
+  @Test
+  public void testBatchSetApplicationAssetsSkipsDuplicates() throws Exception {
+    // Mock: Resource already has TEST_APPLICATION_URN
+    Applications existingApps = new Applications();
+    existingApps.setApplications(new UrnArray(ImmutableList.of(TEST_APPLICATION_URN)));
+
+    EntityResponse response = new EntityResponse();
+    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
+    envelopedAspect.setValue(new Aspect(existingApps.data()));
+    response.setAspects(
+        new EnvelopedAspectMap(
+            Collections.singletonMap(
+                Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, envelopedAspect)));
+    response.setUrn(TEST_ASSET_URN);
+
+    when(_entityClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ASSET_URN.getEntityType()),
+            eq(TEST_ASSET_URN),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(response);
+
+    List<Urn> assetUrns = ImmutableList.of(TEST_ASSET_URN);
+    _applicationService.batchSetApplicationAssets(
+        _opContext, TEST_APPLICATION_URN, assetUrns, TEST_USER_URN);
+
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(_entityClient, times(1))
+        .batchIngestProposals(eq(_opContext), mcpListCaptor.capture(), eq(false));
+
+    List<MetadataChangeProposal> mcps = mcpListCaptor.getValue();
+    assertEquals(mcps.size(), 1);
+
+    MetadataChangeProposal mcp = mcps.get(0);
+    Applications apps =
+        GenericRecordUtils.deserializeAspect(
+            mcp.getAspect().getValue(), mcp.getAspect().getContentType(), Applications.class);
+
+    // Should still only have one application (no duplicate)
+    assertEquals(apps.getApplications().size(), 1);
+    assertEquals(apps.getApplications().get(0), TEST_APPLICATION_URN);
   }
 }

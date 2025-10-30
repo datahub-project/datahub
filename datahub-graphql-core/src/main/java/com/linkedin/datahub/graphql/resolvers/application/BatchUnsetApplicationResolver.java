@@ -53,8 +53,7 @@ public class BatchUnsetApplicationResolver implements DataFetcher<CompletableFut
   }
 
   private void verifyResources(List<String> resources, QueryContext context) {
-    verifyResourcesExistAndAuthorized(
-        resources, applicationService, context, "unset_application");
+    verifyResourcesExistAndAuthorized(resources, applicationService, context, "unset_application");
   }
 
   private void verifyApplication(String applicationUrn, QueryContext context) {

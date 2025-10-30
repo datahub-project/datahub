@@ -58,8 +58,7 @@ public class BatchSetApplicationResolver implements DataFetcher<CompletableFutur
   }
 
   private void verifyResources(List<String> resources, QueryContext context) {
-    verifyResourcesExistAndAuthorized(
-        resources, applicationService, context, "set_application");
+    verifyResourcesExistAndAuthorized(resources, applicationService, context, "set_application");
   }
 
   private void verifyApplication(String maybeApplicationUrn, QueryContext context) {
