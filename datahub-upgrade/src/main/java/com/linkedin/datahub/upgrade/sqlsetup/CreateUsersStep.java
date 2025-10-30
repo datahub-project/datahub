@@ -80,10 +80,11 @@ public class CreateUsersStep implements UpgradeStep {
 
   void createIamUser(SqlSetupArgs args, SqlSetupResult result) throws SQLException {
     log.info("Creating IAM-authenticated user: {}", args.getCreateUserUsername());
+    // Note: The IAM role parameter is null - MySQL uses 'RDS' constant, PostgreSQL uses rds_iam
+    // role
 
     try (Connection connection = server.dataSource().getConnection()) {
-      String createUserSql =
-          dbOps.createIamUserSql(args.getCreateUserUsername(), args.getCreateUserIamRole());
+      String createUserSql = dbOps.createIamUserSql(args.getCreateUserUsername(), null);
       try (PreparedStatement stmt = connection.prepareStatement(createUserSql)) {
         stmt.executeUpdate();
       }
@@ -92,6 +93,13 @@ public class CreateUsersStep implements UpgradeStep {
           dbOps.grantPrivilegesSql(args.getCreateUserUsername(), args.getDatabaseName());
       try (PreparedStatement grantStmt = connection.prepareStatement(grantPrivilegesSql)) {
         grantStmt.executeUpdate();
+      }
+
+      // Flush privileges for MySQL to ensure grants take effect immediately
+      if (setupArgs.getDbType() == DatabaseType.MYSQL) {
+        try (PreparedStatement flushStmt = connection.prepareStatement("FLUSH PRIVILEGES")) {
+          flushStmt.executeUpdate();
+        }
       }
 
       result.setUsersCreated(1);
@@ -114,6 +122,13 @@ public class CreateUsersStep implements UpgradeStep {
           dbOps.grantPrivilegesSql(args.getCreateUserUsername(), args.getDatabaseName());
       try (PreparedStatement grantStmt = connection.prepareStatement(grantPrivilegesSql)) {
         grantStmt.executeUpdate();
+      }
+
+      // Flush privileges for MySQL to ensure grants take effect immediately
+      if (setupArgs.getDbType() == DatabaseType.MYSQL) {
+        try (PreparedStatement flushStmt = connection.prepareStatement("FLUSH PRIVILEGES")) {
+          flushStmt.executeUpdate();
+        }
       }
 
       result.setUsersCreated(1);

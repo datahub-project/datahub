@@ -817,6 +817,16 @@
     displayName: Informatica
     type: OTHERS
     logoUrl: "assets/platforms/informaticalogo.png"
+- entityUrn: urn:li:dataPlatform:google_sheets
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: google_sheets
+    displayName: Google Sheets
+    type: OTHERS
+    logoUrl: "assets/platforms/google-sheets-logo.png"
 - entityUrn: urn:li:dataPlatform:streamlit
   entityType: dataPlatform
   aspectName: dataPlatformInfo
