@@ -33,7 +33,6 @@ export const SUPPORTED_FILE_TYPES = [
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.ms-excel',
     'application/xml',
     'application/vnd.ms-powerpoint',
@@ -50,6 +49,15 @@ export const SUPPORTED_FILE_TYPES = [
     'text/html',
     'text/x-java-source',
     'image/svg+xml',
+    'application/vnd.oasis.opendocument.text',
+    'application/vnd.oasis.opendocument.spreadsheet',
+    'application/vnd.oasis.opendocument.presentation',
+    'text/css',
+    'application/javascript',
+    'text/x-yaml',
+    'application/x-tar',
+    'text/x-sql',
+    'application/x-sh',
 ];
 
 const EXTENSION_TO_FILE_TYPE = {
@@ -84,6 +92,17 @@ const EXTENSION_TO_FILE_TYPE = {
     java: 'text/x-java-source',
     svg: 'image/svg+xml',
     log: 'text/plain',
+    mov: 'video/quicktime',
+    odt: 'application/vnd.oasis.opendocument.text',
+    ods: 'application/vnd.oasis.opendocument.spreadsheet',
+    odp: 'application/vnd.oasis.opendocument.presentation',
+    css: 'text/css',
+    js: 'application/javascript',
+    yaml: 'text/x-yaml',
+    yml: 'text/x-yaml',
+    tar: 'application/x-tar',
+    sql: 'text/x-sql',
+    sh: 'application/x-sh',
 };
 
 /**
