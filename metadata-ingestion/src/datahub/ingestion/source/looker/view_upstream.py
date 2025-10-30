@@ -1382,25 +1382,27 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         field_api_names = [name.lower() for name in field_api_names]
 
         upstream_refs: List[ColumnRef] = []
-
+        no_cll_found = True
         for lineage in spr.column_lineage:
             if any(
                 lineage.downstream.column.lower().startswith(name)
                 for name in field_api_names
             ):
+                no_cll_found = False
                 # Log if there are no upstreams
                 if not lineage.upstreams:
                     logger.debug(
-                        f"view-name={self.view_context.name()}, field-name={field_name}, field-api-names={field_api_names}, lineage-downstream-column={lineage.downstream.column}, no-upstreams"
+                        f"view-name={self.view_context.name()}, field-name={field_name}, field-api-names={field_api_names}, lineage-downstream-column={lineage.downstream.column.lower()}, lineage-downstream={lineage.downstream}, no-upstreams"
                     )
                 for upstream in lineage.upstreams:
                     upstream_refs.append(
                         ColumnRef(table=upstream.table, column=upstream.column)
                     )
-            else:
-                logger.debug(
-                    f"view-name={self.view_context.name()}, field-name={field_name}, field-api-names={field_api_names}, no-match"
-                )
+
+        if no_cll_found:
+            logger.debug(
+                f"view-name={self.view_context.name()}, field-name={field_name}, field-api-names={field_api_names}, lineage-downstream-column={lineage.downstream.column.lower()}, lineage-downstream={lineage.downstream}, no-match"
+            )
         return _drop_hive_dot_from_upstream(upstream_refs)
 
     def create_fields(self) -> List[ViewField]:
