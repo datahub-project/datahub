@@ -665,7 +665,9 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         )
 
         # Process fields in parallel
-        with ThreadPoolExecutor(max_workers=min(len(field_chunk), 10)) as executor:
+        with ThreadPoolExecutor(
+            max_workers=self.config.max_workers_for_parallel_processing
+        ) as executor:
             # Submit all field processing tasks
             future_to_field = {
                 executor.submit(
@@ -798,7 +800,9 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         failed_queries = 0
 
         # Process chunks in parallel
-        with ThreadPoolExecutor(max_workers=min(len(field_chunks), 10)) as executor:
+        with ThreadPoolExecutor(
+            max_workers=self.config.max_workers_for_parallel_processing
+        ) as executor:
             # Submit all chunk processing tasks
             future_to_chunk = {
                 executor.submit(

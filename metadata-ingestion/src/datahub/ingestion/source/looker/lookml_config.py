@@ -232,6 +232,14 @@ class LookMLSourceConfig(
         "which specific fields are causing issues while still getting lineage for working fields.",
     )
 
+    max_workers_for_parallel_processing: int = Field(
+        10,
+        description=(
+            "Maximum number of worker threads to use for parallel processing of field chunks and individual fields. "
+            "Set to 1 to process everything sequentially. Higher values can improve performance but may increase memory usage."
+        ),
+    )
+
     @model_validator(mode="before")
     @classmethod
     def convert_string_to_connection_def(cls, values: Dict[str, Any]) -> Dict[str, Any]:
