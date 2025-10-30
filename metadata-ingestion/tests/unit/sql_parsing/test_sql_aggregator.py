@@ -1400,7 +1400,7 @@ def test_empty_column_in_query_subjects_only_column_usage(
         ),
     )
 
-    # Simulate table name from customer: production.dsd_digital_private.gsheets_legacy_views
+    # Simulate table name from user: production.dsd_digital_private.gsheets_legacy_views
     upstream_urn = DatasetUrn(
         "snowflake", "production.dsd_digital_private.gsheets_legacy_views"
     ).urn()
