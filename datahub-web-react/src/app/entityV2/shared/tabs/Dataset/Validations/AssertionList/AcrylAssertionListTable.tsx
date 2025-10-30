@@ -1,10 +1,11 @@
-import { TableProps } from 'antd';
-import { SorterResult } from 'antd/es/table/interface';
 import ResizeObserver from 'rc-resize-observer';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { StyledTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTable';
+import { Pagination } from '@components/components/Pagination';
+import { Table } from '@components/components/Table';
+import { SortingState } from '@components/components/Table/types';
+
 import { useAssertionsTableColumns } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
 import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { mapAssertionDataToTableProperties } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
@@ -18,7 +19,7 @@ import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Valida
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
 
-const HEADER_AND_PAGINATION_HEIGHT_PX = 104;
+const HEADER_AND_PAGINATION_HEIGHT_PX = 54;
 
 const TableContainer = styled.div`
     overflow: hidden;
@@ -39,7 +40,7 @@ type Props = {
     pageSize: number;
     totalAssertions: number;
     loading: boolean;
-    onSortColumnChange: (sorter: SorterResult<AssertionListTableRow>) => void;
+    onSortColumnChange: (sorter: { sortColumn: string; sortOrder: SortingState }) => void;
 };
 
 export const AcrylAssertionListTable = ({
@@ -101,53 +102,45 @@ export const AcrylAssertionListTable = ({
 
     const assertionRows = mapAssertionDataToTableProperties(assertions);
 
-    const handleRowClick = useCallback(
-        (record) => {
-            return {
-                onClick: () => {
-                    setFocusAssertionUrn(record.urn);
-                },
-            };
-        },
-        [setFocusAssertionUrn],
-    );
+    const handleRowClick = useCallback((record: AssertionListTableRow) => {
+        setFocusAssertionUrn(record.urn);
+    }, []);
 
-    const handleTableChange: TableProps<AssertionListTableRow>['onChange'] = (_, __, sorter) => {
-        if (sorter && Object.keys(sorter).length && !Array.isArray(sorter)) {
-            onSortColumnChange(sorter as SorterResult<AssertionListTableRow>);
-        }
-    };
+    const handleSortColumnChange = useCallback(
+        ({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) => {
+            onSortColumnChange({ sortColumn, sortOrder });
+        },
+        [onSortColumnChange],
+    );
 
     return (
         <TableContainer>
             <ResizeObserver
                 onResize={(dimensions) => setTableHeight(dimensions.height - HEADER_AND_PAGINATION_HEIGHT_PX)}
             >
-                <StyledTable<AssertionListTableRow>
-                    columns={assertionsTableCols}
-                    showSelect
-                    dataSource={assertionRows}
-                    showHeader
-                    scroll={{
-                        y: tableHeight,
-                    }}
-                    pagination={{
-                        current: page,
-                        pageSize,
-                        total: totalAssertions,
-                        position: ['bottomCenter'],
-                        showSizeChanger: false,
-                        onChange: (newPage) => {
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <Table<AssertionListTableRow>
+                        columns={assertionsTableCols}
+                        data={assertionRows}
+                        showHeader
+                        isLoading={loading}
+                        isScrollable
+                        maxHeight={`${tableHeight}px`}
+                        onRowClick={handleRowClick}
+                        rowClassName={rowClassName}
+                        handleSortColumnChange={handleSortColumnChange}
+                        rowKey="urn"
+                    />
+                    <Pagination
+                        currentPage={page}
+                        itemsPerPage={pageSize}
+                        total={totalAssertions}
+                        onPageChange={(newPage) => {
                             setPage(newPage);
-                        },
-                    }}
-                    rowClassName={rowClassName}
-                    bordered={false}
-                    onRow={handleRowClick}
-                    tableLayout="fixed"
-                    loading={loading}
-                    onChange={handleTableChange}
-                />
+                        }}
+                        loading={loading}
+                    />
+                </div>
             </ResizeObserver>
             {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer

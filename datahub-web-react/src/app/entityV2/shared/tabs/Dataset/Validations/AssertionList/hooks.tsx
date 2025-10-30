@@ -1,5 +1,5 @@
+import { Column } from '@components';
 import { Tooltip, Typography } from 'antd';
-import { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
@@ -60,7 +60,7 @@ export const useAssertionsTableColumns = ({
     isEntityReachable: boolean;
 }) => {
     const renderAssertionName = useCallback(
-        (_, record: AssertionListTableRow) => (
+        (record: AssertionListTableRow) => (
             <AssertionName
                 key={record.urn}
                 assertion={record.assertion}
@@ -75,14 +75,14 @@ export const useAssertionsTableColumns = ({
     );
 
     const renderCategory = useCallback(
-        (_, record: AssertionListTableRow) =>
+        (record: AssertionListTableRow) =>
             !record.groupName &&
             record?.type && <CategoryType key={record.urn}>{getAssertionGroupName(record.type)}</CategoryType>,
         [],
     );
 
     const renderLastRun = useCallback(
-        (_, record: AssertionListTableRow) =>
+        (record: AssertionListTableRow) =>
             !record.groupName && (
                 <Tooltip placement="topLeft" title={dayjs(record.lastEvaluationTimeMs).format(DEFAULT_DATETIME_FORMAT)}>
                     <LastRun key={record.urn}>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>
@@ -92,13 +92,13 @@ export const useAssertionsTableColumns = ({
     );
 
     const renderTags = useCallback(
-        (_, record: AssertionListTableRow) =>
+        (record: AssertionListTableRow) =>
             !record.groupName && <AcrylAssertionTagColumn key={record.urn} record={record} refetch={refetch} />,
         [refetch],
     );
 
     const renderActions = useCallback(
-        (_, record: AssertionListTableRow) => {
+        (record: AssertionListTableRow) => {
             const isSqlAssertion = record.type === AssertionType.Sql;
             return (
                 !record.groupName && (
@@ -122,16 +122,13 @@ export const useAssertionsTableColumns = ({
     );
 
     return useMemo(() => {
-        const columns: ColumnsType<AssertionListTableRow> = [
+        const columns: Column<AssertionListTableRow>[] = [
             {
                 title: 'Name',
                 dataIndex: 'name',
                 key: 'name',
                 render: renderAssertionName,
                 width: '35%',
-                ellipsis: {
-                    showTitle: false,
-                },
             },
             {
                 title: 'Category',
@@ -140,9 +137,6 @@ export const useAssertionsTableColumns = ({
                 render: renderCategory,
                 width: '12%',
                 sorter: true,
-                ellipsis: {
-                    showTitle: false,
-                },
             },
             {
                 title: 'Last Run',
@@ -151,10 +145,6 @@ export const useAssertionsTableColumns = ({
                 render: renderLastRun,
                 width: '20%',
                 sorter: true,
-                defaultSortOrder: 'descend',
-                ellipsis: {
-                    showTitle: false,
-                },
             },
             {
                 title: 'Tags',
@@ -162,9 +152,6 @@ export const useAssertionsTableColumns = ({
                 key: 'tags',
                 width: '18%',
                 render: renderTags,
-                ellipsis: {
-                    showTitle: false,
-                },
             },
             {
                 title: '',
@@ -172,7 +159,7 @@ export const useAssertionsTableColumns = ({
                 key: 'actions',
                 width: '15%',
                 render: renderActions,
-                fixed: 'right',
+                alignment: 'right',
             },
         ];
 

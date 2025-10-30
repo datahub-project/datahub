@@ -1,7 +1,8 @@
 import { Empty, message } from 'antd';
-import { SorterResult } from 'antd/es/table/interface';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { SortingState } from '@components/components/Table/types';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -11,14 +12,12 @@ import { AssertionListTitleContainer } from '@app/entityV2/shared/tabs/Dataset/V
 import { ASSERTION_DEFAULT_FILTERS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
 import {
     AssertionListFilter,
-    AssertionListTableRow,
     EntityStagedForAssertion,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { AssertionWithMonitorDetails } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionMonitorBuilderDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/AssertionMonitorBuilderDrawer';
 import { useOpenAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import { TIME_RANGE_OPTIONS } from '@app/observe/dataset/assertion/AssertionsByAssertionSummary.utils';
 import { LAST_ASSERTION_RUN_AT_SORT_FIELD } from '@app/observe/dataset/assertion/constants';
 import {
     ASSERTION_SOURCE_FILTER_NAME,
@@ -184,7 +183,6 @@ export const AcrylAssertionList = () => {
     });
 
     const orFilters: AndFilterInput[] = buildOrFilters(selectedFilters, entityData, isHideSiblingMode, urn);
-    const runEventTimeRange = TIME_RANGE_OPTIONS[1]; // Last 7 days
     const start = (page - 1) * DEFAULT_ASSERTION_PAGE_SIZE;
     const { searchText } = selectedFilters.filterCriteria;
     const {
@@ -207,11 +205,9 @@ export const AcrylAssertionList = () => {
                     },
                 },
             },
-            runEventsStart: runEventTimeRange.start,
-            runEventsEnd: runEventTimeRange.end,
             runEventsLimit: 1, // Only need a single run event
         },
-        fetchPolicy: 'cache-first',
+        fetchPolicy: 'cache-and-network',
     });
 
     const assertionMonitorData: AssertionWithMonitorDetails[] =
@@ -244,14 +240,22 @@ export const AcrylAssertionList = () => {
         setSelectedFilters(filter);
     };
 
-    const handleSortColumnChange = (sorter: SorterResult<AssertionListTableRow>) => {
+    const handleSortColumnChange = ({
+        sortColumn,
+        sortOrder: sortOrderParam,
+    }: {
+        sortColumn: string;
+        sortOrder: SortingState;
+    }) => {
         let newSortOrder: SortOrder | null = null;
-        if (sorter.order === 'ascend') {
+        if (sortOrderParam === SortingState.ASCENDING) {
             newSortOrder = SortOrder.Ascending;
-        } else if (sorter.order === 'descend') {
+        } else if (sortOrderParam === SortingState.DESCENDING) {
             newSortOrder = SortOrder.Descending;
+        } else {
+            newSortOrder = null;
         }
-        setSortField(convertSortFieldToQueryField(sorter.field as string));
+        setSortField(convertSortFieldToQueryField(sortColumn));
         setSortOrder(newSortOrder);
     };
 
@@ -288,6 +292,7 @@ export const AcrylAssertionList = () => {
                 setSelectedFilters={setSelectedFilters}
                 handleFilterChange={handleFilterChange}
                 totalAssertionCount={totalAssertions}
+                facets={searchResults?.searchAcrossEntities?.facets || undefined}
             />
             {isLoading && !hasPreviousResults ? <TableLoadingSkeleton /> : null}
             {!isLoading && !hasResults && !hasUserAppliedRefinements ? (

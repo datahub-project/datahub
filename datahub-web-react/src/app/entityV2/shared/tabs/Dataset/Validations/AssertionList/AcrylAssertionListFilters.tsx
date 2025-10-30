@@ -15,6 +15,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { extractFilterOptionListFromAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
 import { AssertionWithMonitorDetails } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { FacetMetadata } from '@src/types.generated';
 
 interface FilterItem {
     name: string;
@@ -29,6 +30,7 @@ interface AcrylAssertionListFiltersProps {
     selectedFilters: any;
     handleFilterChange: (filter: any) => void;
     totalAssertionCount: number;
+    facets?: FacetMetadata[];
 }
 
 const SearchFilterContainer = styled.div`
@@ -59,8 +61,9 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     selectedFilters,
     setSelectedFilters,
     totalAssertionCount,
+    facets,
 }) => {
-    const filterOptions = extractFilterOptionListFromAssertions(filteredAssertions);
+    const filterOptions = extractFilterOptionListFromAssertions(filteredAssertions, facets);
     const [appliedRecommendedFilters, setAppliedRecommendedFilters] = useState<AssertionRecommendedFilter[]>([]);
 
     const handleSearchTextChange = (searchText: string) => {
