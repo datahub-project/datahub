@@ -1,4 +1,4 @@
-import { WarningOutlined } from '@ant-design/icons';
+import { TreeStructure } from '@phosphor-icons/react';
 import React from 'react';
 
 import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
@@ -13,7 +13,7 @@ export class HasAssetLevelLineageRenderer implements FilterRenderer {
 
     render = (props: FilterRenderProps) => <HasAssetLevelLineageFilter {...props} icon={this.icon()} />;
 
-    icon = () => <WarningOutlined />;
+    icon = () => <TreeStructure />;
 
     valueLabel = (value: string) => {
         if (value === 'true') {
