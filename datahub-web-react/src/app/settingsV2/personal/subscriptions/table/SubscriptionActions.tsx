@@ -21,18 +21,10 @@ const ActionList = styled.div<{ $shouldRightAlign?: boolean }>`
 type Props = {
     subscription: DataHubSubscription;
     refetchListSubscriptions: () => void;
-    isPersonal: boolean;
-    groupUrn?: string;
     shouldRightAlign?: boolean;
 };
 
-export const SubscriptionActions = ({
-    subscription,
-    refetchListSubscriptions,
-    isPersonal,
-    groupUrn,
-    shouldRightAlign,
-}: Props) => {
+export const SubscriptionActions = ({ subscription, refetchListSubscriptions, shouldRightAlign }: Props) => {
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
     const handleMenuClick = () => {
@@ -46,8 +38,6 @@ export const SubscriptionActions = ({
                 <EditSubscriptionAction
                     subscription={subscription}
                     refetchListSubscriptions={refetchListSubscriptions}
-                    isPersonal={isPersonal}
-                    groupUrn={groupUrn}
                     isExpandedView
                     onActionTriggered={handleMenuClick}
                 />
@@ -59,7 +49,6 @@ export const SubscriptionActions = ({
                 <DeleteSubscriptionAction
                     subscription={subscription}
                     refetchListSubscriptions={refetchListSubscriptions}
-                    isPersonal={isPersonal}
                     isExpandedView
                     onActionTriggered={handleMenuClick}
                 />

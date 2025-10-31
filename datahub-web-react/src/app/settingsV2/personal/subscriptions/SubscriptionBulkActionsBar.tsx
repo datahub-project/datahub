@@ -5,7 +5,7 @@ import { SubscriptionDeleteBulkActionsBarItem } from '@app/settingsV2/personal/s
 import { SubscriptionEditEventsBulkActionsBarItem } from '@app/settingsV2/personal/subscriptions/SubscriptionEditEventsBulkActionsBarItem';
 import { SubscriptionSelectAllBulkActionsBarItem } from '@app/settingsV2/personal/subscriptions/SubscriptionSelectAllBulkActionsBarItem';
 import { SubscriptionListFilter } from '@app/settingsV2/personal/subscriptions/types';
-import { Text } from '@src/alchemy-components';
+import { Icon, Text } from '@src/alchemy-components';
 
 import { AndFilterInput } from '@types';
 
@@ -33,18 +33,13 @@ const SelectedContainer = styled.div`
     display: flex;
     align-items: center;
     gap: 4px;
-`;
-
-const StyledIcon = styled.span`
-    cursor: pointer;
-    font-size: 16px;
-    color: #8088a3;
+    justify-content: center;
 `;
 
 interface Props {
     selectedUrns: string[];
     setSelectedUrns: React.Dispatch<React.SetStateAction<string[]>>;
-    refetch: () => void;
+    refetch: (urnsToExclude?: string[]) => void;
     isPersonal: boolean;
     hasPagination?: boolean;
     selectedFilters: SubscriptionListFilter;
@@ -70,14 +65,23 @@ export const SubscriptionBulkActionsBar = ({
         <ActionsContainer $hasPagination={hasPagination}>
             <SelectedContainer>
                 <Text color="gray">{`${selectedUrns.length} Selected`}</Text>
-                <StyledIcon onClick={() => setSelectedUrns([])}>✕</StyledIcon>
+                <Icon
+                    icon="X"
+                    source="phosphor"
+                    size="md"
+                    color="gray"
+                    onClick={() => setSelectedUrns([])}
+                    style={{ cursor: 'pointer' }}
+                />
             </SelectedContainer>
-            <SubscriptionSelectAllBulkActionsBarItem
-                selectedFilters={selectedFilters}
-                orFilters={orFilters}
-                setSelectedUrns={setSelectedUrns}
-                totalSubscriptionsCount={totalSubscriptionsCount}
-            />
+            {totalSubscriptionsCount > selectedUrns.length && (
+                <SubscriptionSelectAllBulkActionsBarItem
+                    selectedFilters={selectedFilters}
+                    orFilters={orFilters}
+                    setSelectedUrns={setSelectedUrns}
+                    totalSubscriptionsCount={totalSubscriptionsCount}
+                />
+            )}
             <SubscriptionEditEventsBulkActionsBarItem
                 selectedUrns={selectedUrns}
                 setSelectedUrns={setSelectedUrns}

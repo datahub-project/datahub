@@ -23,7 +23,7 @@ const ChannelsContainer = styled.div`
     gap: 8px;
 `;
 
-const SlackChannelContainer = styled.div`
+const ChannelContainer = styled.div`
     display: inline-flex;
     align-items: center;
     width: fit-content;
@@ -37,20 +37,8 @@ const SlackIcon = styled(SlackOutlined)`
     font-size: 16px;
 `;
 
-const EmailContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-`;
-
 const EmailIcon = styled(MailOutlined)`
     font-size: 16px;
-`;
-
-const TeamsChannelContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
 `;
 
 const TeamsIcon = styled.img`
@@ -78,10 +66,10 @@ const SlackColumn = ({
     if (shouldUseHandle) {
         if (!userHandle) return null;
         return (
-            <SlackChannelContainer>
+            <ChannelContainer>
                 <SlackIcon />
                 <Typography.Text>{userHandle}</Typography.Text>
-            </SlackChannelContainer>
+            </ChannelContainer>
         );
     }
 
@@ -90,10 +78,10 @@ const SlackColumn = ({
         <>
             {channels.map((channel) => {
                 return (
-                    <SlackChannelContainer key={channel}>
+                    <ChannelContainer key={channel}>
                         <SlackIcon />
                         <Typography.Text>{channel}</Typography.Text>
-                    </SlackChannelContainer>
+                    </ChannelContainer>
                 );
             })}
         </>
@@ -112,10 +100,10 @@ const TeamsColumn = ({
     if (shouldUseDisplayName) {
         if (!teamsUserDisplayName) return null;
         return (
-            <TeamsChannelContainer>
+            <ChannelContainer>
                 <TeamsIcon src={teamsLogo} alt="Teams" />
                 <Typography.Text>{teamsUserDisplayName}</Typography.Text>
-            </TeamsChannelContainer>
+            </ChannelContainer>
         );
     }
     if (!teamsChannels?.length) return null;
@@ -123,10 +111,10 @@ const TeamsColumn = ({
         <>
             {teamsChannels.map((channel) => {
                 return (
-                    <TeamsChannelContainer key={channel.id}>
+                    <ChannelContainer key={channel.id}>
                         <TeamsIcon src={teamsLogo} alt="Teams" />
                         <Typography.Text>{channel.name || channel.id}</Typography.Text>
-                    </TeamsChannelContainer>
+                    </ChannelContainer>
                 );
             })}
         </>
@@ -136,14 +124,19 @@ const TeamsColumn = ({
 const EmailColumn = ({ email }: { email: string | undefined }) => {
     if (!email) return null;
     return (
-        <EmailContainer>
+        <ChannelContainer>
             <EmailIcon />
             <Typography.Text>{email}</Typography.Text>
-        </EmailContainer>
+        </ChannelContainer>
     );
 };
 
-const ChannelColumn = ({ subscription, actorUrn, actorNotificationSettings, ownedAndMemberGroup }: Props) => {
+const SubscriptionsChannelColumn = ({
+    subscription,
+    actorUrn,
+    actorNotificationSettings,
+    ownedAndMemberGroup,
+}: Props) => {
     const mergedNotificationSettings = getMergedNotificationSettingsForSubscription(
         subscription,
         ownedAndMemberGroup,
@@ -184,4 +177,4 @@ const ChannelColumn = ({ subscription, actorUrn, actorNotificationSettings, owne
     );
 };
 
-export default ChannelColumn;
+export default SubscriptionsChannelColumn;

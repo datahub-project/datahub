@@ -183,7 +183,6 @@ export const SubscribeMenuAction = () => {
 
     const deleteSubscription = useDeleteSubscription({
         subscription,
-        isPersonal,
         onDeleteSuccess: () => setIsUserSubscribed(false),
         onRefetch: refetch,
     });

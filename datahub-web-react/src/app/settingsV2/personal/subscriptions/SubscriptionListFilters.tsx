@@ -21,6 +21,7 @@ const SearchFilterContainer = styled.div`
     display: flex;
     gap: 12px;
     justify-content: space-between;
+    margin-bottom: 16px;
 `;
 
 const FilterOptionsWrapper = styled.div`

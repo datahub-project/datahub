@@ -16,7 +16,7 @@ interface Props {
     subscription: DataHubSubscription;
 }
 
-export function UpstreamsColumn({ subscription }: Props) {
+const SubscriptionsUpstreamsColumn = ({ subscription }: Props) => {
     const isSubscribedToUpstreams: boolean = subscription.subscriptionTypes.includes(
         SubscriptionType.UpstreamEntityChange,
     );
@@ -26,4 +26,6 @@ export function UpstreamsColumn({ subscription }: Props) {
             {isSubscribedToUpstreams ? <CheckCircleFilled /> : <StopOutlined />}
         </UpstreamsColumnContainer>
     );
-}
+};
+
+export default SubscriptionsUpstreamsColumn;

@@ -49,7 +49,7 @@ const ErrorItem = styled.div`
 interface Props {
     selectedUrns: string[];
     setSelectedUrns: React.Dispatch<React.SetStateAction<string[]>>;
-    refetch: () => void;
+    refetch: (urnsToExclude?: string[]) => void;
     isPersonal: boolean;
 }
 
@@ -58,12 +58,12 @@ export const SubscriptionDeleteBulkActionsBarItem = ({ selectedUrns, setSelected
     const { bulkDeleteSubscriptionsByUrns, progress, resetProgress } = useBulkDeleteSubscriptions();
 
     const handleCancel = () => {
-        setShowDeleteModal(false);
         resetProgress();
         // Keep failed subscriptions selected
         if (progress.failed.length > 0) {
             setSelectedUrns(progress.failed.map((f) => f.urn));
         }
+        setShowDeleteModal(false);
     };
 
     const handleDelete = async () => {
@@ -78,10 +78,10 @@ export const SubscriptionDeleteBulkActionsBarItem = ({ selectedUrns, setSelected
     };
 
     const handleCloseAfterSuccess = () => {
-        setShowDeleteModal(false);
         resetProgress();
+        refetch(selectedUrns);
         setSelectedUrns([]);
-        refetch();
+        setShowDeleteModal(false);
     };
 
     const progressPercentage = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;

@@ -6,12 +6,11 @@ import { DataHubSubscription } from '@types';
 
 type Props = {
     subscription?: DataHubSubscription;
-    isPersonal: boolean;
     onDeleteSuccess?: () => void;
     onRefetch?: () => void;
 };
 
-const useDeleteSubscription = ({ subscription, isPersonal, onDeleteSuccess, onRefetch }: Props) => {
+const useDeleteSubscription = ({ subscription, onDeleteSuccess, onRefetch }: Props) => {
     const [deleteSubscription] = useDeleteSubscriptionMutation();
     const { theme } = useCustomTheme();
 
@@ -19,7 +18,6 @@ const useDeleteSubscription = ({ subscription, isPersonal, onDeleteSuccess, onRe
         if (subscription?.subscriptionUrn)
             deleteSubscriptionFunction({
                 subscription,
-                isPersonal,
                 deleteSubscription,
                 onSuccess: onDeleteSuccess,
                 onRefetch,

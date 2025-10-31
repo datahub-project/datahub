@@ -349,19 +349,18 @@ export const getTreeDataForEntity = (entityType: string, maybeContext?: NodeRend
 
 export const deleteSubscriptionFunction = ({
     subscription,
-    isPersonal,
     deleteSubscription,
     onSuccess,
     onRefetch,
     theme,
 }: {
     subscription: DataHubSubscription;
-    isPersonal: boolean;
     deleteSubscription: ReturnType<typeof useDeleteSubscriptionMutation>[0];
     onSuccess?: () => void;
     onRefetch?: () => void;
     theme?: Theme;
 }) => {
+    const isGroupSubscription = subscription.actor?.__typename === 'CorpGroup';
     deleteSubscription({
         variables: {
             input: { subscriptionUrn: subscription.subscriptionUrn },
@@ -381,12 +380,12 @@ export const deleteSubscriptionFunction = ({
                 entityUrn: subscription.entity.urn,
                 entityType: subscription.entity.type,
                 entityChangeTypes: subscription.entityChangeTypes.map((changeType) => changeType.entityChangeType),
-                actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
+                actorType: isGroupSubscription ? ActorTypes.GROUP : ActorTypes.PERSONAL,
                 sinkTypes: subscription.notificationConfig?.notificationSettings?.sinkTypes ?? [],
             });
-            const description = isPersonal
-                ? 'You have unsubscribed from this entity.'
-                : 'You have unsubscribed your group from this entity.';
+            const description = isGroupSubscription
+                ? 'You have unsubscribed your group from this entity.'
+                : 'You have unsubscribed from this entity.';
             notification.success({
                 message: `Success`,
                 description,
@@ -403,7 +402,7 @@ export const deleteSubscriptionFunction = ({
                 entityUrn: subscription.entity.urn,
                 entityType: subscription.entity.type,
                 entityChangeTypes: subscription.entityChangeTypes.map((changeType) => changeType.entityChangeType),
-                actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
+                actorType: isGroupSubscription ? ActorTypes.GROUP : ActorTypes.PERSONAL,
                 sinkTypes: subscription.notificationConfig?.notificationSettings?.sinkTypes ?? [],
             });
             message.destroy();

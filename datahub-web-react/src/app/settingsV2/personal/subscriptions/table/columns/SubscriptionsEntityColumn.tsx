@@ -1,4 +1,3 @@
-import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -9,7 +8,7 @@ import { IconStyleType } from '@app/entity/Entity';
 import { SEPARATE_SIBLINGS_URL_PARAM } from '@app/entity/shared/siblingUtils';
 import ContextPath from '@app/previewV2/ContextPath';
 import { getParentEntities } from '@app/searchV2/filters/utils';
-import { getEntityNameAndLogo } from '@app/settingsV2/personal/utils';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { BrowsePathV2, DataHubSubscription, EntityType, Maybe } from '@types';
@@ -42,27 +41,23 @@ const EntityNameText = styled(Typography.Text)`
     font-weight: 500;
 `;
 
+const ICON_SIZE_PX = 17;
+
 interface Props {
     subscription: DataHubSubscription;
 }
 
-export function EntityColumn({ subscription }: Props) {
+const SubscriptionsEntityColumn = ({ subscription }: Props) => {
     const { entity, urn } = subscription;
     const entityRegistry = useEntityRegistry();
     const entityType: EntityType = entity.type;
     const entityUrn: string = entity.urn;
     const entityName: string = entityRegistry.getDisplayName(entityType, entity);
     const entityUrl = `${entityRegistry.getEntityUrl(entityType, entityUrn)}?${SEPARATE_SIBLINGS_URL_PARAM}=true`;
-    const { label: platformTypeDisplayName, icon: platformIcon } = getEntityNameAndLogo(
-        entity,
-        entityType,
-        entityRegistry,
-    );
-    const hasIcon = platformIcon?.props?.src?.length;
-    let defaultIcon: JSX.Element | null = null;
-    if (!hasIcon) {
-        defaultIcon = entityRegistry.getIcon(entityType, 28, IconStyleType.HIGHLIGHT);
-    }
+    const genericProps = entityRegistry.getGenericEntityProperties(entityType, entity);
+    const platform = genericProps?.platform;
+    const logoUrl = platform?.properties?.logoUrl;
+    const label = entityRegistry.getDisplayName(EntityType.DataPlatform, platform);
     const browsePath: Maybe<BrowsePathV2> | undefined =
         'browsePathV2' in entity ? (entity.browsePathV2 as Maybe<BrowsePathV2> | undefined) : undefined;
 
@@ -70,7 +65,11 @@ export function EntityColumn({ subscription }: Props) {
     return (
         <ContentContainer>
             <PlatformTypeContainer>
-                <Tooltip overlay={platformTypeDisplayName}>{hasIcon ? platformIcon : defaultIcon}</Tooltip>
+                {logoUrl ? (
+                    <PlatformIcon alt={label} customLogoUrl={logoUrl} size={ICON_SIZE_PX} platform={null} />
+                ) : (
+                    entityRegistry.getIcon(entityType, ICON_SIZE_PX, IconStyleType.HIGHLIGHT)
+                )}
             </PlatformTypeContainer>
             <EntityNameContainer>
                 <Link
@@ -99,4 +98,6 @@ export function EntityColumn({ subscription }: Props) {
             </EntityNameContainer>
         </ContentContainer>
     );
-}
+};
+
+export default SubscriptionsEntityColumn;

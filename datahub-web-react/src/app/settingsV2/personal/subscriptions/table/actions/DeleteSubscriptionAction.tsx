@@ -19,8 +19,7 @@ const StyledDeleteOutlined = styled(DeleteOutlined)`
 
 type Props = {
     subscription: DataHubSubscription;
-    refetchListSubscriptions: () => void;
-    isPersonal: boolean;
+    refetchListSubscriptions: (urnsToExclude?: string[]) => void;
     isExpandedView?: boolean;
     onActionTriggered?: () => void;
 };
@@ -28,14 +27,15 @@ type Props = {
 export const DeleteSubscriptionAction = ({
     subscription,
     refetchListSubscriptions,
-    isPersonal,
     isExpandedView = false,
     onActionTriggered,
 }: Props) => {
+    const handleRefetch = () => {
+        refetchListSubscriptions([subscription.urn]);
+    };
     const deleteSubscription = useDeleteSubscription({
         subscription,
-        isPersonal,
-        onRefetch: refetchListSubscriptions,
+        onRefetch: handleRefetch,
     });
 
     const onDeleteSubscription = () => {
@@ -56,12 +56,10 @@ export const DeleteSubscriptionAction = ({
         });
     };
 
-    const authorizedTip = 'Delete this subscription';
-
     return (
         <ActionItem
             key="delete-subscription"
-            tip={authorizedTip}
+            tip="Delete this subscription"
             disabled={false}
             onClick={onDeleteSubscription}
             icon={<StyledDeleteOutlined />}

@@ -111,7 +111,7 @@ export const SubscriptionSelectAllBulkActionsBarItem = ({
     };
 
     return (
-        <Button variant="filled" onClick={handleSelectAll} isLoading={isLoading} disabled={isLoading}>
+        <Button variant="secondary" onClick={handleSelectAll} isLoading={isLoading} disabled={isLoading}>
             Select All ({totalSubscriptionsCount})
         </Button>
     );

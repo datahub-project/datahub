@@ -19,12 +19,21 @@ import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Valida
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
 
-const HEADER_AND_PAGINATION_HEIGHT_PX = 54;
+const HEADER_AND_PAGINATION_HEIGHT_PX = 46;
 
 const TableContainer = styled.div`
     overflow: hidden;
     height: 100%;
     max-height: 100%;
+`;
+
+const TableWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    .acryl-assertion-list-table-pagination {
+        margin-bottom: 0;
+    }
 `;
 
 type Props = {
@@ -118,7 +127,7 @@ export const AcrylAssertionListTable = ({
             <ResizeObserver
                 onResize={(dimensions) => setTableHeight(dimensions.height - HEADER_AND_PAGINATION_HEIGHT_PX)}
             >
-                <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <TableWrapper>
                     <Table<AssertionListTableRow>
                         columns={assertionsTableCols}
                         data={assertionRows}
@@ -139,8 +148,9 @@ export const AcrylAssertionListTable = ({
                             setPage(newPage);
                         }}
                         loading={loading}
+                        className="acryl-assertion-list-table-pagination"
                     />
-                </div>
+                </TableWrapper>
             </ResizeObserver>
             {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer

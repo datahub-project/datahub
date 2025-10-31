@@ -1,29 +1,27 @@
-import { PageTitle } from '@components';
-import { Pagination, Typography } from 'antd';
+import { PageTitle, Pagination } from '@components';
+import { Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { Checkbox } from '@components/components/Checkbox';
 import { Column, Table } from '@components/components/Table';
 
-import analytics from '@app/analytics';
-import { EventType } from '@app/analytics/event';
 import { useUserContext } from '@app/context/useUserContext';
 import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settingsV2/personal/notifications/constants';
 import { SubscriptionBulkActionsBar } from '@app/settingsV2/personal/subscriptions/SubscriptionBulkActionsBar';
 import { SubscriptionListFilters } from '@app/settingsV2/personal/subscriptions/SubscriptionListFilters';
 import { SUBSCRIPTION_DEFAULT_FILTERS } from '@app/settingsV2/personal/subscriptions/constants';
-import ChannelColumn from '@app/settingsV2/personal/subscriptions/table/ChannelColumn';
-import { EntityChangeTypesColumn } from '@app/settingsV2/personal/subscriptions/table/EntityChangeTypesColumn';
-import { EntityColumn } from '@app/settingsV2/personal/subscriptions/table/EntityColumn';
-import { SubscribedSinceColumn } from '@app/settingsV2/personal/subscriptions/table/SubscribedSinceColumn';
 import { SubscriptionActions } from '@app/settingsV2/personal/subscriptions/table/SubscriptionActions';
-import { UpstreamsColumn } from '@app/settingsV2/personal/subscriptions/table/UpstreamsColumn';
+import SubscriptionsChannelColumn from '@app/settingsV2/personal/subscriptions/table/columns/SubscriptionsChannelColumn';
+import SubscriptionsEntityChangeTypesColumn from '@app/settingsV2/personal/subscriptions/table/columns/SubscriptionsEntityChangeTypesColumn';
+import SubscriptionsEntityColumn from '@app/settingsV2/personal/subscriptions/table/columns/SubscriptionsEntityColumn';
+import SubscriptionsOwnerColumn from '@app/settingsV2/personal/subscriptions/table/columns/SubscriptionsOwnerColumn';
+import SubscriptionsSubscribedSinceColumn from '@app/settingsV2/personal/subscriptions/table/columns/SubscriptionsSubscribedSinceColumn';
+import SubscriptionsUpstreamsColumn from '@app/settingsV2/personal/subscriptions/table/columns/SubscriptionsUpstreamsColumn';
 import { SubscriptionListFilter } from '@app/settingsV2/personal/subscriptions/types';
 import { scrollToTop } from '@app/shared/searchUtils';
 import useActorSinkSettings from '@app/shared/subscribe/drawer/useSinkSettings';
-import ActorPill from '@app/sharedV2/owners/ActorPill';
 
 import { useGetOwnedGroupsQuery } from '@graphql/group.generated';
 import { useSearchSubscriptionsQuery } from '@graphql/subscriptions.generated';
@@ -69,21 +67,6 @@ const EmptySubscriptionsText = styled(Typography.Text)`
     color: #595959;
 `;
 
-const PaginationContainer = styled.div`
-    display: flex;
-    justify-content: center;
-`;
-
-const StyledPagination = styled(Pagination)`
-    margin: 16px;
-`;
-
-const OwnerContainer = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: start;
-`;
-
 const SubscriptionListContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -101,15 +84,18 @@ const SubscriptionContentWrapper = styled.div`
     flex-direction: column;
     overflow: hidden;
     min-height: 0;
-    gap: 20px;
 `;
 
+const StyledPagination = styled(Pagination)`
+    margin-bottom: 0;
+`;
 const NUM_GROUP_URNS_TO_FETCH = 100;
 
 const buildOrFilters = (
     selectedFilters: SubscriptionListFilter,
     urn: string,
     groupUrns: string[],
+    excludedSubscriptionUrns: string[] = [],
 ): AndFilterInput[] => {
     const filters: FacetFilterInput[] = [];
     // Add other filters
@@ -148,6 +134,15 @@ const buildOrFilters = (
             field: 'entityChangeTypes',
             values: eventType,
             condition: FilterOperator.Equal,
+        });
+    }
+
+    if (excludedSubscriptionUrns.length > 0) {
+        filters.push({
+            field: 'subscriptionUrn',
+            values: excludedSubscriptionUrns,
+            condition: FilterOperator.Equal,
+            negated: true,
         });
     }
 
@@ -235,39 +230,73 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
     const orFilters = buildOrFilters(selectedFilters, actorUrn, groupUrns);
     const { searchText } = selectedFilters.filterCriteria;
     const start = (page - 1) * PAGE_SIZE;
+    const searchVariables = {
+        types: [EntityType.Subscription],
+        query: searchText || '*',
+        start,
+        count: PAGE_SIZE,
+        orFilters: orFilters.length > 0 ? orFilters : undefined,
+        sortInput: { sortCriterion: { field: 'createdOn', sortOrder: SortOrder.Descending } },
+    };
     const {
         data: searchResults,
         refetch,
         loading: isSubscriptionsLoading,
-        previousData: previousSearchResults,
     } = useSearchSubscriptionsQuery({
-        variables: {
-            input: {
-                types: [EntityType.Subscription],
-                query: searchText || '*',
-                start,
-                count: PAGE_SIZE,
-                orFilters: orFilters.length > 0 ? orFilters : undefined,
-                sortInput: {
-                    sortCriterion: {
-                        field: 'createdOn',
-                        sortOrder: SortOrder.Descending,
-                    },
-                },
-            },
-        },
+        variables: { input: searchVariables },
         skip: isPersonal && (isUserGroupsLoading || isOwnedGroupsLoading),
+        fetchPolicy: 'no-cache',
     });
 
     const subscriptions = (searchResults?.searchAcrossEntities?.searchResults?.map((result) => result.entity) ||
         []) as DataHubSubscription[];
-    const prevSubscriptions = (previousSearchResults?.searchAcrossEntities?.searchResults?.map(
-        (result) => result.entity,
-    ) || []) as DataHubSubscription[];
     const actorUrnFacet = searchResults?.searchAcrossEntities?.facets?.find((facet) => facet.field === 'actorUrn');
     const allSubscriptionOwners: (CorpUser | CorpGroup)[] =
         actorUrnFacet?.aggregations?.map((aggregation) => aggregation.entity as CorpUser | CorpGroup) || [];
     const numSubscriptions = searchResults?.searchAcrossEntities?.total || 0;
+
+    // Adjust page if current page is beyond available pages after deletion
+    // This handles the case where deletions cause the current page to become empty
+    useEffect(() => {
+        if (isSubscriptionsLoading) return; // Don't adjust while loading
+
+        if (numSubscriptions === 0) {
+            // No subscriptions left, go to page 1
+            if (page > 1) {
+                setPage(1);
+            }
+        }
+
+        if (subscriptions.length > 0) {
+            return;
+        }
+
+        if (page > 1) {
+            // Current page is empty but there are still subscriptions elsewhere
+            // This happens when all items on the current page are deleted
+            const maxPage = Math.ceil(numSubscriptions / PAGE_SIZE);
+            if (page > maxPage) {
+                // Navigate to the last valid page
+                setPage(maxPage);
+            } else if (maxPage >= 1) {
+                // If we're on a page that should have items but doesn't,
+                // go to the previous page (or page 1 if we're already on page 2)
+                const newPage = Math.max(1, page - 1);
+                setPage(newPage);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isSubscriptionsLoading, numSubscriptions, subscriptions.length, page, refetch]);
+
+    /**
+     * This function needs to be invoked after bulk deleting subscriptions, as
+     * the filtration of deleted subscriptions happens in the graphql layer,
+     * resulting in the current page having fewer than PAGE_SIZE subscriptions.
+     */
+    const refetchExcludingUrns = async (urns?: string[]) => {
+        const newOrFilters = buildOrFilters(selectedFilters, actorUrn, groupUrns, urns);
+        await refetch({ input: { ...searchVariables, orFilters: newOrFilters } });
+    };
 
     const handleFilterChange = (filter: SubscriptionListFilter) => {
         setSelectedFilters(filter);
@@ -295,6 +324,7 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
         {
             title: (
                 <Checkbox
+                    size="xs"
                     isChecked={allCurrentPageSelected}
                     isIntermediate={someCurrentPageSelected && !allCurrentPageSelected}
                     onCheckboxChange={handleSelectAll}
@@ -304,6 +334,7 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
             dataIndex: 'select',
             render: (subscription: DataHubSubscription) => (
                 <Checkbox
+                    size="xs"
                     isChecked={selectedSubscriptionUrns.includes(subscription.subscriptionUrn)}
                     onCheckboxChange={(checked) => {
                         if (checked) {
@@ -322,14 +353,14 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
             title: <ColumnTitle>Name</ColumnTitle>,
             key: 'name',
             dataIndex: 'name',
-            render: (subscription: DataHubSubscription) => <EntityColumn subscription={subscription} />,
+            render: (subscription: DataHubSubscription) => <SubscriptionsEntityColumn subscription={subscription} />,
         },
         {
             title: <ColumnTitle>Destinations</ColumnTitle>,
             key: 'channels',
             dataIndex: 'channels',
             render: (subscription: DataHubSubscription) => (
-                <ChannelColumn
+                <SubscriptionsChannelColumn
                     subscription={subscription}
                     actorUrn={actorUrn}
                     ownedAndMemberGroup={ownedGroups.concat(memberGroups)}
@@ -341,28 +372,15 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
             title: <ColumnTitle>Owner</ColumnTitle>,
             key: 'actorUrn',
             dataIndex: 'actorUrn',
-            render: (subscription: DataHubSubscription) => (
-                <OwnerContainer>
-                    <ActorPill
-                        actor={subscription.actor}
-                        hideLink={false}
-                        isProposed={false}
-                        onClick={() => {
-                            analytics.event({
-                                type: EventType.SubscriptionOwnerClickEvent,
-                                subscriptionUrn: subscription.subscriptionUrn,
-                                ownerUrn: subscription.actor?.urn,
-                            });
-                        }}
-                    />
-                </OwnerContainer>
-            ),
+            render: (subscription: DataHubSubscription) => <SubscriptionsOwnerColumn subscription={subscription} />,
         },
         {
             title: <ColumnTitle>Events</ColumnTitle>,
             key: 'entityChangeTypes',
             dataIndex: 'entityChangeTypes',
-            render: (subscription: DataHubSubscription) => <EntityChangeTypesColumn subscription={subscription} />,
+            render: (subscription: DataHubSubscription) => (
+                <SubscriptionsEntityChangeTypesColumn subscription={subscription} />
+            ),
         },
         ...(ENABLE_UPSTREAM_NOTIFICATIONS
             ? [
@@ -370,27 +388,26 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
                       title: <ColumnTitle>Subscribed to Upstreams</ColumnTitle>,
                       key: 'upstreams',
                       dataIndex: 'upstreams',
-                      render: (subscription: DataHubSubscription) => <UpstreamsColumn subscription={subscription} />,
+                      render: (subscription: DataHubSubscription) => (
+                          <SubscriptionsUpstreamsColumn subscription={subscription} />
+                      ),
                   },
               ]
             : []),
         {
-            title: <ColumnTitle>Subscribed Since</ColumnTitle>,
+            title: <ColumnTitle>Created</ColumnTitle>,
             key: 'since',
             dataIndex: 'since',
-            render: (subscription: DataHubSubscription) => <SubscribedSinceColumn subscription={subscription} />,
+            render: (subscription: DataHubSubscription) => (
+                <SubscriptionsSubscribedSinceColumn subscription={subscription} />
+            ),
         },
         {
             title: '',
             key: 'actions',
             dataIndex: 'actions',
             render: (subscription: DataHubSubscription) => (
-                <SubscriptionActions
-                    subscription={subscription}
-                    refetchListSubscriptions={refetch}
-                    isPersonal={isPersonal}
-                    groupUrn={groupUrn}
-                />
+                <SubscriptionActions subscription={subscription} refetchListSubscriptions={refetch} />
             ),
         },
     ];
@@ -405,10 +422,8 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
     }
 
     const hasResults = subscriptions.length > 0;
-    const hasPreviousResults = prevSubscriptions.length > 0;
     // To avoid the list jumping around, we will display the stale data while
     // refetching the new data
-    const showPreviousResultsWhileRefetching = isSubscriptionsLoading && hasPreviousResults;
     const hasSearchQuery = searchText.trim() !== '';
     const { entity, owner, eventType } = selectedFilters.filterCriteria;
     const hasActiveFilters = entity.length > 0 || owner.length > 0 || eventType.length > 0;
@@ -428,14 +443,13 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
             <SubscriptionBulkActionsBar
                 selectedUrns={selectedSubscriptionUrns}
                 setSelectedUrns={setSelectedSubscriptionUrns}
-                refetch={refetch}
+                refetch={refetchExcludingUrns}
                 isPersonal={isPersonal}
                 hasPagination={numSubscriptions >= PAGE_SIZE}
                 selectedFilters={selectedFilters}
                 orFilters={orFilters}
                 totalSubscriptionsCount={numSubscriptions}
             />
-            {isSubscriptionsLoading && !hasPreviousResults ? <TableLoadingSkeleton /> : null}
             {!isSubscriptionsLoading && !hasResults && !hasUserAppliedRefinements ? (
                 <EmptyContainer>
                     <EmptySimpleSvg />
@@ -453,26 +467,24 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
                     </EmptySubscriptionsText>
                 </EmptyContainer>
             ) : null}
-            {(hasResults || showPreviousResultsWhileRefetching) && (
+            {(subscriptions.length > 0 || isSubscriptionsLoading) && (
                 <>
                     <Table
                         columns={subscriptionTableColumns}
                         isScrollable
-                        data={hasResults ? subscriptions : prevSubscriptions}
-                        isLoading={showPreviousResultsWhileRefetching}
+                        data={subscriptions}
+                        isLoading={isSubscriptionsLoading}
                         rowKey={(record) => record.subscriptionUrn}
                     />
-                    {numSubscriptions >= PAGE_SIZE && (
-                        <PaginationContainer>
-                            <StyledPagination
-                                current={page}
-                                pageSize={PAGE_SIZE}
-                                total={numSubscriptions}
-                                showLessItems
-                                onChange={onChangePage}
-                                showSizeChanger={false}
-                            />
-                        </PaginationContainer>
+                    {(numSubscriptions >= PAGE_SIZE || !isSubscriptionsLoading) && (
+                        <StyledPagination
+                            currentPage={page}
+                            itemsPerPage={PAGE_SIZE}
+                            total={numSubscriptions}
+                            showLessItems
+                            onPageChange={onChangePage}
+                            showSizeChanger={false}
+                        />
                     )}
                 </>
             )}

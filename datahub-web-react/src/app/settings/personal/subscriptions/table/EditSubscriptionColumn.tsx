@@ -44,7 +44,6 @@ export function EditSubscriptionColumn({ subscription, refetchListSubscriptions,
 
     const deleteSubscription = useDeleteSubscription({
         subscription,
-        isPersonal,
         onRefetch: refetchListSubscriptions,
     });
 

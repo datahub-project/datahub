@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { getEntityChangeTypeDisplayName } from '@app/settingsV2/personal/subscriptions/utils';
 import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { DataHubSubscription } from '@types';
 
@@ -14,25 +13,6 @@ const StyledPillContainer = styled.div`
     justify-content: start;
     flex-wrap: wrap;
     gap: 4px;
-`;
-
-const StyledPill = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: ${getColor('gray', 100)};
-    color: ${getColor('gray', 700)};
-    border-radius: 12px;
-    padding: 2px 8px;
-    font-size: 12px;
-    font-family: 'Mulish', sans-serif;
-    font-weight: 500;
-    height: 24px;
-    white-space: nowrap;
-    transition: all 0.2s;
-    &:hover {
-        background-color: ${getColor('gray', 200)};
-    }
 `;
 
 const TooltipTitleWrapper = styled.div`
@@ -48,13 +28,15 @@ const TooltipWrapper = styled.span`
     display: inline-block;
 `;
 
-interface EntityChangeTypesColumnProps {
+interface SubscriptionsEntityChangeTypesColumnProps {
     subscription: DataHubSubscription;
 }
 
 const MAX_CHANGE_TYPES_TO_DISPLAY = 2;
 
-export const EntityChangeTypesColumn: React.FC<EntityChangeTypesColumnProps> = ({ subscription }) => {
+const SubscriptionsEntityChangeTypesColumn: React.FC<SubscriptionsEntityChangeTypesColumnProps> = ({
+    subscription,
+}) => {
     const entityChangeTypes = subscription?.entityChangeTypes?.map((detail) => detail.entityChangeType) || [];
     const totalChangeTypesLength = entityChangeTypes.length;
 
@@ -65,15 +47,11 @@ export const EntityChangeTypesColumn: React.FC<EntityChangeTypesColumnProps> = (
     const remainingChangeTypesCount = totalChangeTypesLength - displayChangeTypes.length;
 
     if (totalChangeTypesLength === 0) {
-        return (
-            <StyledPillContainer>
-                <StyledPill>No change types</StyledPill>
-            </StyledPillContainer>
-        );
+        return null;
     }
 
-    const changeTypesPreview = (
-        <>
+    return (
+        <StyledPillContainer>
             {displayChangeTypes.map((changeType) => (
                 <Pill variant="outline" label={getEntityChangeTypeDisplayName(changeType)} key={changeType} />
             ))}
@@ -97,8 +75,8 @@ export const EntityChangeTypesColumn: React.FC<EntityChangeTypesColumnProps> = (
                     </TooltipWrapper>
                 </DataHubTooltip>
             )}
-        </>
+        </StyledPillContainer>
     );
-
-    return <StyledPillContainer>{changeTypesPreview}</StyledPillContainer>;
 };
+
+export default SubscriptionsEntityChangeTypesColumn;

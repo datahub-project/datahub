@@ -20,8 +20,6 @@ const StyledEditOutlined = styled(EditOutlined)`
 type Props = {
     subscription: DataHubSubscription;
     refetchListSubscriptions: () => void;
-    isPersonal: boolean;
-    groupUrn?: string;
     isExpandedView?: boolean;
     onActionTriggered?: () => void;
 };
@@ -29,8 +27,6 @@ type Props = {
 export const EditSubscriptionAction = ({
     subscription,
     refetchListSubscriptions,
-    isPersonal,
-    groupUrn,
     isExpandedView = false,
     onActionTriggered,
 }: Props) => {
@@ -50,13 +46,18 @@ export const EditSubscriptionAction = ({
     };
     const onClickClose = () => setDrawerIsOpen(false);
 
-    const authorizedTip = 'Edit this subscription';
+    // NOTE: We are sort of "hacking" the SubscriptionDrawer. It was sort of built
+    // with the assumption that the subscription editor and the subscription owner
+    // are the same person, but we are allowing a user to manage their group's
+    // subscription here
+    const subscriptionOwnerIsGroup = subscription.actor.__typename === 'CorpGroup';
+    const groupUrn = subscriptionOwnerIsGroup ? subscription.actorUrn : undefined;
 
     return (
         <>
             <ActionItem
                 key="edit-subscription"
-                tip={authorizedTip}
+                tip="Edit this subscription"
                 disabled={false}
                 onClick={onClickEdit}
                 icon={<StyledEditOutlined />}
@@ -67,7 +68,7 @@ export const EditSubscriptionAction = ({
             <SubscriptionDrawer
                 isOpen={drawerIsOpen}
                 onClose={onClickClose}
-                isPersonal={isPersonal}
+                isPersonal={!subscriptionOwnerIsGroup}
                 groupUrn={groupUrn}
                 entityUrn={entityUrn}
                 entityName={entityName}
