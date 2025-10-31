@@ -10,7 +10,7 @@
 # Tag search using the workspace search UI is supported only for tables, views, and table columns.
 # Tag search requires exact term matching.
 # https://learn.microsoft.com/en-us/azure/databricks/database-objects/tags#constraint
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from pydantic import validator
 from typing_extensions import ClassVar
@@ -53,8 +53,8 @@ class LakeFormationTag(ExternalTag):
 
     def __init__(
         self,
-        key: Optional[LakeFormationTagKeyText] = None,
-        value: Optional[LakeFormationTagValueText] = None,
+        key: Optional[Union[str, LakeFormationTagKeyText]] = None,
+        value: Optional[Union[str, LakeFormationTagValueText]] = None,
         prefix: Optional[str] = None,
         **data: Any,
     ) -> None:
