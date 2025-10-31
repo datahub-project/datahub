@@ -1,10 +1,15 @@
 package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG_WITH_PIT;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -28,20 +33,26 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import javax.annotation.Nonnull;
@@ -70,7 +81,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   protected abstract SearchConfiguration getSearchConfiguration();
 
   protected OperationContext operationContext;
-  private SettingsBuilder settingsBuilder;
+  private V2LegacySettingsBuilder settingsBuilder;
   protected ElasticSearchService elasticSearchService;
   protected ElasticSearchService pitElasticSearchService;
   private CacheManager cacheManager;
@@ -81,23 +92,46 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @BeforeClass
   public void setup() throws RemoteInvocationException, URISyntaxException {
-    operationContext =
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("search_service_test")
+                .hashIdAlgo("MD5")
+                .build(),
+            SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+
+    OperationContext testOpContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-                new SnapshotEntityRegistry(new Snapshot()),
-                new IndexConventionImpl(
-                    IndexConventionImpl.IndexConventionConfig.builder()
-                        .prefix("search_service_test")
-                        .hashIdAlgo("MD5")
-                        .build()))
+            new SnapshotEntityRegistry(new Snapshot()));
+
+    // Create real SearchContext using ESUtils methods
+    MappingsBuilder mappingsBuilder =
+        createDelegatingMappingsBuilder(SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+    SearchContext searchContext =
+        SearchContext.builder()
+            .indexConvention(indexConvention)
+            .searchableFieldTypes(
+                ESUtils.buildSearchableFieldTypes(
+                    testOpContext.getEntityRegistry(), mappingsBuilder))
+            .searchableFieldPaths(
+                ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
+            .build();
+
+    operationContext =
+        testOpContext.toBuilder()
+            .searchContext(searchContext)
+            .build(testOpContext.getSessionAuthentication(), true)
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
-    settingsBuilder = new SettingsBuilder(null, indexConfiguration);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
+    IndexConvention mockIndexConvention = mock(IndexConvention.class);
+    when(mockIndexConvention.isV2EntityIndex(anyString())).thenReturn(true);
+    settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
     elasticSearchService = buildEntitySearchService();
-    elasticSearchService.reindexAll(Collections.emptySet());
+    elasticSearchService.reindexAll(operationContext, Collections.emptySet());
     pitElasticSearchService = buildPITEntitySearchService();
-    pitElasticSearchService.reindexAll(Collections.emptySet());
+    pitElasticSearchService.reindexAll(operationContext, Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
     resetSearchService();
   }
@@ -161,10 +195,10 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
-            operationContext.getEntityRegistry(),
-            operationContext.getSearchContext().getIndexConvention(),
-            settingsBuilder,
             TEST_SEARCH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
+            new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
+            settingsBuilder,
             searchDAO,
             browseDAO,
             writeDAO);
@@ -193,10 +227,10 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
-            operationContext.getEntityRegistry(),
-            operationContext.getSearchContext().getIndexConvention(),
-            settingsBuilder,
             TEST_SEARCH_SERVICE_CONFIG,
+            esConfig,
+            new V2MappingsBuilder(esConfig.getEntityIndex()),
+            settingsBuilder,
             searchDAO,
             browseDAO,
             writeDAO);
@@ -394,7 +428,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     SearchResult searchResult =
         searchService.searchAcrossEntities(
             operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
-            ImmutableList.of(ENTITY_NAME),
+            ImmutableList.of(),
             "test",
             filterWithCondition,
             null,
@@ -424,7 +458,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     document2.set("subtypes", JsonNodeFactory.instance.textNode("table"));
     document2.set("platform", JsonNodeFactory.instance.textNode("hive"));
-    document.set("removed", JsonNodeFactory.instance.booleanNode(false));
+    document2.set("removed", JsonNodeFactory.instance.booleanNode(false));
     elasticSearchService.upsertDocument(
         operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
 
@@ -436,7 +470,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document3.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     document3.set("subtypes", JsonNodeFactory.instance.textNode("table"));
     document3.set("platform", JsonNodeFactory.instance.textNode("snowflake"));
-    document.set("removed", JsonNodeFactory.instance.booleanNode(false));
+    document3.set("removed", JsonNodeFactory.instance.booleanNode(false));
     elasticSearchService.upsertDocument(
         operationContext, ENTITY_NAME, document3.toString(), urn3.toString());
 

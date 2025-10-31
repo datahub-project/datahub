@@ -40,8 +40,7 @@ public class SqlSetupTest {
             null, // createUserPassword
             "localhost", // host
             3306, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
     sqlSetup = new SqlSetup(mockDatabase, setupArgs);
 
@@ -67,8 +66,7 @@ public class SqlSetupTest {
             null, // createUserPassword
             "localhost", // host
             3306, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
     sqlSetup = new SqlSetup(null, setupArgs);
 
@@ -114,8 +112,7 @@ public class SqlSetupTest {
             null, // createUserPassword
             "localhost", // host
             3306, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
 
     sqlSetup = new SqlSetup(mockDatabase, setupArgs);
@@ -141,8 +138,7 @@ public class SqlSetupTest {
             "testpass", // createUserPassword
             "localhost", // host
             3306, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
 
     sqlSetup = new SqlSetup(mockDatabase, setupArgs);
@@ -169,8 +165,7 @@ public class SqlSetupTest {
             null, // createUserPassword
             "localhost", // host
             3306, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
 
     sqlSetup = new SqlSetup(mockDatabase, setupArgs);
@@ -197,8 +192,7 @@ public class SqlSetupTest {
             "testpass", // createUserPassword
             "localhost", // host
             3306, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
 
     sqlSetup = new SqlSetup(mockDatabase, setupArgs);

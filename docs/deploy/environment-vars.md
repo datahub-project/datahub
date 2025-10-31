@@ -218,6 +218,8 @@ Reference Links:
 | `EBEAN_USE_IAM_AUTH`              | `false`                               | Enable cross-cloud IAM authentication (AWS/GCP) | GMS, MCE Consumer, System Update |
 | `EBEAN_CLOUD_PROVIDER`            | `auto`                                | Cloud provider (auto/aws/gcp/traditional)       | GMS, MCE Consumer, System Update |
 | `EBEAN_BATCH_GET_METHOD`          | `IN`                                  | Batch get method (IN or UNION)                  | GMS, MCE Consumer, System Update |
+| `EBEAN_URL`                       | _same as EBEAN_DATASOURCE_URL_        | Alternative property for database URL           | System Update                    |
+| `EBEAN_MAX_TRANSACTION_RETRY`     | `null`                                | Maximum transaction retries for Ebean           | System Update                    |
 
 #### Cross-Cloud IAM Authentication
 
@@ -258,33 +260,41 @@ export EBEAN_CLOUD_PROVIDER=auto
 
 **Required Cloud-Specific Environment Variables:**
 
-| Cloud Provider | Required Variables               | Description                              |
-| -------------- | -------------------------------- | ---------------------------------------- |
-| **AWS**        | `AWS_REGION`                     | AWS region for RDS instances             |
-| **AWS**        | `AWS_ACCESS_KEY_ID`              | AWS access key (or use instance profile) |
-| **AWS**        | `AWS_SECRET_ACCESS_KEY`          | AWS secret key (or use instance profile) |
-| **GCP**        | `INSTANCE_CONNECTION_NAME`       | Cloud SQL instance connection name       |
-| **GCP**        | `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON file        |
+| Cloud Provider | Required Variables               | Description                                             |
+| -------------- | -------------------------------- | ------------------------------------------------------- |
+| **AWS**        | `AWS_REGION`                     | AWS region for RDS instances                            |
+| **AWS**        | `AWS_ACCESS_KEY_ID`              | AWS access key (or use instance profile)                |
+| **AWS**        | `AWS_SECRET_ACCESS_KEY`          | AWS secret key (or use instance profile)                |
+| **AWS**        | `AWS_SESSION_TOKEN`              | AWS session token (optional, for temporary credentials) |
+| **GCP**        | `INSTANCE_CONNECTION_NAME`       | Cloud SQL instance connection name                      |
+| **GCP**        | `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON file                       |
+| **GCP**        | `GCP_PROJECT`                    | GCP project ID (optional, for auto-detection)           |
 
 ### SQL Setup Configuration
 
 The SQL Setup system provides automated database initialization and user management capabilities. These environment variables control the behavior of the `SqlSetup` upgrade step.
 
-| Environment Variable         | Default       | Description                                                                 | Components    |
-| ---------------------------- | ------------- | --------------------------------------------------------------------------- | ------------- |
-| `CREATE_TABLES`              | `true`        | Whether to create database tables                                           | System Update |
-| `CREATE_DB`                  | `true`        | Whether to create the database (PostgreSQL only)                            | System Update |
-| `CREATE_USER`                | `false`       | Whether to create a new database user                                       | System Update |
-| `CREATE_USER_USERNAME`       | _none_        | Username for the new database user to create (required if CREATE_USER=true) | System Update |
-| `CREATE_USER_PASSWORD`       | _none_        | Password for the new database user to create (required if CREATE_USER=true) | System Update |
-| `CDC_MCL_PROCESSING_ENABLED` | `false`       | Whether to create a CDC (Change Data Capture) user                          | System Update |
-| `CDC_USER`                   | `datahub_cdc` | Username for the CDC user                                                   | System Update |
-| `CDC_PASSWORD`               | `datahub_cdc` | Password for the CDC user                                                   | System Update |
-| `IAM_ROLE`                   | _none_        | IAM role for new user creation (required if IAM auth enabled)               | System Update |
+| Environment Variable         | Default       | Description                                                                  | Components    |
+| ---------------------------- | ------------- | ---------------------------------------------------------------------------- | ------------- |
+| `DATAHUB_SQL_SETUP_ENABLED`  | `false`       | Enable SQL setup functionality (alternative to passing SqlSetup upgrade arg) | System Update |
+| `CREATE_TABLES`              | `true`        | Whether to create database tables                                            | System Update |
+| `CREATE_DB`                  | `true`        | Whether to create the database (PostgreSQL only)                             | System Update |
+| `CREATE_USER`                | `false`       | Whether to create a new database user                                        | System Update |
+| `CREATE_USER_USERNAME`       | _none_        | Username for the new database user to create (required if CREATE_USER=true)  | System Update |
+| `CREATE_USER_PASSWORD`       | _none_        | Password for the new database user to create (required for traditional auth) | System Update |
+| `CDC_MCL_PROCESSING_ENABLED` | `false`       | Whether to create a CDC (Change Data Capture) user                           | System Update |
+| `CDC_USER`                   | `datahub_cdc` | Username for the CDC user                                                    | System Update |
+| `CDC_PASSWORD`               | `datahub_cdc` | Password for the CDC user                                                    | System Update |
 
-**Note:** When `CREATE_USER=true`, you must explicitly set `CREATE_USER_USERNAME` and `CREATE_USER_PASSWORD` environment variables. The system will not fall back to Ebean connection credentials for security reasons.
+**Note:** When `CREATE_USER=true`, you must explicitly set `CREATE_USER_USERNAME` environment variable. The system will not fall back to Ebean connection credentials for security reasons.
 
-**IAM Authentication:** When using IAM authentication (by setting `IAM_ROLE`), the system will only use `CREATE_USER_USERNAME` and ignore `CREATE_USER_PASSWORD` for security reasons. Traditional username/password authentication and IAM authentication are mutually exclusive.
+**IAM Authentication:** IAM authentication is automatically detected when `CREATE_USER=true` and `CREATE_USER_PASSWORD` is not set or is empty. The system will create users with IAM authentication for supported cloud databases:
+
+- **AWS RDS MySQL**: Creates user with AWSAuthenticationPlugin
+- **AWS RDS PostgreSQL**: Creates user and grants `rds_iam` role
+- **GCP Cloud SQL**: IAM authentication is managed through Cloud SQL IAM database users
+
+When using traditional username/password authentication, both `CREATE_USER_USERNAME` and `CREATE_USER_PASSWORD` must be set.
 
 ### Cassandra Configuration
 
@@ -749,9 +759,10 @@ The following environment variables are used in the codebase but may not be expl
 
 ### System and Version Information
 
-| Environment Variable   | Default | Description               | Components |
-| ---------------------- | ------- | ------------------------- | ---------- |
-| `DATAHUB_GMS_PROTOCOL` | `http`  | GMS protocol (http/https) | GMS        |
+| Environment Variable   | Default | Description               | Components    |
+| ---------------------- | ------- | ------------------------- | ------------- |
+| `DATAHUB_GMS_PROTOCOL` | `http`  | GMS protocol (http/https) | GMS           |
+| `DATAHUB_REVISION`     | `0`     | DataHub revision version  | System Update |
 
 ### Upgrade and Migration
 
