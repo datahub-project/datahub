@@ -891,6 +891,22 @@ title: "Output Layer",
 subLayersLayout: 'columns',
 nodes: [
 {
+name: 'executive_datasource',
+type: 'Published Datasource',
+entityType: 'Dataset',
+platform: 'Tableau',
+health: 'Good',
+columns: [
+{ name: 'customer_id', type: 'bigint' },
+{ name: 'transaction_count', type: 'bigint' },
+{ name: 'transaction_date', type: 'date' },
+{ name: 'total_spend', type: 'float' }
+],
+tags: [],
+glossaryTerms: ['Published Datasource', 'Tableau Data'],
+downstreamConnections: ['executive_chart']
+},
+{
 name: 'customer_api',
 type: 'Customer-Facing API',
 entityType: 'Dataset',
@@ -928,26 +944,6 @@ glossaryTerms: ['Sales Dashboard', 'Operational Reporting']
 }
 ],
 subLayers: [
-{
-nodes: [
-{
-name: 'executive_datasource',
-type: 'Published Datasource',
-entityType: 'Dataset',
-platform: 'Tableau',
-health: 'Good',
-columns: [
-{ name: 'customer_id', type: 'bigint' },
-{ name: 'transaction_count', type: 'bigint' },
-{ name: 'transaction_date', type: 'date' },
-{ name: 'total_spend', type: 'float' }
-],
-tags: [],
-glossaryTerms: ['Published Datasource', 'Tableau Data'],
-downstreamConnections: ['executive_chart']
-}
-]
-},
 {
 nodes: [
 {
