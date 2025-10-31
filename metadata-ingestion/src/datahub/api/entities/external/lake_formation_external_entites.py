@@ -53,8 +53,8 @@ class LakeFormationTag(ExternalTag):
 
     def __init__(
         self,
-        key: Optional[str] = None,
-        value: Optional[str] = None,
+        key: Optional[LakeFormationTagKeyText] = None,
+        value: Optional[LakeFormationTagValueText] = None,
         prefix: Optional[str] = None,
         **data: Any,
     ) -> None:
