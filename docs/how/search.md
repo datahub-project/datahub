@@ -166,10 +166,12 @@ If you want to:
   - These 2 filters will be supported starting from release `0.3.14.x` of DataHub Cloud.
   - Note that it does not check whether the field is zero. It just checks for whether the metadata was emitted or not.
 
-- Find the number of upstreams or downstreams a dataset has.
+- Find the number of upstreams via `upstreamCountFeature` field or downstreams via `downstreamCountFeature` field. Only 1 hop lineage is considered.
 
-  - `/q upstreamCountFeature:>2`
-  - `/q downstreamCountFeature:<3`
+  - `/q upstreamCountFeature:>2` -> Greater than 2 upstreams at 1 hop
+  - `/q downstreamCountFeature:<3` -> Less than 3 downstreams at 1 hop
+  - `/q upstreamCountFeature:<=10` -> Less than or equal to 10 upstreams at 1 hop
+  - `/q upstreamCountFeature:[5 TO *]` -> To find out where at 1 hop an asset has Greater than or equal to 5 upstream lineage
   - The advantage of `upstreamCountFeature` over `hasUpstreams` is that it considers whether the upstreams and downstreams are valid URNs.
   - The disadvantage of `upstreamCountFeature` over `hasUpstreams` is that these are updated once a day and are not real-time like `hasUpstreams`.
   - The reason `upstreamCountFeature` is useful is that after lineage is emitted once it will probably not change drastically for most of the tables. So this information will be almost up-to-date for all tables with a lag of around 24 hours.
