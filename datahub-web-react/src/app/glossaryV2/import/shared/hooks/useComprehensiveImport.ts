@@ -208,10 +208,7 @@ export const useComprehensiveImport = ({
           entityType: input.entityType,
           aspectName: input.aspectName,
           patch: input.patch,
-          arrayPrimaryKeys: input.arrayPrimaryKeys?.map(pk => ({
-            keyPath: pk.arrayField,
-            primaryKeys: pk.keys
-          })),
+          arrayPrimaryKeys: input.arrayPrimaryKeys,
           forceGenericPatch: input.forceGenericPatch
         }));
         

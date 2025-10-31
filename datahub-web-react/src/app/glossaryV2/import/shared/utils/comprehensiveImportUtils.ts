@@ -143,35 +143,32 @@ function createEntityPatches(
   urnMap: Map<string, string>,
   existingEntities: Entity[] = []
 ): ComprehensivePatchInput[] {
-  return entities.map(entity => {
+  return entities
+    .filter(entity => {
+      // For existing entities, only create patches if entity info has changed
+      if (entity.status === 'existing' || entity.status === 'updated') {
+        const existingEntity = existingEntities.find(existing => existing.name === entity.name);
+        if (existingEntity) {
+          const entityInfoChanged = hasEntityInfoChanged(entity, existingEntity);
+          
+          // Check if any children have changes (including grandchildren)
+          const hasChildrenWithChanges = entities.some(child => 
+            child.parentNames && 
+            child.parentNames.includes(entity.name) &&
+            (child.status === 'new' || hasEntityInfoChanged(child, existingEntities.find(e => e.name === child.name) || child))
+          );
+          
+          // Only include if entity info changed or children changed
+          return entityInfoChanged || hasChildrenWithChanges;
+        }
+      }
+      // Always include new entities
+      return true;
+    })
+    .map(entity => {
     const urn = UrnManager.resolveEntityUrn(entity, urnMap);
     const aspectName = entity.type === 'glossaryTerm' ? 'glossaryTermInfo' : 'glossaryNodeInfo';
     const isNewEntity = entity.status === 'new';
-    
-    // For existing entities, check if entity info has actually changed
-    if (!isNewEntity) {
-      const existingEntity = existingEntities.find(existing => existing.name === entity.name);
-      if (existingEntity) {
-        const entityInfoChanged = hasEntityInfoChanged(entity, existingEntity);
-        
-        // Check if any children have changes (including grandchildren)
-        const hasChildrenWithChanges = entities.some(child => 
-          child.parentNames && 
-          child.parentNames.includes(entity.name) &&
-          (child.status === 'new' || hasEntityInfoChanged(child, existingEntities.find(e => e.name === child.name) || child))
-        );
-        
-        if (!entityInfoChanged && !hasChildrenWithChanges) {
-          // Return empty patch for unchanged entities
-          return {
-            urn,
-            entityType: entity.type,
-            aspectName,
-            patch: []
-          };
-        }
-      }
-    }
     
     const patch: PatchOperation[] = [];
     
@@ -260,13 +257,15 @@ function createEntityPatches(
       }
     }
     
-    return {
-      urn, // Always provide URN for batching
-      entityType: entity.type,
-      aspectName,
-      patch
-    };
-  });
+      return {
+        urn, // Always provide URN for batching
+        entityType: entity.type,
+        aspectName,
+        patch,
+        forceGenericPatch: true
+      };
+    })
+    .filter(patchInput => patchInput.patch.length > 0);
 }
 
 /**
@@ -364,7 +363,12 @@ function createOwnershipPatches(
           urn,
           entityType: entity.type,
           aspectName: 'ownership',
-          patch: ownershipPatchOps
+          patch: ownershipPatchOps,
+          arrayPrimaryKeys: [{
+            arrayField: 'owners',
+            keys: ['owner', 'typeUrn']
+          }],
+          forceGenericPatch: true
         });
       }
     } catch (error) {
@@ -438,7 +442,8 @@ function createRelatedTermPatches(
               termUrns: relatedUrns,
               relationshipType: 'hasA'
             }
-          }]
+          }],
+          forceGenericPatch: true
         });
       }
     }
@@ -476,7 +481,8 @@ function createRelatedTermPatches(
               termUrns: relatedUrns,
               relationshipType: 'isA'
             }
-          }]
+          }],
+          forceGenericPatch: true
         });
       }
     }
@@ -520,7 +526,8 @@ function createDomainAssignmentPatches(
         value: JSON.stringify({
           domain: domainUrn
         })
-      }]
+      }],
+      forceGenericPatch: true
     });
   });
   

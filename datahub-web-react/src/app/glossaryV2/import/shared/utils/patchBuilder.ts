@@ -6,7 +6,7 @@
 import { Entity, PatchOperation } from '../../glossary.types';
 import { UrnManager } from './urnManager';
 import { HierarchyNameResolver } from './hierarchyUtils';
-import { createOwnershipPatchOperations } from './ownershipParsingUtils';
+import { createOwnershipPatchOperations, parseOwnershipFromColumns } from './ownershipParsingUtils';
 
 /**
  * Input type for ownership type patches
@@ -29,7 +29,7 @@ export interface ArrayPrimaryKeyInput {
  * Input type for comprehensive patch operations
  */
 export interface ComprehensivePatchInput {
-  urn?: string;
+  urn: string;
   entityType: string;
   aspectName: string;
   patch: PatchOperation[];
@@ -61,7 +61,8 @@ export class PatchBuilder {
           time: Date.now(),
           actor: 'urn:li:corpuser:datahub' // Will be replaced with actual user
         })}
-      ]
+      ],
+      forceGenericPatch: true
     }));
   }
 
@@ -108,22 +109,19 @@ export class PatchBuilder {
     urnMap: Map<string, string>,
     existingEntities: Entity[] = []
   ): ComprehensivePatchInput[] {
-    return entities.map(entity => {
+    return entities
+      .filter(entity => {
+        // Only create patch if entity is new or has changes
+        if (entity.status === 'new' || entity.status === 'updated') return true;
+        
+        const existingEntity = existingEntities.find(e => e.urn === entity.urn);
+        if (existingEntity && this.hasEntityInfoChanged(entity, existingEntity)) return true;
+        
+        return false;
+      })
+      .map(entity => {
       const urn = UrnManager.resolveEntityUrn(entity, urnMap);
       const aspectName = entity.type === 'glossaryTerm' ? 'glossaryTermInfo' : 'glossaryNodeInfo';
-      
-      // Find existing entity to compare
-      const existingEntity = existingEntities.find(e => e.urn === entity.urn);
-      
-      // Only create patch if entity is new or has changes
-      const shouldPatch = entity.status === 'new' || 
-                         entity.status === 'updated' ||
-                         (existingEntity && this.hasEntityInfoChanged(entity, existingEntity));
-      
-      if (!shouldPatch && entity.status === 'existing') {
-        // No changes needed for this entity
-        return null;
-      }
 
       const patch: PatchOperation[] = [];
 
@@ -209,9 +207,10 @@ export class PatchBuilder {
         urn,
         entityType: entity.type,
         aspectName,
-        patch
+        patch,
+        forceGenericPatch: true
       };
-    }).filter((patch): patch is ComprehensivePatchInput => patch !== null);
+    });
   }
 
   /**
@@ -226,15 +225,31 @@ export class PatchBuilder {
 
     entities.forEach(entity => {
       try {
+        if (!entity.data.ownership_users && !entity.data.ownership_groups) {
+          return; // Skip entities without ownership
+        }
+
+        const parsedOwnership = parseOwnershipFromColumns(
+          entity.data.ownership_users || '',
+          entity.data.ownership_groups || ''
+        );
+
+        if (parsedOwnership.length === 0) return;
+
         const urn = UrnManager.resolveEntityUrn(entity, urnMap);
-        const patches = createOwnershipPatchOperations(entity.data, ownershipTypeMap);
+        const patches = createOwnershipPatchOperations(parsedOwnership, ownershipTypeMap, false);
 
         if (patches.length > 0) {
           ownershipPatches.push({
             urn,
             entityType: entity.type,
             aspectName: 'ownership',
-            patch: patches
+            patch: patches,
+            arrayPrimaryKeys: [{
+              arrayField: 'owners',
+              keys: ['owner', 'typeUrn']
+            }],
+            forceGenericPatch: true
           });
         }
       } catch (error) {
@@ -309,7 +324,8 @@ export class PatchBuilder {
             urn: currentUrn,
             entityType: entity.type,
             aspectName: 'glossaryRelatedTerms',
-            patch: patches
+            patch: patches,
+            forceGenericPatch: true
           });
         }
       }
@@ -341,7 +357,8 @@ export class PatchBuilder {
               path: '/domains/0',
               value: entity.data.domain_urn
             }
-          ]
+          ],
+          forceGenericPatch: true
         });
       }
     });
