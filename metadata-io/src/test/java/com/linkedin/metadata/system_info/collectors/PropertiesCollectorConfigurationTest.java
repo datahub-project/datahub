@@ -118,6 +118,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // System update properties
           "systemUpdate.*.enabled",
           "systemUpdate.*.batchSize",
+          "systemUpdate.*.limit",
+          "systemUpdate.*.delayMs",
 
           // Kafka topic Configs
           "kafka.topics.*.name",
