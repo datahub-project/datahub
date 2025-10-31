@@ -243,6 +243,11 @@ module.exports = {
           id: "docs/domains",
         },
         {
+          label: "File Upload and Download in Documentation",
+          type: "doc",
+          id: "docs/features/feature-guides/file-upload-download",
+        },
+        {
           label: "Incidents",
           type: "doc",
           id: "docs/incidents/incidents",
