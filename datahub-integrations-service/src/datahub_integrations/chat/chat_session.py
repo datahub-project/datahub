@@ -87,11 +87,8 @@ if TYPE_CHECKING:
 
 # Initialize MLflow for @mlflow.trace decorators in this module
 initialize_mlflow()
-
 # Planning tools feature flag
-PLANNING_TOOLS_ENABLED = get_boolean_env_variable(
-    "CHATBOT_PLANNING_ENABLED", default=True
-)
+PLANNING_TOOLS_ENABLED = model_config.chat_assistant_ai.planning_mode_enabled
 
 if PLANNING_TOOLS_ENABLED:
     logger.info("Planning tools ENABLED for ChatSession")
@@ -1020,7 +1017,8 @@ def create_default_context_reducer_chain(
         ConversationSummarizer(
             estimator,
             config,
-            num_recent_messages_to_keep=5,
+            max_num_messages_to_keep=5,
+            min_num_messages_to_keep=3,
             summarization_model=model_config.chat_assistant_ai.summary_model,
         ),
         SlidingWindowReducer(estimator, config, max_messages=10),

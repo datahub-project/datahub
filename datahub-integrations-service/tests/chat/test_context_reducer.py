@@ -137,7 +137,8 @@ class TestConversationSummarizer:
         return ConversationSummarizer(
             token_estimator=token_estimator,
             config=config,
-            num_recent_messages_to_keep=3,
+            max_num_messages_to_keep=5,
+            min_num_messages_to_keep=3,
             summarization_model=model_config.chat_assistant_ai.summary_model,
         )
 
@@ -345,13 +346,21 @@ class TestConversationSummarizer:
             mock_create_summary.assert_called_once()
             call_args = mock_create_summary.call_args
             messages_to_summarize = call_args[0][0]
-            assert len(messages_to_summarize) == 5
+            assert 0 < len(messages_to_summarize) < len(messages)
+
             assert history.reduced_history is not None
-            # 3 messages preserved+ tool request adjusted + summary message
-            assert len(history.reduced_history) == 5
+            # Summary should be first
             assert isinstance(history.reduced_history[0], SummaryMessage)
             assert history.reduced_history[0].text == "Summary of conversation"
-            assert history.reduced_history[2:] == messages[4:]
+
+            # We should preserve a suffix of recent messages, within configured bounds
+            preserved = history.reduced_history[1:]
+            assert 3 <= len(preserved) <= 5
+            # Last preserved message should be the last original message
+            assert preserved[-1] == messages[-1]
+            # Order preserved: preserved messages are a suffix of original
+            suffix_len = len(preserved)
+            assert preserved == messages[-suffix_len:]
 
     def test_reduce_no_reduction_needed(
         self, summarizer: ConversationSummarizer

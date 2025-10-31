@@ -88,7 +88,7 @@ def test_no_env_vars_set() -> None:
             model_config.term_suggestion_ai.model
             == "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
-        assert not model_config.chat_assistant_ai.planning_mode_enabled
+        assert model_config.chat_assistant_ai.planning_mode_enabled
 
 
 def test_only_region_prefix_set_to_eu() -> None:
@@ -119,7 +119,7 @@ def test_only_region_prefix_set_to_eu() -> None:
             eu_model_config.term_suggestion_ai.model
             == "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
-        assert not eu_model_config.chat_assistant_ai.planning_mode_enabled
+        assert eu_model_config.chat_assistant_ai.planning_mode_enabled
 
 
 def test_all_env_vars_set_legacy() -> None:
@@ -154,7 +154,7 @@ def test_all_env_vars_set_legacy() -> None:
             legacy_model_config.chat_assistant_ai.model
             == "apac.anthropic.claude-sonnet-4-20250514-v1:0"
         )
-        assert not legacy_model_config.chat_assistant_ai.planning_mode_enabled
+        assert legacy_model_config.chat_assistant_ai.planning_mode_enabled
 
 
 def test_current_env_vars_setup() -> None:
@@ -193,7 +193,7 @@ def test_current_env_vars_setup() -> None:
             new_model_config.term_suggestion_ai.model
             == "us.anthropic.claude-sonnet-4-20250514-v1:0"
         )
-        assert not new_model_config.chat_assistant_ai.planning_mode_enabled
+        assert new_model_config.chat_assistant_ai.planning_mode_enabled
 
 
 def test_ideal_env_vars_setup() -> None:
@@ -231,7 +231,7 @@ def test_ideal_env_vars_setup() -> None:
             new_model_config.term_suggestion_ai.model
             == "us.anthropic.claude-sonnet-4-20250514-v1:0"
         )
-        assert not new_model_config.chat_assistant_ai.planning_mode_enabled
+        assert new_model_config.chat_assistant_ai.planning_mode_enabled
 
 
 def test_planning_mode_enabled() -> None:

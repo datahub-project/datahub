@@ -214,7 +214,7 @@ def get_chat_assistant_config() -> ChatAssistantAIConfig:
 
     planning_mode_enabled = get_boolean_env_variable(
         "CHATBOT_PLANNING_ENABLED",
-        False,
+        True,
     )
 
     chat_assistant_config = ChatAssistantAIConfig(

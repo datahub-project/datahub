@@ -26,7 +26,7 @@ _CREATE_SUMMARY_SYSTEM_PROMPT = """\
 You are a helpful AI assistant tasked with summarizing conversations.
 Provide a concise and complete summary of the entire conversation.
 Focus on information that would be helpful for continuing the conversation, such as
-user's query, assistant's reasoning, key findings from tool results relevant to answering user's query.
+user's query, assistant's reasoning and entire execution plan (if available), key findings from tool results relevant to answering user's query.
 You must include important DataHub entities with their human-readable identifiers (qualifiedName for datasets, dashboardId for dashboards, etc.) from existing messages.
 You must not include information that is not present in the existing messages.
 """
@@ -35,7 +35,7 @@ _UPDATE_SUMMARY_SYSTEM_PROMPT = """\
 You are a helpful AI assistant tasked with summarizing conversations.
 Extend existing summary by taking into account the new messages in conversation.
 Focus on information that would be helpful for continuing the conversation, such as
-user's query, assistant's reasoning, key findings from tool results relevant to answering user's query.
+user's query, assistant's reasoning and entire execution plan (if available), key findings from tool results relevant to answering user's query.
 You must include important DataHub entities with their human-readable identifiers (qualifiedName for datasets, dashboardId for dashboards, etc.) from existing messages.
 You must not include information that is not present in the existing messages.
 """
@@ -63,11 +63,13 @@ class ConversationSummarizer(ChatContextReducer):
         self,
         token_estimator: TokenCountEstimator,
         config: ContextReducerConfig,
-        num_recent_messages_to_keep: int,
+        max_num_messages_to_keep: int,
+        min_num_messages_to_keep: int,
         summarization_model: BedrockModel | str,
     ) -> None:
         super().__init__(token_estimator, config)
-        self.num_recent_messages_to_keep = num_recent_messages_to_keep
+        self.max_num_messages_to_keep = max_num_messages_to_keep
+        self.min_num_messages_to_keep = min_num_messages_to_keep
         self.summarization_model = summarization_model
 
     @override
@@ -87,20 +89,62 @@ class ConversationSummarizer(ChatContextReducer):
         # If old summary existed, it would be at head of old_messages
         summary_text = self._create_or_update_summary(messages_to_summarize)
 
-        if (
-            len(remaining_messages) < self.num_recent_messages_to_keep
-            and len(history.context_messages) > self.num_recent_messages_to_keep
-        ):
-            # NOTE: In this cases, there is overlap in summary and recent messages
-            # This should not be a problem, but is subject to validation
-            remaining_messages = history.context_messages[
-                -self.num_recent_messages_to_keep :
-            ]
+        # Select the final set of recent messages to keep alongside the summary
+        remaining_messages = self._select_messages_to_keep(
+            summary_text=summary_text,
+            remaining_messages=remaining_messages,
+            full_history=history.context_messages,
+        )
 
-        remaining_messages = self.adjust_remaining_messages(remaining_messages)
         reduced_messages = [SummaryMessage(text=summary_text)] + remaining_messages
 
         return reduced_messages
+
+    def _select_messages_to_keep(
+        self,
+        summary_text: str,
+        remaining_messages: List[Message],
+        full_history: List[Message],
+    ) -> List[Message]:
+        """
+        Choose the most recent messages to keep alongside the summary such that
+        the combined context does not need reduction.
+
+        Strategy:
+        - Start from max_num_messages_to_keep down to min_num_messages_to_keep
+        - Build the candidate set using the most recent messages; if not enough remain after
+          split, overlap from the tail of the full history
+        - Fix tool-result edge cases using base adjustor
+        - If the combined context still needs reduction, trim from the front until it fits
+        """
+        summary_message = SummaryMessage(text=summary_text)
+
+        for num_to_keep in range(
+            self.max_num_messages_to_keep, self.min_num_messages_to_keep, -1
+        ):
+            if len(remaining_messages) < num_to_keep:
+                candidate = full_history[-num_to_keep:]
+            else:
+                candidate = remaining_messages[-num_to_keep:]
+
+            # Fix tool result edge cases
+            candidate = super().adjust_remaining_messages(candidate)
+
+            # Trim from the front until fits, but not below min bound
+            trimmed = list(candidate)
+            num_messages_to_keep = len(trimmed)
+            while (
+                self.needs_reduction(ChatHistory(messages=[summary_message] + trimmed))
+                and num_messages_to_keep > self.min_num_messages_to_keep
+            ):
+                trimmed = super().adjust_remaining_messages(
+                    candidate[-num_messages_to_keep:]
+                )
+                num_messages_to_keep -= 1
+
+        logger.info(f"Using minimum messages to keep: {num_messages_to_keep}")
+
+        return trimmed
 
     def split_at_context_fit(self, messages: List[Message]) -> int:
         """
