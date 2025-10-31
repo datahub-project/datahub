@@ -14,4 +14,5 @@ export interface IngestionSourceTableData {
     cliIngestion: boolean;
     owners?: Owner[] | null;
     privileges?: IngestionSourcePrivileges | null;
+    isSystemSource?: boolean;
 }

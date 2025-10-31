@@ -5,7 +5,7 @@ import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
-import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import { CLI_EXECUTOR_ID, SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
 import { getDisplayablePoolId } from '@app/ingestV2/executor_saas/utils';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn, { wrapDateTimeColumnWithHover } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
@@ -97,6 +97,7 @@ function IngestionSourceTable({
         owners: source.ownership?.owners,
         executorPoolId: source.config?.executorId, // SaaS only
         privileges: source.privileges,
+        isSystemSource: source.source?.type === SYSTEM_INTERNAL_SOURCE_TYPE,
     }));
 
     const navigateToRunHistory = (record) => {
@@ -108,12 +109,16 @@ function IngestionSourceTable({
         const preserveParams = shouldPreserveParams;
         preserveParams.current = true;
 
-        const search = QueryString.stringify(
-            {
-                ...filtersToQueryStringParams(selectedSourceNameFilter),
-            },
-            { arrayFormat: 'comma' },
-        );
+        const queryParams: Record<string, any> = {
+            ...filtersToQueryStringParams(selectedSourceNameFilter),
+        };
+
+        // If navigating to a system source's run history, ensure hideSystem is false
+        if (record.isSystemSource) {
+            queryParams.hideSystem = 'false';
+        }
+
+        const search = QueryString.stringify(queryParams, { arrayFormat: 'comma' });
 
         history.push({
             pathname: tabUrlMap[TabType.RunHistory],
