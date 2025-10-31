@@ -168,7 +168,10 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                 self._track_cache_hit()
                 return urn_mixed, schema_info
 
-        # Track cache miss for the final attempt
+        logger.debug(
+            f"Schema resolution failed for table {table}. Tried URNs: "
+            f"primary={urn}, lower={urn_lower}, mixed={urn_mixed}"
+        )
         self._track_cache_miss()
 
         if self._prefers_urn_lower():
