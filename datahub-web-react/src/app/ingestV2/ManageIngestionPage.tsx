@@ -98,49 +98,10 @@ export const ManageIngestionPage = () => {
     const history = useHistory();
     const shouldPreserveParams = useRef(false);
 
-    // Store location/history in refs for stable callbacks
-    const locationRef = useRef(location);
-    const historyRef = useRef(history);
-    locationRef.current = location;
-    historyRef.current = history;
-
     // Use URL query param hooks for state management
-    const { value: hideSystemSources, setValue: setHideSystemSourcesRaw } = useUrlQueryParam('hideSystem', 'true');
-    const { value: sourceFilter, setValue: setSourceFilterRaw } = useUrlQueryParam('sourceFilter');
+    const { value: hideSystemSources, setValue: setHideSystemSources } = useUrlQueryParam('hideSystem', 'true');
+    const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
     const { value: searchQuery, setValue: setSearchQuery } = useUrlQueryParam('query');
-
-    // Wrap setters in useCallback to prevent infinite re-renders
-    const setHideSystemSources = useCallback(
-        (value: boolean) => setHideSystemSourcesRaw(value.toString()),
-        [setHideSystemSourcesRaw],
-    );
-    const setSourceFilter = useCallback(
-        (value: number | undefined) => setSourceFilterRaw(value?.toString() || ''),
-        [setSourceFilterRaw],
-    );
-
-    // Helper to batch multiple URL param updates to prevent race conditions
-    const batchSetUrlParams = useCallback((params: { sourceFilter?: number; searchQuery?: string }) => {
-        const updates: Record<string, string> = {};
-        if (params.sourceFilter !== undefined) {
-            updates.sourceFilter = params.sourceFilter.toString();
-        }
-        if (params.searchQuery !== undefined) {
-            updates.query = params.searchQuery;
-        }
-        // Use refs to access latest location/history without recreating callback
-        const currentLocation = locationRef.current;
-        const currentHistory = historyRef.current;
-        const searchParams = new URLSearchParams(currentLocation.search);
-        Object.entries(updates).forEach(([key, value]) => {
-            if (value) {
-                searchParams.set(key, value);
-            } else {
-                searchParams.delete(key);
-            }
-        });
-        currentHistory.replace({ pathname: currentLocation.pathname, search: searchParams.toString() });
-    }, []);
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
@@ -191,14 +152,13 @@ export const ManageIngestionPage = () => {
                     setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources === 'true'}
-                    setHideSystemSources={setHideSystemSources}
+                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
                     sourceFilter={sourceFilter ? Number(sourceFilter) : undefined}
-                    setSourceFilter={setSourceFilter}
+                    setSourceFilter={(value: number | undefined) => setSourceFilter(value?.toString() || '')}
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
-                    batchSetUrlParams={batchSetUrlParams}
                 />
             ),
             key: TabType.Sources as string,
@@ -209,7 +169,7 @@ export const ManageIngestionPage = () => {
                 <ExecutionsTab
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources === 'true'}
-                    setHideSystemSources={setHideSystemSources}
+                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
                 />

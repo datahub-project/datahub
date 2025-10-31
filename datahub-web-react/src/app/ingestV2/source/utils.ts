@@ -173,7 +173,7 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
     }
 };
 
-const extractStructuredReportPOJO = (result: Partial<ExecutionRequestResult>, sourceUrn?: string): any | null => {
+const extractStructuredReportPOJO = (result: Partial<ExecutionRequestResult>): any | null => {
     const structuredReportStr = result?.structuredReport?.serializedValue;
     if (!structuredReportStr) {
         return null;
@@ -181,20 +181,14 @@ const extractStructuredReportPOJO = (result: Partial<ExecutionRequestResult>, so
     try {
         return JSON.parse(structuredReportStr);
     } catch (e) {
-        console.error(
-            `Caught exception while parsing structured report in extractStructuredReportPOJO!${sourceUrn ? ` Source URN: ${sourceUrn}` : ''}`,
-            e,
-        );
+        console.error(`Caught exception while parsing structured report!`, e);
         return null;
     }
 };
 
-export const getStructuredReport = (
-    result: Partial<ExecutionRequestResult>,
-    sourceUrn?: string,
-): StructuredReport | null => {
+export const getStructuredReport = (result: Partial<ExecutionRequestResult>): StructuredReport | null => {
     // 1. Extract Serialized Structured Report
-    const structuredReportObject = extractStructuredReportPOJO(result, sourceUrn);
+    const structuredReportObject = extractStructuredReportPOJO(result);
     if (!structuredReportObject) {
         return null;
     }
@@ -319,7 +313,7 @@ export const getEntitiesIngestedByTypeOrSubtype = (
             displayName: entityName,
         }));
     } catch (e) {
-        console.error(`Caught exception while parsing structured report in getEntitiesIngestedByTypeOrSubtype!`, e);
+        console.error(`Caught exception while parsing structured report!`, e);
         return null;
     }
 };
@@ -457,23 +451,21 @@ export const getIngestionContents = (
     return result;
 };
 
-export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null, sourceUrn?: string) => {
+export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
     if (!result) {
         return undefined;
     }
 
     const { status } = result;
+    const structuredReport = getStructuredReport(result);
 
     /**
      * Simply map SUCCESS in the presence of warnings to SUCCEEDED_WITH_WARNINGS
      *
      * This is somewhat of a hack - ideally the ingestion source should report this status back to us.
      */
-    if (status === EXECUTION_REQUEST_STATUS_SUCCESS) {
-        const structuredReport = getStructuredReport(result, sourceUrn);
-        if ((structuredReport?.warnCount || 0) > 0) {
-            return EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS;
-        }
+    if (status === EXECUTION_REQUEST_STATUS_SUCCESS && (structuredReport?.warnCount || 0) > 0) {
+        return EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS;
     }
     // Else return the raw status.
     return status;
@@ -581,8 +573,7 @@ export const getSourceStatus = (
     if (!isPolling && !hasRequests) return EXECUTION_REQUEST_STATUS_PENDING;
 
     return (
-        getIngestionSourceStatus(source.executions?.executionRequests?.[0]?.result, source.urn) ??
-        EXECUTION_REQUEST_STATUS_PENDING
+        getIngestionSourceStatus(source.executions?.executionRequests?.[0]?.result) ?? EXECUTION_REQUEST_STATUS_PENDING
     );
 };
 

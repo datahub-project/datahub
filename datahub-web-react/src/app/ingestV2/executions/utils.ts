@@ -122,7 +122,6 @@ export const useExecutionLogsDownload = () => {
                 const link = document.createElement('a');
                 link.href = downloadUrl;
                 link.download = filename;
-                link.target = '_blank';
                 link.style.display = 'none';
                 document.body.appendChild(link);
                 link.click();

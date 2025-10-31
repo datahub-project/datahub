@@ -173,7 +173,6 @@ interface Props {
     setSourceFilter: (sourceFilter: number | undefined) => void;
     searchQuery?: string;
     setSearchQuery: (query: string) => void;
-    batchSetUrlParams: (params: { sourceFilter?: number; searchQuery?: string }) => void;
 }
 
 export const IngestionSourceList = ({
@@ -188,7 +187,6 @@ export const IngestionSourceList = ({
     setSourceFilter: setSourceFilterFromUrl,
     searchQuery: searchQueryFromUrl,
     setSearchQuery: setSearchQueryFromUrl,
-    batchSetUrlParams,
 }: Props) => {
     const location = useLocation();
     const me = useUserContext();
@@ -241,12 +239,12 @@ export const IngestionSourceList = ({
     // SaaS only: Reset the source type filter and search when pool filter is applied
     useEffect(() => {
         if (paramsPoolFilter) {
-            // Batch the URL param updates to prevent race conditions
-            batchSetUrlParams({ sourceFilter: IngestionSourceType.ALL, searchQuery: '' });
+            setSourceFilterFromUrl(IngestionSourceType.ALL);
             setQuery('');
             setSearchInput('');
+            setSearchQueryFromUrl('');
         }
-    }, [paramsPoolFilter, batchSetUrlParams]);
+    }, [paramsPoolFilter, setSourceFilterFromUrl, setSearchQueryFromUrl]);
 
     // Debounce the search query
     useDebounce(
@@ -324,12 +322,9 @@ export const IngestionSourceList = ({
     const [selectedSourceType, setSelectedSourceType] = useState<string | undefined>(undefined);
 
     useEffect(() => {
-        const ingestionSources = data?.listIngestionSources?.ingestionSources;
-        if (ingestionSources) {
-            const sources = ingestionSources as IngestionSource[];
-            setFinalSources(sources);
-            setTotalSources(data?.listIngestionSources?.total || 0);
-        }
+        const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
+        setFinalSources(sources);
+        setTotalSources(data?.listIngestionSources?.total || 0);
     }, [data?.listIngestionSources]);
 
     useEffect(() => {
@@ -686,9 +681,6 @@ export const IngestionSourceList = ({
     // SaaS only
     const { onViewPool, clearPoolFilter } = usePoolActionsForIngestionSourceList(params, shouldPreserveParams);
 
-    // Memoize saasProps to prevent infinite re-renders
-    const saasProps = useMemo(() => ({ onViewPool }), [onViewPool]);
-
     return (
         <>
             {error && (
@@ -753,7 +745,7 @@ export const IngestionSourceList = ({
                                 sourcesToRefetch={sourcesToRefetch}
                                 executedUrns={executedUrns}
                                 setSelectedTab={setSelectedTab}
-                                saasProps={saasProps}
+                                saasProps={{ onViewPool }}
                             />
                         </TableContainer>
                         <PaginationContainer>
