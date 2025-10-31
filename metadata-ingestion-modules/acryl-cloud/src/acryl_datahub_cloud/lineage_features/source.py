@@ -290,14 +290,13 @@ class DataHubLineageFeaturesSource(Source):
                             }
                         },
                     ],
+                    "must_not": [
+                        {"term": {"source.entityType": "schemaField"}},
+                        {"term": {"destination.entityType": "schemaField"}},
+                    ],
                 },
             },
-            "sort": [
-                {"source.urn": {"order": "desc"}},
-                {"destination.urn": {"order": "desc"}},
-                {"relationshipType": {"order": "desc"}},
-                {"lifecycleOwner": {"order": "desc"}},
-            ],
+            "sort": ["_id"],
         }
 
         index = f"{self.config.search_index.index_prefix}graph_service_v1"
