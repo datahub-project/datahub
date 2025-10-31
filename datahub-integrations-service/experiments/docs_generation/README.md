@@ -111,6 +111,28 @@ Focus on the business value and use cases of the data."
 6. Generate `graph_credentials.json` file using [this script](https://github.com/acryldata/experimental/blob/main/hsheth/bulk-graph-creds/generate_many_graph_credentials.py) and copy to `datahub-integrations-service/experiments` folder
 7. Run `python3 generate_eval_data.py` to download eval data locally.
 
+### Setup to use google Vertex AI models instead of AWS Bedrock
+
+_Pre-requisite_
+
+- Request access to acryl-poc google project.
+- Install gcloud cli and follow one-time setup as shown below
+
+```sh
+$ gcloud auth application-default login
+$ gcloud config set project acryl-poc
+```
+
+Environment variables to be set via `.env` created above
+
+```.env
+VERTEXAI_PROJECT="acryl-poc"
+VERTEXAI_LOCATION="us-east4"  # or whichever region you're using
+
+DESCRIPTION_GENERATION_MODEL="vertex_ai/gemini-2.5-pro"
+QUERY_DESCRIPTION_GENERATION_MODEL="vertex_ai/gemini-2.5-pro"
+```
+
 ## Running prompt engineering experiment run to generate descriptions
 
 Modify <CURRENT_PROMPT> in `run_prompt_experiment.py` and run `python3 run_prompt_experiment.py` to generate descriptions.
