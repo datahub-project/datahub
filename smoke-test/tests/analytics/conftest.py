@@ -146,9 +146,13 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
     # Get Elasticsearch URL from environment or use default
     elasticsearch_url = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
 
+    # Generate 45 days of data to ensure Monthly Active Users (MAU) chart has data
+    # MAU queries data from previous complete months, so we need data spanning beyond current month
+    days_to_generate = 45
+
     logger.info("Generating and loading analytics events with relative timestamps...")
     logger.info(f"  Elasticsearch URL: {elasticsearch_url}")
-    logger.info("  Days of data: 30")
+    logger.info(f"  Days of data: {days_to_generate}")
     logger.info("  Events per day: 200")
 
     # Run the backfill script with direct Elasticsearch loading
@@ -158,7 +162,7 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
         "--users-file",
         str(users_file),
         "--days",
-        "30",
+        str(days_to_generate),
         "--events-per-day",
         "200",
         "--elasticsearch-url",
