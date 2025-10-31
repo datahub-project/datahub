@@ -16,6 +16,7 @@ import argparse
 import json
 import logging
 import random
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
@@ -146,6 +147,9 @@ class ActivityEventGenerator:
         # Assign "power users" (20% of users generate 80% of activity)
         num_power_users = max(1, len(users) // 5)
         self.power_users = random.sample(users, num_power_users)
+        
+        # Generate a consistent browserId for each user (simulating each user has one main browser)
+        self.user_browser_ids = {user["username"]: str(uuid.uuid4()) for user in users}
 
     def _get_random_user(self, prefer_power_user: bool = True) -> Dict:
         """Get a random user, preferring power users 80% of the time."""
@@ -186,6 +190,7 @@ class ActivityEventGenerator:
             "type": EVENT_TYPE_ENTITY_VIEW,
             "timestamp": int(timestamp.timestamp() * 1000),
             "actorUrn": f"urn:li:corpuser:{user['username']}",
+            "browserId": self.user_browser_ids[user["username"]],
             "entityUrn": entity_urn,
             "entityType": entity_type.upper(),
             "usageSource": "web",
@@ -207,6 +212,7 @@ class ActivityEventGenerator:
             "type": EVENT_TYPE_ENTITY_ACTION,
             "timestamp": int(timestamp.timestamp() * 1000),
             "actorUrn": f"urn:li:corpuser:{user['username']}",
+            "browserId": self.user_browser_ids[user["username"]],
             "entityUrn": entity_urn,
             "entityType": entity_type.upper(),
             "actionType": action_type,
@@ -229,6 +235,7 @@ class ActivityEventGenerator:
             "type": EVENT_TYPE_ENTITY_SECTION_VIEW,
             "timestamp": int(timestamp.timestamp() * 1000),
             "actorUrn": f"urn:li:corpuser:{user['username']}",
+            "browserId": self.user_browser_ids[user["username"]],
             "entityUrn": entity_urn,
             "entityType": entity_type.upper(),
             "section": section,
@@ -249,6 +256,7 @@ class ActivityEventGenerator:
             "type": EVENT_TYPE_SEARCH,
             "timestamp": int(timestamp.timestamp() * 1000),
             "actorUrn": f"urn:li:corpuser:{user['username']}",
+            "browserId": self.user_browser_ids[user["username"]],
             "query": query,
             "usageSource": "web",
         }
@@ -267,6 +275,7 @@ class ActivityEventGenerator:
             "type": EVENT_TYPE_SEARCH_RESULTS_VIEW,
             "timestamp": int(timestamp.timestamp() * 1000),
             "actorUrn": f"urn:li:corpuser:{user['username']}",
+            "browserId": self.user_browser_ids[user["username"]],
             "query": query,
             "usageSource": "web",
         }
@@ -283,6 +292,7 @@ class ActivityEventGenerator:
             "type": EVENT_TYPE_HOME_PAGE_VIEW,
             "timestamp": int(timestamp.timestamp() * 1000),
             "actorUrn": f"urn:li:corpuser:{user['username']}",
+            "browserId": self.user_browser_ids[user["username"]],
             "usageSource": "web",
         }
 
@@ -298,6 +308,7 @@ class ActivityEventGenerator:
             "type": EVENT_TYPE_LOGIN,
             "timestamp": int(timestamp.timestamp() * 1000),
             "actorUrn": f"urn:li:corpuser:{user['username']}",
+            "browserId": self.user_browser_ids[user["username"]],
             "loginSource": "web",
         }
 

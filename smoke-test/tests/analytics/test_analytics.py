@@ -182,7 +182,20 @@ def test_weekly_active_users_chart(auth_session, analytics_events_loaded):
 
     # Check that we have reasonable values (> 0)
     data_points = wau_chart["lines"][0]["data"]
-    assert any(point["y"] > 0 for point in data_points), "WAU should have users"
+
+    # Log data points for debugging
+    logger.info(f"WAU chart has {len(data_points)} data points")
+    active_weeks = [point for point in data_points if point["y"] > 0]
+    logger.info(f"Weeks with active users: {len(active_weeks)}/{len(data_points)}")
+    if active_weeks:
+        logger.info(f"Sample active week: {active_weeks[0]}")
+    else:
+        logger.error(f"No active users found. Sample data points: {data_points[:3]}")
+
+    assert any(point["y"] > 0 for point in data_points), (
+        f"WAU should have users. Found {len(data_points)} data points but all have y=0. "
+        f"This may indicate events are missing the 'browserId' field."
+    )
 
 
 def test_top_searches_chart(auth_session, analytics_events_loaded):
