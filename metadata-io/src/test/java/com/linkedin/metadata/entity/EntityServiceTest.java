@@ -3188,6 +3188,78 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
   }
 
+  @Test
+  public void testCountAspect() throws Exception {
+    if (!(this instanceof EbeanEntityServiceTest)) {
+      return;
+    }
+
+    // Setup: Create test data with different URNs and aspects
+    Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:testCountAspect1");
+    Urn entityUrn2 = UrnUtils.getUrn("urn:li:corpuser:testCountAspect2");
+    Urn entityUrn3 =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testCountAspect3,PROD)");
+
+    CorpUserInfo userInfo1 = AspectGenerationUtils.createCorpUserInfo("test1@test.com");
+    CorpUserInfo userInfo2 = AspectGenerationUtils.createCorpUserInfo("test2@test.com");
+    DatasetProperties datasetProperties = new DatasetProperties();
+    datasetProperties.setDescription("Test dataset");
+
+    SystemMetadata metadata = AspectGenerationUtils.createSystemMetadata();
+
+    // Ingest test aspects
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn1,
+        List.of(new Pair<>(AspectGenerationUtils.getAspectName(userInfo1), userInfo1)),
+        TEST_AUDIT_STAMP,
+        metadata);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn2,
+        List.of(new Pair<>(AspectGenerationUtils.getAspectName(userInfo2), userInfo2)),
+        TEST_AUDIT_STAMP,
+        metadata);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn3,
+        List.of(
+            new Pair<>(AspectGenerationUtils.getAspectName(datasetProperties), datasetProperties)),
+        TEST_AUDIT_STAMP,
+        metadata);
+
+    List<String> logMessages = new ArrayList<>();
+
+    // Test case 1: No filter - should return count of all aspects
+    RestoreIndicesArgs args1 = new RestoreIndicesArgs();
+    int count1 = _entityServiceImpl.countAspect(args1, logMessages::add);
+    assertTrue(count1 >= 3, "Should have at least 3 aspects (corpUserInfo x2 + datasetProperties)");
+
+    // Test case 2: urnLike filter - should return count of aspects matching the URN pattern
+    RestoreIndicesArgs args2 = new RestoreIndicesArgs();
+    args2.urnLike = "%corpuser:testCountAspect%";
+    int count2 = _entityServiceImpl.countAspect(args2, logMessages::add);
+    assertTrue(count2 >= 2, "Should have at least 2 corpuser aspects");
+
+    // Test case 3: urnLike + aspectName filter - should return count of matching aspects
+    RestoreIndicesArgs args3 = new RestoreIndicesArgs();
+    args3.urnLike = "%corpuser:testCountAspect%";
+    args3.aspectName = "corpUserInfo";
+    int count3 = _entityServiceImpl.countAspect(args3, logMessages::add);
+    assertEquals(count3, 2, "Should have exactly 2 corpUserInfo aspects for testCountAspect users");
+
+    // Test case 4: aspectName filter only
+    RestoreIndicesArgs args4 = new RestoreIndicesArgs();
+    args4.aspectName = "datasetProperties";
+    int count4 = _entityServiceImpl.countAspect(args4, logMessages::add);
+    assertTrue(count4 >= 1, "Should have at least 1 datasetProperties aspect");
+
+    // Verify logger was called
+    assertFalse(logMessages.isEmpty(), "Logger should have been called");
+  }
+
   @Nonnull
   protected com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email)
       throws Exception {
