@@ -1368,3 +1368,48 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **a3275c37c1** - fix(docs): move DataHub variant entity docs to separate directory (#15144)
   *by Shirshanka Das on 2025-10-28*
 
+
+## Upstream Merge Session - 2025-10-31 00:00:07
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-10-31-000006`
+- **Merge Base**: `a3275c37c1692acacdb1fc4966c2fd388d72b086`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 10
+- **Strategy**: stacked
+- **Started**: Fri Oct 31 00:00:07 UTC 2025
+
+### Commits Included in This Merge
+- **33d36dcc56** - feat(elasticsearch): support for composable index templates (#15089)
+  *by Sergio Gómez Villamor on 2025-10-29*
+
+- **6d4b41be32** - tests(cypress): optimize symmaryTab tests (#15138)
+  *by v-tarasevich-blitz-brain on 2025-10-29*
+
+- **b390dd4d7e** - feat(iam-setup): additional support for iam (#15143)
+  *by david-leifker on 2025-10-29*
+
+- **67753a24c3** - feat(graphql): Add comprehensive entity patching functionality (#14823)
+  *by Brock Griffey on 2025-10-29*
+
+- **eec2f305da** - fix(docs): fixed misprint in api comparison table, fixed table layout and columns (#14481)
+  *by Taimuraz Tibilov on 2025-10-30*
+
+- **b637df4f69** - fix(web): nested select component should not auto-clear selections (#15122)
+  *by Jay on 2025-10-30*
+
+- **07373259a4** - fix(quickstart): bump default version to v1.3.0 (#15155)
+  *by Chakru on 2025-10-30*
+
+- **ee6672f594** - fix(cypress): fix manage_tagsV2 (#15151)
+  *by v-tarasevich-blitz-brain on 2025-10-30*
+
+- **46d2063091** - fix(cypress): fix cypress test for dataset_health (#15153)
+  *by Purnima Garg on 2025-10-30*
+
+- **2bcbd76ede** - fix(cypress): fix ingestion_source cypress test (#15154)
+  *by Purnima Garg on 2025-10-30*
+
