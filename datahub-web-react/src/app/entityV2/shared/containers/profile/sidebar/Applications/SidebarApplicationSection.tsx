@@ -25,7 +25,7 @@ const Content = styled.div`
 `;
 
 const ApplicationLinkWrapper = styled.div`
-    margin-right: 12px;
+    margin-right: 6px;
     display: flex;
     align-items: center;
 `;
@@ -104,7 +104,7 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
                                         application={appAssociation.application}
                                         closable={!readOnly && !updateOnly && canEditApplication}
                                         readOnly={readOnly}
-                                        onClose={(e: React.MouseEvent) => {
+                                        onClose={(e) => {
                                             e.preventDefault();
                                             if (appAssociation.application?.urn) {
                                                 onRemoveApplication(appAssociation.application.urn);
@@ -128,7 +128,7 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
                         <SectionActionButton
                             dataTestId="add-applications-button"
                             button={applications.length > 0 ? <EditOutlinedIcon /> : <AddRoundedIcon />}
-                            onClick={(event: React.MouseEvent) => {
+                            onClick={(event) => {
                                 setShowModal(true);
                                 event.stopPropagation();
                             }}
