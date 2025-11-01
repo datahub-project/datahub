@@ -952,9 +952,17 @@ public class LineageSearchService {
   }
 
   private static boolean isLineageVisualization(@Nullable LineageFlags lineageFlags) {
-    return lineageFlags != null
-        && lineageFlags.getEntitiesExploredPerHopLimit() != null
-        && lineageFlags.getEntitiesExploredPerHopLimit() > 0;
+    if (lineageFlags == null) {
+      return false;
+    }
+
+    boolean hasEntitiesExploredLimit =
+        lineageFlags.getEntitiesExploredPerHopLimit() != null
+            && lineageFlags.getEntitiesExploredPerHopLimit() > 0;
+    boolean hasIgnoreAsHops =
+        lineageFlags.getIgnoreAsHops() != null && !lineageFlags.getIgnoreAsHops().isEmpty();
+
+    return hasEntitiesExploredLimit || hasIgnoreAsHops;
   }
 
   private EntityLineageResult getLineageResult(
