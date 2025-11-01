@@ -301,8 +301,9 @@ export const WizardPage = () => {
                 }}>
                     <ActionsBar>
                         {entities.length > 0 && (() => {
-                            // Count only entities being created or updated (exclude existing unchanged)
-                            const entitiesToImport = entities.filter(e => e.status !== 'existing');
+                            // Count only entities being created or updated (exclude existing unchanged and conflicted)
+                            // This matches the logic in useComprehensiveImport.ts which only processes 'new' and 'updated' entities
+                            const entitiesToImport = entities.filter(e => e.status === 'new' || e.status === 'updated');
                             const importCount = entitiesToImport.length;
                             
                             return (
