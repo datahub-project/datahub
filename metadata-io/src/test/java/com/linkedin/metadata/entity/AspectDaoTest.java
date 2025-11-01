@@ -456,6 +456,11 @@ public class AspectDaoTest {
     }
 
     @Override
+    public Integer countAspect(RestoreIndicesArgs args) {
+      return null;
+    }
+
+    @Override
     public PartitionedStream<EbeanAspectV2> streamAspectBatches(RestoreIndicesArgs args) {
       return null;
     }
