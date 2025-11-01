@@ -1,8 +1,8 @@
 from typing import Optional
 
 import pytest
-import tenacity
 
+from conftest import _ingest_cleanup_data_impl
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
@@ -11,24 +11,17 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     SystemMetadataClass,
 )
-from tests.utils import delete_urns_from_file, get_sleep_info, ingest_file_via_rest
-
-sleep_sec, sleep_times = get_sleep_info()
-
+from tests.utils import delete_urns_from_file, ingest_file_via_rest, with_test_retry
 
 graph = "test_resources/graph_data.json"
 graph_2 = "test_resources/graph_dataDiff.json"
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(graph_client, auth_session, request):
-    print("removing graph test data")
-    delete_urns_from_file(graph_client, "tests/cli/graph_data.json")
-    print("ingesting graph test data")
-    ingest_file_via_rest(auth_session, "tests/cli/graph_data.json")
-    yield
-    print("removing graph test data")
-    delete_urns_from_file(graph_client, "tests/cli/graph_data.json")
+def ingest_cleanup_data(auth_session, graph_client):
+    yield from _ingest_cleanup_data_impl(
+        auth_session, graph_client, "tests/cli/graph_data.json", "graph"
+    )
 
 
 def test_get_aspect_v2(graph_client, ingest_cleanup_data):
@@ -105,9 +98,7 @@ def test_get_entities_v3(graph_client, ingest_cleanup_data):
     )
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_dataset_present_correctly(auth_session, graph_client: DataHubGraph):
     urn = "urn:li:dataset:(urn:li:dataPlatform:graph,graph-test,PROD)"
     json = {

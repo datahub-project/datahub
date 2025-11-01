@@ -6,9 +6,14 @@ import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLIC
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -16,20 +21,18 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
 import org.opensearch.client.indices.GetIndexRequest;
-import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.client.tasks.TaskId;
-import org.opensearch.client.tasks.TaskSubmissionResponse;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.QueryBuilder;
@@ -42,8 +45,8 @@ import org.opensearch.script.ScriptType;
 @RequiredArgsConstructor
 public class ESWriteDAO {
   private final ElasticSearchConfiguration config;
-  private final RestHighLevelClient searchClient;
-  private final ESBulkProcessor bulkProcessor;
+  private final SearchClientShim<?> searchClient;
+  @Getter private final ESBulkProcessor bulkProcessor;
 
   /** Result of a delete by query operation */
   @Data
@@ -80,6 +83,26 @@ public class ESWriteDAO {
   }
 
   /**
+   * Updates or inserts the given search document in the specified index. This method works directly
+   * with index names, useful for V3 multi-entity indices.
+   *
+   * @param indexName name of the index
+   * @param document the document to update / insert
+   * @param docId the ID of the document
+   */
+  public void upsertDocumentByIndexName(
+      @Nonnull String indexName, @Nonnull String document, @Nonnull String docId) {
+    final UpdateRequest updateRequest =
+        new UpdateRequest(indexName, docId)
+            .detectNoop(false)
+            .docAsUpsert(true)
+            .doc(document, XContentType.JSON)
+            .retryOnConflict(config.getBulkProcessor().getNumRetries());
+
+    bulkProcessor.add(updateRequest);
+  }
+
+  /**
    * Deletes the document with the given document ID from the index.
    *
    * @param entityName name of the entity
@@ -88,6 +111,56 @@ public class ESWriteDAO {
   public void deleteDocument(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
     bulkProcessor.add(new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
+  }
+
+  /**
+   * Deletes the document with the given document ID from the specified index. This method works
+   * directly with index names, useful for V3 multi-entity indices.
+   *
+   * @param indexName name of the index
+   * @param docId the ID of the document to delete
+   */
+  public void deleteDocumentByIndexName(@Nonnull String indexName, @Nonnull String docId) {
+    bulkProcessor.add(new DeleteRequest(indexName).id(docId));
+  }
+
+  /**
+   * Updates or inserts the given search document in the V3 index for the specified search group.
+   * This method uses the index convention to properly construct the V3 index name.
+   *
+   * @param opContext the operation context
+   * @param searchGroup the search group name
+   * @param document the document to update / insert
+   * @param docId the ID of the document
+   */
+  public void upsertDocumentBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String document,
+      @Nonnull String docId) {
+    final UpdateRequest updateRequest =
+        new UpdateRequest(toIndexNameV3(opContext, searchGroup), docId)
+            .detectNoop(false)
+            .docAsUpsert(true)
+            .doc(document, XContentType.JSON)
+            .retryOnConflict(config.getBulkProcessor().getNumRetries());
+
+    // Use URN-aware routing for entity document consistency
+    bulkProcessor.add(updateRequest);
+  }
+
+  /**
+   * Deletes the document with the given document ID from the V3 index for the specified search
+   * group. This method uses the index convention to properly construct the V3 index name.
+   *
+   * @param opContext the operation context
+   * @param searchGroup the search group name
+   * @param docId the ID of the document to delete
+   */
+  public void deleteDocumentBySearchGroup(
+      @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
+    // Use URN-aware routing for entity document consistency
+    bulkProcessor.add(new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
   }
 
   /** Applies a script to a particular document */
@@ -118,15 +191,22 @@ public class ESWriteDAO {
 
   /** Clear all documents in all the indices */
   public void clear(@Nonnull OperationContext opContext) {
-    String[] indices =
-        getIndices(opContext.getSearchContext().getIndexConvention().getAllEntityIndicesPattern());
-    bulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), indices);
+    List<String> patterns =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndicesCleanupPatterns(config.getEntityIndex());
+    List<String> allIndices = new ArrayList<>();
+    for (String pattern : patterns) {
+      allIndices.addAll(Arrays.asList(getIndices(pattern)));
+    }
+    bulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), allIndices.toArray(new String[0]));
   }
 
   private String[] getIndices(String pattern) {
     try {
       GetIndexResponse response =
-          searchClient.indices().get(new GetIndexRequest(pattern), RequestOptions.DEFAULT);
+          searchClient.getIndex(new GetIndexRequest(pattern), RequestOptions.DEFAULT);
       return response.getIndices();
     } catch (IOException e) {
       log.error("Failed to get indices using pattern {}", pattern);
@@ -139,7 +219,7 @@ public class ESWriteDAO {
    * CompletableFuture containing the task ID
    */
   @Nonnull
-  public CompletableFuture<TaskSubmissionResponse> deleteByQueryAsync(
+  public CompletableFuture<String> deleteByQueryAsync(
       @Nonnull String indexName,
       @Nonnull QueryBuilder query,
       @Nullable BulkDeleteConfiguration overrideConfig) {
@@ -153,8 +233,7 @@ public class ESWriteDAO {
             DeleteByQueryRequest request = buildDeleteByQueryRequest(indexName, query, finalConfig);
 
             // Submit the task asynchronously
-            TaskSubmissionResponse taskId =
-                searchClient.submitDeleteByQueryTask(request, RequestOptions.DEFAULT);
+            String taskId = searchClient.submitDeleteByQueryTask(request, RequestOptions.DEFAULT);
 
             log.info("Started async delete by query task: {} for index: {}", taskId, indexName);
 
@@ -207,9 +286,9 @@ public class ESWriteDAO {
         // Submit delete by query task
         DeleteByQueryRequest request = buildDeleteByQueryRequest(indexName, query, finalConfig);
 
-        TaskSubmissionResponse taskSubmission =
+        String taskSubmission =
             searchClient.submitDeleteByQueryTask(request, RequestOptions.DEFAULT);
-        TaskId taskId = parseTaskId(taskSubmission.getTask());
+        TaskId taskId = parseTaskId(taskSubmission);
         lastTaskId = taskId;
 
         log.info("Submitted delete by query task: {} for index: {}", taskId, indexName);
@@ -318,7 +397,7 @@ public class ESWriteDAO {
       getTaskRequest.setTimeout(TimeValue.timeValueMillis(finalTimeout.toMillis()));
 
       Optional<GetTaskResponse> taskResponse =
-          searchClient.tasks().get(getTaskRequest, RequestOptions.DEFAULT);
+          searchClient.getTask(getTaskRequest, RequestOptions.DEFAULT);
 
       if (taskResponse.isEmpty() || !taskResponse.get().isCompleted()) {
         // Count remaining documents to determine if any progress was made
@@ -376,6 +455,11 @@ public class ESWriteDAO {
         .getSearchContext()
         .getIndexConvention()
         .getIndexName(opContext.getEntityRegistry().getEntitySpec(entityName));
+  }
+
+  private static String toIndexNameV3(
+      @Nonnull OperationContext opContext, @Nonnull String searchGroup) {
+    return opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(searchGroup);
   }
 
   private DeleteByQueryRequest buildDeleteByQueryRequest(

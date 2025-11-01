@@ -3,7 +3,7 @@ package com.linkedin.metadata.kafka.hook;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.MCLProcessingTestDataGenerator.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -34,6 +34,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.key.ChartKey;
@@ -47,10 +48,12 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.service.UpdateIndicesStrategy;
+import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
+import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.NumberType;
@@ -62,6 +65,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -125,11 +129,9 @@ public class UpdateIndicesHookTest {
     mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
 
-    when(mockEntitySearchService.getIndexConvention()).thenReturn(IndexConventionImpl.noPrefix(""));
-
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);
-    when(mockConfigurationProvider.getElasticSearch()).thenReturn(TEST_ES_SEARCH_CONFIG);
+    when(mockConfigurationProvider.getElasticSearch()).thenReturn(TEST_OS_SEARCH_CONFIG);
     updateIndicesService =
         new UpdateIndicesService(
             UpdateGraphIndicesService.withService(mockGraphService),
@@ -842,7 +844,53 @@ public class UpdateIndicesHookTest {
 
   @Test
   public void testUpdateIndexMappings() throws CloneNotSupportedException {
-    // ensure no mutation
+    // Test with both V2 and V3 strategies enabled
+    testUpdateIndexMappingsWithStrategies(true, true, "V2 and V3 strategies");
+    testUpdateIndexMappingsWithStrategies(true, false, "V2 strategy only");
+    testUpdateIndexMappingsWithStrategies(false, true, "V3 strategy only");
+  }
+
+  private void testUpdateIndexMappingsWithStrategies(
+      boolean v2Enabled, boolean v3Enabled, String strategyDescription)
+      throws CloneNotSupportedException {
+    // Create strategies based on configuration
+    List<UpdateIndicesStrategy> strategies = new ArrayList<>();
+
+    if (v2Enabled) {
+      UpdateIndicesV2Strategy v2Strategy =
+          new UpdateIndicesV2Strategy(
+              EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+              mockEntitySearchService,
+              searchDocumentTransformer,
+              mockTimeseriesAspectService,
+              "MD5");
+      strategies.add(v2Strategy);
+    }
+
+    if (v3Enabled) {
+      UpdateIndicesV3Strategy v3Strategy =
+          new UpdateIndicesV3Strategy(
+              EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+              mockEntitySearchService,
+              searchDocumentTransformer,
+              mockTimeseriesAspectService,
+              "MD5",
+              v2Enabled); // v2Enabled parameter
+      strategies.add(v3Strategy);
+    }
+
+    // Create UpdateIndicesService with the specified strategies
+    UpdateIndicesService testUpdateIndicesService =
+        new UpdateIndicesService(
+            UpdateGraphIndicesService.withService(mockGraphService),
+            mockEntitySearchService,
+            mockSystemMetadataService,
+            strategies,
+            true, // searchDiffMode
+            true, // structuredPropertiesHookEnabled
+            true); // structuredPropertiesWriteEnabled
+
+    // Test data setup
     EntitySpec entitySpec =
         opContext.getEntityRegistry().getEntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME);
     AspectSpec aspectSpec = entitySpec.getAspectSpec(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
@@ -865,11 +913,19 @@ public class UpdateIndicesHookTest {
     StructuredPropertyDefinition newValue =
         new StructuredPropertyDefinition(newValueOrigin.data().copy());
 
-    updateIndicesService.updateIndexMappings(
-        UrnUtils.getUrn(TEST_DATASET_URN), entitySpec, aspectSpec, newValue, oldValue);
+    // Call updateIndexMappings
+    testUpdateIndicesService.updateIndexMappings(
+        opContext, UrnUtils.getUrn(TEST_DATASET_URN), entitySpec, aspectSpec, newValue, oldValue);
 
-    assertEquals(oldValue, oldValueOrigin, "Ensure no mutation to input objects");
-    assertEquals(newValue, newValueOrigin, "Ensure no mutation to input objects");
+    // Verify no mutation to input objects
+    assertEquals(
+        oldValue,
+        oldValueOrigin,
+        String.format("Ensure no mutation to input objects with %s", strategyDescription));
+    assertEquals(
+        newValue,
+        newValueOrigin,
+        String.format("Ensure no mutation to input objects with %s", strategyDescription));
   }
 
   private EntityRegistry createMockEntityRegistry() {

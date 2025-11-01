@@ -29,6 +29,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source.unity.connection import UnityCatalogConnectionConfig
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -56,8 +57,8 @@ class Constant:
     STATUS = "status"
     USER_ID = "user_id"
     EMAIL = "email"
-    CONNECTOR_ID = "connector_id"
-    CONNECTOR_NAME = "connector_name"
+    CONNECTOR_ID = "connection_id"
+    CONNECTOR_NAME = "connection_name"
     CONNECTOR_TYPE_ID = "connector_type_id"
     PAUSED = "paused"
     SYNC_FREQUENCY = "sync_frequency"
@@ -67,12 +68,21 @@ class Constant:
     SUCCESSFUL = "SUCCESSFUL"
     FAILURE_WITH_TASK = "FAILURE_WITH_TASK"
     CANCELED = "CANCELED"
+    GOOGLE_SHEETS_CONNECTOR_TYPE = "google_sheets"
 
 
+# Key: Connector Type, Value: Platform ID/Name
 KNOWN_DATA_PLATFORM_MAPPING = {
+    "google_cloud_postgresql": "postgres",
     "postgres": "postgres",
     "snowflake": "snowflake",
+    Constant.GOOGLE_SHEETS_CONNECTOR_TYPE: Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
 }
+
+# Note: (As of Oct 2025) Fivetran Platform Connector has stale lineage metadata for Google Sheets column data (deleted/renamed).
+# Ref: https://fivetran.com/docs/connectors/files/google-sheets#deletingdata
+# TODO: Remove Google Sheets connector type from DISABLE_LINEAGE_FOR_CONNECTOR_TYPES
+DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES = [Constant.GOOGLE_SHEETS_CONNECTOR_TYPE]
 
 
 class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
@@ -84,10 +94,34 @@ class BigQueryDestinationConfig(BigQueryConnectionConfig):
     dataset: str = Field(description="The fivetran connector log dataset.")
 
 
+class DatabricksDestinationConfig(UnityCatalogConnectionConfig):
+    catalog: str = Field(description="The fivetran connector log catalog.")
+    log_schema: str = Field(description="The fivetran connector log schema.")
+
+    @pydantic.validator("warehouse_id")
+    def warehouse_id_should_not_be_empty(cls, warehouse_id: Optional[str]) -> str:
+        if warehouse_id is None or (warehouse_id and warehouse_id.strip() == ""):
+            raise ValueError("Fivetran requires warehouse_id to be set")
+        return warehouse_id
+
+
+class FivetranAPIConfig(ConfigModel):
+    api_key: str = Field(description="Fivetran API key")
+    api_secret: str = Field(description="Fivetran API secret")
+    base_url: str = Field(
+        default="https://api.fivetran.com", description="Fivetran API base URL"
+    )
+    request_timeout_sec: int = Field(
+        default=30, description="Request timeout in seconds"
+    )
+
+
 class FivetranLogConfig(ConfigModel):
-    destination_platform: Literal["snowflake", "bigquery"] = pydantic.Field(
-        default="snowflake",
-        description="The destination platform where fivetran connector log tables are dumped.",
+    destination_platform: Literal["snowflake", "bigquery", "databricks"] = (
+        pydantic.Field(
+            default="snowflake",
+            description="The destination platform where fivetran connector log tables are dumped.",
+        )
     )
     snowflake_destination_config: Optional[SnowflakeDestinationConfig] = pydantic.Field(
         default=None,
@@ -97,11 +131,17 @@ class FivetranLogConfig(ConfigModel):
         default=None,
         description="If destination platform is 'bigquery', provide bigquery configuration.",
     )
+    databricks_destination_config: Optional[DatabricksDestinationConfig] = (
+        pydantic.Field(
+            default=None,
+            description="If destination platform is 'databricks', provide databricks configuration.",
+        )
+    )
     _rename_destination_config = pydantic_renamed_field(
         "destination_config", "snowflake_destination_config"
     )
 
-    @root_validator(pre=True)
+    @root_validator(skip_on_failure=True)
     def validate_destination_platfrom_and_config(cls, values: Dict) -> Dict:
         destination_platform = values["destination_platform"]
         if destination_platform == "snowflake":
@@ -113,6 +153,11 @@ class FivetranLogConfig(ConfigModel):
             if "bigquery_destination_config" not in values:
                 raise ValueError(
                     "If destination platform is 'bigquery', user must provide bigquery destination configuration in the recipe."
+                )
+        elif destination_platform == "databricks":
+            if "databricks_destination_config" not in values:
+                raise ValueError(
+                    "If destination platform is 'databricks', user must provide databricks destination configuration in the recipe."
                 )
         else:
             raise ValueError(
@@ -137,6 +182,7 @@ class MetadataExtractionPerfReport(Report):
 @dataclasses.dataclass
 class FivetranSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
+    fivetran_rest_api_call_count: int = 0
     filtered_connectors: LossyList[str] = dataclasses.field(default_factory=LossyList)
     metadata_extraction_perf: MetadataExtractionPerfReport = dataclasses.field(
         default_factory=MetadataExtractionPerfReport
@@ -147,6 +193,9 @@ class FivetranSourceReport(StaleEntityRemovalSourceReport):
 
     def report_connectors_dropped(self, connector: str) -> None:
         self.filtered_connectors.append(connector)
+
+    def report_fivetran_rest_api_call_count(self) -> None:
+        self.fivetran_rest_api_call_count += 1
 
 
 class PlatformDetail(ConfigModel):
@@ -194,7 +243,7 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
-        default=None, description="Airbyte Stateful Ingestion Config."
+        default=None, description="Fivetran Stateful Ingestion Config."
     )
 
     # Fivetran connector all sources to platform instance mapping
@@ -206,6 +255,16 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     destination_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
         description="A mapping of destination id to its platform/instance/env details.",
+    )
+
+    """
+    Use Fivetran REST API to get :
+    - Google Sheets Connector details and emit related entities
+    Fivetran Platform Connector syncs limited information about the Google Sheets Connector.
+    """
+    api_config: Optional[FivetranAPIConfig] = Field(
+        default=None,
+        description="Fivetran REST API configuration, used to provide wider support for connections.",
     )
 
     @pydantic.root_validator(pre=True)

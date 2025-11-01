@@ -1152,6 +1152,26 @@
             "name" : "createStamp",
             "type" : "AuditStamp",
             "doc" : "Audit stamp associated with creation of this record"
+          }, {
+            "name" : "updateStamp",
+            "type" : "AuditStamp",
+            "doc" : "Audit stamp associated with updation of this record",
+            "optional" : true
+          }, {
+            "name" : "settings",
+            "type" : {
+              "type" : "record",
+              "name" : "InstitutionalMemoryMetadataSettings",
+              "doc" : "Settings related to a record of InstitutionalMemoryMetadata",
+              "fields" : [ {
+                "name" : "showInAssetPreview",
+                "type" : "boolean",
+                "doc" : "Show record in asset preview like on entity header and search previews",
+                "default" : false
+              } ]
+            },
+            "doc" : "Settings for this record",
+            "optional" : true
           } ]
         }
       },
@@ -1160,7 +1180,7 @@
     "Aspect" : {
       "name" : "institutionalMemory"
     }
-  }, "com.linkedin.common.InstitutionalMemoryMetadata", {
+  }, "com.linkedin.common.InstitutionalMemoryMetadata", "com.linkedin.common.InstitutionalMemoryMetadataSettings", {
     "type" : "enum",
     "name" : "MLFeatureDataType",
     "namespace" : "com.linkedin.common",
@@ -1311,6 +1331,28 @@
       },
       "doc" : "Source information for the ownership",
       "optional" : true
+    }, {
+      "name" : "attribution",
+      "type" : "MetadataAttribution",
+      "doc" : "Information about who, why, and how this metadata was applied",
+      "optional" : true,
+      "Searchable" : {
+        "/actor" : {
+          "fieldName" : "ownerAttributionActors",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/source" : {
+          "fieldName" : "ownerAttributionSources",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/time" : {
+          "fieldName" : "ownerAttributionDates",
+          "fieldType" : "DATETIME",
+          "queryByDefault" : false
+        }
+      }
     } ]
   }, {
     "type" : "record",
@@ -1952,7 +1994,15 @@
               "items" : "com.linkedin.common.Urn"
             },
             "doc" : "Upstream entities in the lineage",
-            "optional" : true
+            "optional" : true,
+            "Searchable" : {
+              "/*" : {
+                "fieldName" : "fineGrainedUpstreams",
+                "fieldType" : "URN",
+                "hasValuesFieldName" : "hasFineGrainedUpstreams",
+                "queryByDefault" : false
+              }
+            }
           }, {
             "name" : "downstreamType",
             "type" : {
@@ -2163,6 +2213,7 @@
       "Searchable" : {
         "fieldName" : "upstreams",
         "fieldType" : "URN",
+        "hasValuesFieldName" : "hasUpstreams",
         "queryByDefault" : false
       }
     }, {

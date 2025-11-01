@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, Iterable, List, Optional, Union
+from urllib.parse import urlparse
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob as DataJobV1
@@ -16,8 +17,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceReport,
+    StructuredLogCategory,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.fivetran.config import (
     KNOWN_DATA_PLATFORM_MAPPING,
     Constant,
@@ -31,29 +37,39 @@ from datahub.ingestion.source.fivetran.fivetran_query import (
     MAX_JOBS_PER_CONNECTOR,
     MAX_TABLE_LINEAGE_PER_CONNECTOR,
 )
+from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
+from datahub.ingestion.source.fivetran.response_models import FivetranConnectionDetails
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
+    UpstreamLineage,
+)
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    UpstreamClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
+from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
 
 # Logger instance
 logger = logging.getLogger(__name__)
+CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
 
 
 @platform_name("Fivetran")
 @config_class(FivetranSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -62,7 +78,6 @@ logger = logging.getLogger(__name__)
 class FivetranSource(StatefulIngestionSourceBase):
     """
     This plugin extracts fivetran users, connectors, destinations and sync history.
-    This plugin is in beta and has only been tested on Snowflake connector.
     """
 
     config: FivetranSourceConfig
@@ -73,8 +88,12 @@ class FivetranSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = FivetranSourceReport()
-
         self.audit_log = FivetranLogAPI(self.config.fivetran_log_config)
+        self.api_client: Optional[FivetranAPIClient] = None
+        self._connection_details_cache: Dict[str, FivetranConnectionDetails] = {}
+
+        if self.config.api_config:
+            self.api_client = FivetranAPIClient(self.config.api_config)
 
     def _extend_lineage(self, connector: Connector, datajob: DataJob) -> Dict[str, str]:
         input_dataset_urn_list: List[Union[str, DatasetUrn]] = []
@@ -96,8 +115,10 @@ class FivetranSource(StatefulIngestionSourceBase):
                 self.report.info(
                     title="Guessing source platform for lineage",
                     message="We encountered a connector type that we don't fully support yet. "
-                    "We will attempt to guess the platform based on the connector type.",
-                    context=f"{connector.connector_name} (connector_id: {connector.connector_id}, connector_type: {connector.connector_type})",
+                    "We will attempt to guess the platform based on the connector type. "
+                    "Note that we use connector_id as the key not connector_name which you may see in the UI of Fivetran. ",
+                    context=f"connector_name: {connector.connector_name} (connector_id: {connector.connector_id}, connector_type: {connector.connector_type})",
+                    log_category=StructuredLogCategory.LINEAGE,
                 )
                 source_details.platform = connector.connector_type
 
@@ -126,17 +147,43 @@ class FivetranSource(StatefulIngestionSourceBase):
                 if source_details.include_schema_in_urn
                 else lineage.source_table.split(".", 1)[1]
             )
-            input_dataset_urn = DatasetUrn.create_from_ids(
-                platform_id=source_details.platform,
-                table_name=(
-                    f"{source_details.database.lower()}.{source_table}"
-                    if source_details.database
-                    else source_table
-                ),
-                env=source_details.env,
-                platform_instance=source_details.platform_instance,
-            )
-            input_dataset_urn_list.append(input_dataset_urn)
+            input_dataset_urn: Optional[DatasetUrn] = None
+            # Special Handling for Google Sheets Connectors
+            if connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE:
+                # Get Google Sheet dataset details from Fivetran API
+                # This is cached in the api_client
+                gsheets_conn_details: Optional[FivetranConnectionDetails] = (
+                    self._get_connection_details_by_id(connector.connector_id)
+                )
+
+                if gsheets_conn_details:
+                    input_dataset_urn = DatasetUrn.create_from_ids(
+                        platform_id=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
+                        table_name=self._get_gsheet_named_range_dataset_id(
+                            gsheets_conn_details
+                        ),
+                        env=source_details.env,
+                    )
+                else:
+                    self.report.warning(
+                        title="Failed to extract lineage for Google Sheets Connector",
+                        message="Unable to extract lineage for Google Sheets Connector, as the connector details are not available from Fivetran API.",
+                        context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+                    )
+            else:
+                input_dataset_urn = DatasetUrn.create_from_ids(
+                    platform_id=source_details.platform,
+                    table_name=(
+                        f"{source_details.database.lower()}.{source_table}"
+                        if source_details.database
+                        else source_table
+                    ),
+                    env=source_details.env,
+                    platform_instance=source_details.platform_instance,
+                )
+
+            if input_dataset_urn:
+                input_dataset_urn_list.append(input_dataset_urn)
 
             destination_table = (
                 lineage.destination_table
@@ -257,6 +304,67 @@ class FivetranSource(StatefulIngestionSourceBase):
             clone_outlets=True,
         )
 
+    def _get_connection_details_by_id(
+        self, connection_id: str
+    ) -> Optional[FivetranConnectionDetails]:
+        if self.api_client is None:
+            self.report.warning(
+                title="Fivetran API client is not initialized",
+                message="Google Sheets Connector details cannot be extracted, as Fivetran API client is not initialized.",
+                context=f"connector_id: {connection_id}",
+            )
+            return None
+
+        if connection_id in self._connection_details_cache:
+            return self._connection_details_cache[connection_id]
+
+        try:
+            self.report.report_fivetran_rest_api_call_count()
+            conn_details = self.api_client.get_connection_details_by_id(connection_id)
+            # Update Cache
+            if conn_details:
+                self._connection_details_cache[connection_id] = conn_details
+
+            return conn_details
+        except Exception as e:
+            self.report.warning(
+                title="Failed to get connection details for Google Sheets Connector",
+                message=f"Exception occurred while getting connection details from Fivetran API. {e}",
+                context=f"connector_id: {connection_id}",
+            )
+            return None
+
+    def _get_gsheet_sheet_id_from_url(
+        self, gsheets_conn_details: FivetranConnectionDetails
+    ) -> str:
+        # Extracting the sheet_id (1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo) from the sheet_id url
+        # "https://docs.google.com/spreadsheets/d/1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo/edit?gid=0#gid=0",
+        try:
+            parsed = urlparse(gsheets_conn_details.config.sheet_id)
+            # Example: https://docs.google.com/spreadsheets/d/<spreadsheetId>/edit
+            parts = parsed.path.split("/")
+            return parts[3] if len(parts) > 2 else ""
+        except Exception as e:
+            logger.warning(
+                f"Failed to extract sheet_id from the sheet_id url: {gsheets_conn_details.config.sheet_id}, {e}"
+            )
+
+        return ""
+
+    def _get_gsheet_named_range_dataset_id(
+        self, gsheets_conn_details: FivetranConnectionDetails
+    ) -> str:
+        sheet_id = self._get_gsheet_sheet_id_from_url(gsheets_conn_details)
+        named_range_id = (
+            f"{sheet_id}.{gsheets_conn_details.config.named_range}"
+            if sheet_id
+            else gsheets_conn_details.config.named_range
+        )
+        logger.debug(
+            f"Using gsheet_named_range_dataset_id: {named_range_id} for connector: {gsheets_conn_details.id}"
+        )
+        return named_range_id
+
     def _get_dpi_workunits(
         self, job: Job, dpi: DataProcessInstance
     ) -> Iterable[MetadataWorkUnit]:
@@ -290,6 +398,74 @@ class FivetranSource(StatefulIngestionSourceBase):
         self, connector: Connector
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         self.report.report_connectors_scanned()
+
+        """
+        -------------------------------------------------------
+        Special Handling for Google Sheets Connectors
+        -------------------------------------------------------
+        Google Sheets source is not supported by Datahub yet.   
+        As a workaround, we are emitting a dataset entity for the Google Sheet
+        and adding it to the lineage. This workaround needs to be removed once 
+        Datahub supports Google Sheets source natively.
+        -------------------------------------------------------
+        """
+        if connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE:
+            # Get Google Sheet dataset details from Fivetran API
+            gsheets_conn_details: Optional[FivetranConnectionDetails] = (
+                self._get_connection_details_by_id(connector.connector_id)
+            )
+
+            if gsheets_conn_details:
+                gsheets_dataset = Dataset(
+                    name=self._get_gsheet_sheet_id_from_url(gsheets_conn_details),
+                    platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
+                    env=self.config.env,
+                    display_name=self._get_gsheet_sheet_id_from_url(
+                        gsheets_conn_details
+                    ),
+                    external_url=gsheets_conn_details.config.sheet_id,
+                    created=gsheets_conn_details.created_at,
+                    last_modified=gsheets_conn_details.source_sync_details.last_synced,
+                    subtype=DatasetSubTypes.GOOGLE_SHEETS,
+                    custom_properties={
+                        "ingested_by": "fivetran source",
+                        "connector_id": gsheets_conn_details.id,
+                    },
+                )
+                gsheets_named_range_dataset = Dataset(
+                    name=self._get_gsheet_named_range_dataset_id(gsheets_conn_details),
+                    platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
+                    env=self.config.env,
+                    display_name=gsheets_conn_details.config.named_range,
+                    external_url=gsheets_conn_details.config.sheet_id,
+                    created=gsheets_conn_details.created_at,
+                    last_modified=gsheets_conn_details.source_sync_details.last_synced,
+                    subtype=DatasetSubTypes.GOOGLE_SHEETS_NAMED_RANGE,
+                    custom_properties={
+                        "ingested_by": "fivetran source",
+                        "connector_id": gsheets_conn_details.id,
+                    },
+                    upstreams=UpstreamLineage(
+                        upstreams=[
+                            UpstreamClass(
+                                dataset=str(gsheets_dataset.urn),
+                                type=DatasetLineageTypeClass.VIEW,
+                                auditStamp=AuditStamp(
+                                    time=int(
+                                        gsheets_conn_details.created_at.timestamp()
+                                        * 1000
+                                    ),
+                                    actor=CORPUSER_DATAHUB,
+                                ),
+                            )
+                        ],
+                        fineGrainedLineages=None,
+                    ),
+                )
+
+                yield gsheets_dataset
+                yield gsheets_named_range_dataset
+
         # Create dataflow entity with same name as connector name
         dataflow = self._generate_dataflow_from_connector(connector)
         yield dataflow

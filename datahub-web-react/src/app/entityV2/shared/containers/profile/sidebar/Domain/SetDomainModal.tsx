@@ -1,21 +1,26 @@
 import { Empty, Form, Modal, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
 
-import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
+import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { getModalDomContainer } from '@src/utils/focus';
 
 import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { Domain, Entity, EntityType } from '@types';
+import { DataHubPageModuleType, Domain, Entity, EntityType } from '@types';
 
 type Props = {
     urns: string[];
@@ -33,7 +38,9 @@ type SelectedDomain = {
 };
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
+    const { reloadByKeyType } = useReloadableContext();
     const entityRegistry = useEntityRegistry();
+    const { entityType } = useEntityContext();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(
@@ -104,6 +111,25 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         setSelectedDomain(undefined);
     };
 
+    const sendAnalytics = () => {
+        const isBatchAction = urns.length > 1;
+
+        if (isBatchAction) {
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityUrns: urns,
+            });
+        } else {
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityType,
+                entityUrn: urns[0],
+            });
+        }
+    };
+
     const onOk = () => {
         if (!selectedDomain) {
             return;
@@ -126,8 +152,27 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 if (!errors) {
                     message.success({ content: 'Updated Domain!', duration: 2 });
                     refetch?.();
+                    sendAnalytics();
                     onModalClose();
                     setSelectedDomain(undefined);
+                    // Reload modules
+                    // Assets - as assets module in domain summary tab could be updated
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                        3000,
+                    );
+                    // DataProduct - as data products module in domain summary tab could be updated
+                    if (entityType === EntityType.DataProduct) {
+                        reloadByKeyType(
+                            [
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.DataProducts,
+                                ),
+                            ],
+                            3000,
+                        );
+                    }
                 }
             })
             .catch((e) => {
@@ -164,15 +209,21 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
             onCancel={onModalClose}
             footer={
                 <ModalButtonContainer>
-                    <Button variant="text" color="gray" onClick={onModalClose}>
+                    <Button variant="text" color="gray" onClick={onModalClose} data-testid="cancel-button">
                         Cancel
                     </Button>
-                    <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
+                    <Button
+                        id="setDomainButton"
+                        disabled={selectedDomain === undefined}
+                        onClick={onOk}
+                        data-testid="submit-button"
+                    >
                         Save
                     </Button>
                 </ModalButtonContainer>
             }
             getContainer={getModalDomContainer}
+            data-testid="set-domain-modal"
         >
             <Form component={false}>
                 <Form.Item>
@@ -202,9 +253,10 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                                 />
                             }
                             options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
+                            data-testid="set-domain-select"
                         />
                         <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} displayDomainColoredIcon />
+                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
                         </BrowserWrapper>
                     </ClickOutside>
                 </Form.Item>

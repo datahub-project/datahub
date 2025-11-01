@@ -8,12 +8,14 @@ References:
 - Dashboard JSON structure: https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/view-dashboard-json-model/
 """
 
+import logging
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.emitter.mcp_builder import ContainerKey
 
+logger = logging.getLogger(__name__)
 # Grafana-specific type definitions for better type safety
 GrafanaQueryTarget = Dict[
     str, Any
@@ -24,7 +26,11 @@ GrafanaFieldConfig = Dict[
 GrafanaTransformation = Dict[str, Any]  # Transformations: id, options
 
 
-class DatasourceRef(BaseModel):
+class _GrafanaBaseModel(BaseModel):
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+
+class DatasourceRef(_GrafanaBaseModel):
     """Reference to a Grafana datasource."""
 
     type: Optional[str] = None  # Datasource type (prometheus, mysql, postgres, etc.)
@@ -32,13 +38,13 @@ class DatasourceRef(BaseModel):
     name: Optional[str] = None  # Datasource display name
 
 
-class Panel(BaseModel):
+class Panel(_GrafanaBaseModel):
     """Represents a Grafana dashboard panel."""
 
     id: str
     title: str
     description: str = ""
-    type: Optional[str]
+    type: Optional[str] = None
     # Query targets - each contains refId (A,B,C...), query/expr, datasource ref, etc.
     query_targets: List[GrafanaQueryTarget] = Field(
         default_factory=list, alias="targets"
@@ -51,16 +57,16 @@ class Panel(BaseModel):
     transformations: List[GrafanaTransformation] = Field(default_factory=list)
 
 
-class Dashboard(BaseModel):
+class Dashboard(_GrafanaBaseModel):
     """Represents a Grafana dashboard."""
 
     uid: str
     title: str
     description: str = ""
-    version: Optional[str]
+    version: Optional[str] = None
     panels: List[Panel]
     tags: List[str]
-    timezone: Optional[str]
+    timezone: Optional[str] = None
     refresh: Optional[str] = None
     schema_version: Optional[str] = Field(default=None, alias="schemaVersion")
     folder_id: Optional[str] = Field(default=None, alias="meta.folderId")
@@ -85,7 +91,14 @@ class Dashboard(BaseModel):
     def parse_obj(cls, data: Dict[str, Any]) -> "Dashboard":
         """Custom parsing to handle nested panel extraction."""
         dashboard_data = data.get("dashboard", {})
-        panels = cls.extract_panels(dashboard_data.get("panels", []))
+        _panel_data = dashboard_data.get("panels", [])
+        panels = []
+        try:
+            panels = cls.extract_panels(_panel_data)
+        except Exception as e:
+            logger.warning(
+                f"Error extracting panels from dashboard for dashboard panels {_panel_data} : {e}"
+            )
 
         # Extract meta.folderId from nested structure
         meta = dashboard_data.get("meta", {})
@@ -96,10 +109,14 @@ class Dashboard(BaseModel):
         if "meta" in dashboard_dict:
             del dashboard_dict["meta"]
 
+        # Handle refresh field type mismatch - convert boolean to string
+        if "refresh" in dashboard_dict and isinstance(dashboard_dict["refresh"], bool):
+            dashboard_dict["refresh"] = str(dashboard_dict["refresh"])
+
         return super().parse_obj(dashboard_dict)
 
 
-class Folder(BaseModel):
+class Folder(_GrafanaBaseModel):
     """Represents a Grafana folder."""
 
     id: str

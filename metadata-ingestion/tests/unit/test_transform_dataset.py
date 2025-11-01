@@ -2497,7 +2497,7 @@ def test_mcp_multiple_transformers(mock_time, tmp_path):
     pipeline.raise_from_status()
 
     urn_pattern = "^" + re.escape(
-        "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,fooIndex,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:fake,fooIndex,PROD)"
     )
     assert (
         mce_helpers.assert_mcp_entity_urn(
@@ -2536,7 +2536,7 @@ def test_mcp_multiple_transformers(mock_time, tmp_path):
         mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="browsePaths",
-            aspect_field_matcher={"paths": ["/prod/elasticsearch/EsComments/fooIndex"]},
+            aspect_field_matcher={"paths": ["/prod/fake/EsComments/fooIndex"]},
             file=events_file,
         )
         == 1

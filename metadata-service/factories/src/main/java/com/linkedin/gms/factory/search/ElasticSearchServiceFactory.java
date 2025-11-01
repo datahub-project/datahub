@@ -1,14 +1,13 @@
 package com.linkedin.gms.factory.search;
 
-import static com.linkedin.metadata.Constants.*;
-
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -65,8 +64,7 @@ public class ElasticSearchServiceFactory {
 
     return new ESSearchDAO(
         components.getSearchClient(),
-        configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
-        elasticSearchConfiguration.getImplementation(),
+        elasticSearchConfiguration.getSearch().isPointInTimeCreationEnabled(),
         elasticSearchConfiguration,
         customSearchConfiguration,
         queryFilterRewriteChain,
@@ -87,15 +85,17 @@ public class ElasticSearchServiceFactory {
       final ElasticSearchConfiguration elasticSearchConfiguration,
       @Nullable final CustomSearchConfiguration customSearchConfiguration,
       final ESSearchDAO esSearchDAO,
-      final ESWriteDAO esWriteDAO)
+      final ESWriteDAO esWriteDAO,
+      @Qualifier("mappingsBuilder") final MappingsBuilder mappingsBuilder,
+      @Qualifier("settingsBuilder") final SettingsBuilder settingsBuilder)
       throws IOException {
 
     return new ElasticSearchService(
         components.getIndexBuilder(),
-        entityRegistry,
-        components.getIndexConvention(),
-        settingsBuilder,
         configurationProvider.getSearchService(),
+        configurationProvider.getElasticSearch(),
+        mappingsBuilder,
+        settingsBuilder,
         esSearchDAO,
         new ESBrowseDAO(
             components.getSearchClient(),

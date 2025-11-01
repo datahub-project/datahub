@@ -1,8 +1,12 @@
 name: Docker Build, Scan, Test
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 0 * * *" # Run at midnight UTC every day
+    inputs:
+      profileName:
+        description: "Profile name for the smoke-test. Defaults to quickstart-consumers if not specified"
+        required: false
+        default: "quickstart-consumers"
+        type: string
   push:
     branches:
       - master
@@ -22,6 +26,7 @@ concurrency:
 
 env:
   DOCKER_REGISTRY: "acryldata"
+  PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
 
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
@@ -75,7 +80,7 @@ jobs:
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - name: Compute Tag
         id: tag
         env:
@@ -107,7 +112,7 @@ jobs:
         env:
           ENABLE_PUBLISH: >-
             ${{
-               (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push')  && github.ref == 'refs/heads/master'))
+               (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'push')  && github.ref == 'refs/heads/master'))
                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
             }}
         run: |
@@ -176,9 +181,9 @@ jobs:
     if: ${{ needs.setup.outputs.smoke_test_change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -215,7 +220,7 @@ jobs:
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "zulu"
           java-version: 17
@@ -241,9 +246,11 @@ jobs:
         uses: depot/setup-action@v1
 
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -258,13 +265,23 @@ jobs:
       - name: Build all Images (For Smoke tests)
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         # If not publishing, just a subset of images required for smoke tests is sufficient.
+        # Use buildImagesAll for workflow_dispatch, otherwise buildImagesQuickStartDebugConsumers
         run: |
-          ./gradlew :docker:buildImagesQuickStartDebugConsumers  -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # if triggered via workflow_dispatch, this can run other quickstart variants, so lets build all images to allow that.
+            # we still dont need matrixed builds since this is for smoke test only.
+            BUILD_TASK=":docker:buildImagesAll"
+          else
+            BUILD_TASK=":docker:buildImagesQuickstart"
+          fi
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
 
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+        # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
+        # for pr-publish, publish images without waiting for tests to pass.
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
 
       - name: Capture build Id
         id: capture-build-id
@@ -274,6 +291,15 @@ jobs:
 
           echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
           echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' ${{ github.workspace }}/build/build-metadata.json)" >> $GITHUB_OUTPUT
+
+      - name: Save build Metadata
+        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-metadata-${{ needs.setup.outputs.tag }}
+          path: |
+            ${{ github.workspace }}/build/build-metadata.json
+            ${{ github.workspace }}/build/bake-spec-allImages.json
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/master' }}
@@ -297,13 +323,13 @@ jobs:
     name: Scan images for vulnerabilities
     runs-on: depot-ubuntu-24.04
     needs: [setup, base_build]
-    if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - id: download_image
         name: Download images from depot
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
@@ -313,7 +339,7 @@ jobs:
           echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep ${{ needs.setup.outputs.tag }} )" >> $GITHUB_OUTPUT
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.32.0
+        uses: aquasecurity/trivy-action@0.33.1
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -326,8 +352,9 @@ jobs:
           severity: "CRITICAL,HIGH"
           ignore-unfixed: true
           vuln-type: "os,library"
+          trivy-config: "./trivy.yaml"
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: "trivy-results.sarif"
 
@@ -349,8 +376,8 @@ jobs:
             echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
-            echo "cypress_batch_count=11" >> "$GITHUB_OUTPUT"
-            echo "python_batch_count=6" >> "$GITHUB_OUTPUT"
+            echo "cypress_batch_count=8" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
           fi
 
       - id: set-matrix
@@ -395,11 +422,18 @@ jobs:
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
       - name: Free up disk space
-        if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/share/swift || true
+          sudo rm -rf /usr/local/julia* || true
+          sudo rm -rf /usr/local/share/powershell || true
+          sudo rm -rf /usr/share/miniconda || true
           sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+          sudo docker system prune -a -f || true
+          df -h
 
       - uses: actions/cache/restore@v4
         with:
@@ -418,13 +452,15 @@ jobs:
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
 
       - name: Set up Depot CLI
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@v1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -438,6 +474,14 @@ jobs:
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
 
       - name: build images
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
@@ -453,6 +497,13 @@ jobs:
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
           docker images
 
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
@@ -461,6 +512,7 @@ jobs:
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
         run: |
+          # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
           ./smoke-test/run-quickstart.sh
 
       - name: Disk Check
@@ -529,6 +581,7 @@ jobs:
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
+            **/smoke-test-results/cypress-test-*.xml
             **/junit.*.xml
             !**/binary/**
       - name: Upload test results to Codecov
@@ -553,12 +606,64 @@ jobs:
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
 
+  publish_images:
+    name: Push images after tests pass
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: [setup, smoke_test, base_build]
+    if: ${{ always() && !failure() && !cancelled() }}
+    steps:
+      - name: Check if tests have passed
+        id: tests_passed
+        run: |
+          # Check the overall result of the matrix job
+          # Matrix jobs can have mixed results, so we check for any failures
+          if [[ "${{ needs.smoke_test.result }}" == "failure" ]]; then
+            echo "Smoke tests failed, skipping image pushing"
+            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          elif [[ "${{ needs.smoke_test.result }}" == "cancelled" ]]; then
+            echo "Smoke tests were cancelled, skipping image pushing"
+            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          else
+            echo "Smoke tests completed successfully, proceeding with image pushing"
+            echo "tests_passed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Depot CLI
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' }}
+        uses: depot/setup-action@v1
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.docker-login == 'true' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Download build Metadata
+        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+        uses: actions/download-artifact@v5
+        with:
+          name: build-metadata-${{ needs.setup.outputs.tag }}
+          path: ${{ github.workspace }}/build
+
+      - name: Push images from depot builder
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
+        run: |
+          depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
+            TARGET=$(echo "$line" | jq -r '.target')
+            TAG=$(echo "$line" | jq -r '.tags')
+
+            depot push --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }} --target $TARGET --tag $TAG
+          done
+
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint, smoke_test]
+    needs: [setup, smoke_test_lint, smoke_test, publish_images]
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v5
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}

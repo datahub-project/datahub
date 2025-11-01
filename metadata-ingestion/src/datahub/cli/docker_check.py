@@ -11,12 +11,13 @@ import docker.models.containers
 import yaml
 
 from datahub.configuration.common import ExceptionWithProps
+from datahub.configuration.env_vars import get_compose_project_name
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
-MIN_MEMORY_NEEDED = 3.8  # GB
-MIN_DISK_SPACE_NEEDED = 12  # GB
+MIN_MEMORY_NEEDED = 4.3  # GB
+MIN_DISK_SPACE_NEEDED = 13  # GB
 
-DOCKER_COMPOSE_PROJECT_NAME = os.getenv("DATAHUB_COMPOSE_PROJECT_NAME", "datahub")
+DOCKER_COMPOSE_PROJECT_NAME = get_compose_project_name()
 DATAHUB_COMPOSE_PROJECT_FILTER = {
     "label": f"com.docker.compose.project={DOCKER_COMPOSE_PROJECT_NAME}"
 }
@@ -110,7 +111,7 @@ def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
 
     result = client.containers.run(
         "alpine:latest",
-        "sh -c \"df -B1 / | tail -1 | awk '{print $2, $4}'\"",  # total, available
+        "sh -c \"df -B1 -P / | awk 'NR==2{print $2, $4}'\"",  # total, available
         remove=True,
         stdout=True,
         stderr=True,

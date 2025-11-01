@@ -10,10 +10,13 @@ import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { DataProductLink } from '@app/sharedV2/tags/DataProductLink';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
-import { DataProduct } from '@types';
+import { DataHubPageModuleType, DataProduct } from '@types';
 
 const Content = styled.div`
     display: flex;
@@ -27,6 +30,7 @@ interface Props {
 }
 
 export default function DataProductSection({ readOnly }: Props) {
+    const { reloadByKeyType } = useReloadableContext();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const { entityData, urn } = useEntityData();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
@@ -48,6 +52,16 @@ export default function DataProductSection({ readOnly }: Props) {
             .then(() => {
                 message.success({ content: 'Removed Data Product.', duration: 2 });
                 setDataProduct(null);
+                // Reload modules
+                // DataProducts - as data products could be shown in domain summary tab
+                // Assets - as assets module could be changed in data product summary tab
+                reloadByKeyType(
+                    [
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.DataProducts),
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
+                    ],
+                    3000,
+                );
             })
             .catch((e: unknown) => {
                 message.destroy();

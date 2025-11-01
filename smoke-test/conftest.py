@@ -1,20 +1,33 @@
+import logging
 import os
+import json
+from pathlib import Path
 
+from collections import defaultdict
 import pytest
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
 from _pytest.nodes import Item
 import requests
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph, get_default_graph
 
 from tests.test_result_msg import send_message
+from tests.utilities import env_vars
 from tests.utils import (
     TestSessionWrapper,
     get_frontend_session,
     wait_for_healthcheck_util,
+    ingest_file_via_rest,
+    delete_urns,
+    delete_urns_from_file,
+    wait_for_writes_to_sync,
 )
+
+logger = logging.getLogger(__name__)
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
+# Suppress logging manager to prevent I/O errors during pytest teardown
+os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 
 
 def build_auth_session():
@@ -47,6 +60,57 @@ def graph_client(auth_session) -> DataHubGraph:
 @pytest.fixture(scope="session")
 def openapi_graph_client(auth_session) -> DataHubGraph:
     return build_graph_client(auth_session, openapi_ingestion=True)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clear_graph_cache():
+    """Clear the get_default_graph LRU cache before each test.
+
+    This ensures that tests using run_datahub_cmd() with custom environment
+    variables get a fresh DataHubGraph instance instead of a cached one with
+    stale credentials.
+    """
+    get_default_graph.cache_clear()
+    yield
+
+
+def _ingest_cleanup_data_impl(
+    auth_session,
+    graph_client,
+    data_file: str,
+    test_name: str,
+    to_delete_urns: Optional[List[str]] = None
+):
+    """Helper for ingesting test data with automatic cleanup.
+
+    Args:
+        auth_session: The authenticated session
+        graph_client: The DataHub graph client
+        data_file: Path to the data file to ingest
+        test_name: Name of the test (for logging)
+        to_delete_urns: URNs to delete after cleanup
+
+    Usage in test files:
+        @pytest.fixture(scope="module", autouse=True)
+        def ingest_cleanup_data(auth_session, graph_client):
+            yield from _ingest_cleanup_data_impl(
+                auth_session, graph_client,
+                "tests/tags_and_terms/data.json",
+                "tags_and_terms"
+            )
+    """
+    print(f"deleting {test_name} test data for idempotency")
+    delete_urns_from_file(graph_client, data_file)
+    print(f"ingesting {test_name} test data")
+    ingest_file_via_rest(auth_session, data_file)
+    wait_for_writes_to_sync()
+    yield
+    print(f"removing {test_name} test data")
+    delete_urns_from_file(graph_client, data_file)
+    if to_delete_urns:
+        delete_urns(graph_client, to_delete_urns)
+    wait_for_writes_to_sync()
+
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -91,50 +155,121 @@ def bin_pack_tasks(tasks, n_buckets):
 
     return buckets
 
-def get_batch_start_end(num_tests: int) -> Tuple[int, int]:
-    batch_count_env = os.getenv("BATCH_COUNT", 1)
-    batch_count = int(batch_count_env)
 
-    batch_number_env = os.getenv("BATCH_NUMBER", 0)
-    batch_number = int(batch_number_env)
+def load_pytest_test_weights() -> Dict[str, float]:
+    """
+    Load pytest test weights from JSON file.
 
-    if batch_count == 0 or batch_count > num_tests:
-        raise ValueError(
-            f"Invalid batch count {batch_count}: must be >0 and <= {num_tests} (num_tests)"
-        )
-    if batch_number >= batch_count:
-        raise ValueError(
-            f"Invalid batch number: {batch_number}, must be less than {batch_count} (zer0 based index)"
-        )
+    Returns:
+        Dictionary mapping test IDs (classname::test_name) to durations in seconds.
+        Returns empty dict if weights file doesn't exist.
+    """
+    weights_file = Path(__file__).parent / "pytest_test_weights.json"
 
-    batch_size = round(num_tests / batch_count)
+    if not weights_file.exists():
+        return {}
 
-    batch_start = batch_size * batch_number
-    batch_end = batch_start + batch_size
-    # We must have exactly as many batches as specified by BATCH_COUNT.
-    if (
-            batch_number == batch_count - 1  # this is the last batch
-    ):  # If ths is last batch put any remaining tests in the last batch.
-        batch_end = num_tests
+    try:
+        with open(weights_file) as f:
+            weights_data = json.load(f)
 
-    if batch_count > 0:
-        print(f"Running tests for batch {batch_number} of {batch_count}")
+        # Convert to dict: {"test_e2e::test_gms_get_dataset": 262.807, ...}
+        return {
+            item["testId"]: float(item["duration"][:-1])  # Strip 's' suffix
+            for item in weights_data
+        }
+    except Exception as e:
+        logger.warning(f"Warning: Failed to load pytest test weights: {e}")
+        return {}
 
-    return batch_start, batch_end
+
+def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) -> List[Tuple[str, List[Item], float]]:
+    """
+    Group test items by module and aggregate their weights.
+
+    Args:
+        items: List of pytest test items
+        test_weights: Dictionary mapping test IDs to durations
+
+    Returns:
+        List of (module_path, items_in_module, total_weight) tuples
+    """
+
+    # Group items by module (file path)
+    modules: Dict[str, List[Item]] = defaultdict(list)
+    for item in items:
+        # Get the module path from the item's fspath
+        module_path = str(item.fspath)
+        modules[module_path].append(item)
+
+    # Calculate total weight for each module
+    module_data = []
+    for module_path, module_items in modules.items():
+        total_weight = 0.0
+        for item in module_items:
+            # Build test ID from nodeid
+            # nodeid format: "tests/database/test_database.py::test_method"
+            # weights format: "tests.database.test_database::test_method"
+            nodeid = item.nodeid
+
+            # Convert path separators to dots and remove .py extension
+            # tests/database/test_database.py::test_method -> tests.database.test_database::test_method
+            test_id = nodeid.replace("/", ".").replace(".py::", "::")
+
+            weight = test_weights.get(test_id, 1.0)  # Default to 1.0 if not found
+            total_weight += weight
+
+        module_data.append((module_path, module_items, total_weight))
+
+    return module_data
+
 
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: List[Item]
 ) -> None:
-    if os.getenv("TEST_STRATEGY") == "cypress":
+    if env_vars.get_test_strategy() == "cypress":
         return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
 
-    # If BATCH_COUNT and BATCH_ENV vars are set, splits the pytests to batches and runs filters only the BATCH_NUMBER
-    # batch for execution. Enables multiple parallel launches. Current implementation assumes all test are of equal
-    # weight for batching. TODO. A weighted batching method can help make batches more equal sized by cost.
-    # this effectively is a no-op if BATCH_COUNT=1
-    start_index, end_index = get_batch_start_end(num_tests=len(items))
+    # Get batch configuration
+    batch_count_env = env_vars.get_batch_count()
+    batch_count = int(batch_count_env)
+    batch_number_env = env_vars.get_batch_number()
+    batch_number = int(batch_number_env)
 
-    items.sort(key=lambda x: x.nodeid)  # we want the order to be stable across batches
-    # replace items with the filtered list
-    print(f"Running tests for batch {start_index}-{end_index}")
-    items[:] = items[start_index:end_index]
+    if batch_count <= 1:
+        # No batching needed
+        return
+
+    # Load test weights
+    test_weights = load_pytest_test_weights()
+
+    # Group items by module and aggregate weights
+    module_data = aggregate_module_weights(items, test_weights)
+
+    # Sort modules by path for stability
+    module_data.sort(key=lambda x: x[0])
+
+    # Create weighted tuples for bin-packing: (module_path, weight)
+    # We'll also keep track of the items for each module
+    module_map = {module_path: module_items for module_path, module_items, _ in module_data}
+    weighted_modules = [(module_path, total_weight) for module_path, _, total_weight in module_data]
+
+    logger.info(f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches")
+
+    # Apply bin-packing to modules
+    module_batches = bin_pack_tasks(weighted_modules, batch_count)
+
+    # Get the modules for this batch
+    selected_modules = module_batches[batch_number]
+
+    # Flatten back to individual test items
+    # Tests within each module maintain their original collection order
+    selected_items = []
+    for module_path in selected_modules:
+        selected_items.extend(module_map[module_path])
+
+    logger.info(f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules")
+
+    # Replace items with the filtered list
+    items[:] = selected_items
+

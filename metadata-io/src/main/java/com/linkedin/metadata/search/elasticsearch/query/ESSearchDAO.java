@@ -1,13 +1,11 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.*;
+import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.X_CONTENT_REGISTRY;
 import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.URN_FIELD;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
@@ -31,14 +29,15 @@ import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQuery
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,18 +55,12 @@ import org.opensearch.action.explain.ExplainRequest;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.Response;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.core.CountRequest;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.search.SearchModule;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 /** A search DAO for Elasticsearch backend. */
@@ -75,16 +68,9 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @RequiredArgsConstructor
 @Accessors(chain = true)
 public class ESSearchDAO {
-  private static final NamedXContentRegistry X_CONTENT_REGISTRY;
 
-  static {
-    SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
-    X_CONTENT_REGISTRY = new NamedXContentRegistry(searchModule.getNamedXContents());
-  }
-
-  private final RestHighLevelClient client;
+  private final SearchClientShim<?> client;
   private final boolean pointInTimeCreationEnabled;
-  private final String elasticSearchImplementation;
   @Nonnull private final ElasticSearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
@@ -92,9 +78,8 @@ public class ESSearchDAO {
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
 
   public ESSearchDAO(
-      RestHighLevelClient client,
+      SearchClientShim<?> client,
       boolean pointInTimeCreationEnabled,
-      String elasticSearchImplementation,
       @Nonnull ElasticSearchConfiguration searchConfiguration,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
@@ -102,7 +87,6 @@ public class ESSearchDAO {
     this(
         client,
         pointInTimeCreationEnabled,
-        elasticSearchImplementation,
         searchConfiguration,
         customSearchConfiguration,
         queryFilterRewriteChain,
@@ -122,6 +106,7 @@ public class ESSearchDAO {
             .query(
                 SearchRequestHandler.getFilterQuery(
                     opContext,
+                    List.of(entityName),
                     filter,
                     entitySpec.getSearchableFieldTypes(),
                     queryFilterRewriteChain));
@@ -288,7 +273,7 @@ public class ESSearchDAO {
                         filter,
                         keepAlive,
                         ConfigUtils.applyLimit(searchServiceConfig, size),
-                        supportsPointInTime()));
+                        pointInTimeCreationEnabled));
           } catch (Exception e) {
             log.error("Search query failed: {}", searchRequest, e);
             throw new ESQueryException("Search query failed:", e);
@@ -475,6 +460,7 @@ public class ESSearchDAO {
     SearchRequest req =
         builder.getSearchRequest(
             opContext,
+            entityName,
             query,
             field,
             transformFilterForEntities(requestParams, indexConvention),
@@ -550,8 +536,8 @@ public class ESSearchDAO {
                 transformFilterForEntities(requestParams, indexConvention),
                 limit);
     if (entityNames == null) {
-      String indexName = indexConvention.getAllEntityIndicesPattern();
-      searchRequest.indices(indexName);
+      List<String> indexPatterns = indexConvention.getAllEntityIndicesPatterns();
+      searchRequest.indices(indexPatterns.toArray(new String[0]));
     } else {
       Stream<String> stream =
           entityNames.stream()
@@ -636,9 +622,6 @@ public class ESSearchDAO {
       String input,
       List<SortCriterion> sortCriteria,
       @Nonnull List<String> facets) {
-    String pitId = null;
-    Object[] sort = null;
-
     final String finalInput = input.isEmpty() ? "*" : input;
 
     List<EntitySpec> entitySpecs =
@@ -651,19 +634,18 @@ public class ESSearchDAO {
 
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
 
-    if (scrollId != null) {
-      SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
-      sort = searchAfterWrapper.getSort();
-      if (supportsPointInTime()) {
-        if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
-          pitId = searchAfterWrapper.getPitId();
-        } else if (keepAlive != null) {
-          pitId = createPointInTime(indexArray, keepAlive);
-        }
-      }
-    } else if (supportsPointInTime() && keepAlive != null) {
-      pitId = createPointInTime(indexArray, keepAlive);
+    boolean hasSliceOptions = opContext.getSearchContext().getSearchFlags().hasSliceOptions();
+    if (hasSliceOptions && isSliceDisabled()) {
+      throw new IllegalStateException(
+          "Slice options are not supported with the current ES implementation: "
+              + client.getEngineType()
+              + ". Please disable slice options in the search flags.");
     }
+
+    boolean usePIT = (pointInTimeCreationEnabled || hasSliceOptions) && keepAlive != null;
+    String pitId =
+        usePIT ? ESUtils.computePointInTime(scrollId, keepAlive, client, indexArray) : null;
+    Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
 
     SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
@@ -687,7 +669,7 @@ public class ESSearchDAO {
     // PIT specifies indices in creation so it doesn't support specifying indices on the
     // request, so
     // we only specify if not using PIT
-    if (!supportsPointInTime()) {
+    if (!usePIT) {
       searchRequest.indices(indexArray);
     }
 
@@ -755,24 +737,8 @@ public class ESSearchDAO {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  private boolean supportsPointInTime() {
-    return pointInTimeCreationEnabled
-        && ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImplementation);
-  }
-
-  private String createPointInTime(String[] indexArray, String keepAlive) {
-    String endPoint = String.join(",", indexArray) + "/_pit";
-    Request request = new Request("POST", endPoint);
-    request.addParameter("keep_alive", keepAlive);
-    try {
-      Response response = client.getLowLevelClient().performRequest(request);
-      Map<String, Object> mappedResponse =
-          OBJECT_MAPPER.readValue(response.getEntity().getContent(), new TypeReference<>() {});
-      return (String) mappedResponse.get("id");
-    } catch (IOException e) {
-      log.error("Failed to generate PointInTime Identifier.", e);
-      throw new IllegalStateException("Failed to generate PointInTime Identifier.:", e);
-    }
+  private boolean isSliceDisabled() {
+    return SearchClientShim.SearchEngineType.ELASTICSEARCH_7.equals(client.getEngineType());
   }
 
   public ExplainResponse explain(

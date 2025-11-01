@@ -102,7 +102,9 @@
         "pitKeepAlive": "1m",
         "count": "1",
         "query": "qualifiedName:entities\\.datasetSingle*",
-        "sortCriteria": "urn"
+        "sortCriteria": "urn",
+        "skipAggregation": false,
+        "scrollIdPerEntity": true
       },
       "description": "Generic scroll",
       "json": {
@@ -113,7 +115,10 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['totalCount'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]",
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [
@@ -128,7 +133,126 @@
               }
             }
           }
-        ]
+        ],
+        "totalCount": 3
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll",
+      "params": {
+        "count": "10"
+      },
+      "description": "Generic scroll with filters",
+      "json": {
+        "sortCriteria": [
+          {
+            "field": "name",
+            "order": "ASCENDING"
+          }
+        ],
+        "aspects": [],
+        "entities": [
+          "dataPlatform"
+        ],
+        "filter": {
+          "and": [
+            {
+              "criteria": [
+                {
+                  "field": "name",
+                  "values": ["openapi"],
+                  "condition": "EQUAL"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]",
+        "root\\['facets'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataPlatform:OpenApi",
+            "dataPlatformKey": {
+              "value": {
+                "platformName": "OpenApi"
+              }
+            },
+            "dataPlatformInfo": {
+              "value": {
+                "name": "openapi",
+                "datasetNameDelimiter": ".",
+                "type": "OTHERS",
+                "displayName": "OpenAPI",
+                "logoUrl": "assets/platforms/openapilogo.png"
+              }
+            }
+          }
+        ],
+        "totalCount": 1
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll",
+      "params": {
+        "count": "1"
+      },
+      "description": "Generic scroll with filters",
+      "json": {
+        "aspects": [],
+        "entities": [
+          "dataPlatform"
+        ],
+        "filter": {
+          "and": [
+            {
+              "criteria": [
+                {
+                  "field": "name",
+                  "values": ["vert"],
+                  "condition": "CONTAIN"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]",
+        "root\\['facets'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataPlatform:vertexai",
+            "dataPlatformKey": {
+              "value": {
+                "platformName": "vertexai"
+              }
+            },
+            "dataPlatformInfo": {
+              "value": {
+                "name": "vertexai",
+                "datasetNameDelimiter": ".",
+                "type": "OTHERS",
+                "displayName": "vertexai",
+                "logoUrl": "assets/platforms/vertexai.png"
+              }
+            }
+          }
+        ],
+        "totalCount": 2
       }
     }
   },
@@ -152,6 +276,8 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]",
+        "root\\['totalCount'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['sourceIP'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['telemetryTraceId'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['auditStamp'\\]",
@@ -184,6 +310,14 @@
               }
             }
           }
+        ],
+        "facets":[
+          {
+            "field":"entity",
+            "aggregations":{
+              "dataset":1
+            }
+          }
         ]
       }
     }
@@ -203,7 +337,9 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]",
+        "root\\['totalCount'\\]"
       ],
       "json": {
         "entities": [
@@ -223,7 +359,9 @@
               }
             }
           }
-        ]
+        ],
+        "facets": [],
+        "totalCount": 3
       }
     }
   },

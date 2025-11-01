@@ -57,10 +57,7 @@ export class ApplicationEntity implements Entity<Application> {
         return (
             <AppWindow
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -203,6 +200,7 @@ export class ApplicationEntity implements Entity<Application> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

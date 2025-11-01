@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="metadata-io-search" parallel="tests" thread-count="1">
+  <test name="elasticsearch-8-testcontainers">
+    <parameter name="elasticVersion" value="8.17.4"/>
+    <packages>
+      <package name="com.linkedin.metadata.graph.search.elasticsearch.*" />
+      <package name="com.linkedin.metadata.search.elasticsearch.*"/>
+    </packages>
+  </test>
+</suite>

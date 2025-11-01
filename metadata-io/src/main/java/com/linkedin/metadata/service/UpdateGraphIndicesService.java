@@ -45,6 +45,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,7 +59,7 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 
 @Slf4j
 public class UpdateGraphIndicesService implements SearchIndicesService {
@@ -110,24 +111,32 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
   @Override
   public void handleChangeEvent(
       @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
-    try {
-      MCLItemImpl mclItem = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
+    handleChangeEvents(opContext, java.util.Collections.singletonList(event));
+  }
 
-      if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
-        handleUpdateChangeEvent(opContext, mclItem);
+  @Override
+  public void handleChangeEvents(
+      @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
+    for (MetadataChangeLog event : events) {
+      try {
+        MCLItemImpl mclItem = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
 
-        if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
-          handleStatusUpdateChangeEvent(opContext, mclItem);
+        if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+          handleUpdateChangeEvent(opContext, mclItem);
+
+          if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
+            handleStatusUpdateChangeEvent(opContext, mclItem);
+          }
+        } else if (event.getChangeType() == ChangeType.DELETE) {
+          handleDeleteChangeEvent(opContext, mclItem);
+
+          if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
+            handleStatusUpdateChangeEvent(opContext, mclItem);
+          }
         }
-      } else if (event.getChangeType() == ChangeType.DELETE) {
-        handleDeleteChangeEvent(opContext, mclItem);
-
-        if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
-          handleStatusUpdateChangeEvent(opContext, mclItem);
-        }
+      } catch (IOException e) {
+        throw new RuntimeException(e);
       }
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
   }
 

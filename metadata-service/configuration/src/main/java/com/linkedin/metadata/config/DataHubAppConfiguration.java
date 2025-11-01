@@ -37,6 +37,12 @@ public class DataHubAppConfiguration {
   /** Search bar related configs */
   private SearchBarConfiguration searchBar;
 
+  /** Search card related configs */
+  private SearchCardConfiguration searchCard;
+
+  /** Search flags related configs */
+  private SearchFlagsConfiguration searchFlags;
+
   /** Home page related configs */
   private HomePageConfiguration homePage;
 
@@ -76,6 +82,9 @@ public class DataHubAppConfiguration {
   /** MCP throttling configuration */
   private MetadataChangeProposalConfig metadataChangeProposal;
 
+  /** MCL Processing configurations */
+  private MetadataChangeLogConfig metadataChangeLog;
+
   /** Timeseries Aspect Service configuration */
   private TimeseriesAspectServiceConfig timeseriesAspectService;
 
@@ -84,4 +93,10 @@ public class DataHubAppConfiguration {
 
   /* Secret service configuration */
   private SecretServiceConfiguration secretService;
+
+  /** MCL Processing configurations */
+  private MCLProcessingConfiguration mclProcessing;
+
+  /** Structured properties related configurations */
+  private StructuredPropertiesConfiguration structuredProperties;
 }

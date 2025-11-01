@@ -13,7 +13,9 @@ import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import io.datahubproject.metadata.context.OperationContext;
 import java.lang.reflect.Field;
@@ -347,8 +349,8 @@ public class AuthorizationUtils {
   }
 
   public static boolean canManageStructuredProperties(@Nonnull QueryContext context) {
-    return AuthUtil.isAuthorized(
-        context.getOperationContext(), PoliciesConfig.MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
+    return AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), MANAGE, List.of(STRUCTURED_PROPERTY_ENTITY_NAME));
   }
 
   public static boolean canViewStructuredPropertiesPage(@Nonnull QueryContext context) {
@@ -378,6 +380,36 @@ public class AuthorizationUtils {
       @Nonnull DisjunctivePrivilegeGroup privilegeGroup) {
     final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
     return AuthUtil.isAuthorized(context.getOperationContext(), privilegeGroup, resourceSpec);
+  }
+
+  /**
+   * Checks authorization for patch operations
+   *
+   * @param input Patch entity input
+   * @param context Query context
+   * @return true if authorized, false otherwise
+   */
+  public static boolean isAuthorizedForPatch(
+      @Nonnull PatchEntityInput input, @Nonnull QueryContext context) {
+
+    // For patch operations, we need EDIT_ENTITY_PRIVILEGE
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
+
+    // Use entity type from URN if not provided in input
+    String entityType = input.getEntityType();
+    if (entityType == null && input.getUrn() != null) {
+      try {
+        entityType = UrnUtils.getUrn(input.getUrn()).getEntityType();
+      } catch (Exception e) {
+        log.warn("Failed to extract entity type from URN: {}", input.getUrn(), e);
+      }
+    }
+
+    return isAuthorized(context, entityType, input.getUrn(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedForTags(
@@ -417,6 +449,18 @@ public class AuthorizationUtils {
         context.getOperationContext(),
         PoliciesConfig.VIEW_DATASET_OPERATIONS_PRIVILEGE,
         new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+  }
+
+  public static boolean canManageAssetSummary(@Nonnull QueryContext context, @Nonnull Urn urn) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_ASSET_SUMMARY_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, urn.getEntityType(), urn.toString(), orPrivilegeGroups);
   }
 
   private AuthorizationUtils() {}

@@ -211,12 +211,18 @@ public interface AspectDao {
   Integer countAspect(@Nonnull final String aspectName, @Nullable String urnLike);
 
   @Nonnull
+  Integer countAspect(final RestoreIndicesArgs args);
+
+  @Nonnull
   PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args);
 
   @Nonnull
   Stream<EntityAspect> streamAspects(String entityName, String aspectName);
 
-  int deleteUrn(@Nullable TransactionContext txContext, @Nonnull final String urn);
+  int deleteUrn(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn);
 
   @Nonnull
   ListResult<String> listLatestAspectMetadata(

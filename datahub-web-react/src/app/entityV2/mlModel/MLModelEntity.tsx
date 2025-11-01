@@ -38,7 +38,6 @@ const headerDropdownItems = new Set([
     EntityMenuItems.RAISE_INCIDENT,
     EntityMenuItems.ANNOUNCE,
     EntityMenuItems.LINK_VERSION,
-    EntityMenuItems.EXTERNAL_URL,
 ]);
 
 /**
@@ -61,10 +60,7 @@ export class MLModelEntity implements Entity<MlModel> {
         return (
             <CodeSandboxOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -221,6 +217,7 @@ export class MLModelEntity implements Entity<MlModel> {
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

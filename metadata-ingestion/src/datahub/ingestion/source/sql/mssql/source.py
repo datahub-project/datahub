@@ -1,7 +1,7 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
 import sqlalchemy.dialects.mssql
@@ -10,9 +10,10 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
+from sqlalchemy.sql import quoted_name
 
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -41,7 +42,6 @@ from datahub.ingestion.source.sql.mssql.job_models import (
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
-    SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import (
@@ -75,7 +75,7 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
 class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
-    scheme: str = Field(default="mssql+pytds", description="", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="mssql+pytds")
 
     # TODO: rename to include_procedures ?
     include_stored_procedures: bool = Field(
@@ -131,10 +131,18 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         "match the entire table name in database.schema.table format. Defaults are to set in such a way "
         "to ignore the temporary staging tables created by known ETL tools.",
     )
+    quote_schemas: bool = Field(
+        default=False,
+        description="Represent a schema identifiers combined with quoting preferences. See [sqlalchemy quoted_name docs](https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.quoted_name).",
+    )
+    is_aws_rds: Optional[bool] = Field(
+        default=None,
+        description="Indicates if the SQL Server instance is running on AWS RDS. When None (default), automatic detection will be attempted using server name analysis.",
+    )
 
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):
-        if values["use_odbc"] and "driver" not in v:
+        if values["use_odbc"] and not values["sqlalchemy_uri"] and "driver" not in v:
             raise ValueError("uri_args must contain a 'driver' option")
         elif not values["use_odbc"] and v:
             raise ValueError("uri_args is not supported when ODBC is disabled")
@@ -145,22 +153,36 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         uri_opts: Optional[Dict[str, Any]] = None,
         current_db: Optional[str] = None,
     ) -> str:
+        current_db = current_db or self.database
+
         if self.use_odbc:
             # Ensure that the import is available.
             import pyodbc  # noqa: F401
 
             self.scheme = "mssql+pyodbc"
 
+            # ODBC requires a database name, otherwise it will interpret host_port
+            # as a pre-defined ODBC connection name.
+            current_db = current_db or "master"
+
         uri: str = self.sqlalchemy_uri or make_sqlalchemy_uri(
             self.scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password else None,
             self.host_port,  # type: ignore
-            current_db if current_db else self.database,
+            current_db,
             uri_opts=uri_opts,
         )
         if self.use_odbc:
-            uri = f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
+            final_uri_args = self.uri_args.copy()
+            if final_uri_args and current_db:
+                final_uri_args.update({"database": current_db})
+
+            uri = (
+                f"{uri}?{urllib.parse.urlencode(final_uri_args)}"
+                if final_uri_args
+                else uri
+            )
         return uri
 
     @property
@@ -346,43 +368,45 @@ class SQLServerSource(SQLAlchemySource):
                     exc=e,
                 )
 
-    def get_schema_level_workunits(
-        self,
-        inspector: Inspector,
-        schema: str,
-        database: str,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        yield from super().get_schema_level_workunits(
-            inspector=inspector,
-            schema=schema,
-            database=database,
-        )
-        if self.config.include_stored_procedures:
-            try:
-                yield from self.loop_stored_procedures(inspector, schema, self.config)
-            except Exception as e:
-                self.report.failure(
-                    message="Failed to list stored procedures",
-                    title="SQL Server Stored Procedures Extraction",
-                    context="Error occurred during schema-level stored procedure extraction",
-                    exc=e,
-                )
-
     def _detect_rds_environment(self, conn: Connection) -> bool:
         """
         Detect if we're running in an RDS/managed environment vs on-premises.
+        Uses explicit configuration if provided, otherwise attempts automatic detection.
         Returns True if RDS/managed, False if on-premises.
         """
+        if self.config.is_aws_rds is not None:
+            logger.info(
+                f"Using explicit is_aws_rds configuration: {self.config.is_aws_rds}"
+            )
+            return self.config.is_aws_rds
+
         try:
-            # Try to access system tables directly - this typically fails in RDS
-            conn.execute("SELECT TOP 1 * FROM msdb.dbo.sysjobs")
-            logger.debug(
-                "Direct table access successful - likely on-premises environment"
+            result = conn.execute("SELECT @@servername AS server_name")
+            server_name_row = result.fetchone()
+            if server_name_row:
+                server_name = server_name_row["server_name"].lower()
+
+                aws_indicators = ["amazon", "amzn", "amaz", "ec2", "rds.amazonaws.com"]
+                is_rds = any(indicator in server_name for indicator in aws_indicators)
+                if is_rds:
+                    logger.info(f"AWS RDS detected based on server name: {server_name}")
+                else:
+                    logger.info(
+                        f"Non-RDS environment detected based on server name: {server_name}"
+                    )
+
+                return is_rds
+            else:
+                logger.warning(
+                    "Could not retrieve server name, assuming non-RDS environment"
+                )
+                return False
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to detect RDS/managed vs on-prem env, assuming non-RDS environment ({e})"
             )
             return False
-        except Exception:
-            logger.debug("Direct table access failed - likely RDS/managed environment")
-            return True
 
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
         """
@@ -457,7 +481,10 @@ class SQLServerSource(SQLAlchemySource):
         jobs_result = conn.execute("EXEC msdb.dbo.sp_help_job")
         jobs_data = {}
 
-        for row in jobs_result:
+        # SQLAlchemy 1.3 support was dropped in Sept 2023 (PR #8810)
+        # SQLAlchemy 1.4+ returns LegacyRow objects that don't support dictionary-style .get() method
+        # Use .mappings() to get MappingResult with dictionary-like rows that support .get()
+        for row in jobs_result.mappings():
             job_id = str(row["job_id"])
             jobs_data[job_id] = {
                 "job_id": job_id,
@@ -477,7 +504,8 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
                 job_steps = {}
-                for step_row in steps_result:
+                # Use .mappings() for dictionary-like access (SQLAlchemy 1.4+ compatibility)
+                for step_row in steps_result.mappings():
                     # Only include steps that run against our target database
                     step_database = step_row.get("database_name", "")
                     if step_database.lower() == db_name.lower() or not step_database:
@@ -636,7 +664,7 @@ class SQLServerSource(SQLAlchemySource):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLServerConfig,
+        sql_config: SQLServerConfig,  # type: ignore
     ) -> Iterable[MetadataWorkUnit]:
         """
         Loop schema data for get stored procedures as dataJob-s.
@@ -946,7 +974,11 @@ class SQLServerSource(SQLAlchemySource):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
 
-        if self.config.database and self.config.database != "":
+        if (
+            self.config.database
+            and self.config.database != ""
+            or (self.config.sqlalchemy_uri and self.config.sqlalchemy_uri != "")
+        ):
             inspector = inspect(engine)
             yield inspector
         else:
@@ -1043,3 +1075,45 @@ class SQLServerSource(SQLAlchemySource):
             if self.config.convert_urns_to_lowercase
             else table_ref_str
         )
+
+    def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
+        for schema in super().get_allowed_schemas(inspector, db_name):
+            if self.config.quote_schemas:
+                yield quoted_name(schema, True)
+            else:
+                yield schema
+
+    def get_db_name(self, inspector: Inspector) -> str:
+        engine = inspector.engine
+
+        try:
+            if (
+                engine
+                and hasattr(engine, "url")
+                and hasattr(engine.url, "database")
+                and engine.url.database
+            ):
+                return str(engine.url.database).strip('"')
+
+            if (
+                engine
+                and hasattr(engine, "url")
+                and hasattr(engine.url, "query")
+                and "odbc_connect" in engine.url.query
+            ):
+                # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
+                database = re.search(
+                    r"DATABASE=([^;]*);",
+                    urllib.parse.unquote_plus(str(engine.url.query["odbc_connect"])),
+                    flags=re.IGNORECASE,
+                )
+
+                if database and database.group(1):
+                    return database.group(1)
+
+            return ""
+
+        except Exception as e:
+            raise RuntimeError(
+                "Unable to get database name from Sqlalchemy inspector"
+            ) from e

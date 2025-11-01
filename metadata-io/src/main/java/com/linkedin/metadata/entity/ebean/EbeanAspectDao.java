@@ -7,6 +7,7 @@ import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -259,13 +260,34 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public int deleteUrn(@Nullable TransactionContext txContext, @Nonnull final String urn) {
+  public int deleteUrn(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn) {
     validateConnection();
-    return server
-        .createQuery(EbeanAspectV2.class)
-        .where()
-        .eq(EbeanAspectV2.URN_COLUMN, urn)
-        .delete();
+
+    Urn urnObj = UrnUtils.getUrn(urn);
+    String keyAspectName = opContext.getKeyAspectName(urnObj);
+
+    // First, delete all non-key aspects
+    int nonKeyCount =
+        server
+            .createQuery(EbeanAspectV2.class)
+            .where()
+            .eq(EbeanAspectV2.URN_COLUMN, urn)
+            .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+            .delete();
+
+    // Then, delete the key aspect
+    int keyCount =
+        server
+            .createQuery(EbeanAspectV2.class)
+            .where()
+            .eq(EbeanAspectV2.URN_COLUMN, urn)
+            .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+            .delete();
+
+    return nonKeyCount + keyCount;
   }
 
   @Override
@@ -530,6 +552,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return exp.findCount();
   }
 
+  @Nonnull
+  @Override
+  public Integer countAspect(final RestoreIndicesArgs args) {
+    return buildExpressionList(args, true).findCount();
+  }
+
   /**
    * Warning this inner Streams must be closed
    *
@@ -539,10 +567,62 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   @Override
   public PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args) {
+    // Use default for existing RestoreIndices operations
+    return streamAspectBatches(args, null);
+  }
+
+  /**
+   * Stream aspects ordered by URN/aspect for optimal Elasticsearch document batching. Supports
+   * configurable transaction isolation level to optimize for different use cases: - LoadIndices can
+   * use READ_UNCOMMITTED for faster scanning
+   *
+   * @param args Stream arguments and filters
+   * @param isolationLevel Optional isolation level override (null = database default)
+   * @return PartitionedStream of aspects ordered by URN/aspect
+   */
+  public PartitionedStream<EbeanAspectV2> streamAspectBatches(
+      final RestoreIndicesArgs args, final TxIsolation isolationLevel) {
+    ExpressionList<EbeanAspectV2> exp = buildExpressionList(args, false);
+    if (args.limit > 0) {
+      exp = exp.setMaxRows(args.limit);
+    }
+
+    int start = args.urnBasedPagination ? 0 : args.start;
+
+    // Execute with specific transaction isolation level
+    Stream<EbeanAspectV2> stream;
+    if (isolationLevel == TxIsolation.READ_UNCOMMITTED) {
+      // Use explicit transaction scope for READ_UNCOMMITTED to override default
+      try (Transaction transaction =
+          server.beginTransaction(TxScope.requiresNew().setIsolation(isolationLevel))) {
+        stream =
+            exp.orderBy()
+                .asc(EbeanAspectV2.URN_COLUMN)
+                .orderBy()
+                .asc(EbeanAspectV2.ASPECT_COLUMN)
+                .setFirstRow(start)
+                .findStream(); // Transaction auto-closes when stream completes
+      }
+    } else {
+      // For READ_COMMITTED and other levels, use standard approach
+      stream =
+          exp.orderBy()
+              .asc(EbeanAspectV2.URN_COLUMN)
+              .orderBy()
+              .asc(EbeanAspectV2.ASPECT_COLUMN)
+              .setFirstRow(start)
+              .findStream();
+    }
+
+    return PartitionedStream.<EbeanAspectV2>builder().delegateStream(stream).build();
+  }
+
+  private ExpressionList<EbeanAspectV2> buildExpressionList(
+      RestoreIndicesArgs args, boolean forCount) {
     ExpressionList<EbeanAspectV2> exp =
         server
             .find(EbeanAspectV2.class)
-            .select(EbeanAspectV2.ALL_COLUMNS)
+            .select(forCount ? EbeanAspectV2.KEY_ID : EbeanAspectV2.ALL_COLUMNS)
             .where()
             .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
     if (args.aspectName != null) {
@@ -567,9 +647,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                   Timestamp.from(Instant.ofEpochMilli(args.lePitEpochMs)));
     }
 
-    int start = args.start;
     if (args.urnBasedPagination) {
-      start = 0;
       if (args.lastUrn != null && !args.lastUrn.isEmpty()) {
         exp = exp.where().ge(EbeanAspectV2.URN_COLUMN, args.lastUrn);
 
@@ -585,20 +663,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         }
       }
     }
-
-    if (args.limit > 0) {
-      exp = exp.setMaxRows(args.limit);
-    }
-
-    return PartitionedStream.<EbeanAspectV2>builder()
-        .delegateStream(
-            exp.orderBy()
-                .asc(EbeanAspectV2.URN_COLUMN)
-                .orderBy()
-                .asc(EbeanAspectV2.ASPECT_COLUMN)
-                .setFirstRow(start)
-                .findStream())
-        .build();
+    return exp;
   }
 
   /**

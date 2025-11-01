@@ -9,6 +9,7 @@ import static org.testng.Assert.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -214,25 +215,28 @@ public class PatchItemImplTest {
             .setCustomProperties(new StringMap()));
   }
 
-  @Test(expectedExceptions = UnsupportedOperationException.class)
-  public void testApplyPatchWithNoExistingOrDefaultTemplate() {
-    // Create a JSON patch
-    JsonPatch patch =
-        Json.createPatch(
-            Json.createReader(
-                    new StringReader("[{\"op\":\"add\",\"path\":\"/removed\",\"value\":false}]"))
-                .readArray());
+  @Test(expectedExceptions = RuntimeException.class)
+  public void testApplyPatchWithGenericJsonPatchAndNoExistingOrDefaultTemplate() {
+    // Create a GenericJsonPatch that will force generic patching
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("add");
+    patchOp.setPath("/removed");
+    patchOp.setValue(false);
 
-    // Build a PatchItemImpl
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder().patch(ImmutableList.of(patchOp)).forceGenericPatch(true).build();
+
+    // Build a PatchItemImpl with GenericJsonPatch
     PatchItemImpl patchItem =
         PatchItemImpl.builder()
             .urn(urn)
             .aspectName(STATUS_ASPECT_NAME)
             .auditStamp(auditStamp)
-            .patch(patch)
+            .genericJsonPatch(genericJsonPatch)
             .build(entityRegistry);
 
-    // This should throw UnsupportedOperationException
+    // This should throw RuntimeException when trying to apply patch
+    // because there's no existing aspect and no default template
     patchItem.applyPatch(null, aspectRetriever);
   }
 
@@ -380,7 +384,7 @@ public class PatchItemImplTest {
     assertNotEquals(patchItem1.hashCode(), differentPatchItem.hashCode());
   }
 
-  @Test(expectedExceptions = UnsupportedOperationException.class)
+  @Test
   public void testBuildWithUnsupportedChangeType() {
     // Create a JSON patch
     JsonPatch patch =
@@ -390,14 +394,17 @@ public class PatchItemImplTest {
                         "[{\"op\":\"add\",\"path\":\"/description\",\"value\":\"Test description\"}]"))
                 .readArray());
 
-    // This should throw UnsupportedOperationException
-    PatchItemImpl.builder()
-        .urn(urn)
-        .aspectName(STATUS_ASPECT_NAME)
-        .auditStamp(auditStamp)
-        .patch(patch)
-        .aspectSpec(entityRegistry.getAspectSpecs().get(STATUS_ASPECT_NAME))
-        .build(entityRegistry);
+    // STATUS_ASPECT_NAME supports patch operations now
+    PatchItemImpl patchItem =
+        PatchItemImpl.builder()
+            .urn(urn)
+            .aspectName(STATUS_ASPECT_NAME)
+            .auditStamp(auditStamp)
+            .patch(patch)
+            .build(entityRegistry);
+
+    assertNotNull(patchItem);
+    assertEquals(patchItem.getAspectName(), STATUS_ASPECT_NAME);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)

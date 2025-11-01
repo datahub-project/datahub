@@ -2,7 +2,6 @@ package com.linkedin.metadata.graph.search;
 
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
 
@@ -37,6 +36,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
@@ -51,7 +51,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.junit.Assert;
-import org.opensearch.client.RestHighLevelClient;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -60,7 +59,10 @@ import org.testng.annotations.Test;
 public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
+
+  @Nonnull
+  protected abstract ElasticSearchConfiguration getElasticSearchConfiguration();
 
   @Nonnull
   protected abstract ESBulkProcessor getBulkProcessor();
@@ -68,7 +70,11 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected abstract ESIndexBuilder getIndexBuilder();
 
-  private final IndexConvention _indexConvention = IndexConventionImpl.noPrefix("MD5");
+  @Nonnull
+  protected abstract String getElasticSearchImplementation();
+
+  private final IndexConvention _indexConvention =
+      IndexConventionImpl.noPrefix("MD5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
   private OperationContext operationContext;
@@ -78,8 +84,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @BeforeClass
   public void setup() {
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    _client = buildService(TEST_ES_SEARCH_CONFIG, TEST_GRAPH_SERVICE_CONFIG);
-    _client.reindexAll(Collections.emptySet());
+    _client = buildService(getElasticSearchConfiguration(), TEST_GRAPH_SERVICE_CONFIG);
+    _client.reindexAll(operationContext, Collections.emptySet());
   }
 
   @BeforeMethod
@@ -108,13 +114,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     }
 
     ESGraphQueryDAO readDAO =
-        new ESGraphQueryDAO(
-            getSearchClient(),
-            lineageRegistry,
-            _indexConvention,
-            graphServiceConfig,
-            esSearchConfig,
-            null);
+        new ESGraphQueryDAO(getSearchClient(), graphServiceConfig, esSearchConfig, null);
     ESGraphWriteDAO writeDAO =
         new ESGraphWriteDAO(
             _indexConvention, getBulkProcessor(), 1, esSearchConfig.getSearch().getGraph());
@@ -160,17 +160,17 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             != _client.getESSearchConfig().getSearch().getGraph().isEnableMultiPathSearch()) {
 
       esSearchConfiguration =
-          TEST_ES_SEARCH_CONFIG.toBuilder()
+          getElasticSearchConfiguration().toBuilder()
               .search(
-                  TEST_ES_SEARCH_CONFIG.getSearch().toBuilder()
+                  getElasticSearchConfiguration().getSearch().toBuilder()
                       .graph(
-                          TEST_ES_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                          getElasticSearchConfiguration().getSearch().getGraph().toBuilder()
                               .enableMultiPathSearch(enableMultiPathSearch)
                               .build())
                       .build())
               .build();
     } else {
-      esSearchConfiguration = TEST_ES_SEARCH_CONFIG;
+      esSearchConfiguration = getElasticSearchConfiguration();
     }
 
     if (!_client.getGraphServiceConfig().equals(graphServiceConfig)
@@ -185,7 +185,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected GraphService getGraphService() {
     return getGraphService(
-        TEST_ES_SEARCH_CONFIG.getSearch().getGraph().isEnableMultiPathSearch(),
+        getElasticSearchConfiguration().getSearch().getGraph().isEnableMultiPathSearch(),
         TEST_GRAPH_SERVICE_CONFIG.getLimit().getResults().getMax());
   }
 
