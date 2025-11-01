@@ -1,6 +1,9 @@
-import { Button } from '@components';
+import { Button, Dropdown } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { MenuProps } from 'antd';
+import { FolderOutlined, FileTextOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { useHistory } from 'react-router-dom';
 
 import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
 import GlossaryEntitiesList from '@app/glossaryV2/GlossaryEntitiesList';
@@ -10,6 +13,7 @@ import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { GlossaryNodeFragment } from '@graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 import { GlossaryNode, GlossaryTerm } from '@types';
+import { PageRoutes } from '@conf/Global';
 
 const MainContentWrapper = styled.div`
     display: flex;
@@ -55,6 +59,38 @@ const GlossaryContentProvider = (props: Props) => {
         nodesLoading,
     } = props;
 
+    const history = useHistory();
+
+    const dropdownItems: MenuProps['items'] = [
+        {
+            key: 'create-group',
+            label: 'Create Term Group',
+            icon: <FolderOutlined />,
+            onClick: () => setIsCreateNodeModalVisible(true),
+        },
+        {
+            key: 'create-term',
+            label: 'Create Term',
+            icon: <FileTextOutlined />,
+            onClick: () => setIsCreateTermModalVisible(true),
+        },
+        {
+            key: 'export',
+            label: 'Export CSV',
+            icon: <DownloadOutlined />,
+            onClick: () => {
+                // TODO: Implement export functionality
+                console.log('Export CSV clicked');
+            },
+        },
+        {
+            key: 'import',
+            label: 'Import CSV',
+            icon: <UploadOutlined />,
+            onClick: () => history.push(PageRoutes.GLOSSARY_IMPORT),
+        },
+    ];
+
     return (
         <MainContentWrapper data-testid="glossary-entities-list">
             <HeaderWrapper data-testid="glossaryPageV2">
@@ -63,16 +99,21 @@ const GlossaryContentProvider = (props: Props) => {
                     subTitle="Classify your data assets and columns using data dictionaries"
                 />
                 <ButtonContainer>
-                    <Button
-                        data-testid="add-term-group-button-v2"
-                        id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
-                        size="md"
-                        icon={{ icon: 'Add', source: 'material' }}
-                        // can not be disabled on acryl-main due to ability to propose
-                        onClick={() => setIsCreateNodeModalVisible(true)}
+                    <Dropdown
+                        menu={{ items: dropdownItems }}
+                        trigger={['click']}
+                        placement="bottomRight"
                     >
-                        Create Glossary
-                    </Button>
+                        <Button
+                            data-testid="add-term-group-button-v2"
+                            id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
+                            size="md"
+                            icon={{ icon: 'Add', source: 'material' }}
+                            // can not be disabled on acryl-main due to ability to propose
+                        >
+                            Create Term Group
+                        </Button>
+                    </Dropdown>
                 </ButtonContainer>
             </HeaderWrapper>
             <ListWrapper>
