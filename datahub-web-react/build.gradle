@@ -48,8 +48,12 @@ node {
   Wrappers around Yarn Tasks.
  */
 task yarnInstall(type: YarnTask) {
-  args = ['install', '--network-timeout', '300000']
-
+  def argsList = ['install', '--network-timeout', '300000']
+  if (System.getenv("CI") == "true") {
+    argsList += ['--frozen-lockfile']
+  }
+  args.set(argsList)
+  
   // The node_modules directory can contain built artifacts, so
   // it's not really safe to cache it.
   outputs.cacheIf { false }
@@ -69,30 +73,53 @@ task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
   inputs.files(
     yarnInstall.inputs.files,
     file('codegen.yml'),
-    project.fileTree(dir: "../datahub-graphql-core/src/main/resources/", include: "*.graphql"),
+    project.fileTree(dir: "../datahub-graphql-core/src/main/resources/", include: "**/*.graphql"),
     project.fileTree(dir: "src", include: "**/*.graphql"),
   )
 
-  outputs.files(
-    project.fileTree(dir: "src", include: "**/*.generated.ts"),
-  )
+  // Generated files go to build/generated which can be properly cached
+  outputs.dir("${buildDir}/generated").withPropertyName("generatedSources")
 
   doFirst{
+    print("deleting ${buildDir}")
+    delete file("${buildDir}/generated")
+
+    // Delete the generated files from src
     delete fileTree(dir: 'src', include: '**/*.generated.ts')
+  }
+
+  doLast {
+    // Move generated files from src/ to build/generated/ while preserving structure
+    copy {
+      from("src") {
+        include "**/*.generated.ts"
+      }
+      into "${buildDir}/generated"
+    }
   }
 }
 
-task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+// Sync generated files from build/generated to src/
+task syncGeneratedFiles(type: Copy, dependsOn: yarnGenerate) {
+  from "${buildDir}/generated"
+  into "src"
+  include "**/*.generated.ts"
+
+  // Preserve the directory structure
+  includeEmptyDirs = false
+}
+
+task yarnServe(type: YarnTask, dependsOn: [yarnInstall, syncGeneratedFiles]) {
   environment.put('REACT_APP_PROXY_TARGET', 'http://localhost:9001')
   args = ['run', 'start']
 }
 
-task yarnPreview(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnPreview(type: YarnTask, dependsOn: [yarnInstall, syncGeneratedFiles]) {
   environment.put('REACT_APP_PROXY_TARGET', project.findProperty('proxy') ?: 'http://localhost:9001')
   args = ['run', 'preview']
 }
 
-task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnTest(type: YarnTask, dependsOn: [yarnInstall, syncGeneratedFiles]) {
   // Explicitly runs in non-watch mode.
   args = ['run', project.hasProperty('withCoverage') ? 'test-coverage' : 'test', 'run']
   def test_sentinel = "${buildDir}/.yarn-test-sentinel"
@@ -110,7 +137,7 @@ task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   outputs.cacheIf { true }
 }
 
-task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall, syncGeneratedFiles]) {
   def targetFile = project.findProperty('file') ?: ''
 
   if (targetFile.isEmpty()) {
@@ -138,7 +165,7 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 
 test.dependsOn([yarnInstall, yarnTest, yarnLint])
 
-task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, syncGeneratedFiles]) {
   def targetFile = project.findProperty('file') ?: ''
 
   if (targetFile.isEmpty()) {
@@ -188,7 +215,7 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
     project.fileTree(dir: "public"),
 
     yarnInstall.inputs.files,
-    yarnGenerate.outputs.files,
+    //yarnGenerate.outputs.files,
 
     file('.env'),
     file('vite.config.ts'),
