@@ -40,7 +40,7 @@ from datahub.metadata.schema_classes import (
     FabricTypeClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
-    GlossaryTermsClass as GlossaryTerms,
+    GlossaryTermsClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
@@ -375,12 +375,6 @@ def make_domain_urn(domain: str) -> str:
     return f"urn:li:domain:{domain}"
 
 
-def make_data_product_urn(data_product_id: str) -> str:
-    if data_product_id.startswith("urn:li:dataProduct:"):
-        return data_product_id
-    return f"urn:li:dataProduct:{data_product_id}"
-
-
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
     return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
 
@@ -410,19 +404,19 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     )
 
 
-def make_data_product_urn(
-    platform: str, name: str, env: str, platform_instance: Optional[str] = None
-) -> str:
-    # Import here to avoid circular imports
-    from datahub.emitter.mcp_builder import DataProductKey
+def make_data_product_urn(data_product_id: str) -> str:
+    """
+    Create a Data Product URN from a data product ID.
 
-    key = DataProductKey(
-        platform=platform,
-        name=name,
-        env=env,
-        instance=platform_instance,
-    )
-    return key.as_urn()
+    If the input is already a URN, it returns it as-is.
+    Otherwise, wraps the ID into a proper URN format.
+
+    For generating data product URNs from components (platform, name, env),
+    use DataProductKey from mcp_builder directly.
+    """
+    if data_product_id.startswith("urn:li:dataProduct:"):
+        return data_product_id
+    return f"urn:li:dataProduct:{data_product_id}"
 
 
 def data_product_urn_to_key(guid: str) -> Optional[DataProductKeyClass]:
@@ -575,10 +569,12 @@ def make_ownership_aspect_from_urn_list(
     )
 
 
-def make_glossary_terms_aspect_from_urn_list(term_urns: List[str]) -> GlossaryTerms:
+def make_glossary_terms_aspect_from_urn_list(
+    term_urns: List[str],
+) -> GlossaryTermsClass:
     for term_urn in term_urns:
         assert term_urn.startswith("urn:li:glossaryTerm:")
-    glossary_terms = GlossaryTerms(
+    glossary_terms = GlossaryTermsClass(
         [GlossaryTermAssociationClass(term_urn) for term_urn in term_urns],
         AuditStampClass(
             time=int(time.time() * 1000),

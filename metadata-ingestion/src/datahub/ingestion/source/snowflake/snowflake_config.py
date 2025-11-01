@@ -216,6 +216,16 @@ class SnowflakeMarketplaceConfig(ConfigModel):
         description="Regex patterns for marketplace listings to include in ingestion",
     )
 
+    marketplace_domain: Dict[str, AllowDenyPattern] = Field(
+        default={},
+        description=(
+            "Map of domain names to regex patterns for marketplace listings. "
+            "Domain keys can be URNs like 'urn:li:domain:finance' or names like 'Finance'. "
+            "When a marketplace listing name matches a pattern, it will be associated with that domain. "
+            "Example: {'urn:li:domain:finance': AllowDenyPattern(allow=['.*Financial.*', '.*Banking.*'])}"
+        ),
+    )
+
 
 class SnowflakeV2Config(
     SnowflakeConfig,

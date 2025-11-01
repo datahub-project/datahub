@@ -807,4 +807,81 @@ def default_query_results(  # noqa: C901
                 "owner_role_type": "ROLE",
             }
         ]
+    elif query == SnowflakeQuery.marketplace_listings():
+        return [
+            {
+                "LISTING_GLOBAL_NAME": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+                "LISTING_DISPLAY_NAME": "Customer 360 View",
+                "PROVIDER_NAME": "ACME Corp",
+                "CATEGORY": "Customer Data",
+                "DESCRIPTION": "Comprehensive customer data for analysis",
+                "LISTING_CREATED_ON": datetime(
+                    2023, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc
+                ),
+                "LISTING_UPDATED_ON": datetime(
+                    2023, 6, 1, 0, 0, 0, 0, tzinfo=timezone.utc
+                ),
+                "IS_PERSONAL_DATA": True,
+                "IS_FREE": False,
+            },
+            {
+                "LISTING_GLOBAL_NAME": "WEATHER_CO.PUBLIC.WEATHER_DATA",
+                "LISTING_DISPLAY_NAME": "Global Weather Data",
+                "PROVIDER_NAME": "Weather Co",
+                "CATEGORY": "Environmental",
+                "DESCRIPTION": "Real-time weather data from global stations",
+                "LISTING_CREATED_ON": datetime(
+                    2023, 2, 1, 0, 0, 0, 0, tzinfo=timezone.utc
+                ),
+                "LISTING_UPDATED_ON": datetime(
+                    2023, 7, 1, 0, 0, 0, 0, tzinfo=timezone.utc
+                ),
+                "IS_PERSONAL_DATA": False,
+                "IS_FREE": True,
+            },
+        ]
+    elif query == SnowflakeQuery.marketplace_purchases():
+        return [
+            {
+                "LISTING_GLOBAL_NAME": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+                "LISTING_DISPLAY_NAME": "Customer 360 View",
+                "PROVIDER_NAME": "ACME Corp",
+                "PURCHASE_DATE": datetime(2023, 3, 15, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "DATABASE_NAME": "DEMO_DATABASE",
+                "IS_AUTO_FULFILL": True,
+                "PURCHASE_STATUS": "ACTIVE",
+            },
+        ]
+    elif "MARKETPLACE_LISTING_ACCESS_HISTORY" in query:
+        # Return marketplace usage events
+        return [
+            {
+                "EVENT_TIMESTAMP": datetime(2022, 6, 6, 10, 30, 0, 0).replace(
+                    tzinfo=timezone.utc
+                ),
+                "LISTING_GLOBAL_NAME": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+                "LISTING_DISPLAY_NAME": "Customer 360 View",
+                "USER_NAME": "ANALYST_USER",
+                "DATABASE_NAME": "DEMO_DATABASE",
+                "SCHEMA_NAME": "PUBLIC",
+                "TABLE_NAME": "CUSTOMERS",
+                "QUERY_ID": "01b2576e-0804-4957-marketplace-001",
+                "BYTES_ACCESSED": 1024000,
+                "ROWS_ACCESSED": 5000,
+            },
+            {
+                "EVENT_TIMESTAMP": datetime(2022, 6, 6, 14, 45, 0, 0).replace(
+                    tzinfo=timezone.utc
+                ),
+                "LISTING_GLOBAL_NAME": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+                "LISTING_DISPLAY_NAME": "Customer 360 View",
+                "USER_NAME": "DATA_SCIENTIST",
+                "DATABASE_NAME": "DEMO_DATABASE",
+                "SCHEMA_NAME": "PUBLIC",
+                "TABLE_NAME": "CUSTOMERS",
+                "QUERY_ID": "01b2576e-0804-4957-marketplace-002",
+                "BYTES_ACCESSED": 2048000,
+                "ROWS_ACCESSED": 10000,
+            },
+        ]
     raise ValueError(f"Unexpected query: {query}")

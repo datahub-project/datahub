@@ -1,8 +1,8 @@
 import logging
 from collections import defaultdict
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
-from datahub.emitter.mce_builder import make_user_urn
+from datahub.emitter.mce_builder import make_domain_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import gen_data_product
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -59,31 +59,41 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         self._load_marketplace_data()
 
         # 1. Create Data Products for marketplace listings
-        if self.config.marketplace.include_marketplace_listings:
+        if self.config.include_marketplace_listings:
             yield from self._create_marketplace_data_products()
 
         # 2. Enhance purchased datasets with marketplace metadata
-        if self.config.marketplace.include_marketplace_purchases:
+        if self.config.include_marketplace_purchases:
             yield from self._enhance_purchased_datasets()
 
         # 3. Create lineage between listings and purchased data
         if (
-            self.config.marketplace.include_marketplace_listings
-            and self.config.marketplace.include_marketplace_purchases
+            self.config.include_marketplace_listings
+            and self.config.include_marketplace_purchases
         ):
             yield from self._create_marketplace_lineage()
 
         # 4. Add marketplace usage statistics
-        if self.config.marketplace.include_marketplace_usage:
+        if self.config.include_marketplace_usage:
             yield from self._create_marketplace_usage_statistics()
+
+    def _resolve_domain_for_listing(self, listing_name: str) -> Optional[str]:
+        """Resolve domain URN for a marketplace listing based on regex patterns"""
+        for domain_urn, pattern in self.config.marketplace_domain.items():
+            if pattern.allowed(listing_name):
+                # Normalize the domain URN
+                if not domain_urn.startswith("urn:li:domain:"):
+                    domain_urn = make_domain_urn(domain_urn)
+                return domain_urn
+        return None
 
     def _load_marketplace_data(self) -> None:
         """Load marketplace listings and purchases"""
 
-        if self.config.marketplace.include_marketplace_listings:
+        if self.config.include_marketplace_listings:
             self._load_marketplace_listings()
 
-        if self.config.marketplace.include_marketplace_purchases:
+        if self.config.include_marketplace_purchases:
             self._load_marketplace_purchases()
 
     def _load_marketplace_listings(self) -> None:
@@ -104,7 +114,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     is_free=row.get("IS_FREE", False),
                 )
 
-                if self.config.marketplace.marketplace_listing_pattern.allowed(
+                if self.config.marketplace_listing_pattern.allowed(
                     listing.listing_global_name
                 ):
                     self._marketplace_listings[listing.listing_global_name] = listing
@@ -185,13 +195,16 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     listing.listing_updated_on.isoformat()
                 )
 
+            # Resolve domain for this listing
+            domain_urn = self._resolve_domain_for_listing(listing.listing_display_name)
+
             # Use the gen_data_product function from mcp_builder
             yield from gen_data_product(
                 data_product_key=data_product_key,
                 name=listing.listing_display_name,
                 description=listing.description,
                 custom_properties=custom_properties,
-                # TODO: Add domain_urn, owner_urn, tags if needed
+                domain_urn=domain_urn,
             )
 
             self.report.report_marketplace_data_product_created()

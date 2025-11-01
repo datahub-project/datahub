@@ -1013,8 +1013,8 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             ORDER BY name
         """
 
-      @staticmethod
-      def marketplace_listings() -> str:
+    @staticmethod
+    def marketplace_listings() -> str:
         """Get available marketplace listings"""
         return """
             SELECT 

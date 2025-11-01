@@ -549,9 +549,9 @@ class SnowflakeV2Source(
             ).get_shares_workunits(databases)
 
         if (
-            self.config.marketplace.include_marketplace_listings
-            or self.config.marketplace.include_marketplace_purchases
-            or self.config.marketplace.include_marketplace_usage
+            self.config.include_marketplace_listings
+            or self.config.include_marketplace_purchases
+            or self.config.include_marketplace_usage
         ):
             with self.report.new_stage("*: MARKETPLACE_EXTRACTION"):
                 marketplace_handler = SnowflakeMarketplaceHandler(
