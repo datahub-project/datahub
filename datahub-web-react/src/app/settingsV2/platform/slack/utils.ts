@@ -1,8 +1,8 @@
-import { History } from 'history';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 
 import { SlackConnection } from '@app/settingsV2/platform/slack/types';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 export const SLACK_INSTALL_REDIRECT_PATH = '/integrations/slack/install';
 export const SLACK_REFRESH_INSTALLATION_REDIRECT_PATH = '/integrations/slack/refresh-installation';
@@ -62,18 +62,19 @@ export const encodeSlackConnection = (config: SlackConnection, isUsingAppConfigT
 /**
  * Performs a hard browser redirect to the Slack install link.
  */
-export const redirectToSlackInstall = (history: History, queryParams?: { requestMinimalSlackPermissions: string }) => {
+export const redirectToSlackInstall = (queryParams?: { requestMinimalSlackPermissions: string }) => {
     const params = queryParams && new URLSearchParams(queryParams);
-    history.replace(`${SLACK_INSTALL_REDIRECT_PATH}${params ? `?${params.toString()}` : ''}`);
+    window.location.replace(
+        resolveRuntimePath(`${SLACK_INSTALL_REDIRECT_PATH}${params ? `?${params.toString()}` : ''}`),
+    );
 };
 
 /**
  * Performs a hard browser redirect to the Slack refresh-installation link.
  */
-export const redirectToSlackRefreshInstallation = (
-    history: History,
-    queryParams?: { requestMinimalSlackPermissions: string },
-) => {
+export const redirectToSlackRefreshInstallation = (queryParams?: { requestMinimalSlackPermissions: string }) => {
     const params = queryParams && new URLSearchParams(queryParams);
-    history.replace(`${SLACK_REFRESH_INSTALLATION_REDIRECT_PATH}${params ? `?${params.toString()}` : ''}`);
+    window.location.replace(
+        resolveRuntimePath(`${SLACK_REFRESH_INSTALLATION_REDIRECT_PATH}${params ? `?${params.toString()}` : ''}`),
+    );
 };

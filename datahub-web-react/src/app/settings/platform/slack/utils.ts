@@ -1,6 +1,5 @@
-import { History } from 'history';
-
 import { SlackConnection } from '@app/settings/platform/slack/types';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 export const SLACK_INSTALL_REDIRECT_PATH = '/integrations/slack/install';
 export const SLACK_REFRESH_INSTALLATION_REDIRECT_PATH = '/integrations/slack/refresh-installation';
@@ -54,13 +53,13 @@ export const encodeSlackConnection = (config: SlackConnection, isUsingAppConfigT
 /**
  * Performs a hard browser redirect to the Slack install link.
  */
-export const redirectToSlackInstall = (history: History) => {
-    history.replace(SLACK_INSTALL_REDIRECT_PATH);
+export const redirectToSlackInstall = () => {
+    window.location.replace(resolveRuntimePath(SLACK_INSTALL_REDIRECT_PATH));
 };
 
 /**
  * Performs a hard browser redirect to the Slack refresh-installation link.
  */
-export const redirectToSlackRefreshInstallation = (history: History) => {
-    history.replace(SLACK_REFRESH_INSTALLATION_REDIRECT_PATH);
+export const redirectToSlackRefreshInstallation = () => {
+    window.location.replace(resolveRuntimePath(SLACK_REFRESH_INSTALLATION_REDIRECT_PATH));
 };
