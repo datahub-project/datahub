@@ -81,6 +81,8 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 
 Ingestion Job extract Models, Datasets, Training Jobs, Endpoints, Experiment and Experiment Runs in a given project and region on Vertex AI.
 
+Starting with this version, the source supports ingesting across multiple GCP projects. You can specify `project_ids`, `project_labels`, or `project_id_pattern` to select projects. The Vertex AI `region` should be specified as a single value; `regions` is deprecated—run separate recipes per region if needed.
+
 #### Concept Mapping
 
 This ingestion source maps the following Vertex AI Concepts to DataHub Concepts:
@@ -109,3 +111,6 @@ Lineage is emitted using Vertex AI API to capture the following relationships:
 - A dataset and a training job (which dataset was consumed by a training job to train a model)
 - Experiment runs and an experiment
 - Metadata execution and an experiment run
+- Cross-platform lineage from Execution artifacts to external sources when URIs are present:
+  - GCS artifacts (gs://...) are linked to `gcs` datasets
+  - BigQuery artifacts (bq://project.dataset.table or projects/.../datasets/.../tables/...) are linked to `bigquery` datasets

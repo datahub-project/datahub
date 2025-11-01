@@ -1,10 +1,11 @@
 import contextlib
 from datetime import timedelta
-from typing import List
+from typing import Any, List, cast
 from unittest.mock import patch
 
 import pytest
 from google.cloud.aiplatform import Experiment, ExperimentRun
+from google.cloud.aiplatform.models import Model
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -820,3 +821,157 @@ def test_make_job_urn(source: VertexAISource) -> None:
         source._make_training_job_urn(mock_training_job)
         == f"{builder.make_data_process_instance_urn(source._make_vertexai_job_name(mock_training_job.name))}"
     )
+
+
+def test_vertexai_multi_project_context_naming() -> None:
+    # Use single-project config to avoid invoking project resolution in __init__
+    multi_source = VertexAISource(
+        ctx=PipelineContext(run_id="vertexai-source-test"),
+        config=VertexAIConfig(project_id="fallback", region="us-central1"),
+    )
+    # Simulate iteration context
+    multi_source._current_project_id = "p2"
+    multi_source._current_region = "r2"
+
+    # Names and URLs should use current context
+    assert multi_source._make_vertexai_model_group_name("m") == "p2.model_group.m"
+    assert multi_source._make_vertexai_dataset_name("d") == "p2.dataset.d"
+    assert multi_source._make_vertexai_pipeline_task_id("t") == "p2.pipeline_task.t"
+
+    # External URLs should embed current region and project
+    class _Obj:
+        name = "xyz"
+
+    dummy = _Obj()
+    assert (
+        multi_source._make_model_external_url(cast(Model, dummy))
+        == f"{multi_source.config.vertexai_url}/models/locations/r2/models/xyz?project=p2"
+    )
+
+
+def test_dataset_urns_from_artifact_uri() -> None:
+    source = VertexAISource(
+        ctx=PipelineContext(run_id="vertexai-source-test"),
+        config=VertexAIConfig(project_id="p", region="r"),
+    )
+    gcs = source._dataset_urns_from_artifact_uri("gs://bucket/path/file")
+    assert gcs and gcs[0].startswith("urn:li:dataset:(urn:li:dataPlatform:gcs,")
+
+    bq = source._dataset_urns_from_artifact_uri("bq://proj.ds.tbl")
+    assert bq and ",proj.ds.tbl," in bq[0]
+
+    api = source._dataset_urns_from_artifact_uri("projects/p/datasets/ds/tables/tbl")
+    assert api and ",p.ds.tbl," in api[0]
+
+
+def test_gen_run_execution_edges() -> None:
+    # Build a minimal dummy Execution-like object
+    class _Art:
+        def __init__(self, uri: str):
+            self.uri = uri
+
+    class _Exec:
+        def __init__(self):
+            from datetime import datetime, timedelta
+
+            self.create_time = datetime.utcnow()
+            self.update_time = self.create_time + timedelta(seconds=5)
+            self.state = "COMPLETE"
+            self.name = "exec1"
+
+        def get_input_artifacts(self):
+            return [_Art("gs://bucket/file"), _Art("bq://p.d.t")]
+
+        def get_output_artifacts(self):
+            return [_Art("projects/p/datasets/d/tables/t2")]
+
+    class _Run:
+        name = "run1"
+
+        def get_executions(self):
+            return []
+
+    class _Exp:
+        name = "exp1"
+        resource_name = "res"
+        dashboard_url = None
+
+    source = VertexAISource(
+        ctx=PipelineContext(run_id="vertexai-source-test"),
+        config=VertexAIConfig(project_id="p", region="r"),
+    )
+
+    mcps = list(
+        source._gen_run_execution(
+            cast(Any, _Exec()), cast(Any, _Run()), cast(Any, _Exp())
+        )
+    )
+    # Ensure at least one DataProcessInstanceInputClass and OutputClass exists with edges
+    has_inputs = any(
+        getattr(m.aspect, "inputEdges", None)
+        for m in mcps
+        if hasattr(m, "aspect")
+        and m.aspect.__class__.__name__ == "DataProcessInstanceInputClass"
+    )
+    has_outputs = any(
+        getattr(m.aspect, "outputEdges", None)
+        for m in mcps
+        if hasattr(m, "aspect")
+        and m.aspect.__class__.__name__ == "DataProcessInstanceOutputClass"
+    )
+    assert has_inputs and has_outputs
+
+
+def test_training_job_external_lineage_edges() -> None:
+    class _Job:
+        def __init__(self):
+            from datetime import datetime, timedelta
+
+            self.name = "jobs/123"
+            self.display_name = "my-job"
+            self.create_time = datetime.utcnow()
+            self.end_time = self.create_time + timedelta(seconds=10)
+
+        def to_dict(self):
+            return {
+                "task": {
+                    "gcsDestination": {"outputUriPrefix": "gs://bucket/out/"},
+                    "bigqueryDestination": {"outputTable": "bq://proj.ds.tbl"},
+                    "inputs": {"gcsSource": ["gs://bucket/in/file1"]},
+                }
+            }
+
+    source = VertexAISource(
+        ctx=PipelineContext(run_id="vertexai-source-test"),
+        config=VertexAIConfig(project_id="p", region="r"),
+    )
+
+    job = _Job()
+    # Generate mcps for job; we only need the DPI aspects for edges
+    job_meta = source._get_training_job_metadata(job)  # type: ignore[arg-type]
+    # Attach extracted uris
+    inputs, outputs = source._extract_external_uris_from_job(job)  # type: ignore[arg-type]
+    job_meta.external_input_urns = inputs
+    job_meta.external_output_urns = outputs
+    mcps = list(source._gen_training_job_mcps(job_meta))
+    has_ext_inputs = any(
+        getattr(m.aspect, "inputEdges", None)
+        and any(
+            "gcs" in e.destinationUrn or "bigquery" in e.destinationUrn
+            for e in cast(Any, m.aspect).inputEdges
+        )
+        for m in mcps
+        if hasattr(m, "aspect")
+        and m.aspect.__class__.__name__ == "DataProcessInstanceInputClass"
+    )
+    has_ext_outputs = any(
+        getattr(m.aspect, "outputEdges", None)
+        and any(
+            "gcs" in e.destinationUrn or "bigquery" in e.destinationUrn
+            for e in cast(Any, m.aspect).outputEdges
+        )
+        for m in mcps
+        if hasattr(m, "aspect")
+        and m.aspect.__class__.__name__ == "DataProcessInstanceOutputClass"
+    )
+    assert has_ext_inputs and has_ext_outputs
