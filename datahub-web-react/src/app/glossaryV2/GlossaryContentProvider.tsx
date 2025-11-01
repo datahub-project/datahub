@@ -75,15 +75,6 @@ const GlossaryContentProvider = (props: Props) => {
             onClick: () => setIsCreateTermModalVisible(true),
         },
         {
-            key: 'export',
-            label: 'Export CSV',
-            icon: <DownloadOutlined />,
-            onClick: () => {
-                // TODO: Implement export functionality
-                console.log('Export CSV clicked');
-            },
-        },
-        {
             key: 'import',
             label: 'Import CSV',
             icon: <UploadOutlined />,
