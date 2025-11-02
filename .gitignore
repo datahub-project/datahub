@@ -90,6 +90,7 @@ coverage*.xml
 .vercel
 .envrc
 **/.claude/settings.local.json
+**/.claude/*.md
 
 # A long series of binary directories we should ignore
 datahub-frontend/bin/main/
@@ -135,3 +136,4 @@ datahub-executor/
 datahub-integrations-service/
 metadata-ingestion-modules/acryl-cloud
 
+.claude/
