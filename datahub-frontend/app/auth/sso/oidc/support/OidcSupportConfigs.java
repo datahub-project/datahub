@@ -21,6 +21,8 @@ public class OidcSupportConfigs extends OidcConfigs {
 
   private final String defaultRole;
 
+  private final boolean requireTicket;
+
   /** Support-specific default values */
   public static final String DEFAULT_SUPPORT_GROUP_NAME = "__datahub_support";
 
@@ -32,6 +34,8 @@ public class OidcSupportConfigs extends OidcConfigs {
 
   private static final String DEFAULT_OIDC_SUPPORT_DEFAULT_ROLE = "Admin";
 
+  private static final boolean DEFAULT_OIDC_SUPPORT_REQUIRE_TICKET = false;
+
   public static final String DEFAULT_SUPPORT_USER_FALLBACK_PICTURE =
       "assets/logos/acryl-dark-mark.svg";
 
@@ -41,6 +45,7 @@ public class OidcSupportConfigs extends OidcConfigs {
     this.roleClaim = builder.roleClaim;
     this.userPictureLink = builder.userPictureLink;
     this.defaultRole = builder.defaultRole;
+    this.requireTicket = builder.requireTicket;
   }
 
   public static class Builder extends OidcConfigs.Builder {
@@ -48,6 +53,7 @@ public class OidcSupportConfigs extends OidcConfigs {
     private String roleClaim = DEFAULT_OIDC_SUPPORT_ROLE_CLAIM;
     private String userPictureLink = DEFAULT_OIDC_SUPPORT_USER_PICTURE_LINK;
     private String defaultRole = DEFAULT_OIDC_SUPPORT_DEFAULT_ROLE;
+    private boolean requireTicket = DEFAULT_OIDC_SUPPORT_REQUIRE_TICKET;
 
     public Builder from(final com.typesafe.config.Config configs) {
       // Parse support-specific configs first
@@ -60,28 +66,8 @@ public class OidcSupportConfigs extends OidcConfigs {
               configs, "auth.oidc.support.userPictureLink", DEFAULT_OIDC_SUPPORT_USER_PICTURE_LINK);
       defaultRole =
           getOptional(configs, "auth.oidc.support.defaultRole", DEFAULT_OIDC_SUPPORT_DEFAULT_ROLE);
-
-      // Parse regular OIDC configs using support namespace
-      super.from(createSupportConfigMap(configs));
-      return this;
-    }
-
-    public Builder from(final com.typesafe.config.Config configs, final String ssoSettingsJsonStr) {
-      // Initialize jsonNode first by calling parent's JSON parsing
-      super.from(ssoSettingsJsonStr);
-
-      // Parse support-specific JSON configs
-      if (jsonNode.has("groupClaim")) {
-        groupClaim = jsonNode.get("groupClaim").asText();
-      }
-      if (jsonNode.has("roleClaim")) {
-        roleClaim = jsonNode.get("roleClaim").asText();
-      }
-      if (jsonNode.has("userPictureLink")) {
-        userPictureLink = jsonNode.get("userPictureLink").asText();
-      }
-      if (jsonNode.has("defaultRole")) {
-        defaultRole = jsonNode.get("defaultRole").asText();
+      if (configs.hasPath("auth.oidc.support.requireTicket")) {
+        requireTicket = configs.getBoolean("auth.oidc.support.requireTicket");
       }
 
       // Parse regular OIDC configs using support namespace

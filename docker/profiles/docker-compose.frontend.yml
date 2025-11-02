@@ -28,6 +28,7 @@ x-datahub-frontend-service-dev: &datahub-frontend-service-dev
     <<: *datahub-frontend-service-env
     JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5002
     DATAHUB_ANALYTICS_ENABLED: ${DATAHUB_ANALYTICS_ENABLED:-true}
+    AUTH_SUPPORT_LOGIN_REQUIRE_TICKET: ${AUTH_SUPPORT_LOGIN_REQUIRE_TICKET:-true}
   volumes:
     - ../../datahub-frontend/build/stage/main:/datahub-frontend
     - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml

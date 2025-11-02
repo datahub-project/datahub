@@ -8,6 +8,7 @@ import auth.AuthUtils;
 import auth.CookieConfigs;
 import auth.sso.SsoSupportManager;
 import client.AuthServiceClient;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.Config;
@@ -30,6 +31,7 @@ import org.pac4j.core.exception.http.RedirectionAction;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.http.PlayHttpActionAdapter;
 import org.pac4j.play.store.PlayCookieSessionStore;
+import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
@@ -44,6 +46,10 @@ public class SupportAuthenticationController extends Controller {
 
   private static final String SSO_NO_REDIRECT_MESSAGE =
       "Support SSO is configured, however missing redirect from idp";
+
+  private static final String TICKET_ID_PARAM = "ticket_id";
+  private static final String MISSING_TICKET_ID_MESSAGE =
+      "Ticket ID URL parameter is required for support authentication";
 
   private final CookieConfigs cookieConfigs;
   private final boolean verbose;
@@ -121,9 +127,27 @@ public class SupportAuthenticationController extends Controller {
       return Results.redirect(redirectPath);
     }
 
+    // Check if ticket ID is required and validate it's present and non-empty
+    Optional<String> ticketId = Optional.ofNullable(request.getQueryString(TICKET_ID_PARAM));
+    if (ssoSupportManager.isSupportSsoEnabled()) {
+      auth.sso.SsoProvider<?> provider = ssoSupportManager.getSupportSsoProvider();
+      if (provider != null) {
+        auth.sso.oidc.support.OidcSupportConfigs oidcSupportConfigs =
+            (auth.sso.oidc.support.OidcSupportConfigs) provider.configs();
+        if (oidcSupportConfigs != null && oidcSupportConfigs.isRequireTicket()) {
+          if (ticketId.isEmpty() || ticketId.get().trim().isEmpty()) {
+            final ObjectNode error = Json.newObject();
+            error.put("message", MISSING_TICKET_ID_MESSAGE);
+            error.put("requiredParameter", TICKET_ID_PARAM);
+            return Results.badRequest(error);
+          }
+        }
+      }
+    }
+
     // If Support SSO is enabled, redirect to IdP if not authenticated.
     if (ssoSupportManager.isSupportSsoEnabled()) {
-      return redirectToSupportIdentityProvider(request, redirectPath)
+      return redirectToSupportIdentityProvider(request, redirectPath, ticketId)
           .orElse(
               Results.redirect(
                   getLoginUrl()
@@ -140,7 +164,8 @@ public class SupportAuthenticationController extends Controller {
   @Nonnull
   public Result ssoSupport(Http.Request request) {
     if (ssoSupportManager.isSupportSsoEnabled()) {
-      return redirectToSupportIdentityProvider(request, "/")
+      Optional<String> ticketId = Optional.ofNullable(request.getQueryString(TICKET_ID_PARAM));
+      return redirectToSupportIdentityProvider(request, "/", ticketId)
           .orElse(
               Results.redirect(
                   getLoginUrl()
@@ -152,7 +177,8 @@ public class SupportAuthenticationController extends Controller {
   }
 
   @VisibleForTesting
-  protected Result addRedirectCookie(Result result, CallContext ctx, String redirectPath) {
+  protected Result addRedirectCookie(
+      Result result, CallContext ctx, String redirectPath, Optional<String> ticketId) {
     // Set the originally requested path for post-auth redirection. We split off into a separate
     // cookie from the session
     // to reduce size of the session cookie
@@ -169,11 +195,23 @@ public class SupportAuthenticationController extends Controller {
     redirectCookieBuilder.withMaxAge(Duration.ofSeconds(86400));
     redirectCookieBuilder.withSameSite(Http.Cookie.SameSite.NONE);
 
-    return result.withCookies(redirectCookieBuilder.build());
+    Result resultWithRedirectCookie = result.withCookies(redirectCookieBuilder.build());
+
+    // Add ticket ID session cookie if present and non-empty (expires when browser closes)
+    if (ticketId.isPresent() && ticketId.get() != null && !ticketId.get().trim().isEmpty()) {
+      Http.Cookie ticketCookie =
+          AuthUtils.createSupportTicketIdSessionCookie(
+              ticketId.get(),
+              cookieConfigs.getAuthCookieSameSite(),
+              cookieConfigs.getAuthCookieSecure());
+      return resultWithRedirectCookie.withCookies(ticketCookie);
+    }
+
+    return resultWithRedirectCookie;
   }
 
   private Optional<Result> redirectToSupportIdentityProvider(
-      Http.RequestHeader request, String redirectPath) {
+      Http.RequestHeader request, String redirectPath, Optional<String> ticketId) {
     CallContext ctx = buildCallContext(request);
 
     final Client client = ssoSupportManager.getSupportSsoProvider().client();
@@ -182,7 +220,7 @@ public class SupportAuthenticationController extends Controller {
       final Optional<RedirectionAction> action = client.getRedirectionAction(ctx);
       final Optional<Result> maybeResult =
           action.map(act -> new PlayHttpActionAdapter().adapt(act, ctx.webContext()));
-      return maybeResult.map(result -> addRedirectCookie(result, ctx, redirectPath));
+      return maybeResult.map(result -> addRedirectCookie(result, ctx, redirectPath, ticketId));
     } catch (Exception e) {
       if (verbose) {
         log.error(

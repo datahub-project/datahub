@@ -87,6 +87,9 @@ public class DataHubUsageSpanExporter implements SpanExporter {
   private static final AttributeKey<String> SOURCE_IP_KEY =
       AttributeKey.stringKey(OpenTelemetryKeyConstants.SOURCE_IP);
 
+  private static final AttributeKey<String> SUPPORT_TICKET_ID_KEY =
+      AttributeKey.stringKey(OpenTelemetryKeyConstants.SUPPORT_TICKET_ID_ATTR);
+
   @Override
   public CompletableResultCode export(Collection<SpanData> spans) {
     spans.stream()
@@ -153,6 +156,10 @@ public class DataHubUsageSpanExporter implements SpanExporter {
     String sourceIP = event.getAttributes().get(SOURCE_IP_KEY);
     if (StringUtils.isNotBlank(sourceIP)) {
       usageEvent.put(SOURCE_IP, sourceIP);
+    }
+    String supportTicketId = event.getAttributes().get(SUPPORT_TICKET_ID_KEY);
+    if (StringUtils.isNotBlank(supportTicketId)) {
+      usageEvent.put(SUPPORT_TICKET_ID, supportTicketId);
     }
 
     usageEvent.put(USAGE_SOURCE, BACKEND_SOURCE);

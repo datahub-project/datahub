@@ -6,6 +6,7 @@ import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_TY
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.LOGIN_EVENT;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.LOGIN_SOURCE_ATTR;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.SOURCE_IP;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.SUPPORT_TICKET_ID_ATTR;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.USER_ID_ATTR;
 
 import com.datahub.authentication.Actor;
@@ -242,6 +243,11 @@ public class AuthServiceController {
                     List<String> sourceIP = httpEntity.getHeaders().getOrEmpty(X_FORWARDED_FOR);
                     if (!sourceIP.isEmpty()) {
                       loginEventAttributes.put(SOURCE_IP, sourceIP.get(0));
+                    }
+                    List<String> ticketId =
+                        httpEntity.getHeaders().getOrEmpty(DATAHUB_TICKET_ID_HEADER_NAME);
+                    if (!ticketId.isEmpty()) {
+                      loginEventAttributes.put(SUPPORT_TICKET_ID_ATTR, ticketId.get(0));
                     }
                     Span.current().addEvent(LOGIN_EVENT, loginEventAttributes.build());
                     return new ResponseEntity<>(buildTokenResponse(token), HttpStatus.OK);

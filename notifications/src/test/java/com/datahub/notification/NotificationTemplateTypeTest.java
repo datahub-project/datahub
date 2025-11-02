@@ -182,4 +182,24 @@ public class NotificationTemplateTypeTest {
     assertTrue(newRequest.getOptionalFields().contains("fields"));
     assertTrue(statusChange.getOptionalFields().contains("fields"));
   }
+
+  @Test
+  public void testSupportLoginTemplateType() {
+    // Test the support login template type
+    NotificationTemplateType templateType = NotificationTemplateType.SUPPORT_LOGIN;
+
+    // Verify required parameters
+    Set<String> requiredParams = templateType.getRequiredParameters();
+    assertEquals(requiredParams.size(), 3);
+    assertTrue(requiredParams.contains("actorUrn"));
+    assertTrue(requiredParams.contains("actorName"));
+    assertTrue(requiredParams.contains("timestamp"));
+
+    // Verify optional parameters
+    Set<String> optionalParams = templateType.getOptionalFields();
+    assertEquals(optionalParams.size(), 3);
+    assertTrue(optionalParams.contains("supportTicketId"));
+    assertTrue(optionalParams.contains("sourceIP"));
+    assertTrue(optionalParams.contains("userAgent"));
+  }
 }

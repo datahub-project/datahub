@@ -18,6 +18,9 @@ from datahub_integrations.notifications.sinks.email.email_sink import (
     send_change_notification_to_recipients,
     send_ingestion_run_notification_to_recipients,
 )
+from datahub_integrations.notifications.sinks.email.send_email import (
+    send_support_login_email,
+)
 
 
 @pytest.fixture
@@ -551,6 +554,68 @@ def test_send_workflow_request_status_change_notification(
         == "Your Data Access workflow request has been approved."
     )
     assert "max_attempts" in kwargs
+
+
+@patch("datahub_integrations.notifications.sinks.email.email_sink.retry_with_backoff")
+def test_send_support_login_notification(
+    mock_retry: MagicMock,
+    notification_sink: EmailNotificationSink,
+) -> None:
+    """
+    Test that support login notifications are properly handled.
+    """
+    parameters = {
+        "actorUrn": "urn:li:corpuser:test.user",
+        "actorName": "Test User",
+        "timestamp": "2023-11-04T12:30:56Z",  # ISO 8601 format in UTC
+        "supportTicketId": "TICKET-123",
+        "sourceIP": "192.168.1.1",
+    }
+
+    fake_request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="SUPPORT_LOGIN",
+            parameters=parameters,
+        ),
+        recipients=[],  # Empty recipients - uses environment variable
+    )
+
+    context = NotificationContext()
+    notification_sink.send(fake_request, context)
+
+    # Verify retry_with_backoff was called for sending the email
+    mock_retry.assert_called_once()
+    args, kwargs = mock_retry.call_args
+
+    # Should use the support login email sending function
+    assert args[0] == send_support_login_email
+    assert kwargs["parameters"] == parameters
+    assert "sg_client" in kwargs
+    assert kwargs["sg_client"] == notification_sink.sg_client
+    assert "max_attempts" in kwargs
+
+
+@patch("datahub_integrations.notifications.sinks.email.email_sink.retry_with_backoff")
+def test_send_support_login_notification_no_parameters(
+    mock_retry: MagicMock,
+    notification_sink: EmailNotificationSink,
+) -> None:
+    """
+    Test that support login notification with no parameters logs error and returns early.
+    """
+    fake_request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="SUPPORT_LOGIN",
+            parameters=None,
+        ),
+        recipients=[],
+    )
+
+    context = NotificationContext()
+    notification_sink.send(fake_request, context)
+
+    # Verify retry_with_backoff was not called
+    mock_retry.assert_not_called()
 
 
 def test_workflow_request_notifications_supported_template_types(

@@ -22,6 +22,7 @@ from datahub_integrations.notifications.sinks.email.send_email import (
     send_compliance_form_notification_to_recipients,
     send_custom_email_to_recipients,
     send_ingestion_run_notification_to_recipients,
+    send_support_login_email,
     send_user_invitation_to_recipients,
     send_workflow_request_assignment_notification_to_recipients,
     send_workflow_request_status_change_notification_to_recipients,
@@ -140,6 +141,9 @@ class EmailNotificationSink(NotificationSink):
                 email_recipients,
                 build_workflow_request_status_change_parameters(request, self.base_url),
                 RetryMode.ENABLED,
+            ),
+            NotificationTemplateTypeClass.SUPPORT_LOGIN: lambda: self._send_support_login_notification(
+                request, RetryMode.ENABLED
             ),
         }
 
@@ -364,6 +368,35 @@ class EmailNotificationSink(NotificationSink):
         except Exception as e:
             logger.error(
                 f"Failed to send notification after {max_attempts} attempts. Error: {e}"
+            )
+
+    def _send_support_login_notification(
+        self, request: NotificationRequestClass, retry_mode: RetryMode
+    ) -> None:
+        """Send support login notification email to configured recipients."""
+        if request.message.parameters is None:
+            logger.error(
+                "Support login notification request does not have parameters. Skipping sending email."
+            )
+            return
+
+        parameters = request.message.parameters
+        max_attempts = (
+            MAX_NOTIFICATION_RETRIES if retry_mode == RetryMode.ENABLED else 1
+        )
+        try:
+            retry_with_backoff(
+                send_support_login_email,
+                max_attempts=max_attempts,
+                backoff_factor=2,
+                initial_backoff=1,
+                parameters=parameters,
+                sg_client=self.sg_client,
+            )
+            logger.info("Successfully sent support login notification emails")
+        except Exception as e:
+            logger.error(
+                f"Failed to send support login notification after {max_attempts} attempts. Error: {e}"
             )
 
     def _get_email_recipients(

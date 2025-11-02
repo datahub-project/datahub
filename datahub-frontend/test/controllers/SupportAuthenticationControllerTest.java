@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.pac4j.core.client.IndirectClient.ATTEMPTED_AUTHENTICATION_SUFFIX;
+import static play.test.Helpers.contentAsString;
 
 import auth.AuthUtils;
 import auth.sso.SsoProvider;
@@ -23,6 +24,7 @@ import org.pac4j.core.context.WebContext;
 import org.pac4j.core.exception.http.FoundAction;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.store.PlayCookieSessionStore;
+import play.libs.Json;
 import play.mvc.Http;
 import play.mvc.Result;
 
@@ -271,8 +273,12 @@ public class SupportAuthenticationControllerTest {
 
     SsoProvider mockProvider = mock(SsoProvider.class);
     Client mockClient = mock(Client.class);
+    auth.sso.oidc.support.OidcSupportConfigs mockConfigs =
+        mock(auth.sso.oidc.support.OidcSupportConfigs.class);
     when(ssoSupportManager.getSupportSsoProvider()).thenReturn(mockProvider);
     when(mockProvider.client()).thenReturn(mockClient);
+    when(mockProvider.configs()).thenReturn(mockConfigs);
+    when(mockConfigs.isRequireTicket()).thenReturn(false);
     when(mockClient.getName()).thenReturn("oidc-support");
 
     CallContext mockCallContext = mock(CallContext.class);
@@ -537,7 +543,9 @@ public class SupportAuthenticationControllerTest {
     when(initialResult.withCookies(any(Http.Cookie.class))).thenReturn(resultWithCookies);
 
     // Execute the test
-    Result result = controller.addRedirectCookie(initialResult, mockCallContext, redirectPath);
+    Result result =
+        controller.addRedirectCookie(
+            initialResult, mockCallContext, redirectPath, Optional.empty());
 
     // Verify the result
     assertNotNull(result);
@@ -548,5 +556,44 @@ public class SupportAuthenticationControllerTest {
 
     // Verify serializer was called
     verify(mockSerializer).serializeToBytes(any(FoundAction.class));
+  }
+
+  @Test
+  public void testAuthenticateSupportWithMissingTicketId() {
+    // Arrange
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    when(request.session()).thenReturn(session);
+    when(request.getQueryString("redirect_uri")).thenReturn("/dashboard");
+    when(request.getQueryString("ticket_id")).thenReturn(null); // Missing ticket_id
+    when(ssoSupportManager.isSupportSsoEnabled()).thenReturn(true);
+
+    SsoProvider mockProvider = mock(SsoProvider.class);
+    auth.sso.oidc.support.OidcSupportConfigs mockConfigs =
+        mock(auth.sso.oidc.support.OidcSupportConfigs.class);
+    when(ssoSupportManager.getSupportSsoProvider()).thenReturn(mockProvider);
+    when(mockProvider.configs()).thenReturn(mockConfigs);
+    when(mockConfigs.isRequireTicket()).thenReturn(true);
+
+    // Act
+    Result result = controller.authenticateSupport(request);
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(400, result.status()); // Bad Request status for JSON error response
+
+    // Verify it's a JSON response
+    String contentType = result.contentType().orElse("");
+    assertTrue(contentType.contains("application/json"));
+
+    // Parse and verify JSON response
+    String content = contentAsString(result);
+    com.fasterxml.jackson.databind.JsonNode jsonNode = Json.parse(content);
+    assertTrue(jsonNode.has("message"));
+    assertEquals(
+        "Ticket ID URL parameter is required for support authentication",
+        jsonNode.get("message").asText());
+    assertTrue(jsonNode.has("requiredParameter"));
+    assertEquals("ticket_id", jsonNode.get("requiredParameter").asText());
   }
 }

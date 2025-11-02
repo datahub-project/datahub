@@ -135,7 +135,11 @@ public enum NotificationTemplateType {
           "workflowType",
           "customWorkflowType",
           "fields",
-          "note"));
+          "note")),
+  /** Support login notification template. */
+  SUPPORT_LOGIN(
+      ImmutableSet.of("actorUrn", "actorName", "timestamp"),
+      ImmutableSet.of("supportTicketId", "sourceIP", "userAgent"));
 
   private final Set<String> requiredParameters;
   private final Set<String> optionalParameters;

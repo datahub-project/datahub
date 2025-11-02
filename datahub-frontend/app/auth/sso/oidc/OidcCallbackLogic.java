@@ -262,6 +262,20 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
           log.debug("Pre Provisioning is required. Beginning validation of extracted user...");
           AuthUtils.verifyPreProvisionedUser(opContext, corpUserUrn, systemEntityClient);
         }
+
+        // Ensure isSupportUser flag is set to false for regular OIDC logins
+        // This is important because a user might have been previously marked as a support user
+        boolean wasPreviouslySupportUser =
+            AuthUtils.ensureUserSupportFlag(opContext, corpUserUrn, false, systemEntityClient);
+
+        // If the user was previously a support user, revoke their admin role
+        // Support users are assigned admin roles during support login, which should be removed
+        // when they log in as a regular user. We need to remove the "Admin" role specifically.
+        if (wasPreviouslySupportUser) {
+          log.info("User {} was previously a support user. Revoking admin role.", corpUserUrn);
+          // Remove the Admin role (default role for support users)
+          AuthUtils.manageUserRole(opContext, corpUserUrn, "Admin", false, systemEntityClient);
+        }
       } catch (Exception e) {
         log.error("Failed to perform post authentication steps. Redirecting to error page.", e);
         return internalServerError(

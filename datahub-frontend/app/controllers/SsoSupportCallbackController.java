@@ -69,7 +69,8 @@ public class SsoSupportCallbackController extends CallbackController {
             systemOperationContext,
             entityClient,
             authClient,
-            new CookieConfigs(configs));
+            new CookieConfigs(configs),
+            configs);
   }
 
   @Override
@@ -138,10 +139,16 @@ public class SsoSupportCallbackController extends CallbackController {
         final OperationContext systemOperationContext,
         final SystemEntityClient entityClient,
         final AuthServiceClient authClient,
-        final CookieConfigs cookieConfigs) {
+        final CookieConfigs cookieConfigs,
+        final com.typesafe.config.Config config) {
       oidcSupportCallbackLogic =
           new OidcSupportCallbackLogic(
-              ssoSupportManager, systemOperationContext, entityClient, authClient, cookieConfigs);
+              ssoSupportManager,
+              systemOperationContext,
+              entityClient,
+              authClient,
+              cookieConfigs,
+              config);
     }
 
     @Override

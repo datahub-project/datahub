@@ -44,5 +44,9 @@ enum NotificationTemplateType {
      * Release notification template for announcing new releases.
      */
     RELEASE_NOTIFICATION
+    /**
+     * Support login notification template.
+     */
+    SUPPORT_LOGIN
     INVALID_TEMPLATE
 }

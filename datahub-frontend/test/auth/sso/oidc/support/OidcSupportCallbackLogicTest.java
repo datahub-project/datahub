@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.pac4j.play.store.PlayCookieSessionStore.*;
 
+import auth.AuthUtils;
 import auth.CookieConfigs;
 import auth.sso.SsoSupportManager;
 import client.AuthServiceClient;
@@ -11,12 +12,16 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.snapshot.CorpGroupSnapshot;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Base64;
 import java.util.HashMap;
@@ -58,20 +63,21 @@ public class OidcSupportCallbackLogicTest {
     mockCookieConfigs = mock(CookieConfigs.class);
 
     // Create real configs using a Config object
-    com.typesafe.config.Config config =
-        com.typesafe.config.ConfigFactory.parseMap(
-            java.util.Map.of(
-                "auth.oidc.support.clientId", "test-client-id",
-                "auth.oidc.support.clientSecret", "test-client-secret",
-                "auth.oidc.support.discoveryUri",
-                    "https://test.example.com/.well-known/openid_configuration",
-                "auth.oidc.support.clientAuthenticationMethod", "client_secret_basic",
-                "auth.oidc.support.scope", "openid profile email",
-                "auth.baseUrl", "https://datahub.example.com",
-                "auth.oidc.support.groupClaim", "groups",
-                "auth.oidc.support.roleClaim", "role",
-                "auth.oidc.support.userPictureLink", "https://example.com/avatar.png",
-                "auth.oidc.support.defaultRole", "Admin"));
+    java.util.Map<String, String> configMap = new java.util.HashMap<>();
+    configMap.put("auth.oidc.support.clientId", "test-client-id");
+    configMap.put("auth.oidc.support.clientSecret", "test-client-secret");
+    configMap.put(
+        "auth.oidc.support.discoveryUri",
+        "https://test.example.com/.well-known/openid_configuration");
+    configMap.put("auth.oidc.support.clientAuthenticationMethod", "client_secret_basic");
+    configMap.put("auth.oidc.support.scope", "openid profile email");
+    configMap.put("auth.baseUrl", "https://datahub.example.com");
+    configMap.put("auth.oidc.support.userNameClaim", "sub"); // Use "sub" as userNameClaim
+    configMap.put("auth.oidc.support.groupClaim", "groups");
+    configMap.put("auth.oidc.support.roleClaim", "role");
+    configMap.put("auth.oidc.support.userPictureLink", "https://example.com/avatar.png");
+    configMap.put("auth.oidc.support.defaultRole", "Admin");
+    com.typesafe.config.Config config = com.typesafe.config.ConfigFactory.parseMap(configMap);
     realConfigs = new OidcSupportConfigs.Builder().from(config).build();
 
     // Create mock configs for testing
@@ -84,7 +90,8 @@ public class OidcSupportCallbackLogicTest {
             mockOperationContext,
             mockSystemEntityClient,
             mockAuthClient,
-            mockCookieConfigs);
+            mockCookieConfigs,
+            config);
   }
 
   @Test
@@ -493,16 +500,21 @@ public class OidcSupportCallbackLogicTest {
     CorpuserUrn mockUserUrn = mock(CorpuserUrn.class);
     String roleName = "Admin";
 
-    // Mock the systemEntityClient to return a successful response
+    // Mock the systemEntityClient - return null for existing aspect (no existing roles)
+    when(mockSystemEntityClient.getLatestAspectObject(any(), any(), any(), anyBoolean()))
+        .thenReturn(null);
+    // Mock successful proposal ingestion
     when(mockSystemEntityClient.ingestProposal(any(), any())).thenReturn("success");
 
-    // Execute the test
+    // Execute the test - use AuthUtils.manageUserRole instead
     assertDoesNotThrow(
         () -> {
-          callbackLogic.assignRoleToUser(mockOperationContext, mockUserUrn, roleName);
+          AuthUtils.manageUserRole(
+              mockOperationContext, mockUserUrn, roleName, true, mockSystemEntityClient);
         });
 
-    // Verify the systemEntityClient was called
+    // Verify the systemEntityClient was called for getting existing aspect and ingesting
+    verify(mockSystemEntityClient).getLatestAspectObject(any(), any(), any(), anyBoolean());
     verify(mockSystemEntityClient).ingestProposal(any(), any());
   }
 
@@ -512,17 +524,23 @@ public class OidcSupportCallbackLogicTest {
     CorpuserUrn mockUserUrn = mock(CorpuserUrn.class);
     String roleName = "Admin";
 
-    // Mock the systemEntityClient to throw an exception
+    // Mock the systemEntityClient - return null for existing aspect (no existing roles)
+    when(mockSystemEntityClient.getLatestAspectObject(any(), any(), any(), anyBoolean()))
+        .thenReturn(null);
+    // Mock ingestProposal to throw an exception (this is the security-critical failure)
     when(mockSystemEntityClient.ingestProposal(any(), any()))
         .thenThrow(new RuntimeException("Test exception"));
 
-    // Execute the test - should not throw exception (method catches and logs)
-    assertDoesNotThrow(
+    // Execute the test - should throw exception (method now throws on failure for security)
+    assertThrows(
+        RuntimeException.class,
         () -> {
-          callbackLogic.assignRoleToUser(mockOperationContext, mockUserUrn, roleName);
+          AuthUtils.manageUserRole(
+              mockOperationContext, mockUserUrn, roleName, true, mockSystemEntityClient);
         });
 
-    // Verify the systemEntityClient was called
+    // Verify the systemEntityClient was called for getting existing aspect and ingesting
+    verify(mockSystemEntityClient).getLatestAspectObject(any(), any(), any(), anyBoolean());
     verify(mockSystemEntityClient).ingestProposal(any(), any());
   }
 
@@ -821,10 +839,11 @@ public class OidcSupportCallbackLogicTest {
     String roleFromClaim = callbackLogic.extractRoleFromClaim(mockProfile, mockConfigs);
     assertEquals("Admin", roleFromClaim);
 
-    // 7. Assign role
+    // 7. Assign role - use AuthUtils.manageUserRole instead
     assertDoesNotThrow(
         () -> {
-          callbackLogic.assignRoleToUser(mockOperationContext, userUrn, roleFromClaim);
+          AuthUtils.manageUserRole(
+              mockOperationContext, userUrn, roleFromClaim, true, mockSystemEntityClient);
         });
 
     // Verify that systemEntityClient was called multiple times
@@ -914,5 +933,873 @@ public class OidcSupportCallbackLogicTest {
     assertNotNull(supportGroup);
     assertEquals(
         OidcSupportConfigs.DEFAULT_SUPPORT_GROUP_NAME, supportGroup.getUrn().getGroupNameEntity());
+  }
+
+  @Test
+  public void testReadTicketIdFromCookie_WithEncodedValue() throws Exception {
+    // Use reflection to access private method for testing
+    java.lang.reflect.Method method =
+        OidcSupportCallbackLogic.class.getDeclaredMethod(
+            "readTicketIdFromCookie", CallContext.class);
+    method.setAccessible(true);
+
+    // Mock CallContext and WebContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+
+    // Create a URL-encoded ticket ID (as it would be stored in the cookie)
+    String originalTicketId = "test ticket with spaces & special chars";
+    String encodedTicketId =
+        java.net.URLEncoder.encode(originalTicketId, java.nio.charset.StandardCharsets.UTF_8);
+
+    // Mock cookie with encoded value
+    Cookie mockCookie = mock(Cookie.class);
+    when(mockCookie.getName()).thenReturn(AuthUtils.SUPPORT_TICKET_ID_COOKIE_NAME);
+    when(mockCookie.getValue()).thenReturn(encodedTicketId);
+
+    List<Cookie> mockCookies = List.of(mockCookie);
+    when(mockWebContext.getRequestCookies()).thenReturn(mockCookies);
+
+    // Execute the test
+    @SuppressWarnings("unchecked")
+    Optional<String> result = (Optional<String>) method.invoke(callbackLogic, mockCallContext);
+
+    // Verify - should return decoded ticket ID
+    assertTrue(result.isPresent());
+    assertEquals(originalTicketId, result.get());
+  }
+
+  @Test
+  public void testReadTicketIdFromCookie_NoCookie() throws Exception {
+    // Use reflection to access private method for testing
+    java.lang.reflect.Method method =
+        OidcSupportCallbackLogic.class.getDeclaredMethod(
+            "readTicketIdFromCookie", CallContext.class);
+    method.setAccessible(true);
+
+    // Mock CallContext and WebContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+
+    // Mock empty cookies list
+    List<Cookie> mockCookies = List.of();
+    when(mockWebContext.getRequestCookies()).thenReturn(mockCookies);
+
+    // Execute the test
+    @SuppressWarnings("unchecked")
+    Optional<String> result = (Optional<String>) method.invoke(callbackLogic, mockCallContext);
+
+    // Verify - should return empty
+    assertFalse(result.isPresent());
+  }
+
+  @Test
+  public void testReadTicketIdFromCookie_EmptyValue() throws Exception {
+    // Use reflection to access private method for testing
+    java.lang.reflect.Method method =
+        OidcSupportCallbackLogic.class.getDeclaredMethod(
+            "readTicketIdFromCookie", CallContext.class);
+    method.setAccessible(true);
+
+    // Mock CallContext and WebContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+
+    // Mock cookie with empty value
+    Cookie mockCookie = mock(Cookie.class);
+    when(mockCookie.getName()).thenReturn(AuthUtils.SUPPORT_TICKET_ID_COOKIE_NAME);
+    when(mockCookie.getValue()).thenReturn("");
+
+    List<Cookie> mockCookies = List.of(mockCookie);
+    when(mockWebContext.getRequestCookies()).thenReturn(mockCookies);
+
+    // Execute the test
+    @SuppressWarnings("unchecked")
+    Optional<String> result = (Optional<String>) method.invoke(callbackLogic, mockCallContext);
+
+    // Verify - should return empty
+    assertFalse(result.isPresent());
+  }
+
+  @Test
+  public void testReadTicketIdFromCookie_ExceptionHandling() throws Exception {
+    // Use reflection to access private method for testing
+    java.lang.reflect.Method method =
+        OidcSupportCallbackLogic.class.getDeclaredMethod(
+            "readTicketIdFromCookie", CallContext.class);
+    method.setAccessible(true);
+
+    // Mock CallContext to throw exception
+    CallContext mockCallContext = mock(CallContext.class);
+    when(mockCallContext.webContext()).thenThrow(new RuntimeException("Test exception"));
+
+    // Execute the test - should handle exception gracefully
+    @SuppressWarnings("unchecked")
+    Optional<String> result = (Optional<String>) method.invoke(callbackLogic, mockCallContext);
+
+    // Verify - should return empty on exception
+    assertFalse(result.isPresent());
+  }
+
+  @Test
+  public void testEnsureUserSupportFlagCalledDuringLogin() throws Exception {
+    // Mock CommonProfile - realConfigs uses "sub" as userNameClaim
+    CommonProfile mockProfile = mock(CommonProfile.class);
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("sub", "testuser@example.com");
+    attributes.put("email", "testuser@example.com");
+    when(mockProfile.getAttributes()).thenReturn(attributes);
+    when(mockProfile.containsAttribute("sub")).thenReturn(true);
+    when(mockProfile.getAttribute("sub")).thenReturn("testuser@example.com");
+    when(mockProfile.getEmail()).thenReturn("testuser@example.com");
+
+    // Mock ProfileManager
+    ProfileManager mockProfileManager = mock(ProfileManager.class);
+    when(mockProfileManager.isAuthenticated()).thenReturn(true);
+    when(mockProfileManager.getProfile()).thenReturn(Optional.of(mockProfile));
+
+    // Mock CallContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+    when(mockCallContext.profileManagerFactory())
+        .thenReturn((webContext, sessionStore) -> mockProfileManager);
+
+    // Mock empty cookies (no ticket ID)
+    when(mockWebContext.getRequestCookies()).thenReturn(List.of());
+
+    // Mock SsoSupportManager
+    auth.sso.SsoProvider mockSsoProvider = mock(auth.sso.SsoProvider.class);
+    when(mockSsoSupportManager.getSupportSsoProvider()).thenReturn(mockSsoProvider);
+    when(mockSsoProvider.configs()).thenReturn(realConfigs);
+
+    // Mock user exists
+    CorpUserSnapshot existingUserSnapshot = new CorpUserSnapshot();
+    CorpuserUrn userUrn = new CorpuserUrn("testuser@example.com");
+    existingUserSnapshot.setUrn(userUrn);
+    com.linkedin.metadata.aspect.CorpUserAspectArray aspects =
+        new com.linkedin.metadata.aspect.CorpUserAspectArray();
+    aspects.add(com.linkedin.metadata.aspect.CorpUserAspect.create(new CorpUserInfo()));
+    existingUserSnapshot.setAspects(aspects);
+
+    Entity existingUserEntity = new Entity();
+    existingUserEntity.setValue(Snapshot.create(existingUserSnapshot));
+
+    when(mockSystemEntityClient.get(any(OperationContext.class), any(CorpuserUrn.class)))
+        .thenReturn(existingUserEntity);
+
+    // Mock AuthUtils.ensureUserSupportFlag to track calls
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.CORP_USER_INFO_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+    when(mockSystemEntityClient.ingestProposal(any(OperationContext.class), any()))
+        .thenReturn("success");
+
+    // Mock other required calls
+    when(mockCookieConfigs.getAuthCookieSameSite()).thenReturn("LAX");
+    when(mockCookieConfigs.getAuthCookieSecure()).thenReturn(false);
+    when(mockAuthClient.generateSessionTokenForUser(anyString(), anyString(), any()))
+        .thenReturn("test-token");
+
+    // Mock empty group membership
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.GROUP_MEMBERSHIP_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+
+    Result mockResult = mock(Result.class);
+    when(mockResult.withSession(any(Map.class))).thenReturn(mockResult);
+    when(mockResult.withCookies(any(play.mvc.Http.Cookie.class))).thenReturn(mockResult);
+
+    // Execute the test
+    callbackLogic.handleOidcSupportCallback(
+        mockOperationContext, mockCallContext, realConfigs, mockResult);
+
+    // Verify that ensureUserSupportFlag was called (via systemEntityClient.ingestProposal
+    // for CorpUserInfo)
+    verify(mockSystemEntityClient, atLeastOnce())
+        .getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.CORP_USER_INFO_ASPECT_NAME),
+            eq(false));
+    verify(mockSystemEntityClient, atLeastOnce())
+        .ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testManageUserRoleCalledDuringLogin() throws Exception {
+    // Mock CommonProfile with role claim
+    CommonProfile mockProfile = mock(CommonProfile.class);
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("sub", "testuser@example.com");
+    attributes.put("email", "testuser@example.com");
+    attributes.put("role", "Admin");
+    when(mockProfile.getAttributes()).thenReturn(attributes);
+    when(mockProfile.containsAttribute("sub")).thenReturn(true);
+    when(mockProfile.getAttribute("sub")).thenReturn("testuser@example.com");
+    when(mockProfile.getAttribute("role")).thenReturn("Admin");
+    when(mockProfile.getEmail()).thenReturn("testuser@example.com");
+
+    // Mock ProfileManager
+    ProfileManager mockProfileManager = mock(ProfileManager.class);
+    when(mockProfileManager.isAuthenticated()).thenReturn(true);
+    when(mockProfileManager.getProfile()).thenReturn(Optional.of(mockProfile));
+
+    // Mock CallContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+    when(mockCallContext.profileManagerFactory())
+        .thenReturn((webContext, sessionStore) -> mockProfileManager);
+
+    // Mock empty cookies
+    when(mockWebContext.getRequestCookies()).thenReturn(List.of());
+
+    // Mock SsoSupportManager
+    auth.sso.SsoProvider mockSsoProvider = mock(auth.sso.SsoProvider.class);
+    when(mockSsoSupportManager.getSupportSsoProvider()).thenReturn(mockSsoProvider);
+    when(mockSsoProvider.configs()).thenReturn(realConfigs);
+
+    // Mock user exists
+    CorpUserSnapshot existingUserSnapshot = new CorpUserSnapshot();
+    CorpuserUrn userUrn = new CorpuserUrn("testuser@example.com");
+    existingUserSnapshot.setUrn(userUrn);
+    com.linkedin.metadata.aspect.CorpUserAspectArray aspects =
+        new com.linkedin.metadata.aspect.CorpUserAspectArray();
+    aspects.add(com.linkedin.metadata.aspect.CorpUserAspect.create(new CorpUserInfo()));
+    existingUserSnapshot.setAspects(aspects);
+
+    Entity existingUserEntity = new Entity();
+    existingUserEntity.setValue(Snapshot.create(existingUserSnapshot));
+
+    when(mockSystemEntityClient.get(any(OperationContext.class), any(CorpuserUrn.class)))
+        .thenReturn(existingUserEntity);
+
+    // Mock ensureUserSupportFlag
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.CORP_USER_INFO_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+
+    // Mock manageUserRole (RoleMembership aspect)
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.ROLE_MEMBERSHIP_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+
+    when(mockSystemEntityClient.ingestProposal(any(OperationContext.class), any()))
+        .thenReturn("success");
+
+    // Mock other required calls
+    when(mockCookieConfigs.getAuthCookieSameSite()).thenReturn("LAX");
+    when(mockCookieConfigs.getAuthCookieSecure()).thenReturn(false);
+    when(mockAuthClient.generateSessionTokenForUser(anyString(), anyString(), any()))
+        .thenReturn("test-token");
+
+    // Mock empty group membership
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.GROUP_MEMBERSHIP_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+
+    Result mockResult = mock(Result.class);
+    when(mockResult.withSession(any(Map.class))).thenReturn(mockResult);
+    when(mockResult.withCookies(any(play.mvc.Http.Cookie.class))).thenReturn(mockResult);
+
+    // Execute the test
+    callbackLogic.handleOidcSupportCallback(
+        mockOperationContext, mockCallContext, realConfigs, mockResult);
+
+    // Verify that manageUserRole was called (via systemEntityClient.ingestProposal
+    // for RoleMembership)
+    verify(mockSystemEntityClient, atLeastOnce())
+        .getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.ROLE_MEMBERSHIP_ASPECT_NAME),
+            eq(false));
+    // Verify ingestProposal was called for both CorpUserInfo and RoleMembership
+    verify(mockSystemEntityClient, atLeast(2)).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testIsSupportUserFlagVerification_UserIsSupportUser() throws Exception {
+    // Mock CommonProfile
+    CommonProfile mockProfile = mock(CommonProfile.class);
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("sub", "testuser@example.com");
+    when(mockProfile.getAttributes()).thenReturn(attributes);
+    when(mockProfile.containsAttribute("sub")).thenReturn(true);
+    when(mockProfile.getAttribute("sub")).thenReturn("testuser@example.com");
+
+    // Mock ProfileManager
+    ProfileManager mockProfileManager = mock(ProfileManager.class);
+    when(mockProfileManager.isAuthenticated()).thenReturn(true);
+    when(mockProfileManager.getProfile()).thenReturn(Optional.of(mockProfile));
+
+    // Mock CallContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+    when(mockCallContext.profileManagerFactory())
+        .thenReturn((webContext, sessionStore) -> mockProfileManager);
+
+    // Mock empty cookies
+    when(mockWebContext.getRequestCookies()).thenReturn(List.of());
+
+    // Mock SsoSupportManager
+    auth.sso.SsoProvider mockSsoProvider = mock(auth.sso.SsoProvider.class);
+    when(mockSsoSupportManager.getSupportSsoProvider()).thenReturn(mockSsoProvider);
+    when(mockSsoProvider.configs()).thenReturn(realConfigs);
+
+    // Mock user exists
+    CorpUserSnapshot existingUserSnapshot = new CorpUserSnapshot();
+    CorpuserUrn userUrn = new CorpuserUrn("testuser@example.com");
+    existingUserSnapshot.setUrn(userUrn);
+    com.linkedin.metadata.aspect.CorpUserAspectArray aspects =
+        new com.linkedin.metadata.aspect.CorpUserAspectArray();
+    aspects.add(com.linkedin.metadata.aspect.CorpUserAspect.create(new CorpUserInfo()));
+    existingUserSnapshot.setAspects(aspects);
+
+    Entity existingUserEntity = new Entity();
+    existingUserEntity.setValue(Snapshot.create(existingUserSnapshot));
+
+    when(mockSystemEntityClient.get(any(OperationContext.class), any(CorpuserUrn.class)))
+        .thenReturn(existingUserEntity);
+
+    // Mock ensureUserSupportFlag
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.CORP_USER_INFO_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+    when(mockSystemEntityClient.ingestProposal(any(OperationContext.class), any()))
+        .thenReturn("success");
+
+    // Mock getV2 to return EntityResponse with isSupportUser=true
+    CorpUserInfo userInfoWithSupportFlag = new CorpUserInfo();
+    userInfoWithSupportFlag.setActive(true);
+    userInfoWithSupportFlag.setIsSupportUser(true);
+
+    com.linkedin.entity.EntityResponse entityResponse = new com.linkedin.entity.EntityResponse();
+    entityResponse.setUrn(userUrn);
+    com.linkedin.entity.EnvelopedAspectMap envelopedAspects =
+        new com.linkedin.entity.EnvelopedAspectMap();
+    com.linkedin.entity.EnvelopedAspect envelopedAspect = new com.linkedin.entity.EnvelopedAspect();
+    // Create Aspect from RecordTemplate data
+    Aspect aspect = new Aspect(userInfoWithSupportFlag.data());
+    envelopedAspect.setValue(aspect);
+    envelopedAspects.put(Constants.CORP_USER_INFO_ASPECT_NAME, envelopedAspect);
+    entityResponse.setAspects(envelopedAspects);
+
+    when(mockSystemEntityClient.getV2(
+            any(OperationContext.class),
+            eq(Constants.CORP_USER_ENTITY_NAME),
+            eq(userUrn),
+            eq(java.util.Collections.singleton(Constants.CORP_USER_INFO_ASPECT_NAME))))
+        .thenReturn(entityResponse);
+
+    // Mock other required calls
+    when(mockCookieConfigs.getAuthCookieSameSite()).thenReturn("LAX");
+    when(mockCookieConfigs.getAuthCookieSecure()).thenReturn(false);
+    when(mockAuthClient.generateSessionTokenForUser(anyString(), anyString(), any()))
+        .thenReturn("test-token");
+
+    // Mock empty group membership
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.GROUP_MEMBERSHIP_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+
+    Result mockResult = mock(Result.class);
+    when(mockResult.withSession(any(Map.class))).thenReturn(mockResult);
+    when(mockResult.withCookies(any(play.mvc.Http.Cookie.class))).thenReturn(mockResult);
+
+    // Execute the test
+    callbackLogic.handleOidcSupportCallback(
+        mockOperationContext, mockCallContext, realConfigs, mockResult);
+
+    // Verify getV2 was called to verify isSupportUser flag
+    verify(mockSystemEntityClient, atLeastOnce())
+        .getV2(
+            any(OperationContext.class),
+            eq(Constants.CORP_USER_ENTITY_NAME),
+            eq(userUrn),
+            eq(java.util.Collections.singleton(Constants.CORP_USER_INFO_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testIsSupportUserFlagVerification_UserIsNotSupportUser() throws Exception {
+    // Mock CommonProfile
+    CommonProfile mockProfile = mock(CommonProfile.class);
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("sub", "testuser@example.com");
+    when(mockProfile.getAttributes()).thenReturn(attributes);
+    when(mockProfile.containsAttribute("sub")).thenReturn(true);
+    when(mockProfile.getAttribute("sub")).thenReturn("testuser@example.com");
+
+    // Mock ProfileManager
+    ProfileManager mockProfileManager = mock(ProfileManager.class);
+    when(mockProfileManager.isAuthenticated()).thenReturn(true);
+    when(mockProfileManager.getProfile()).thenReturn(Optional.of(mockProfile));
+
+    // Mock CallContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+    when(mockCallContext.profileManagerFactory())
+        .thenReturn((webContext, sessionStore) -> mockProfileManager);
+
+    // Mock empty cookies
+    when(mockWebContext.getRequestCookies()).thenReturn(List.of());
+
+    // Mock SsoSupportManager
+    auth.sso.SsoProvider mockSsoProvider = mock(auth.sso.SsoProvider.class);
+    when(mockSsoSupportManager.getSupportSsoProvider()).thenReturn(mockSsoProvider);
+    when(mockSsoProvider.configs()).thenReturn(realConfigs);
+
+    // Mock user exists
+    CorpUserSnapshot existingUserSnapshot = new CorpUserSnapshot();
+    CorpuserUrn userUrn = new CorpuserUrn("testuser@example.com");
+    existingUserSnapshot.setUrn(userUrn);
+    com.linkedin.metadata.aspect.CorpUserAspectArray aspects =
+        new com.linkedin.metadata.aspect.CorpUserAspectArray();
+    aspects.add(com.linkedin.metadata.aspect.CorpUserAspect.create(new CorpUserInfo()));
+    existingUserSnapshot.setAspects(aspects);
+
+    Entity existingUserEntity = new Entity();
+    existingUserEntity.setValue(Snapshot.create(existingUserSnapshot));
+
+    when(mockSystemEntityClient.get(any(OperationContext.class), any(CorpuserUrn.class)))
+        .thenReturn(existingUserEntity);
+
+    // Mock ensureUserSupportFlag
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.CORP_USER_INFO_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+    when(mockSystemEntityClient.ingestProposal(any(OperationContext.class), any()))
+        .thenReturn("success");
+
+    // Mock getV2 to return EntityResponse with isSupportUser=false
+    CorpUserInfo userInfoWithoutSupportFlag = new CorpUserInfo();
+    userInfoWithoutSupportFlag.setActive(true);
+    userInfoWithoutSupportFlag.setIsSupportUser(false);
+
+    com.linkedin.entity.EntityResponse entityResponse = new com.linkedin.entity.EntityResponse();
+    entityResponse.setUrn(userUrn);
+    com.linkedin.entity.EnvelopedAspectMap envelopedAspects =
+        new com.linkedin.entity.EnvelopedAspectMap();
+    com.linkedin.entity.EnvelopedAspect envelopedAspect = new com.linkedin.entity.EnvelopedAspect();
+    // Create Aspect from RecordTemplate data
+    Aspect aspect = new Aspect(userInfoWithoutSupportFlag.data());
+    envelopedAspect.setValue(aspect);
+    envelopedAspects.put(Constants.CORP_USER_INFO_ASPECT_NAME, envelopedAspect);
+    entityResponse.setAspects(envelopedAspects);
+
+    when(mockSystemEntityClient.getV2(
+            any(OperationContext.class),
+            eq(Constants.CORP_USER_ENTITY_NAME),
+            eq(userUrn),
+            eq(java.util.Collections.singleton(Constants.CORP_USER_INFO_ASPECT_NAME))))
+        .thenReturn(entityResponse);
+
+    // Mock other required calls
+    when(mockCookieConfigs.getAuthCookieSameSite()).thenReturn("LAX");
+    when(mockCookieConfigs.getAuthCookieSecure()).thenReturn(false);
+    when(mockAuthClient.generateSessionTokenForUser(anyString(), anyString(), any()))
+        .thenReturn("test-token");
+
+    // Mock empty group membership
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.GROUP_MEMBERSHIP_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+
+    Result mockResult = mock(Result.class);
+    when(mockResult.withSession(any(Map.class))).thenReturn(mockResult);
+    when(mockResult.withCookies(any(play.mvc.Http.Cookie.class))).thenReturn(mockResult);
+
+    // Execute the test - notification should not be sent since isSupportUser=false
+    callbackLogic.handleOidcSupportCallback(
+        mockOperationContext, mockCallContext, realConfigs, mockResult);
+
+    // Verify getV2 was called to verify isSupportUser flag
+    verify(mockSystemEntityClient, atLeastOnce())
+        .getV2(
+            any(OperationContext.class),
+            eq(Constants.CORP_USER_ENTITY_NAME),
+            eq(userUrn),
+            eq(java.util.Collections.singleton(Constants.CORP_USER_INFO_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testIsSupportUserFlagVerification_ExceptionDefaultsToTrue() throws Exception {
+    // Mock CommonProfile
+    CommonProfile mockProfile = mock(CommonProfile.class);
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("sub", "testuser@example.com");
+    when(mockProfile.getAttributes()).thenReturn(attributes);
+    when(mockProfile.containsAttribute("sub")).thenReturn(true);
+    when(mockProfile.getAttribute("sub")).thenReturn("testuser@example.com");
+
+    // Mock ProfileManager
+    ProfileManager mockProfileManager = mock(ProfileManager.class);
+    when(mockProfileManager.isAuthenticated()).thenReturn(true);
+    when(mockProfileManager.getProfile()).thenReturn(Optional.of(mockProfile));
+
+    // Mock CallContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+    when(mockCallContext.profileManagerFactory())
+        .thenReturn((webContext, sessionStore) -> mockProfileManager);
+
+    // Mock empty cookies
+    when(mockWebContext.getRequestCookies()).thenReturn(List.of());
+
+    // Mock SsoSupportManager
+    auth.sso.SsoProvider mockSsoProvider = mock(auth.sso.SsoProvider.class);
+    when(mockSsoSupportManager.getSupportSsoProvider()).thenReturn(mockSsoProvider);
+    when(mockSsoProvider.configs()).thenReturn(realConfigs);
+
+    // Mock user exists
+    CorpUserSnapshot existingUserSnapshot = new CorpUserSnapshot();
+    CorpuserUrn userUrn = new CorpuserUrn("testuser@example.com");
+    existingUserSnapshot.setUrn(userUrn);
+    com.linkedin.metadata.aspect.CorpUserAspectArray aspects =
+        new com.linkedin.metadata.aspect.CorpUserAspectArray();
+    aspects.add(com.linkedin.metadata.aspect.CorpUserAspect.create(new CorpUserInfo()));
+    existingUserSnapshot.setAspects(aspects);
+
+    Entity existingUserEntity = new Entity();
+    existingUserEntity.setValue(Snapshot.create(existingUserSnapshot));
+
+    when(mockSystemEntityClient.get(any(OperationContext.class), any(CorpuserUrn.class)))
+        .thenReturn(existingUserEntity);
+
+    // Mock ensureUserSupportFlag
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.CORP_USER_INFO_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+    when(mockSystemEntityClient.ingestProposal(any(OperationContext.class), any()))
+        .thenReturn("success");
+
+    // Mock getV2 to throw exception - should default to isSupportUser=true
+    when(mockSystemEntityClient.getV2(
+            any(OperationContext.class),
+            eq(Constants.CORP_USER_ENTITY_NAME),
+            eq(userUrn),
+            eq(java.util.Collections.singleton(Constants.CORP_USER_INFO_ASPECT_NAME))))
+        .thenThrow(new RuntimeException("Database error"));
+
+    // Mock other required calls
+    when(mockCookieConfigs.getAuthCookieSameSite()).thenReturn("LAX");
+    when(mockCookieConfigs.getAuthCookieSecure()).thenReturn(false);
+    when(mockAuthClient.generateSessionTokenForUser(anyString(), anyString(), any()))
+        .thenReturn("test-token");
+
+    // Mock empty group membership
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.GROUP_MEMBERSHIP_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+
+    Result mockResult = mock(Result.class);
+    when(mockResult.withSession(any(Map.class))).thenReturn(mockResult);
+    when(mockResult.withCookies(any(play.mvc.Http.Cookie.class))).thenReturn(mockResult);
+
+    // Execute the test - exception should default to isSupportUser=true, so notification should be
+    // attempted
+    callbackLogic.handleOidcSupportCallback(
+        mockOperationContext, mockCallContext, realConfigs, mockResult);
+
+    // Verify getV2 was called and exception was handled
+    verify(mockSystemEntityClient, atLeastOnce())
+        .getV2(
+            any(OperationContext.class),
+            eq(Constants.CORP_USER_ENTITY_NAME),
+            eq(userUrn),
+            eq(java.util.Collections.singleton(Constants.CORP_USER_INFO_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testTicketIdCookieLogging_WithTicketId() throws Exception {
+    // Mock CommonProfile
+    CommonProfile mockProfile = mock(CommonProfile.class);
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("sub", "testuser@example.com");
+    when(mockProfile.getAttributes()).thenReturn(attributes);
+    when(mockProfile.containsAttribute("sub")).thenReturn(true);
+    when(mockProfile.getAttribute("sub")).thenReturn("testuser@example.com");
+
+    // Mock ProfileManager
+    ProfileManager mockProfileManager = mock(ProfileManager.class);
+    when(mockProfileManager.isAuthenticated()).thenReturn(true);
+    when(mockProfileManager.getProfile()).thenReturn(Optional.of(mockProfile));
+
+    // Mock CallContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+    when(mockCallContext.profileManagerFactory())
+        .thenReturn((webContext, sessionStore) -> mockProfileManager);
+
+    // Mock ticket ID cookie
+    String ticketId = "TEST-12345";
+    String encodedTicketId =
+        java.net.URLEncoder.encode(ticketId, java.nio.charset.StandardCharsets.UTF_8);
+    Cookie mockTicketCookie = mock(Cookie.class);
+    when(mockTicketCookie.getName()).thenReturn(AuthUtils.SUPPORT_TICKET_ID_COOKIE_NAME);
+    when(mockTicketCookie.getValue()).thenReturn(encodedTicketId);
+    when(mockWebContext.getRequestCookies()).thenReturn(List.of(mockTicketCookie));
+
+    // Mock SsoSupportManager
+    auth.sso.SsoProvider mockSsoProvider = mock(auth.sso.SsoProvider.class);
+    when(mockSsoSupportManager.getSupportSsoProvider()).thenReturn(mockSsoProvider);
+    when(mockSsoProvider.configs()).thenReturn(realConfigs);
+
+    // Mock user exists
+    CorpUserSnapshot existingUserSnapshot = new CorpUserSnapshot();
+    CorpuserUrn userUrn = new CorpuserUrn("testuser@example.com");
+    existingUserSnapshot.setUrn(userUrn);
+    com.linkedin.metadata.aspect.CorpUserAspectArray aspects =
+        new com.linkedin.metadata.aspect.CorpUserAspectArray();
+    aspects.add(com.linkedin.metadata.aspect.CorpUserAspect.create(new CorpUserInfo()));
+    existingUserSnapshot.setAspects(aspects);
+
+    Entity existingUserEntity = new Entity();
+    existingUserEntity.setValue(Snapshot.create(existingUserSnapshot));
+
+    when(mockSystemEntityClient.get(any(OperationContext.class), any(CorpuserUrn.class)))
+        .thenReturn(existingUserEntity);
+
+    // Mock ensureUserSupportFlag
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.CORP_USER_INFO_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+    when(mockSystemEntityClient.ingestProposal(any(OperationContext.class), any()))
+        .thenReturn("success");
+
+    // Mock getV2 to return EntityResponse with isSupportUser=true
+    CorpUserInfo userInfoWithSupportFlag = new CorpUserInfo();
+    userInfoWithSupportFlag.setActive(true);
+    userInfoWithSupportFlag.setIsSupportUser(true);
+
+    com.linkedin.entity.EntityResponse entityResponse = new com.linkedin.entity.EntityResponse();
+    entityResponse.setUrn(userUrn);
+    com.linkedin.entity.EnvelopedAspectMap envelopedAspects =
+        new com.linkedin.entity.EnvelopedAspectMap();
+    com.linkedin.entity.EnvelopedAspect envelopedAspect = new com.linkedin.entity.EnvelopedAspect();
+    // Create Aspect from RecordTemplate data
+    Aspect aspect = new Aspect(userInfoWithSupportFlag.data());
+    envelopedAspect.setValue(aspect);
+    envelopedAspects.put(Constants.CORP_USER_INFO_ASPECT_NAME, envelopedAspect);
+    entityResponse.setAspects(envelopedAspects);
+
+    when(mockSystemEntityClient.getV2(
+            any(OperationContext.class),
+            eq(Constants.CORP_USER_ENTITY_NAME),
+            eq(userUrn),
+            eq(java.util.Collections.singleton(Constants.CORP_USER_INFO_ASPECT_NAME))))
+        .thenReturn(entityResponse);
+
+    // Mock other required calls
+    when(mockCookieConfigs.getAuthCookieSameSite()).thenReturn("LAX");
+    when(mockCookieConfigs.getAuthCookieSecure()).thenReturn(false);
+    when(mockAuthClient.generateSessionTokenForUser(anyString(), anyString(), any()))
+        .thenReturn("test-token");
+
+    // Mock empty group membership
+    when(mockSystemEntityClient.getLatestAspectObject(
+            any(OperationContext.class),
+            any(CorpuserUrn.class),
+            eq(Constants.GROUP_MEMBERSHIP_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+
+    Result mockResult = mock(Result.class);
+    when(mockResult.withSession(any(Map.class))).thenReturn(mockResult);
+    when(mockResult.withCookies(any(play.mvc.Http.Cookie.class))).thenReturn(mockResult);
+
+    // Execute the test - ticket ID should be read and logged
+    callbackLogic.handleOidcSupportCallback(
+        mockOperationContext, mockCallContext, realConfigs, mockResult);
+
+    // Verify ticket ID cookie was read
+    verify(mockWebContext, atLeastOnce()).getRequestCookies();
+  }
+
+  @Test
+  public void testSendSupportLoginNotification_WithTicketIdAndSourceIP() throws Exception {
+    // Use reflection to access private method for testing
+    java.lang.reflect.Method method =
+        OidcSupportCallbackLogic.class.getDeclaredMethod(
+            "sendSupportLoginNotification",
+            String.class,
+            String.class,
+            java.util.Optional.class,
+            CallContext.class);
+    method.setAccessible(true);
+
+    // Mock CallContext and WebContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+
+    // Mock X-Forwarded-For header
+    when(mockWebContext.getRequestHeader("X-Forwarded-For"))
+        .thenReturn(Optional.of("192.168.1.1, 10.0.0.1"));
+
+    // Mock HttpClient - we need to mock the async call
+    // Since the method uses CompletableFuture.runAsync, we can't easily test the HTTP call
+    // But we can verify the method doesn't throw exceptions
+
+    // Execute the test
+    assertDoesNotThrow(
+        () -> {
+          method.invoke(
+              callbackLogic,
+              "urn:li:corpuser:testuser@example.com",
+              "Test User",
+              Optional.of("TEST-12345"),
+              mockCallContext);
+        });
+
+    // Give async operation time to complete (basic check)
+    Thread.sleep(100);
+  }
+
+  @Test
+  public void testSendSupportLoginNotification_WithRemoteAddr() throws Exception {
+    // Use reflection to access private method for testing
+    java.lang.reflect.Method method =
+        OidcSupportCallbackLogic.class.getDeclaredMethod(
+            "sendSupportLoginNotification",
+            String.class,
+            String.class,
+            java.util.Optional.class,
+            CallContext.class);
+    method.setAccessible(true);
+
+    // Mock CallContext and WebContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+
+    // Mock no X-Forwarded-For, but remoteAddr available
+    when(mockWebContext.getRequestHeader("X-Forwarded-For")).thenReturn(Optional.empty());
+    when(mockWebContext.getRemoteAddr()).thenReturn("192.168.1.100");
+
+    // Execute the test
+    assertDoesNotThrow(
+        () -> {
+          method.invoke(
+              callbackLogic,
+              "urn:li:corpuser:testuser@example.com",
+              "Test User",
+              Optional.empty(),
+              mockCallContext);
+        });
+
+    // Give async operation time to complete
+    Thread.sleep(100);
+  }
+
+  @Test
+  public void testSendSupportLoginNotification_NoSourceIP() throws Exception {
+    // Use reflection to access private method for testing
+    java.lang.reflect.Method method =
+        OidcSupportCallbackLogic.class.getDeclaredMethod(
+            "sendSupportLoginNotification",
+            String.class,
+            String.class,
+            java.util.Optional.class,
+            CallContext.class);
+    method.setAccessible(true);
+
+    // Mock CallContext and WebContext
+    CallContext mockCallContext = mock(CallContext.class);
+    WebContext mockWebContext = mock(WebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+
+    // Mock no headers and no remoteAddr
+    when(mockWebContext.getRequestHeader("X-Forwarded-For")).thenReturn(Optional.empty());
+    when(mockWebContext.getRemoteAddr()).thenReturn(null);
+
+    // Execute the test - should handle missing IP gracefully
+    assertDoesNotThrow(
+        () -> {
+          method.invoke(
+              callbackLogic,
+              "urn:li:corpuser:testuser@example.com",
+              "Test User",
+              Optional.of("TEST-12345"),
+              mockCallContext);
+        });
+
+    // Give async operation time to complete
+    Thread.sleep(100);
+  }
+
+  @Test
+  public void testSendSupportLoginNotification_ExceptionHandling() throws Exception {
+    // Use reflection to access private method for testing
+    java.lang.reflect.Method method =
+        OidcSupportCallbackLogic.class.getDeclaredMethod(
+            "sendSupportLoginNotification",
+            String.class,
+            String.class,
+            java.util.Optional.class,
+            CallContext.class);
+    method.setAccessible(true);
+
+    // Mock CallContext to throw exception when getting webContext
+    CallContext mockCallContext = mock(CallContext.class);
+    when(mockCallContext.webContext()).thenThrow(new RuntimeException("Context error"));
+
+    // Execute the test - should handle exception gracefully
+    assertDoesNotThrow(
+        () -> {
+          method.invoke(
+              callbackLogic,
+              "urn:li:corpuser:testuser@example.com",
+              "Test User",
+              Optional.empty(),
+              mockCallContext);
+        });
+
+    // Give async operation time to complete
+    Thread.sleep(100);
   }
 }

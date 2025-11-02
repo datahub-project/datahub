@@ -45,6 +45,7 @@ x-datahub-integrations-service-dev: &datahub-integrations-service-dev
     PYTHONPATH: "/metadata-ingestion/src:/datahub-integrations-service/src:$${PYTHONPATH}"
     EXTRA_UVICORN_ARGS: "--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src --reload-dir /datahub-actions/src"
     DEBUGPY_ENABLED: "false" # integration service actions spawn multiple processes, all of which compete over a single port 5004
+    SUPPORT_LOGIN_EMAIL_RECIPIENTS: ${SUPPORT_LOGIN_EMAIL_RECIPIENTS:-david.leifker@datahub.com}
   volumes:
     - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src

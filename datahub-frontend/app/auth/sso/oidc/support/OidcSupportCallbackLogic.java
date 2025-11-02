@@ -1,7 +1,10 @@
 package auth.sso.oidc.support;
 
 import static auth.AuthUtils.*;
-import static com.linkedin.metadata.Constants.*;
+import static auth.AuthUtils.REDIRECT_URL_COOKIE_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
 import static org.pac4j.play.store.PlayCookieSessionStore.*;
 import static play.mvc.Results.internalServerError;
 import static utils.FrontendConstants.SSO_LOGIN;
@@ -11,6 +14,7 @@ import auth.CookieConfigs;
 import auth.sso.SsoSupportManager;
 import auth.sso.oidc.OidcResponseErrorHandler;
 import client.AuthServiceClient;
+import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -18,16 +22,21 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.common.urn.CorpuserUrn;
-import com.linkedin.common.urn.DataHubRoleUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.event.notification.NotificationMessage;
+import com.linkedin.event.notification.NotificationRequest;
+import com.linkedin.event.notification.template.NotificationTemplateType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.GroupMembership;
-import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.aspect.CorpGroupAspect;
 import com.linkedin.metadata.aspect.CorpGroupAspectArray;
 import com.linkedin.metadata.aspect.CorpUserAspect;
@@ -40,13 +49,23 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
@@ -69,7 +88,10 @@ import org.pac4j.core.profile.UserProfile;
 import org.pac4j.core.util.CommonHelper;
 import org.pac4j.core.util.Pac4jConstants;
 import org.pac4j.play.store.PlayCookieSessionStore;
+import play.mvc.Http;
 import play.mvc.Result;
+import utils.AcrylConstants;
+import utils.ConfigUtil;
 
 /**
  * This class contains the logic that is executed when an OpenID Connect Identity Provider redirects
@@ -87,23 +109,32 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
   private final OperationContext systemOperationContext;
   private final AuthServiceClient authClient;
   private final CookieConfigs cookieConfigs;
+  private final com.typesafe.config.Config config;
+  private final HttpClient httpClient;
 
   public OidcSupportCallbackLogic(
       final SsoSupportManager ssoSupportManager,
       final OperationContext systemOperationContext,
       final SystemEntityClient entityClient,
       final AuthServiceClient authClient,
-      final CookieConfigs cookieConfigs) {
+      final CookieConfigs cookieConfigs,
+      final com.typesafe.config.Config config) {
     this.ssoSupportManager = ssoSupportManager;
     this.systemOperationContext = systemOperationContext;
     systemEntityClient = entityClient;
     this.authClient = authClient;
     this.cookieConfigs = cookieConfigs;
+    this.config = config;
+    this.httpClient =
+        HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .version(java.net.http.HttpClient.Version.HTTP_1_1)
+            .build();
   }
 
   @Override
   public Object perform(
-      Config config,
+      org.pac4j.core.config.Config config,
       String inputDefaultUrl,
       Boolean inputRenewSession,
       String defaultClient,
@@ -251,16 +282,23 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
         // Add user to support group
         updateGroupMembership(opContext, corpUserUrn, createSupportGroupMembership(supportGroup));
 
+        // Ensure isSupportUser flag is set to true for this user (even if they already exist)
+        // This is important because tryProvisionUser may not update existing users with full
+        // aspects
+        // Note: We ignore the return value (wasPreviouslySupportUser) for support logins
+        AuthUtils.ensureUserSupportFlag(opContext, corpUserUrn, true, systemEntityClient);
+
         // Extract and assign role from OIDC claim
         String roleFromClaim = extractRoleFromClaim(profile, oidcSupportConfigs);
+        String roleToAssign;
         if (roleFromClaim != null && !roleFromClaim.isEmpty()) {
-          assignRoleToUser(opContext, corpUserUrn, roleFromClaim);
+          roleToAssign = roleFromClaim;
         } else {
           // Assign default support role if no role claim is found
-          String defaultRole = oidcSupportConfigs.getDefaultRole();
-          log.debug("No role found in claim, assigning default support role: {}", defaultRole);
-          assignRoleToUser(opContext, corpUserUrn, defaultRole);
+          roleToAssign = oidcSupportConfigs.getDefaultRole();
+          log.debug("No role found in claim, assigning default support role: {}", roleToAssign);
         }
+        AuthUtils.manageUserRole(opContext, corpUserUrn, roleToAssign, true, systemEntityClient);
 
       } catch (Exception e) {
         log.error(
@@ -274,17 +312,81 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
 
       log.info("OIDC support callback authentication successful for user: {}", userName);
 
+      // Verify this is a support user before sending notification
+      // We just called ensureUserSupportFlag(true) which should have set the flag, but we verify
+      // it was set correctly. This defensive check handles potential read-after-write consistency
+      // issues where the write succeeded but the read hasn't propagated yet.
+      boolean isSupportUser = false;
+      try {
+        EntityResponse userEntity =
+            systemEntityClient.getV2(
+                systemOperationContext,
+                CORP_USER_ENTITY_NAME,
+                corpUserUrn,
+                Collections.singleton(CORP_USER_INFO_ASPECT_NAME));
+        if (userEntity != null && userEntity.getAspects() != null) {
+          EnvelopedAspectMap aspects = userEntity.getAspects();
+          EnvelopedAspect corpUserInfoAspect = aspects.get(CORP_USER_INFO_ASPECT_NAME);
+          if (corpUserInfoAspect != null) {
+            CorpUserInfo userInfo = new CorpUserInfo(corpUserInfoAspect.getValue().data());
+            isSupportUser = userInfo.isIsSupportUser() != null && userInfo.isIsSupportUser();
+            log.debug("User {} isSupportUser flag: {}", corpUserUrn, isSupportUser);
+          }
+        }
+      } catch (Exception e) {
+        log.warn(
+            "Failed to verify isSupportUser flag for user: {}, defaulting to true since we're in support callback. Error: {}",
+            corpUserUrn,
+            e.getMessage());
+        // If we can't verify, default to true since we're in the support callback
+        // (we just created the user with isSupportUser=true)
+        isSupportUser = true;
+      }
+
+      // Read ticket ID from cookie if present
+      Optional<String> ticketId = readTicketIdFromCookie(ctx);
+      if (ticketId.isPresent()) {
+        log.debug("Found ticket ID in cookie for support user: {}", ticketId.get());
+      }
+
+      // Send support login notification asynchronously if user is a support user
+      // (don't block login)
+      if (isSupportUser) {
+        sendSupportLoginNotification(corpUserUrn.toString(), userName, ticketId, ctx);
+      } else {
+        log.warn(
+            "User {} is not marked as support user in CorpUserInfo, skipping support login notification",
+            corpUserUrn);
+      }
+
       // Successfully logged in - Generate GMS login token
       final String accessToken =
-          authClient.generateSessionTokenForUser(corpUserUrn.getId(), SSO_LOGIN);
-      return result
-          .withSession(createSessionMap(corpUserUrn.toString(), accessToken))
-          .withCookies(
-              createActorCookie(
-                  corpUserUrn.toString(),
-                  cookieConfigs.getTtlInHours(),
-                  cookieConfigs.getAuthCookieSameSite(),
-                  cookieConfigs.getAuthCookieSecure()));
+          authClient.generateSessionTokenForUser(
+              corpUserUrn.getId(), SSO_LOGIN, ticketId.orElse(null));
+
+      // Use session cookies for support users (expire when browser closes)
+      Http.Cookie actorCookie =
+          createSupportUserActorCookie(
+              corpUserUrn.toString(),
+              cookieConfigs.getAuthCookieSameSite(),
+              cookieConfigs.getAuthCookieSecure());
+
+      Result resultWithCookies =
+          result
+              .withSession(createSessionMap(corpUserUrn.toString(), accessToken))
+              .withCookies(actorCookie);
+
+      // Add ticket ID session cookie if present and non-empty
+      if (ticketId.isPresent() && ticketId.get() != null && !ticketId.get().trim().isEmpty()) {
+        Http.Cookie ticketCookie =
+            createSupportTicketIdSessionCookie(
+                ticketId.get(),
+                cookieConfigs.getAuthCookieSameSite(),
+                cookieConfigs.getAuthCookieSecure());
+        return resultWithCookies.withCookies(ticketCookie);
+      }
+
+      return resultWithCookies;
     }
     return internalServerError(
         "Failed to authenticate current user. Cannot find valid identity provider profile in session.");
@@ -346,6 +448,7 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
 
     final CorpUserInfo userInfo = new CorpUserInfo();
     userInfo.setActive(true);
+    userInfo.setIsSupportUser(true);
     userInfo.setFirstName(firstName, SetMode.IGNORE_NULL);
     userInfo.setLastName(lastName, SetMode.IGNORE_NULL);
     userInfo.setFullName(fullName, SetMode.IGNORE_NULL);
@@ -500,37 +603,150 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
   }
 
   /**
-   * Assigns a role to a user by creating a RoleMembership aspect.
+   * Reads the support ticket ID from the cookie.
    *
-   * @param opContext The operation context
-   * @param userUrn The user URN
-   * @param roleName The role name to assign
+   * @param ctx The call context containing cookies
+   * @return Optional ticket ID if present in cookie
    */
-  void assignRoleToUser(OperationContext opContext, CorpuserUrn userUrn, String roleName) {
+  private Optional<String> readTicketIdFromCookie(CallContext ctx) {
     try {
-      // Create the role URN
-      DataHubRoleUrn roleUrn = new DataHubRoleUrn(roleName);
-
-      // Create RoleMembership aspect
-      RoleMembership roleMembership = new RoleMembership();
-      roleMembership.setRoles(new UrnArray(roleUrn));
-
-      // Create MetadataChangeProposal for role assignment
-      final MetadataChangeProposal proposal = new MetadataChangeProposal();
-      proposal.setEntityUrn(userUrn);
-      proposal.setEntityType(CORP_USER_ENTITY_NAME);
-      proposal.setAspectName(ROLE_MEMBERSHIP_ASPECT_NAME);
-      proposal.setAspect(GenericRecordUtils.serializeAspect(roleMembership));
-      proposal.setChangeType(ChangeType.UPSERT);
-
-      // Ingest the role membership proposal
-      systemEntityClient.ingestProposal(opContext, proposal);
-
-      log.info("Successfully assigned role '{}' to user '{}'", roleName, userUrn);
+      WebContext webContext = ctx.webContext();
+      Optional<Cookie> cookie =
+          webContext.getRequestCookies().stream()
+              .filter(c -> AuthUtils.SUPPORT_TICKET_ID_COOKIE_NAME.equals(c.getName()))
+              .findFirst();
+      if (cookie.isPresent()
+          && cookie.get().getValue() != null
+          && !cookie.get().getValue().isEmpty()) {
+        // URL-decode the ticket ID since it was encoded when stored in the cookie
+        String decodedTicketId = URLDecoder.decode(cookie.get().getValue(), StandardCharsets.UTF_8);
+        return Optional.of(decodedTicketId);
+      }
     } catch (Exception e) {
-      log.error(
-          "Failed to assign role '{}' to user '{}': {}", roleName, userUrn, e.getMessage(), e);
-      // Don't throw the exception to avoid breaking the login flow
+      log.warn("Failed to read ticket ID from cookie: {}", e.getMessage());
     }
+    return Optional.empty();
+  }
+
+  /**
+   * Sends a support login notification to the integrations service asynchronously.
+   *
+   * @param actorUrn The URN of the user who logged in
+   * @param actorName The display name of the user
+   * @param ticketId Optional ticket ID if present
+   * @param ctx The call context for extracting additional info (e.g., IP address)
+   */
+  private void sendSupportLoginNotification(
+      String actorUrn, String actorName, Optional<String> ticketId, CallContext ctx) {
+    CompletableFuture.runAsync(
+        () -> {
+          try {
+            // Build notification request
+            NotificationRequest notificationRequest = new NotificationRequest();
+            NotificationMessage message = new NotificationMessage();
+            message.setTemplate(NotificationTemplateType.SUPPORT_LOGIN);
+
+            // Build parameters map
+            StringMap parameters = new StringMap();
+            parameters.put("actorUrn", actorUrn);
+            parameters.put("actorName", actorName);
+            // Convert epoch milliseconds to ISO 8601 format in UTC timezone
+            String isoTimestamp =
+                Instant.ofEpochMilli(System.currentTimeMillis())
+                    .atZone(ZoneOffset.UTC)
+                    .format(DateTimeFormatter.ISO_INSTANT);
+            parameters.put("timestamp", isoTimestamp);
+
+            if (ticketId.isPresent()) {
+              parameters.put("supportTicketId", ticketId.get());
+            }
+
+            // Extract source IP if available
+            try {
+              WebContext webContext = ctx.webContext();
+              String sourceIP = webContext.getRequestHeader("X-Forwarded-For").orElse(null);
+              if (sourceIP == null || sourceIP.isEmpty()) {
+                sourceIP = webContext.getRemoteAddr();
+              }
+              if (sourceIP != null && !sourceIP.isEmpty()) {
+                // Take first IP if multiple (X-Forwarded-For can contain multiple IPs)
+                String ip = sourceIP.split(",")[0].trim();
+                parameters.put("sourceIP", ip);
+              }
+            } catch (Exception e) {
+              log.debug("Failed to extract source IP: {}", e.getMessage());
+            }
+
+            message.setParameters(parameters);
+            notificationRequest.setMessage(message);
+
+            // Recipients are handled by the Python service using SUPPORT_LOGIN_EMAIL_RECIPIENTS
+            // So we can leave recipients empty or set empty array
+            notificationRequest.setRecipients(
+                new com.linkedin.event.notification.NotificationRecipientArray());
+
+            // Get integrations service config
+            String integrationsServiceHost =
+                ConfigUtil.getString(
+                    config,
+                    AcrylConstants.INTEGRATIONS_SERVICE_HOST_CONFIG_PATH,
+                    AcrylConstants.DEFAULT_INTEGRATIONS_SERVICE_HOST);
+            int integrationsServicePort =
+                ConfigUtil.getInt(
+                    config,
+                    AcrylConstants.INTEGRATIONS_SERVICE_PORT_CONFIG_PATH,
+                    AcrylConstants.DEFAULT_INTEGRATIONS_SERVICE_PORT);
+            boolean integrationsServiceUseSsl =
+                ConfigUtil.getBoolean(
+                    config,
+                    AcrylConstants.INTEGRATIONS_SERVICE_USE_SSL_CONFIG_PATH,
+                    AcrylConstants.DEFAULT_INTEGRATIONS_SERVICE_USE_SSL);
+
+            String protocol = integrationsServiceUseSsl ? "https" : "http";
+            String url =
+                String.format(
+                    "%s://%s:%d/private/notifications/send",
+                    protocol, integrationsServiceHost, integrationsServicePort);
+
+            // Convert notification request to JSON
+            String jsonBody = RecordUtils.toJsonString(notificationRequest);
+
+            // Build HTTP request
+            HttpRequest httpRequest =
+                HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                    .timeout(Duration.ofSeconds(30))
+                    .build();
+
+            // Send request asynchronously
+            httpClient
+                .sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString())
+                .thenAccept(
+                    response -> {
+                      if (response.statusCode() == 200 || response.statusCode() == 202) {
+                        log.info(
+                            "Successfully sent support login notification for user: {}", actorUrn);
+                      } else {
+                        log.warn(
+                            "Failed to send support login notification. Status: {}, Body: {}",
+                            response.statusCode(),
+                            response.body());
+                      }
+                    })
+                .exceptionally(
+                    throwable -> {
+                      log.error(
+                          "Exception while sending support login notification for user: {}",
+                          actorUrn,
+                          throwable);
+                      return null;
+                    });
+
+          } catch (Exception e) {
+            log.error("Failed to send support login notification for user: {}", actorUrn, e);
+          }
+        });
   }
 }

@@ -173,6 +173,38 @@ test {
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
 }
 
+// Custom task to run only Cassandra tests
+task testCassandra(type: Test) {
+  doFirst {
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng-cassandra.xml'
+  }
+  testLogging {
+    events "failed", "skipped"
+    exceptionFormat "full"
+    showStandardStreams = false
+  }
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+}
+
+// Custom task to run only Neo4j tests
+task testNeo4j(type: Test) {
+  doFirst {
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng-neo4j.xml'
+  }
+  testLogging {
+    events "failed", "skipped"
+    exceptionFormat "full"
+    showStandardStreams = false
+  }
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+}
+
 // Ensure a single SLF4J binding and avoid Log4j core conflicts during tests
 configurations {
   testRuntimeClasspath {

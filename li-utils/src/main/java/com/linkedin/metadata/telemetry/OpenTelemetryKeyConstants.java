@@ -16,6 +16,7 @@ public class OpenTelemetryKeyConstants {
   public static final String ASPECT_NAME_ATTR = "aspect.name";
   public static final String LOGIN_SOURCE_ATTR = "login.source";
   public static final String TELEMETRY_TRACE_ID_ATTR = "telemetry.trace.id";
+  public static final String SUPPORT_TICKET_ID_ATTR = "support.ticket.id";
 
   // OTEL Event Source Context Mutable Baggage
   public static final String EVENT_SOURCE = "event.source";

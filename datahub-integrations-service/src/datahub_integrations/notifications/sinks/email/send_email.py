@@ -18,6 +18,8 @@ from datahub_integrations.notifications.constants import (
     FROM_EMAIL_TITLE,
     GLOBAL_CHANGE_NOTIFICATION_TEMPLATE,
     INGESTION_TEMPLATE,
+    SUPPORT_LOGIN_EMAIL_RECIPIENTS,
+    SUPPORT_LOGIN_EMAIL_TEMPLATE,
     USER_INVITATION_TEMPLATE,
 )
 
@@ -335,6 +337,53 @@ def send_user_invitation_email(
     message.dynamic_template_data = template_data
 
     send_email(message, recipient_address, sg_client)
+
+
+def send_support_login_email(
+    parameters: Dict[str, str],
+    sg_client: SendGridAPIClient,
+) -> None:
+    """
+    Send support login notification email to configured recipients.
+
+    Expected parameters:
+    - supportTicketId: Support ticket ID (optional)
+    - actorUrn: User URN who logged in
+    - actorName: Display name of the user
+    - timestamp: Login timestamp (ISO 8601 format in UTC)
+    - sourceIP: Source IP address (optional)
+    """
+    if not SUPPORT_LOGIN_EMAIL_TEMPLATE:
+        logger.warning(
+            "SUPPORT_LOGIN_EMAIL_TEMPLATE not configured, skipping support login email notification"
+        )
+        return
+
+    if not SUPPORT_LOGIN_EMAIL_RECIPIENTS:
+        logger.warning(
+            "SUPPORT_LOGIN_EMAIL_RECIPIENTS not configured, skipping support login email notification"
+        )
+        return
+
+    for recipient_email in SUPPORT_LOGIN_EMAIL_RECIPIENTS:
+        try:
+            # Create new message
+            message = Mail(
+                from_email=Email(FROM_EMAIL_ADDRESS, FROM_EMAIL_TITLE),
+                to_emails=To(recipient_email),
+            )
+
+            # Specify the sendgrid template
+            message.template_id = SUPPORT_LOGIN_EMAIL_TEMPLATE
+
+            # Add dynamic data
+            message.dynamic_template_data = parameters
+
+            send_email(message, recipient_email, sg_client)
+        except Exception as e:
+            logger.error(
+                f"Failed to send support login email to {recipient_email}: {e}"
+            )
 
 
 def send_email(message: Mail, context: str, sg_client: SendGridAPIClient) -> None:

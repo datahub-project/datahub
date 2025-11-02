@@ -30,6 +30,7 @@ public class OidcSupportConfigsTest {
     assertTrue(supportConfigs.isJitProvisioningEnabled());
     assertFalse(supportConfigs.isPreProvisioningRequired());
     assertFalse(supportConfigs.isExtractGroupsEnabled());
+    assertFalse(supportConfigs.isRequireTicket());
   }
 
   @Test
@@ -54,10 +55,8 @@ public class OidcSupportConfigsTest {
     supportConfigs = new OidcSupportConfigs.Builder().from(config).build();
     assertEquals("groups", supportConfigs.getGroupClaim());
 
-    // Test JSON configuration
-    String jsonConfig = "{\"groupClaim\":\"custom-groups\"}";
-    supportConfigs = new OidcSupportConfigs.Builder().from(config, jsonConfig).build();
-    assertEquals("custom-groups", supportConfigs.getGroupClaim());
+    // Note: Support SSO does not support JSON configuration (saved settings).
+    // Support SSO can only be configured via environment/config files.
   }
 
   @Test
@@ -135,27 +134,6 @@ public class OidcSupportConfigsTest {
   }
 
   @Test
-  public void testJsonConfigParsing() {
-    Map<String, String> configMap = new HashMap<>();
-    configMap.put("auth.oidc.support.enabled", "true");
-    configMap.put("auth.oidc.support.clientId", "test-client-id");
-    configMap.put("auth.oidc.support.clientSecret", "test-client-secret");
-    configMap.put(
-        "auth.oidc.support.discoveryUri",
-        "https://test.example.com/.well-known/openid_configuration");
-    configMap.put("auth.baseUrl", "https://datahub.example.com");
-
-    Config config = ConfigFactory.parseMap(configMap);
-
-    String jsonConfig = "{\"groupClaim\":\"json-groups\",\"roleClaim\":\"json-admin\"}";
-    OidcSupportConfigs supportConfigs =
-        new OidcSupportConfigs.Builder().from(config, jsonConfig).build();
-
-    assertEquals("json-groups", supportConfigs.getGroupClaim());
-    assertEquals("json-admin", supportConfigs.getRoleClaim());
-  }
-
-  @Test
   public void testValidation() {
     Map<String, String> configMap = new HashMap<>();
     configMap.put("auth.oidc.support.enabled", "true");
@@ -200,5 +178,28 @@ public class OidcSupportConfigsTest {
     assertEquals(supportConfigs1.getDiscoveryUri(), supportConfigs2.getDiscoveryUri());
     assertEquals(supportConfigs1.getGroupClaim(), supportConfigs2.getGroupClaim());
     assertEquals(supportConfigs1.getRoleClaim(), supportConfigs2.getRoleClaim());
+  }
+
+  @Test
+  public void testRequireTicketConfiguration() {
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put("auth.oidc.support.enabled", "true");
+    configMap.put("auth.oidc.support.clientId", "test-client-id");
+    configMap.put("auth.oidc.support.clientSecret", "test-client-secret");
+    configMap.put(
+        "auth.oidc.support.discoveryUri",
+        "https://test.example.com/.well-known/openid_configuration");
+    configMap.put("auth.baseUrl", "https://datahub.example.com");
+
+    // Test default requireTicket (false)
+    Config config = ConfigFactory.parseMap(configMap);
+    OidcSupportConfigs supportConfigs = new OidcSupportConfigs.Builder().from(config).build();
+    assertFalse(supportConfigs.isRequireTicket());
+
+    // Test custom requireTicket (true)
+    configMap.put("auth.oidc.support.requireTicket", "true");
+    config = ConfigFactory.parseMap(configMap);
+    supportConfigs = new OidcSupportConfigs.Builder().from(config).build();
+    assertTrue(supportConfigs.isRequireTicket());
   }
 }

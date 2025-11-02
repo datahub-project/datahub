@@ -18,6 +18,7 @@ public class Constants {
   // lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
+  public static final String DATAHUB_TICKET_ID_HEADER_NAME = "X-DataHub-Ticket-Id";
 
   public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.

@@ -196,7 +196,8 @@
       "doc" : "Description of the test",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "TEXT"
+        "fieldType" : "TEXT",
+        "searchTier" : 2
       }
     }, {
       "name" : "definition",

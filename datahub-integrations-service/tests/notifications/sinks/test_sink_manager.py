@@ -237,3 +237,53 @@ async def test_dispatch_notifications_no_eligible_sinks() -> None:
 
         # Verify no sinks were called
         assert mock_send.call_count == 0
+
+
+def test_get_eligible_sinks_support_login_no_recipients() -> None:
+    """Test that SUPPORT_LOGIN with empty recipients still routes to email sink."""
+    email_sink = TestSink("EMAIL", ["EMAIL"])
+    teams_sink = TestSink("TEAMS", ["TEAMS_DM", "TEAMS_CHANNEL"])
+    slack_sink = TestSink("SLACK", ["SLACK_DM", "SLACK_CHANNEL"])
+
+    manager = NotificationSinkManager([email_sink, teams_sink, slack_sink])
+
+    # Create a SUPPORT_LOGIN notification request with no recipients
+    # (uses environment variable SUPPORT_LOGIN_EMAIL_RECIPIENTS instead)
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.SUPPORT_LOGIN
+        ),
+        recipients=[],  # Empty - recipients come from environment variable
+    )
+
+    eligible_sinks = manager._get_eligible_sinks(request)
+
+    # Verify email sink is eligible even with no recipients (special case)
+    assert len(eligible_sinks) == 1
+    assert eligible_sinks[0].type() == "EMAIL"
+
+
+@pytest.mark.anyio
+async def test_dispatch_support_login_notification() -> None:
+    """Test that SUPPORT_LOGIN notifications are dispatched to email sink even with no recipients."""
+    email_sink = TestSink("EMAIL", ["EMAIL"])
+    teams_sink = TestSink("TEAMS", ["TEAMS_DM", "TEAMS_CHANNEL"])
+
+    manager = NotificationSinkManager([email_sink, teams_sink])
+
+    # Create a SUPPORT_LOGIN notification request with no recipients
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.SUPPORT_LOGIN
+        ),
+        recipients=[],
+    )
+
+    # Mock the send_notification method to track calls
+    with patch.object(manager, "send_notification") as mock_send:
+        await manager.dispatch_notifications(request)
+
+        # Verify email sink was called (special case for SUPPORT_LOGIN)
+        assert mock_send.call_count == 1
+        called_sink = mock_send.call_args[0][0]
+        assert called_sink.type() == "EMAIL"

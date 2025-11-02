@@ -32,6 +32,16 @@ COMPLIANCE_FORM_PUBLISH_TEMPLATE = "d-c95ab11b09bb4e039181de42a8ffa4d6"
 INGESTION_TEMPLATE = "d-e4af926a33e24b3394ec81e079d012f2"
 CUSTOM_TEMPLATE = "d-d19885c33b0643f3b1cbef31be08d869"
 USER_INVITATION_TEMPLATE = "d-0056f0e99b7f415980332701a107673d"
+SUPPORT_LOGIN_EMAIL_TEMPLATE = os.environ.get(
+    "SUPPORT_LOGIN_EMAIL_TEMPLATE", "d-04f6c82a0d9340098d3e4560f238821c"
+)  # SendGrid template ID for support login email notifications
+
+# Support login email recipients - comma-delimited list of email addresses
+SUPPORT_LOGIN_EMAIL_RECIPIENTS = [
+    email.strip()
+    for email in os.environ.get("SUPPORT_LOGIN_EMAIL_RECIPIENTS", "").split(",")
+    if email.strip()
+]
 
 # SendGrid Subscription Groups
 GLOBAL_NOTIFICATIONS_UNSUBSCRIBE_GROUP_ID = 26417

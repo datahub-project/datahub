@@ -52,30 +52,48 @@ class NotificationSinkManager:
         """
         Filter sinks based on the recipient types in the notification request.
         Only return sinks that can handle at least one recipient type in the request.
+
+        Special case: SUPPORT_LOGIN template type doesn't require recipients in the request
+        as it uses environment variables (SUPPORT_LOGIN_EMAIL_RECIPIENTS) for recipients.
         """
-        if not request.recipients:
+        # Special handling for template types that use environment variables for recipients
+        from datahub.metadata.schema_classes import NotificationTemplateTypeClass
+
+        template_type = str(request.message.template) if request.message else None
+        uses_env_recipients = (
+            template_type == NotificationTemplateTypeClass.SUPPORT_LOGIN
+        )
+
+        if not request.recipients and not uses_env_recipients:
             logger.warning("No recipients in notification request")
             return []
 
-        # Get all recipient types in the request
-        request_recipient_types = {recipient.type for recipient in request.recipients}
+        # Get all recipient types in the request (empty set if no recipients)
+        request_recipient_types = (
+            {recipient.type for recipient in request.recipients}
+            if request.recipients
+            else set()
+        )
 
         eligible_sinks = []
         for sink in self.sink_registry:
             # Get the recipient types this sink supports
             sink_supported_types = set(sink.supported_notification_recipient_types())
 
-            # Check if this sink can handle any of the recipient types in the request
-            if request_recipient_types.intersection(sink_supported_types):
+            # Check if this sink can handle any of the recipient types in the request,
+            # or if this is a template type that uses environment variables for recipients
+            if request_recipient_types.intersection(sink_supported_types) or (
+                uses_env_recipients and sink.type() == "EMAIL"
+            ):
                 eligible_sinks.append(sink)
                 logger.debug(
                     f"Sink {sink.type()} is eligible - supports {sink_supported_types}, "
-                    f"request has {request_recipient_types}"
+                    f"request has {request_recipient_types}, uses_env_recipients={uses_env_recipients}"
                 )
             else:
                 logger.debug(
                     f"Sink {sink.type()} is not eligible - supports {sink_supported_types}, "
-                    f"request has {request_recipient_types}"
+                    f"request has {request_recipient_types}, uses_env_recipients={uses_env_recipients}"
                 )
 
         return eligible_sinks
@@ -85,9 +103,15 @@ class NotificationSinkManager:
         eligible_sinks = self._get_eligible_sinks(request)
 
         if not eligible_sinks:
+            template_type = (
+                str(request.message.template) if request.message else "unknown"
+            )
+            recipient_types = (
+                [r.type for r in request.recipients] if request.recipients else []
+            )
             logger.warning(
-                f"No eligible sinks found for notification request with recipient types: "
-                f"{[r.type for r in request.recipients]}"
+                f"No eligible sinks found for notification request with template: {template_type}, "
+                f"recipient types: {recipient_types}"
             )
             return
 

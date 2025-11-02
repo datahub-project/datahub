@@ -1,7 +1,11 @@
 package auth;
 
+import static com.linkedin.metadata.Constants.ROLE_MEMBERSHIP_ASPECT_NAME;
+
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.DataHubRoleUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
@@ -9,9 +13,11 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserInvitationStatus;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.identity.InvitationStatus;
+import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -19,10 +25,14 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +72,9 @@ public class AuthUtils {
 
   /** Cookie name for redirect url that is manually separated from the session to reduce size */
   public static final String REDIRECT_URL_COOKIE_NAME = "REDIRECT_URL";
+
+  /** Cookie name for support ticket ID used in OIDC support login flow */
+  public static final String SUPPORT_TICKET_ID_COOKIE_NAME = "support_ticket_id";
 
   public static final CorpuserUrn DEFAULT_ACTOR_URN = new CorpuserUrn("datahub");
 
@@ -150,6 +163,44 @@ public class AuthUtils {
     return Http.Cookie.builder(ACTOR, actorUrn)
         .withHttpOnly(false)
         .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
+        .withSameSite(convertSameSiteValue(sameSite))
+        .withSecure(isSecure)
+        .build();
+  }
+
+  /**
+   * Creates a session cookie for support users (expires when browser closes). Session cookies don't
+   * have a maxAge set, so they expire when the browser session ends.
+   *
+   * @param actorUrn the urn of the authenticated actor, e.g. "urn:li:corpuser:datahub"
+   * @param sameSite the SameSite attribute for the cookie
+   * @param isSecure whether the cookie should be marked as Secure
+   */
+  public static Http.Cookie createSupportUserActorCookie(
+      @Nonnull final String actorUrn, @Nonnull final String sameSite, final boolean isSecure) {
+    return Http.Cookie.builder(ACTOR, actorUrn)
+        .withHttpOnly(false)
+        // No maxAge = session cookie (expires when browser closes)
+        .withSameSite(convertSameSiteValue(sameSite))
+        .withSecure(isSecure)
+        .build();
+  }
+
+  /**
+   * Creates a session cookie for support ticket ID (expires when browser closes). Session cookies
+   * don't have a maxAge set, so they expire when the browser session ends.
+   *
+   * @param ticketId the ticket ID value
+   * @param sameSite the SameSite attribute for the cookie
+   * @param isSecure whether the cookie should be marked as Secure
+   */
+  public static Http.Cookie createSupportTicketIdSessionCookie(
+      @Nonnull final String ticketId, @Nonnull final String sameSite, final boolean isSecure) {
+    // URL-encode the ticket ID to handle special characters (spaces, etc.)
+    String encodedTicketId = URLEncoder.encode(ticketId, StandardCharsets.UTF_8);
+    return Http.Cookie.builder(SUPPORT_TICKET_ID_COOKIE_NAME, encodedTicketId)
+        .withHttpOnly(false)
+        // No maxAge = session cookie (expires when browser closes)
         .withSameSite(convertSameSiteValue(sameSite))
         .withSecure(isSecure)
         .build();
@@ -397,6 +448,184 @@ public class AuthUtils {
     } catch (RemoteInvocationException e) {
       // Failing validation is something worth throwing about.
       throw new RuntimeException(String.format("Failed to validate user with urn %s.", userUrn), e);
+    }
+  }
+
+  /**
+   * Ensures that a user's isSupportUser flag is set to the specified value by updating the
+   * CorpUserInfo aspect. This is important because tryProvisionUser may not update existing users
+   * with full aspects.
+   *
+   * @param opContext The operation context
+   * @param userUrn The user URN to update
+   * @param isSupportUser The value to set for isSupportUser flag (true for support users, false for
+   *     regular users)
+   * @param systemEntityClient The entity client to use for the update
+   * @return true if the user was previously a support user (had isSupportUser=true before this
+   *     update)
+   */
+  public static boolean ensureUserSupportFlag(
+      @Nonnull OperationContext opContext,
+      @Nonnull CorpuserUrn userUrn,
+      boolean isSupportUser,
+      @Nonnull SystemEntityClient systemEntityClient) {
+    try {
+      // Get existing CorpUserInfo to preserve other fields
+      CorpUserInfo userInfo;
+      boolean wasPreviouslySupportUser = false;
+      try {
+        Aspect existingAspect =
+            systemEntityClient.getLatestAspectObject(
+                opContext, userUrn, Constants.CORP_USER_INFO_ASPECT_NAME, false);
+        if (existingAspect != null) {
+          userInfo = new CorpUserInfo(existingAspect.data());
+          wasPreviouslySupportUser =
+              userInfo.isIsSupportUser() != null && userInfo.isIsSupportUser();
+        } else {
+          // If no existing aspect, create a new one
+          userInfo = new CorpUserInfo();
+          userInfo.setActive(true);
+        }
+      } catch (Exception e) {
+        log.debug("No existing CorpUserInfo found for user {}, creating new", userUrn);
+        userInfo = new CorpUserInfo();
+        userInfo.setActive(true);
+      }
+
+      // Check if the flag needs to be updated
+      boolean needsUpdate = false;
+      if (isSupportUser) {
+        // Update if flag is null or false
+        needsUpdate = userInfo.isIsSupportUser() == null || !userInfo.isIsSupportUser();
+      } else {
+        // Update if flag is null or true
+        needsUpdate = userInfo.isIsSupportUser() == null || userInfo.isIsSupportUser();
+      }
+
+      if (needsUpdate) {
+        log.debug("Setting isSupportUser={} for user {}", isSupportUser, userUrn);
+        userInfo.setIsSupportUser(isSupportUser);
+
+        // Update the aspect
+        final MetadataChangeProposal proposal = new MetadataChangeProposal();
+        proposal.setEntityUrn(userUrn);
+        proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
+        proposal.setAspectName(Constants.CORP_USER_INFO_ASPECT_NAME);
+        proposal.setAspect(GenericRecordUtils.serializeAspect(userInfo));
+        proposal.setChangeType(ChangeType.UPSERT);
+        systemEntityClient.ingestProposal(opContext, proposal);
+      } else {
+        log.debug("User {} already has isSupportUser={}", userUrn, isSupportUser);
+      }
+
+      return wasPreviouslySupportUser;
+    } catch (Exception e) {
+      log.error(
+          "Failed to update isSupportUser flag for user: {}. This is a security requirement. Error: {}",
+          userUrn,
+          e.getMessage(),
+          e);
+      throw new RuntimeException(
+          String.format(
+              "Failed to update isSupportUser flag for user: %s. This is required for proper user tracking.",
+              userUrn),
+          e);
+    }
+  }
+
+  /**
+   * Manages user roles by adding or removing a specific role without modifying other roles. If
+   * assigning, adds the role to existing roles (if not already present). If revoking, removes only
+   * the specified role (keeping other roles intact).
+   *
+   * @param opContext The operation context
+   * @param userUrn The user URN
+   * @param roleName The role name to add or remove (e.g., "Admin")
+   * @param assign true to add the role, false to remove the role
+   * @param systemEntityClient The entity client to use for the update
+   */
+  public static void manageUserRole(
+      @Nonnull OperationContext opContext,
+      @Nonnull CorpuserUrn userUrn,
+      @Nonnull String roleName,
+      boolean assign,
+      @Nonnull SystemEntityClient systemEntityClient) {
+    try {
+      // Get existing RoleMembership to preserve other roles
+      RoleMembership roleMembership;
+      try {
+        Aspect existingAspect =
+            systemEntityClient.getLatestAspectObject(
+                opContext, userUrn, ROLE_MEMBERSHIP_ASPECT_NAME, false);
+        if (existingAspect != null) {
+          roleMembership = new RoleMembership(existingAspect.data());
+        } else {
+          roleMembership = new RoleMembership();
+          roleMembership.setRoles(new UrnArray());
+        }
+      } catch (Exception e) {
+        log.debug("No existing RoleMembership found for user {}, creating new", userUrn);
+        roleMembership = new RoleMembership();
+        roleMembership.setRoles(new UrnArray());
+      }
+
+      // Get existing roles as a list
+      List<Urn> existingRoles =
+          roleMembership.getRoles() != null
+              ? new ArrayList<>(roleMembership.getRoles())
+              : new ArrayList<>();
+
+      DataHubRoleUrn roleUrn = new DataHubRoleUrn(roleName);
+
+      if (assign) {
+        // Add the role if not already present
+        if (!existingRoles.contains(roleUrn)) {
+          existingRoles.add(roleUrn);
+          log.debug("Adding role '{}' to user {}", roleName, userUrn);
+        } else {
+          log.debug("User {} already has role '{}', no change needed", userUrn, roleName);
+          return; // No change needed
+        }
+      } else {
+        // Remove the role if present
+        if (existingRoles.remove(roleUrn)) {
+          log.debug("Removing role '{}' from user {}", roleName, userUrn);
+        } else {
+          log.debug("User {} does not have role '{}', no change needed", userUrn, roleName);
+          return; // No change needed
+        }
+      }
+
+      // Update the RoleMembership with the modified roles
+      roleMembership.setRoles(new UrnArray(existingRoles));
+
+      // Update the aspect
+      final MetadataChangeProposal proposal = new MetadataChangeProposal();
+      proposal.setEntityUrn(userUrn);
+      proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
+      proposal.setAspectName(ROLE_MEMBERSHIP_ASPECT_NAME);
+      proposal.setAspect(GenericRecordUtils.serializeAspect(roleMembership));
+      proposal.setChangeType(ChangeType.UPSERT);
+      systemEntityClient.ingestProposal(opContext, proposal);
+
+      if (assign) {
+        log.info("Successfully added role '{}' to user {}", roleName, userUrn);
+      } else {
+        log.info("Successfully removed role '{}' from user {}", roleName, userUrn);
+      }
+    } catch (Exception e) {
+      log.error(
+          "Failed to {} role '{}' for user: {}. This is a security requirement. Error: {}",
+          assign ? "add" : "remove",
+          roleName,
+          userUrn,
+          e.getMessage(),
+          e);
+      throw new RuntimeException(
+          String.format(
+              "Failed to %s role '%s' for user: %s. This is required for proper access control.",
+              assign ? "add" : "remove", roleName, userUrn),
+          e);
     }
   }
 }
