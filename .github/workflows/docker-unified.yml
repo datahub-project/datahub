@@ -241,6 +241,15 @@ jobs:
           restore-keys: |
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-plugins-cache
+          restore-keys: |
+            gradle-plugins-cache
+
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@v1
@@ -314,6 +323,13 @@ jobs:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
+      - uses: actions/cache/save@v4
+        if: ${{ github.ref == 'refs/heads/master' }}
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-plugins-cache
 
   scan_images:
     permissions:
