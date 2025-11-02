@@ -1,5 +1,5 @@
 import { AppstoreOutlined, FileOutlined, LayoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { BookmarkSimple } from '@phosphor-icons/react';
+import { BookmarkSimple, Code } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -24,6 +24,7 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
@@ -206,6 +207,12 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             component: PropertiesTab,
             description: 'View additional properties about this asset',
             icon: UnorderedListOutlined,
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 

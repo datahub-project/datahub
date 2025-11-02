@@ -1,5 +1,5 @@
 import { ShareAltOutlined } from '@ant-design/icons';
-import { FileText, ListBullets, Share, TreeStructure, WarningCircle } from '@phosphor-icons/react';
+import { Code, FileText, ListBullets, Share, TreeStructure, WarningCircle } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -22,6 +22,7 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { DataFlowJobsTab } from '@app/entityV2/shared/tabs/Entity/DataFlowJobsTab';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { DAGTab } from '@app/entityV2/shared/tabs/Lineage/DAGTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -169,6 +170,12 @@ export class DataFlowEntity implements Entity<DataFlow> {
             component: PropertiesTab,
             description: 'View additional properties about this asset',
             icon: ListBullets,
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 

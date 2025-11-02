@@ -1,5 +1,5 @@
 import { PartitionOutlined, PicCenterOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { TreeStructure } from '@phosphor-icons/react';
+import { Code, TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
@@ -11,6 +11,7 @@ import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityPro
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
@@ -85,6 +86,12 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 

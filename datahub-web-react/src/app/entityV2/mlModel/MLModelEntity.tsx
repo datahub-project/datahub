@@ -1,5 +1,5 @@
 import { CodeSandboxOutlined, PartitionOutlined, WarningOutlined } from '@ant-design/icons';
-import { ListBullets, TreeStructure } from '@phosphor-icons/react';
+import { Code, ListBullets, TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -24,6 +24,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -191,6 +192,12 @@ export class MLModelEntity implements Entity<MlModel> {
             component: PropertiesTab,
             description: 'View additional properties about this asset',
             icon: ListBullets,
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 

@@ -1,4 +1,5 @@
 import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Code } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -17,6 +18,7 @@ import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/share
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { FeatureTableTab } from '@app/entityV2/shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -151,6 +153,12 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             component: PropertiesTab,
             description: 'View additional properties about this asset',
             icon: UnorderedListOutlined,
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 

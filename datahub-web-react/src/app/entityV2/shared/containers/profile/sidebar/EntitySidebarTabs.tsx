@@ -357,6 +357,8 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                                                     return 'Columns';
                                                 case 'Lineage':
                                                     return 'Lineage';
+                                                case 'Developer View':
+                                                    return 'Raw';
                                                 default:
                                                     return name;
                                             }

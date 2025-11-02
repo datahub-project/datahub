@@ -12,7 +12,7 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
-import { Columns, ListBullets, TreeStructure } from '@phosphor-icons/react';
+import { Code, Columns, ListBullets, TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -54,6 +54,7 @@ import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import {
     SidebarTitleActionType,
     getDatasetLastUpdatedMs,
@@ -330,6 +331,12 @@ export class DatasetEntity implements Entity<Dataset> {
             component: PropertiesTab,
             description: 'View additional properties about this asset',
             icon: ListBullets,
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 

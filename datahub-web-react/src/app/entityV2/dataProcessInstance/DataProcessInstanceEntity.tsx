@@ -1,4 +1,4 @@
-import { TreeStructure } from '@phosphor-icons/react';
+import { Code, TreeStructure } from '@phosphor-icons/react';
 import { ArrowsClockwise } from 'phosphor-react';
 import React from 'react';
 
@@ -10,6 +10,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { SidebarTitleActionType, getDataProduct, getFirstSubType } from '@app/entityV2/shared/utils';
@@ -108,6 +109,12 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 

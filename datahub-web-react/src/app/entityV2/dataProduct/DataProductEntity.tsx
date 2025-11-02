@@ -5,7 +5,7 @@ import {
     ReadOutlined,
     UnorderedListOutlined,
 } from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { Code, ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -30,6 +30,7 @@ import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
@@ -194,6 +195,12 @@ export class DataProductEntity implements Entity<DataProduct> {
             component: PropertiesTab,
             description: 'View additional properties about this asset',
             icon: ListBullets,
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 

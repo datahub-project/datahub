@@ -1,4 +1,4 @@
-import { ChartScatter, Database, FileText, ListBullets, Table } from '@phosphor-icons/react';
+import { ChartScatter, Code, Database, FileText, ListBullets, Table } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -22,6 +22,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -160,6 +161,12 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             component: PropertiesTab,
             description: 'View additional properties about this asset',
             icon: ListBullets,
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 

@@ -1,5 +1,5 @@
 import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { TreeStructure } from '@phosphor-icons/react';
+import { Code, TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -22,6 +22,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { SidebarTitleActionType, isOutputPort } from '@app/entityV2/shared/utils';
@@ -168,6 +169,12 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             component: PropertiesTab,
             description: 'View additional properties about this asset',
             icon: UnorderedListOutlined,
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 

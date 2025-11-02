@@ -1,5 +1,5 @@
 import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { Code, ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import DomainIcon from '@app/domain/DomainIcon';
@@ -22,6 +22,7 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
@@ -132,6 +133,12 @@ export class DomainEntity implements Entity<Domain> {
             component: PropertiesTab,
             description: 'View additional properties about this asset',
             icon: ListBullets,
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 

@@ -1,4 +1,4 @@
-import { Infinity, ChartScatter, FileText, ListBullets, TreeStructure, WarningCircle } from '@phosphor-icons/react';
+import { Infinity, ChartScatter, Code, FileText, ListBullets, TreeStructure, WarningCircle } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { IncidentTab } from '@app/entity/shared/tabs/Incident/IncidentTab';
@@ -21,6 +21,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { DeveloperViewTab } from '@app/entityV2/shared/tabs/Entity/DeveloperViewTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { FeatureTableTab } from '@app/entityV2/shared/tabs/ML/MlFeatureFeatureTableTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -185,6 +186,12 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             component: PropertiesTab,
             description: 'View additional properties about this asset',
             icon: ListBullets,
+        },
+        {
+            name: 'Developer View',
+            component: DeveloperViewTab,
+            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            icon: Code,
         },
     ];
 
