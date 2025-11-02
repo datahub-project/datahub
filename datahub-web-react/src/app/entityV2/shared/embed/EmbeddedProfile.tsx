@@ -53,13 +53,13 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, refetch } =
         useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
 
+    const [isDeveloperViewEnabled] = useIsDeveloperViewEnabledForUser();
+
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;
     }
 
     if (!entityData?.type) return null;
-
-    const [isDeveloperViewEnabled] = useIsDeveloperViewEnabledForUser();
     const sidebarTabs = entityRegistry.getSidebarTabs(entityData.type);
     const sidebarSections = entityRegistry.getSidebarSections(entityData.type);
     const allFinalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections);

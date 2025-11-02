@@ -294,11 +294,11 @@ export const EntityProfile = <T, U>({
         }
     }, [routedTab?.supportsFullsize, setTabFullsize]);
 
+    const [isDeveloperViewEnabled] = useIsDeveloperViewEnabledForUser();
+
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;
     }
-
-    const [isDeveloperViewEnabled] = useIsDeveloperViewEnabledForUser();
     const allFinalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections || []);
     const finalTabs = isDeveloperViewEnabled
         ? allFinalTabs
