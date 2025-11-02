@@ -64,7 +64,6 @@ export default defineConfig(async ({ mode }) => {
         '/api/v2/graphql': frontendProxy,
         '/openapi/v1/tracking/track': frontendProxy,
         '/openapi/v1/files': frontendProxy,
-        '/openapi/v3/entity': frontendProxy,
     };
 
     const devPlugins = mode === 'development' ? [injectMeticulous()] : [];

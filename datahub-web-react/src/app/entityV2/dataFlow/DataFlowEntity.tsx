@@ -174,7 +174,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
         {
             name: 'Developer View',
             component: DeveloperViewTab,
-            description: 'View raw JSON entity data from the OpenAPI endpoint',
+            description: 'View raw entity data',
             icon: Code,
         },
     ];

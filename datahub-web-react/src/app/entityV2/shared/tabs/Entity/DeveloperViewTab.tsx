@@ -44,6 +44,77 @@ const ErrorText = styled(Typography.Text)`
     display: block;
 `;
 
+// Map entity types to GraphQL query field names
+const ENTITY_TYPE_TO_QUERY_MAP: Record<string, string> = {
+    DATASET: 'dataset',
+    CHART: 'chart',
+    DASHBOARD: 'dashboard',
+    DATA_FLOW: 'dataFlow',
+    DATA_JOB: 'dataJob',
+    CORP_USER: 'corpUser',
+    CORP_GROUP: 'corpGroup',
+    TAG: 'tag',
+    DOMAIN: 'domain',
+    GLOSSARY_TERM: 'glossaryTerm',
+    GLOSSARY_NODE: 'glossaryNode',
+    ML_MODEL: 'mlModel',
+    ML_MODEL_GROUP: 'mlModelGroup',
+    ML_FEATURE_TABLE: 'mlFeatureTable',
+    ML_FEATURE: 'mlFeature',
+    ML_PRIMARY_KEY: 'mlPrimaryKey',
+    CONTAINER: 'container',
+    NOTEBOOK: 'notebook',
+    DATA_PLATFORM: 'dataPlatform',
+    DATA_PRODUCT: 'dataProduct',
+    APPLICATION: 'application',
+    STRUCTURED_PROPERTY: 'structuredProperty',
+    ROLE: 'role',
+};
+
+// Helper function to parse JSON payloads and format them nicely
+function formatGraphQLResponse(response: any, queryFieldName: string): any {
+    if (!response?.data) {
+        return response;
+    }
+
+    // Get the entity data from the response using the query field name
+    const entityData = response.data[queryFieldName];
+
+    if (!entityData) {
+        return response;
+    }
+
+    // Format the aspects array - parse JSON payloads into pretty-printed objects
+    const formattedAspects = (entityData as any).aspects?.map((aspect: any) => {
+        if (aspect.payload) {
+            try {
+                // Parse the JSON string payload so it displays as a formatted object
+                const parsedPayload = JSON.parse(aspect.payload);
+                return {
+                    ...aspect,
+                    payload: parsedPayload,
+                };
+            } catch (e) {
+                // If parsing fails, keep the original payload
+                return aspect;
+            }
+        }
+        return aspect;
+    });
+
+    // Return formatted response matching the expected structure with pretty-printed payloads
+    return {
+        data: {
+            [queryFieldName]: {
+                urn: (entityData as any).urn,
+                type: (entityData as any).type,
+                aspects: formattedAspects || [],
+            },
+        },
+        extensions: response.extensions || {},
+    };
+}
+
 export const DeveloperViewTab = ({ renderType, contextType }: EntityTabProps) => {
     const { urn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
@@ -62,23 +133,61 @@ export const DeveloperViewTab = ({ renderType, contextType }: EntityTabProps) =>
             setError(null);
 
             try {
-                const entity = entityRegistry.getEntity(entityType);
-                const entityPathName = entity.getPathName();
-                const encodedUrn = encodeURIComponent(urn);
-                const url = resolveRuntimePath(`/openapi/v3/entity/${entityPathName}/${encodedUrn}`);
-                const response = await fetch(url, {
-                    method: 'GET',
+                // Map entity type to GraphQL query field name
+                const queryFieldName = ENTITY_TYPE_TO_QUERY_MAP[entityType.toUpperCase()];
+
+                if (!queryFieldName) {
+                    throw new Error(`Unsupported entity type: ${entityType}`);
+                }
+
+                // Create GraphQL query
+                const query = `
+                    query getEntityWithAllAspects($urn: String!) {
+                        ${queryFieldName}(urn: $urn) {
+                            urn
+                            type
+                            aspects(input: {}) {
+                                aspectName
+                                payload
+                                renderSpec {
+                                    displayType
+                                    displayName
+                                    key
+                                }
+                            }
+                        }
+                    }
+                `;
+
+                // Execute GraphQL query via POST
+                const graphqlUrl = resolveRuntimePath('/api/v2/graphql');
+                const response = await fetch(graphqlUrl, {
+                    method: 'POST',
                     headers: {
-                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
                     },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        query,
+                        variables: { urn },
+                    }),
                 });
 
                 if (!response.ok) {
                     throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
                 }
 
-                const jsonData = await response.json();
-                setData(jsonData);
+                const jsonResponse = await response.json();
+
+                if (jsonResponse.errors) {
+                    throw new Error(
+                        jsonResponse.errors.map((e: any) => e.message).join(', ') || 'GraphQL query failed',
+                    );
+                }
+
+                // Format the response to parse JSON payloads
+                const formattedData = formatGraphQLResponse(jsonResponse, queryFieldName);
+                setData(formattedData);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to fetch entity data');
             } finally {
@@ -87,7 +196,7 @@ export const DeveloperViewTab = ({ renderType, contextType }: EntityTabProps) =>
         };
 
         fetchData();
-    }, [urn, entityType, entityRegistry]);
+    }, [urn, entityType]);
 
     const jsonString = useMemo(() => (data ? JSON.stringify(data, null, 2) : ''), [data]);
 

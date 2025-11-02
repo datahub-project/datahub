@@ -174,7 +174,7 @@ export const Preferences = () => {
                         <TextContainer>
                             <SettingText>Show Developer View</SettingText>
                             <DescriptionText>
-                                Enable the Developer View tab to see raw JSON entity data from the OpenAPI endpoint
+                                Enable the Developer View tab to see raw entity data
                             </DescriptionText>
                         </TextContainer>
                         <Switch
