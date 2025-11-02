@@ -77,6 +77,8 @@ export enum EventType {
     ShowStandardHomepageEvent,
     ShowV2ThemeEvent,
     RevertV2ThemeEvent,
+    ShowDeveloperViewEvent,
+    RevertDeveloperViewEvent,
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
@@ -601,6 +603,14 @@ export interface ShowV2ThemeEvent extends BaseEvent {
 
 export interface RevertV2ThemeEvent extends BaseEvent {
     type: EventType.RevertV2ThemeEvent;
+}
+
+export interface ShowDeveloperViewEvent extends BaseEvent {
+    type: EventType.ShowDeveloperViewEvent;
+}
+
+export interface RevertDeveloperViewEvent extends BaseEvent {
+    type: EventType.RevertDeveloperViewEvent;
 }
 
 export interface HomePageExploreAllClickEvent extends BaseEvent {
@@ -1285,6 +1295,8 @@ export type Event =
     | ShowStandardHomepageEvent
     | ShowV2ThemeEvent
     | RevertV2ThemeEvent
+    | ShowDeveloperViewEvent
+    | RevertDeveloperViewEvent
     | SsoEvent
     | CreateViewEvent
     | UpdateViewEvent

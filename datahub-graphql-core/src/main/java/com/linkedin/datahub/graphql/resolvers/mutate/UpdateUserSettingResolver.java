@@ -56,6 +56,8 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
               newSettings.setAppearance(appearanceSettings.setShowSimplifiedHomepage(value));
             } else if (name.equals(UserSetting.SHOW_THEME_V2)) {
               newSettings.setAppearance(appearanceSettings.setShowThemeV2(value));
+            } else if (name.equals(UserSetting.SHOW_DEVELOPER_VIEW)) {
+              newSettings.setAppearance(appearanceSettings.setShowDeveloperView(value));
             } else {
               log.error("User Setting name {} not currently supported", name);
               throw new RuntimeException(

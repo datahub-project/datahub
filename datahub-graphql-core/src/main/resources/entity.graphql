@@ -4356,6 +4356,11 @@ type CorpUserAppearanceSettings {
   Flag controlling whether the V2 UI for DataHub is shown.
   """
   showThemeV2: Boolean
+
+  """
+  Flag controlling whether the Developer View tab is shown on entity profiles.
+  """
+  showDeveloperView: Boolean
 }
 
 """
@@ -12045,6 +12050,11 @@ enum UserSetting {
   Show theme v2
   """
   SHOW_THEME_V2
+
+  """
+  Show developer view
+  """
+  SHOW_DEVELOPER_VIEW
 }
 
 """

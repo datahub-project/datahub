@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useAppConfig } from '@app/useAppConfig';
+import { useIsDeveloperViewEnabledForUser } from '@app/useIsDeveloperViewEnabled';
 import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '@app/useIsThemeV2';
 
 import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
@@ -75,6 +76,7 @@ export const Preferences = () => {
     const isThemeV2 = useIsThemeV2();
     const [isThemeV2Toggleable] = useIsThemeV2Toggleable();
     const [isThemeV2EnabledForUser] = useIsThemeV2EnabledForUser();
+    const [isDeveloperViewEnabledForUser] = useIsDeveloperViewEnabledForUser();
     const userContext = useUserContext();
     const appConfig = useAppConfig();
 
@@ -167,6 +169,42 @@ export const Preferences = () => {
                         </StyledCard>
                     </>
                 )}
+                <StyledCard>
+                    <UserSettingRow>
+                        <TextContainer>
+                            <SettingText>Show Developer View</SettingText>
+                            <DescriptionText>
+                                Enable the Developer View tab to see raw JSON entity data from the OpenAPI endpoint
+                            </DescriptionText>
+                        </TextContainer>
+                        <Switch
+                            label=""
+                            checked={isDeveloperViewEnabledForUser}
+                            onChange={async () => {
+                                try {
+                                    await updateUserSettingMutation({
+                                        variables: {
+                                            input: {
+                                                name: UserSetting.ShowDeveloperView,
+                                                value: !isDeveloperViewEnabledForUser,
+                                            },
+                                        },
+                                    });
+                                    // clicking this button toggles, so event is whatever is opposite to what isDeveloperViewEnabledForUser currently is
+                                    analytics.event({
+                                        type: isDeveloperViewEnabledForUser
+                                            ? EventType.RevertDeveloperViewEvent
+                                            : EventType.ShowDeveloperViewEvent,
+                                    });
+                                    message.success({ content: 'Setting updated!', duration: 2 });
+                                    await refetchUser?.();
+                                } catch (err) {
+                                    message.error({ content: 'Failed to update setting', duration: 2 });
+                                }
+                            }}
+                        />
+                    </UserSettingRow>
+                </StyledCard>
                 {canManageApplicationAppearance && (
                     <StyledCard>
                         <UserSettingRow>
