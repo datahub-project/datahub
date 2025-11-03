@@ -1,19 +1,7 @@
-"""
-Version-compatible SQLite operator DAG that works with both Airflow 2.4+ and 3.x.
-
-Uses SQLExecuteQueryOperator which is available in both versions via conditional imports.
-"""
-
 from datetime import datetime
 
 from airflow import DAG
-
-# Try Airflow 3.x / 2.7+ location first (common.sql provider)
-try:
-    from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
-except ImportError:
-    # Fall back to Airflow 2.4-2.6 location
-    from airflow.operators.sql import SQLExecuteQueryOperator  # type: ignore
+from airflow.providers.sqlite.operators.sqlite import SqliteOperator
 
 CONN_ID = "my_sqlite"
 
@@ -26,8 +14,8 @@ with DAG(
     schedule=None,
     catchup=False,
 ) as dag:
-    create_cost_table = SQLExecuteQueryOperator(
-        conn_id=CONN_ID,
+    create_cost_table = SqliteOperator(
+        sqlite_conn_id=CONN_ID,
         task_id="create_cost_table",
         sql="""
         CREATE TABLE IF NOT EXISTS {{ params.table_name }} (
@@ -40,8 +28,8 @@ with DAG(
         params={"table_name": COST_TABLE},
     )
 
-    populate_cost_table = SQLExecuteQueryOperator(
-        conn_id=CONN_ID,
+    populate_cost_table = SqliteOperator(
+        sqlite_conn_id=CONN_ID,
         task_id="populate_cost_table",
         sql="""
         INSERT INTO {{ params.table_name }} (id, month, total_cost, area)
@@ -53,8 +41,8 @@ with DAG(
         params={"table_name": COST_TABLE},
     )
 
-    transform_cost_table = SQLExecuteQueryOperator(
-        conn_id=CONN_ID,
+    transform_cost_table = SqliteOperator(
+        sqlite_conn_id=CONN_ID,
         task_id="transform_cost_table",
         sql="""
         CREATE TABLE IF NOT EXISTS {{ params.out_table_name }} AS
@@ -74,8 +62,8 @@ with DAG(
 
     cleanup_tables = []
     for table_name in [COST_TABLE, PROCESSED_TABLE]:
-        cleanup_table = SQLExecuteQueryOperator(
-            conn_id=CONN_ID,
+        cleanup_table = SqliteOperator(
+            sqlite_conn_id=CONN_ID,
             task_id=f"cleanup_{table_name}",
             sql="""
             DROP TABLE {{ params.table_name }}
