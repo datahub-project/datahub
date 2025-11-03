@@ -36,7 +36,7 @@ export function useSetAppTheme() {
                         updateTheme(theme);
                     })
                     .catch((error) => {
-                        console.error(`Failed to load theme from ${customThemeId}:`, error);
+                        console.error(`Failed to load theme from './conf/theme/${customThemeId}':`, error);
                     });
             } else {
                 fetch(`assets/conf/theme/${customThemeId}`)
@@ -45,7 +45,7 @@ export function useSetAppTheme() {
                         updateTheme(theme);
                     })
                     .catch((error) => {
-                        console.error(`Failed to load theme from ${customThemeId}:`, error);
+                        console.error(`Failed to load theme from 'assets/conf/theme/${customThemeId}':`, error);
                     });
             }
         } else if (customThemeId && themes[customThemeId]) {
