@@ -6,6 +6,55 @@ This document outlines the changes made to support Apache Airflow 3.x and known 
 
 Apache Airflow 3.0 introduced significant breaking changes. The DataHub Airflow plugin has been fully updated to support both Airflow 2.4+ and 3.x with backward compatibility.
 
+### 🏗️ Plugin Architecture: Separate Version-Specific Implementations
+
+**The plugin now uses separate implementations for Airflow 2.x and 3.x** to achieve clean type safety and maintainability:
+
+| Component                    | Airflow 2.x Implementation     | Airflow 3.x Implementation           |
+| ---------------------------- | ------------------------------ | ------------------------------------ |
+| **Main Module**              | `plugin_v2/datahub_listener.py` | `plugin_v2_airflow3/datahub_listener.py` |
+| **Shims/Imports**            | `plugin_v2/_shims.py`           | `plugin_v2_airflow3/_shims.py`        |
+| **Lineage Extraction**       | Extractor-based (`_extractors.py`) | OpenLineage native (`_airflow3_sql_parser_patch.py`) |
+| **OpenLineage Package**      | `openlineage-airflow>=1.2.0`    | Native provider (`apache-airflow-providers-openlineage`) |
+| **Type Checking**            | ✅ Clean Airflow 2.x types      | ✅ Clean Airflow 3.x types            |
+
+**Version Dispatcher:** The main `datahub_listener.py` automatically imports the correct implementation at runtime:
+
+```python
+from datahub_airflow_plugin._airflow_version_specific import IS_AIRFLOW_3_OR_HIGHER
+
+if IS_AIRFLOW_3_OR_HIGHER:
+    from datahub_airflow_plugin.plugin_v2_airflow3.datahub_listener import (
+        DataHubListener,
+        get_airflow_plugin_listener,
+    )
+else:
+    from datahub_airflow_plugin.plugin_v2.datahub_listener import (
+        DataHubListener,
+        get_airflow_plugin_listener,
+    )
+```
+
+**Benefits:**
+
+- ✅ **Type Safety** - Each version can be properly type-checked against its respective Airflow API without conflicts
+- ✅ **Maintainability** - No complex version conditionals scattered throughout the code
+- ✅ **Clarity** - Clear separation of version-specific logic
+- ✅ **Testing** - Each version can be tested independently with its specific type requirements
+
+**Package Installation:**
+
+```bash
+# For Airflow 2.x (uses standalone openlineage-airflow package)
+pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
+
+# For Airflow 3.x (uses native OpenLineage provider)
+pip install 'acryl-datahub-airflow-plugin[plugin-v2-airflow3]'
+
+# For compatibility across versions (installs base package with native provider)
+pip install 'acryl-datahub-airflow-plugin'  # Works with both Airflow 2.7+ and 3.x
+```
+
 ### 🎯 Key Architectural Change: Moved Away from Operator-Specific Overrides
 
 **The most significant change** is how lineage extraction works:
@@ -174,7 +223,9 @@ from airflow.sensors.external_task import ExternalTaskSensor
 
 **Files Updated:**
 
-- `src/datahub_airflow_plugin/_airflow_shims.py` - Conditional import logic
+- `src/datahub_airflow_plugin/plugin_v2/_shims.py` - Clean Airflow 2.x imports
+- `src/datahub_airflow_plugin/plugin_v2_airflow3/_shims.py` - Clean Airflow 3.x imports
+- `src/datahub_airflow_plugin/_airflow_shims.py` - Shared compatibility imports (deprecated, use version-specific shims)
 - `src/datahub_airflow_plugin/client/airflow_generator.py` - Import from shims
 
 ### 1b. OpenLineage Provider Changes
@@ -475,30 +526,54 @@ if Variable.get("datahub_airflow_plugin_disable_listener", "false").lower() == "
 
 #### Solution
 
-For Airflow 3.x, use environment variables instead of Airflow Variables:
+The plugin now has separate kill switch implementations for each version:
 
+**Airflow 2.x** (`plugin_v2/datahub_listener.py`):
 ```python
-def check_kill_switch(self):
-    if packaging.version.parse(airflow.__version__) >= packaging.version.parse("3.0.0"):
-        # Airflow 3.0+: Use environment variable (no database access)
-        if os.getenv(f"AIRFLOW_VAR_{KILL_SWITCH_VARIABLE_NAME}".upper(), "false").lower() == "true":
-            return True
-    else:
-        # Airflow 2.x: Use Variable.get()
+def check_kill_switch(self) -> bool:
+    # For Airflow 2.x, use Variable.get()
+    try:
         if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+            logger.debug("DataHub listener disabled by kill switch")
             return True
+    except Exception as e:
+        logger.debug(f"Error checking kill switch variable: {e}")
     return False
 ```
 
-**Migration Note:** To disable the plugin in Airflow 3.x, set the environment variable:
+**Airflow 3.x** (`plugin_v2_airflow3/datahub_listener.py`):
+```python
+def check_kill_switch(self) -> bool:
+    """
+    Variable.get() cannot be called from listener hooks in Airflow 3.0+
+    because it creates a database session commit which breaks HA locks.
+    Use environment variable instead.
+    """
+    if (
+        os.getenv(
+            f"AIRFLOW_VAR_{KILL_SWITCH_VARIABLE_NAME}".upper(), "false"
+        ).lower()
+        == "true"
+    ):
+        logger.debug("DataHub listener disabled by kill switch (env var)")
+        return True
+    return False
+```
+
+**Migration Note:** To disable the plugin:
 
 ```bash
+# Airflow 2.x - Use Airflow Variable
+airflow variables set datahub_airflow_plugin_disable_listener true
+
+# Airflow 3.x - Use environment variable
 export AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true
 ```
 
 **Files Updated:**
 
-- `src/datahub_airflow_plugin/datahub_listener.py:540-557` - Kill switch implementation
+- `src/datahub_airflow_plugin/plugin_v2/datahub_listener.py` - Kill switch for Airflow 2.x
+- `src/datahub_airflow_plugin/plugin_v2_airflow3/datahub_listener.py` - Kill switch for Airflow 3.x
 
 ### 8. Threading Support in Airflow 3.x
 
@@ -561,15 +636,12 @@ task_instance_copy.render_templates()
 
 #### Solution
 
-For Airflow 3.x, skip template rendering since Airflow already renders templates before task execution:
+The plugin now has separate template rendering implementations for each version:
 
+**Airflow 2.x** (`plugin_v2/datahub_listener.py`):
 ```python
 def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
-    if packaging.version.parse(airflow.__version__) >= packaging.version.parse("3.0.0"):
-        # Templates are already rendered by Airflow 3.x task execution system
-        return task_instance
-
-    # Airflow 2.x: Render templates manually
+    # Render templates in a copy of the task instance
     try:
         task_instance_copy = copy.deepcopy(task_instance)
         task_instance_copy.render_templates()
@@ -579,11 +651,27 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
         return task_instance
 ```
 
+**Airflow 3.x** (`plugin_v2_airflow3/datahub_listener.py`):
+```python
+def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
+    """
+    Templates are already rendered in Airflow 3.x by the task execution system.
+
+    RuntimeTaskInstance contains unpickleable thread locks, so we cannot use deepcopy.
+    RuntimeTaskInstance.task contains the operator with rendered templates.
+    """
+    logger.debug(
+        "Skipping template rendering for Airflow 3.0+ (already rendered by task worker)"
+    )
+    return task_instance
+```
+
 **Impact:** Jinja-templated SQL queries are correctly parsed in both Airflow 2.x and 3.x.
 
 **Files Updated:**
 
-- `src/datahub_airflow_plugin/datahub_listener.py:259-281` - Template rendering logic
+- `src/datahub_airflow_plugin/plugin_v2/datahub_listener.py` - Template rendering for Airflow 2.x
+- `src/datahub_airflow_plugin/plugin_v2_airflow3/datahub_listener.py` - Template rendering for Airflow 3.x
 
 ### 10. SQL Parser Integration for Airflow 3.x
 

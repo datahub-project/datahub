@@ -28,10 +28,9 @@ base_requirements = {
     # We require Airflow 2.5.x at minimum, since we need the new DAG listener API.
     # We support both Airflow 2.x and 3.x with full backward compatibility.
     "apache-airflow>=2.5.0,<4.0.0",
-    # Use native OpenLineage provider by default (recommended for Airflow 2.7+)
-    # The openlineage-airflow standalone package is deprecated for Airflow 2.7+
-    # This works for both Airflow 2.7+ and 3.x installations.
-    "apache-airflow-providers-openlineage>=1.0.0",
+    # Note: OpenLineage dependencies are version-specific and provided via extras:
+    # - plugin-v2: for Airflow 2.x (uses standalone openlineage-airflow package)
+    # - plugin-v2-airflow3: for Airflow 3.x (uses native apache-airflow-providers-openlineage)
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -45,15 +44,19 @@ plugins: Dict[str, Set[str]] = {
         f"acryl-datahub[sync-file-emitter]{_self_pin}",
     },
     "plugin-v1": set(),
-    # plugin-v2: Native OpenLineage provider is now in base requirements (Airflow 2.7+/3.x)
-    "plugin-v2": set(),
-    # plugin-v2-airflow3: Native OpenLineage provider is now in base requirements
-    "plugin-v2-airflow3": set(),
-    # Backward compatibility: For legacy Airflow 2.5-2.6 that may need standalone package
+    # plugin-v2: For Airflow 2.x, use standalone openlineage-airflow package
+    "plugin-v2": {
+        "openlineage-airflow>=1.2.0",
+    },
+    # plugin-v2-airflow3: For Airflow 3.x, use native OpenLineage provider
+    "plugin-v2-airflow3": {
+        "apache-airflow>=3.0.0,<4.0.0",
+        "apache-airflow-providers-openlineage>=1.0.0",
+    },
+    # Backward compatibility aliases
     "plugin-v2-airflow2": {
         "openlineage-airflow>=1.2.0",
     },
-    # Backward compatibility aliases
     "openlineage-airflow2": {
         "openlineage-airflow>=1.2.0",
     },
