@@ -93,7 +93,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
 
     const propertyTableColumns = [
         {
-            width: 210,
+            width: '40%',
             title: 'Name',
             render: (propertyRow: PropertyRow) => <NameColumn propertyRow={propertyRow} filterText={filterText} />,
         },
