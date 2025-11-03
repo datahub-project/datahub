@@ -42,6 +42,16 @@ def test_snowflake_marketplace(pytestconfig, tmp_path, mock_time, mock_datahub_g
                     "database_pattern": {"allow": ["TEST_DB"]},
                     # Enable INTERNAL marketplace features
                     "include_internal_marketplace": True,
+                    # Add shares configuration to link databases to listings
+                    "shares": {
+                        "CUSTOMER_360_SHARE": {
+                            "database": "CUSTOMER_360",
+                            "platform_instance": None,
+                            "consumers": [
+                                {"database": "DEMO_DATABASE", "platform_instance": None}
+                            ],
+                        }
+                    },
                     # Disable other features for focused testing
                     "include_table_lineage": False,
                     "include_usage_stats": False,
@@ -115,6 +125,16 @@ def test_snowflake_marketplace_with_filtering(
                     "internal_marketplace_listing_pattern": {
                         "allow": ["ACME_CORP.*"],
                         "deny": [".*WEATHER.*"],
+                    },
+                    # Add shares configuration to link databases to listings
+                    "shares": {
+                        "CUSTOMER_360_SHARE": {
+                            "database": "CUSTOMER_360",
+                            "platform_instance": None,
+                            "consumers": [
+                                {"database": "DEMO_DATABASE", "platform_instance": None}
+                            ],
+                        }
                     },
                     # Disable other features
                     "include_table_lineage": False,

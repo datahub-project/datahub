@@ -189,6 +189,18 @@ class SnowflakeMarketplaceListing:
 
 
 @dataclass
+class SnowflakeShare:
+    """Represents a Snowflake share"""
+
+    name: str
+    kind: str  # INBOUND or OUTBOUND
+    database_name: Optional[str]  # Database provided by the share
+    owner: Optional[str]
+    comment: Optional[str]
+    listing_global_name: Optional[str]  # For shares from marketplace listings
+
+
+@dataclass
 class SnowflakeMarketplacePurchase:
     """Represents a database created from an internal marketplace listing"""
 

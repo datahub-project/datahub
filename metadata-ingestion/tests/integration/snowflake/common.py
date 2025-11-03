@@ -831,13 +831,14 @@ def default_query_results(  # noqa: C901
         ]
     elif query == SnowflakeQuery.marketplace_purchases():
         # Databases created from listings (IMPORTED DATABASE type)
-        # NOTE: ORIGIN column doesn't exist in SNOWFLAKE.ACCOUNT_USAGE.DATABASES
+        # NOTE: ACCOUNT_USAGE.DATABASES doesn't have an ORIGIN column
+        # Matching is done via comment or database name heuristics
         return [
             {
                 "DATABASE_NAME": "DEMO_DATABASE",
                 "PURCHASE_DATE": datetime(2023, 3, 15, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "OWNER": "ACCOUNTADMIN",
-                "COMMENT": "Customer data from ACME_CORP.DATA_PRODUCT.CUSTOMER_360",  # Listing name in comment for heuristic matching
+                "COMMENT": "Customer data from ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
             },
         ]
     elif "LISTING_ACCESS_HISTORY" in query:

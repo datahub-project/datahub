@@ -148,6 +148,8 @@ The steps slightly differ based on which you decide to use.
 
 If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/data-sharing-provider) to share data across different Snowflake accounts, and you have set up DataHub recipes for ingesting metadata from all these accounts, you may end up having multiple similar dataset entities corresponding to virtual versions of the same table in different Snowflake accounts. The DataHub Snowflake connector can automatically link such tables together through Siblings and Lineage relationships if the user provides information necessary to establish the relationship using the `shares` configuration in the recipe.
 
+**Note:** The `shares` configuration is also **REQUIRED** when using the `include_internal_marketplace` feature to ingest Snowflake internal marketplace listings as Data Products. Without this configuration, Data Products will be created but won't have any associated datasets (assets). See the [Internal Marketplace](#internal-marketplace) section below for details.
+
 #### Example
 
 - Snowflake account `account1` (ingested as platform_instance `instance1`) owns a database `db1`. A share `X` is created in `account1` that includes database `db1` along with schemas and tables inside it.
@@ -163,6 +165,65 @@ If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/dat
           platform_instance: instance2
   ```
 - If share `X` is shared with more Snowflake accounts and a database is created from share `X` in those accounts, then additional entries need to be added to the `consumers` list for share `X`, one per Snowflake account. The same `shares` config can then be copied across recipes for all accounts.
+
+### Internal Marketplace
+
+If you are using the Snowflake internal marketplace (private data sharing within your organization via Data Exchange) and want to ingest marketplace listings as DataHub Data Products, you must:
+
+1. **Grant the required privileges** (already covered in the Prerequisites section above):
+
+   ```sql
+   grant imported privileges on database snowflake to role datahub_role;
+   ```
+
+2. **Enable marketplace ingestion** in your recipe:
+
+   ```yaml
+   include_internal_marketplace: true
+   ```
+
+3. **Configure the `shares` mapping** (REQUIRED for linking Data Products to their purchased databases):
+
+   Because Snowflake does not provide a direct system field linking imported databases to their source marketplace listings, you must manually configure the `shares` section. For each imported database created from a marketplace listing:
+
+   ```yaml
+   shares:
+     <SHARE_NAME>: # From: SHOW SHARES
+       database: "<SOURCE_DATABASE>" # Source database in the share
+       platform_instance: null
+       consumers:
+         - database: "<IMPORTED_DATABASE>" # Your purchased/imported database
+           platform_instance: null
+   ```
+
+   **To discover the correct values**, run these SQL commands in Snowflake:
+
+   ```sql
+   -- Find marketplace listings
+   SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE;
+
+   -- Find imported databases
+   SELECT DATABASE_NAME, TYPE FROM SNOWFLAKE.ACCOUNT_USAGE.DATABASES
+   WHERE TYPE = 'IMPORTED DATABASE' AND DELETED IS NULL;
+
+   -- Find shares and their mappings
+   SHOW SHARES;
+   ```
+
+   **Without the `shares` configuration:**
+
+   - ✅ Data Products will be created from marketplace listings
+   - ✅ Owners and custom properties will be populated
+   - ❌ Data Products will NOT have any associated datasets (assets)
+   - ⚠️ Warning messages will be logged
+
+   **With the `shares` configuration:**
+
+   - ✅ Data Products will be created with all metadata
+   - ✅ Purchased databases will be linked as Data Product assets
+   - ✅ Tables from imported databases will show as part of the Data Product
+
+For more details, see the marketplace configuration guide in the connector documentation.
 
 ### Lineage and Usage
 

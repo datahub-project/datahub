@@ -227,7 +227,16 @@ class TestMarketplaceBasicFunctionality:
         mock_purchases: List[Dict[str, Any]],
     ) -> None:
         """Test that data products and dataset enhancements are created."""
-        handler = create_handler(base_config, mock_listings, mock_purchases)
+        # Add shares configuration for proper linking
+        config_with_shares = base_config.copy()
+        config_with_shares["shares"] = {
+            "ACME_SHARE": {
+                "database": "ACME_DATA",  # Matches ACME.DATA.LISTING
+                "platform_instance": None,
+                "consumers": [{"database": "DEMO_DATABASE", "platform_instance": None}],
+            }
+        }
+        handler = create_handler(config_with_shares, mock_listings, mock_purchases)
         wus = list(handler.get_marketplace_workunits())
 
         # Verify data products were created (check for data product URNs)
@@ -326,57 +335,58 @@ class TestMarketplaceBasicFunctionality:
 class TestListingPurchaseMatching:
     """Test the heuristic matching of purchases to listings."""
 
-    @pytest.mark.parametrize(
-        "comment,expected_listing",
-        [
-            pytest.param(
-                "Sample listing data from ACME.DATA.LISTING",
-                "ACME.DATA.LISTING",
-                id="exact_match",
-            ),
-            pytest.param(
-                "Data from acme.data.listing for analysis",
-                "ACME.DATA.LISTING",
-                id="case_insensitive",
-            ),
-            pytest.param(
-                "Contains WEATHER.PUBLIC.GLOBAL_DATA in middle",
-                "WEATHER.PUBLIC.GLOBAL_DATA",
-                id="substring_match",
-            ),
-            pytest.param(
-                "No listing info here",
-                None,
-                id="no_match",
-            ),
-            pytest.param(
-                None,
-                None,
-                id="null_comment",
-            ),
-        ],
-    )
-    def test_find_listing_for_purchase_heuristic(
+    def test_find_listing_with_shares_config(
         self,
         base_config: Dict[str, Any],
         mock_listings: List[Dict[str, Any]],
-        comment: Optional[str],
-        expected_listing: Optional[str],
     ) -> None:
-        """Test heuristic matching with various comment patterns."""
+        """Test matching imported databases to listings using shares configuration."""
+        # Add shares configuration
+        config_with_shares = base_config.copy()
+        config_with_shares["shares"] = {
+            "ACME_SHARE": {
+                "database": "ACME_DATA",  # Source database name - matches "ACME.DATA.LISTING"
+                "platform_instance": None,
+                "consumers": [
+                    {"database": "IMPORTED_ACME_DB", "platform_instance": None}
+                ],
+            }
+        }
+
+        handler = create_handler(config_with_shares, mock_listings, [])
+        handler._load_marketplace_data()
+
+        # Create test purchase for imported database
+        purchase = SnowflakeMarketplacePurchase(
+            database_name="IMPORTED_ACME_DB",
+            purchase_date=datetime(2024, 7, 1, tzinfo=timezone.utc),
+            owner="ACCOUNTADMIN",
+            comment=None,
+        )
+
+        found_listing = handler._find_listing_for_purchase(purchase)
+        # Should match because "ACME_DATA" appears in "ACME.DATA.LISTING"
+        assert found_listing == "ACME.DATA.LISTING"
+
+    def test_find_listing_without_shares_config(
+        self,
+        base_config: Dict[str, Any],
+        mock_listings: List[Dict[str, Any]],
+    ) -> None:
+        """Test that without shares config, no listing is found."""
         handler = create_handler(base_config, mock_listings, [])
         handler._load_marketplace_data()
 
-        # Create test purchase
         purchase = SnowflakeMarketplacePurchase(
             database_name="TEST_DB",
             purchase_date=datetime(2024, 7, 1, tzinfo=timezone.utc),
             owner="ACCOUNTADMIN",
-            comment=comment,
+            comment="Created from ACME_CORP.CUSTOMER.CUSTOMER_360",
         )
 
         found_listing = handler._find_listing_for_purchase(purchase)
-        assert found_listing == expected_listing
+        # Should return None because no shares config is provided
+        assert found_listing is None
 
     def test_unknown_listing_purchase_status(
         self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]

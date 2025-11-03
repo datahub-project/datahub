@@ -48,6 +48,17 @@ source:
     #     allow: ["^FINANCE_.*", "^FIN_.*"]
     #   "Marketing":
     #     allow: ["^MARKETING_.*", "^MKT_.*"]
+    
+    # (REQUIRED for marketplace) Link imported databases to their source shares/listings
+    # Without this, Data Products will be created but won't have any associated datasets
+    # Run: SHOW SHARES; and SELECT DATABASE_NAME FROM SNOWFLAKE.ACCOUNT_USAGE.DATABASES WHERE TYPE='IMPORTED DATABASE';
+    # shares:
+    #   <SHARE_NAME>:
+    #     database: "<SOURCE_DATABASE>"  # Database in the share
+    #     platform_instance: null
+    #     consumers:
+    #       - database: "<IMPORTED_DATABASE>"  # Your purchased/imported database
+    #         platform_instance: null
 
 # Default sink is datahub-rest and doesn't need to be configured
 # See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization options

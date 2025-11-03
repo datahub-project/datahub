@@ -516,19 +516,85 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         self, purchase: SnowflakeMarketplacePurchase
     ) -> Optional[str]:
         """
-        Heuristically find the listing_global_name for a purchased database.
-        This is needed since the ORIGIN column doesn't exist in SNOWFLAKE.ACCOUNT_USAGE.DATABASES.
+        Find the listing_global_name for a purchased database.
 
-        Strategy: Check if any listing_global_name appears in the database comment.
+        Since Snowflake doesn't provide a direct system link between imported databases
+        and their source listings, we REQUIRE the 'shares' configuration where users
+        explicitly map imported databases to their source shares/listings.
+
+        The shares config maps the imported database name to a source database/share.
+        We then find a marketplace listing that matches that source.
+
+        Returns None if no shares config is provided or no match is found.
         """
-        if not purchase.comment:
+        if not self.config.shares:
+            logger.warning(
+                f"No 'shares' configuration provided. Cannot link imported database {purchase.database_name} "
+                f"to marketplace listing. Please add shares configuration to your recipe. "
+                f"See SNOWFLAKE_MARKETPLACE_SHARES_GUIDE.md for instructions."
+            )
             return None
 
-        # Try to find any listing whose global name appears in the comment
-        for listing_global_name in self._marketplace_listings:
-            if listing_global_name.lower() in purchase.comment.lower():
+        # Check if this database is an inbound share (imported database)
+        inbounds = self.config.inbounds()
+        if purchase.database_name not in inbounds:
+            logger.debug(
+                f"Imported database {purchase.database_name} not found in shares configuration inbounds. "
+                f"Available inbounds: {list(inbounds.keys())}"
+            )
+            return None
+
+        source_db = inbounds[purchase.database_name]
+        source_db_name = source_db.database
+        source_db_lower = source_db_name.lower().replace("_", "").replace("-", "")
+
+        # Try to find a listing that matches the source database
+        for listing_global_name, listing in self._marketplace_listings.items():
+            listing_lower = (
+                listing_global_name.lower().replace("_", "").replace("-", "")
+            )
+
+            # Check if the source database name appears in the listing global name
+            # e.g., source_db "CUSTOMER_360" matches "ACME_CORP.PRODUCT.CUSTOMER_360"
+            # or "ACME_DATA" matches "ACME.DATA.LISTING"
+            if (
+                source_db_lower in listing_lower
+                or source_db_name.lower() in listing_global_name.lower()
+            ):
+                logger.info(
+                    f"Matched imported database {purchase.database_name} to listing {listing_global_name} "
+                    f"via shares config (source: {source_db_name})"
+                )
                 return listing_global_name
 
+            # Check parts of the source database name (split by underscores)
+            source_parts = [part.lower() for part in source_db_name.split("_")]
+
+            # If all source parts appear in the listing global name
+            if all(
+                part in listing_lower or part in listing_global_name.lower()
+                for part in source_parts
+                if len(part) > 2
+            ):
+                logger.info(
+                    f"Matched imported database {purchase.database_name} to listing {listing_global_name} "
+                    f"via shares config (partial match: {source_db_name})"
+                )
+                return listing_global_name
+
+            # Check if listing name matches exactly
+            if listing.name.lower() == source_db_name.lower():
+                logger.info(
+                    f"Matched imported database {purchase.database_name} to listing {listing_global_name} "
+                    f"via shares config (exact name match: {source_db_name})"
+                )
+                return listing_global_name
+
+        logger.warning(
+            f"Could not match source database '{source_db_name}' (from shares config) "
+            f"to any marketplace listing for imported database {purchase.database_name}. "
+            f"Available listings: {list(self._marketplace_listings.keys())}"
+        )
         return None
 
     def _enhance_purchased_datasets(self) -> Iterable[MetadataWorkUnit]:

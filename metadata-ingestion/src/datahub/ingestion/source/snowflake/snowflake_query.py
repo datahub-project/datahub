@@ -1036,6 +1036,11 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             """
 
     @staticmethod
+    def marketplace_shares() -> str:
+        """Get information about available shares (to map imported databases to sources)"""
+        return "SHOW SHARES"
+
+    @staticmethod
     def marketplace_listing_access_history(
         start_time_millis: int, end_time_millis: int
     ) -> str:
