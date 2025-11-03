@@ -19,6 +19,7 @@ from datahub.configuration.common import GraphError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
+from datahub.ingestion.masking.bootstrap import initialize_secret_masking
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
@@ -127,6 +128,9 @@ def run(
     no_progress: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
+
+    # Initialize secret masking (before any logging)
+    initialize_secret_masking()
 
     def run_pipeline_to_completion(pipeline: Pipeline) -> int:
         logger.info("Starting metadata ingestion")
