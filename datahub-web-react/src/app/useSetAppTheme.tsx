@@ -31,14 +31,21 @@ export function useSetAppTheme() {
     useEffect(() => {
         if (customThemeId && customThemeId.endsWith('.json')) {
             if (import.meta.env.DEV) {
-                import(/* @vite-ignore */ `./conf/theme/${customThemeId}`).then((theme) => {
-                    updateTheme(theme);
-                });
+                import(/* @vite-ignore */ `./conf/theme/${customThemeId}`)
+                    .then((theme) => {
+                        updateTheme(theme);
+                    })
+                    .catch((error) => {
+                        console.error(`Failed to load theme from ${customThemeId}:`, error);
+                    });
             } else {
                 fetch(`assets/conf/theme/${customThemeId}`)
                     .then((response) => response.json())
                     .then((theme) => {
                         updateTheme(theme);
+                    })
+                    .catch((error) => {
+                        console.error(`Failed to load theme from ${customThemeId}:`, error);
                     });
             }
         } else if (customThemeId && themes[customThemeId]) {
