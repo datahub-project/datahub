@@ -19,6 +19,10 @@ import { colors } from '@components/theme';
 
 import Loading from '@app/shared/Loading';
 
+const StyledIcon = styled(Icon)`
+    flex-shrink: 0;
+`;
+
 const FileContainer = styled.div<{ $isInline?: boolean }>`
     display: inline-block;
 
@@ -179,7 +183,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
                 handleFileDownload(url, name);
             }}
         >
-            <Icon icon={icon} size="lg" source="phosphor" />
+            <StyledIcon icon={icon} size="lg" source="phosphor" />
             <FileName ellipsis={{ tooltip: name }}>{name}</FileName>
         </FileDetails>
     );
