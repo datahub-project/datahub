@@ -52,6 +52,7 @@ from datahub.metadata.schema_classes import (
     ChartQueryTypeClass,
     ChartTypeClass,
     DashboardInfoClass,
+    EdgeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -338,19 +339,25 @@ class MetabaseSource(StatefulIngestionSourceBase):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        chart_urns = []
+        # Convert chart URNs to chart edges (instead of deprecated charts field)
+        chart_edges = []
         cards_data = dashboard_details.get("dashcards", {})
         for card_info in cards_data:
             card_id = card_info.get("card").get("id", "")
             if not card_id:
                 continue  # most likely a virtual card without an id (text or heading), not relevant.
             chart_urn = builder.make_chart_urn(self.platform, str(card_id))
-            chart_urns.append(chart_urn)
+            chart_edges.append(
+                EdgeClass(
+                    destinationUrn=chart_urn,
+                    lastModified=last_modified.lastModified,
+                )
+            )
 
         dashboard_info_class = DashboardInfoClass(
             description=description,
             title=title,
-            charts=chart_urns,
+            chartEdges=chart_edges,
             lastModified=last_modified,
             dashboardUrl=f"{self.config.display_uri}/dashboard/{dashboard_id}",
             customProperties={},
@@ -488,13 +495,25 @@ class MetabaseSource(StatefulIngestionSourceBase):
         datasource_urn = self.get_datasource_urn(card_details)
         custom_properties = self.construct_card_custom_properties(card_details)
 
+        input_edges = (
+            [
+                EdgeClass(
+                    destinationUrn=urn,
+                    lastModified=last_modified.lastModified,
+                )
+                for urn in datasource_urn
+            ]
+            if datasource_urn
+            else None
+        )
+
         chart_info = ChartInfoClass(
             type=chart_type,
             description=description,
             title=title,
             lastModified=last_modified,
             chartUrl=f"{self.config.display_uri}/card/{card_id}",
-            inputs=datasource_urn,
+            inputEdges=input_edges,
             customProperties=custom_properties,
         )
         chart_snapshot.aspects.append(chart_info)

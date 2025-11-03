@@ -1,6 +1,7 @@
 /**
  * Utility functions for file handling in the editor
  */
+import { FileUploadFailureType } from '@components/components/Editor/types';
 
 export const FILE_ATTRS = {
     url: 'data-file-url',
@@ -32,7 +33,6 @@ export const SUPPORTED_FILE_TYPES = [
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.ms-excel',
     'application/xml',
     'application/vnd.ms-powerpoint',
@@ -44,6 +44,20 @@ export const SUPPORTED_FILE_TYPES = [
     'audio/mpeg',
     'video/x-ms-wmv',
     'image/tiff',
+    'text/x-python-script',
+    'application/json',
+    'text/html',
+    'text/x-java-source',
+    'image/svg+xml',
+    'application/vnd.oasis.opendocument.text',
+    'application/vnd.oasis.opendocument.spreadsheet',
+    'application/vnd.oasis.opendocument.presentation',
+    'text/css',
+    'application/javascript',
+    'text/x-yaml',
+    'application/x-tar',
+    'text/x-sql',
+    'application/x-sh',
 ];
 
 const EXTENSION_TO_FILE_TYPE = {
@@ -72,6 +86,23 @@ const EXTENSION_TO_FILE_TYPE = {
     tiff: 'image/tiff',
     md: 'text/markdown',
     csv: 'text/csv',
+    py: 'text/x-python-script',
+    json: 'application/json',
+    html: 'text/html',
+    java: 'text/x-java-source',
+    svg: 'image/svg+xml',
+    log: 'text/plain',
+    mov: 'video/quicktime',
+    odt: 'application/vnd.oasis.opendocument.text',
+    ods: 'application/vnd.oasis.opendocument.spreadsheet',
+    odp: 'application/vnd.oasis.opendocument.presentation',
+    css: 'text/css',
+    js: 'application/javascript',
+    yaml: 'text/x-yaml',
+    yml: 'text/x-yaml',
+    tar: 'application/x-tar',
+    sql: 'text/x-sql',
+    sh: 'application/x-sh',
 };
 
 /**
@@ -134,7 +165,7 @@ export const validateFile = (
         maxSize?: number; // in bytes
         allowedTypes?: string[];
     },
-): { isValid: boolean; error?: string; displayError?: string } => {
+): { isValid: boolean; error?: string; displayError?: string; failureType?: FileUploadFailureType } => {
     const { maxSize = MAX_FILE_SIZE_IN_BYTES, allowedTypes = SUPPORTED_FILE_TYPES } = options || {};
 
     // Check file size
@@ -143,6 +174,7 @@ export const validateFile = (
             isValid: false,
             error: `File size (${(file.size / 1000 / 1000).toFixed(2)}MB) exceeds maximum allowed size (${(maxSize / 1000 / 1000).toFixed(2)}MB)`,
             displayError: `Your file size (${(file.size / 1000 / 1000 / 1000).toFixed(2)}GB) exceeded the max ${parseFloat((maxSize / 1000 / 1000 / 1000).toFixed(2))}GB`,
+            failureType: FileUploadFailureType.FILE_SIZE,
         };
     }
 
@@ -153,6 +185,7 @@ export const validateFile = (
             isValid: false,
             error: `File type "${file.type}" is not allowed. Supported types: ${allowedTypes.join(', ')}`,
             displayError: `File type not supported${extension ? `: ${extension.toLocaleUpperCase()}` : ''}`,
+            failureType: FileUploadFailureType.FILE_TYPE,
         };
     }
 

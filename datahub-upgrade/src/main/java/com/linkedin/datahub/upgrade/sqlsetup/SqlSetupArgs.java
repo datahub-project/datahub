@@ -17,9 +17,8 @@ public class SqlSetupArgs {
   String cdcUser;
   String cdcPassword;
   String createUserUsername;
-  String createUserPassword;
+  String createUserPassword; // If null, IAM authentication is used
   String host;
   int port;
   String databaseName;
-  String createUserIamRole; // IAM role for new user creation (required if IAM auth enabled)
 }

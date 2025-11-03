@@ -350,6 +350,16 @@ elasticsearch:
   region: ${AWS_REGION:#{null}}
   idHashAlgo: ${ELASTIC_ID_HASH_ALGO:MD5}
   dataNodeCount: ${ELASTICSEARCH_DATA_NODE_COUNT:1}
+  entityIndex:
+    v2:
+      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:true}
+      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:false}
+    v3:
+      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
+      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
+      analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
+      mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
+      maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
@@ -393,7 +403,7 @@ elasticsearch:
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
-    mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
+    mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:}
     enableMappingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX:false}
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:0} # <= 0 - no timeout
@@ -847,7 +857,9 @@ featureFlags:
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
   lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
-  productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-service/configuration/src/main/resources/product-update.json} # URL to fetch product updates JSON from remote source.
+  productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-core} # URL to fetch product updates JSON from remote source.
+  # for Saas:
+  #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud} # URL to fetch product updates JSON from remote source.
   productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update.json} # Classpath resource to use as fallback when remote fetch fails.
   logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
@@ -1066,6 +1078,12 @@ metadataChangeProposal:
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
       maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+
+metadataChangeLog:
+  consumer:
+    batch:
+      enabled: ${MCL_CONSUMER_BATCH_ENABLED:false}
+      size: ${MCL_CONSUMER_BATCH_SIZE:1048576}
 
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}

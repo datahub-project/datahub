@@ -20,6 +20,15 @@ vi.mock('@src/app/useAppConfig', () => ({
     useAppConfig: vi.fn(),
 }));
 
+// Mock the useCreateFile hook
+const mockCreateFile = vi.fn();
+vi.mock('@app/shared/hooks/useCreateFile', () => ({
+    __esModule: true,
+    default: () => ({
+        createFile: mockCreateFile,
+    }),
+}));
+
 describe('useFileUpload', () => {
     let originalFetch: typeof global.fetch;
     const mockAssetUrn = 'urn:li:glossaryNode:c21f8d1a-a2d6-4712-b363-cdd1a99f6c76';
@@ -92,6 +101,8 @@ describe('useFileUpload', () => {
             },
         );
 
+        mockCreateFile.mockResolvedValue(undefined); // Mock successful file creation
+
         const uploadPromise = result.current.uploadFile?.(mockFile);
 
         await waitFor(async () => {
@@ -107,6 +118,8 @@ describe('useFileUpload', () => {
                 'Content-Type': 'application/pdf',
             },
         });
+        expect(mockCreateFile).toHaveBeenCalledTimes(1);
+        expect(mockCreateFile).toHaveBeenCalledWith(mockFileId, mockFile);
     });
 
     it('should throw an error if presigned URL is not returned', async () => {
@@ -152,7 +165,10 @@ describe('useFileUpload', () => {
             },
         );
 
+        mockCreateFile.mockResolvedValue(undefined); // Mock successful file creation
+
         await expect(result.current.uploadFile?.(mockFile)).rejects.toThrow('Issue uploading file to server');
+        expect(mockCreateFile).not.toHaveBeenCalled(); // Should not call createFile if presigned URL is missing
     });
 
     it('should throw an error if file upload to presigned URL fails', async () => {
@@ -209,6 +225,7 @@ describe('useFileUpload', () => {
         await expect(result.current.uploadFile?.(mockFile)).rejects.toThrow(
             'Failed to upload file: Internal Server Error',
         );
+        expect(mockCreateFile).not.toHaveBeenCalled(); // Should not call createFile if fetch fails
     });
 
     it('should handle different file types correctly', async () => {
@@ -262,6 +279,8 @@ describe('useFileUpload', () => {
             },
         );
 
+        mockCreateFile.mockResolvedValue(undefined); // Mock successful file creation
+
         const uploadPromise = result.current.uploadFile?.(mockFile);
 
         await waitFor(async () => {
@@ -278,6 +297,8 @@ describe('useFileUpload', () => {
                 },
             }),
         );
+        expect(mockCreateFile).toHaveBeenCalledTimes(1);
+        expect(mockCreateFile).toHaveBeenCalledWith(mockFileId, mockFile);
     });
 
     it('should work without assetUrn when not provided', async () => {
@@ -330,12 +351,16 @@ describe('useFileUpload', () => {
             },
         );
 
+        mockCreateFile.mockResolvedValue(undefined); // Mock successful file creation
+
         const uploadPromise = result.current.uploadFile?.(mockFile);
 
         await waitFor(async () => {
             const url = await uploadPromise;
             expect(url).toBe('http://example.com/openapi/v1/files/product-assets/file-789');
         });
+        expect(mockCreateFile).toHaveBeenCalledTimes(1);
+        expect(mockCreateFile).toHaveBeenCalledWith(mockFileId, mockFile);
     });
 
     it('should return uploadFile function when feature flag is enabled', () => {
@@ -416,6 +441,7 @@ describe('useFileUpload', () => {
             // uploadFile should be undefined, so attempting to call it should throw
             expect(result.current.uploadFile).toBeUndefined();
             expect(() => result.current.uploadFile?.(mockFile)).not.toThrow();
+            expect(mockCreateFile).not.toHaveBeenCalled(); // Should not call createFile if feature flag is disabled
         });
     });
 });

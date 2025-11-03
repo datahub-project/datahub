@@ -193,6 +193,8 @@ export default function SchemaFieldDrawer({
                 setSelectedTabName,
                 refetch,
                 refetchNotes,
+                fieldUrn: expandedField?.schemaFieldEntity?.urn,
+                assetUrn: urn,
             },
         },
         {

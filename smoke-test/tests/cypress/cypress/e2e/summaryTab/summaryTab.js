@@ -1,18 +1,17 @@
 import * as utils from "./utils";
 
-const USER_DISPLAY_NAME = Cypress.env("ADMIN_DISPLAY_NAME");
-
-const TEST_ASSET_NAME = "SampleCypressHiveDataset";
-const TEST_ASSET_URN =
-  "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)";
-
-const TEST_DOMAIN = "Testing";
-const TEST_TERM = "CypressTerm";
-const TEST_TAG = "Cypress";
-
-function getTestId() {
-  return `summary_${new Date().getTime()}`;
-}
+const TEST_USER_DISPLAY_NAME = "jdoe";
+const TEST_ASSET_NAME = "Baz Dashboard";
+const TEST_DOMAIN_NAME = "Testing";
+const TEST_DOMAIN_URN = "urn:li:domain:testing";
+const TEST_SUBDOMAIN_NAME = "Subdomain";
+const TEST_DATA_PRODUCT_NAME = "Testing";
+const TEST_GLOSSARY_NODE_URN = "urn:li:glossaryNode:CypressNode";
+const TEST_GLOSSARY_TERM_URN = "urn:li:glossaryTerm:CypressNode.CypressTerm";
+const TEST_GLOSSARY_TERM_NAME = "CypressTerm";
+const TEST_TERM_NAME = "CypressTerm";
+const TEST_RELATED_TERM_NAME = "RelatedCypressTerm";
+const TEST_TAG_NAME = "Cypress";
 
 function testPropertiesSection(properties) {
   const propertyTypes = properties.map((property) => property.type);
@@ -63,17 +62,26 @@ const ADDITIONAL_MODULES_AVAILABLE_TO_ADD = [
   },
 ];
 
-describe("summary tab", () => {
+describe("summary tab - domain", () => {
   beforeEach(() => {
     utils.setThemeV2AndSummaryTabFlags(true);
     cy.login();
+    utils.openDomainByUrn(TEST_DOMAIN_URN);
+    utils.goToSummaryTab();
   });
 
-  it("domain", () => {
-    const testId = getTestId();
-    const domainName = `domain_${testId}`;
-    const childDomainName = `child_domain_${testId}`;
-    const dataProductName = `dp_${testId}`;
+  it("domain - header section", () => {
+    testPropertiesSection([
+      { name: "Created", type: "CREATED" },
+      { name: "Owners", type: "OWNERS", value: TEST_USER_DISPLAY_NAME },
+    ]);
+  });
+
+  it("domain - description section", () => {
+    testAboutSection();
+  });
+
+  it("domain - modules section", () => {
     const defaultModules = [
       {
         type: "assets",
@@ -85,12 +93,12 @@ describe("summary tab", () => {
         // FYI: Domains module has different type in add module menu
         addType: "child-hierarchy",
         name: "Domains",
-        value: childDomainName,
+        value: TEST_SUBDOMAIN_NAME,
       },
       {
         type: "data-products",
         name: "Data Products",
-        value: dataProductName,
+        value: TEST_DATA_PRODUCT_NAME,
       },
     ];
     const modulesAvailableToAdd = [
@@ -98,43 +106,37 @@ describe("summary tab", () => {
       ...ADDITIONAL_MODULES_AVAILABLE_TO_ADD,
     ];
 
-    utils.createDomain(domainName);
-    utils.openDomain(domainName);
-    utils.createChildDomain(childDomainName, domainName);
-    utils.addAsset("DOMAIN", TEST_ASSET_NAME, TEST_ASSET_URN);
-    utils.createDataProduct(domainName, dataProductName);
-    utils.goToSummaryTab();
-    cy.reload();
-
-    utils.ensureSummaryTabIsAvailable();
-
-    testPropertiesSection([
-      { name: "Created", type: "CREATED" },
-      { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
-    ]);
-
-    testAboutSection();
-
     testTemplateSection(defaultModules, modulesAvailableToAdd);
+  });
+});
 
-    // Clean up
-    utils.openDataProduct(domainName, dataProductName);
-    utils.deleteOpenedDataProduct();
-    utils.deleteDomain(childDomainName);
-    utils.deleteDomain(domainName);
+describe("summary tab - glossary node", () => {
+  beforeEach(() => {
+    utils.setThemeV2AndSummaryTabFlags(true);
+    cy.login();
+    cy.goToGlossaryNode(TEST_GLOSSARY_NODE_URN);
+    utils.goToSummaryTab();
   });
 
-  it("glossary node", () => {
-    const testId = getTestId();
-    const termName = `term_${testId}`;
-    const nodeName = `node_${testId}`;
+  it("glossary node - header section", () => {
+    testPropertiesSection([
+      { name: "Created", type: "CREATED" },
+      { name: "Owners", type: "OWNERS", value: TEST_USER_DISPLAY_NAME },
+    ]);
+  });
+
+  it("glossary node - description section", () => {
+    testAboutSection();
+  });
+
+  it("glossary node - modules section", () => {
     const defaultModules = [
       {
         type: "hierarchy",
         // FYI: Contents module has different type in add module menu
         addType: "child-hierarchy",
         name: "Contents",
-        value: termName,
+        value: TEST_GLOSSARY_TERM_NAME,
       },
     ];
     const modulesAvailableToAdd = [
@@ -142,45 +144,41 @@ describe("summary tab", () => {
       ...ADDITIONAL_MODULES_AVAILABLE_TO_ADD,
     ];
 
-    utils.createGlossaryNode(nodeName);
-    utils.openGlossaryNode(nodeName);
-    utils.createGlossaryTerm(nodeName, termName);
-    utils.goToSummaryTab();
-    cy.reload();
-
-    utils.ensureSummaryTabIsAvailable();
-
-    testPropertiesSection([
-      { name: "Created", type: "CREATED" },
-      { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
-    ]);
-
-    testAboutSection();
-
     testTemplateSection(defaultModules, modulesAvailableToAdd);
+  });
+});
 
-    // Clean up
-    utils.deleteOpenedGlossaryNode();
-    utils.openGlossaryTerm(termName);
-    utils.deleteOpenedGLossaryTerm();
+describe("summary tab - glossary term", () => {
+  beforeEach(() => {
+    utils.setThemeV2AndSummaryTabFlags(true);
+    cy.login();
+    cy.goToGlossaryTerm(TEST_GLOSSARY_TERM_URN);
+    utils.goToSummaryTab();
   });
 
-  it("glossary term", () => {
-    const testId = getTestId();
-    const domainName = TEST_DOMAIN;
-    const nodeName = `term_node_${testId}`;
-    const termName = `term_${testId}`;
-    const relatedTermName = TEST_TERM;
+  it("glossary term - header section", () => {
+    testPropertiesSection([
+      { name: "Created", type: "CREATED" },
+      { name: "Owners", type: "OWNERS", value: TEST_USER_DISPLAY_NAME },
+      { name: "Domain", type: "DOMAIN", value: TEST_DOMAIN_NAME },
+    ]);
+  });
+
+  it("glossary term - description section", () => {
+    testAboutSection();
+  });
+
+  it("glossary term - modules section", () => {
     const defaultModules = [
       {
         type: "assets",
         name: "Assets",
-        value: TEST_ASSET_NAME,
+        value: TEST_DOMAIN_NAME,
       },
       {
         type: "related-terms",
         name: "Related Terms",
-        value: relatedTermName,
+        value: TEST_RELATED_TERM_NAME,
       },
     ];
     const modulesAvailableToAdd = [
@@ -188,40 +186,33 @@ describe("summary tab", () => {
       ...ADDITIONAL_MODULES_AVAILABLE_TO_ADD,
     ];
 
-    utils.createGlossaryNode(nodeName);
-    utils.createGlossaryTerm(nodeName, termName);
-    utils.openGlossaryTerm(termName);
-    utils.setDomainToOpenedEntity(domainName);
-    utils.addAsset("GLOSSARY_TERM", TEST_ASSET_NAME, TEST_ASSET_URN);
-    utils.addRelatedTerm(relatedTermName);
-    utils.goToSummaryTab();
-    cy.reload();
-
-    utils.ensureSummaryTabIsAvailable();
-
-    testPropertiesSection([
-      { name: "Created", type: "CREATED" },
-      { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
-      { name: "Domain", type: "DOMAIN", value: domainName },
-    ]);
-
-    testAboutSection();
-
     testTemplateSection(defaultModules, modulesAvailableToAdd);
+  });
+});
 
-    // Clean up
-    utils.deleteOpenedGLossaryTerm();
-
-    utils.openGlossaryNode(nodeName);
-    utils.deleteOpenedGlossaryNode();
+describe("summary tab - data product", () => {
+  beforeEach(() => {
+    utils.setThemeV2AndSummaryTabFlags(true);
+    cy.login();
+    cy.goToDataProduct("urn:li:dataProduct:testing");
+    utils.goToSummaryTab();
   });
 
-  it("data product", () => {
-    const testId = getTestId();
-    const domainName = `Testing`;
-    const dataProductName = `dp_${testId}`;
-    const termName = TEST_TERM;
-    const tagName = TEST_TAG;
+  it("data product - header section", () => {
+    testPropertiesSection([
+      { name: "Created", type: "CREATED" },
+      { name: "Owners", type: "OWNERS" },
+      { name: "Domain", type: "DOMAIN", value: TEST_DOMAIN_NAME },
+      { name: "Tags", type: "TAGS", value: TEST_TAG_NAME },
+      { name: "Glossary Terms", type: "GLOSSARY_TERMS", value: TEST_TERM_NAME },
+    ]);
+  });
+
+  it("data product - description section", () => {
+    testAboutSection();
+  });
+
+  it("data product - modules section", () => {
     const defaultModules = [
       {
         type: "assets",
@@ -234,28 +225,6 @@ describe("summary tab", () => {
       ...ADDITIONAL_MODULES_AVAILABLE_TO_ADD,
     ];
 
-    utils.createDataProduct(domainName, dataProductName);
-    utils.openDataProduct(domainName, dataProductName);
-    utils.addAsset("DATA_PRODUCT", TEST_ASSET_NAME, TEST_ASSET_URN);
-    utils.setGlossaryTermToOpenedEntity(termName);
-    utils.setTagToOpenedEntity(tagName);
-    cy.reload();
-
-    utils.ensureSummaryTabIsAvailable();
-
-    testPropertiesSection([
-      { name: "Created", type: "CREATED" },
-      { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
-      { name: "Domain", type: "DOMAIN", value: domainName },
-      { name: "Tags", type: "TAGS", value: tagName },
-      { name: "Glossary Terms", type: "GLOSSARY_TERMS", value: termName },
-    ]);
-
-    testAboutSection();
-
     testTemplateSection(defaultModules, modulesAvailableToAdd);
-
-    // Clean up
-    utils.deleteOpenedDataProduct();
   });
 });

@@ -136,7 +136,7 @@ class MLflowRegisteredModelStageInfo:
 
 @platform_name("MLflow")
 @config_class(MLflowConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(
     SourceCapability.DESCRIPTIONS,
     "Extract descriptions for MLflow Registered Models and Model Versions",

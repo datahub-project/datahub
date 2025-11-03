@@ -21,6 +21,7 @@ from datahub.configuration.time_window_config import (
 )
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
@@ -750,6 +751,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         self._exit_stack.close()
 
 
+@support_status(SupportStatus.CERTIFIED)
+@config_class(SnowflakeQueriesSourceConfig)
 class SnowflakeQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeQueriesSourceConfig):
         self.ctx = ctx

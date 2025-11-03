@@ -3,6 +3,8 @@ import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { EditorProps } from '@components/components/Editor/types';
+
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
     font-weight: bold;
@@ -33,6 +35,7 @@ type Props = {
     onClose: () => void;
     onSubmit: (description: string) => void;
     isAddDesc?: boolean;
+    editorProps?: Partial<EditorProps>;
 };
 
 export default function UpdateDescriptionModal({
@@ -43,6 +46,7 @@ export default function UpdateDescriptionModal({
     onClose,
     onSubmit,
     isAddDesc,
+    editorProps,
 }: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
 
@@ -77,7 +81,13 @@ export default function UpdateDescriptionModal({
                 )}
                 <Form.Item>
                     <EditorContainer>
-                        <Editor content={updatedDesc} onChange={setDesc} dataTestId="description-editor" hideBorder />
+                        <Editor
+                            content={updatedDesc}
+                            onChange={setDesc}
+                            dataTestId="description-editor"
+                            hideBorder
+                            {...editorProps}
+                        />
                     </EditorContainer>
                 </Form.Item>
             </Form>

@@ -173,7 +173,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testGetFileWithDefaultExpiration() throws Exception {
     // Mock S3Util to return presigned URL
-    String expectedKey = String.format("%s/%s/%s", TEST_BUCKET, TEST_FOLDER, TEST_FILE_ID);
+    String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
     when(mockS3Util.generatePresignedDownloadUrl(
             eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
         .thenReturn(TEST_PRESIGNED_URL);
@@ -190,7 +190,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testGetFileWithCustomExpiration() throws Exception {
     int customExpiration = 7200;
-    String expectedKey = String.format("%s/%s/%s", TEST_BUCKET, TEST_FOLDER, TEST_FILE_ID);
+    String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
     when(mockS3Util.generatePresignedDownloadUrl(
             eq(TEST_BUCKET), eq(expectedKey), eq(customExpiration)))
@@ -208,7 +208,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testGetFileWithMinimumValidExpiration() throws Exception {
     int minExpiration = 1;
-    String expectedKey = String.format("%s/%s/%s", TEST_BUCKET, TEST_FOLDER, TEST_FILE_ID);
+    String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
     when(mockS3Util.generatePresignedDownloadUrl(
             eq(TEST_BUCKET), eq(expectedKey), eq(minExpiration)))
@@ -225,7 +225,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testGetFileWithMaximumValidExpiration() throws Exception {
-    String expectedKey = String.format("%s/%s/%s", TEST_BUCKET, TEST_FOLDER, TEST_FILE_ID);
+    String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
     when(mockS3Util.generatePresignedDownloadUrl(
             eq(TEST_BUCKET), eq(expectedKey), eq(MAX_EXPIRATION)))
@@ -291,7 +291,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testGetFileWithS3UtilException() throws Exception {
-    String expectedKey = String.format("%s/%s/%s", TEST_BUCKET, TEST_FOLDER, TEST_FILE_ID);
+    String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
     // Mock S3Util to throw an exception
     when(mockS3Util.generatePresignedDownloadUrl(
@@ -308,7 +308,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testGetFileWithDifferentFolder() throws Exception {
     String differentFolder = "images";
-    String expectedKey = String.format("%s/%s/%s", TEST_BUCKET, differentFolder, TEST_FILE_ID);
+    String expectedKey = String.format("%s/%s", differentFolder, TEST_FILE_ID);
 
     when(mockS3Util.generatePresignedDownloadUrl(
             eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
@@ -325,7 +325,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testGetFileWithSpecialCharactersInFileId() throws Exception {
     String specialFileId = "file-with_special.chars-123";
-    String expectedKey = String.format("%s/%s/%s", TEST_BUCKET, TEST_FOLDER, specialFileId);
+    String expectedKey = String.format("%s/%s", TEST_FOLDER, specialFileId);
 
     when(mockS3Util.generatePresignedDownloadUrl(
             eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
@@ -345,7 +345,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testGetFileWithValidAssetDocumentationPermissions() throws Exception {
     // Setup file ID with separator to test UUID extraction
     String fileIdWithSeparator = "abc123__filename.pdf";
-    String expectedKey = String.format("%s/%s/%s", TEST_BUCKET, TEST_FOLDER, fileIdWithSeparator);
+    String expectedKey = String.format("%s/%s", TEST_FOLDER, fileIdWithSeparator);
 
     when(mockS3Util.generatePresignedDownloadUrl(
             eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
@@ -437,7 +437,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testGetFileWithUUIDExtraction() throws Exception {
     // Test that UUID is correctly extracted from file ID with separator
     String fileIdWithSeparator = "abc123__some-filename-with-special-chars.pdf";
-    String expectedKey = String.format("%s/%s/%s", TEST_BUCKET, TEST_FOLDER, fileIdWithSeparator);
+    String expectedKey = String.format("%s/%s", TEST_FOLDER, fileIdWithSeparator);
 
     // The UUID "abc123" should be extracted
     Urn expectedFileUrn = UrnUtils.getUrn("urn:li:dataHubFile:abc123");
@@ -462,7 +462,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     setupDefaultFileEntity(
         TEST_FILE_URN, differentAssetUrn, FileUploadScenario.ASSET_DOCUMENTATION);
 
-    String expectedKey = String.format("%s/%s/%s", TEST_BUCKET, TEST_FOLDER, TEST_FILE_ID);
+    String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
     when(mockS3Util.generatePresignedDownloadUrl(
             eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
@@ -480,7 +480,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testBuildOperationContextWithCorrectParameters() throws Exception {
     // This test verifies that the endpoint successfully builds an operation context and processes
     // the request
-    String expectedKey = String.format("%s/%s/%s", TEST_BUCKET, TEST_FOLDER, TEST_FILE_ID);
+    String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
     when(mockS3Util.generatePresignedDownloadUrl(
             eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))

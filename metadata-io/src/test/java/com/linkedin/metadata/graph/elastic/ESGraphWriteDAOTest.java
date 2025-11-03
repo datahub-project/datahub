@@ -9,12 +9,14 @@ import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import io.datahubproject.test.search.SearchTestUtils;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.script.Script;
 import org.testng.annotations.Test;
 
 public class ESGraphWriteDAOTest {
-  public static final IndexConvention TEST_INDEX_CONVENTION = IndexConventionImpl.noPrefix("md5");
+  public static final IndexConvention TEST_INDEX_CONVENTION =
+      IndexConventionImpl.noPrefix("md5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
   @Test
   public void testUpdateByQuery() {

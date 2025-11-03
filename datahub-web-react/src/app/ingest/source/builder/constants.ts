@@ -15,6 +15,7 @@ import elasticsearchLogo from '@images/elasticsearchlogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import glueLogo from '@images/gluelogo.png';
+import googleSheetsLogo from '@images/google-sheets-logo.png';
 import grafanaLogo from '@images/grafana.png';
 import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
@@ -152,6 +153,8 @@ export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
 export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
+export const GOOGLE_SHEETS = 'google_sheets';
+export const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -200,6 +203,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [NEO4J_URN]: neo4j,
     [VERTEXAI_URN]: vertexAI,
     [SNAPLOGIC_URN]: snaplogic,
+    [GOOGLE_SHEETS_URN]: googleSheetsLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
