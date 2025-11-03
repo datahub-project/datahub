@@ -697,7 +697,6 @@ type SearchResult {
   Whether the current user can view the entity page for this result
   """
   canViewEntityPage: Boolean
-
 }
 
 """
