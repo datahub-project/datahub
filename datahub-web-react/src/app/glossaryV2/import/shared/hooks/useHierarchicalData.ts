@@ -1,11 +1,12 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+
 import { Entity } from '@app/glossaryV2/import/glossary.types';
 import { HierarchyNameResolver } from '@app/glossaryV2/import/shared/utils/hierarchyUtils';
 
 /**
  * Entity with children for hierarchical display
  */
-export type HierarchicalEntity = Entity & { 
+export type HierarchicalEntity = Entity & {
     children: HierarchicalEntity[];
     _indentLevel?: number;
     _indentSize?: number;
@@ -25,10 +26,10 @@ export interface UseHierarchicalDataOptions {
 
 /**
  * Hook for managing hierarchical entity data with expand/collapse functionality
- * 
+ *
  * Organizes flat entities into a tree structure, manages expansion state,
  * and provides flattened data for table rendering.
- * 
+ *
  * @example
  * ```tsx
  * const {
@@ -56,7 +57,7 @@ export function useHierarchicalData({
         const rootEntities: HierarchicalEntity[] = [];
 
         // Create map of all entities with empty children arrays
-        entities.forEach(entity => {
+        entities.forEach((entity) => {
             entityMap.set(entity.name, { ...entity, children: [] });
         });
 
@@ -69,14 +70,15 @@ export function useHierarchicalData({
         };
 
         // Build hierarchy by linking children to parents
-        entities.forEach(entity => {
-            const parentNames = entity.data.parent_nodes
-                ?.split(',')
-                .map(name => name.trim())
-                .filter(Boolean) || [];
-            
+        entities.forEach((entity) => {
+            const parentNames =
+                entity.data.parent_nodes
+                    ?.split(',')
+                    .map((name) => name.trim())
+                    .filter(Boolean) || [];
+
             const entityNode = entityMap.get(entity.name)!;
-            
+
             if (parentNames.length === 0) {
                 // Root level entity
                 rootEntities.push(entityNode);
@@ -101,23 +103,23 @@ export function useHierarchicalData({
      */
     const flattenedData = useMemo(() => {
         const flatten = (
-            entitiesToFlatten: HierarchicalEntity[], 
+            entitiesToFlatten: HierarchicalEntity[],
             level = 0,
         ): (HierarchicalEntity & { _indentLevel: number; _indentSize: number })[] => {
             const result: (HierarchicalEntity & { _indentLevel: number; _indentSize: number })[] = [];
-            
-            entitiesToFlatten.forEach(entity => {
+
+            entitiesToFlatten.forEach((entity) => {
                 result.push({
                     ...entity,
                     _indentLevel: level,
                     _indentSize: level * indentSize,
                 });
-                
+
                 if (entity.children.length > 0 && expandedKeys.includes(entity.name)) {
                     result.push(...flatten(entity.children, level + 1));
                 }
             });
-            
+
             return result;
         };
 
@@ -129,7 +131,7 @@ export function useHierarchicalData({
      */
     const collectExpandableKeys = useCallback((entitiesToCollect: HierarchicalEntity[]): string[] => {
         const keys: string[] = [];
-        entitiesToCollect.forEach(entity => {
+        entitiesToCollect.forEach((entity) => {
             if (entity.children && entity.children.length > 0) {
                 keys.push(entity.name);
                 keys.push(...collectExpandableKeys(entity.children));
@@ -157,11 +159,7 @@ export function useHierarchicalData({
      * Toggle expansion for a specific node
      */
     const toggleExpand = useCallback((key: string) => {
-        setExpandedKeys(prev => 
-            prev.includes(key) 
-                ? prev.filter(k => k !== key)
-                : [...prev, key],
-        );
+        setExpandedKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
     }, []);
 
     /**
@@ -188,4 +186,3 @@ export function useHierarchicalData({
         setExpanded,
     };
 }
-

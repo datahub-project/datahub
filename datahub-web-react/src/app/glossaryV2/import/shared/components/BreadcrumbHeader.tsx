@@ -1,7 +1,8 @@
+import { Heading, Icon, Pill, Text } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { Text, Heading, Pill, Icon } from '@components';
+
 import { ColorOptions } from '@components/theme/config';
 
 // Styled Components
@@ -76,9 +77,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
                 <Heading type="h2" size="2xl" weight="bold">
                     {title}
                 </Heading>
-                {pillLabel && (
-                    <Pill label={pillLabel} color={pillColor} size="sm" />
-                )}
+                {pillLabel && <Pill label={pillLabel} color={pillColor} size="sm" />}
             </Header>
             {subtitle && (
                 <Text size="md" color="gray">

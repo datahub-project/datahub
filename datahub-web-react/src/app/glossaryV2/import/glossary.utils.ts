@@ -1,22 +1,34 @@
 /**
  * Utility functions for Glossary Import feature
  */
-
-import { EntityData, Entity, GraphQLEntity, ValidationResult, ValidationError, ValidationWarning } from '@app/glossaryV2/import/glossary.types';
+import {
+    Entity,
+    EntityData,
+    GraphQLEntity,
+    ValidationError,
+    ValidationResult,
+    ValidationWarning,
+} from '@app/glossaryV2/import/glossary.types';
 import { UrnManager } from '@app/glossaryV2/import/shared/utils/urnManager';
 
 export function generateEntityId(entity: EntityData, parentNames: string[] = []): string {
-  const hierarchyPath = [...parentNames, entity.name].join(' > ');
-  return hierarchyPath.toLowerCase().replace(/[^a-z0-9\s>]/g, '').replace(/\s+/g, '-');
+    const hierarchyPath = [...parentNames, entity.name].join(' > ');
+    return hierarchyPath
+        .toLowerCase()
+        .replace(/[^a-z0-9\s>]/g, '')
+        .replace(/\s+/g, '-');
 }
 
 export function parseCommaSeparated(value: string): string[] {
-  if (!value || value.trim() === '') return [];
-  return value.split(',').map(item => item.trim()).filter(item => item.length > 0);
+    if (!value || value.trim() === '') return [];
+    return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
 }
 
 export function toCommaSeparated(values: string[]): string {
-  return values.filter(value => value && value.trim() !== '').join(', ');
+    return values.filter((value) => value && value.trim() !== '').join(', ');
 }
 
 /**
@@ -24,7 +36,7 @@ export function toCommaSeparated(values: string[]): string {
  * @deprecated Use UrnManager.isValidUrn instead
  */
 export function isValidUrn(urn: string): boolean {
-  return UrnManager.isValidUrn(urn, true);
+    return UrnManager.isValidUrn(urn, true);
 }
 
 /**
@@ -32,7 +44,7 @@ export function isValidUrn(urn: string): boolean {
  * @deprecated Use UrnManager.generateGlossaryUrn instead
  */
 export function generateGlossaryUrn(entityType: 'glossaryTerm' | 'glossaryNode', name: string): string {
-  return UrnManager.generateGlossaryUrn(entityType, name);
+    return UrnManager.generateGlossaryUrn(entityType, name);
 }
 
 /**
@@ -40,187 +52,186 @@ export function generateGlossaryUrn(entityType: 'glossaryTerm' | 'glossaryNode',
  * @deprecated Use UrnManager.extractEntityTypeFromUrn instead
  */
 export function extractEntityTypeFromUrn(urn: string): 'glossaryTerm' | 'glossaryNode' | null {
-  const entityType = UrnManager.extractEntityTypeFromUrn(urn);
-  return entityType === 'glossaryTerm' || entityType === 'glossaryNode' ? entityType : null;
+    const entityType = UrnManager.extractEntityTypeFromUrn(urn);
+    return entityType === 'glossaryTerm' || entityType === 'glossaryNode' ? entityType : null;
 }
 
 export function validateEntityName(name: string): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
+    const errors: ValidationError[] = [];
+    const warnings: ValidationWarning[] = [];
 
-  if (!name || name.trim() === '') {
-    errors.push({
-      field: 'name',
-      message: 'Entity name is required',
-      code: 'REQUIRED',
-    });
-  } else if (name.length > 100) {
-    errors.push({
-      field: 'name',
-      message: 'Entity name must be less than 100 characters',
-      code: 'MAX_LENGTH',
-    });
-  } else if (name.trim() !== name) {
-    warnings.push({
-      field: 'name',
-      message: 'Entity name has leading or trailing whitespace',
-      code: 'WHITESPACE',
-    });
-  }
+    if (!name || name.trim() === '') {
+        errors.push({
+            field: 'name',
+            message: 'Entity name is required',
+            code: 'REQUIRED',
+        });
+    } else if (name.length > 100) {
+        errors.push({
+            field: 'name',
+            message: 'Entity name must be less than 100 characters',
+            code: 'MAX_LENGTH',
+        });
+    } else if (name.trim() !== name) {
+        warnings.push({
+            field: 'name',
+            message: 'Entity name has leading or trailing whitespace',
+            code: 'WHITESPACE',
+        });
+    }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+    };
 }
 
 export function validateEntityType(entityType: string): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
+    const errors: ValidationError[] = [];
+    const warnings: ValidationWarning[] = [];
 
-  if (!entityType || entityType.trim() === '') {
-    errors.push({
-      field: 'entity_type',
-      message: 'Entity type is required',
-      code: 'REQUIRED',
-    });
-  } else if (entityType !== 'glossaryTerm' && entityType !== 'glossaryNode') {
-    errors.push({
-      field: 'entity_type',
-      message: 'Entity type must be either "glossaryTerm" or "glossaryNode"',
-      code: 'INVALID_TYPE',
-    });
-  }
+    if (!entityType || entityType.trim() === '') {
+        errors.push({
+            field: 'entity_type',
+            message: 'Entity type is required',
+            code: 'REQUIRED',
+        });
+    } else if (entityType !== 'glossaryTerm' && entityType !== 'glossaryNode') {
+        errors.push({
+            field: 'entity_type',
+            message: 'Entity type must be either "glossaryTerm" or "glossaryNode"',
+            code: 'INVALID_TYPE',
+        });
+    }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+    };
 }
 
 export function validateParentNodes(parentNodes: string): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
+    const errors: ValidationError[] = [];
+    const warnings: ValidationWarning[] = [];
 
-  if (parentNodes && parentNodes.trim() !== '') {
-    const parents = parseCommaSeparated(parentNodes);
-    if (parents.length > 10) {
-      warnings.push({
-        field: 'parent_nodes',
-        message: 'Having more than 10 parent nodes may cause performance issues',
-        code: 'TOO_MANY_PARENTS',
-      });
+    if (parentNodes && parentNodes.trim() !== '') {
+        const parents = parseCommaSeparated(parentNodes);
+        if (parents.length > 10) {
+            warnings.push({
+                field: 'parent_nodes',
+                message: 'Having more than 10 parent nodes may cause performance issues',
+                code: 'TOO_MANY_PARENTS',
+            });
+        }
     }
-  }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+    };
 }
 
 export function validateDomainUrn(domainUrn: string): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
+    const errors: ValidationError[] = [];
+    const warnings: ValidationWarning[] = [];
 
-  if (domainUrn && domainUrn.trim() !== '') {
-    if (!domainUrn.startsWith('urn:li:domain:')) {
-      errors.push({
-        field: 'domain_urn',
-        message: 'Domain URN must start with "urn:li:domain:"',
-        code: 'INVALID_DOMAIN_URN',
-      });
+    if (domainUrn && domainUrn.trim() !== '') {
+        if (!domainUrn.startsWith('urn:li:domain:')) {
+            errors.push({
+                field: 'domain_urn',
+                message: 'Domain URN must start with "urn:li:domain:"',
+                code: 'INVALID_DOMAIN_URN',
+            });
+        }
     }
-  }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+    };
 }
 
-
 export function validateCustomProperties(customProperties: string): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
+    const errors: ValidationError[] = [];
+    const warnings: ValidationWarning[] = [];
 
-  if (customProperties && customProperties.trim() !== '') {
-    try {
-      if (customProperties.trim().startsWith('{') || customProperties.trim().startsWith('[')) {
-        JSON.parse(customProperties);
-      }
-    } catch (error) {
-      warnings.push({
-        field: 'custom_properties',
-        message: 'Custom properties should be valid JSON format',
-        code: 'INVALID_JSON',
-      });
+    if (customProperties && customProperties.trim() !== '') {
+        try {
+            if (customProperties.trim().startsWith('{') || customProperties.trim().startsWith('[')) {
+                JSON.parse(customProperties);
+            }
+        } catch (error) {
+            warnings.push({
+                field: 'custom_properties',
+                message: 'Custom properties should be valid JSON format',
+                code: 'INVALID_JSON',
+            });
+        }
     }
-  }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+    };
 }
 
 export function validateUrl(url: string): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
+    const errors: ValidationError[] = [];
+    const warnings: ValidationWarning[] = [];
 
-  if (url && url.trim() !== '') {
-    try {
-      // eslint-disable-next-line no-new
-      new URL(url);
-    } catch (error) {
-      errors.push({
-        field: 'source_url',
-        message: 'Source URL must be a valid URL format',
-        code: 'INVALID_URL',
-      });
+    if (url && url.trim() !== '') {
+        try {
+            // eslint-disable-next-line no-new
+            new URL(url);
+        } catch (error) {
+            errors.push({
+                field: 'source_url',
+                message: 'Source URL must be a valid URL format',
+                code: 'INVALID_URL',
+            });
+        }
     }
-  }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+    };
 }
 
 export function validateTermSource(termSource: string, entityType: string): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
+    const errors: ValidationError[] = [];
+    const warnings: ValidationWarning[] = [];
 
-  if (entityType !== 'glossaryTerm') {
-    return {
-      isValid: true,
-      errors: [],
-      warnings: [],
-    };
-  }
-
-  if (termSource && termSource.trim() !== '') {
-    const normalizedValue = termSource.trim().toUpperCase();
-    if (normalizedValue !== 'INTERNAL' && normalizedValue !== 'EXTERNAL') {
-      errors.push({
-        field: 'term_source',
-        message: 'Term source must be either "INTERNAL" or "EXTERNAL"',
-        code: 'INVALID_TERM_SOURCE',
-      });
+    if (entityType !== 'glossaryTerm') {
+        return {
+            isValid: true,
+            errors: [],
+            warnings: [],
+        };
     }
-  }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+    if (termSource && termSource.trim() !== '') {
+        const normalizedValue = termSource.trim().toUpperCase();
+        if (normalizedValue !== 'INTERNAL' && normalizedValue !== 'EXTERNAL') {
+            errors.push({
+                field: 'term_source',
+                message: 'Term source must be either "INTERNAL" or "EXTERNAL"',
+                code: 'INVALID_TERM_SOURCE',
+            });
+        }
+    }
+
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+    };
 }
 
 /**
@@ -229,286 +240,285 @@ export function validateTermSource(termSource: string, entityType: string): Vali
  * Entities with different parents can have the same name
  */
 export function findDuplicateNames(entities: EntityData[]): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
-  
-  // Key format: "parent1,parent2" (sorted, comma-separated) or "" for root level
-  const hierarchyGroups = new Map<string, EntityData[]>();
+    const errors: ValidationError[] = [];
+    const warnings: ValidationWarning[] = [];
 
-  entities.forEach((entity) => {
-    const parentKey = entity.parent_nodes 
-      ? parseCommaSeparated(entity.parent_nodes).sort().join(',').toLowerCase()
-      : '';
-    
-    if (!hierarchyGroups.has(parentKey)) {
-      hierarchyGroups.set(parentKey, []);
-    }
-    hierarchyGroups.get(parentKey)!.push(entity);
-  });
+    // Key format: "parent1,parent2" (sorted, comma-separated) or "" for root level
+    const hierarchyGroups = new Map<string, EntityData[]>();
 
-  hierarchyGroups.forEach((entitiesInGroup, parentKey) => {
-    const nameCounts = new Map<string, number[]>();
+    entities.forEach((entity) => {
+        const parentKey = entity.parent_nodes
+            ? parseCommaSeparated(entity.parent_nodes).sort().join(',').toLowerCase()
+            : '';
 
-    entitiesInGroup.forEach((entity) => {
-      const name = entity.name?.toLowerCase();
-      if (name) {
-        if (!nameCounts.has(name)) {
-          nameCounts.set(name, []);
+        if (!hierarchyGroups.has(parentKey)) {
+            hierarchyGroups.set(parentKey, []);
         }
-        const originalIndex = entities.indexOf(entity);
-        nameCounts.get(name)!.push(originalIndex);
-      }
+        hierarchyGroups.get(parentKey)!.push(entity);
     });
 
-    nameCounts.forEach((indices, name) => {
-      if (indices.length > 1) {
-        const parentLabel = parentKey ? `with parent(s) "${parentKey}"` : 'at root level';
-        indices.forEach(() => {
-          errors.push({
-            field: 'name',
-            message: `Duplicate name "${name}" found ${parentLabel} in rows ${indices.map(i => i + 1).join(', ')}`,
-            code: 'DUPLICATE_NAME',
-          });
+    hierarchyGroups.forEach((entitiesInGroup, parentKey) => {
+        const nameCounts = new Map<string, number[]>();
+
+        entitiesInGroup.forEach((entity) => {
+            const name = entity.name?.toLowerCase();
+            if (name) {
+                if (!nameCounts.has(name)) {
+                    nameCounts.set(name, []);
+                }
+                const originalIndex = entities.indexOf(entity);
+                nameCounts.get(name)!.push(originalIndex);
+            }
         });
-      }
-    });
-  });
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+        nameCounts.forEach((indices, name) => {
+            if (indices.length > 1) {
+                const parentLabel = parentKey ? `with parent(s) "${parentKey}"` : 'at root level';
+                indices.forEach(() => {
+                    errors.push({
+                        field: 'name',
+                        message: `Duplicate name "${name}" found ${parentLabel} in rows ${indices.map((i) => i + 1).join(', ')}`,
+                        code: 'DUPLICATE_NAME',
+                    });
+                });
+            }
+        });
+    });
+
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+    };
 }
 
 /**
  * Convert relationship array to comma-separated hierarchical names.
- * 
+ *
  * Used for displaying related terms with their parent context.
  * Example: "Parent.Child" instead of just "Child"
- * 
+ *
  * @param relationships - Array of relationship objects from GraphQL
  * @returns Comma-separated string of hierarchical names, or empty string
  */
 export function convertRelationshipsToHierarchicalNames(relationships: any[]): string {
-  if (!relationships || relationships.length === 0) return '';
-  
-  return relationships
-    .map((rel: any) => {
-      const entity = rel?.entity;
-      if (!entity) return '';
-      
-      const name = entity.properties?.name || entity.name || '';
-      const parentNodes = entity.parentNodes?.nodes || [];
-      
-      if (name) {
-        if (parentNodes.length > 0) {
-          const parentName = parentNodes[0].properties?.name || '';
-          return parentName ? `${parentName}.${name}` : name;
-        }
-        return name;
-      }
-      
-      return '';
-    })
-    .filter(name => name)
-    .join(',');
+    if (!relationships || relationships.length === 0) return '';
+
+    return relationships
+        .map((rel: any) => {
+            const entity = rel?.entity;
+            if (!entity) return '';
+
+            const name = entity.properties?.name || entity.name || '';
+            const parentNodes = entity.parentNodes?.nodes || [];
+
+            if (name) {
+                if (parentNodes.length > 0) {
+                    const parentName = parentNodes[0].properties?.name || '';
+                    return parentName ? `${parentName}.${name}` : name;
+                }
+                return name;
+            }
+
+            return '';
+        })
+        .filter((name) => name)
+        .join(',');
 }
 
 /**
  * Convert GraphQL entity to our Entity format.
- * 
+ *
  * This is a GENERAL-PURPOSE converter used across the application.
  * It includes ALL parent nodes (entire ancestry chain) and uses
  * hierarchy-based ID generation.
- * 
+ *
  * NOTE: For CSV comparison use cases, see WizardPage.tsx which has
  * a specialized inline converter that extracts only immediate parents
  * and converts relationships to names for display purposes.
- * 
+ *
  * @param graphqlEntity - GraphQL entity response
  * @returns Normalized Entity object
  */
 export function convertGraphQLEntityToEntity(graphqlEntity: GraphQLEntity): Entity {
-  const isGlossaryTerm = graphqlEntity.__typename === 'GlossaryTerm';
-  const name = isGlossaryTerm 
-    ? graphqlEntity.hierarchicalName || graphqlEntity.properties?.name || ''
-    : graphqlEntity.properties?.name || '';
+    const isGlossaryTerm = graphqlEntity.__typename === 'GlossaryTerm';
+    const name = isGlossaryTerm
+        ? graphqlEntity.hierarchicalName || graphqlEntity.properties?.name || ''
+        : graphqlEntity.properties?.name || '';
 
-  const parentNames = graphqlEntity.parentNodes?.nodes?.map(node => node.properties.name) || [];
+    const parentNames = graphqlEntity.parentNodes?.nodes?.map((node) => node.properties.name) || [];
 
-  const ownershipUsers: string[] = [];
-  const ownershipGroups: string[] = [];
-  
-  if (graphqlEntity.ownership?.owners) {
-    graphqlEntity.ownership.owners.forEach(owner => {
-      const ownerType = owner.ownershipType?.info?.name || 'NONE';
-      const ownerName = owner.owner.info?.displayName || owner.owner.username || owner.owner.name || '';
-      const corpType = owner.owner.__typename === 'CorpGroup' ? 'CORP_GROUP' : 'CORP_USER';
-      
-      const ownershipEntry = `${ownerName}:${ownerType}`;
-      
-      if (corpType === 'CORP_GROUP') {
-        ownershipGroups.push(ownershipEntry);
-      } else {
-        ownershipUsers.push(ownershipEntry);
-      }
-    });
-  }
+    const ownershipUsers: string[] = [];
+    const ownershipGroups: string[] = [];
 
-  return {
-    id: generateEntityId({
-      entity_type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
-      urn: graphqlEntity.urn,
-      name,
-      description: graphqlEntity.properties?.description || '',
-      term_source: graphqlEntity.properties?.termSource || '',
-      source_ref: graphqlEntity.properties?.sourceRef || '',
-      source_url: graphqlEntity.properties?.sourceUrl || '',
-      ownership_users: ownershipUsers.join('|'),
-      ownership_groups: ownershipGroups.join('|'),
-      parent_nodes: toCommaSeparated(parentNames),
-      related_contains: '',
-      related_inherits: '',
-      domain_urn: graphqlEntity.domain?.domain.urn || '',
-      domain_name: graphqlEntity.domain?.domain.properties.name || '',
-      custom_properties: graphqlEntity.properties?.customProperties?.map(cp => `${cp.key}:${cp.value}`).join(',') || '',
-    }, parentNames),
-    name,
-    type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
-    urn: graphqlEntity.urn,
-    parentNames,
-    parentUrns: graphqlEntity.parentNodes?.nodes?.map(node => node.urn) || [],
-    level: 0, // Will be calculated later
-    data: {
-      entity_type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
-      urn: graphqlEntity.urn,
-      name,
-      description: graphqlEntity.properties?.description || '',
-      term_source: graphqlEntity.properties?.termSource || '',
-      source_ref: graphqlEntity.properties?.sourceRef || '',
-      source_url: graphqlEntity.properties?.sourceUrl || '',
-      ownership_users: ownershipUsers.join('|'),
-      ownership_groups: ownershipGroups.join('|'),
-      parent_nodes: toCommaSeparated(parentNames),
-      related_contains: '',
-      related_inherits: '',
-      domain_urn: graphqlEntity.domain?.domain.urn || '',
-      domain_name: graphqlEntity.domain?.domain.properties.name || '',
-      custom_properties: graphqlEntity.properties?.customProperties?.map(cp => `${cp.key}:${cp.value}`).join(',') || '',
-    },
-    status: 'existing',
-  };
+    if (graphqlEntity.ownership?.owners) {
+        graphqlEntity.ownership.owners.forEach((owner) => {
+            const ownerType = owner.ownershipType?.info?.name || 'NONE';
+            const ownerName = owner.owner.info?.displayName || owner.owner.username || owner.owner.name || '';
+            const corpType = owner.owner.__typename === 'CorpGroup' ? 'CORP_GROUP' : 'CORP_USER';
+
+            const ownershipEntry = `${ownerName}:${ownerType}`;
+
+            if (corpType === 'CORP_GROUP') {
+                ownershipGroups.push(ownershipEntry);
+            } else {
+                ownershipUsers.push(ownershipEntry);
+            }
+        });
+    }
+
+    return {
+        id: generateEntityId(
+            {
+                entity_type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
+                urn: graphqlEntity.urn,
+                name,
+                description: graphqlEntity.properties?.description || '',
+                term_source: graphqlEntity.properties?.termSource || '',
+                source_ref: graphqlEntity.properties?.sourceRef || '',
+                source_url: graphqlEntity.properties?.sourceUrl || '',
+                ownership_users: ownershipUsers.join('|'),
+                ownership_groups: ownershipGroups.join('|'),
+                parent_nodes: toCommaSeparated(parentNames),
+                related_contains: '',
+                related_inherits: '',
+                domain_urn: graphqlEntity.domain?.domain.urn || '',
+                domain_name: graphqlEntity.domain?.domain.properties.name || '',
+                custom_properties:
+                    graphqlEntity.properties?.customProperties?.map((cp) => `${cp.key}:${cp.value}`).join(',') || '',
+            },
+            parentNames,
+        ),
+        name,
+        type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
+        urn: graphqlEntity.urn,
+        parentNames,
+        parentUrns: graphqlEntity.parentNodes?.nodes?.map((node) => node.urn) || [],
+        level: 0, // Will be calculated later
+        data: {
+            entity_type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
+            urn: graphqlEntity.urn,
+            name,
+            description: graphqlEntity.properties?.description || '',
+            term_source: graphqlEntity.properties?.termSource || '',
+            source_ref: graphqlEntity.properties?.sourceRef || '',
+            source_url: graphqlEntity.properties?.sourceUrl || '',
+            ownership_users: ownershipUsers.join('|'),
+            ownership_groups: ownershipGroups.join('|'),
+            parent_nodes: toCommaSeparated(parentNames),
+            related_contains: '',
+            related_inherits: '',
+            domain_urn: graphqlEntity.domain?.domain.urn || '',
+            domain_name: graphqlEntity.domain?.domain.properties.name || '',
+            custom_properties:
+                graphqlEntity.properties?.customProperties?.map((cp) => `${cp.key}:${cp.value}`).join(',') || '',
+        },
+        status: 'existing',
+    };
 }
 
 export function calculateHierarchyLevel(entity: Entity): number {
-  return entity.parentNames.length;
+    return entity.parentNames.length;
 }
 
 export function sortEntitiesByHierarchy(entities: Entity[]): Entity[] {
-  const entitiesWithLevels = entities.map(entity => ({
-    ...entity,
-    level: calculateHierarchyLevel(entity),
-  }));
+    const entitiesWithLevels = entities.map((entity) => ({
+        ...entity,
+        level: calculateHierarchyLevel(entity),
+    }));
 
-  return entitiesWithLevels.sort((a, b) => {
-    if (a.level !== b.level) {
-      return a.level - b.level;
-    }
-    return a.name.localeCompare(b.name);
-  });
+    return entitiesWithLevels.sort((a, b) => {
+        if (a.level !== b.level) {
+            return a.level - b.level;
+        }
+        return a.name.localeCompare(b.name);
+    });
 }
 
 export function detectCircularDependencies(entities: Entity[]): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
+    const errors: ValidationError[] = [];
+    const warnings: ValidationWarning[] = [];
 
-  entities.forEach(entity => {
-    const visited = new Set<string>();
-    const stack = new Set<string>();
-    
-    function hasCycle(entityName: string): boolean {
-      if (stack.has(entityName)) return true;
-      if (visited.has(entityName)) return false;
-      
-      visited.add(entityName);
-      stack.add(entityName);
-      
-      const foundEntity = entities.find(e => e.name === entityName);
-      if (foundEntity) {
-        if (foundEntity.parentNames.some(parentName => hasCycle(parentName))) {
-          return true;
+    entities.forEach((entity) => {
+        const visited = new Set<string>();
+        const stack = new Set<string>();
+
+        function hasCycle(entityName: string): boolean {
+            if (stack.has(entityName)) return true;
+            if (visited.has(entityName)) return false;
+
+            visited.add(entityName);
+            stack.add(entityName);
+
+            const foundEntity = entities.find((e) => e.name === entityName);
+            if (foundEntity) {
+                if (foundEntity.parentNames.some((parentName) => hasCycle(parentName))) {
+                    return true;
+                }
+            }
+
+            stack.delete(entityName);
+            return false;
         }
-      }
-      
-      stack.delete(entityName);
-      return false;
-    }
-    
-    if (hasCycle(entity.name)) {
-      errors.push({
-        field: 'parent_nodes',
-        message: `Circular dependency detected involving entity "${entity.name}"`,
-        code: 'CIRCULAR_DEPENDENCY',
-      });
-    }
-  });
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+        if (hasCycle(entity.name)) {
+            errors.push({
+                field: 'parent_nodes',
+                message: `Circular dependency detected involving entity "${entity.name}"`,
+                code: 'CIRCULAR_DEPENDENCY',
+            });
+        }
+    });
+
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+    };
 }
 
 export function findOrphanedEntities(entities: Entity[]): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
+    const errors: ValidationError[] = [];
+    const warnings: ValidationWarning[] = [];
 
-  const entityNames = new Set(entities.map(e => e.name));
+    const entityNames = new Set(entities.map((e) => e.name));
 
-  entities.forEach(entity => {
-    entity.parentNames.forEach(parentName => {
-      if (!entityNames.has(parentName)) {
-        warnings.push({
-          field: 'parent_nodes',
-          message: `Entity "${entity.name}" references non-existent parent "${parentName}"`,
-          code: 'ORPHANED_ENTITY',
+    entities.forEach((entity) => {
+        entity.parentNames.forEach((parentName) => {
+            if (!entityNames.has(parentName)) {
+                warnings.push({
+                    field: 'parent_nodes',
+                    message: `Entity "${entity.name}" references non-existent parent "${parentName}"`,
+                    code: 'ORPHANED_ENTITY',
+                });
+            }
         });
-      }
     });
-  });
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+    };
 }
 
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number,
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
+export function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+    let timeout: NodeJS.Timeout;
+    return (...args: Parameters<T>) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
 }
 
-export function throttle<T extends (...args: any[]) => any>(
-  func: T,
-  limit: number,
-): (...args: Parameters<T>) => void {
-  let inThrottle: boolean;
-  return (...args: Parameters<T>) => {
-    if (!inThrottle) {
-      func(...args);
-      inThrottle = true;
-      setTimeout(() => {
-        inThrottle = false;
-      }, limit);
-    }
-  };
+export function throttle<T extends (...args: any[]) => any>(func: T, limit: number): (...args: Parameters<T>) => void {
+    let inThrottle: boolean;
+    return (...args: Parameters<T>) => {
+        if (!inThrottle) {
+            func(...args);
+            inThrottle = true;
+            setTimeout(() => {
+                inThrottle = false;
+            }, limit);
+        }
+    };
 }

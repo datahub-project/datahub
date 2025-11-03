@@ -3,11 +3,11 @@
  */
 
 export interface ParsedOwnership {
-  ownershipTypeName: string;
-  ownerName: string;
-  corpType: string;
-  ownerUrn: string;
-  ownerType: 'TECHNICAL_OWNER' | 'BUSINESS_OWNER' | 'DATA_STEWARD' | 'NONE';
+    ownershipTypeName: string;
+    ownerName: string;
+    corpType: string;
+    ownerUrn: string;
+    ownerType: 'TECHNICAL_OWNER' | 'BUSINESS_OWNER' | 'DATA_STEWARD' | 'NONE';
 }
 
 /**
@@ -17,29 +17,35 @@ export interface ParsedOwnership {
  * @returns Array of ParsedOwnership objects
  */
 export function parseOwnershipFromColumns(usersColumn: string, groupsColumn: string): ParsedOwnership[] {
-  const results: ParsedOwnership[] = [];
-  
-  if (usersColumn && usersColumn.trim()) {
-    const userEntries = usersColumn.split('|').map(entry => entry.trim()).filter(entry => entry);
-    userEntries.forEach(entry => {
-      const parsed = parseSingleOwnership(entry, 'CORP_USER');
-      if (parsed) {
-        results.push(parsed);
-      }
-    });
-  }
-  
-  if (groupsColumn && groupsColumn.trim()) {
-    const groupEntries = groupsColumn.split('|').map(entry => entry.trim()).filter(entry => entry);
-    groupEntries.forEach(entry => {
-      const parsed = parseSingleOwnership(entry, 'CORP_GROUP');
-      if (parsed) {
-        results.push(parsed);
-      }
-    });
-  }
-  
-  return results;
+    const results: ParsedOwnership[] = [];
+
+    if (usersColumn && usersColumn.trim()) {
+        const userEntries = usersColumn
+            .split('|')
+            .map((entry) => entry.trim())
+            .filter((entry) => entry);
+        userEntries.forEach((entry) => {
+            const parsed = parseSingleOwnership(entry, 'CORP_USER');
+            if (parsed) {
+                results.push(parsed);
+            }
+        });
+    }
+
+    if (groupsColumn && groupsColumn.trim()) {
+        const groupEntries = groupsColumn
+            .split('|')
+            .map((entry) => entry.trim())
+            .filter((entry) => entry);
+        groupEntries.forEach((entry) => {
+            const parsed = parseSingleOwnership(entry, 'CORP_GROUP');
+            if (parsed) {
+                results.push(parsed);
+            }
+        });
+    }
+
+    return results;
 }
 
 /**
@@ -48,56 +54,59 @@ export function parseOwnershipFromColumns(usersColumn: string, groupsColumn: str
  * @param corpType - The corp type (CORP_USER or CORP_GROUP)
  * @returns ParsedOwnership object or null if invalid
  */
-export function parseSingleOwnership(ownershipString: string, corpType: 'CORP_USER' | 'CORP_GROUP' = 'CORP_USER'): ParsedOwnership | null {
-  const trimmed = ownershipString.trim();
-  if (!trimmed) return null;
+export function parseSingleOwnership(
+    ownershipString: string,
+    corpType: 'CORP_USER' | 'CORP_GROUP' = 'CORP_USER',
+): ParsedOwnership | null {
+    const trimmed = ownershipString.trim();
+    if (!trimmed) return null;
 
-  const parts = trimmed.split(':');
-  if (parts.length < 2) return null;
+    const parts = trimmed.split(':');
+    if (parts.length < 2) return null;
 
-  const [ownerName, ownershipTypeName] = parts.map(part => part.trim());
-  
-  // Handle case where ownerName contains colons (like URNs)
-  if (parts.length > 2) {
-    const ownershipTypeNameFromUrn = parts[parts.length - 1];
-    const ownerNameFromUrn = parts.slice(0, -1).join(':');
+    const [ownerName, ownershipTypeName] = parts.map((part) => part.trim());
+
+    // Handle case where ownerName contains colons (like URNs)
+    if (parts.length > 2) {
+        const ownershipTypeNameFromUrn = parts[parts.length - 1];
+        const ownerNameFromUrn = parts.slice(0, -1).join(':');
+        return {
+            ownershipTypeName: ownershipTypeNameFromUrn,
+            ownerName: ownerNameFromUrn,
+            corpType: 'CORP_USER',
+            ownerUrn: ownerNameFromUrn,
+            ownerType: 'NONE' as const,
+        };
+    }
+
+    if (!ownerName || !ownershipTypeName) return null;
+
+    let ownerUrn: string;
+    if (ownerName.startsWith('urn:li:')) {
+        ownerUrn = ownerName;
+    } else if (corpType === 'CORP_GROUP') {
+        ownerUrn = `urn:li:corpGroup:${ownerName}`;
+    } else {
+        ownerUrn = `urn:li:corpuser:${ownerName}`;
+    }
+
+    let ownerType: 'TECHNICAL_OWNER' | 'BUSINESS_OWNER' | 'DATA_STEWARD' | 'NONE' = 'NONE';
+    const typeName = ownershipTypeName.toLowerCase();
+    if (typeName.includes('technical')) {
+        ownerType = 'TECHNICAL_OWNER';
+    } else if (typeName.includes('business')) {
+        ownerType = 'BUSINESS_OWNER';
+    } else if (typeName.includes('data') && !typeName.includes('datahub')) {
+        ownerType = 'DATA_STEWARD';
+    }
+
     return {
-      ownershipTypeName: ownershipTypeNameFromUrn,
-      ownerName: ownerNameFromUrn,
-      corpType: 'CORP_USER',
-      ownerUrn: ownerNameFromUrn,
-      ownerType: 'NONE' as const,
+        ownershipTypeName,
+        ownerName,
+        corpType,
+        ownerUrn,
+        ownerType,
     };
-  }
-  
-  if (!ownerName || !ownershipTypeName) return null;
-
-  let ownerUrn: string;
-  if (ownerName.startsWith('urn:li:')) {
-    ownerUrn = ownerName;
-  } else if (corpType === 'CORP_GROUP') {
-    ownerUrn = `urn:li:corpGroup:${ownerName}`;
-  } else {
-    ownerUrn = `urn:li:corpuser:${ownerName}`;
-  }
-  
-  let ownerType: 'TECHNICAL_OWNER' | 'BUSINESS_OWNER' | 'DATA_STEWARD' | 'NONE' = 'NONE';
-  const typeName = ownershipTypeName.toLowerCase();
-  if (typeName.includes('technical')) {
-    ownerType = 'TECHNICAL_OWNER';
-  } else if (typeName.includes('business')) {
-    ownerType = 'BUSINESS_OWNER';
-  } else if (typeName.includes('data') && !typeName.includes('datahub')) {
-    ownerType = 'DATA_STEWARD';
-  }
-
-  return {
-    ownershipTypeName,
-    ownerName,
-    corpType,
-    ownerUrn,
-    ownerType,
-  };
 }
 
 /**
@@ -106,16 +115,16 @@ export function parseSingleOwnership(ownershipString: string, corpType: 'CORP_US
  * @returns Array of ParsedOwnership objects
  */
 export function parseOwnershipString(ownershipString: string): ParsedOwnership[] {
-  if (!ownershipString) return [];
+    if (!ownershipString) return [];
 
-  const ownershipStrings = ownershipString
-    .split(/[|,]/)
-    .map(owner => owner.trim())
-    .filter(owner => owner.length > 0);
+    const ownershipStrings = ownershipString
+        .split(/[|,]/)
+        .map((owner) => owner.trim())
+        .filter((owner) => owner.length > 0);
 
-  return ownershipStrings
-    .map(ownershipStr => parseSingleOwnership(ownershipStr, 'CORP_USER'))
-    .filter((parsed): parsed is ParsedOwnership => parsed !== null);
+    return ownershipStrings
+        .map((ownershipStr) => parseSingleOwnership(ownershipStr, 'CORP_USER'))
+        .filter((parsed): parsed is ParsedOwnership => parsed !== null);
 }
 
 /**
@@ -124,27 +133,27 @@ export function parseOwnershipString(ownershipString: string): ParsedOwnership[]
  * @returns Object with validation result and error message
  */
 export function validateOwnershipString(ownershipString: string): { isValid: boolean; error?: string } {
-  if (!ownershipString) {
-    return { isValid: true }; // Empty ownership is valid
-  }
+    if (!ownershipString) {
+        return { isValid: true }; // Empty ownership is valid
+    }
 
-  const parsed = parseOwnershipString(ownershipString);
-  if (parsed.length === 0) {
-    return { 
-      isValid: false, 
-      error: `Invalid ownership format: "${ownershipString}". Expected format: "owner:ownershipType:corpType"`, 
-    };
-  }
+    const parsed = parseOwnershipString(ownershipString);
+    if (parsed.length === 0) {
+        return {
+            isValid: false,
+            error: `Invalid ownership format: "${ownershipString}". Expected format: "owner:ownershipType:corpType"`,
+        };
+    }
 
-  const hasEmptyEntries = ownershipString.split(/[|,]/).some(entry => entry.trim() === '');
-  if (hasEmptyEntries) {
-    return { 
-      isValid: false, 
-      error: `Invalid ownership format: "${ownershipString}". Empty ownership entries are not allowed.`, 
-    };
-  }
+    const hasEmptyEntries = ownershipString.split(/[|,]/).some((entry) => entry.trim() === '');
+    if (hasEmptyEntries) {
+        return {
+            isValid: false,
+            error: `Invalid ownership format: "${ownershipString}". Empty ownership entries are not allowed.`,
+        };
+    }
 
-  return { isValid: true };
+    return { isValid: true };
 }
 
 /**
@@ -153,52 +162,55 @@ export function validateOwnershipString(ownershipString: string): { isValid: boo
  * @param groupsColumn - Column containing group ownership
  * @returns Validation result with isValid flag and optional error message
  */
-export function validateOwnershipColumns(usersColumn: string, groupsColumn: string): { isValid: boolean; error?: string } {
-  if (!usersColumn && !groupsColumn) {
+export function validateOwnershipColumns(
+    usersColumn: string,
+    groupsColumn: string,
+): { isValid: boolean; error?: string } {
+    if (!usersColumn && !groupsColumn) {
+        return { isValid: true };
+    }
+
+    if (usersColumn && usersColumn.trim()) {
+        const userEntries = usersColumn.split('|').map((entry) => entry.trim());
+        for (let i = 0; i < userEntries.length; i++) {
+            const entry = userEntries[i];
+            if (!entry) {
+                return {
+                    isValid: false,
+                    error: 'Empty ownership entries are not allowed',
+                };
+            }
+            const parts = entry.split(':');
+            if (parts.length < 2) {
+                return {
+                    isValid: false,
+                    error: `Invalid user ownership format: "${entry}". Expected format: "user:ownershipType"`,
+                };
+            }
+        }
+    }
+
+    if (groupsColumn && groupsColumn.trim()) {
+        const groupEntries = groupsColumn.split('|').map((entry) => entry.trim());
+        for (let i = 0; i < groupEntries.length; i++) {
+            const entry = groupEntries[i];
+            if (!entry) {
+                return {
+                    isValid: false,
+                    error: 'Empty ownership entries are not allowed',
+                };
+            }
+            const parts = entry.split(':');
+            if (parts.length < 2) {
+                return {
+                    isValid: false,
+                    error: `Invalid group ownership format: "${entry}". Expected format: "group:ownershipType"`,
+                };
+            }
+        }
+    }
+
     return { isValid: true };
-  }
-
-  if (usersColumn && usersColumn.trim()) {
-    const userEntries = usersColumn.split('|').map(entry => entry.trim());
-    for (let i = 0; i < userEntries.length; i++) {
-      const entry = userEntries[i];
-      if (!entry) {
-        return { 
-          isValid: false, 
-          error: 'Empty ownership entries are not allowed', 
-        };
-      }
-      const parts = entry.split(':');
-      if (parts.length < 2) {
-        return { 
-          isValid: false, 
-          error: `Invalid user ownership format: "${entry}". Expected format: "user:ownershipType"`, 
-        };
-      }
-    }
-  }
-
-  if (groupsColumn && groupsColumn.trim()) {
-    const groupEntries = groupsColumn.split('|').map(entry => entry.trim());
-    for (let i = 0; i < groupEntries.length; i++) {
-      const entry = groupEntries[i];
-      if (!entry) {
-        return { 
-          isValid: false, 
-          error: 'Empty ownership entries are not allowed', 
-        };
-      }
-      const parts = entry.split(':');
-      if (parts.length < 2) {
-        return { 
-          isValid: false, 
-          error: `Invalid group ownership format: "${entry}". Expected format: "group:ownershipType"`, 
-        };
-      }
-    }
-  }
-
-  return { isValid: true };
 }
 
 /**
@@ -209,38 +221,42 @@ export function validateOwnershipColumns(usersColumn: string, groupsColumn: stri
  * @returns Array of patch operations
  */
 export function createOwnershipPatchOperations(
-  parsedOwnership: ParsedOwnership[],
-  ownershipTypeMap: Map<string, string>,
+    parsedOwnership: ParsedOwnership[],
+    ownershipTypeMap: Map<string, string>,
 ): Array<{ op: 'ADD' | 'REMOVE' | 'REPLACE' | 'MOVE' | 'COPY' | 'TEST'; path: string; value?: string }> {
-  const patches: Array<{ op: 'ADD' | 'REMOVE' | 'REPLACE' | 'MOVE' | 'COPY' | 'TEST'; path: string; value?: string }> = [];
+    const patches: Array<{
+        op: 'ADD' | 'REMOVE' | 'REPLACE' | 'MOVE' | 'COPY' | 'TEST';
+        path: string;
+        value?: string;
+    }> = [];
 
-  const ownersArray = parsedOwnership.map(({ ownershipTypeName, ownerUrn }) => {
-    const ownershipTypeUrn = ownershipTypeMap.get(ownershipTypeName.toLowerCase());
-    if (!ownershipTypeUrn) {
-      const availableTypes = Array.from(ownershipTypeMap.keys()).join(', ');
-      throw new Error(
-        `Ownership type "${ownershipTypeName}" not found in ownership type map. ` +
-        `Available types: ${availableTypes || '(none)'}. ` +
-        `Note: System ownership types are "Technical Owner", "Business Owner", "Data Steward", and "None". ` +
-        `Custom ownership types must be created first.`,
-      );
-    }
+    const ownersArray = parsedOwnership.map(({ ownershipTypeName, ownerUrn }) => {
+        const ownershipTypeUrn = ownershipTypeMap.get(ownershipTypeName.toLowerCase());
+        if (!ownershipTypeUrn) {
+            const availableTypes = Array.from(ownershipTypeMap.keys()).join(', ');
+            throw new Error(
+                `Ownership type "${ownershipTypeName}" not found in ownership type map. ` +
+                    `Available types: ${availableTypes || '(none)'}. ` +
+                    `Note: System ownership types are "Technical Owner", "Business Owner", "Data Steward", and "None". ` +
+                    `Custom ownership types must be created first.`,
+            );
+        }
 
-    return {
-      owner: ownerUrn,
-      typeUrn: ownershipTypeUrn,
-      type: 'NONE',
-      source: { type: 'MANUAL' },
-    };
-  });
+        return {
+            owner: ownerUrn,
+            typeUrn: ownershipTypeUrn,
+            type: 'NONE',
+            source: { type: 'MANUAL' },
+        };
+    });
 
-  // Use REPLACE to completely overwrite the owners array (works for both new and existing entities)
-  // This ensures we don't merge with existing ownership - we completely replace it
-  patches.push({
-    op: 'REPLACE' as const,
-    path: '/owners',
-    value: JSON.stringify(ownersArray),
-  });
+    // Use REPLACE to completely overwrite the owners array (works for both new and existing entities)
+    // This ensures we don't merge with existing ownership - we completely replace it
+    patches.push({
+        op: 'REPLACE' as const,
+        path: '/owners',
+        value: JSON.stringify(ownersArray),
+    });
 
-  return patches;
+    return patches;
 }

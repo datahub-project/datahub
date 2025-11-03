@@ -1,9 +1,9 @@
-import { Button, Tooltip, Dropdown } from '@components';
-import React, { useState } from 'react';
-import styled from 'styled-components/macro';
+import { FileTextOutlined, FolderOutlined, UploadOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Tooltip } from '@components';
 import { MenuProps } from 'antd';
-import { FolderOutlined, FileTextOutlined, DownloadOutlined, UploadOutlined, MoreOutlined } from '@ant-design/icons';
+import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
+import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
@@ -13,10 +13,10 @@ import GlossarySearch from '@app/glossaryV2/GlossarySearch';
 import { SidebarWrapper } from '@app/sharedV2/sidebar/components';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 
 import { useGetRootGlossaryNodesQuery } from '@graphql/glossary.generated';
 import { EntityType } from '@types';
-import { PageRoutes } from '@conf/Global';
 
 const StyledSidebarWrapper = styled(SidebarWrapper)<{ $isEntityProfile?: boolean }>`
     ${(props) =>
@@ -100,11 +100,7 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                 <SidebarTitleWrapper>
                     <GlossaryTitle>Business Glossary</GlossaryTitle>
                     <Tooltip title="Glossary Actions" placement="left" showArrow={false}>
-                        <Dropdown
-                            menu={{ items: dropdownItems }}
-                            trigger={['click']}
-                            placement="bottomRight"
-                        >
+                        <Dropdown menu={{ items: dropdownItems }} trigger={['click']} placement="bottomRight">
                             <StyledButton
                                 variant="text"
                                 color="gray"

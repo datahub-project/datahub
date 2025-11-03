@@ -1,22 +1,22 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 /**
  * Generic modal state management hook
- * 
+ *
  * Handles common modal patterns: open, close, and data passing.
  * Reduces boilerplate for modal state management.
- * 
+ *
  * @template T The type of data associated with the modal
- * 
+ *
  * @example
  * ```tsx
  * const diffModal = useModal<Entity>();
- * 
+ *
  * // Open modal with data
  * <Button onClick={() => diffModal.open(entity)}>Show Diff</Button>
- * 
+ *
  * // Use in modal component
- * <DiffModal 
+ * <DiffModal
  *     isVisible={diffModal.isOpen}
  *     entity={diffModal.data}
  *     onClose={diffModal.close}
@@ -40,13 +40,16 @@ export function useModal<T = unknown>() {
         setTimeout(() => setData(null), 300);
     }, []);
 
-    const toggle = useCallback((modalData?: T) => {
-        if (isOpen) {
-            close();
-        } else {
-            open(modalData);
-        }
-    }, [isOpen, close, open]);
+    const toggle = useCallback(
+        (modalData?: T) => {
+            if (isOpen) {
+                close();
+            } else {
+                open(modalData);
+            }
+        },
+        [isOpen, close, open],
+    );
 
     return {
         isOpen,
@@ -61,4 +64,3 @@ export function useModal<T = unknown>() {
  * Return type for useModal hook
  */
 export type UseModalReturn<T> = ReturnType<typeof useModal<T>>;
-

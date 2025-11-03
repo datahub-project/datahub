@@ -3,20 +3,19 @@
  * Consolidates all URN generation, validation, and resolution logic
  * Matches backend logic from PatchResolverUtils.java
  */
-
 import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 /**
  * Entity types that support auto-generated URNs (matches backend)
  */
 export const AUTO_GENERATE_ALLOWED_ENTITY_TYPES = new Set([
-  'glossaryTerm',
-  'glossaryNode',
-  'container',
-  'notebook',
-  'domain',
-  'dataProduct',
-  'ownershipType',
+    'glossaryTerm',
+    'glossaryNode',
+    'container',
+    'notebook',
+    'domain',
+    'dataProduct',
+    'ownershipType',
 ]);
 
 /**
@@ -24,149 +23,147 @@ export const AUTO_GENERATE_ALLOWED_ENTITY_TYPES = new Set([
  * Provides all URN-related operations in one place
  */
 export class UrnManager {
-  /**
-   * Generate a GUID using crypto.randomUUID() (matches backend UUID.randomUUID())
-   */
-  static generateGuid(): string {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      return crypto.randomUUID();
+    /**
+     * Generate a GUID using crypto.randomUUID() (matches backend UUID.randomUUID())
+     */
+    static generateGuid(): string {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+
+        // Fallback for environments without crypto.randomUUID
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            // eslint-disable-next-line no-bitwise
+            const r = (Math.random() * 16) | 0;
+            // eslint-disable-next-line no-bitwise
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+        });
     }
-    
-    // Fallback for environments without crypto.randomUUID
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      // eslint-disable-next-line no-bitwise
-      const r = Math.random() * 16 | 0;
-      // eslint-disable-next-line no-bitwise
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
 
-  // Matches backend: String.format("urn:li:%s:%s", entityType, guid)
-  static generateEntityUrn(entityType: string): string {
-    if (!AUTO_GENERATE_ALLOWED_ENTITY_TYPES.has(entityType)) {
-      throw new Error(
-        `Auto-generated URNs are only supported for entity types: ${Array.from(AUTO_GENERATE_ALLOWED_ENTITY_TYPES).join(', ')}. ` +
-        `Entity type '${entityType}' requires a structured URN. ` +
-        `Please provide a specific URN for this entity type.`,
-      );
+    // Matches backend: String.format("urn:li:%s:%s", entityType, guid)
+    static generateEntityUrn(entityType: string): string {
+        if (!AUTO_GENERATE_ALLOWED_ENTITY_TYPES.has(entityType)) {
+            throw new Error(
+                `Auto-generated URNs are only supported for entity types: ${Array.from(AUTO_GENERATE_ALLOWED_ENTITY_TYPES).join(', ')}. ` +
+                    `Entity type '${entityType}' requires a structured URN. ` +
+                    `Please provide a specific URN for this entity type.`,
+            );
+        }
+
+        const guid = this.generateGuid();
+        return `urn:li:${entityType}:${guid}`;
     }
-    
-    const guid = this.generateGuid();
-    return `urn:li:${entityType}:${guid}`;
-  }
 
-  // Ownership types use pattern: urn:li:ownershipType:{name}
-  static generateOwnershipTypeUrn(name: string): string {
-    const sanitizedName = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    return `urn:li:ownershipType:${sanitizedName}`;
-  }
-
-  // Name-based URN for backward compatibility with older glossary import logic
-  static generateGlossaryUrn(entityType: 'glossaryTerm' | 'glossaryNode', name: string): string {
-    const encodedName = encodeURIComponent(name);
-    return `urn:li:${entityType}:${encodedName}`;
-  }
-
-  static isValidUrn(urn: string, allowEmpty = false): boolean {
-    if (!urn || urn.trim() === '') {
-      return allowEmpty;
+    // Ownership types use pattern: urn:li:ownershipType:{name}
+    static generateOwnershipTypeUrn(name: string): string {
+        const sanitizedName = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        return `urn:li:ownershipType:${sanitizedName}`;
     }
-    return urn.startsWith('urn:li:') && urn.split(':').length >= 4;
-  }
 
-  static extractEntityTypeFromUrn(urn: string): string | null {
-    if (!this.isValidUrn(urn)) return null;
-    const parts = urn.split(':');
-    return parts.length >= 3 ? parts[2] : null;
-  }
-
-  static extractEntityIdFromUrn(urn: string): string | null {
-    if (!this.isValidUrn(urn)) return null;
-    const parts = urn.split(':');
-    return parts.length >= 4 ? parts.slice(3).join(':') : null;
-  }
-
-  static preGenerateUrns(entities: Entity[]): Map<string, string> {
-    const urnMap = new Map<string, string>();
-    
-    entities.forEach(entity => {
-      if (entity.urn) {
-        urnMap.set(entity.id, entity.urn);
-      } else if (entity.status === 'new') {
-          const urn = this.generateEntityUrn(entity.type);
-          urnMap.set(entity.id, urn);
-      }
-    });
-    
-    return urnMap;
-  }
-
-  static resolveEntityUrn(entity: Entity, urnMap: Map<string, string>): string {
-    if (entity.urn) {
-      return entity.urn;
+    // Name-based URN for backward compatibility with older glossary import logic
+    static generateGlossaryUrn(entityType: 'glossaryTerm' | 'glossaryNode', name: string): string {
+        const encodedName = encodeURIComponent(name);
+        return `urn:li:${entityType}:${encodedName}`;
     }
-    
-    const generatedUrn = urnMap.get(entity.id);
-    if (generatedUrn) {
-      return generatedUrn;
+
+    static isValidUrn(urn: string, allowEmpty = false): boolean {
+        if (!urn || urn.trim() === '') {
+            return allowEmpty;
+        }
+        return urn.startsWith('urn:li:') && urn.split(':').length >= 4;
     }
-    
-    throw new Error(`No URN available for entity ${entity.name} (${entity.id})`);
-  }
 
-  // Maps both entity ID and lowercase name to URN for flexible lookup
-  static createExistingEntityUrnMap(existingEntities: Entity[]): Map<string, string> {
-    const urnMap = new Map<string, string>();
-    
-    existingEntities.forEach(entity => {
-      if (entity.urn) {
-        urnMap.set(entity.id, entity.urn);
-        urnMap.set(entity.name.toLowerCase(), entity.urn);
-      }
-    });
-    
-    return urnMap;
-  }
+    static extractEntityTypeFromUrn(urn: string): string | null {
+        if (!this.isValidUrn(urn)) return null;
+        const parts = urn.split(':');
+        return parts.length >= 3 ? parts[2] : null;
+    }
 
-  static findUrnByName(name: string, entities: Entity[]): string | undefined {
-    const entity = entities.find(e => 
-      e.name.toLowerCase() === name.toLowerCase() && e.urn,
-    );
-    return entity?.urn;
-  }
+    static extractEntityIdFromUrn(urn: string): string | null {
+        if (!this.isValidUrn(urn)) return null;
+        const parts = urn.split(':');
+        return parts.length >= 4 ? parts.slice(3).join(':') : null;
+    }
 
-  static supportsAutoGeneratedUrn(entityType: string): boolean {
-    return AUTO_GENERATE_ALLOWED_ENTITY_TYPES.has(entityType);
-  }
+    static preGenerateUrns(entities: Entity[]): Map<string, string> {
+        const urnMap = new Map<string, string>();
 
-  static parseUrn(urn: string): { scheme: string; namespace: string; entityType: string; id: string } | null {
-    if (!this.isValidUrn(urn)) return null;
-    
-    const parts = urn.split(':');
-    if (parts.length < 4) return null;
-    
-    return {
-      scheme: parts[0],
-      namespace: parts[1],
-      entityType: parts[2],
-      id: parts.slice(3).join(':'),
-    };
-  }
+        entities.forEach((entity) => {
+            if (entity.urn) {
+                urnMap.set(entity.id, entity.urn);
+            } else if (entity.status === 'new') {
+                const urn = this.generateEntityUrn(entity.type);
+                urnMap.set(entity.id, urn);
+            }
+        });
 
-  static buildUrn(entityType: string, id: string): string {
-    return `urn:li:${entityType}:${id}`;
-  }
+        return urnMap;
+    }
 
-  static isDomainUrn(urn: string): boolean {
-    const entityType = this.extractEntityTypeFromUrn(urn);
-    return entityType === 'domain';
-  }
+    static resolveEntityUrn(entity: Entity, urnMap: Map<string, string>): string {
+        if (entity.urn) {
+            return entity.urn;
+        }
 
-  static isOwnershipTypeUrn(urn: string): boolean {
-    const entityType = this.extractEntityTypeFromUrn(urn);
-    return entityType === 'ownershipType';
-  }
+        const generatedUrn = urnMap.get(entity.id);
+        if (generatedUrn) {
+            return generatedUrn;
+        }
+
+        throw new Error(`No URN available for entity ${entity.name} (${entity.id})`);
+    }
+
+    // Maps both entity ID and lowercase name to URN for flexible lookup
+    static createExistingEntityUrnMap(existingEntities: Entity[]): Map<string, string> {
+        const urnMap = new Map<string, string>();
+
+        existingEntities.forEach((entity) => {
+            if (entity.urn) {
+                urnMap.set(entity.id, entity.urn);
+                urnMap.set(entity.name.toLowerCase(), entity.urn);
+            }
+        });
+
+        return urnMap;
+    }
+
+    static findUrnByName(name: string, entities: Entity[]): string | undefined {
+        const entity = entities.find((e) => e.name.toLowerCase() === name.toLowerCase() && e.urn);
+        return entity?.urn;
+    }
+
+    static supportsAutoGeneratedUrn(entityType: string): boolean {
+        return AUTO_GENERATE_ALLOWED_ENTITY_TYPES.has(entityType);
+    }
+
+    static parseUrn(urn: string): { scheme: string; namespace: string; entityType: string; id: string } | null {
+        if (!this.isValidUrn(urn)) return null;
+
+        const parts = urn.split(':');
+        if (parts.length < 4) return null;
+
+        return {
+            scheme: parts[0],
+            namespace: parts[1],
+            entityType: parts[2],
+            id: parts.slice(3).join(':'),
+        };
+    }
+
+    static buildUrn(entityType: string, id: string): string {
+        return `urn:li:${entityType}:${id}`;
+    }
+
+    static isDomainUrn(urn: string): boolean {
+        const entityType = this.extractEntityTypeFromUrn(urn);
+        return entityType === 'domain';
+    }
+
+    static isOwnershipTypeUrn(urn: string): boolean {
+        const entityType = this.extractEntityTypeFromUrn(urn);
+        return entityType === 'ownershipType';
+    }
 }
 
 /**
@@ -176,13 +173,12 @@ export class UrnManager {
 export const generateGuid = () => UrnManager.generateGuid();
 export const generateEntityUrn = (entityType: string) => UrnManager.generateEntityUrn(entityType);
 export const generateOwnershipTypeUrn = (name: string) => UrnManager.generateOwnershipTypeUrn(name);
-export const generateGlossaryUrn = (entityType: 'glossaryTerm' | 'glossaryNode', name: string) => 
-  UrnManager.generateGlossaryUrn(entityType, name);
+export const generateGlossaryUrn = (entityType: 'glossaryTerm' | 'glossaryNode', name: string) =>
+    UrnManager.generateGlossaryUrn(entityType, name);
 export const isValidUrn = (urn: string, allowEmpty?: boolean) => UrnManager.isValidUrn(urn, allowEmpty);
 export const extractEntityTypeFromUrn = (urn: string) => UrnManager.extractEntityTypeFromUrn(urn);
 export const preGenerateUrns = (entities: Entity[]) => UrnManager.preGenerateUrns(entities);
-export const resolveEntityUrn = (entity: Entity, urnMap: Map<string, string>) => 
-  UrnManager.resolveEntityUrn(entity, urnMap);
-export const createExistingEntityUrnMap = (existingEntities: Entity[]) => 
-  UrnManager.createExistingEntityUrnMap(existingEntities);
-
+export const resolveEntityUrn = (entity: Entity, urnMap: Map<string, string>) =>
+    UrnManager.resolveEntityUrn(entity, urnMap);
+export const createExistingEntityUrnMap = (existingEntities: Entity[]) =>
+    UrnManager.createExistingEntityUrnMap(existingEntities);

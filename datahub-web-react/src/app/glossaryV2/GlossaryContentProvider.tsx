@@ -1,19 +1,19 @@
+import { FileTextOutlined, FolderOutlined, UploadOutlined } from '@ant-design/icons';
 import { Button, Dropdown } from '@components';
-import React from 'react';
-import styled from 'styled-components/macro';
 import { MenuProps } from 'antd';
-import { FolderOutlined, FileTextOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import React from 'react';
 import { useHistory } from 'react-router-dom';
+import styled from 'styled-components/macro';
 
 import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
 import GlossaryEntitiesList from '@app/glossaryV2/GlossaryEntitiesList';
 import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
+import { PageRoutes } from '@conf/Global';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 
 import { GlossaryNodeFragment } from '@graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 import { GlossaryNode, GlossaryTerm } from '@types';
-import { PageRoutes } from '@conf/Global';
 
 const MainContentWrapper = styled.div`
     display: flex;
@@ -90,11 +90,7 @@ const GlossaryContentProvider = (props: Props) => {
                     subTitle="Classify your data assets and columns using data dictionaries"
                 />
                 <ButtonContainer>
-                    <Dropdown
-                        menu={{ items: dropdownItems }}
-                        trigger={['click']}
-                        placement="bottomRight"
-                    >
+                    <Dropdown menu={{ items: dropdownItems }} trigger={['click']} placement="bottomRight">
                         <Button
                             data-testid="add-term-group-button-v2"
                             id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}

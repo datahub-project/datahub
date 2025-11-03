@@ -1,6 +1,8 @@
-import React from 'react';
 import { Button, Input, Pill, SimpleSelect } from '@components';
+import React from 'react';
+
 import { Column } from '@components/components/Table/types';
+
 import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 // ============================================
@@ -128,10 +130,10 @@ const EditableCell = ({
     displayValue?: string;
 }) => {
     const editing = isEditing(record.id, field);
-    
+
     if (editing) {
         const currentValue = editingValue;
-        
+
         return (
             <Input
                 value={currentValue}
@@ -154,21 +156,21 @@ const EditableCell = ({
             />
         );
     }
-    
+
     return (
-        <div 
+        <div
             onClick={() => handleCellEdit(record.id, field)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleCellEdit(record.id, field);
-              }
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleCellEdit(record.id, field);
+                }
             }}
             role="button"
             tabIndex={0}
             style={{ cursor: 'pointer' }}
         >
-            {displayValue !== undefined ? displayValue : (record.data[field] || '-')}
+            {displayValue !== undefined ? displayValue : record.data[field] || '-'}
         </div>
     );
 };
@@ -180,11 +182,7 @@ const EditableCell = ({
 /**
  * Helper function to build fully qualified hierarchical name
  */
-const buildFullyQualifiedName = (
-    entity: Entity,
-    allEntities: Entity[],
-    visited: Set<string> = new Set(),
-): string => {
+const buildFullyQualifiedName = (entity: Entity, allEntities: Entity[], visited: Set<string> = new Set()): string => {
     if (visited.has(entity.name)) {
         return entity.name;
     }
@@ -195,19 +193,22 @@ const buildFullyQualifiedName = (
         return entity.name;
     }
 
-    const parents = parentPath.split(',').map(p => p.trim()).filter(Boolean);
+    const parents = parentPath
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
     if (parents.length === 0) {
         return entity.name;
     }
 
     const primaryParentName = parents[0];
-    const parentEntity = allEntities.find(e => e.name === primaryParentName);
-    
+    const parentEntity = allEntities.find((e) => e.name === primaryParentName);
+
     if (parentEntity) {
         const parentQualifiedName = buildFullyQualifiedName(parentEntity, allEntities, new Set(visited));
         return `${parentQualifiedName}.${entity.name}`;
     }
-    
+
     return `${primaryParentName}.${entity.name}`;
 };
 
@@ -218,8 +219,8 @@ const buildFullyQualifiedName = (
 /**
  * Entity with hierarchy metadata for rendering
  */
-type EntityWithHierarchy = Entity & { 
-    children?: Entity[]; 
+type EntityWithHierarchy = Entity & {
+    children?: Entity[];
     _indentSize?: number;
     _indentLevel?: number;
 };
@@ -264,11 +265,11 @@ function createStatusColumn(): Column<Entity> {
                 conflict: 'red',
                 existing: 'gray',
             };
-            
+
             const getStatusLabel = (status: string) => {
                 return status.charAt(0).toUpperCase() + status.slice(1);
             };
-            
+
             return (
                 <Pill
                     label={getStatusLabel(record.status)}
@@ -304,7 +305,7 @@ function createNameColumn(
         render: (record: EntityWithHierarchy) => {
             const hasChildren = record.children && record.children.length > 0;
             const isExpanded = expandedRowKeys.includes(record.name);
-            
+
             const expandButton = hasChildren ? (
                 <button
                     type="button"
@@ -391,13 +392,13 @@ function createEntityTypeColumn(
                 );
             }
             return (
-                <div 
+                <div
                     onClick={() => handleCellEdit(record.id, 'entity_type')}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleCellEdit(record.id, 'entity_type');
-                      }
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleCellEdit(record.id, 'entity_type');
+                        }
                     }}
                     role="button"
                     tabIndex={0}
@@ -446,13 +447,13 @@ function createTermSourceColumn(
                 );
             }
             return (
-                <div 
+                <div
                     onClick={() => handleCellEdit(record.id, 'term_source')}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleCellEdit(record.id, 'term_source');
-                      }
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleCellEdit(record.id, 'term_source');
+                        }
                     }}
                     role="button"
                     tabIndex={0}
@@ -511,7 +512,7 @@ export const getTableColumns = (
     ];
 
     // Editable columns from config
-    const editableColumns: Column<EntityWithHierarchy>[] = EDITABLE_COLUMNS.map(config => ({
+    const editableColumns: Column<EntityWithHierarchy>[] = EDITABLE_COLUMNS.map((config) => ({
         title: config.title,
         key: config.key,
         render: (record: EntityWithHierarchy) => (
@@ -529,11 +530,11 @@ export const getTableColumns = (
         width: `${config.width}px`,
         minWidth: `${config.minWidth || config.width}px`,
         alignment: 'left' as const,
-        sorter: config.sortable 
-            ? (a: EntityWithHierarchy, b: EntityWithHierarchy) => (a.data[config.key] || '').localeCompare(b.data[config.key] || '')
+        sorter: config.sortable
+            ? (a: EntityWithHierarchy, b: EntityWithHierarchy) =>
+                  (a.data[config.key] || '').localeCompare(b.data[config.key] || '')
             : undefined,
     }));
 
     return [...staticColumns, ...editableColumns];
 };
-

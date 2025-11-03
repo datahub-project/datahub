@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+
 import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 /**
@@ -17,10 +18,10 @@ export interface UseEntitySearchOptions {
 
 /**
  * Hook for searching and filtering entities
- * 
+ *
  * Provides efficient search across multiple entity fields with optional status filtering.
  * Uses memoization to prevent unnecessary recalculations.
- * 
+ *
  * @example
  * ```tsx
  * const filteredEntities = useEntitySearch({
@@ -43,14 +44,12 @@ export function useEntitySearch({
         // Text search across specified fields
         if (query && query.trim()) {
             const searchLower = query.toLowerCase().trim();
-            filtered = filtered.filter(entity => {
+            filtered = filtered.filter((entity) => {
                 // Check if any of the specified fields match the query
-                return searchFields.some(field => {
+                return searchFields.some((field) => {
                     // Handle entity.name separately from entity.data.field
-                    const value = field === 'name' 
-                        ? entity.name 
-                        : entity.data[field];
-                    
+                    const value = field === 'name' ? entity.name : entity.data[field];
+
                     // Safely convert to string and search
                     return value?.toString().toLowerCase().includes(searchLower);
                 });
@@ -62,7 +61,7 @@ export function useEntitySearch({
             const statusMap = ['', 'new', 'updated', 'conflict'] as const;
             const targetStatus = statusMap[parseInt(statusFilter, 10)];
             if (targetStatus) {
-                filtered = filtered.filter(entity => entity.status === targetStatus);
+                filtered = filtered.filter((entity) => entity.status === targetStatus);
             }
         }
 
@@ -86,4 +85,3 @@ export const GLOSSARY_SEARCHABLE_FIELDS: string[] = [
     'domain_name',
     'custom_properties',
 ];
-

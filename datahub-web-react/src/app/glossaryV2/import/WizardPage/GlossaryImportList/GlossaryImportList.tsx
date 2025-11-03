@@ -2,13 +2,14 @@ import { Button, SearchBar, SimpleSelect, Table } from '@components';
 import React, { useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
-import { Entity } from '@app/glossaryV2/import/glossary.types';
+
 import { DiffModal } from '@app/glossaryV2/import/WizardPage/DiffModal/DiffModal';
-import { ImportProgressModal } from '@app/glossaryV2/import/WizardPage/ImportProgressModal/ImportProgressModal';
 import { getTableColumns } from '@app/glossaryV2/import/WizardPage/GlossaryImportList/GlossaryImportList.utils';
-import { useEntitySearch, GLOSSARY_SEARCHABLE_FIELDS } from '@app/glossaryV2/import/shared/hooks/useEntitySearch';
-import { useModal } from '@app/glossaryV2/import/shared/hooks/useModal';
+import { ImportProgressModal } from '@app/glossaryV2/import/WizardPage/ImportProgressModal/ImportProgressModal';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
+import { GLOSSARY_SEARCHABLE_FIELDS, useEntitySearch } from '@app/glossaryV2/import/shared/hooks/useEntitySearch';
 import { useHierarchicalData } from '@app/glossaryV2/import/shared/hooks/useHierarchicalData';
+import { useModal } from '@app/glossaryV2/import/shared/hooks/useModal';
 
 const StyledTabToolbar = styled.div`
     display: flex;
@@ -49,34 +50,34 @@ const TableContainer = styled.div`
     overflow: hidden;
     min-width: 0;
     min-height: 0;
-    
+
     .table-wrapper {
         overflow-x: auto;
         overflow-y: auto;
         min-width: 100%;
         flex: 1;
     }
-    
+
     &&& .ant-table-tbody > tr > td {
         padding: 8px 12px;
-        border-bottom: 1px solid ${props => props.theme.styles?.['border-color'] || '#f0f0f0'};
+        border-bottom: 1px solid ${(props) => props.theme.styles?.['border-color'] || '#f0f0f0'};
     }
-    
+
     &&& .ant-table-thead > tr > th {
         padding: 8px 12px;
-        background-color: ${props => props.theme.styles?.['background-color-secondary'] || '#fafafa'};
+        background-color: ${(props) => props.theme.styles?.['background-color-secondary'] || '#fafafa'};
         font-weight: 600;
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
-    
+
     &&& .ant-table {
         font-size: 13px;
     }
-    
+
     &&& .ant-table-tbody > tr:hover > td {
-        background-color: ${props => props.theme.styles?.['background-color-hover'] || '#f5f5f5'};
+        background-color: ${(props) => props.theme.styles?.['background-color-hover'] || '#f5f5f5'};
     }
 `;
 
@@ -86,7 +87,6 @@ type GlossaryImportListProps = {
     isImportModalVisible: boolean;
     setIsImportModalVisible: (visible: boolean) => void;
     progress: any;
-    isProcessing: boolean;
 };
 
 export default function GlossaryImportList({
@@ -95,17 +95,16 @@ export default function GlossaryImportList({
     isImportModalVisible,
     setIsImportModalVisible,
     progress,
-    isProcessing,
 }: GlossaryImportListProps) {
     // Search state
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<any>(null);
     const [statusFilter, setStatusFilter] = useState<string>('0');
-    
+
     // Editing state
     const [editingCell, setEditingCell] = useState<{ rowId: string; field: string; value: string } | null>(null);
-    
+
     // Modal management with custom hook
     const diffModal = useModal<Entity>();
 
@@ -132,16 +131,11 @@ export default function GlossaryImportList({
     });
 
     // Hierarchical data management with custom hook
-    const {
-        hierarchicalData,
-        flattenedData,
-        expandedKeys,
-        expandAll,
-        collapseAll,
-        toggleExpand,
-    } = useHierarchicalData({
-        entities: filteredEntities,
-    });
+    const { hierarchicalData, flattenedData, expandedKeys, expandAll, collapseAll, toggleExpand } = useHierarchicalData(
+        {
+            entities: filteredEntities,
+        },
+    );
 
     // Editing handlers
     const isEditing = (rowId: string, field: string) => {
@@ -149,7 +143,7 @@ export default function GlossaryImportList({
     };
 
     const handleCellEdit = (rowId: string, field: string) => {
-        const entity = entities.find(e => e.id === rowId);
+        const entity = entities.find((e) => e.id === rowId);
         const currentValue = entity?.data[field] || '';
         setEditingCell({ rowId, field, value: currentValue });
     };
@@ -161,15 +155,17 @@ export default function GlossaryImportList({
     };
 
     const handleCellSave = (rowId: string, field: string, value: string) => {
-        setEntities(entities.map(entity => {
-            if (entity.id === rowId) {
-                return {
-                    ...entity,
-                    data: { ...entity.data, [field]: value },
-                };
-            }
-            return entity;
-        }));
+        setEntities(
+            entities.map((entity) => {
+                if (entity.id === rowId) {
+                    return {
+                        ...entity,
+                        data: { ...entity.data, [field]: value },
+                    };
+                }
+                return entity;
+            }),
+        );
         setEditingCell(null);
     };
 
@@ -217,7 +213,7 @@ export default function GlossaryImportList({
                         size="sm"
                         icon={{ icon: 'CaretDown', source: 'phosphor' }}
                         onClick={expandAll}
-                        disabled={hierarchicalData.filter(e => e.children && e.children.length > 0).length === 0}
+                        disabled={hierarchicalData.filter((e) => e.children && e.children.length > 0).length === 0}
                     >
                         Expand All
                     </Button>
@@ -244,7 +240,6 @@ export default function GlossaryImportList({
                 />
             </TableContainer>
 
-
             {diffModal.isOpen && diffModal.data && (
                 <DiffModal
                     visible={diffModal.isOpen}
@@ -262,4 +257,3 @@ export default function GlossaryImportList({
         </>
     );
 }
-
