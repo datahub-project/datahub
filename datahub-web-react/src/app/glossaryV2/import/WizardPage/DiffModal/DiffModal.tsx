@@ -105,7 +105,7 @@ const createTableColumns = () => [
           <Badge 
             color="red" 
             size="xs" 
-            count={1}
+            count={0}
             style={{ 
               position: 'absolute', 
               top: '4px', 
@@ -154,7 +154,7 @@ const createTableColumns = () => [
           <Badge 
             color="red" 
             size="xs" 
-            count={1}
+            count={0}
             style={{ 
               position: 'absolute', 
               top: '4px', 
@@ -236,12 +236,6 @@ export const DiffModal: React.FC<DiffModalProps> = ({
     });
   }, [entity, existingEntity]);
 
-
-  const hasConflicts = useMemo(() => 
-    tableData.some(field => field.isConflict), 
-    [tableData],
-  );
-
   const status = entity?.status || 'new';
   const statusColor = status === 'conflict' ? 'red' : 
                      status === 'updated' ? 'orange' : 
@@ -260,24 +254,6 @@ export const DiffModal: React.FC<DiffModalProps> = ({
       width="63%"
       dataTestId="diff-modal"
     >
-      {hasConflicts && (
-        <div style={{ 
-          marginBottom: '16px', 
-          padding: '12px 16px',
-          backgroundColor: '#fef2f2',
-          border: '1px solid #fecaca',
-          borderRadius: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-        }}>
-          <Badge color="red" size="sm" count={1} />
-          <Text color="red" size="sm">
-            Values differ between existing and imported data
-          </Text>
-        </div>
-      )}
-
       <Table
         columns={createTableColumns()}
         data={tableData}
