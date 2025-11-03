@@ -1,14 +1,19 @@
 """
-Airflow 3.0 version of snowflake_operator.py
+Version-compatible Snowflake operator DAG that works with both Airflow 2.4+ and 3.x.
 
-This DAG uses SQLExecuteQueryOperator instead of SnowflakeOperator,
-which was removed in Airflow 3.0.
+Uses SQLExecuteQueryOperator which is available in both versions via conditional imports.
 """
 
 from datetime import datetime
 
 from airflow import DAG
-from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+
+# Try Airflow 3.x / 2.7+ location first (common.sql provider)
+try:
+    from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+except ImportError:
+    # Fall back to Airflow 2.4-2.6 location
+    from airflow.operators.sql import SQLExecuteQueryOperator  # type: ignore
 
 SNOWFLAKE_COST_TABLE = "costs"
 SNOWFLAKE_PROCESSED_TABLE = "processed_costs"
