@@ -34,8 +34,6 @@ public class PageModuleTypeMapperTest {
       DataHubPageModuleType.CHILD_HIERARCHY,
       DataHubPageModuleType.DATA_PRODUCTS,
       DataHubPageModuleType.RELATED_TERMS,
-      DataHubPageModuleType.SUBSCRIBED_ASSETS,
-      DataHubPageModuleType.WORKFLOWS,
       DataHubPageModuleType.UNKNOWN
     };
 
