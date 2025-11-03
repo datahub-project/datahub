@@ -274,9 +274,6 @@ const BATCH_SET_DOMAIN_MUTATION = gql`
 export function useGraphQLOperations(): UseGraphQLOperationsReturn {
   const apolloClient = useApolloClient();
 
-  /**
-   * Execute unified glossary query with scrolling support for large result sets
-   */
   const executeUnifiedGlossaryQuery = useCallback(async (
     variables: {
       input: {
@@ -292,8 +289,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
       let scrollId: string | null = variables.input.scrollId || null;
       let hasMore = true;
       
-      // Fetch in batches with scrolling to avoid timeout
-      // Using smaller batch size (50) due to deep nested relationship data
+      // Using smaller batch size (50) due to deep nested relationship data to avoid timeout
       const BATCH_SIZE = 50;
       
       while (hasMore) {
@@ -312,11 +308,8 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
         const results = data?.scrollAcrossEntities?.searchResults?.map((result: any) => result.entity) || [];
         allEntities.push(...results);
         
-        // Check if there are more results
         const total = data?.scrollAcrossEntities?.total || 0;
         scrollId = data?.scrollAcrossEntities?.nextScrollId;
-        
-        // Continue if we haven't reached the requested count and there are more results available
         hasMore = allEntities.length < Math.min(variables.input.count, total) && scrollId != null;
       }
 
@@ -324,7 +317,6 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
     } catch (error: any) {
       console.error('Failed to execute unified glossary query:', error);
       
-      // Provide more detailed error information
       if (error.networkError) {
         throw new Error(`Network error: ${error.networkError.message || 'Failed to connect to server'}. The query may be too complex or the server may be unresponsive.`);
       }
@@ -337,9 +329,6 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
     }
   }, [apolloClient]);
 
-  /**
-   * Execute patch entities mutation
-   */
   const executePatchEntitiesMutation = useCallback(async (
     input: EntityPatchInput[],
   ): Promise<any> => {
@@ -356,9 +345,6 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
     }
   }, [apolloClient]);
 
-  /**
-   * Execute add related terms mutation
-   */
   const executeAddRelatedTermsMutation = useCallback(async (
     input: any,
   ): Promise<any> => {
@@ -376,9 +362,6 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
   }, [apolloClient]);
 
 
-  /**
-   * Execute set domain mutation
-   */
   const executeSetDomainMutation = useCallback(async (
     entityUrn: string, 
     domainUrn: string,
@@ -396,9 +379,6 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
     }
   }, [apolloClient]);
 
-  /**
-   * Execute batch set domain mutation
-   */
   const executeBatchSetDomainMutation = useCallback(async (
     domainUrn: string,
     entityUrns: string[],
@@ -421,9 +401,6 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
     }
   }, [apolloClient]);
 
-  /**
-   * Execute get ownership types query
-   */
   const executeGetOwnershipTypesQuery = useCallback(async (
     variables: {
       input: {
@@ -446,9 +423,6 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
     }
   }, [apolloClient]);
 
-  /**
-   * Handle GraphQL-specific errors
-   */
   const handleGraphQLErrors = useCallback((error: any): string => {
     if (error.graphQLErrors && error.graphQLErrors.length > 0) {
       return error.graphQLErrors.map((err: any) => err.message).join(', ');
@@ -476,7 +450,6 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
   };
 }
 
-// Export the GraphQL operations for use in other hooks
 export {
   UNIFIED_GLOSSARY_QUERY,
   PATCH_ENTITIES_MUTATION,

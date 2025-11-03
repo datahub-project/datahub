@@ -5,25 +5,16 @@
 import { EntityData, Entity, GraphQLEntity, ValidationResult, ValidationError, ValidationWarning } from '@app/glossaryV2/import/glossary.types';
 import { UrnManager } from '@app/glossaryV2/import/shared/utils/urnManager';
 
-/**
- * Generate a unique ID for an entity based on its hierarchy path
- */
 export function generateEntityId(entity: EntityData, parentNames: string[] = []): string {
   const hierarchyPath = [...parentNames, entity.name].join(' > ');
   return hierarchyPath.toLowerCase().replace(/[^a-z0-9\s>]/g, '').replace(/\s+/g, '-');
 }
 
-/**
- * Parse comma-separated string into array
- */
 export function parseCommaSeparated(value: string): string[] {
   if (!value || value.trim() === '') return [];
   return value.split(',').map(item => item.trim()).filter(item => item.length > 0);
 }
 
-/**
- * Convert array to comma-separated string
- */
 export function toCommaSeparated(values: string[]): string {
   return values.filter(value => value && value.trim() !== '').join(', ');
 }
@@ -33,7 +24,7 @@ export function toCommaSeparated(values: string[]): string {
  * @deprecated Use UrnManager.isValidUrn instead
  */
 export function isValidUrn(urn: string): boolean {
-  return UrnManager.isValidUrn(urn, true); // Empty URN is valid (will be generated)
+  return UrnManager.isValidUrn(urn, true);
 }
 
 /**
@@ -53,9 +44,6 @@ export function extractEntityTypeFromUrn(urn: string): 'glossaryTerm' | 'glossar
   return entityType === 'glossaryTerm' || entityType === 'glossaryNode' ? entityType : null;
 }
 
-/**
- * Validate entity name
- */
 export function validateEntityName(name: string): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
@@ -87,9 +75,6 @@ export function validateEntityName(name: string): ValidationResult {
   };
 }
 
-/**
- * Validate entity type
- */
 export function validateEntityType(entityType: string): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
@@ -115,9 +100,6 @@ export function validateEntityType(entityType: string): ValidationResult {
   };
 }
 
-/**
- * Validate parent nodes string
- */
 export function validateParentNodes(parentNodes: string): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
@@ -140,9 +122,6 @@ export function validateParentNodes(parentNodes: string): ValidationResult {
   };
 }
 
-/**
- * Validate domain URN
- */
 export function validateDomainUrn(domainUrn: string): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
@@ -165,16 +144,12 @@ export function validateDomainUrn(domainUrn: string): ValidationResult {
 }
 
 
-/**
- * Validate custom properties string
- */
 export function validateCustomProperties(customProperties: string): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
 
   if (customProperties && customProperties.trim() !== '') {
     try {
-      // Try to parse as JSON if it looks like JSON
       if (customProperties.trim().startsWith('{') || customProperties.trim().startsWith('[')) {
         JSON.parse(customProperties);
       }
@@ -194,9 +169,6 @@ export function validateCustomProperties(customProperties: string): ValidationRe
   };
 }
 
-/**
- * Validate URL format
- */
 export function validateUrl(url: string): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
@@ -220,14 +192,10 @@ export function validateUrl(url: string): ValidationResult {
   };
 }
 
-/**
- * Validate term source (only for glossaryTerm entities)
- */
 export function validateTermSource(termSource: string, entityType: string): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
 
-  // Only validate for glossaryTerm entities
   if (entityType !== 'glossaryTerm') {
     return {
       isValid: true,
@@ -236,7 +204,6 @@ export function validateTermSource(termSource: string, entityType: string): Vali
     };
   }
 
-  // If termSource is provided, it must be either INTERNAL or EXTERNAL
   if (termSource && termSource.trim() !== '') {
     const normalizedValue = termSource.trim().toUpperCase();
     if (normalizedValue !== 'INTERNAL' && normalizedValue !== 'EXTERNAL') {
@@ -264,14 +231,13 @@ export function findDuplicateNames(entities: EntityData[]): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
   
-  // Group entities by their parent (or root level if no parent)
   // Key format: "parent1,parent2" (sorted, comma-separated) or "" for root level
   const hierarchyGroups = new Map<string, EntityData[]>();
 
   entities.forEach((entity, index) => {
     const parentKey = entity.parent_nodes 
       ? parseCommaSeparated(entity.parent_nodes).sort().join(',').toLowerCase()
-      : ''; // Empty string for root-level entities
+      : '';
     
     if (!hierarchyGroups.has(parentKey)) {
       hierarchyGroups.set(parentKey, []);
@@ -279,7 +245,6 @@ export function findDuplicateNames(entities: EntityData[]): ValidationResult {
     hierarchyGroups.get(parentKey)!.push(entity);
   });
 
-  // Check for duplicates within each hierarchy group
   hierarchyGroups.forEach((entitiesInGroup, parentKey) => {
     const nameCounts = new Map<string, number[]>();
 
@@ -289,7 +254,6 @@ export function findDuplicateNames(entities: EntityData[]): ValidationResult {
         if (!nameCounts.has(name)) {
           nameCounts.set(name, []);
         }
-        // Find the original index in the entities array
         const originalIndex = entities.indexOf(entity);
         nameCounts.get(name)!.push(originalIndex);
       }
@@ -337,7 +301,6 @@ export function convertRelationshipsToHierarchicalNames(relationships: any[]): s
       const parentNodes = entity.parentNodes?.nodes || [];
       
       if (name) {
-        // Include parent context if available
         if (parentNodes.length > 0) {
           const parentName = parentNodes[0].properties?.name || '';
           return parentName ? `${parentName}.${name}` : name;
@@ -373,7 +336,6 @@ export function convertGraphQLEntityToEntity(graphqlEntity: GraphQLEntity): Enti
 
   const parentNames = graphqlEntity.parentNodes?.nodes?.map(node => node.properties.name) || [];
 
-  // Convert ownership from GraphQL format to CSV format
   const ownershipUsers: string[] = [];
   const ownershipGroups: string[] = [];
   
@@ -438,25 +400,16 @@ export function convertGraphQLEntityToEntity(graphqlEntity: GraphQLEntity): Enti
   };
 }
 
-/**
- * Calculate hierarchy level for an entity
- * Simple approach: level = number of parents
- */
 export function calculateHierarchyLevel(entity: Entity, allEntities: Entity[]): number {
   return entity.parentNames.length;
 }
 
-/**
- * Sort entities by hierarchy level
- */
 export function sortEntitiesByHierarchy(entities: Entity[]): Entity[] {
-  // First calculate levels for all entities
   const entitiesWithLevels = entities.map(entity => ({
     ...entity,
     level: calculateHierarchyLevel(entity, entities),
   }));
 
-  // Sort by level, then by name
   return entitiesWithLevels.sort((a, b) => {
     if (a.level !== b.level) {
       return a.level - b.level;
@@ -465,9 +418,6 @@ export function sortEntitiesByHierarchy(entities: Entity[]): Entity[] {
   });
 }
 
-/**
- * Check for circular dependencies in hierarchy
- */
 export function detectCircularDependencies(entities: Entity[]): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
@@ -510,9 +460,6 @@ export function detectCircularDependencies(entities: Entity[]): ValidationResult
   };
 }
 
-/**
- * Find orphaned entities (entities with parents that don't exist)
- */
 export function findOrphanedEntities(entities: Entity[]): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
@@ -538,9 +485,6 @@ export function findOrphanedEntities(entities: Entity[]): ValidationResult {
   };
 }
 
-/**
- * Debounce function for performance optimization
- */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number,
@@ -552,9 +496,6 @@ export function debounce<T extends (...args: any[]) => any>(
   };
 }
 
-/**
- * Throttle function for performance optimization
- */
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
   limit: number,

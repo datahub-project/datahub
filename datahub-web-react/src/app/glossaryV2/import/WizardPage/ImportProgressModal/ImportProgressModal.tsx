@@ -116,7 +116,7 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
       showToastMessage(
         hasFailed ? ToastType.WARNING : ToastType.SUCCESS,
         hasFailed ? "Import completed with errors" : "Import completed successfully",
-        3
+        3,
       );
     }
   }, [isCompleted, hasFailed]);

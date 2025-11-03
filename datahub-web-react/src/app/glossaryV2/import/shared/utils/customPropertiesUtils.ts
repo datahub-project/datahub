@@ -13,17 +13,14 @@ export function parseCustomProperties(input: string | null | undefined): Record<
 
   const trimmed = input.trim();
 
-  // Try JSON format first (recommended for CSV)
   if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
     try {
       return JSON.parse(trimmed);
     } catch (error) {
       console.warn('Failed to parse custom properties as JSON:', error);
-      // Fall back to string format parsing
     }
   }
 
-  // Parse string format (from GraphQL): "key1:value1,key2:value2"
   const result: Record<string, string> = {};
   const pairs = trimmed.split(',');
   
@@ -41,9 +38,6 @@ export function parseCustomProperties(input: string | null | undefined): Record<
   return result;
 }
 
-/**
- * Convert custom properties to JSON format (recommended for CSV)
- */
 export function formatCustomPropertiesForCsv(properties: Record<string, string>): string {
   if (!properties || Object.keys(properties).length === 0) {
     return '';
@@ -51,9 +45,6 @@ export function formatCustomPropertiesForCsv(properties: Record<string, string>)
   return JSON.stringify(properties);
 }
 
-/**
- * Convert custom properties to string format (for GraphQL compatibility)
- */
 export function formatCustomPropertiesForGraphQL(properties: Record<string, string>): string {
   if (!properties || Object.keys(properties).length === 0) {
     return '';
@@ -63,17 +54,10 @@ export function formatCustomPropertiesForGraphQL(properties: Record<string, stri
     .join(',');
 }
 
-/**
- * Normalize custom properties for comparison
- * Converts both formats to a consistent object format
- */
 export function normalizeCustomProperties(input: string | null | undefined): Record<string, string> {
   return parseCustomProperties(input);
 }
 
-/**
- * Check if two custom properties objects are equal
- */
 export function compareCustomProperties(prop1: string | null | undefined, prop2: string | null | undefined): boolean {
   const obj1 = normalizeCustomProperties(prop1 || '');
   const obj2 = normalizeCustomProperties(prop2 || '');

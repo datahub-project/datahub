@@ -37,14 +37,7 @@ export interface ComprehensivePatchInput {
   forceGenericPatch?: boolean;
 }
 
-/**
- * Centralized Patch Builder class
- * Provides all patch creation operations in one place
- */
 export class PatchBuilder {
-  /**
-   * Create patches for ownership types
-   */
   static createOwnershipTypePatches(ownershipTypes: OwnershipTypeInput[]): ComprehensivePatchInput[] {
     return ownershipTypes.map(ownershipType => ({
       urn: ownershipType.urn,
@@ -55,45 +48,36 @@ export class PatchBuilder {
         { op: 'ADD' as const, path: '/description', value: ownershipType.description },
         { op: 'ADD' as const, path: '/created', value: JSON.stringify({
           time: Date.now(),
-          actor: 'urn:li:corpuser:datahub', // Will be replaced with actual user
+          actor: 'urn:li:corpuser:datahub',
         })},
         { op: 'ADD' as const, path: '/lastModified', value: JSON.stringify({
           time: Date.now(),
-          actor: 'urn:li:corpuser:datahub', // Will be replaced with actual user
+          actor: 'urn:li:corpuser:datahub',
         })},
       ],
       forceGenericPatch: true,
     }));
   }
 
-  /**
-   * Check if entity info has changed between existing and new entity
-   */
   static hasEntityInfoChanged(newEntity: Entity, existingEntity: Entity): boolean {
-    // Compare name
     if (newEntity.name !== existingEntity.name) return true;
     
-    // Compare description
     const newDescription = newEntity.data.description || '';
     const existingDescription = existingEntity.data.description || '';
     if (newDescription !== existingDescription) return true;
     
-    // Compare term_source (for glossary terms)
     const newTermSource = newEntity.data.term_source || '';
     const existingTermSource = existingEntity.data.term_source || '';
     if (newTermSource !== existingTermSource) return true;
     
-    // Compare source_ref
     const newSourceRef = newEntity.data.source_ref || '';
     const existingSourceRef = existingEntity.data.source_ref || '';
     if (newSourceRef !== existingSourceRef) return true;
     
-    // Compare source_url
     const newSourceUrl = newEntity.data.source_url || '';
     const existingSourceUrl = existingEntity.data.source_url || '';
     if (newSourceUrl !== existingSourceUrl) return true;
     
-    // Compare parent names
     const newParentNames = newEntity.parentNames || [];
     const existingParentNames = existingEntity.parentNames || [];
     if (JSON.stringify(newParentNames) !== JSON.stringify(existingParentNames)) return true;
@@ -101,9 +85,6 @@ export class PatchBuilder {
     return false;
   }
 
-  /**
-   * Create entity patches in hierarchical order
-   */
   static createEntityPatches(
     entities: Entity[],
     urnMap: Map<string, string>,
@@ -111,7 +92,6 @@ export class PatchBuilder {
   ): ComprehensivePatchInput[] {
     return entities
       .filter(entity => {
-        // Only create patch if entity is new or has changes
         if (entity.status === 'new' || entity.status === 'updated') return true;
         
         const existingEntity = existingEntities.find(e => e.urn === entity.urn);
@@ -125,31 +105,25 @@ export class PatchBuilder {
 
       const patch: PatchOperation[] = [];
 
-      // Add basic entity info
       patch.push({ op: 'ADD' as const, path: '/name', value: entity.name });
 
-      // Add description if present
       if (entity.data.description) {
         const fieldName = entity.type === 'glossaryTerm' ? 'definition' : 'definition';
         patch.push({ op: 'ADD' as const, path: `/${fieldName}`, value: entity.data.description });
       }
 
-      // Add term_source for glossary terms
       if (entity.type === 'glossaryTerm' && entity.data.term_source) {
         patch.push({ op: 'ADD' as const, path: '/termSource', value: entity.data.term_source });
       }
 
-      // Add source_ref if present
       if (entity.data.source_ref) {
         patch.push({ op: 'ADD' as const, path: '/sourceRef', value: entity.data.source_ref });
       }
 
-      // Add source_url if present
       if (entity.data.source_url) {
         patch.push({ op: 'ADD' as const, path: '/sourceUrl', value: entity.data.source_url });
       }
 
-      // Add custom properties if present
       if (entity.data.custom_properties) {
         try {
           const customProps = typeof entity.data.custom_properties === 'string'
@@ -168,22 +142,17 @@ export class PatchBuilder {
         }
       }
 
-      // Add parent relationships directly to the entity patch
       if (entity.parentNames && entity.parentNames.length > 0) {
         // For parent relationships, we only support one parent per entity
-        // Take the first parent if multiple are specified
         const parentName = entity.parentNames[0];
         
-        // Use HierarchyNameResolver to find parent entity (handles hierarchical names)
         const parentEntity = HierarchyNameResolver.findParentEntity(parentName, existingEntities);
         
         let parentUrn: string | undefined;
         
         if (parentEntity) {
-          // Parent found in existing entities
           parentUrn = parentEntity.urn;
         } else {
-          // Check entities in current batch
           const actualParentName = HierarchyNameResolver.parseHierarchicalName(parentName);
           const batchParent = entities.find(e => e.name === actualParentName && e.status === 'new');
           if (batchParent) {
@@ -213,9 +182,6 @@ export class PatchBuilder {
     });
   }
 
-  /**
-   * Create ownership patches for entities
-   */
   static createOwnershipPatches(
     entities: Entity[],
     urnMap: Map<string, string>,
@@ -226,7 +192,7 @@ export class PatchBuilder {
     entities.forEach(entity => {
       try {
         if (!entity.data.ownership_users && !entity.data.ownership_groups) {
-          return; // Skip entities without ownership
+          return;
         }
 
         const parsedOwnership = parseOwnershipFromColumns(
@@ -272,11 +238,9 @@ export class PatchBuilder {
     entities.forEach(entity => {
       const relatedTerms: { [relationshipType: string]: string[] } = {};
 
-      // Parse related_contains
       if (entity.data.related_contains) {
         const containsList = entity.data.related_contains.split(',').map(name => name.trim()).filter(Boolean);
         containsList.forEach(relatedName => {
-          // Find related entity
           const relatedEntity = entities.find(e => e.name === relatedName);
           if (relatedEntity) {
             const relatedUrn = UrnManager.resolveEntityUrn(relatedEntity, urnMap);
@@ -288,11 +252,9 @@ export class PatchBuilder {
         });
       }
 
-      // Parse related_inherits
       if (entity.data.related_inherits) {
         const inheritsList = entity.data.related_inherits.split(',').map(name => name.trim()).filter(Boolean);
         inheritsList.forEach(relatedName => {
-          // Find related entity
           const relatedEntity = entities.find(e => e.name === relatedName);
           if (relatedEntity) {
             const relatedUrn = UrnManager.resolveEntityUrn(relatedEntity, urnMap);
@@ -304,7 +266,6 @@ export class PatchBuilder {
         });
       }
 
-      // Create patches for related terms
       if (Object.keys(relatedTerms).length > 0) {
         const currentUrn = UrnManager.resolveEntityUrn(entity, urnMap);
         const patches: PatchOperation[] = [];

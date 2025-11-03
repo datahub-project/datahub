@@ -24,9 +24,6 @@ import {
 } from '@app/glossaryV2/import/glossary.utils';
 
 export function useCsvProcessing(): UseCsvProcessingReturn {
-  /**
-   * Parse CSV text into structured data
-   */
   const parseCsvText = useCallback((csvText: string): CsvParseResult => {
     const errors: CsvError[] = [];
     const warnings: CsvWarning[] = [];
@@ -56,7 +53,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
         });
       }
 
-      // Convert parsed data to EntityData format
       data = result.data.map((row: any, index: number) => {
         const entityData: EntityData = {
           entity_type: row.entity_type || '',
@@ -77,7 +73,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
           status: row.status || '',
         };
 
-        // Validate each field
         const nameValidation = validateEntityName(entityData.name);
         if (!nameValidation.isValid) {
           nameValidation.errors.forEach(error => {
@@ -110,7 +105,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
           });
         }
 
-        // Validate other fields
         const parentValidation = validateParentNodes(entityData.parent_nodes);
         parentValidation.warnings.forEach(warning => {
           warnings.push({
@@ -133,15 +127,12 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
           });
         }
 
-        // Validate ownership columns
         const ownershipUsers = entityData.ownership_users || '';
         const ownershipGroups = entityData.ownership_groups || '';
         if (ownershipUsers || ownershipGroups) {
-          // Basic validation for ownership format
           const userEntries = ownershipUsers.split('|').map(entry => entry.trim()).filter(entry => entry);
           const groupEntries = ownershipGroups.split('|').map(entry => entry.trim()).filter(entry => entry);
           
-          // Check for valid ownership format
           [...userEntries, ...groupEntries].forEach(entry => {
             const parts = entry.split(':');
             if (parts.length < 2) {
@@ -180,7 +171,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
         return entityData;
       });
 
-      // Check for duplicate names
       const duplicateValidation = findDuplicateNames(data);
       if (!duplicateValidation.isValid) {
         duplicateValidation.errors.forEach(error => {
@@ -208,9 +198,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
     };
   }, []);
 
-  /**
-   * Validate CSV data for errors and warnings
-   */
   const validateCsvData = useCallback((data: EntityData[]): ValidationResult => {
     const errors: CsvError[] = [];
     const warnings: CsvWarning[] = [];
@@ -223,7 +210,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       });
     }
 
-    // Check for required headers
     const requiredHeaders = ['entity_type', 'name'];
     const sampleRow = data[0];
     if (sampleRow) {
@@ -239,7 +225,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       });
     }
 
-    // Validate each row
     data.forEach((entityData, index) => {
       const nameValidation = validateEntityName(entityData.name);
       if (!nameValidation.isValid) {
@@ -265,7 +250,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
         });
       }
 
-      // Validate term_source for glossaryTerm entities
       const termSourceValidation = validateTermSource(entityData.term_source || '', entityData.entity_type || '');
       if (!termSourceValidation.isValid) {
         termSourceValidation.errors.forEach(error => {
@@ -307,9 +291,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
     };
   }, []);
 
-  /**
-   * Convert raw CSV row to EntityData format
-   */
   const normalizeCsvRow = useCallback((row: any): EntityData => {
     return {
       entity_type: row.entity_type || '',
@@ -331,9 +312,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
     };
   }, []);
 
-  /**
-   * Convert EntityData array back to CSV string
-   */
   const toCsvString = useCallback((data: EntityData[]): string => {
     if (data.length === 0) return '';
 
@@ -381,9 +359,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
     });
   }, []);
 
-  /**
-   * Create empty EntityData template
-   */
   const createEmptyRow = useCallback((): EntityData => {
     return {
       entity_type: 'glossaryTerm',

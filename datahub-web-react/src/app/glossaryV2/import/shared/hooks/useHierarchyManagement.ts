@@ -17,14 +17,8 @@ import {
 } from '@app/glossaryV2/import/glossary.utils';
 
 export function useHierarchyManagement(): UseHierarchyManagementReturn {
-  /**
-   * Create processing order respecting hierarchy levels
-   */
   const createProcessingOrder = useCallback((entities: Entity[]): Entity[] => {
-    // First sort entities by hierarchy level (this calculates the levels)
     const sortedEntities = sortEntitiesByHierarchy(entities);
-    
-    // Then validate hierarchy with calculated levels
     const validation = validateHierarchy(sortedEntities);
     if (!validation.isValid) {
       console.warn('Hierarchy validation failed:', validation.errors);
@@ -33,9 +27,6 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
     return sortedEntities;
   }, []);
 
-  /**
-   * Resolve parent URNs for all entities
-   */
   const resolveParentUrns = useCallback((entities: Entity[], hierarchyMaps: HierarchyMaps): Entity[] => {
     return entities.map(entity => {
       const parentUrns: string[] = [];
@@ -54,9 +45,6 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
     });
   }, []);
 
-  /**
-   * Resolve parent URNs for entities at a specific hierarchy level
-   */
   const resolveParentUrnsForLevel = useCallback((
     entities: Entity[], 
     level: number, 
@@ -66,28 +54,22 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
     return resolveParentUrns(entitiesAtLevel, hierarchyMaps);
   }, [resolveParentUrns]);
 
-  /**
-   * Validate hierarchy for circular dependencies and orphaned entities
-   */
   const validateHierarchy = useCallback((entities: Entity[]): ValidationResult => {
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
 
-    // Check for circular dependencies
     const circularValidation = detectCircularDependencies(entities);
     if (!circularValidation.isValid) {
       errors.push(...circularValidation.errors);
     }
     warnings.push(...circularValidation.warnings);
 
-    // Check for orphaned entities
     const orphanValidation = findOrphanedEntities(entities);
     if (!orphanValidation.isValid) {
       errors.push(...orphanValidation.errors);
     }
     warnings.push(...orphanValidation.warnings);
 
-    // Additional hierarchy validations
     validateHierarchyDepth(entities, errors, warnings);
     validateParentChildConsistency(entities, errors, warnings);
 
@@ -106,15 +88,12 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
   };
 }
 
-/**
- * Validate hierarchy depth (prevent too deep nesting)
- */
 function validateHierarchyDepth(
   entities: Entity[], 
   errors: ValidationError[], 
   warnings: ValidationWarning[],
 ): void {
-  const maxDepth = 10; // Configurable maximum depth
+  const maxDepth = 10;
   
   entities.forEach(entity => {
     if (entity.level > maxDepth) {
@@ -127,9 +106,6 @@ function validateHierarchyDepth(
   });
 }
 
-/**
- * Validate parent-child consistency
- */
 function validateParentChildConsistency(
   entities: Entity[], 
   errors: ValidationError[], 
@@ -140,22 +116,19 @@ function validateParentChildConsistency(
     entityMap.set(entity.name.toLowerCase(), entity);
   });
 
-  // Calculate the actual depth of each entity by traversing the hierarchy
   const calculateDepth = (entityName: string, visited = new Set<string>()): number => {
     const entity = entityMap.get(entityName.toLowerCase());
     if (!entity) return 0;
     
-    // Prevent infinite recursion in case of circular dependencies
     if (visited.has(entityName.toLowerCase())) {
       return 0;
     }
     visited.add(entityName.toLowerCase());
     
     if (entity.parentNames.length === 0) {
-      return 0; // Root level
+      return 0;
     }
     
-    // Depth is 1 + max depth of any parent
     const parentDepths = entity.parentNames.map(parentName => 
       calculateDepth(parentName, new Set(visited)),
     );
@@ -170,7 +143,6 @@ function validateParentChildConsistency(
       if (parentEntity) {
         const parentDepth = calculateDepth(parentName);
         
-        // Parent should be at a shallower level (lower depth) than child
         if (parentDepth >= entityDepth) {
           errors.push({
             field: 'parent_nodes',
@@ -183,7 +155,6 @@ function validateParentChildConsistency(
   });
 }
 
-// Import types that are used in this file
 interface ValidationError {
   field: string;
   message: string;

@@ -134,20 +134,14 @@ export const WizardPage = () => {
                     }
                 });
 
-                // Convert GraphQL entities for CSV comparison
-                // This is a SPECIALIZED converter specific to the CSV import comparison flow.
-                // Key differences from glossary.utils.convertGraphQLEntityToEntity():
-                // 1. Uses URN as ID (existing entities need their URN preserved)
-                // 2. Extracts ONLY immediate parent (for accurate CSV matching)
-                // 3. Converts relationships to hierarchical names (for display/comparison)
-                // 4. Leaves domain empty (not needed for comparison)
+                // SPECIALIZED converter for CSV import comparison flow - differs from glossary.utils.convertGraphQLEntityToEntity()
+                // Uses URN as ID, extracts only immediate parent, converts relationships to hierarchical names
                 const convertedExistingEntities: Entity[] = existingEntities.map((entity: any) => {
                     const isTerm = entity.__typename === 'GlossaryTerm';
                     const properties = entity.properties || {};
                     const parentNodes = entity.parentNodes?.nodes || [];
                     
-                    // DataHub's GraphQL returns ALL ancestor nodes (immediate parent + grandparents + ...)
-                    // For consistency with CSV import, we only need the IMMEDIATE parent (first node)
+                    // GraphQL returns all ancestors, but we only need immediate parent (first node) for CSV matching
                     const immediateParentNode = parentNodes.length > 0 ? [parentNodes[0]] : [];
                     const immediateParentName = immediateParentNode.length > 0 
                         ? immediateParentNode[0].properties?.name || '' 
@@ -301,8 +295,6 @@ export const WizardPage = () => {
                 }}>
                     <ActionsBar>
                         {entities.length > 0 && (() => {
-                            // Count only entities being created or updated (exclude existing unchanged and conflicted)
-                            // This matches the logic in useComprehensiveImport.ts which only processes 'new' and 'updated' entities
                             const entitiesToImport = entities.filter(e => e.status === 'new' || e.status === 'updated');
                             const importCount = entitiesToImport.length;
                             

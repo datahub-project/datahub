@@ -11,9 +11,6 @@ import {
 import { compareCustomProperties } from '@app/glossaryV2/import/shared/utils/customPropertiesUtils';
 
 export function useEntityComparison(): UseEntityComparisonReturn {
-  /**
-   * Compare two EntityData objects for equality
-   */
   const compareEntityData = useCallback((entity1: EntityData, entity2: EntityData): boolean => {
     const fieldsToCompare: (keyof EntityData)[] = [
       'entity_type',
@@ -33,7 +30,6 @@ export function useEntityComparison(): UseEntityComparisonReturn {
     ];
 
     return fieldsToCompare.every(field => {
-      // Special handling for custom_properties
       if (field === 'custom_properties') {
         return compareCustomProperties(entity1[field], entity2[field]);
       }
@@ -44,9 +40,6 @@ export function useEntityComparison(): UseEntityComparisonReturn {
     });
   }, []);
 
-  /**
-   * Identify what fields have changed between two EntityData objects
-   */
   const identifyChanges = useCallback((entity1: EntityData, entity2: EntityData): string[] => {
     const changedFields: string[] = [];
     const fieldsToCompare: (keyof EntityData)[] = [
@@ -67,7 +60,6 @@ export function useEntityComparison(): UseEntityComparisonReturn {
     ];
 
     fieldsToCompare.forEach(field => {
-      // Special handling for custom_properties
       if (field === 'custom_properties') {
         if (!compareCustomProperties(entity1[field], entity2[field])) {
           changedFields.push(field);
@@ -84,18 +76,11 @@ export function useEntityComparison(): UseEntityComparisonReturn {
     return changedFields;
   }, []);
 
-  /**
-   * Detect conflicts between two entities (same name but different type)
-   */
   const detectConflicts = useCallback((entity1: Entity, entity2: Entity): boolean => {
-    // Entities conflict if they have the same name but different types
     return entity1.name.toLowerCase() === entity2.name.toLowerCase() && 
            entity1.type !== entity2.type;
   }, []);
 
-  /**
-   * Compare entities and categorize them
-   */
   const categorizeEntities = useCallback((
     importedEntities: Entity[], 
     existingEntities: Entity[],
@@ -114,18 +99,14 @@ export function useEntityComparison(): UseEntityComparisonReturn {
       const existingEntity = existingByName.get(importedEntity.name.toLowerCase());
       
       if (!existingEntity) {
-        // New entity
         newEntities.push(importedEntity);
-      } else {
-        // Check for conflicts first
-        if (detectConflicts(importedEntity, existingEntity)) {
+      } else if (detectConflicts(importedEntity, existingEntity)) {
           conflictedEntities.push({
             ...importedEntity,
             status: 'conflict',
             existingEntity,
           });
         } else {
-          // Check if data has changed
           const hasChanges = !compareEntityData(importedEntity.data, existingEntity.data);
           if (hasChanges) {
             updatedEntities.push({
@@ -141,7 +122,6 @@ export function useEntityComparison(): UseEntityComparisonReturn {
             });
           }
         }
-      }
     });
 
     return {
@@ -152,9 +132,6 @@ export function useEntityComparison(): UseEntityComparisonReturn {
     };
   }, [compareEntityData, detectConflicts]);
 
-  /**
-   * Get detailed change information for an entity
-   */
   const getChangeDetails = useCallback((
     importedEntity: Entity, 
     existingEntity: Entity,
@@ -180,9 +157,6 @@ export function useEntityComparison(): UseEntityComparisonReturn {
     };
   }, [identifyChanges]);
 
-  /**
-   * Validate entity compatibility for import
-   */
   const validateEntityCompatibility = useCallback((
     importedEntity: Entity, 
     existingEntity: Entity,
@@ -192,17 +166,14 @@ export function useEntityComparison(): UseEntityComparisonReturn {
   } => {
     const issues: string[] = [];
 
-    // Check type compatibility
     if (importedEntity.type !== existingEntity.type) {
       issues.push(`Type mismatch: imported is ${importedEntity.type}, existing is ${existingEntity.type}`);
     }
 
-    // Check URN compatibility if both have URNs
     if (importedEntity.urn && existingEntity.urn && importedEntity.urn !== existingEntity.urn) {
       issues.push(`URN mismatch: imported URN differs from existing URN`);
     }
 
-    // Check parent compatibility
     const importedParents = importedEntity.parentNames.sort();
     const existingParents = existingEntity.parentNames.sort();
     if (JSON.stringify(importedParents) !== JSON.stringify(existingParents)) {

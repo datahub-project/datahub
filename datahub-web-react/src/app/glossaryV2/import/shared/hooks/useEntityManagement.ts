@@ -26,14 +26,9 @@ import {
 import { useEntityComparison } from '@app/glossaryV2/import/shared/hooks/useEntityComparison';
 
 export function useEntityManagement(): UseEntityManagementReturn {
-  // Import compareEntityData from useEntityComparison to avoid duplication
   const { compareEntityData } = useEntityComparison();
 
-  /**
-   * Convert CSV data to Entity objects
-   */
   const normalizeCsvData = useCallback((data: EntityData[]): Entity[] => {
-    // First pass: create entities without levels
     const entities = data.map(entityData => {
       const parentNames = parseCommaSeparated(entityData.parent_nodes);
       const id = generateEntityId(entityData, parentNames);
@@ -44,31 +39,24 @@ export function useEntityManagement(): UseEntityManagementReturn {
         type: entityData.entity_type,
         urn: entityData.urn || undefined,
         parentNames,
-        parentUrns: [], // Will be resolved later
-        level: 0, // Will be calculated below
+        parentUrns: [],
+        level: 0,
         data: entityData,
         status: 'new' as const,
         originalRow: entityData,
       };
     });
 
-    // Second pass: calculate hierarchy levels
     return entities.map(entity => ({
       ...entity,
       level: calculateHierarchyLevel(entity, entities),
     }));
   }, []);
 
-  /**
-   * Convert GraphQL entities to Entity objects
-   */
   const normalizeExistingEntities = useCallback((entities: GraphQLEntity[]): Entity[] => {
     return entities.map(convertGraphQLEntityToEntity);
   }, []);
 
-  /**
-   * Compare existing vs imported entities
-   */
   const compareEntities = useCallback((imported: Entity[], existing: Entity[]): ComparisonResult => {
     const newEntities: Entity[] = [];
     const existingEntities: Entity[] = [];
@@ -84,19 +72,14 @@ export function useEntityManagement(): UseEntityManagementReturn {
       const existingEntity = existingByName.get(importedEntity.name.toLowerCase());
       
       if (!existingEntity) {
-        // New entity
         newEntities.push(importedEntity);
-      } else {
-        // Entity exists, check for conflicts and updates
-        if (importedEntity.type !== existingEntity.type) {
-          // Conflict: same name but different type
+      } else if (importedEntity.type !== existingEntity.type) {
           conflicts.push({
             ...importedEntity,
             status: 'conflict',
           });
         } else {
-          // Check if data has changed
-          // Note: compareEntityData returns true if entities are the SAME
+          // compareEntityData returns true if entities are the SAME
           const areEqual = compareEntityData(importedEntity.data, existingEntity.data);
           if (!areEqual) {
             updatedEntities.push({
@@ -110,7 +93,6 @@ export function useEntityManagement(): UseEntityManagementReturn {
             });
           }
         }
-      }
     });
 
     return {
@@ -121,25 +103,18 @@ export function useEntityManagement(): UseEntityManagementReturn {
     };
   }, [compareEntityData]);
 
-  /**
-   * Create lookup maps for hierarchy management
-   */
   const buildHierarchyMaps = useCallback((entities: Entity[]): HierarchyMaps => {
     const entitiesByLevel = new Map<number, Entity[]>();
     const entitiesByName = new Map<string, Entity>();
     const entitiesById = new Map<string, Entity>();
     const parentChildMap = new Map<string, string[]>();
 
-    // First pass: create basic maps
     entities.forEach(entity => {
       entitiesByName.set(entity.name.toLowerCase(), entity);
       entitiesById.set(entity.id, entity);
-      
-      // Initialize parent-child map
       parentChildMap.set(entity.name.toLowerCase(), []);
     });
 
-    // Second pass: build parent-child relationships
     entities.forEach(entity => {
       entity.parentNames.forEach(parentName => {
         const parentKey = parentName.toLowerCase();
@@ -149,7 +124,6 @@ export function useEntityManagement(): UseEntityManagementReturn {
       });
     });
 
-    // Third pass: calculate levels and group by level
     const entitiesWithLevels = entities.map(entity => ({
       ...entity,
       level: calculateHierarchyLevel(entity, entities),
@@ -170,14 +144,10 @@ export function useEntityManagement(): UseEntityManagementReturn {
     };
   }, []);
 
-  /**
-   * Validate individual entity data
-   */
   const validateEntity = useCallback((entity: Entity): ValidationResult => {
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
 
-    // Validate required fields
     if (!entity.name || entity.name.trim() === '') {
       errors.push({
         field: 'name',
@@ -194,7 +164,6 @@ export function useEntityManagement(): UseEntityManagementReturn {
       });
     }
 
-    // Validate URN format if provided
     if (entity.urn && !entity.urn.startsWith('urn:li:')) {
       errors.push({
         field: 'urn',
@@ -203,7 +172,6 @@ export function useEntityManagement(): UseEntityManagementReturn {
       });
     }
 
-    // Validate parent relationships
     if (entity.parentNames.length > 10) {
       warnings.push({
         field: 'parentNames',
@@ -212,7 +180,6 @@ export function useEntityManagement(): UseEntityManagementReturn {
       });
     }
 
-    // Validate domain URN if provided
     if (entity.data.domain_urn && !entity.data.domain_urn.startsWith('urn:li:domain:')) {
       errors.push({
         field: 'domain_urn',
@@ -221,7 +188,6 @@ export function useEntityManagement(): UseEntityManagementReturn {
       });
     }
 
-    // Validate source URL if provided
     if (entity.data.source_url) {
       try {
         new URL(entity.data.source_url);

@@ -79,10 +79,8 @@ export const useComprehensiveImport = ({
   const [isPaused, setIsPaused] = useState(false);
   const [isCancelled, setIsCancelled] = useState(false);
 
-  // Get current user context
   const user = useUserContext();
 
-  // Refs for tracking state
   const currentPlanRef = useRef<any>(null);
   const retryCountRef = useRef<Map<string, number>>(new Map());
 
@@ -120,9 +118,6 @@ export const useComprehensiveImport = ({
     }));
   }, []);
 
-  /**
-   * Load existing ownership types
-   */
   const loadExistingOwnershipTypes = useCallback(async (): Promise<Map<string, string>> => {
     try {
       const result = await executeGetOwnershipTypesQuery({
@@ -134,7 +129,7 @@ export const useComprehensiveImport = ({
 
       const ownershipTypeMap = new Map<string, string>();
       
-      // Handle the actual response format - it's an array directly
+      // GraphQL query may return array directly or wrapped in data object
       if (Array.isArray(result)) {
         const arrayResult = result;
         arrayResult.forEach((ot: any) => {
@@ -154,37 +149,29 @@ export const useComprehensiveImport = ({
     }
   }, [executeGetOwnershipTypesQuery]);
 
-  /**
-   * Execute comprehensive import in single GraphQL call
-   */
   const executeComprehensiveImport = useCallback(async (
     allEntities: Entity[],
     existingEntities: Entity[],
     existingOwnershipTypes: Map<string, string>,
   ): Promise<void> => {
     try {
-      // 1. Categorize entities to get only new and updated for entity patches
+      // Use all entities for relationships, but filter to only new/updated for entity patches
       const categorizationResult = categorizeEntities(allEntities, existingEntities);
       const entitiesToProcess = [
         ...categorizationResult.newEntities,
         ...categorizationResult.updatedEntities,
       ];
       
-      // 2. Create comprehensive import plan (use all entities for relationships, filtered for entity patches)
       updateProgress({ currentPhase: 'Planning import...' });
       const plan = createComprehensiveImportPlan(allEntities, existingEntities, existingOwnershipTypes);
       currentPlanRef.current = plan;
       
-      
-      // 3. Convert plan to patch inputs
       updateProgress({ currentPhase: 'Preparing patch operations...' });
       const patchInputs = convertPlanToPatchInputs(plan, entitiesToProcess, existingEntities);
       
-      // Separate regular patches from addRelatedTerms mutations
       const regularPatches = patchInputs.filter(input => input.aspectName !== 'addRelatedTerms');
       const relationshipPatches = patchInputs.filter(input => input.aspectName === 'addRelatedTerms');
       
-      // 4. Execute regular patch operations
       // Count only entities being created/updated (not existing unchanged entities)
       const totalEntities = entitiesToProcess.length;
       const totalOwnershipTypes = plan.ownershipTypes.length;
@@ -198,7 +185,6 @@ export const useComprehensiveImport = ({
       
       let results: any[] = [];
       
-      // Execute regular patchEntities mutations
       if (regularPatches.length > 0) {
         const entityPatchInputs = regularPatches.map(input => ({
           urn: input.urn,
@@ -213,7 +199,6 @@ export const useComprehensiveImport = ({
         results = [...results, ...patchResults];
       }
       
-      // Execute addRelatedTerms mutations
       if (relationshipPatches.length > 0) {
         updateProgress({ currentPhase: 'Creating relationships...' });
         
@@ -226,7 +211,6 @@ export const useComprehensiveImport = ({
               relationshipType: input.relationshipType,
             });
             
-            // Add success result for consistency
             results.push({
               urn: relationshipPatch.urn,
               success: true,
@@ -242,8 +226,6 @@ export const useComprehensiveImport = ({
         }
       }
       
-      // 5. Process results - Check if any operations failed
-      // Check if any results indicate failure
       const failedResults = results.filter((result: any) => !result.success);
       const successfulResults = results.filter((result: any) => result.success);
       
@@ -260,7 +242,6 @@ export const useComprehensiveImport = ({
           }
         });
         
-        // Add one error per unique error message
         errorMap.forEach(({ firstResult }, errorMessage) => {
           addError({
             entityId: 'comprehensive-import',
@@ -271,7 +252,6 @@ export const useComprehensiveImport = ({
           });
         });
         
-        // Count entities processed (not patch operations)
         updateProgress({
           processed: totalItems,
           successful: totalItems - failedResults.length,
@@ -279,7 +259,6 @@ export const useComprehensiveImport = ({
           currentPhase: 'Import completed with errors',
         });
       } else {
-        // All operations succeeded
         updateProgress({
           processed: totalItems,
           successful: totalItems,
@@ -290,8 +269,6 @@ export const useComprehensiveImport = ({
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Get the total from the current progress state (already set to correct value)
       const currentTotal = progress.total;
       
       addError({
@@ -312,9 +289,6 @@ export const useComprehensiveImport = ({
     }
   }, [executePatchEntitiesMutation, updateProgress, addError, progress.failed]);
 
-  /**
-   * Start comprehensive import
-   */
   const startImport = useCallback(async (entities: Entity[], existingEntities: Entity[]): Promise<void> => {
     if (isProcessing) {
       return;
@@ -324,7 +298,6 @@ export const useComprehensiveImport = ({
     setIsPaused(false);
     setIsCancelled(false);
     
-    // Reset progress
     updateProgress({
       total: 0,
       processed: 0,
@@ -336,11 +309,9 @@ export const useComprehensiveImport = ({
     });
 
     try {
-      // 1. Categorize entities
       updateProgress({ currentPhase: 'Categorizing entities...' });
       const categorizationResult = categorizeEntities(entities, existingEntities);
       
-      // Filter to only process new and updated entities
       const entitiesToProcess = [
         ...categorizationResult.newEntities,
         ...categorizationResult.updatedEntities,
@@ -355,8 +326,6 @@ export const useComprehensiveImport = ({
         return;
       }
 
-
-      // 2. Validate hierarchy
       updateProgress({ currentPhase: 'Validating hierarchy...' });
       const hierarchyValidation = validateHierarchy(entitiesToProcess);
       if (!hierarchyValidation.isValid) {
@@ -372,11 +341,10 @@ export const useComprehensiveImport = ({
         return;
       }
 
-      // 3. Load existing ownership types
       updateProgress({ currentPhase: 'Loading existing ownership types...' });
       const existingOwnershipTypes = await loadExistingOwnershipTypes();
 
-      // 4. Execute comprehensive import (pass all entities for relationship processing)
+      // Pass all entities for relationship processing, not just new/updated
       await executeComprehensiveImport(entities, existingEntities, existingOwnershipTypes);
 
     } catch (error) {
@@ -449,21 +417,17 @@ export const useComprehensiveImport = ({
              return;
            }
     
-    // Reset retry state
     setIsCancelled(false);
     setIsPaused(false);
     
-    // Check if there are retryable errors
     const hasRetryableErrors = progress.errors.some(error => error.retryable);
     if (!hasRetryableErrors) {
       return;
     }
 
     // Since the mutation is atomic, we need to retry the entire batch
-    // We'll need the original entities and existing entities to retry
     // This is a limitation of the atomic nature - we can't retry individual entities
     // For now, we'll just reset and let the user manually retry
-    // In a real implementation, you'd want to store the original entities
     resetProgress();
   }, [progress.errors, resetProgress]);
 

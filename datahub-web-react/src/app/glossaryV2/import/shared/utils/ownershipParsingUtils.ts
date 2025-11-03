@@ -19,7 +19,6 @@ export interface ParsedOwnership {
 export function parseOwnershipFromColumns(usersColumn: string, groupsColumn: string): ParsedOwnership[] {
   const results: ParsedOwnership[] = [];
   
-  // Parse users column
   if (usersColumn && usersColumn.trim()) {
     const userEntries = usersColumn.split('|').map(entry => entry.trim()).filter(entry => entry);
     for (const entry of userEntries) {
@@ -30,7 +29,6 @@ export function parseOwnershipFromColumns(usersColumn: string, groupsColumn: str
     }
   }
   
-  // Parse groups column
   if (groupsColumn && groupsColumn.trim()) {
     const groupEntries = groupsColumn.split('|').map(entry => entry.trim()).filter(entry => entry);
     for (const entry of groupEntries) {
@@ -61,13 +59,12 @@ export function parseSingleOwnership(ownershipString: string, corpType: 'CORP_US
   
   // Handle case where ownerName contains colons (like URNs)
   if (parts.length > 2) {
-    // For URNs, the last part is the ownership type, everything else is the owner URN
     const ownershipTypeName = parts[parts.length - 1];
     const ownerName = parts.slice(0, -1).join(':');
     return {
       ownershipTypeName,
       ownerName,
-      corpType: 'CORP_USER', // Default for URNs
+      corpType: 'CORP_USER',
       ownerUrn: ownerName,
       ownerType: 'NONE' as const,
     };
@@ -75,7 +72,6 @@ export function parseSingleOwnership(ownershipString: string, corpType: 'CORP_US
   
   if (!ownerName || !ownershipTypeName) return null;
 
-  // Generate owner URN based on corpType
   let ownerUrn: string;
   if (ownerName.startsWith('urn:li:')) {
     ownerUrn = ownerName;
@@ -85,7 +81,6 @@ export function parseSingleOwnership(ownershipString: string, corpType: 'CORP_US
     ownerUrn = `urn:li:corpuser:${ownerName}`;
   }
   
-  // Determine owner type based on ownership type name
   let ownerType: 'TECHNICAL_OWNER' | 'BUSINESS_OWNER' | 'DATA_STEWARD' | 'NONE' = 'NONE';
   const typeName = ownershipTypeName.toLowerCase();
   if (typeName.includes('technical')) {
@@ -113,7 +108,6 @@ export function parseSingleOwnership(ownershipString: string, corpType: 'CORP_US
 export function parseOwnershipString(ownershipString: string): ParsedOwnership[] {
   if (!ownershipString) return [];
 
-  // Support both comma and pipe separators
   const ownershipStrings = ownershipString
     .split(/[|,]/)
     .map(owner => owner.trim())
@@ -142,7 +136,6 @@ export function validateOwnershipString(ownershipString: string): { isValid: boo
     };
   }
 
-  // Check for empty entries (like "admin:DEVELOPER:CORP_USER,,datahub:Technical Owner:CORP_USER")
   const hasEmptyEntries = ownershipString.split(/[|,]/).some(entry => entry.trim() === '');
   if (hasEmptyEntries) {
     return { 
@@ -162,10 +155,9 @@ export function validateOwnershipString(ownershipString: string): { isValid: boo
  */
 export function validateOwnershipColumns(usersColumn: string, groupsColumn: string): { isValid: boolean; error?: string } {
   if (!usersColumn && !groupsColumn) {
-    return { isValid: true }; // Empty ownership is valid
+    return { isValid: true };
   }
 
-  // Validate users column
   if (usersColumn && usersColumn.trim()) {
     const userEntries = usersColumn.split('|').map(entry => entry.trim());
     for (const entry of userEntries) {
@@ -185,7 +177,6 @@ export function validateOwnershipColumns(usersColumn: string, groupsColumn: stri
     }
   }
 
-  // Validate groups column
   if (groupsColumn && groupsColumn.trim()) {
     const groupEntries = groupsColumn.split('|').map(entry => entry.trim());
     for (const entry of groupEntries) {
@@ -222,24 +213,22 @@ export function createOwnershipPatchOperations(
 ): Array<{ op: 'ADD' | 'REMOVE' | 'REPLACE' | 'MOVE' | 'COPY' | 'TEST'; path: string; value?: string }> {
   const patches: Array<{ op: 'ADD' | 'REMOVE' | 'REPLACE' | 'MOVE' | 'COPY' | 'TEST'; path: string; value?: string }> = [];
 
-  // Build the complete owners array from parsed ownership
   const ownersArray = parsedOwnership.map(({ ownershipTypeName, ownerUrn }) => {
     const ownershipTypeUrn = ownershipTypeMap.get(ownershipTypeName.toLowerCase());
     if (!ownershipTypeUrn) {
-      // Provide helpful error message with available ownership types
       const availableTypes = Array.from(ownershipTypeMap.keys()).join(', ');
       throw new Error(
         `Ownership type "${ownershipTypeName}" not found in ownership type map. ` +
         `Available types: ${availableTypes || '(none)'}. ` +
         `Note: System ownership types are "Technical Owner", "Business Owner", "Data Steward", and "None". ` +
-        `Custom ownership types must be created first.`
+        `Custom ownership types must be created first.`,
       );
     }
 
     return {
       owner: ownerUrn,
       typeUrn: ownershipTypeUrn,
-      type: 'NONE', // Deprecated field - kept for compatibility, but typeUrn is the authoritative field
+      type: 'NONE',
       source: { type: 'MANUAL' },
     };
   });
