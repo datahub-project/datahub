@@ -548,17 +548,14 @@ class SnowflakeV2Source(
                 self.config, self.report
             ).get_shares_workunits(databases)
 
-        if (
-            self.config.include_marketplace_listings
-            or self.config.include_marketplace_purchases
-            or self.config.include_marketplace_usage
-        ):
+        if self.config.include_internal_marketplace:
             with self.report.new_stage("*: MARKETPLACE_EXTRACTION"):
                 marketplace_handler = SnowflakeMarketplaceHandler(
                     config=self.config,
                     report=self.report,
                     connection=self.connection,
                     identifiers=self.identifiers,
+                    domain_registry=self.domain_registry,
                 )
                 yield from marketplace_handler.get_marketplace_workunits()
 

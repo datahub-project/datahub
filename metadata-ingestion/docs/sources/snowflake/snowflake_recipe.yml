@@ -31,5 +31,23 @@ source:
     #   - "ACCOUNTING_DB.*.*"
     #   - "MARKETING_DB.*.*"
 
+    # (Optional) Ingest INTERNAL marketplace (private data sharing) listings as Data Products
+    # NOTE: This is for INTERNAL marketplace only, not the public Snowflake Data Marketplace
+    # include_internal_marketplace: true
+    # internal_marketplace_listing_pattern:
+    #   allow: [".*"]
+    # internal_marketplace_owner_patterns:
+    #   "^Customer.*": ["data-team"]
+    #   "^Finance.*": ["finance-team"]
+    # fetch_internal_marketplace_listing_details: false
+    # marketplace_properties_as_structured_properties: false
+    
+    # (Optional) Map data products to domains using purchased database names
+    # domain:
+    #   "urn:li:domain:finance":
+    #     allow: ["^FINANCE_.*", "^FIN_.*"]
+    #   "Marketing":
+    #     allow: ["^MARKETING_.*", "^MKT_.*"]
+
 # Default sink is datahub-rest and doesn't need to be configured
 # See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization options

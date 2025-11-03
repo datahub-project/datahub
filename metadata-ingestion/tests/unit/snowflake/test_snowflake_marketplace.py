@@ -85,9 +85,7 @@ def base_config() -> Dict[str, Any]:
         "warehouse": "COMPUTE_WH",
         "role": "test_role",
         "username": "test_user",
-        "include_marketplace_listings": True,
-        "include_marketplace_purchases": True,
-        "include_marketplace_usage": False,
+        "include_internal_marketplace": True,
     }
 
 
@@ -269,9 +267,7 @@ class TestMarketplaceBasicFunctionality:
     ) -> None:
         """Test that DESCRIBE AVAILABLE LISTING enrichment maps to custom properties and externalUrl."""
         config_dict = base_config.copy()
-        config_dict["include_marketplace_purchases"] = False
-        config_dict["include_marketplace_usage"] = False
-        config_dict["fetch_listing_details"] = True
+        config_dict["fetch_internal_marketplace_listing_details"] = True
 
         # Only use the first listing (ACME)
         listings = [mock_listings[0]]
@@ -543,7 +539,6 @@ class TestMarketplaceUsageStatistics:
     ) -> None:
         """Test that usage statistics are created correctly."""
         config_dict = base_config.copy()
-        config_dict["include_marketplace_usage"] = True
         config_dict["email_domain"] = "test.com"
 
         handler = create_handler(
@@ -580,7 +575,6 @@ class TestMarketplaceUsageStatistics:
     ) -> None:
         """Test that usage events are correctly grouped by database."""
         config_dict = base_config.copy()
-        config_dict["include_marketplace_usage"] = True
         config_dict["email_domain"] = "test.com"
 
         # Usage events accessing different databases
@@ -631,7 +625,6 @@ class TestMarketplaceUsageStatistics:
     ) -> None:
         """Test that usage for unknown listings is skipped."""
         config_dict = base_config.copy()
-        config_dict["include_marketplace_usage"] = True
 
         # No listings loaded, so usage should be skipped
         handler = create_handler(
@@ -660,7 +653,6 @@ class TestMarketplaceUsageStatistics:
     ) -> None:
         """Test that usage for unknown databases is skipped."""
         config_dict = base_config.copy()
-        config_dict["include_marketplace_usage"] = True
 
         # No purchases loaded, so usage should be skipped
         handler = create_handler(
@@ -693,8 +685,6 @@ class TestMarketplaceConfiguration:
     ) -> None:
         """Test with only listings enabled."""
         config_dict = base_config.copy()
-        config_dict["include_marketplace_purchases"] = False
-        config_dict["include_marketplace_usage"] = False
 
         handler = create_handler(config_dict, mock_listings, None, None)
         wus = list(handler.get_marketplace_workunits())
@@ -717,8 +707,6 @@ class TestMarketplaceConfiguration:
     ) -> None:
         """Test with only purchases enabled."""
         config_dict = base_config.copy()
-        config_dict["include_marketplace_listings"] = False
-        config_dict["include_marketplace_usage"] = False
 
         handler = create_handler(config_dict, None, mock_purchases, None)
         wus = list(handler.get_marketplace_workunits())
@@ -739,9 +727,7 @@ class TestMarketplaceConfiguration:
     def test_all_features_disabled(self, base_config: Dict[str, Any]) -> None:
         """Test with all marketplace features disabled."""
         config_dict = base_config.copy()
-        config_dict["include_marketplace_listings"] = False
-        config_dict["include_marketplace_purchases"] = False
-        config_dict["include_marketplace_usage"] = False
+        config_dict["include_internal_marketplace"] = False
 
         handler = create_handler(config_dict, None, None, None)
         wus = list(handler.get_marketplace_workunits())

@@ -40,10 +40,8 @@ def test_snowflake_marketplace(pytestconfig, tmp_path, mock_time, mock_datahub_g
                     "warehouse": "COMPUTE_WH",
                     "role": "datahub_role",
                     "database_pattern": {"allow": ["TEST_DB"]},
-                    # Enable marketplace features
-                    "include_marketplace_listings": True,
-                    "include_marketplace_purchases": True,
-                    "include_marketplace_usage": True,
+                    # Enable INTERNAL marketplace features
+                    "include_internal_marketplace": True,
                     # Disable other features for focused testing
                     "include_table_lineage": False,
                     "include_usage_stats": False,
@@ -112,11 +110,9 @@ def test_snowflake_marketplace_with_filtering(
                     "warehouse": "COMPUTE_WH",
                     "role": "datahub_role",
                     "database_pattern": {"allow": ["TEST_DB"]},
-                    # Enable marketplace with filtering
-                    "include_marketplace_listings": True,
-                    "include_marketplace_purchases": True,
-                    "include_marketplace_usage": False,  # Disable usage for this test
-                    "marketplace_listing_pattern": {
+                    # Enable INTERNAL marketplace with filtering
+                    "include_internal_marketplace": True,
+                    "internal_marketplace_listing_pattern": {
                         "allow": ["ACME_CORP.*"],
                         "deny": [".*WEATHER.*"],
                     },
@@ -150,5 +146,5 @@ def test_snowflake_marketplace_with_filtering(
         assert report.marketplace_purchases_scanned == 1
         assert report.marketplace_data_products_created == 1
         assert report.marketplace_enhanced_datasets == 1
-        # Usage disabled in this test
-        assert report.marketplace_usage_events_processed == 0
+        # Marketplace usage is tracked independently - only ACME_CORP events counted (2 events)
+        assert report.marketplace_usage_events_processed == 2

@@ -46,6 +46,14 @@ grant role datahub_role to user datahub_user;
 
 // Optional - required if extracting lineage, usage or tags (without lineage)
 grant imported privileges on database snowflake to role datahub_role;
+
+// Optional - required for INTERNAL marketplace ingestion (private data sharing)
+// This grants access to:
+// - SHOW AVAILABLE LISTINGS (IS_ORGANIZATION = TRUE) for internal marketplace listings
+// - SNOWFLAKE.ACCOUNT_USAGE.DATABASES for identifying imported databases
+// - SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY for usage statistics
+// - DESCRIBE AVAILABLE LISTING for enriched metadata (if fetch_internal_marketplace_listing_details=true)
+grant imported privileges on database snowflake to role datahub_role;
 ```
 
 The details of each granted privilege can be viewed in the [Snowflake docs](https://docs.snowflake.com/en/user-guide/security-access-control-privileges.html). A summary of each privilege and why it is required for this connector:

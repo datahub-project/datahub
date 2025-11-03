@@ -1,11 +1,12 @@
 import json
 import logging
+import re
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import make_domain_urn, make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_owner_to_entity_wu, gen_data_product
+from datahub.emitter.mcp_builder import gen_data_product
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
@@ -23,14 +24,22 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeIdentifierBuilder,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+from datahub.metadata.com.linkedin.pegasus2avro.structured import (
+    StructuredPropertyDefinition,
+)
 from datahub.metadata.schema_classes import (
-    DataProductAssociationClass,
-    DataProductPropertiesClass,
+    ChangeTypeClass,
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
     DatasetUserUsageCountsClass,
+    OwnershipTypeClass,
     TimeWindowSizeClass,
 )
+from datahub.metadata.urns import DataTypeUrn, EntityTypeUrn, StructuredPropertyUrn
+
+if TYPE_CHECKING:
+    from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -42,11 +51,13 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         report: SnowflakeV2Report,
         connection: SnowflakeConnection,
         identifiers: SnowflakeIdentifierBuilder,
+        domain_registry: Optional["DomainRegistry"] = None,
     ) -> None:
         self.config = config
         self.report = report
         self.connection = connection
         self.identifiers = identifiers
+        self.domain_registry = domain_registry
 
         # Cache for marketplace data
         self._marketplace_listings: Dict[str, SnowflakeMarketplaceListing] = {}
@@ -54,40 +65,141 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
     def get_marketplace_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Generate work units for marketplace data"""
+        if not self.config.include_internal_marketplace:
+            return
+
+        # 0. Create structured property definitions if needed
+        if self.config.marketplace_properties_as_structured_properties:
+            yield from self._create_marketplace_structured_property_definitions()
 
         # First, load marketplace data
         self._load_marketplace_data()
 
         # 1. Create Data Products for marketplace listings
-        if self.config.include_marketplace_listings:
-            yield from self._create_marketplace_data_products()
+        yield from self._create_marketplace_data_products()
 
         # 2. Enhance purchased datasets with marketplace metadata
-        if self.config.include_marketplace_purchases:
-            yield from self._enhance_purchased_datasets()
+        yield from self._enhance_purchased_datasets()
 
         # 3. Add marketplace usage statistics
-        if self.config.include_marketplace_usage:
-            yield from self._create_marketplace_usage_statistics()
+        # Note: Marketplace usage is tracked independently from general usage_stats
+        yield from self._create_marketplace_usage_statistics()
 
-    def _resolve_domain_for_listing(self, listing_name: str) -> Optional[str]:
-        """Resolve domain URN for a marketplace listing based on regex patterns"""
-        for domain_urn, pattern in self.config.marketplace_domain.items():
-            if pattern.allowed(listing_name):
-                # Normalize the domain URN
-                if not domain_urn.startswith("urn:li:domain:"):
-                    domain_urn = make_domain_urn(domain_urn)
-                return domain_urn
+    def _create_marketplace_structured_property_definitions(
+        self,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Create structured property definitions for marketplace custom properties.
+
+        These are created once and define the schema for marketplace properties that
+        can be attached to Data Products and Datasets.
+        """
+        from datahub.emitter.mce_builder import get_sys_time
+
+        # Define marketplace structured properties
+        marketplace_properties = [
+            {
+                "id": "snowflake.marketplace.provider",
+                "display_name": "Marketplace Provider",
+                "description": "The provider/publisher of the internal marketplace listing",
+                "value_type": "string",
+            },
+            {
+                "id": "snowflake.marketplace.category",
+                "display_name": "Marketplace Category",
+                "description": "The category of the internal marketplace listing",
+                "value_type": "string",
+            },
+            {
+                "id": "snowflake.marketplace.listing_name",
+                "display_name": "Marketplace Listing Name",
+                "description": "The internal name of the marketplace listing",
+                "value_type": "string",
+            },
+            {
+                "id": "snowflake.marketplace.listing_global_name",
+                "display_name": "Marketplace Listing Global Name",
+                "description": "The globally unique identifier for the marketplace listing",
+                "value_type": "string",
+            },
+            {
+                "id": "snowflake.marketplace.listing_created_on",
+                "display_name": "Marketplace Listing Created Date",
+                "description": "The date when the marketplace listing was created",
+                "value_type": "date",
+            },
+            {
+                "id": "snowflake.marketplace.type",
+                "display_name": "Marketplace Type",
+                "description": "The type of marketplace (internal for private data sharing)",
+                "value_type": "string",
+            },
+        ]
+
+        for prop_def in marketplace_properties:
+            urn = StructuredPropertyUrn(prop_def["id"]).urn()
+
+            # Map value_type to DataHub type URNs
+            type_mapping = {
+                "string": "datahub.string",
+                "date": "datahub.date",
+            }
+            value_type_urn = DataTypeUrn(type_mapping[prop_def["value_type"]]).urn()
+
+            aspect = StructuredPropertyDefinition(
+                qualifiedName=prop_def["id"],
+                displayName=prop_def["display_name"],
+                description=prop_def["description"],
+                valueType=value_type_urn,
+                entityTypes=[
+                    EntityTypeUrn("datahub.dataProduct").urn(),
+                    EntityTypeUrn("datahub.dataset").urn(),
+                ],
+                lastModified=AuditStamp(
+                    time=get_sys_time(), actor="urn:li:corpuser:datahub"
+                ),
+            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=aspect,
+                changeType=ChangeTypeClass.CREATE,
+                headers={"If-None-Match": "*"},  # Only create if doesn't exist
+            ).as_workunit()
+
+    def _resolve_domain_for_listing(
+        self, listing: SnowflakeMarketplaceListing, purchased_databases: List[str]
+    ) -> Optional[str]:
+        """
+        Resolve domain URN for a marketplace listing based on purchased database names.
+
+        Uses the existing `domain` config pattern which matches against database names.
+        For example: {'Finance': {'allow': ['^FINANCE_.*', '^FIN_.*']}}
+
+        Args:
+            listing: The marketplace listing
+            purchased_databases: List of database names purchased from this listing
+
+        Returns:
+            Domain URN if a match is found, None otherwise
+        """
+        if not self.domain_registry or not self.config.domain:
+            return None
+
+        # Try to match any of the purchased database names against domain patterns
+        for db_name in purchased_databases:
+            for domain_name, pattern in self.config.domain.items():
+                if pattern.allowed(db_name):
+                    # Use domain registry to resolve domain name to URN
+                    domain_urn = self.domain_registry.get_domain_urn(domain_name)
+                    return make_domain_urn(domain_urn)
+
         return None
 
     def _load_marketplace_data(self) -> None:
         """Load marketplace listings and purchases"""
-
-        if self.config.include_marketplace_listings:
-            self._load_marketplace_listings()
-
-        if self.config.include_marketplace_purchases:
-            self._load_marketplace_purchases()
+        self._load_marketplace_listings()
+        self._load_marketplace_purchases()
 
     def _load_marketplace_listings(self) -> None:
         """Load internal marketplace listings from Snowflake using SHOW AVAILABLE LISTINGS"""
@@ -106,7 +218,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     created_on=row.get("created_on"),
                 )
 
-                if self.config.marketplace_listing_pattern.allowed(
+                if self.config.internal_marketplace_listing_pattern.allowed(
                     listing.listing_global_name
                 ):
                     self._marketplace_listings[listing.listing_global_name] = listing
@@ -182,27 +294,19 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
         # Listing-based patterns (match title or global name)
         try:
-            import re
-
-            for pattern, owner_vals in self.config.marketplace_owner_by_listing.items():
-                if re.search(pattern, title, flags=re.IGNORECASE) or re.search(
-                    pattern, global_name, flags=re.IGNORECASE
-                ):
-                    owners.extend(self._normalize_owner_urn(o) for o in owner_vals)
-
-            # Provider-based patterns
+            # Match against listing title, global name, or provider
             for (
                 pattern,
                 owner_vals,
-            ) in self.config.marketplace_owner_by_provider.items():
-                if re.search(pattern, provider, flags=re.IGNORECASE):
+            ) in self.config.internal_marketplace_owner_patterns.items():
+                if (
+                    re.search(pattern, title, flags=re.IGNORECASE)
+                    or re.search(pattern, global_name, flags=re.IGNORECASE)
+                    or re.search(pattern, provider, flags=re.IGNORECASE)
+                ):
                     owners.extend(self._normalize_owner_urn(o) for o in owner_vals)
         except Exception as e:
             logger.debug(f"Owner mapping failed for listing {global_name}: {e}")
-
-        # Fallback: use provider as group owner
-        if not owners and self.config.use_provider_as_group_owner and provider:
-            owners.append(make_group_urn(provider))
 
         # De-duplicate while preserving order
         deduped: List[str] = []
@@ -223,7 +327,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
           - external_url: Optional[str] preferred documentation URL
         """
         result: Dict[str, Any] = {"owners": [], "external_url": None}
-        if not self.config.fetch_listing_details:
+        if not self.config.fetch_internal_marketplace_listing_details:
             return result
         try:
             query = f"DESCRIBE AVAILABLE LISTING '{listing.listing_global_name}'"
@@ -317,10 +421,11 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             data_product_key = self.identifiers.gen_marketplace_data_product_key(
                 listing.listing_global_name
             )
-            data_product_urn = data_product_key.as_urn()
+            data_product_key.as_urn()
 
             # Find all purchased databases for this listing
             asset_urns: List[str] = []
+            purchased_db_names: List[str] = []
             for purchase in self._marketplace_purchases.values():
                 listing_global_name = self._find_listing_for_purchase(purchase)
                 if (
@@ -332,26 +437,52 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     )
                     database_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
                     asset_urns.append(database_urn)
+                    purchased_db_names.append(purchase.database_name)
 
-            # Create custom properties dictionary
-            custom_properties = {
-                "marketplace_listing": "true",
-                "marketplace_type": "internal",  # Internal/private data exchange
-                "provider": listing.provider,
-                "category": listing.category or "",
-                "listing_global_name": listing.listing_global_name,
-                "listing_name": listing.name,
-            }
+            # Build properties (either custom or structured based on config)
+            custom_properties: Optional[Dict[str, str]] = None
+            structured_properties: Optional[Dict[str, str]] = None
 
-            # Add dates if available
-            if listing.created_on:
-                custom_properties["listing_created_on"] = listing.created_on.isoformat()
+            if self.config.marketplace_properties_as_structured_properties:
+                # Use structured properties for searchability
+                structured_properties = {
+                    "snowflake.marketplace.provider": listing.provider,
+                    "snowflake.marketplace.category": listing.category or "",
+                    "snowflake.marketplace.listing_global_name": listing.listing_global_name,
+                    "snowflake.marketplace.listing_name": listing.name,
+                    "snowflake.marketplace.type": "internal",
+                }
+                if listing.created_on:
+                    structured_properties[
+                        "snowflake.marketplace.listing_created_on"
+                    ] = listing.created_on.isoformat()
+                # Keep minimal custom properties for backward compatibility
+                custom_properties = {
+                    "marketplace_listing": "true",
+                }
+            else:
+                # Use custom properties (default)
+                custom_properties = {
+                    "marketplace_listing": "true",
+                    "marketplace_type": "internal",  # Internal/private data exchange
+                    "provider": listing.provider,
+                    "category": listing.category or "",
+                    "listing_global_name": listing.listing_global_name,
+                    "listing_name": listing.name,
+                }
+                # Add dates if available
+                if listing.created_on:
+                    custom_properties["listing_created_on"] = (
+                        listing.created_on.isoformat()
+                    )
 
             # Optional: add DESCRIBE details
-            details = self._enrich_listing_custom_properties(listing, custom_properties)
+            details = self._enrich_listing_custom_properties(
+                listing, custom_properties or {}
+            )
 
-            # Resolve domain for this listing
-            domain_urn = self._resolve_domain_for_listing(listing.title)
+            # Resolve domain for this listing based on purchased database names
+            domain_urn = self._resolve_domain_for_listing(listing, purchased_db_names)
 
             # Resolve owners for this listing
             owner_urns = self._resolve_owners_for_listing(listing)
@@ -363,7 +494,8 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             # Choose external URL if available
             external_url = details.get("external_url")
 
-            # Use the gen_data_product function from mcp_builder
+            # Use the gen_data_product function from mcp_builder with assets and owners
+            # Always use TECHNICAL_OWNER for marketplace data products
             yield from gen_data_product(
                 data_product_key=data_product_key,
                 name=listing.title,
@@ -371,35 +503,12 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 or f"Internal marketplace listing from {listing.provider}",
                 external_url=str(external_url) if external_url else None,
                 custom_properties=custom_properties,
+                structured_properties=structured_properties,  # type: ignore
                 domain_urn=domain_urn,
-                owner_urn=owner_urns[0] if owner_urns else None,
+                owner_urns=owner_urns if owner_urns else None,
+                owner_type=OwnershipTypeClass.TECHNICAL_OWNER,  # This is a string constant
+                assets=asset_urns if asset_urns else None,
             )
-
-            # Emit any additional owners beyond the first
-            if len(owner_urns) > 1:
-                for extra_owner in owner_urns[1:]:
-                    yield from add_owner_to_entity_wu(
-                        entity_type="dataProduct",
-                        entity_urn=data_product_urn,
-                        owner_urn=extra_owner,
-                    )
-
-            # Emit DataProductProperties with assets if we have any purchased databases
-            if asset_urns:
-                data_product_properties = DataProductPropertiesClass(
-                    name=listing.title,
-                    description=listing.description
-                    or f"Internal marketplace listing from {listing.provider}",
-                    assets=[
-                        DataProductAssociationClass(destinationUrn=urn)
-                        for urn in asset_urns
-                    ],
-                )
-
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=data_product_urn,
-                    aspect=data_product_properties,
-                ).as_workunit()
 
             self.report.report_marketplace_data_product_created()
 
@@ -563,13 +672,12 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 listing_name = event.listing_global_name
                 for db_name in databases:
                     usage_by_listing_db[listing_name][db_name].append(event)
-                    self.report.marketplace_usage_events_processed += 1
 
             # Create usage statistics for each database accessed via marketplace
             for listing_name, db_events in usage_by_listing_db.items():
-                # Check if this listing is in our known listings
+                # Check if this listing is in our known listings (after filtering)
                 if listing_name not in self._marketplace_listings:
-                    logger.debug(f"Skipping usage for unknown listing: {listing_name}")
+                    logger.debug(f"Skipping usage for filtered listing: {listing_name}")
                     continue
 
                 for database_name, events in db_events.items():
@@ -631,6 +739,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     yield MetadataChangeProposalWrapper(
                         entityUrn=database_urn, aspect=usage_stats
                     ).as_workunit()
+
+                    # Count events for this listing/database pair
+                    self.report.marketplace_usage_events_processed += len(events)
 
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):

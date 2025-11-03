@@ -24,6 +24,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataproduct import DataProductPr
 from datahub.metadata.schema_classes import (
     KEY_ASPECTS,
     ContainerClass,
+    DataProductAssociationClass,
     DomainsClass,
     EmbedClass,
     GlobalTagsClass,
@@ -211,18 +212,35 @@ def add_domain_to_entity_wu(
 
 
 def add_owner_to_entity_wu(
-    entity_type: str, entity_urn: str, owner_urn: str
+    entity_type: str,
+    entity_urn: str,
+    owner_urn: str,
+    owner_type: str = OwnershipTypeClass.TECHNICAL_OWNER,
+    owner_type_urn: Optional[str] = None,
 ) -> Iterable[MetadataWorkUnit]:
+    """
+    Add an owner to an entity.
+
+    Args:
+        entity_type: The type of entity (e.g., "dataset", "dataProduct")
+        entity_urn: The URN of the entity
+        owner_urn: The URN of the owner (corpuser or corpGroup)
+        owner_type: The ownership type enum (defaults to TECHNICAL_OWNER). Used when owner_type_urn is not provided.
+        owner_type_urn: Optional custom ownership type URN (e.g., "urn:li:ownershipType:data_product_owner").
+                        If provided, takes precedence over owner_type.
+    """
+    owner_class = OwnerClass(
+        owner=owner_urn,
+        type=owner_type,
+    )
+
+    # If a custom ownership type URN is provided, set it
+    if owner_type_urn:
+        owner_class.typeUrn = owner_type_urn
+
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{entity_urn}",
-        aspect=OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=owner_urn,
-                    type=OwnershipTypeClass.DATAOWNER,
-                )
-            ]
-        ),
+        aspect=OwnershipClass(owners=[owner_class]),
     ).as_workunit()
 
 
@@ -392,10 +410,45 @@ def gen_data_product(
     custom_properties: Optional[Dict[str, str]] = None,
     domain_urn: Optional[str] = None,
     owner_urn: Optional[str] = None,
+    owner_urns: Optional[List[str]] = None,
+    owner_type: str = OwnershipTypeClass.TECHNICAL_OWNER,
+    owner_type_urn: Optional[str] = None,
     tags: Optional[List[str]] = None,
     structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
+    assets: Optional[List[str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
+    """
+    Generate metadata workunits for a Data Product entity.
+
+    Args:
+        data_product_key: Key containing platform, name, env, and instance for generating a deterministic URN
+        name: Display name of the Data Product
+        description: Documentation describing the Data Product
+        external_url: URL to external documentation or resources
+        custom_properties: Custom key-value metadata properties
+        domain_urn: URN of the domain this Data Product belongs to
+        owner_urn: URN of a single owner (user or group). Deprecated - use owner_urns instead
+        owner_urns: List of owner URNs (users or groups). Preferred over owner_urn for multiple owners
+        owner_type: Ownership type for all owners (defaults to TECHNICAL_OWNER). Options: TECHNICAL_OWNER, BUSINESS_OWNER, DATA_STEWARD.
+                    Used when owner_type_urn is not provided.
+        owner_type_urn: Optional custom ownership type URN (e.g., "urn:li:ownershipType:data_product_owner").
+                        If provided, takes precedence over owner_type for all owners.
+        tags: List of tag names to associate with the Data Product
+        structured_properties: Structured property URN to value mappings
+        assets: List of asset URNs (datasets, dashboards, charts, etc.) that are part of this Data Product.
+                Assets are converted to DataProductAssociation relationships.
+
+    Yields:
+        MetadataWorkUnit: Workunits for DataProductProperties, Status, Domain, Ownership, Tags, and StructuredProperties aspects
+    """
     data_product_urn = data_product_key.as_urn()
+
+    # Convert asset URNs to DataProductAssociationClass if provided
+    asset_associations = None
+    if assets:
+        asset_associations = [
+            DataProductAssociationClass(destinationUrn=urn) for urn in assets
+        ]
 
     yield MetadataChangeProposalWrapper(
         entityUrn=data_product_urn,
@@ -407,6 +460,7 @@ def gen_data_product(
                 **(custom_properties or {}),
             },
             externalUrl=external_url,
+            assets=asset_associations,
         ),
     ).as_workunit()
 
@@ -421,11 +475,20 @@ def gen_data_product(
             domain_urn=domain_urn,
         )
 
-    if owner_urn:
+    # Handle owners - support both single owner_urn (backward compat) and owner_urns (preferred)
+    owners_to_emit: List[str] = []
+    if owner_urns:
+        owners_to_emit.extend(owner_urns)
+    elif owner_urn:
+        owners_to_emit.append(owner_urn)
+
+    for owner in owners_to_emit:
         yield from add_owner_to_entity_wu(
             entity_type="dataProduct",
             entity_urn=data_product_urn,
-            owner_urn=owner_urn,
+            owner_urn=owner,
+            owner_type=owner_type,
+            owner_type_urn=owner_type_urn,
         )
 
     if tags:

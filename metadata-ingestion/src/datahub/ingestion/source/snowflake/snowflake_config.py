@@ -196,70 +196,56 @@ class SnowflakeConfig(
 
 
 class SnowflakeMarketplaceConfig(ConfigModel):
-    """Configuration for Snowflake Internal Marketplace (private data sharing within organization)"""
+    """
+    Configuration for Snowflake Internal Marketplace (Private Data Sharing).
 
-    include_marketplace_listings: bool = Field(
+    IMPORTANT: This is for the INTERNAL Snowflake Marketplace where organizations privately share
+    data within their account using Data Exchange. This is NOT for the public Snowflake Marketplace
+    (Snowflake Data Marketplace) where external providers publicly list datasets.
+
+    Use this when you want to track:
+    - Internal marketplace listings (from SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE)
+    - Databases purchased/imported from internal listings (IMPORTED DATABASE type)
+    - Usage of internal marketplace data products
+    """
+
+    include_internal_marketplace: bool = Field(
         default=False,
-        description="Whether to ingest internal marketplace listings (from SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE) as Data Products. "
-        "This captures data products shared privately within your Snowflake organization.",
+        description=(
+            "Whether to ingest Snowflake INTERNAL marketplace (private data exchange) listings as Data Products. "
+            "When enabled, also ingests purchased databases (imported databases) and usage statistics. "
+            "NOTE: This is for INTERNAL marketplace only (IS_ORGANIZATION = TRUE), not the public Snowflake Data Marketplace."
+        ),
     )
 
-    include_marketplace_purchases: bool = Field(
-        default=False,
-        description="Whether to ingest databases created from internal marketplace listings (imported databases) "
-        "and enhance them with marketplace metadata. This tracks data products your account has installed.",
-    )
-
-    include_marketplace_usage: bool = Field(
-        default=False,
-        description="Whether to ingest internal marketplace dataset usage statistics from DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY. "
-        "Tracks how consumers are accessing shared data products.",
-    )
-
-    marketplace_listing_pattern: AllowDenyPattern = Field(
+    internal_marketplace_listing_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for internal marketplace listings to include in ingestion",
+        description="Regex patterns for INTERNAL marketplace listings to include in ingestion",
     )
 
-    marketplace_domain: Dict[str, AllowDenyPattern] = Field(
+    internal_marketplace_owner_patterns: Dict[str, List[str]] = Field(
         default={},
         description=(
-            "Map of domain names to regex patterns for internal marketplace listings. "
-            "Domain keys can be URNs like 'urn:li:domain:finance' or names like 'Finance'. "
-            "When an internal marketplace listing name matches a pattern, it will be associated with that domain. "
-            "Example: {'urn:li:domain:finance': AllowDenyPattern(allow=['.*Financial.*', '.*Banking.*'])}"
+            "Map regex patterns (matched against INTERNAL listing title or provider) to owner identifiers. "
+            "Owners can be usernames, group names, or full URNs. "
+            "Example: {'^Finance.*': ['finance-team'], '^.*Analytics.*': ['analytics-lead', 'urn:li:corpGroup:data']}"
         ),
     )
 
-    # Owner enrichment options
-    marketplace_owner_by_provider: Dict[str, List[str]] = Field(
-        default={},
-        description=(
-            "Map of regex patterns (matched against listing provider) to owners for the data product. "
-            "Owners can be user or group identifiers or full URNs (e.g., 'datahub', 'analytics', 'urn:li:corpGroup:finance'). "
-            "Multiple owners per pattern are supported."
-        ),
-    )
-
-    marketplace_owner_by_listing: Dict[str, List[str]] = Field(
-        default={},
-        description=(
-            "Map of regex patterns (matched against listing title or listing_global_name) to owners for the data product. "
-            "Owners can be user or group identifiers or full URNs."
-        ),
-    )
-
-    use_provider_as_group_owner: bool = Field(
+    fetch_internal_marketplace_listing_details: bool = Field(
         default=False,
         description=(
-            "If true, use the listing provider value as a corpGroup owner for the data product when no explicit mapping matches."
+            "If enabled, fetches additional details for each INTERNAL marketplace listing via DESCRIBE AVAILABLE LISTING "
+            "(requires extra query per listing)."
         ),
     )
 
-    fetch_listing_details: bool = Field(
+    marketplace_properties_as_structured_properties: bool = Field(
         default=False,
         description=(
-            "If enabled, fetches DESCRIBE AVAILABLE LISTING for each listing to enrich custom properties (best-effort)."
+            "If enabled, ingests INTERNAL marketplace custom properties (provider, category, listing_created_on, etc.) "
+            "as DataHub structured properties instead of simple custom properties. This makes marketplace metadata "
+            "searchable and filterable in the DataHub UI."
         ),
     )
 
@@ -385,11 +371,6 @@ class SnowflakeV2Config(
     include_procedures: bool = Field(
         default=True,
         description="If enabled, procedures will be ingested as pipelines/tasks.",
-    )
-
-    marketplace: SnowflakeMarketplaceConfig = Field(
-        default_factory=SnowflakeMarketplaceConfig,
-        description="Marketplace-specific configuration options",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(
