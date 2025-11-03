@@ -7,14 +7,14 @@ import {
   Entity, 
   HierarchyMaps, 
   ValidationResult,
-  UseHierarchyManagementReturn 
-} from '../../glossary.types';
+  UseHierarchyManagementReturn, 
+} from '@app/glossaryV2/import/glossary.types';
 import {
   sortEntitiesByHierarchy,
   detectCircularDependencies,
   findOrphanedEntities,
-  parseCommaSeparated
-} from '../../glossary.utils';
+  parseCommaSeparated,
+} from '@app/glossaryV2/import/glossary.utils';
 
 export function useHierarchyManagement(): UseHierarchyManagementReturn {
   /**
@@ -49,7 +49,7 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
 
       return {
         ...entity,
-        parentUrns
+        parentUrns,
       };
     });
   }, []);
@@ -60,7 +60,7 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
   const resolveParentUrnsForLevel = useCallback((
     entities: Entity[], 
     level: number, 
-    hierarchyMaps: HierarchyMaps
+    hierarchyMaps: HierarchyMaps,
   ): Entity[] => {
     const entitiesAtLevel = entities.filter(entity => entity.level === level);
     return resolveParentUrns(entitiesAtLevel, hierarchyMaps);
@@ -94,7 +94,7 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
     return {
       isValid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }, []);
 
@@ -102,7 +102,7 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
     createProcessingOrder,
     resolveParentUrns,
     resolveParentUrnsForLevel,
-    validateHierarchy
+    validateHierarchy,
   };
 }
 
@@ -112,7 +112,7 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
 function validateHierarchyDepth(
   entities: Entity[], 
   errors: ValidationError[], 
-  warnings: ValidationWarning[]
+  warnings: ValidationWarning[],
 ): void {
   const maxDepth = 10; // Configurable maximum depth
   
@@ -121,7 +121,7 @@ function validateHierarchyDepth(
       warnings.push({
         field: 'parent_nodes',
         message: `Entity "${entity.name}" has hierarchy depth of ${entity.level}, which may cause performance issues`,
-        code: 'DEEP_HIERARCHY'
+        code: 'DEEP_HIERARCHY',
       });
     }
   });
@@ -133,7 +133,7 @@ function validateHierarchyDepth(
 function validateParentChildConsistency(
   entities: Entity[], 
   errors: ValidationError[], 
-  warnings: ValidationWarning[]
+  warnings: ValidationWarning[],
 ): void {
   const entityMap = new Map<string, Entity>();
   entities.forEach(entity => {
@@ -157,7 +157,7 @@ function validateParentChildConsistency(
     
     // Depth is 1 + max depth of any parent
     const parentDepths = entity.parentNames.map(parentName => 
-      calculateDepth(parentName, new Set(visited))
+      calculateDepth(parentName, new Set(visited)),
     );
     return 1 + Math.max(...parentDepths, 0);
   };
@@ -175,7 +175,7 @@ function validateParentChildConsistency(
           errors.push({
             field: 'parent_nodes',
             message: `Entity "${entity.name}" has parent "${parentName}" at same or deeper level, creating invalid hierarchy`,
-            code: 'INVALID_PARENT_LEVEL'
+            code: 'INVALID_PARENT_LEVEL',
           });
         }
       }

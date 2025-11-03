@@ -3,18 +3,18 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
-import { Entity } from '../glossary.types';
-import { useComprehensiveImport } from '../shared/hooks/useComprehensiveImport';
-import { useCsvProcessing } from '../shared/hooks/useCsvProcessing';
-import { useEntityManagement } from '../shared/hooks/useEntityManagement';
-import { useGraphQLOperations } from '../shared/hooks/useGraphQLOperations';
-import { useEntityComparison } from '../shared/hooks/useEntityComparison';
-import { convertRelationshipsToHierarchicalNames } from '../glossary.utils';
 import { useApolloClient } from '@apollo/client';
-import DropzoneTable from './DropzoneTable/DropzoneTable';
-import { BreadcrumbHeader } from '../shared/components/BreadcrumbHeader';
+import DropzoneTable from '@app/glossaryV2/import/WizardPage/DropzoneTable/DropzoneTable';
+import { BreadcrumbHeader } from '@app/glossaryV2/import/shared/components/BreadcrumbHeader';
 import { colors } from '@src/alchemy-components';
-import GlossaryImportList from './GlossaryImportList/GlossaryImportList';
+import GlossaryImportList from '@app/glossaryV2/import/WizardPage/GlossaryImportList/GlossaryImportList';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
+import { useComprehensiveImport } from '@app/glossaryV2/import/shared/hooks/useComprehensiveImport';
+import { useCsvProcessing } from '@app/glossaryV2/import/shared/hooks/useCsvProcessing';
+import { useEntityManagement } from '@app/glossaryV2/import/shared/hooks/useEntityManagement';
+import { useGraphQLOperations } from '@app/glossaryV2/import/shared/hooks/useGraphQLOperations';
+import { useEntityComparison } from '@app/glossaryV2/import/shared/hooks/useEntityComparison';
+import { convertRelationshipsToHierarchicalNames } from '@app/glossaryV2/import/glossary.utils';
 
 // Styled components following IngestionSourceList pattern
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -122,8 +122,8 @@ export const WizardPage = () => {
                     input: {
                         types: ['GLOSSARY_TERM', 'GLOSSARY_NODE'],
                         query: '*',
-                        count: 1000
-                    }
+                        count: 1000,
+                    },
                 });
                 
                 const urnToNameMap = new Map<string, string>();
@@ -170,14 +170,14 @@ export const WizardPage = () => {
                             source_ref: properties.sourceRef || '',
                             source_url: properties.sourceUrl || '',
                             ownership_users: entity.ownership?.owners?.filter((owner: any) => 
-                              owner.owner.__typename === 'CorpUser'
+                              owner.owner.__typename === 'CorpUser',
                             ).map((owner: any) => 
-                              `${owner.owner.username || owner.owner.name || owner.owner.urn}:${owner.ownershipType?.info?.name || 'NONE'}`
+                              `${owner.owner.username || owner.owner.name || owner.owner.urn}:${owner.ownershipType?.info?.name || 'NONE'}`,
                             ).join('|') || '',
                             ownership_groups: entity.ownership?.owners?.filter((owner: any) => 
-                              owner.owner.__typename === 'CorpGroup'
+                              owner.owner.__typename === 'CorpGroup',
                             ).map((owner: any) => 
-                              `${owner.owner.username || owner.owner.name || owner.owner.urn}:${owner.ownershipType?.info?.name || 'NONE'}`
+                              `${owner.owner.username || owner.owner.name || owner.owner.urn}:${owner.ownershipType?.info?.name || 'NONE'}`,
                             ).join('|') || '',
                             parent_nodes: immediateParentName || '',
                             related_contains: convertRelationshipsToHierarchicalNames(entity.contains?.relationships || []),
@@ -185,10 +185,10 @@ export const WizardPage = () => {
                             domain_urn: entity.domain?.domain.urn || '',
                             domain_name: entity.domain?.domain.properties.name || '',
                             custom_properties: properties.customProperties?.map((cp: any) => `${cp.key}:${cp.value}`).join(',') || '',
-                            status: 'existing'
+                            status: 'existing',
                         },
                         status: 'existing' as const,
-                        originalRow: undefined
+                        originalRow: undefined,
                     };
                 });
                 
@@ -201,18 +201,18 @@ export const WizardPage = () => {
                     ...comparison.updatedEntities.map(entity => ({ 
                         ...entity, 
                         urn: entity.existingEntity?.urn || entity.urn,
-                        status: 'updated' as const 
+                        status: 'updated' as const, 
                     })),
                     ...comparison.unchangedEntities.map(entity => ({ 
                         ...entity, 
                         urn: entity.existingEntity?.urn || entity.urn,
-                        status: 'existing' as const 
+                        status: 'existing' as const, 
                     })),
                     ...comparison.conflictedEntities.map(entity => ({ 
                         ...entity, 
                         urn: entity.existingEntity?.urn || entity.urn,
-                        status: 'conflict' as const 
-                    }))
+                        status: 'conflict' as const, 
+                    })),
                 ];
                 
                 setEntities(updatedEntities);
@@ -249,12 +249,12 @@ export const WizardPage = () => {
     const breadcrumbItems = [
         {
             label: 'Glossary',
-            href: PageRoutes.GLOSSARY
+            href: PageRoutes.GLOSSARY,
         },
         {
             label: 'Import',
-            isActive: true
-        }
+            isActive: true,
+        },
     ];
 
 
@@ -297,7 +297,7 @@ export const WizardPage = () => {
                     flexShrink: 0, 
                     padding: '16px 0', 
                     marginTop: '16px', 
-                    borderTop: `1px solid ${colors.gray[100]}` 
+                    borderTop: `1px solid ${colors.gray[100]}`, 
                 }}>
                     <ActionsBar>
                         {entities.length > 0 && (() => {

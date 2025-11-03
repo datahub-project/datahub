@@ -69,7 +69,7 @@ export function parseSingleOwnership(ownershipString: string, corpType: 'CORP_US
       ownerName,
       corpType: 'CORP_USER', // Default for URNs
       ownerUrn: ownerName,
-      ownerType: 'NONE' as const
+      ownerType: 'NONE' as const,
     };
   }
   
@@ -101,7 +101,7 @@ export function parseSingleOwnership(ownershipString: string, corpType: 'CORP_US
     ownerName,
     corpType,
     ownerUrn,
-    ownerType
+    ownerType,
   };
 }
 
@@ -138,7 +138,7 @@ export function validateOwnershipString(ownershipString: string): { isValid: boo
   if (parsed.length === 0) {
     return { 
       isValid: false, 
-      error: `Invalid ownership format: "${ownershipString}". Expected format: "owner:ownershipType:corpType"` 
+      error: `Invalid ownership format: "${ownershipString}". Expected format: "owner:ownershipType:corpType"`, 
     };
   }
 
@@ -147,7 +147,7 @@ export function validateOwnershipString(ownershipString: string): { isValid: boo
   if (hasEmptyEntries) {
     return { 
       isValid: false, 
-      error: `Invalid ownership format: "${ownershipString}". Empty ownership entries are not allowed.` 
+      error: `Invalid ownership format: "${ownershipString}". Empty ownership entries are not allowed.`, 
     };
   }
 
@@ -172,14 +172,14 @@ export function validateOwnershipColumns(usersColumn: string, groupsColumn: stri
       if (!entry) {
         return { 
           isValid: false, 
-          error: 'Empty ownership entries are not allowed' 
+          error: 'Empty ownership entries are not allowed', 
         };
       }
       const parts = entry.split(':');
       if (parts.length < 2) {
         return { 
           isValid: false, 
-          error: `Invalid user ownership format: "${entry}". Expected format: "user:ownershipType"` 
+          error: `Invalid user ownership format: "${entry}". Expected format: "user:ownershipType"`, 
         };
       }
     }
@@ -192,14 +192,14 @@ export function validateOwnershipColumns(usersColumn: string, groupsColumn: stri
       if (!entry) {
         return { 
           isValid: false, 
-          error: 'Empty ownership entries are not allowed' 
+          error: 'Empty ownership entries are not allowed', 
         };
       }
       const parts = entry.split(':');
       if (parts.length < 2) {
         return { 
           isValid: false, 
-          error: `Invalid group ownership format: "${entry}". Expected format: "group:ownershipType"` 
+          error: `Invalid group ownership format: "${entry}". Expected format: "group:ownershipType"`, 
         };
       }
     }
@@ -218,7 +218,7 @@ export function validateOwnershipColumns(usersColumn: string, groupsColumn: stri
 export function createOwnershipPatchOperations(
   parsedOwnership: ParsedOwnership[],
   ownershipTypeMap: Map<string, string>,
-  isUpdate: boolean = false
+  isUpdate = false,
 ): Array<{ op: 'ADD' | 'REMOVE' | 'REPLACE' | 'MOVE' | 'COPY' | 'TEST'; path: string; value?: string }> {
   const patches: Array<{ op: 'ADD' | 'REMOVE' | 'REPLACE' | 'MOVE' | 'COPY' | 'TEST'; path: string; value?: string }> = [];
 
@@ -233,7 +233,7 @@ export function createOwnershipPatchOperations(
       owner: ownerUrn,
       typeUrn: ownershipTypeUrn,
       type: 'NONE', // Deprecated field - kept for compatibility, but typeUrn is the authoritative field
-      source: { type: 'MANUAL' }
+      source: { type: 'MANUAL' },
     };
   });
 
@@ -242,7 +242,7 @@ export function createOwnershipPatchOperations(
   patches.push({
     op: 'REPLACE' as const,
     path: '/owners',
-    value: JSON.stringify(ownersArray)
+    value: JSON.stringify(ownersArray),
   });
 
   return patches;

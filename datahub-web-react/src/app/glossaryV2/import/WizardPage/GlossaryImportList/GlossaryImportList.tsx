@@ -2,13 +2,13 @@ import { Button, SearchBar, SimpleSelect, Table } from '@components';
 import React, { useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
-import { Entity } from '../../glossary.types';
-import { DiffModal } from '../DiffModal/DiffModal';
-import { ImportProgressModal } from '../ImportProgressModal/ImportProgressModal';
-import { getTableColumns } from './GlossaryImportList.utils';
-import { useEntitySearch, GLOSSARY_SEARCHABLE_FIELDS } from '../../shared/hooks/useEntitySearch';
-import { useModal } from '../../shared/hooks/useModal';
-import { useHierarchicalData } from '../../shared/hooks/useHierarchicalData';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
+import { DiffModal } from '@app/glossaryV2/import/WizardPage/DiffModal/DiffModal';
+import { ImportProgressModal } from '@app/glossaryV2/import/WizardPage/ImportProgressModal/ImportProgressModal';
+import { getTableColumns } from '@app/glossaryV2/import/WizardPage/GlossaryImportList/GlossaryImportList.utils';
+import { useEntitySearch, GLOSSARY_SEARCHABLE_FIELDS } from '@app/glossaryV2/import/shared/hooks/useEntitySearch';
+import { useModal } from '@app/glossaryV2/import/shared/hooks/useModal';
+import { useHierarchicalData } from '@app/glossaryV2/import/shared/hooks/useHierarchicalData';
 
 const StyledTabToolbar = styled.div`
     display: flex;
@@ -183,7 +183,7 @@ export default function GlossaryImportList({
         (record) => toggleExpand(record.name),
         expandedKeys,
         entities,
-        editingCell?.value || ''
+        editingCell?.value || '',
     );
 
     // Status filter options

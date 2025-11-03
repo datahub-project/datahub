@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { HierarchyNameResolver } from '../hierarchyUtils';
-import { Entity } from '../../../glossary.types';
+import { HierarchyNameResolver } from '@app/glossaryV2/import/shared/utils/hierarchyUtils';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 // Mock entity data
 const mockEntityData = {
@@ -23,7 +23,7 @@ const mockEntityData = {
   domain_urn: '',
   domain_name: '',
   custom_properties: '',
-  status: 'new'
+  status: 'new',
 };
 
 const mockEntities: Entity[] = [
@@ -36,7 +36,7 @@ const mockEntities: Entity[] = [
     parentUrns: [],
     level: 0,
     data: { ...mockEntityData, name: 'Business Terms' },
-    urn: 'urn:li:glossaryNode:business-terms'
+    urn: 'urn:li:glossaryNode:business-terms',
   },
   {
     id: 'parent-2',
@@ -47,7 +47,7 @@ const mockEntities: Entity[] = [
     parentUrns: ['urn:li:glossaryNode:business-terms'],
     level: 1,
     data: { ...mockEntityData, name: 'Business Terms Nested' },
-    urn: 'urn:li:glossaryNode:business-terms-nested'
+    urn: 'urn:li:glossaryNode:business-terms-nested',
   },
   {
     id: 'child-1',
@@ -57,8 +57,8 @@ const mockEntities: Entity[] = [
     parentNames: ['Business Terms.Business Terms Nested'],
     parentUrns: [],
     level: 2,
-    data: { ...mockEntityData, name: 'Customer Name' }
-  }
+    data: { ...mockEntityData, name: 'Customer Name' },
+  },
 ];
 
 describe('HierarchyNameResolver', () => {
@@ -100,7 +100,7 @@ describe('HierarchyNameResolver', () => {
     it('should find parent by hierarchical name', () => {
       const result = HierarchyNameResolver.findParentEntity(
         'Business Terms.Business Terms Nested',
-        mockEntities
+        mockEntities,
       );
       expect(result).toBeDefined();
       expect(result?.name).toBe('Business Terms Nested');
@@ -109,7 +109,7 @@ describe('HierarchyNameResolver', () => {
     it('should find parent by simple name', () => {
       const result = HierarchyNameResolver.findParentEntity(
         'Business Terms',
-        mockEntities
+        mockEntities,
       );
       expect(result).toBeDefined();
       expect(result?.name).toBe('Business Terms');
@@ -118,7 +118,7 @@ describe('HierarchyNameResolver', () => {
     it('should return undefined if parent not found', () => {
       const result = HierarchyNameResolver.findParentEntity(
         'Non Existent Parent',
-        mockEntities
+        mockEntities,
       );
       expect(result).toBeUndefined();
     });
@@ -138,7 +138,7 @@ describe('HierarchyNameResolver', () => {
     it('should find parent with case-insensitive search', () => {
       const result = HierarchyNameResolver.findParentEntityCaseInsensitive(
         'business terms',
-        mockEntities
+        mockEntities,
       );
       expect(result).toBeDefined();
       expect(result?.name).toBe('Business Terms');
@@ -147,7 +147,7 @@ describe('HierarchyNameResolver', () => {
     it('should find parent with hierarchical name case-insensitive', () => {
       const result = HierarchyNameResolver.findParentEntityCaseInsensitive(
         'business terms.business terms nested',
-        mockEntities
+        mockEntities,
       );
       expect(result).toBeDefined();
       expect(result?.name).toBe('Business Terms Nested');
@@ -160,7 +160,7 @@ describe('HierarchyNameResolver', () => {
       const result = HierarchyNameResolver.resolveParentUrns(
         mockEntities[2], // Customer Name with parent "Business Terms.Business Terms Nested"
         mockEntities,
-        generatedUrnMap
+        generatedUrnMap,
       );
       
       expect(result).toHaveLength(1);
@@ -176,7 +176,7 @@ describe('HierarchyNameResolver', () => {
         parentNames: ['Business Terms'],
         parentUrns: [],
         level: 1,
-        data: { ...mockEntityData, name: 'New Child' }
+        data: { ...mockEntityData, name: 'New Child' },
       };
 
       const generatedUrnMap = new Map<string, string>();
@@ -185,7 +185,7 @@ describe('HierarchyNameResolver', () => {
       const result = HierarchyNameResolver.resolveParentUrns(
         newEntity,
         [newEntity, ...mockEntities],
-        generatedUrnMap
+        generatedUrnMap,
       );
       
       expect(result).toHaveLength(1);
@@ -201,7 +201,7 @@ describe('HierarchyNameResolver', () => {
         parentNames: ['Missing Parent'],
         parentUrns: [],
         level: 0,
-        data: { ...mockEntityData, name: 'Orphan Entity' }
+        data: { ...mockEntityData, name: 'Orphan Entity' },
       };
 
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -209,12 +209,12 @@ describe('HierarchyNameResolver', () => {
       const result = HierarchyNameResolver.resolveParentUrns(
         entityWithMissingParent,
         mockEntities,
-        new Map()
+        new Map(),
       );
       
       expect(result).toHaveLength(0);
       expect(consoleSpy).toHaveBeenCalledWith(
-        'Parent entity "Missing Parent" (resolved to "Missing Parent") not found for "Orphan Entity"'
+        'Parent entity "Missing Parent" (resolved to "Missing Parent") not found for "Orphan Entity"',
       );
       
       consoleSpy.mockRestore();

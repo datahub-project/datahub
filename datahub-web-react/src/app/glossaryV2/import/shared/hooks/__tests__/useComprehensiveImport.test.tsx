@@ -3,15 +3,15 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react-hooks';
 import { ApolloClient } from '@apollo/client';
-import { useComprehensiveImport } from '../useComprehensiveImport';
-import { Entity } from '../../../glossary.types';
+import { useComprehensiveImport } from '@app/glossaryV2/import/shared/hooks/useComprehensiveImport';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 // Mock Apollo Client
 const mockApolloClient = {
   mutate: vi.fn(),
-  query: vi.fn()
+  query: vi.fn(),
 } as unknown as ApolloClient<any>;
 
 // Mock GraphQL operations
@@ -22,21 +22,21 @@ const mockExecuteGetOwnershipTypesQuery = vi.fn();
 vi.mock('../useGraphQLOperations', () => ({
   useGraphQLOperations: () => ({
     executePatchEntitiesMutation: mockExecutePatchEntitiesMutation,
-    executeGetOwnershipTypesQuery: mockExecuteGetOwnershipTypesQuery
-  })
+    executeGetOwnershipTypesQuery: mockExecuteGetOwnershipTypesQuery,
+  }),
 }));
 
 vi.mock('../useHierarchyManagement', () => ({
   useHierarchyManagement: () => ({
-    validateHierarchy: vi.fn(() => ({ isValid: true, errors: [], warnings: [] }))
-  })
+    validateHierarchy: vi.fn(() => ({ isValid: true, errors: [], warnings: [] })),
+  }),
 }));
 
 vi.mock('../useEntityManagement', () => ({
   useEntityManagement: () => ({
     normalizeCsvData: vi.fn(),
-    compareEntities: vi.fn()
-  })
+    compareEntities: vi.fn(),
+  }),
 }));
 
 vi.mock('../useEntityComparison', () => ({
@@ -45,15 +45,15 @@ vi.mock('../useEntityComparison', () => ({
       newEntities: entities.filter(e => e.status === 'new'),
       updatedEntities: entities.filter(e => e.status === 'updated'),
       unchangedEntities: entities.filter(e => e.status === 'existing'),
-      conflictedEntities: entities.filter(e => e.status === 'conflict')
-    }))
-  })
+      conflictedEntities: entities.filter(e => e.status === 'conflict'),
+    })),
+  }),
 }));
 
 vi.mock('@app/context/useUserContext', () => ({
   useUserContext: () => ({
-    user: { urn: 'urn:li:corpuser:testuser' }
-  })
+    user: { urn: 'urn:li:corpuser:testuser' },
+  }),
 }));
 
 describe('useComprehensiveImport', () => {
@@ -81,9 +81,9 @@ describe('useComprehensiveImport', () => {
         related_inherits: '',
         domain_urn: '',
         domain_name: '',
-        custom_properties: ''
-      }
-    }
+        custom_properties: '',
+      },
+    },
   ];
 
   const mockExistingEntities: Entity[] = [
@@ -111,9 +111,9 @@ describe('useComprehensiveImport', () => {
         related_inherits: '',
         domain_urn: '',
         domain_name: '',
-        custom_properties: ''
-      }
-    }
+        custom_properties: '',
+      },
+    },
   ];
 
   beforeEach(() => {
@@ -126,23 +126,23 @@ describe('useComprehensiveImport', () => {
           ownershipTypes: [
             {
               urn: 'urn:li:ownershipType:developer',
-              info: { name: 'DEVELOPER' }
-            }
-          ]
-        }
-      }
+              info: { name: 'DEVELOPER' },
+            },
+          ],
+        },
+      },
     });
 
     // Mock successful patch entities mutation
     mockExecutePatchEntitiesMutation.mockResolvedValue([
-      { urn: 'urn:li:glossaryTerm:generated', success: true, name: 'Test Term' }
+      { urn: 'urn:li:glossaryTerm:generated', success: true, name: 'Test Term' },
     ]);
   });
 
   describe('initial state', () => {
     it('should initialize with correct default state', () => {
       const { result } = renderHook(() => useComprehensiveImport({
-        apolloClient: mockApolloClient
+        apolloClient: mockApolloClient,
       }));
 
       expect(result.current.progress).toEqual({
@@ -151,7 +151,7 @@ describe('useComprehensiveImport', () => {
         successful: 0,
         failed: 0,
         errors: [],
-        warnings: []
+        warnings: [],
       });
       expect(result.current.isProcessing).toBe(false);
       expect(result.current.isPaused).toBe(false);
@@ -162,7 +162,7 @@ describe('useComprehensiveImport', () => {
   describe('startImport', () => {
     it('should successfully import entities', async () => {
       const { result } = renderHook(() => useComprehensiveImport({
-        apolloClient: mockApolloClient
+        apolloClient: mockApolloClient,
       }));
 
       await act(async () => {
@@ -179,7 +179,7 @@ describe('useComprehensiveImport', () => {
       mockExecutePatchEntitiesMutation.mockRejectedValue(new Error('Import failed'));
 
       const { result } = renderHook(() => useComprehensiveImport({
-        apolloClient: mockApolloClient
+        apolloClient: mockApolloClient,
       }));
 
       await act(async () => {
@@ -193,7 +193,7 @@ describe('useComprehensiveImport', () => {
 
     it('should handle no entities to process', async () => {
       const { result } = renderHook(() => useComprehensiveImport({
-        apolloClient: mockApolloClient
+        apolloClient: mockApolloClient,
       }));
 
       await act(async () => {
@@ -208,19 +208,19 @@ describe('useComprehensiveImport', () => {
       const { useHierarchyManagement } = await import('../useHierarchyManagement');
       const mockValidateHierarchy = vi.fn(() => ({
         isValid: false,
-        errors: [{ field: 'hierarchy', message: 'Circular dependency detected' }],
-        warnings: []
+        errors: [{ field: 'hierarchy', message: 'Circular dependency detected', code: 'CIRCULAR_DEPENDENCY' }],
+        warnings: [],
       }));
 
       vi.mocked(useHierarchyManagement).mockReturnValue({
         validateHierarchy: mockValidateHierarchy,
         createProcessingOrder: vi.fn(),
         resolveParentUrns: vi.fn(),
-        resolveParentUrnsForLevel: vi.fn()
+        resolveParentUrnsForLevel: vi.fn(),
       });
 
       const { result } = renderHook(() => useComprehensiveImport({
-        apolloClient: mockApolloClient
+        apolloClient: mockApolloClient,
       }));
 
       await act(async () => {
@@ -236,7 +236,7 @@ describe('useComprehensiveImport', () => {
   describe('pause and resume', () => {
     it('should pause import', () => {
       const { result } = renderHook(() => useComprehensiveImport({
-        apolloClient: mockApolloClient
+        apolloClient: mockApolloClient,
       }));
 
       act(() => {
@@ -249,7 +249,7 @@ describe('useComprehensiveImport', () => {
 
     it('should resume import', () => {
       const { result } = renderHook(() => useComprehensiveImport({
-        apolloClient: mockApolloClient
+        apolloClient: mockApolloClient,
       }));
 
       act(() => {
@@ -265,7 +265,7 @@ describe('useComprehensiveImport', () => {
   describe('cancel import', () => {
     it('should cancel import', () => {
       const { result } = renderHook(() => useComprehensiveImport({
-        apolloClient: mockApolloClient
+        apolloClient: mockApolloClient,
       }));
 
       act(() => {
@@ -282,7 +282,7 @@ describe('useComprehensiveImport', () => {
   describe('retry failed', () => {
     it('should handle retry with no failed operations', () => {
       const { result } = renderHook(() => useComprehensiveImport({
-        apolloClient: mockApolloClient
+        apolloClient: mockApolloClient,
       }));
 
       act(() => {
@@ -295,7 +295,7 @@ describe('useComprehensiveImport', () => {
 
     it('should handle retry with failed operations', async () => {
       const { result } = renderHook(() => useComprehensiveImport({
-        apolloClient: mockApolloClient
+        apolloClient: mockApolloClient,
       }));
 
       // First fail an import
@@ -320,7 +320,7 @@ describe('useComprehensiveImport', () => {
   describe('reset progress', () => {
     it('should reset all progress state', () => {
       const { result } = renderHook(() => useComprehensiveImport({
-        apolloClient: mockApolloClient
+        apolloClient: mockApolloClient,
       }));
 
       // Set some state
@@ -341,7 +341,7 @@ describe('useComprehensiveImport', () => {
         successful: 0,
         failed: 0,
         errors: [],
-        warnings: []
+        warnings: [],
       });
       expect(result.current.isProcessing).toBe(false);
       expect(result.current.isPaused).toBe(false);
@@ -355,7 +355,7 @@ describe('useComprehensiveImport', () => {
 
       const { result } = renderHook(() => useComprehensiveImport({
         apolloClient: mockApolloClient,
-        onProgress
+        onProgress,
       }));
 
       await act(async () => {

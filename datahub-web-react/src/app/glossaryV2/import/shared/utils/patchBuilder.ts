@@ -3,10 +3,10 @@
  * Consolidates all patch operation creation logic
  */
 
-import { Entity, PatchOperation } from '../../glossary.types';
-import { UrnManager } from './urnManager';
-import { HierarchyNameResolver } from './hierarchyUtils';
-import { createOwnershipPatchOperations, parseOwnershipFromColumns } from './ownershipParsingUtils';
+import { Entity, PatchOperation } from '@app/glossaryV2/import/glossary.types';
+import { UrnManager } from '@app/glossaryV2/import/shared/utils/urnManager';
+import { HierarchyNameResolver } from '@app/glossaryV2/import/shared/utils/hierarchyUtils';
+import { createOwnershipPatchOperations, parseOwnershipFromColumns } from '@app/glossaryV2/import/shared/utils/ownershipParsingUtils';
 
 /**
  * Input type for ownership type patches
@@ -55,14 +55,14 @@ export class PatchBuilder {
         { op: 'ADD' as const, path: '/description', value: ownershipType.description },
         { op: 'ADD' as const, path: '/created', value: JSON.stringify({
           time: Date.now(),
-          actor: 'urn:li:corpuser:datahub' // Will be replaced with actual user
+          actor: 'urn:li:corpuser:datahub', // Will be replaced with actual user
         })},
         { op: 'ADD' as const, path: '/lastModified', value: JSON.stringify({
           time: Date.now(),
-          actor: 'urn:li:corpuser:datahub' // Will be replaced with actual user
-        })}
+          actor: 'urn:li:corpuser:datahub', // Will be replaced with actual user
+        })},
       ],
-      forceGenericPatch: true
+      forceGenericPatch: true,
     }));
   }
 
@@ -107,7 +107,7 @@ export class PatchBuilder {
   static createEntityPatches(
     entities: Entity[],
     urnMap: Map<string, string>,
-    existingEntities: Entity[] = []
+    existingEntities: Entity[] = [],
   ): ComprehensivePatchInput[] {
     return entities
       .filter(entity => {
@@ -160,7 +160,7 @@ export class PatchBuilder {
             patch.push({
               op: 'ADD' as const,
               path: `/customProperties/${key}`,
-              value: JSON.stringify(value)
+              value: JSON.stringify(value),
             });
           });
         } catch (error) {
@@ -195,7 +195,7 @@ export class PatchBuilder {
           patch.push({
             op: 'ADD' as const,
             path: '/parentNode',
-            value: parentUrn
+            value: parentUrn,
           });
         } else {
           const actualParentName = HierarchyNameResolver.parseHierarchicalName(parentName);
@@ -208,7 +208,7 @@ export class PatchBuilder {
         entityType: entity.type,
         aspectName,
         patch,
-        forceGenericPatch: true
+        forceGenericPatch: true,
       };
     });
   }
@@ -219,7 +219,7 @@ export class PatchBuilder {
   static createOwnershipPatches(
     entities: Entity[],
     urnMap: Map<string, string>,
-    ownershipTypeMap: Map<string, string>
+    ownershipTypeMap: Map<string, string>,
   ): ComprehensivePatchInput[] {
     const ownershipPatches: ComprehensivePatchInput[] = [];
 
@@ -231,7 +231,7 @@ export class PatchBuilder {
 
         const parsedOwnership = parseOwnershipFromColumns(
           entity.data.ownership_users || '',
-          entity.data.ownership_groups || ''
+          entity.data.ownership_groups || '',
         );
 
         if (parsedOwnership.length === 0) return;
@@ -247,9 +247,9 @@ export class PatchBuilder {
             patch: patches,
             arrayPrimaryKeys: [{
               arrayField: 'owners',
-              keys: ['owner', 'typeUrn']
+              keys: ['owner', 'typeUrn'],
             }],
-            forceGenericPatch: true
+            forceGenericPatch: true,
           });
         }
       } catch (error) {
@@ -265,7 +265,7 @@ export class PatchBuilder {
    */
   static createRelatedTermPatches(
     entities: Entity[],
-    urnMap: Map<string, string>
+    urnMap: Map<string, string>,
   ): ComprehensivePatchInput[] {
     const relatedTermPatches: ComprehensivePatchInput[] = [];
 
@@ -280,8 +280,8 @@ export class PatchBuilder {
           const relatedEntity = entities.find(e => e.name === relatedName);
           if (relatedEntity) {
             const relatedUrn = UrnManager.resolveEntityUrn(relatedEntity, urnMap);
-            if (!relatedTerms['contains']) relatedTerms['contains'] = [];
-            relatedTerms['contains'].push(relatedUrn);
+            if (!relatedTerms.contains) relatedTerms.contains = [];
+            relatedTerms.contains.push(relatedUrn);
           } else {
             console.warn(`🔗 Related entity not found for contains: "${relatedName}"`);
           }
@@ -296,8 +296,8 @@ export class PatchBuilder {
           const relatedEntity = entities.find(e => e.name === relatedName);
           if (relatedEntity) {
             const relatedUrn = UrnManager.resolveEntityUrn(relatedEntity, urnMap);
-            if (!relatedTerms['inherits']) relatedTerms['inherits'] = [];
-            relatedTerms['inherits'].push(relatedUrn);
+            if (!relatedTerms.inherits) relatedTerms.inherits = [];
+            relatedTerms.inherits.push(relatedUrn);
           } else {
             console.warn(`🔗 Related entity not found for inherits: "${relatedName}"`);
           }
@@ -314,7 +314,7 @@ export class PatchBuilder {
             patches.push({
               op: 'ADD' as const,
               path: `/isRelatedTerms/${relatedUrn}/${relationshipType}`,
-              value: '{}'
+              value: '{}',
             });
           });
         });
@@ -325,7 +325,7 @@ export class PatchBuilder {
             entityType: entity.type,
             aspectName: 'glossaryRelatedTerms',
             patch: patches,
-            forceGenericPatch: true
+            forceGenericPatch: true,
           });
         }
       }
@@ -339,7 +339,7 @@ export class PatchBuilder {
    */
   static createDomainAssignmentPatches(
     entities: Entity[],
-    urnMap: Map<string, string>
+    urnMap: Map<string, string>,
   ): ComprehensivePatchInput[] {
     const domainPatches: ComprehensivePatchInput[] = [];
 
@@ -355,10 +355,10 @@ export class PatchBuilder {
             {
               op: 'ADD' as const,
               path: '/domains/0',
-              value: entity.data.domain_urn
-            }
+              value: entity.data.domain_urn,
+            },
           ],
-          forceGenericPatch: true
+          forceGenericPatch: true,
         });
       }
     });
@@ -377,22 +377,22 @@ export const createOwnershipTypePatches = (ownershipTypes: OwnershipTypeInput[])
 export const createEntityPatches = (
   entities: Entity[],
   urnMap: Map<string, string>,
-  existingEntities: Entity[] = []
+  existingEntities: Entity[] = [],
 ) => PatchBuilder.createEntityPatches(entities, urnMap, existingEntities);
 
 export const createOwnershipPatches = (
   entities: Entity[],
   urnMap: Map<string, string>,
-  ownershipTypeMap: Map<string, string>
+  ownershipTypeMap: Map<string, string>,
 ) => PatchBuilder.createOwnershipPatches(entities, urnMap, ownershipTypeMap);
 
 export const createRelatedTermPatches = (
   entities: Entity[],
-  urnMap: Map<string, string>
+  urnMap: Map<string, string>,
 ) => PatchBuilder.createRelatedTermPatches(entities, urnMap);
 
 export const createDomainAssignmentPatches = (
   entities: Entity[],
-  urnMap: Map<string, string>
+  urnMap: Map<string, string>,
 ) => PatchBuilder.createDomainAssignmentPatches(entities, urnMap);
 

@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { UrnManager, AUTO_GENERATE_ALLOWED_ENTITY_TYPES } from '../urnManager';
-import { Entity } from '../../../glossary.types';
+import { UrnManager, AUTO_GENERATE_ALLOWED_ENTITY_TYPES } from '@app/glossaryV2/import/shared/utils/urnManager';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 // Mock entity data
 const mockEntityData = {
@@ -23,7 +23,7 @@ const mockEntityData = {
   domain_urn: '',
   domain_name: '',
   custom_properties: '',
-  status: 'new'
+  status: 'new',
 };
 
 describe('UrnManager', () => {
@@ -163,7 +163,7 @@ describe('UrnManager', () => {
           parentNames: [],
           parentUrns: [],
           level: 0,
-          data: mockEntityData
+          data: mockEntityData,
         },
         {
           id: 'entity-2',
@@ -173,8 +173,8 @@ describe('UrnManager', () => {
           parentNames: [],
           parentUrns: [],
           level: 0,
-          data: mockEntityData
-        }
+          data: mockEntityData,
+        },
       ];
 
       const urnMap = UrnManager.preGenerateUrns(entities);
@@ -196,8 +196,8 @@ describe('UrnManager', () => {
           parentUrns: [],
           level: 0,
           data: mockEntityData,
-          urn: existingUrn
-        }
+          urn: existingUrn,
+        },
       ];
 
       const urnMap = UrnManager.preGenerateUrns(entities);
@@ -219,7 +219,7 @@ describe('UrnManager', () => {
         parentUrns: [],
         level: 0,
         data: mockEntityData,
-        urn: existingUrn
+        urn: existingUrn,
       };
 
       const urnMap = new Map<string, string>();
@@ -238,7 +238,7 @@ describe('UrnManager', () => {
         parentNames: [],
         parentUrns: [],
         level: 0,
-        data: mockEntityData
+        data: mockEntityData,
       };
 
       const urnMap = new Map<string, string>([['entity-1', generatedUrn]]);
@@ -256,7 +256,7 @@ describe('UrnManager', () => {
         parentNames: [],
         parentUrns: [],
         level: 0,
-        data: mockEntityData
+        data: mockEntityData,
       };
 
       const urnMap = new Map<string, string>();
@@ -278,8 +278,8 @@ describe('UrnManager', () => {
           parentUrns: [],
           level: 0,
           data: mockEntityData,
-          urn: 'urn:li:glossaryTerm:test-123'
-        }
+          urn: 'urn:li:glossaryTerm:test-123',
+        },
       ];
 
       const urnMap = UrnManager.createExistingEntityUrnMap(entities);
@@ -302,8 +302,8 @@ describe('UrnManager', () => {
           parentUrns: [],
           level: 0,
           data: mockEntityData,
-          urn: 'urn:li:glossaryTerm:test-123'
-        }
+          urn: 'urn:li:glossaryTerm:test-123',
+        },
       ];
 
       const urn = UrnManager.findUrnByName('Test Entity', entities);
@@ -321,8 +321,8 @@ describe('UrnManager', () => {
           parentUrns: [],
           level: 0,
           data: mockEntityData,
-          urn: 'urn:li:glossaryTerm:test-123'
-        }
+          urn: 'urn:li:glossaryTerm:test-123',
+        },
       ];
 
       const urn = UrnManager.findUrnByName('test entity', entities);
@@ -356,7 +356,7 @@ describe('UrnManager', () => {
         scheme: 'urn',
         namespace: 'li',
         entityType: 'glossaryTerm',
-        id: 'abc-123'
+        id: 'abc-123',
       });
     });
 

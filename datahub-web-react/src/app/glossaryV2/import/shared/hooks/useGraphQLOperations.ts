@@ -7,8 +7,8 @@ import { gql, useApolloClient } from '@apollo/client';
 import { 
   GraphQLEntity, 
   EntityPatchInput, 
-  UseGraphQLOperationsReturn 
-} from '../../glossary.types';
+  UseGraphQLOperationsReturn, 
+} from '@app/glossaryV2/import/glossary.types';
 
 // GraphQL query for fetching glossary entities (with pagination support)
 const UNIFIED_GLOSSARY_QUERY = gql`
@@ -285,7 +285,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
         count: number;
         scrollId?: string;
       }
-    }
+    },
   ): Promise<GraphQLEntity[]> => {
     try {
       const allEntities: GraphQLEntity[] = [];
@@ -304,7 +304,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
               ...variables.input,
               count: Math.min(variables.input.count - allEntities.length, BATCH_SIZE),
               scrollId: scrollId || undefined,
-            }
+            },
           },
           fetchPolicy: 'network-only',
         });
@@ -341,7 +341,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
    * Execute patch entities mutation
    */
   const executePatchEntitiesMutation = useCallback(async (
-    input: EntityPatchInput[]
+    input: EntityPatchInput[],
   ): Promise<any> => {
     try {
       const { data } = await apolloClient.mutate({
@@ -360,7 +360,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
    * Execute add related terms mutation
    */
   const executeAddRelatedTermsMutation = useCallback(async (
-    input: any
+    input: any,
   ): Promise<any> => {
     try {
       const { data } = await apolloClient.mutate({
@@ -381,7 +381,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
    */
   const executeSetDomainMutation = useCallback(async (
     entityUrn: string, 
-    domainUrn: string
+    domainUrn: string,
   ): Promise<any> => {
     try {
       const { data } = await apolloClient.mutate({
@@ -401,7 +401,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
    */
   const executeBatchSetDomainMutation = useCallback(async (
     domainUrn: string,
-    entityUrns: string[]
+    entityUrns: string[],
   ): Promise<any> => {
     try {
       const { data } = await apolloClient.mutate({
@@ -409,8 +409,8 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
         variables: { 
           input: {
             domainUrn,
-            resources: entityUrns.map(urn => ({ resourceUrn: urn }))
-          }
+            resources: entityUrns.map(urn => ({ resourceUrn: urn })),
+          },
         },
       });
 
@@ -430,7 +430,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
         start: number;
         count: number;
       }
-    }
+    },
   ): Promise<any[]> => {
     try {
       const { data } = await apolloClient.query({
@@ -472,7 +472,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
     executeSetDomainMutation,
     executeBatchSetDomainMutation,
     executeGetOwnershipTypesQuery,
-    handleGraphQLErrors
+    handleGraphQLErrors,
   };
 }
 
@@ -480,5 +480,5 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
 export {
   UNIFIED_GLOSSARY_QUERY,
   PATCH_ENTITIES_MUTATION,
-  GET_OWNERSHIP_TYPES
+  GET_OWNERSHIP_TYPES,
 };

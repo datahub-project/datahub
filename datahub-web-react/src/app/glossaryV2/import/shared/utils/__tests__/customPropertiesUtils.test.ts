@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { compareCustomProperties } from '../customPropertiesUtils';
+import { compareCustomProperties } from '@app/glossaryV2/import/shared/utils/customPropertiesUtils';
 
 describe('Custom Properties Utils', () => {
   describe('compareCustomProperties', () => {

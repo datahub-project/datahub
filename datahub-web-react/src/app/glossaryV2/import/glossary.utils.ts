@@ -2,8 +2,8 @@
  * Utility functions for Glossary Import feature
  */
 
-import { EntityData, Entity, GraphQLEntity, ValidationResult, ValidationError, ValidationWarning } from './glossary.types';
-import { UrnManager } from './shared/utils/urnManager';
+import { EntityData, Entity, GraphQLEntity, ValidationResult, ValidationError, ValidationWarning } from '@app/glossaryV2/import/glossary.types';
+import { UrnManager } from '@app/glossaryV2/import/shared/utils/urnManager';
 
 /**
  * Generate a unique ID for an entity based on its hierarchy path
@@ -64,26 +64,26 @@ export function validateEntityName(name: string): ValidationResult {
     errors.push({
       field: 'name',
       message: 'Entity name is required',
-      code: 'REQUIRED'
+      code: 'REQUIRED',
     });
   } else if (name.length > 100) {
     errors.push({
       field: 'name',
       message: 'Entity name must be less than 100 characters',
-      code: 'MAX_LENGTH'
+      code: 'MAX_LENGTH',
     });
   } else if (name.trim() !== name) {
     warnings.push({
       field: 'name',
       message: 'Entity name has leading or trailing whitespace',
-      code: 'WHITESPACE'
+      code: 'WHITESPACE',
     });
   }
 
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
@@ -98,20 +98,20 @@ export function validateEntityType(entityType: string): ValidationResult {
     errors.push({
       field: 'entity_type',
       message: 'Entity type is required',
-      code: 'REQUIRED'
+      code: 'REQUIRED',
     });
   } else if (entityType !== 'glossaryTerm' && entityType !== 'glossaryNode') {
     errors.push({
       field: 'entity_type',
       message: 'Entity type must be either "glossaryTerm" or "glossaryNode"',
-      code: 'INVALID_TYPE'
+      code: 'INVALID_TYPE',
     });
   }
 
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
@@ -128,7 +128,7 @@ export function validateParentNodes(parentNodes: string): ValidationResult {
       warnings.push({
         field: 'parent_nodes',
         message: 'Having more than 10 parent nodes may cause performance issues',
-        code: 'TOO_MANY_PARENTS'
+        code: 'TOO_MANY_PARENTS',
       });
     }
   }
@@ -136,7 +136,7 @@ export function validateParentNodes(parentNodes: string): ValidationResult {
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
@@ -152,7 +152,7 @@ export function validateDomainUrn(domainUrn: string): ValidationResult {
       errors.push({
         field: 'domain_urn',
         message: 'Domain URN must start with "urn:li:domain:"',
-        code: 'INVALID_DOMAIN_URN'
+        code: 'INVALID_DOMAIN_URN',
       });
     }
   }
@@ -160,7 +160,7 @@ export function validateDomainUrn(domainUrn: string): ValidationResult {
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
@@ -182,7 +182,7 @@ export function validateCustomProperties(customProperties: string): ValidationRe
       warnings.push({
         field: 'custom_properties',
         message: 'Custom properties should be valid JSON format',
-        code: 'INVALID_JSON'
+        code: 'INVALID_JSON',
       });
     }
   }
@@ -190,7 +190,7 @@ export function validateCustomProperties(customProperties: string): ValidationRe
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
@@ -208,7 +208,7 @@ export function validateUrl(url: string): ValidationResult {
       errors.push({
         field: 'source_url',
         message: 'Source URL must be a valid URL format',
-        code: 'INVALID_URL'
+        code: 'INVALID_URL',
       });
     }
   }
@@ -216,7 +216,7 @@ export function validateUrl(url: string): ValidationResult {
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
@@ -267,7 +267,7 @@ export function findDuplicateNames(entities: EntityData[]): ValidationResult {
           errors.push({
             field: 'name',
             message: `Duplicate name "${name}" found ${parentLabel} in rows ${indices.map(i => i + 1).join(', ')}`,
-            code: 'DUPLICATE_NAME'
+            code: 'DUPLICATE_NAME',
           });
         });
       }
@@ -277,7 +277,7 @@ export function findDuplicateNames(entities: EntityData[]): ValidationResult {
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
@@ -374,7 +374,7 @@ export function convertGraphQLEntityToEntity(graphqlEntity: GraphQLEntity): Enti
       related_inherits: '',
       domain_urn: graphqlEntity.domain?.domain.urn || '',
       domain_name: graphqlEntity.domain?.domain.properties.name || '',
-      custom_properties: graphqlEntity.properties?.customProperties?.map(cp => `${cp.key}:${cp.value}`).join(',') || ''
+      custom_properties: graphqlEntity.properties?.customProperties?.map(cp => `${cp.key}:${cp.value}`).join(',') || '',
     }, parentNames),
     name,
     type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
@@ -397,9 +397,9 @@ export function convertGraphQLEntityToEntity(graphqlEntity: GraphQLEntity): Enti
       related_inherits: '',
       domain_urn: graphqlEntity.domain?.domain.urn || '',
       domain_name: graphqlEntity.domain?.domain.properties.name || '',
-      custom_properties: graphqlEntity.properties?.customProperties?.map(cp => `${cp.key}:${cp.value}`).join(',') || ''
+      custom_properties: graphqlEntity.properties?.customProperties?.map(cp => `${cp.key}:${cp.value}`).join(',') || '',
     },
-    status: 'existing'
+    status: 'existing',
   };
 }
 
@@ -418,7 +418,7 @@ export function sortEntitiesByHierarchy(entities: Entity[]): Entity[] {
   // First calculate levels for all entities
   const entitiesWithLevels = entities.map(entity => ({
     ...entity,
-    level: calculateHierarchyLevel(entity, entities)
+    level: calculateHierarchyLevel(entity, entities),
   }));
 
   // Sort by level, then by name
@@ -463,7 +463,7 @@ export function detectCircularDependencies(entities: Entity[]): ValidationResult
       errors.push({
         field: 'parent_nodes',
         message: `Circular dependency detected involving entity "${entity.name}"`,
-        code: 'CIRCULAR_DEPENDENCY'
+        code: 'CIRCULAR_DEPENDENCY',
       });
     }
   });
@@ -471,7 +471,7 @@ export function detectCircularDependencies(entities: Entity[]): ValidationResult
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
@@ -490,7 +490,7 @@ export function findOrphanedEntities(entities: Entity[]): ValidationResult {
         warnings.push({
           field: 'parent_nodes',
           message: `Entity "${entity.name}" references non-existent parent "${parentName}"`,
-          code: 'ORPHANED_ENTITY'
+          code: 'ORPHANED_ENTITY',
         });
       }
     });
@@ -499,7 +499,7 @@ export function findOrphanedEntities(entities: Entity[]): ValidationResult {
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
@@ -508,7 +508,7 @@ export function findOrphanedEntities(entities: Entity[]): ValidationResult {
  */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
-  wait: number
+  wait: number,
 ): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout;
   return (...args: Parameters<T>) => {
@@ -522,7 +522,7 @@ export function debounce<T extends (...args: any[]) => any>(
  */
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
-  limit: number
+  limit: number,
 ): (...args: Parameters<T>) => void {
   let inThrottle: boolean;
   return (...args: Parameters<T>) => {

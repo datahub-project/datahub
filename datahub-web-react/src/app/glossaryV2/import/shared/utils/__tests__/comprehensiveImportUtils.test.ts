@@ -7,9 +7,9 @@ import {
   createComprehensiveImportPlan,
   convertPlanToPatchInputs,
   ComprehensivePatchInput,
-  OwnershipTypeInput
-} from '../comprehensiveImportUtils';
-import { Entity, EntityData } from '../../../glossary.types';
+  OwnershipTypeInput,
+} from '@app/glossaryV2/import/shared/utils/comprehensiveImportUtils';
+import { Entity, EntityData } from '@app/glossaryV2/import/glossary.types';
 
 // Mock data
 const mockEntityData: EntityData = {
@@ -27,7 +27,7 @@ const mockEntityData: EntityData = {
   related_inherits: '',
   domain_urn: '',
   domain_name: '',
-  custom_properties: '{"key1":"value1","key2":"value2"}'
+  custom_properties: '{"key1":"value1","key2":"value2"}',
 };
 
 const mockEntity: Entity = {
@@ -38,7 +38,7 @@ const mockEntity: Entity = {
   parentNames: [],
   parentUrns: [],
   level: 0,
-  data: mockEntityData
+  data: mockEntityData,
 };
 
 const mockParentEntity: Entity = {
@@ -52,8 +52,8 @@ const mockParentEntity: Entity = {
   data: {
     ...mockEntityData,
     entity_type: 'glossaryNode',
-    name: 'Parent Term'
-  }
+    name: 'Parent Term',
+  },
 };
 
 const mockExistingEntity: Entity = {
@@ -67,8 +67,8 @@ const mockExistingEntity: Entity = {
   level: 0,
   data: {
     ...mockEntityData,
-    name: 'Existing Term'
-  }
+    name: 'Existing Term',
+  },
 };
 
 describe('Comprehensive Import Utils', () => {
@@ -77,7 +77,7 @@ describe('Comprehensive Import Utils', () => {
   beforeEach(() => {
     existingOwnershipTypes = new Map([
       ['developer', 'urn:li:ownershipType:developer'],
-      ['technical owner', 'urn:li:ownershipType:technical-owner']
+      ['technical owner', 'urn:li:ownershipType:technical-owner'],
     ]);
   });
 
@@ -118,8 +118,8 @@ describe('Comprehensive Import Utils', () => {
         data: {
           ...mockEntityData,
           name: 'Child Term',
-          parent_nodes: 'Parent Term'
-        }
+          parent_nodes: 'Parent Term',
+        },
       };
 
       const entities = [mockParentEntity, childEntity];
@@ -137,8 +137,8 @@ describe('Comprehensive Import Utils', () => {
         data: {
           ...mockEntityData,
           related_contains: 'Related Term 1,Related Term 2',
-          related_inherits: 'Inherited Term'
-        }
+          related_inherits: 'Inherited Term',
+        },
       };
 
       const entities = [entityWithRelations];
@@ -155,8 +155,8 @@ describe('Comprehensive Import Utils', () => {
         data: {
           ...mockEntityData,
           domain_urn: 'urn:li:domain:test-domain',
-          domain_name: 'Test Domain'
-        }
+          domain_name: 'Test Domain',
+        },
       };
 
       const entities = [entityWithDomain];
@@ -172,14 +172,14 @@ describe('Comprehensive Import Utils', () => {
     it('should convert plan to patch inputs in correct order', () => {
       const plan = {
         ownershipTypes: [
-          { name: 'New Type', description: 'New Description', urn: 'urn:li:ownershipType:new-type' }
+          { name: 'New Type', description: 'New Description', urn: 'urn:li:ownershipType:new-type' },
         ],
         entities: [mockEntity],
         ownershipPatches: [],
         parentRelationshipPatches: [],
         relatedTermPatches: [],
         domainAssignmentPatches: [],
-        urnMap: new Map([['test-1', 'urn:li:glossaryTerm:test-1']])
+        urnMap: new Map([['test-1', 'urn:li:glossaryTerm:test-1']]),
       };
 
       const patchInputs = convertPlanToPatchInputs(plan, [mockEntity], []);
@@ -200,7 +200,7 @@ describe('Comprehensive Import Utils', () => {
         parentRelationshipPatches: [],
         relatedTermPatches: [],
         domainAssignmentPatches: [],
-        urnMap: new Map([['test-1', 'urn:li:glossaryTerm:test-1']])
+        urnMap: new Map([['test-1', 'urn:li:glossaryTerm:test-1']]),
       };
 
       const patchInputs = convertPlanToPatchInputs(plan, [mockEntity], []);
@@ -211,12 +211,12 @@ describe('Comprehensive Import Utils', () => {
       expect(entityPatch?.patch).toContainEqual({
         op: 'ADD',
         path: '/name',
-        value: 'Test Term'
+        value: 'Test Term',
       });
       expect(entityPatch?.patch).toContainEqual({
         op: 'ADD',
         path: '/definition',
-        value: 'Test Description'
+        value: 'Test Description',
       });
     });
 
@@ -228,7 +228,7 @@ describe('Comprehensive Import Utils', () => {
         parentRelationshipPatches: [],
         relatedTermPatches: [],
         domainAssignmentPatches: [],
-        urnMap: new Map([['test-1', 'urn:li:glossaryTerm:test-1']])
+        urnMap: new Map([['test-1', 'urn:li:glossaryTerm:test-1']]),
       };
 
       const patchInputs = convertPlanToPatchInputs(plan, [mockEntity], []);
@@ -237,12 +237,12 @@ describe('Comprehensive Import Utils', () => {
       expect(entityPatch?.patch).toContainEqual({
         op: 'ADD',
         path: '/customProperties/key1',
-        value: '"value1"'
+        value: '"value1"',
       });
       expect(entityPatch?.patch).toContainEqual({
         op: 'ADD',
         path: '/customProperties/key2',
-        value: '"value2"'
+        value: '"value2"',
       });
     });
   });
@@ -252,7 +252,7 @@ describe('Comprehensive Import Utils', () => {
       const ownershipType: OwnershipTypeInput = {
         name: 'Test Type',
         description: 'Test Description',
-        urn: 'urn:li:ownershipType:test-type'
+        urn: 'urn:li:ownershipType:test-type',
       };
 
       expect(ownershipType.name).toBe('Test Type');
@@ -268,12 +268,12 @@ describe('Comprehensive Import Utils', () => {
         entityType: 'glossaryTerm',
         aspectName: 'glossaryTermInfo',
         patch: [
-          { op: 'ADD', path: '/name', value: 'Test' }
+          { op: 'ADD', path: '/name', value: 'Test' },
         ],
         arrayPrimaryKeys: [
-          { arrayField: 'owners', keys: ['owner1', 'owner2'] }
+          { arrayField: 'owners', keys: ['owner1', 'owner2'] },
         ],
-        forceGenericPatch: false
+        forceGenericPatch: false,
       };
 
       expect(patchInput.urn).toBe('urn:li:glossaryTerm:test');

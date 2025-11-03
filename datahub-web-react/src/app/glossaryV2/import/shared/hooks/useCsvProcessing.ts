@@ -10,8 +10,8 @@ import {
   CsvError, 
   CsvWarning, 
   ValidationResult,
-  UseCsvProcessingReturn 
-} from '../../glossary.types';
+  UseCsvProcessingReturn, 
+} from '@app/glossaryV2/import/glossary.types';
 import {
   validateEntityName,
   validateEntityType,
@@ -19,8 +19,8 @@ import {
   validateDomainUrn,
   validateCustomProperties,
   validateUrl,
-  findDuplicateNames
-} from '../../glossary.utils';
+  findDuplicateNames,
+} from '@app/glossaryV2/import/glossary.utils';
 
 export function useCsvProcessing(): UseCsvProcessingReturn {
   /**
@@ -41,7 +41,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
             return value.trim();
           }
           return value;
-        }
+        },
       });
 
       if (result.errors.length > 0) {
@@ -50,7 +50,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
             row: (error.row || 0) + 1, // Papa Parse uses 0-based indexing
             field: (error as any).field || 'general',
             message: error.message,
-            type: 'format'
+            type: 'format',
           });
         });
       }
@@ -73,7 +73,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
           domain_urn: row.domain_urn || '',
           domain_name: row.domain_name || '',
           custom_properties: row.custom_properties || '',
-          status: row.status || ''
+          status: row.status || '',
         };
 
         // Validate each field
@@ -84,7 +84,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
               row: index + 1,
               field: error.field,
               message: error.message,
-              type: 'validation'
+              type: 'validation',
             });
           });
         }
@@ -93,7 +93,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
             row: index + 1,
             field: warning.field,
             message: warning.message,
-            type: 'suggestion'
+            type: 'suggestion',
           });
         });
 
@@ -104,7 +104,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
               row: index + 1,
               field: error.field,
               message: error.message,
-              type: 'validation'
+              type: 'validation',
             });
           });
         }
@@ -116,7 +116,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
             row: index + 1,
             field: warning.field,
             message: warning.message,
-            type: 'suggestion'
+            type: 'suggestion',
           });
         });
 
@@ -127,7 +127,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
               row: index + 1,
               field: error.field,
               message: error.message,
-              type: 'validation'
+              type: 'validation',
             });
           });
         }
@@ -148,7 +148,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
                 row: index + 1,
                 field: 'ownership_users',
                 message: `Invalid ownership format: "${entry}". Expected format: "owner:ownershipType"`,
-                type: 'suggestion'
+                type: 'suggestion',
               });
             }
           });
@@ -160,7 +160,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
             row: index + 1,
             field: warning.field,
             message: warning.message,
-            type: 'suggestion'
+            type: 'suggestion',
           });
         });
 
@@ -171,7 +171,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
               row: index + 1,
               field: error.field,
               message: error.message,
-              type: 'validation'
+              type: 'validation',
             });
           });
         }
@@ -187,7 +187,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
             row: 0, // This is a cross-row validation
             field: error.field,
             message: error.message,
-            type: 'duplicate'
+            type: 'duplicate',
           });
         });
       }
@@ -196,14 +196,14 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       errors.push({
         row: 0,
         message: `Failed to parse CSV: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        type: 'format'
+        type: 'format',
       });
     }
 
     return {
       data,
       errors,
-      warnings
+      warnings,
     };
   }, []);
 
@@ -218,7 +218,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       errors.push({
         row: 0,
         message: 'CSV file is empty or contains no valid data',
-        type: 'required'
+        type: 'required',
       });
     }
 
@@ -232,7 +232,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
             row: 0,
             field: header,
             message: `Required header "${header}" is missing`,
-            type: 'required'
+            type: 'required',
           });
         }
       });
@@ -247,7 +247,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
             row: index + 1,
             field: error.field,
             message: error.message,
-            type: 'validation'
+            type: 'validation',
           });
         });
       }
@@ -259,7 +259,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
             row: index + 1,
             field: error.field,
             message: error.message,
-            type: 'validation'
+            type: 'validation',
           });
         });
       }
@@ -273,7 +273,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
           row: 0,
           field: error.field,
           message: error.message,
-          type: 'duplicate'
+          type: 'duplicate',
         });
       });
     }
@@ -283,13 +283,13 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       errors: errors.map(error => ({
         field: error.field || 'general',
         message: error.message,
-        code: error.type.toUpperCase()
+        code: error.type.toUpperCase(),
       })),
       warnings: warnings.map(warning => ({
         field: warning.field || 'general',
         message: warning.message,
-        code: warning.type.toUpperCase()
-      }))
+        code: warning.type.toUpperCase(),
+      })),
     };
   }, []);
 
@@ -313,7 +313,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       domain_urn: row.domain_urn || '',
       domain_name: row.domain_name || '',
       custom_properties: row.custom_properties || '',
-      status: row.status || ''
+      status: row.status || '',
     };
   }, []);
 
@@ -339,7 +339,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       'domain_urn',
       'domain_name',
       'custom_properties',
-      'status'
+      'status',
     ];
 
     const csvData = data.map(entity => [
@@ -358,12 +358,12 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       entity.domain_urn,
       entity.domain_name,
       entity.custom_properties,
-      entity.status
+      entity.status,
     ]);
 
     return Papa.unparse({
       fields: headers,
-      data: csvData
+      data: csvData,
     });
   }, []);
 
@@ -387,7 +387,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       domain_urn: '',
       domain_name: '',
       custom_properties: '',
-      status: ''
+      status: '',
     };
   }, []);
 
@@ -396,6 +396,6 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
     validateCsvData,
     normalizeCsvRow,
     toCsvString,
-    createEmptyRow
+    createEmptyRow,
   };
 }

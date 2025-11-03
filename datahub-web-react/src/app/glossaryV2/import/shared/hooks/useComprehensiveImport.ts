@@ -5,18 +5,18 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { ApolloClient } from '@apollo/client';
-import { Entity, EntityData, HierarchyMaps, ValidationError, ValidationWarning } from '../../glossary.types';
-import { useGraphQLOperations } from './useGraphQLOperations';
-import { useHierarchyManagement } from './useHierarchyManagement';
-import { useEntityManagement } from './useEntityManagement';
-import { useEntityComparison } from './useEntityComparison';
 import { useUserContext } from '@app/context/useUserContext';
 import { 
   createComprehensiveImportPlan, 
   convertPlanToPatchInputs,
-  ComprehensivePatchInput 
-} from '../utils/comprehensiveImportUtils';
-import { preGenerateUrns } from '../utils/urnGenerationUtils';
+  ComprehensivePatchInput, 
+} from '@app/glossaryV2/import/shared/utils/comprehensiveImportUtils';
+import { preGenerateUrns } from '@app/glossaryV2/import/shared/utils/urnGenerationUtils';
+import { Entity, EntityData, HierarchyMaps, ValidationError, ValidationWarning } from '@app/glossaryV2/import/glossary.types';
+import { useGraphQLOperations } from '@app/glossaryV2/import/shared/hooks/useGraphQLOperations';
+import { useHierarchyManagement } from '@app/glossaryV2/import/shared/hooks/useHierarchyManagement';
+import { useEntityManagement } from '@app/glossaryV2/import/shared/hooks/useEntityManagement';
+import { useEntityComparison } from '@app/glossaryV2/import/shared/hooks/useEntityComparison';
 
 export interface ComprehensiveImportProgress {
   total: number;
@@ -90,7 +90,7 @@ export const useComprehensiveImport = ({
     executeUnifiedGlossaryQuery, 
     executePatchEntitiesMutation,
     executeGetOwnershipTypesQuery,
-    executeAddRelatedTermsMutation
+    executeAddRelatedTermsMutation,
   } = useGraphQLOperations();
   
   const { createProcessingOrder, validateHierarchy } = useHierarchyManagement();
@@ -128,8 +128,8 @@ export const useComprehensiveImport = ({
       const result = await executeGetOwnershipTypesQuery({
         input: {
           start: 0,
-          count: 1000
-        }
+          count: 1000,
+        },
       });
 
       const ownershipTypeMap = new Map<string, string>();
@@ -141,7 +141,7 @@ export const useComprehensiveImport = ({
           ownershipTypeMap.set(ot.info.name.toLowerCase(), ot.urn);
         });
       } else if (result && typeof result === 'object' && 'data' in result) {
-        const data = (result as any).data;
+        const {data} = result as any;
         if (data?.listOwnershipTypes?.ownershipTypes) {
           data.listOwnershipTypes.ownershipTypes.forEach((ot: any) => {
             ownershipTypeMap.set(ot.info.name.toLowerCase(), ot.urn);
@@ -161,7 +161,7 @@ export const useComprehensiveImport = ({
   const executeComprehensiveImport = useCallback(async (
     allEntities: Entity[],
     existingEntities: Entity[],
-    existingOwnershipTypes: Map<string, string>
+    existingOwnershipTypes: Map<string, string>,
   ): Promise<void> => {
     console.log('🚀 Starting comprehensive import...');
     
@@ -170,7 +170,7 @@ export const useComprehensiveImport = ({
       const categorizationResult = categorizeEntities(allEntities, existingEntities);
       const entitiesToProcess = [
         ...categorizationResult.newEntities,
-        ...categorizationResult.updatedEntities
+        ...categorizationResult.updatedEntities,
       ];
       
       // 2. Create comprehensive import plan (use all entities for relationships, filtered for entity patches)
@@ -196,7 +196,7 @@ export const useComprehensiveImport = ({
       updateProgress({ 
         currentPhase: 'Executing comprehensive import...',
         total: totalItems,
-        processed: 0
+        processed: 0,
       });
       
       let results: any[] = [];
@@ -209,7 +209,7 @@ export const useComprehensiveImport = ({
           aspectName: input.aspectName,
           patch: input.patch,
           arrayPrimaryKeys: input.arrayPrimaryKeys,
-          forceGenericPatch: input.forceGenericPatch
+          forceGenericPatch: input.forceGenericPatch,
         }));
         
         const patchResults = await executePatchEntitiesMutation(entityPatchInputs);
@@ -226,21 +226,21 @@ export const useComprehensiveImport = ({
             const addRelatedTermsResult = await executeAddRelatedTermsMutation({
               urn: relationshipPatch.urn,
               termUrns: input.termUrns,
-              relationshipType: input.relationshipType
+              relationshipType: input.relationshipType,
             });
             
             // Add success result for consistency
             results.push({
               urn: relationshipPatch.urn,
               success: true,
-              error: null
+              error: null,
             });
           } catch (error) {
             console.error('Failed to create relationship:', error);
             results.push({
               urn: relationshipPatch.urn,
               success: false,
-              error: error instanceof Error ? error.message : 'Unknown error'
+              error: error instanceof Error ? error.message : 'Unknown error',
             });
           }
         }
@@ -271,7 +271,7 @@ export const useComprehensiveImport = ({
             entityName: 'Import operation',
             operation: 'comprehensive-import',
             error: errorMessage,
-            retryable: true
+            retryable: true,
           });
         });
         
@@ -280,7 +280,7 @@ export const useComprehensiveImport = ({
           processed: totalItems,
           successful: totalItems - failedResults.length,
           failed: failedResults.length,
-          currentPhase: 'Import completed with errors'
+          currentPhase: 'Import completed with errors',
         });
       } else {
         // All operations succeeded
@@ -288,7 +288,7 @@ export const useComprehensiveImport = ({
           processed: totalItems,
           successful: totalItems,
           failed: 0,
-          currentPhase: 'Import completed successfully'
+          currentPhase: 'Import completed successfully',
         });
       }
       
@@ -305,7 +305,7 @@ export const useComprehensiveImport = ({
         entityName: 'All entities',
         operation: 'comprehensive-import',
         error: `Batch import failed: ${errorMessage}`,
-        retryable: true
+        retryable: true,
       });
       
       updateProgress({
@@ -313,7 +313,7 @@ export const useComprehensiveImport = ({
         processed: 0,
         successful: 0,
         failed: currentTotal,
-        currentPhase: 'Import failed - all operations rolled back'
+        currentPhase: 'Import failed - all operations rolled back',
       });
     }
   }, [executePatchEntitiesMutation, updateProgress, addError, progress.failed]);
@@ -341,7 +341,7 @@ export const useComprehensiveImport = ({
       failed: 0,
       errors: [],
       warnings: [],
-      currentPhase: 'Initializing...'
+      currentPhase: 'Initializing...',
     });
 
     try {
@@ -352,14 +352,14 @@ export const useComprehensiveImport = ({
       // Filter to only process new and updated entities
       const entitiesToProcess = [
         ...categorizationResult.newEntities,
-        ...categorizationResult.updatedEntities
+        ...categorizationResult.updatedEntities,
       ];
       
       if (entitiesToProcess.length === 0) {
         updateProgress({
           currentPhase: 'No entities to process',
           total: 0,
-          processed: 0
+          processed: 0,
         });
         return;
       }
@@ -375,7 +375,7 @@ export const useComprehensiveImport = ({
             entityName: '',
             operation: 'validation',
             error: error.message,
-            retryable: false
+            retryable: false,
           });
         });
         return;
@@ -397,18 +397,18 @@ export const useComprehensiveImport = ({
         entityName: '',
         operation: 'import',
         error: errorMessage,
-        retryable: false
+        retryable: false,
       });
       
       updateProgress({
         currentPhase: 'Import failed',
-        failed: progress.failed + 1
+        failed: progress.failed + 1,
       });
     } finally {
       setIsProcessing(false);
       updateProgress({
         currentPhase: undefined,
-        currentEntity: undefined
+        currentEntity: undefined,
       });
     }
   }, [
@@ -419,7 +419,7 @@ export const useComprehensiveImport = ({
     executeComprehensiveImport,
     addError,
     updateProgress,
-    progress.failed
+    progress.failed,
   ]);
 
   const pauseImport = useCallback(() => {

@@ -4,8 +4,8 @@ import {
   parseOwnershipString,
   validateOwnershipString,
   createOwnershipPatchOperations,
-  ParsedOwnership
-} from '../ownershipParsingUtils';
+  ParsedOwnership,
+} from '@app/glossaryV2/import/shared/utils/ownershipParsingUtils';
 
 describe('ownershipParsingUtils', () => {
   describe('parseSingleOwnership', () => {
@@ -17,7 +17,7 @@ describe('ownershipParsingUtils', () => {
         ownerName: 'admin',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:admin',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       });
     });
 
@@ -29,7 +29,7 @@ describe('ownershipParsingUtils', () => {
         ownerName: 'bfoo',
         corpType: 'CORP_GROUP',
         ownerUrn: 'urn:li:corpGroup:bfoo',
-        ownerType: 'TECHNICAL_OWNER'
+        ownerType: 'TECHNICAL_OWNER',
       });
     });
 
@@ -41,7 +41,7 @@ describe('ownershipParsingUtils', () => {
         ownerName: 'admin',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:admin',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       });
     });
 
@@ -53,7 +53,7 @@ describe('ownershipParsingUtils', () => {
         ownerName: 'urn:li:corpuser:existing',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:existing',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       });
     });
 
@@ -98,7 +98,7 @@ describe('ownershipParsingUtils', () => {
         ownerName: 'admin',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:admin',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       });
     });
 
@@ -111,14 +111,14 @@ describe('ownershipParsingUtils', () => {
         ownerName: 'bfoo',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:bfoo',
-        ownerType: 'TECHNICAL_OWNER'
+        ownerType: 'TECHNICAL_OWNER',
       });
       expect(result[1]).toEqual({
         ownershipTypeName: 'Technical Owner',
         ownerName: 'datahub',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:datahub',
-        ownerType: 'TECHNICAL_OWNER'
+        ownerType: 'TECHNICAL_OWNER',
       });
     });
 
@@ -131,14 +131,14 @@ describe('ownershipParsingUtils', () => {
         ownerName: 'bfoo',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:bfoo',
-        ownerType: 'TECHNICAL_OWNER'
+        ownerType: 'TECHNICAL_OWNER',
       });
       expect(result[1]).toEqual({
         ownershipTypeName: 'Technical Owner',
         ownerName: 'datahub',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:datahub',
-        ownerType: 'TECHNICAL_OWNER'
+        ownerType: 'TECHNICAL_OWNER',
       });
     });
 
@@ -212,7 +212,7 @@ describe('ownershipParsingUtils', () => {
     const mockOwnershipTypeMap = new Map([
       ['developer', 'urn:li:ownershipType:developer-urn'],
       ['technical owner', 'urn:li:ownershipType:technical-urn'],
-      ['business owner', 'urn:li:ownershipType:business-urn']
+      ['business owner', 'urn:li:ownershipType:business-urn'],
     ]);
 
     it('should create patch operations for single ownership', () => {
@@ -221,7 +221,7 @@ describe('ownershipParsingUtils', () => {
         ownerName: 'admin',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:admin',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       }];
 
       const result = createOwnershipPatchOperations(parsedOwnership, mockOwnershipTypeMap);
@@ -234,8 +234,8 @@ describe('ownershipParsingUtils', () => {
           owner: 'urn:li:corpuser:admin',
           typeUrn: 'urn:li:ownershipType:developer-urn',
           type: 'NONE',
-          source: { type: 'MANUAL' }
-        })
+          source: { type: 'MANUAL' },
+        }),
       });
     });
 
@@ -246,15 +246,15 @@ describe('ownershipParsingUtils', () => {
           ownerName: 'admin',
           corpType: 'CORP_USER',
           ownerUrn: 'urn:li:corpuser:admin',
-          ownerType: 'NONE'
+          ownerType: 'NONE',
         },
         {
           ownershipTypeName: 'Technical Owner',
           ownerName: 'bfoo',
           corpType: 'CORP_GROUP',
           ownerUrn: 'urn:li:corpGroup:bfoo',
-          ownerType: 'TECHNICAL_OWNER'
-        }
+          ownerType: 'TECHNICAL_OWNER',
+        },
       ];
 
       const result = createOwnershipPatchOperations(parsedOwnership, mockOwnershipTypeMap);
@@ -270,7 +270,7 @@ describe('ownershipParsingUtils', () => {
         ownerName: 'DEVELOPER',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:DEVELOPER',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       }];
 
       expect(() => {
@@ -284,7 +284,7 @@ describe('ownershipParsingUtils', () => {
         ownerName: 'DEVELOPER',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:DEVELOPER',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       }];
 
       // This should throw because the ownership type is not in the map
@@ -298,7 +298,7 @@ describe('ownershipParsingUtils', () => {
     it('should handle the complete workflow from CSV string to patch operations', () => {
       const csvOwnershipString = 'bfoo:Technical Owner|datahub:Technical Owner';
       const ownershipTypeMap = new Map([
-        ['technical owner', 'urn:li:ownershipType:technical-urn']
+        ['technical owner', 'urn:li:ownershipType:technical-urn'],
       ]);
 
       // Parse the ownership string
@@ -321,7 +321,7 @@ describe('ownershipParsingUtils', () => {
     it('should handle real-world CSV data from the updated file', () => {
       const csvOwnershipString = 'bfoo:Technical Owner|datahub:Technical Owner';
       const ownershipTypeMap = new Map([
-        ['technical owner', 'urn:li:ownershipType:09d4bbe7-d39f-4fd7-9f64-95da1bc86ecc']
+        ['technical owner', 'urn:li:ownershipType:09d4bbe7-d39f-4fd7-9f64-95da1bc86ecc'],
       ]);
 
       const parsedOwnership = parseOwnershipString(csvOwnershipString);

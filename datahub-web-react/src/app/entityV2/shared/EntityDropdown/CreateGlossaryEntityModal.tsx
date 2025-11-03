@@ -49,7 +49,9 @@ function CreateGlossaryEntityModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [stagedName, setStagedName] = useState('');
-    const [selectedParentUrn, setSelectedParentUrn] = useState(entityData.urn);
+    const [selectedParentUrn, setSelectedParentUrn] = useState<string | undefined>(
+        canSelectParentUrn ? entityData.urn || '' : undefined,
+    );
     const [documentation, setDocumentation] = useState('');
     const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
     const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
@@ -190,7 +192,7 @@ function CreateGlossaryEntityModal(props: Props) {
                     >
                         <StyledItem name="parent">
                             <NodeParentSelect
-                                selectedParentUrn={selectedParentUrn}
+                                selectedParentUrn={selectedParentUrn || ''}
                                 setSelectedParentUrn={setSelectedParentUrn}
                             />
                         </StyledItem>

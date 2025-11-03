@@ -4,8 +4,8 @@ import {
   parseOwnershipString,
   validateOwnershipColumns,
   createOwnershipPatchOperations,
-  ParsedOwnership
-} from '../ownershipParsingUtils';
+  ParsedOwnership,
+} from '@app/glossaryV2/import/shared/utils/ownershipParsingUtils';
 
 describe('ownershipParsingUtils - New Column Format', () => {
   describe('parseOwnershipFromColumns', () => {
@@ -18,7 +18,7 @@ describe('ownershipParsingUtils - New Column Format', () => {
         ownerName: 'admin',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:admin',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       });
     });
 
@@ -31,7 +31,7 @@ describe('ownershipParsingUtils - New Column Format', () => {
         ownerName: 'bfoo',
         corpType: 'CORP_GROUP',
         ownerUrn: 'urn:li:corpGroup:bfoo',
-        ownerType: 'TECHNICAL_OWNER'
+        ownerType: 'TECHNICAL_OWNER',
       });
     });
 
@@ -68,14 +68,14 @@ describe('ownershipParsingUtils - New Column Format', () => {
         ownerName: 'admin',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:admin',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       });
       expect(result[1]).toEqual({
         ownershipTypeName: 'Technical Owner',
         ownerName: 'bfoo',
         corpType: 'CORP_GROUP',
         ownerUrn: 'urn:li:corpGroup:bfoo',
-        ownerType: 'TECHNICAL_OWNER'
+        ownerType: 'TECHNICAL_OWNER',
       });
     });
 
@@ -93,7 +93,7 @@ describe('ownershipParsingUtils - New Column Format', () => {
         ownerName: 'urn:li:corpuser:existing',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:existing',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       });
     });
 
@@ -158,7 +158,7 @@ describe('ownershipParsingUtils - New Column Format', () => {
     const mockOwnershipTypeMap = new Map([
       ['developer', 'urn:li:ownershipType:developer-urn'],
       ['technical owner', 'urn:li:ownershipType:technical-urn'],
-      ['business owner', 'urn:li:ownershipType:business-urn']
+      ['business owner', 'urn:li:ownershipType:business-urn'],
     ]);
 
     it('should create patch operations for user ownership', () => {
@@ -167,7 +167,7 @@ describe('ownershipParsingUtils - New Column Format', () => {
         ownerName: 'admin',
         corpType: 'CORP_USER',
         ownerUrn: 'urn:li:corpuser:admin',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       }];
 
       const result = createOwnershipPatchOperations(parsedOwnership, mockOwnershipTypeMap);
@@ -180,8 +180,8 @@ describe('ownershipParsingUtils - New Column Format', () => {
           owner: 'urn:li:corpuser:admin',
           typeUrn: 'urn:li:ownershipType:developer-urn',
           type: 'NONE',
-          source: { type: 'MANUAL' }
-        })
+          source: { type: 'MANUAL' },
+        }),
       });
     });
 
@@ -191,7 +191,7 @@ describe('ownershipParsingUtils - New Column Format', () => {
         ownerName: 'bfoo',
         corpType: 'CORP_GROUP',
         ownerUrn: 'urn:li:corpGroup:bfoo',
-        ownerType: 'NONE'
+        ownerType: 'NONE',
       }];
 
       const result = createOwnershipPatchOperations(parsedOwnership, mockOwnershipTypeMap);
@@ -204,8 +204,8 @@ describe('ownershipParsingUtils - New Column Format', () => {
           owner: 'urn:li:corpGroup:bfoo',
           typeUrn: 'urn:li:ownershipType:technical-urn',
           type: 'NONE',
-          source: { type: 'MANUAL' }
-        })
+          source: { type: 'MANUAL' },
+        }),
       });
     });
 
@@ -216,15 +216,15 @@ describe('ownershipParsingUtils - New Column Format', () => {
           ownerName: 'admin',
           corpType: 'CORP_USER',
           ownerUrn: 'urn:li:corpuser:admin',
-          ownerType: 'NONE'
+          ownerType: 'NONE',
         },
         {
           ownershipTypeName: 'Technical Owner',
           ownerName: 'bfoo',
           corpType: 'CORP_GROUP',
           ownerUrn: 'urn:li:corpGroup:bfoo',
-          ownerType: 'NONE'
-        }
+          ownerType: 'NONE',
+        },
       ];
 
       const result = createOwnershipPatchOperations(parsedOwnership, mockOwnershipTypeMap);
@@ -241,7 +241,7 @@ describe('ownershipParsingUtils - New Column Format', () => {
       const groupsColumn = 'bfoo:Technical Owner';
       const ownershipTypeMap = new Map([
         ['developer', 'urn:li:ownershipType:developer-urn'],
-        ['technical owner', 'urn:li:ownershipType:technical-urn']
+        ['technical owner', 'urn:li:ownershipType:technical-urn'],
       ]);
 
       // Parse the ownership columns

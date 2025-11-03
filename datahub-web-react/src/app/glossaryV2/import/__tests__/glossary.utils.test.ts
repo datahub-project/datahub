@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { findDuplicateNames } from '../glossary.utils';
-import { EntityData } from '../glossary.types';
+import { findDuplicateNames } from '@app/glossaryV2/import/glossary.utils';
+import { EntityData } from '@app/glossaryV2/import/glossary.types';
 
 describe('findDuplicateNames', () => {
   const createEntityData = (name: string, parentNodes?: string): EntityData => ({
@@ -23,7 +23,7 @@ describe('findDuplicateNames', () => {
     domain_urn: '',
     domain_name: '',
     custom_properties: '',
-    status: 'new'
+    status: 'new',
   });
 
   describe('Root level duplicates', () => {

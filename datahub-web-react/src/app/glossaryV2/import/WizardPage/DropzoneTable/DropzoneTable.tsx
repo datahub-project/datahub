@@ -4,9 +4,7 @@
 
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
-import { Button } from '@components';
-import { Badge, Text } from '@components';
-import { Icon } from '@components';
+import { Button , Badge, Text , Icon } from '@components';
 
 
 const DropzoneContainer = styled.div<{ isDragActive: boolean; hasFile: boolean }>`
@@ -141,7 +139,7 @@ export default function DropzoneTable({
   progress,
   error,
   acceptedFileTypes = ['.csv'],
-  maxFileSize = 10
+  maxFileSize = 10,
 }: DropzoneTableProps) {
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -170,7 +168,7 @@ export default function DropzoneTable({
   }, []);
 
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+    const {files} = e.target;
     if (files && files.length > 0) {
       const selectedFile = files[0];
       validateAndSelectFile(selectedFile);
@@ -179,7 +177,7 @@ export default function DropzoneTable({
 
   const validateAndSelectFile = useCallback((file: File) => {
     // Validate file type
-    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+    const fileExtension = `.${  file.name.split('.').pop()?.toLowerCase()}`;
     if (!acceptedFileTypes.includes(fileExtension)) {
       // This would be handled by the parent component
       return;
@@ -207,7 +205,7 @@ export default function DropzoneTable({
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))  } ${  sizes[i]}`;
   };
 
   const getStatusIcon = () => {
@@ -263,7 +261,7 @@ export default function DropzoneTable({
               borderRadius: '6px',
               color: '#dc2626',
               fontSize: '14px',
-              maxWidth: 400
+              maxWidth: 400,
             }}>
               <strong>Upload Error:</strong> {error}
             </div>

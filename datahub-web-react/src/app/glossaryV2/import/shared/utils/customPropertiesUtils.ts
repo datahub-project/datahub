@@ -6,7 +6,7 @@
  * Parse custom properties from various formats
  * Supports both JSON format (recommended for CSV) and string format (from GraphQL)
  */
-export function parseCustomProperties(input: string): Record<string, string> {
+export function parseCustomProperties(input: string | null | undefined): Record<string, string> {
   if (!input || input.trim() === '') {
     return {};
   }
@@ -67,16 +67,16 @@ export function formatCustomPropertiesForGraphQL(properties: Record<string, stri
  * Normalize custom properties for comparison
  * Converts both formats to a consistent object format
  */
-export function normalizeCustomProperties(input: string): Record<string, string> {
+export function normalizeCustomProperties(input: string | null | undefined): Record<string, string> {
   return parseCustomProperties(input);
 }
 
 /**
  * Check if two custom properties objects are equal
  */
-export function compareCustomProperties(prop1: string, prop2: string): boolean {
-  const obj1 = normalizeCustomProperties(prop1);
-  const obj2 = normalizeCustomProperties(prop2);
+export function compareCustomProperties(prop1: string | null | undefined, prop2: string | null | undefined): boolean {
+  const obj1 = normalizeCustomProperties(prop1 || '');
+  const obj2 = normalizeCustomProperties(prop2 || '');
   
   const keys1 = Object.keys(obj1).sort();
   const keys2 = Object.keys(obj2).sort();

@@ -12,9 +12,9 @@ import {
   isValidUrn,
   extractEntityTypeFromUrn,
   createExistingEntityUrnMap,
-  AUTO_GENERATE_ALLOWED_ENTITY_TYPES
-} from '../urnGenerationUtils';
-import { Entity } from '../../../glossary.types';
+  AUTO_GENERATE_ALLOWED_ENTITY_TYPES,
+} from '@app/glossaryV2/import/shared/utils/urnGenerationUtils';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 describe('URN Generation Utils', () => {
   describe('generateGuid', () => {
@@ -48,7 +48,7 @@ describe('URN Generation Utils', () => {
 
     it('should throw error for disallowed entity types', () => {
       expect(() => generateEntityUrn('invalidType')).toThrow(
-        'Auto-generated URNs are only supported for entity types'
+        'Auto-generated URNs are only supported for entity types',
       );
     });
   });
@@ -76,7 +76,7 @@ describe('URN Generation Utils', () => {
           parentNames: [],
           parentUrns: [],
           level: 0,
-          data: {} as any
+          data: {} as any,
         },
         {
           id: '2',
@@ -87,8 +87,8 @@ describe('URN Generation Utils', () => {
           parentNames: [],
           parentUrns: [],
           level: 0,
-          data: {} as any
-        }
+          data: {} as any,
+        },
       ];
 
       const urnMap = preGenerateUrns(entities);
@@ -111,8 +111,8 @@ describe('URN Generation Utils', () => {
           parentNames: [],
           parentUrns: [],
           level: 0,
-          data: {} as any
-        }
+          data: {} as any,
+        },
       ];
 
       const urnMap = preGenerateUrns(entities);
@@ -132,7 +132,7 @@ describe('URN Generation Utils', () => {
         parentNames: [],
         parentUrns: [],
         level: 0,
-        data: {} as any
+        data: {} as any,
       };
 
       const urnMap = new Map<string, string>();
@@ -149,7 +149,7 @@ describe('URN Generation Utils', () => {
         parentNames: [],
         parentUrns: [],
         level: 0,
-        data: {} as any
+        data: {} as any,
       };
 
       const urnMap = new Map<string, string>();
@@ -168,7 +168,7 @@ describe('URN Generation Utils', () => {
         parentNames: [],
         parentUrns: [],
         level: 0,
-        data: {} as any
+        data: {} as any,
       };
 
       const urnMap = new Map<string, string>();
@@ -216,7 +216,7 @@ describe('URN Generation Utils', () => {
           parentNames: [],
           parentUrns: [],
           level: 0,
-          data: {} as any
+          data: {} as any,
         },
         {
           id: '2',
@@ -227,8 +227,8 @@ describe('URN Generation Utils', () => {
           parentNames: [],
           parentUrns: [],
           level: 0,
-          data: {} as any
-        }
+          data: {} as any,
+        },
       ];
 
       const urnMap = createExistingEntityUrnMap(entities);

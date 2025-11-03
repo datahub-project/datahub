@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Entity } from '../../glossary.types';
-import { HierarchyNameResolver } from '../utils/hierarchyUtils';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
+import { HierarchyNameResolver } from '@app/glossaryV2/import/shared/utils/hierarchyUtils';
 
 /**
  * Entity with children for hierarchical display
@@ -102,7 +102,7 @@ export function useHierarchicalData({
     const flattenedData = useMemo(() => {
         const flatten = (
             entities: HierarchicalEntity[], 
-            level: number = 0
+            level = 0,
         ): (HierarchicalEntity & { _indentLevel: number; _indentSize: number })[] => {
             const result: (HierarchicalEntity & { _indentLevel: number; _indentSize: number })[] = [];
             
@@ -162,7 +162,7 @@ export function useHierarchicalData({
         setExpandedKeys(prev => 
             prev.includes(key) 
                 ? prev.filter(k => k !== key)
-                : [...prev, key]
+                : [...prev, key],
         );
     }, []);
 

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Modal, Button, Table, Text, Badge } from '@components';
-import { EntityData, Entity } from '../../glossary.types';
-import { parseCustomProperties, compareCustomProperties } from '../../shared/utils/customPropertiesUtils';
+import { EntityData, Entity } from '@app/glossaryV2/import/glossary.types';
+import { parseCustomProperties, compareCustomProperties } from '@app/glossaryV2/import/shared/utils/customPropertiesUtils';
 
 // Define data type for comparison table
 interface ComparisonField {
@@ -86,7 +86,7 @@ const createTableColumns = () => [
         minHeight: '40px',
         display: 'flex',
         alignItems: 'center',
-        position: 'relative'
+        position: 'relative',
       }}>
         {record.existingValue ? (
           <Text 
@@ -110,7 +110,7 @@ const createTableColumns = () => [
               position: 'absolute', 
               top: '4px', 
               right: '4px',
-              fontSize: '10px'
+              fontSize: '10px',
             }}
           />
         )}
@@ -135,7 +135,7 @@ const createTableColumns = () => [
         minHeight: '40px',
         display: 'flex',
         alignItems: 'center',
-        position: 'relative'
+        position: 'relative',
       }}>
         {record.importedValue ? (
           <Text 
@@ -159,7 +159,7 @@ const createTableColumns = () => [
               position: 'absolute', 
               top: '4px', 
               right: '4px',
-              fontSize: '10px'
+              fontSize: '10px',
             }}
           />
         )}
@@ -195,7 +195,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
       'related_contains',
       'related_inherits',
       'domain_name',
-      'custom_properties'
+      'custom_properties',
     ];
 
     return fieldsToCompare.map(key => {
@@ -239,7 +239,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
 
   const hasConflicts = useMemo(() => 
     tableData.some(field => field.isConflict), 
-    [tableData]
+    [tableData],
   );
 
   const status = entity?.status || 'new';
@@ -269,7 +269,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
           borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px'
+          gap: '8px',
         }}>
           <Badge color="red" size="sm" count={1} />
           <Text color="red" size="sm">

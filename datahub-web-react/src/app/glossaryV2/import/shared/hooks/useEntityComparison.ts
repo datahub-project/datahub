@@ -6,9 +6,9 @@ import { useCallback } from 'react';
 import { 
   Entity, 
   EntityData, 
-  UseEntityComparisonReturn 
-} from '../../glossary.types';
-import { compareCustomProperties } from '../utils/customPropertiesUtils';
+  UseEntityComparisonReturn, 
+} from '@app/glossaryV2/import/glossary.types';
+import { compareCustomProperties } from '@app/glossaryV2/import/shared/utils/customPropertiesUtils';
 
 export function useEntityComparison(): UseEntityComparisonReturn {
   /**
@@ -29,7 +29,7 @@ export function useEntityComparison(): UseEntityComparisonReturn {
       'related_inherits',
       'domain_urn',
       'domain_name',
-      'custom_properties'
+      'custom_properties',
     ];
 
     return fieldsToCompare.every(field => {
@@ -63,7 +63,7 @@ export function useEntityComparison(): UseEntityComparisonReturn {
       'related_inherits',
       'domain_urn',
       'domain_name',
-      'custom_properties'
+      'custom_properties',
     ];
 
     fieldsToCompare.forEach(field => {
@@ -98,7 +98,7 @@ export function useEntityComparison(): UseEntityComparisonReturn {
    */
   const categorizeEntities = useCallback((
     importedEntities: Entity[], 
-    existingEntities: Entity[]
+    existingEntities: Entity[],
   ) => {
     const existingByName = new Map<string, Entity>();
     existingEntities.forEach(entity => {
@@ -122,7 +122,7 @@ export function useEntityComparison(): UseEntityComparisonReturn {
           conflictedEntities.push({
             ...importedEntity,
             status: 'conflict',
-            existingEntity
+            existingEntity,
           });
         } else {
           // Check if data has changed
@@ -131,13 +131,13 @@ export function useEntityComparison(): UseEntityComparisonReturn {
             updatedEntities.push({
               ...importedEntity,
               status: 'updated',
-              existingEntity
+              existingEntity,
             });
           } else {
             unchangedEntities.push({
               ...importedEntity,
               status: 'existing',
-              existingEntity
+              existingEntity,
             });
           }
         }
@@ -148,7 +148,7 @@ export function useEntityComparison(): UseEntityComparisonReturn {
       newEntities,
       updatedEntities,
       unchangedEntities,
-      conflictedEntities
+      conflictedEntities,
     };
   }, [compareEntityData, detectConflicts]);
 
@@ -157,7 +157,7 @@ export function useEntityComparison(): UseEntityComparisonReturn {
    */
   const getChangeDetails = useCallback((
     importedEntity: Entity, 
-    existingEntity: Entity
+    existingEntity: Entity,
   ): {
     hasChanges: boolean;
     changedFields: string[];
@@ -176,7 +176,7 @@ export function useEntityComparison(): UseEntityComparisonReturn {
     return {
       hasChanges,
       changedFields,
-      changeSummary
+      changeSummary,
     };
   }, [identifyChanges]);
 
@@ -185,7 +185,7 @@ export function useEntityComparison(): UseEntityComparisonReturn {
    */
   const validateEntityCompatibility = useCallback((
     importedEntity: Entity, 
-    existingEntity: Entity
+    existingEntity: Entity,
   ): {
     isCompatible: boolean;
     issues: string[];
@@ -211,7 +211,7 @@ export function useEntityComparison(): UseEntityComparisonReturn {
 
     return {
       isCompatible: issues.length === 0,
-      issues
+      issues,
     };
   }, []);
 
@@ -221,7 +221,7 @@ export function useEntityComparison(): UseEntityComparisonReturn {
     detectConflicts,
     categorizeEntities,
     getChangeDetails,
-    validateEntityCompatibility
+    validateEntityCompatibility,
   };
 }
 

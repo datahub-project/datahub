@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, Input, Pill, SimpleSelect } from '@components';
 import { Column } from '@components/components/Table/types';
-import { Entity } from '../../glossary.types';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 // ============================================
 // CONFIGURATION
@@ -182,7 +182,7 @@ const EditableCell = ({
 const buildFullyQualifiedName = (
     entity: Entity,
     allEntities: Entity[],
-    visited: Set<string> = new Set()
+    visited: Set<string> = new Set(),
 ): string => {
     if (visited.has(entity.name)) {
         return entity.name;
@@ -295,7 +295,7 @@ function createNameColumn(
     handleExpandRow: (record: any) => void,
     expandedRowKeys: string[],
     allEntities: Entity[],
-    editingValue: string
+    editingValue: string,
 ): Column<EntityWithHierarchy> {
     return {
         title: 'Name',
@@ -317,7 +317,7 @@ function createNameColumn(
                         padding: '2px',
                         marginRight: '4px',
                         display: 'flex',
-                        alignItems: 'center'
+                        alignItems: 'center',
                     }}
                 >
                     {isExpanded ? '▼' : '▶'}
@@ -369,7 +369,7 @@ function createNameColumn(
 function createEntityTypeColumn(
     isEditing: (rowId: string, field: string) => boolean,
     handleCellEdit: (rowId: string, field: string) => void,
-    handleCellSave: (rowId: string, field: string, value: string) => void
+    handleCellSave: (rowId: string, field: string, value: string) => void,
 ): Column<Entity> {
     return {
         title: 'Entity Type',
@@ -383,7 +383,7 @@ function createEntityTypeColumn(
                         width="full"
                         options={[
                             { value: 'glossaryTerm', label: 'Term' },
-                            { value: 'glossaryNode', label: 'Term Group' }
+                            { value: 'glossaryNode', label: 'Term Group' },
                         ]}
                     />
                 );
@@ -421,7 +421,7 @@ export const getTableColumns = (
     handleExpandRow: (record: any) => void,
     expandedRowKeys: string[],
     allEntities: Entity[],
-    editingValue: string
+    editingValue: string,
 ): Column<EntityWithHierarchy>[] => {
     // Static columns
     const staticColumns = [
@@ -435,7 +435,7 @@ export const getTableColumns = (
             handleExpandRow,
             expandedRowKeys,
             allEntities,
-            editingValue
+            editingValue,
         ),
         createEntityTypeColumn(isEditing, handleCellEdit, handleCellSave),
     ];

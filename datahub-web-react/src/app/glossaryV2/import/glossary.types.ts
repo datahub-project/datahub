@@ -177,8 +177,8 @@ export interface EntityPatchInput {
 }
 
 export interface ArrayPrimaryKeyInput {
-  keyPath: string;
-  primaryKeys: string[];
+  arrayField: string;
+  keys: string[];
 }
 
 // File upload state

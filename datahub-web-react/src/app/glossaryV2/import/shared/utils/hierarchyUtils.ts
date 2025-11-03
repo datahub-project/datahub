@@ -3,7 +3,7 @@
  * Consolidates all hierarchical name parsing and parent lookup logic
  */
 
-import { Entity } from '../../glossary.types';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 /**
  * Centralized class for handling hierarchical name parsing and parent lookups
@@ -68,7 +68,7 @@ export class HierarchyNameResolver {
     
     // Find entity by case-insensitive name match
     return entities.find(entity => 
-      entity.name.toLowerCase() === actualParentName.toLowerCase()
+      entity.name.toLowerCase() === actualParentName.toLowerCase(),
     );
   }
 
@@ -83,7 +83,7 @@ export class HierarchyNameResolver {
   static resolveParentUrns(
     entity: Entity,
     existingEntities: Entity[],
-    generatedUrnMap: Map<string, string>
+    generatedUrnMap: Map<string, string>,
   ): string[] {
     const parentUrns: string[] = [];
     
@@ -98,7 +98,7 @@ export class HierarchyNameResolver {
       // Then check generated URNs for new entities
       const actualParentName = this.parseHierarchicalName(parentName);
       const parentEntity = existingEntities.find(e => 
-        e.name === actualParentName && e.status === 'new'
+        e.name === actualParentName && e.status === 'new',
       );
       
       if (parentEntity) {
@@ -160,9 +160,9 @@ export function findParentEntity(parentPath: string, entityMap: Map<string, Enti
   if (pathParts.length === 1) {
     // Simple parent name
     return entityMap.get(pathParts[0]) || null;
-  } else {
+  } 
     // Hierarchical parent name - find the last part (the actual parent)
     const actualParentName = pathParts[pathParts.length - 1];
     return entityMap.get(actualParentName) || null;
-  }
+  
 }

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { Text, Heading, Pill, Icon } from '@components';
+import { ColorOptions } from '@components/theme/config';
 
 // Styled Components
 const BreadcrumbWrapper = styled.div`
@@ -38,7 +39,7 @@ interface BreadcrumbHeaderProps {
     title: string;
     subtitle?: string;
     pillLabel?: string;
-    pillColor?: string;
+    pillColor?: ColorOptions;
 }
 
 // Main Breadcrumb Component
@@ -47,7 +48,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
     title,
     subtitle,
     pillLabel,
-    pillColor = 'blue'
+    pillColor = 'blue',
 }) => {
     return (
         <BreadcrumbWrapper>

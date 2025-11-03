@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Modal } from '@components';
 // Progress component not available, using custom progress bar
 import { Message } from '@app/shared/Message';
-import { ComprehensiveImportProgress, ImportError, ImportWarning } from '../../shared/hooks/useComprehensiveImport';
+import { ComprehensiveImportProgress, ImportError, ImportWarning } from '@app/glossaryV2/import/shared/hooks/useComprehensiveImport';
 
 interface ImportProgressModalProps {
   visible: boolean;

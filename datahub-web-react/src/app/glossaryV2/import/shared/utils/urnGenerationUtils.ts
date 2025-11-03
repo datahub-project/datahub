@@ -6,9 +6,9 @@
  * All new code should import directly from urnManager.ts
  */
 
-import { HierarchyNameResolver } from './hierarchyUtils';
-import { UrnManager } from './urnManager';
-import { Entity } from '../../glossary.types';
+import { HierarchyNameResolver } from '@app/glossaryV2/import/shared/utils/hierarchyUtils';
+import { UrnManager } from '@app/glossaryV2/import/shared/utils/urnManager';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 // Re-export constants
 export { AUTO_GENERATE_ALLOWED_ENTITY_TYPES } from './urnManager';
@@ -32,21 +32,21 @@ export const createExistingEntityUrnMap = (existingEntities: Entity[]) =>
 export function resolveParentUrns(
   entity: Entity, 
   existingUrnMap: Map<string, string>,
-  generatedUrnMap: Map<string, string>
+  generatedUrnMap: Map<string, string>,
 ): string[] {
   // Convert existingUrnMap to Entity array for HierarchyNameResolver
   const existingEntities: Entity[] = [];
   existingUrnMap.forEach((urn, name) => {
     existingEntities.push({
       id: name,
-      name: name,
+      name,
       type: 'glossaryNode' as const,
       status: 'existing' as const,
       parentNames: [],
       parentUrns: [],
       level: 0,
       data: {} as any,
-      urn
+      urn,
     });
   });
 

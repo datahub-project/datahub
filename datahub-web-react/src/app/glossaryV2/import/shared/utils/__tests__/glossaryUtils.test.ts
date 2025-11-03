@@ -6,45 +6,47 @@ import {
   calculateHierarchyLevel,
   sortEntitiesByHierarchy,
   detectCircularDependencies,
-  findOrphanedEntities
-} from '../../../glossary.utils';
-import { Entity, EntityData, GraphQLEntity } from '../../../glossary.types';
+  findOrphanedEntities,
+} from '@app/glossaryV2/import/glossary.utils';
+import { Entity, EntityData, GraphQLEntity } from '@app/glossaryV2/import/glossary.types';
 
 describe('Glossary Utils', () => {
   describe('generateEntityId', () => {
     it('should generate unique IDs for different entities', () => {
       const entityData1: EntityData = {
         entity_type: 'glossaryTerm',
+        urn: '',
         name: 'Test Term 1',
         description: 'Test Description',
-        definition: 'Test Definition',
         term_source: 'INTERNAL',
         source_ref: '',
         source_url: '',
-        ownership: '',
+        ownership_users: '',
+        ownership_groups: '',
         parent_nodes: '',
         related_contains: '',
         related_inherits: '',
         domain_urn: '',
         domain_name: '',
-        custom_properties: ''
+        custom_properties: '',
       };
 
       const entityData2: EntityData = {
         entity_type: 'glossaryTerm',
+        urn: '',
         name: 'Test Term 2',
         description: 'Test Description',
-        definition: 'Test Definition',
         term_source: 'INTERNAL',
         source_ref: '',
         source_url: '',
-        ownership: '',
+        ownership_users: '',
+        ownership_groups: '',
         parent_nodes: '',
         related_contains: '',
         related_inherits: '',
         domain_urn: '',
         domain_name: '',
-        custom_properties: ''
+        custom_properties: '',
       };
 
       const id1 = generateEntityId(entityData1, []);
@@ -58,19 +60,20 @@ describe('Glossary Utils', () => {
     it('should generate same ID for same entity data', () => {
       const entityData: EntityData = {
         entity_type: 'glossaryTerm',
+        urn: '',
         name: 'Test Term',
         description: 'Test Description',
-        definition: 'Test Definition',
         term_source: 'INTERNAL',
         source_ref: '',
         source_url: '',
-        ownership: '',
+        ownership_users: '',
+        ownership_groups: '',
         parent_nodes: '',
         related_contains: '',
         related_inherits: '',
         domain_urn: '',
         domain_name: '',
-        custom_properties: ''
+        custom_properties: '',
       };
 
       const id1 = generateEntityId(entityData, []);
@@ -82,19 +85,20 @@ describe('Glossary Utils', () => {
     it('should include parent names in ID generation', () => {
       const entityData: EntityData = {
         entity_type: 'glossaryTerm',
+        urn: '',
         name: 'Test Term',
         description: 'Test Description',
-        definition: 'Test Definition',
         term_source: 'INTERNAL',
         source_ref: '',
         source_url: '',
-        ownership: '',
+        ownership_users: '',
+        ownership_groups: '',
         parent_nodes: '',
         related_contains: '',
         related_inherits: '',
         domain_urn: '',
         domain_name: '',
-        custom_properties: ''
+        custom_properties: '',
       };
 
       const id1 = generateEntityId(entityData, ['Parent1']);
@@ -133,7 +137,7 @@ describe('Glossary Utils', () => {
 
   describe('convertGraphQLEntityToEntity', () => {
     it('should convert GraphQL entity to Entity correctly', () => {
-      const graphQLEntity: GraphQLEntity = {
+      const graphQLEntity = {
         __typename: 'GlossaryTerm',
         urn: 'urn:li:glossaryTerm:test',
         name: 'Test Term',
@@ -147,10 +151,10 @@ describe('Glossary Utils', () => {
           customProperties: [
             {
               key: 'data_type',
-              value: 'Dataset'
-            }
+              value: 'Dataset',
+            },
           ],
-          __typename: 'GlossaryTermProperties'
+          __typename: 'GlossaryTermProperties',
         },
         parentNodes: {
           nodes: [
@@ -163,12 +167,12 @@ describe('Glossary Utils', () => {
                 sourceRef: null,
                 sourceUrl: null,
                 customProperties: null,
-                __typename: 'GlossaryNodeProperties'
-              },
-              __typename: 'GlossaryNode'
-            }
+                __typename: 'GlossaryNodeProperties',
+              } as any,
+              __typename: 'GlossaryNode',
+            },
           ],
-          __typename: 'ParentNodesResult'
+          __typename: 'ParentNodesResult',
         },
         relatedTerms: {
           relationships: [
@@ -176,12 +180,12 @@ describe('Glossary Utils', () => {
               entity: {
                 urn: 'urn:li:glossaryTerm:related',
                 name: 'Related Term',
-                __typename: 'GlossaryTerm'
+                __typename: 'GlossaryTerm',
               },
-              __typename: 'EntityRelationship'
-            }
+              __typename: 'EntityRelationship',
+            },
           ],
-          __typename: 'EntityRelationshipsResult'
+          __typename: 'EntityRelationshipsResult',
         },
         domain: {
           domain: {
@@ -189,14 +193,13 @@ describe('Glossary Utils', () => {
             properties: {
               name: 'Test Domain',
               description: 'Test Domain Description',
-              __typename: 'DomainProperties'
-            },
-            __typename: 'Domain'
+              __typename: 'DomainProperties',
+            } as any,
+            __typename: 'Domain',
           },
-          __typename: 'DomainAssociation'
+          __typename: 'DomainAssociation',
         },
-        __typename: 'GlossaryTerm'
-      };
+      } as unknown as GraphQLEntity;
 
       const entity = convertGraphQLEntityToEntity(graphQLEntity);
 
@@ -220,7 +223,7 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
+          originalRow: {} as EntityData,
         },
         {
           id: '2',
@@ -231,7 +234,7 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
+          originalRow: {} as EntityData,
         },
         {
           id: '3',
@@ -242,13 +245,13 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
-        }
+          originalRow: {} as EntityData,
+        },
       ];
 
       const entitiesWithLevels = entities.map(entity => ({
         ...entity,
-        level: calculateHierarchyLevel(entity, entities)
+        level: calculateHierarchyLevel(entity, entities),
       }));
 
       expect(entitiesWithLevels[0].level).toBe(0); // Root
@@ -267,13 +270,13 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
-        }
+          originalRow: {} as EntityData,
+        },
       ];
 
       const entitiesWithLevels = entities.map(entity => ({
         ...entity,
-        level: calculateHierarchyLevel(entity, entities)
+        level: calculateHierarchyLevel(entity, entities),
       }));
       expect(entitiesWithLevels[0].level).toBe(0);
     });
@@ -291,7 +294,7 @@ describe('Glossary Utils', () => {
           level: 2,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
+          originalRow: {} as EntityData,
         },
         {
           id: '1',
@@ -302,7 +305,7 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
+          originalRow: {} as EntityData,
         },
         {
           id: '2',
@@ -313,8 +316,8 @@ describe('Glossary Utils', () => {
           level: 1,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
-        }
+          originalRow: {} as EntityData,
+        },
       ];
 
       const sortedEntities = sortEntitiesByHierarchy(entities);
@@ -337,7 +340,7 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
+          originalRow: {} as EntityData,
         },
         {
           id: '2',
@@ -348,8 +351,8 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
-        }
+          originalRow: {} as EntityData,
+        },
       ];
 
       const result = detectCircularDependencies(entities);
@@ -368,7 +371,7 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
+          originalRow: {} as EntityData,
         },
         {
           id: '2',
@@ -379,8 +382,8 @@ describe('Glossary Utils', () => {
           level: 1,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
-        }
+          originalRow: {} as EntityData,
+        },
       ];
 
       const result = detectCircularDependencies(entities);
@@ -398,7 +401,7 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
+          originalRow: {} as EntityData,
         },
         {
           id: '2',
@@ -409,7 +412,7 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
+          originalRow: {} as EntityData,
         },
         {
           id: '3',
@@ -420,8 +423,8 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
-        }
+          originalRow: {} as EntityData,
+        },
       ];
 
       const result = detectCircularDependencies(entities);
@@ -442,7 +445,7 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
+          originalRow: {} as EntityData,
         },
         {
           id: '2',
@@ -453,8 +456,8 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
-        }
+          originalRow: {} as EntityData,
+        },
       ];
 
       const result = findOrphanedEntities(entities);
@@ -473,7 +476,7 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
+          originalRow: {} as EntityData,
         },
         {
           id: '2',
@@ -484,8 +487,8 @@ describe('Glossary Utils', () => {
           level: 1,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
-        }
+          originalRow: {} as EntityData,
+        },
       ];
 
       const result = findOrphanedEntities(entities);
@@ -503,7 +506,7 @@ describe('Glossary Utils', () => {
           level: 0,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
+          originalRow: {} as EntityData,
         },
         {
           id: '2',
@@ -514,8 +517,8 @@ describe('Glossary Utils', () => {
           level: 1,
           data: {} as EntityData,
           status: 'new',
-          originalRow: {} as EntityData
-        }
+          originalRow: {} as EntityData,
+        },
       ];
 
       const result = findOrphanedEntities(entities);

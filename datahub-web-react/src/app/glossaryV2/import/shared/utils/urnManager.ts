@@ -4,7 +4,7 @@
  * Matches backend logic from PatchResolverUtils.java
  */
 
-import { Entity } from '../../glossary.types';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 /**
  * Entity types that support auto-generated URNs (matches backend)
@@ -16,7 +16,7 @@ export const AUTO_GENERATE_ALLOWED_ENTITY_TYPES = new Set([
   'notebook',
   'domain',
   'dataProduct',
-  'ownershipType'
+  'ownershipType',
 ]);
 
 /**
@@ -33,8 +33,10 @@ export class UrnManager {
     }
     
     // Fallback for environments without crypto.randomUUID
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      // eslint-disable-next-line no-bitwise
       const r = Math.random() * 16 | 0;
+      // eslint-disable-next-line no-bitwise
       const v = c === 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
@@ -49,7 +51,7 @@ export class UrnManager {
       throw new Error(
         `Auto-generated URNs are only supported for entity types: ${Array.from(AUTO_GENERATE_ALLOWED_ENTITY_TYPES).join(', ')}. ` +
         `Entity type '${entityType}' requires a structured URN. ` +
-        `Please provide a specific URN for this entity type.`
+        `Please provide a specific URN for this entity type.`,
       );
     }
     
@@ -79,7 +81,7 @@ export class UrnManager {
    * Validate URN format
    * @param allowEmpty - If true, empty URNs are considered valid (will be generated)
    */
-  static isValidUrn(urn: string, allowEmpty: boolean = false): boolean {
+  static isValidUrn(urn: string, allowEmpty = false): boolean {
     if (!urn || urn.trim() === '') {
       return allowEmpty;
     }
@@ -117,12 +119,8 @@ export class UrnManager {
         urnMap.set(entity.id, entity.urn);
       } else if (entity.status === 'new') {
         // Generate new URN for new entities
-        try {
-          const urn = this.generateEntityUrn(entity.type);
-          urnMap.set(entity.id, urn);
-        } catch (error) {
-          throw error;
-        }
+        const urn = this.generateEntityUrn(entity.type);
+        urnMap.set(entity.id, urn);
       }
     });
     
@@ -169,7 +167,7 @@ export class UrnManager {
    */
   static findUrnByName(name: string, entities: Entity[]): string | undefined {
     const entity = entities.find(e => 
-      e.name.toLowerCase() === name.toLowerCase() && e.urn
+      e.name.toLowerCase() === name.toLowerCase() && e.urn,
     );
     return entity?.urn;
   }
@@ -194,7 +192,7 @@ export class UrnManager {
       scheme: parts[0],
       namespace: parts[1],
       entityType: parts[2],
-      id: parts.slice(3).join(':')
+      id: parts.slice(3).join(':'),
     };
   }
 

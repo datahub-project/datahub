@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Entity } from '../../glossary.types';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 /**
  * Configuration for entity search

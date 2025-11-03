@@ -12,8 +12,8 @@ import {
   ValidationResult,
   ValidationError,
   ValidationWarning,
-  UseEntityManagementReturn 
-} from '../../glossary.types';
+  UseEntityManagementReturn, 
+} from '@app/glossaryV2/import/glossary.types';
 import {
   generateEntityId,
   parseCommaSeparated,
@@ -21,9 +21,9 @@ import {
   calculateHierarchyLevel,
   sortEntitiesByHierarchy,
   detectCircularDependencies,
-  findOrphanedEntities
-} from '../../glossary.utils';
-import { useEntityComparison } from './useEntityComparison';
+  findOrphanedEntities,
+} from '@app/glossaryV2/import/glossary.utils';
+import { useEntityComparison } from '@app/glossaryV2/import/shared/hooks/useEntityComparison';
 
 export function useEntityManagement(): UseEntityManagementReturn {
   // Import compareEntityData from useEntityComparison to avoid duplication
@@ -48,14 +48,14 @@ export function useEntityManagement(): UseEntityManagementReturn {
         level: 0, // Will be calculated below
         data: entityData,
         status: 'new' as const,
-        originalRow: entityData
+        originalRow: entityData,
       };
     });
 
     // Second pass: calculate hierarchy levels
     return entities.map(entity => ({
       ...entity,
-      level: calculateHierarchyLevel(entity, entities)
+      level: calculateHierarchyLevel(entity, entities),
     }));
   }, []);
 
@@ -92,7 +92,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
           // Conflict: same name but different type
           conflicts.push({
             ...importedEntity,
-            status: 'conflict'
+            status: 'conflict',
           });
         } else {
           // Check if data has changed
@@ -101,12 +101,12 @@ export function useEntityManagement(): UseEntityManagementReturn {
           if (!areEqual) {
             updatedEntities.push({
               ...importedEntity,
-              status: 'updated'
+              status: 'updated',
             });
           } else {
             existingEntities.push({
               ...importedEntity,
-              status: 'existing'
+              status: 'existing',
             });
           }
         }
@@ -117,7 +117,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
       newEntities,
       existingEntities,
       updatedEntities,
-      conflicts
+      conflicts,
     };
   }, [compareEntityData]);
 
@@ -152,7 +152,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
     // Third pass: calculate levels and group by level
     const entitiesWithLevels = entities.map(entity => ({
       ...entity,
-      level: calculateHierarchyLevel(entity, entities)
+      level: calculateHierarchyLevel(entity, entities),
     }));
 
     entitiesWithLevels.forEach(entity => {
@@ -166,7 +166,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
       entitiesByLevel,
       entitiesByName,
       entitiesById,
-      parentChildMap
+      parentChildMap,
     };
   }, []);
 
@@ -182,7 +182,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
       errors.push({
         field: 'name',
         message: 'Entity name is required',
-        code: 'REQUIRED'
+        code: 'REQUIRED',
       });
     }
 
@@ -190,7 +190,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
       errors.push({
         field: 'type',
         message: 'Entity type must be either "glossaryTerm" or "glossaryNode"',
-        code: 'INVALID_TYPE'
+        code: 'INVALID_TYPE',
       });
     }
 
@@ -199,7 +199,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
       errors.push({
         field: 'urn',
         message: 'URN must start with "urn:li:"',
-        code: 'INVALID_URN'
+        code: 'INVALID_URN',
       });
     }
 
@@ -208,7 +208,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
       warnings.push({
         field: 'parentNames',
         message: 'Having more than 10 parent nodes may cause performance issues',
-        code: 'TOO_MANY_PARENTS'
+        code: 'TOO_MANY_PARENTS',
       });
     }
 
@@ -217,7 +217,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
       errors.push({
         field: 'domain_urn',
         message: 'Domain URN must start with "urn:li:domain:"',
-        code: 'INVALID_DOMAIN_URN'
+        code: 'INVALID_DOMAIN_URN',
       });
     }
 
@@ -229,7 +229,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
         errors.push({
           field: 'source_url',
           message: 'Source URL must be a valid URL format',
-          code: 'INVALID_URL'
+          code: 'INVALID_URL',
         });
       }
     }
@@ -237,7 +237,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
     return {
       isValid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }, []);
 
@@ -246,6 +246,6 @@ export function useEntityManagement(): UseEntityManagementReturn {
     normalizeExistingEntities,
     compareEntities,
     buildHierarchyMaps,
-    validateEntity
+    validateEntity,
   };
 }

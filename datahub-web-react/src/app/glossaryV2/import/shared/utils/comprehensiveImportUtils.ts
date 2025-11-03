@@ -3,12 +3,12 @@
  * Handles single GraphQL call with hierarchical ordering and dependency resolution
  */
 
-import { Entity, EntityData, PatchOperation } from '../../glossary.types';
-import { UrnManager } from './urnManager';
-import { sortEntitiesByHierarchy } from '../../glossary.utils';
-import { parseOwnershipFromColumns, createOwnershipPatchOperations } from './ownershipParsingUtils';
-import { HierarchyNameResolver } from './hierarchyUtils';
-import { PatchBuilder, OwnershipTypeInput, ComprehensivePatchInput, ArrayPrimaryKeyInput } from './patchBuilder';
+import { Entity, EntityData, PatchOperation } from '@app/glossaryV2/import/glossary.types';
+import { UrnManager } from '@app/glossaryV2/import/shared/utils/urnManager';
+import { sortEntitiesByHierarchy } from '@app/glossaryV2/import/glossary.utils';
+import { parseOwnershipFromColumns, createOwnershipPatchOperations } from '@app/glossaryV2/import/shared/utils/ownershipParsingUtils';
+import { HierarchyNameResolver } from '@app/glossaryV2/import/shared/utils/hierarchyUtils';
+import { PatchBuilder, OwnershipTypeInput, ComprehensivePatchInput, ArrayPrimaryKeyInput } from '@app/glossaryV2/import/shared/utils/patchBuilder';
 
 // Re-export types for backward compatibility
 export type { ComprehensivePatchInput, ArrayPrimaryKeyInput, OwnershipTypeInput };
@@ -29,7 +29,7 @@ export interface ComprehensiveImportPlan {
 export function createComprehensiveImportPlan(
   entities: Entity[],
   existingEntities: Entity[],
-  existingOwnershipTypes: Map<string, string>
+  existingOwnershipTypes: Map<string, string>,
 ): ComprehensiveImportPlan {
   // 1. Pre-generate URNs for all new entities
   const urnMap = UrnManager.preGenerateUrns(entities);
@@ -40,15 +40,22 @@ export function createComprehensiveImportPlan(
   // 3. Extract and create ownership types
   const ownershipTypes = extractOwnershipTypes(entities, existingOwnershipTypes);
   
-  // 4. Create all patch inputs in proper order
+  // 4. Merge existing and new ownership types into complete map
+  // This ensures ownership patches can resolve URNs for both existing and newly created ownership types
+  const completeOwnershipTypeMap = new Map<string, string>(existingOwnershipTypes);
+  ownershipTypes.forEach(ot => {
+    completeOwnershipTypeMap.set(ot.name.toLowerCase(), ot.urn);
+  });
+  
+  // 5. Create all patch inputs in proper order
   const plan: ComprehensiveImportPlan = {
     ownershipTypes,
     entities: sortedEntities,
     urnMap, // Include the URN map in the plan
-    ownershipPatches: createOwnershipPatches(sortedEntities, urnMap, existingOwnershipTypes, existingEntities),
+    ownershipPatches: createOwnershipPatches(sortedEntities, urnMap, completeOwnershipTypeMap, existingEntities),
     parentRelationshipPatches: [], // Parent relationships are now handled directly in createEntityPatches
     relatedTermPatches: createRelatedTermPatches(sortedEntities, urnMap, existingEntities),
-    domainAssignmentPatches: createDomainAssignmentPatches(sortedEntities, urnMap, existingEntities)
+    domainAssignmentPatches: createDomainAssignmentPatches(sortedEntities, urnMap, existingEntities),
   };
   
   return plan;
@@ -59,7 +66,7 @@ export function createComprehensiveImportPlan(
  */
 function extractOwnershipTypes(
   entities: Entity[],
-  existingOwnershipTypes: Map<string, string>
+  existingOwnershipTypes: Map<string, string>,
 ): OwnershipTypeInput[] {
   const ownershipTypeNames = new Set<string>();
   
@@ -88,7 +95,7 @@ function extractOwnershipTypes(
   return Array.from(ownershipTypeNames).map(name => ({
     name,
     description: `Custom ownership type: ${name}`,
-    urn: UrnManager.generateOwnershipTypeUrn(name)
+    urn: UrnManager.generateOwnershipTypeUrn(name),
   }));
 }
 
@@ -141,7 +148,7 @@ function hasEntityInfoChanged(newEntity: Entity, existingEntity: Entity): boolea
 function createEntityPatches(
   entities: Entity[],
   urnMap: Map<string, string>,
-  existingEntities: Entity[] = []
+  existingEntities: Entity[] = [],
 ): ComprehensivePatchInput[] {
   return entities
     .filter(entity => {
@@ -155,7 +162,7 @@ function createEntityPatches(
           const hasChildrenWithChanges = entities.some(child => 
             child.parentNames && 
             child.parentNames.includes(entity.name) &&
-            (child.status === 'new' || hasEntityInfoChanged(child, existingEntities.find(e => e.name === child.name) || child))
+            (child.status === 'new' || hasEntityInfoChanged(child, existingEntities.find(e => e.name === child.name) || child)),
           );
           
           // Only include if entity info changed or children changed
@@ -214,7 +221,7 @@ function createEntityPatches(
           patch.push({ 
             op: 'ADD' as const, 
             path: `/customProperties/${key}`,
-            value: JSON.stringify(String(value))
+            value: JSON.stringify(String(value)),
           });
         });
       } catch (error) {
@@ -249,7 +256,7 @@ function createEntityPatches(
         patch.push({
           op: 'ADD' as const,
           path: '/parentNode',
-          value: parentUrn
+          value: parentUrn,
         });
       } else {
         const actualParentName = HierarchyNameResolver.parseHierarchicalName(parentName);
@@ -262,7 +269,7 @@ function createEntityPatches(
         entityType: entity.type,
         aspectName,
         patch,
-        forceGenericPatch: true
+        forceGenericPatch: true,
       };
     })
     .filter(patchInput => patchInput.patch.length > 0);
@@ -326,7 +333,7 @@ function createOwnershipPatches(
   entities: Entity[],
   urnMap: Map<string, string>,
   existingOwnershipTypes: Map<string, string>,
-  existingEntities: Entity[] = []
+  existingEntities: Entity[] = [],
 ): ComprehensivePatchInput[] {
   const patches: ComprehensivePatchInput[] = [];
   
@@ -338,7 +345,7 @@ function createOwnershipPatches(
     try {
       const parsedOwnership = parseOwnershipFromColumns(
         entity.data.ownership_users || '',
-        entity.data.ownership_groups || ''
+        entity.data.ownership_groups || '',
       );
       
       if (parsedOwnership.length === 0) return;
@@ -366,9 +373,9 @@ function createOwnershipPatches(
           patch: ownershipPatchOps,
           arrayPrimaryKeys: [{
             arrayField: 'owners',
-            keys: ['owner', 'typeUrn']
+            keys: ['owner', 'typeUrn'],
           }],
-          forceGenericPatch: true
+          forceGenericPatch: true,
         });
       }
     } catch (error) {
@@ -388,7 +395,7 @@ function createOwnershipPatches(
 function createRelatedTermPatches(
   entities: Entity[],
   urnMap: Map<string, string>,
-  existingEntities: Entity[] = []
+  existingEntities: Entity[] = [],
 ): ComprehensivePatchInput[] {
   const patches: ComprehensivePatchInput[] = [];
 
@@ -440,10 +447,10 @@ function createRelatedTermPatches(
             path: '/',
             value: {
               termUrns: relatedUrns,
-              relationshipType: 'hasA'
-            }
+              relationshipType: 'hasA',
+            },
           }],
-          forceGenericPatch: true
+          forceGenericPatch: true,
         });
       }
     }
@@ -479,10 +486,10 @@ function createRelatedTermPatches(
             path: '/',
             value: {
               termUrns: relatedUrns,
-              relationshipType: 'isA'
-            }
+              relationshipType: 'isA',
+            },
           }],
-          forceGenericPatch: true
+          forceGenericPatch: true,
         });
       }
     }
@@ -497,7 +504,7 @@ function createRelatedTermPatches(
 function createDomainAssignmentPatches(
   entities: Entity[],
   urnMap: Map<string, string>,
-  existingEntities: Entity[] = []
+  existingEntities: Entity[] = [],
 ): ComprehensivePatchInput[] {
   const patches: ComprehensivePatchInput[] = [];
   
@@ -524,10 +531,10 @@ function createDomainAssignmentPatches(
         op: 'ADD' as const,
         path: '/domains',
         value: JSON.stringify({
-          domain: domainUrn
-        })
+          domain: domainUrn,
+        }),
       }],
-      forceGenericPatch: true
+      forceGenericPatch: true,
     });
   });
   
