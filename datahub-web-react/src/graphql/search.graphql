@@ -1296,6 +1296,7 @@ fragment searchResults on SearchResults {
             text
             icon
         }
+        canViewEntityPage
     }
     facets {
         ...facetFields

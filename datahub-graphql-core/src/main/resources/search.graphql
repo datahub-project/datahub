@@ -692,6 +692,12 @@ type SearchResult {
   Additional properties about the search result. Used for rendering in the UI
   """
   extraProperties: [ExtraProperty!]
+
+  """
+  Whether the current user can view the entity page for this result
+  """
+  canViewEntityPage: Boolean
+
 }
 
 """
