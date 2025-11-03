@@ -389,7 +389,10 @@ class TestUnityCatalogSource:
             assert connection_test_config.azure_auth is not None
             assert connection_test_config.azure_auth.client_id == "test-client-id"
             assert connection_test_config.azure_auth.tenant_id == "test-tenant-id"
-            assert connection_test_config.azure_auth.client_secret.get_secret_value() == "test-secret"
+            assert (
+                connection_test_config.azure_auth.client_secret.get_secret_value()
+                == "test-secret"
+            )
             assert connection_test_config.databricks_api_page_size == 100
             assert (
                 connection_test_config.token is None
