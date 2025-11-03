@@ -4189,13 +4189,12 @@
                 "name": "acme_corp.data_product.customer_360",
                 "env": "PROD",
                 "marketplace_listing": "true",
-                "provider_name": "ACME Corp",
+                "marketplace_type": "internal",
+                "provider": "ACME Corp",
                 "category": "Customer Data",
-                "is_personal_data": "True",
-                "is_free": "False",
                 "listing_global_name": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
-                "listing_created_on": "2023-01-01T00:00:00+00:00",
-                "listing_updated_on": "2023-06-01T00:00:00+00:00"
+                "listing_name": "customer_360_listing",
+                "listing_created_on": "2023-01-01T00:00:00+00:00"
             },
             "name": "Customer 360 View",
             "description": "Comprehensive customer data for analysis"
@@ -4203,7 +4202,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-uxq6ac",
+        "runId": "snowflake-2022_06_07-17_00_00-zivg0o",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4251,13 +4250,12 @@
                 "name": "weather_co.public.weather_data",
                 "env": "PROD",
                 "marketplace_listing": "true",
-                "provider_name": "Weather Co",
+                "marketplace_type": "internal",
+                "provider": "Weather Co",
                 "category": "Environmental",
-                "is_personal_data": "False",
-                "is_free": "True",
                 "listing_global_name": "WEATHER_CO.PUBLIC.WEATHER_DATA",
-                "listing_created_on": "2023-02-01T00:00:00+00:00",
-                "listing_updated_on": "2023-07-01T00:00:00+00:00"
+                "listing_name": "weather_data_listing",
+                "listing_created_on": "2023-02-01T00:00:00+00:00"
             },
             "name": "Global Weather Data",
             "description": "Real-time weather data from global stations"
@@ -4265,7 +4263,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-uxq6ac",
+        "runId": "snowflake-2022_06_07-17_00_00-zivg0o",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4310,22 +4308,24 @@
         "json": {
             "customProperties": {
                 "marketplace_purchase": "true",
+                "database_type": "IMPORTED_DATABASE",
+                "owner": "ACCOUNTADMIN",
+                "purchase_date": "2023-03-15T00:00:00+00:00",
+                "comment": "Customer data from ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+                "data_product_source": "urn:li:dataProduct:c003035c5866c5d96a71dc01cc8fad05",
                 "marketplace_listing_global_name": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
                 "marketplace_provider": "ACME Corp",
-                "purchase_date": "2023-03-15T00:00:00+00:00",
-                "purchase_status": "ACTIVE",
-                "is_auto_fulfill": "True",
-                "data_product_source": "urn:li:dataProduct:c003035c5866c5d96a71dc01cc8fad05"
+                "purchase_status": "INSTALLED"
             },
-            "name": "Customer 360 View",
+            "name": "DEMO_DATABASE",
             "qualifiedName": "DEMO_DATABASE",
-            "description": "Marketplace dataset from ACME Corp",
+            "description": "Customer data from ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-uxq6ac",
+        "runId": "snowflake-2022_06_07-17_00_00-d6y5rp",
         "lastRunId": "no-run-id-provided"
     }
 },

@@ -1,6 +1,7 @@
+import json
 import logging
 from collections import defaultdict
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import make_domain_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -97,21 +98,20 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             self._load_marketplace_purchases()
 
     def _load_marketplace_listings(self) -> None:
-        """Load marketplace listings from Snowflake"""
+        """Load internal marketplace listings from Snowflake using SHOW AVAILABLE LISTINGS"""
         try:
             cur = self.connection.query(SnowflakeQuery.marketplace_listings())
 
             for row in cur:
+                # SHOW AVAILABLE LISTINGS returns: name, created_on, listing_global_name, title, description, provider, category
                 listing = SnowflakeMarketplaceListing(
-                    listing_global_name=row["LISTING_GLOBAL_NAME"],
-                    listing_display_name=row["LISTING_DISPLAY_NAME"],
-                    provider_name=row["PROVIDER_NAME"],
-                    category=row.get("CATEGORY"),
-                    description=row.get("DESCRIPTION"),
-                    listing_created_on=row.get("LISTING_CREATED_ON"),
-                    listing_updated_on=row.get("LISTING_UPDATED_ON"),
-                    is_personal_data=row.get("IS_PERSONAL_DATA", False),
-                    is_free=row.get("IS_FREE", False),
+                    name=row.get("name", ""),
+                    listing_global_name=row.get("listing_global_name", ""),
+                    title=row.get("title", ""),
+                    provider=row.get("provider", ""),
+                    category=row.get("category"),
+                    description=row.get("description"),
+                    created_on=row.get("created_on"),
                 )
 
                 if self.config.marketplace_listing_pattern.allowed(
@@ -126,7 +126,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             if isinstance(e, SnowflakePermissionError):
                 self.structured_reporter.warning(
                     "Failed to get marketplace listings - insufficient permissions",
-                    context="Make sure the role has access to SNOWFLAKE.ACCOUNT_USAGE.MARKETPLACE_LISTINGS",
+                    context="Make sure the role has privileges to run SHOW AVAILABLE LISTINGS",
                     exc=e,
                 )
             else:
@@ -136,19 +136,16 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 )
 
     def _load_marketplace_purchases(self) -> None:
-        """Load marketplace purchases from Snowflake"""
+        """Load databases created from internal marketplace listings"""
         try:
             cur = self.connection.query(SnowflakeQuery.marketplace_purchases())
 
             for row in cur:
                 purchase = SnowflakeMarketplacePurchase(
-                    listing_global_name=row["LISTING_GLOBAL_NAME"],
-                    listing_display_name=row["LISTING_DISPLAY_NAME"],
-                    provider_name=row["PROVIDER_NAME"],
-                    purchase_date=row["PURCHASE_DATE"],
                     database_name=row["DATABASE_NAME"],
-                    is_auto_fulfill=row.get("IS_AUTO_FULFILL", False),
-                    purchase_status=row["PURCHASE_STATUS"],
+                    purchase_date=row["PURCHASE_DATE"],
+                    owner=row["OWNER"],
+                    comment=row.get("COMMENT"),
                 )
 
                 self._marketplace_purchases[purchase.database_name] = purchase
@@ -158,7 +155,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             if isinstance(e, SnowflakePermissionError):
                 self.structured_reporter.warning(
                     "Failed to get marketplace purchases - insufficient permissions",
-                    context="Make sure the role has access to SNOWFLAKE.ACCOUNT_USAGE.MARKETPLACE_PURCHASES",
+                    context="Make sure the role has access to SNOWFLAKE.ACCOUNT_USAGE.DATABASES",
                     exc=e,
                 )
             else:
@@ -168,7 +165,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 )
 
     def _create_marketplace_data_products(self) -> Iterable[MetadataWorkUnit]:
-        """Create Data Product entities for marketplace listings"""
+        """Create Data Product entities for internal marketplace listings"""
 
         for listing in self._marketplace_listings.values():
             data_product_key = self.identifiers.gen_marketplace_data_product_key(
@@ -178,36 +175,50 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             # Create custom properties dictionary
             custom_properties = {
                 "marketplace_listing": "true",
-                "provider_name": listing.provider_name,
+                "marketplace_type": "internal",  # Internal/private data exchange
+                "provider": listing.provider,
                 "category": listing.category or "",
-                "is_personal_data": str(listing.is_personal_data),
-                "is_free": str(listing.is_free),
                 "listing_global_name": listing.listing_global_name,
+                "listing_name": listing.name,
             }
 
             # Add dates if available
-            if listing.listing_created_on:
-                custom_properties["listing_created_on"] = (
-                    listing.listing_created_on.isoformat()
-                )
-            if listing.listing_updated_on:
-                custom_properties["listing_updated_on"] = (
-                    listing.listing_updated_on.isoformat()
-                )
+            if listing.created_on:
+                custom_properties["listing_created_on"] = listing.created_on.isoformat()
 
             # Resolve domain for this listing
-            domain_urn = self._resolve_domain_for_listing(listing.listing_display_name)
+            domain_urn = self._resolve_domain_for_listing(listing.title)
 
             # Use the gen_data_product function from mcp_builder
             yield from gen_data_product(
                 data_product_key=data_product_key,
-                name=listing.listing_display_name,
-                description=listing.description,
+                name=listing.title,
+                description=listing.description
+                or f"Internal marketplace listing from {listing.provider}",
                 custom_properties=custom_properties,
                 domain_urn=domain_urn,
             )
 
             self.report.report_marketplace_data_product_created()
+
+    def _find_listing_for_purchase(
+        self, purchase: SnowflakeMarketplacePurchase
+    ) -> Optional[str]:
+        """
+        Heuristically find the listing_global_name for a purchased database.
+        This is needed since the ORIGIN column doesn't exist in SNOWFLAKE.ACCOUNT_USAGE.DATABASES.
+
+        Strategy: Check if any listing_global_name appears in the database comment.
+        """
+        if not purchase.comment:
+            return None
+
+        # Try to find any listing whose global name appears in the comment
+        for listing_global_name in self._marketplace_listings:
+            if listing_global_name.lower() in purchase.comment.lower():
+                return listing_global_name
+
+        return None
 
     def _enhance_purchased_datasets(self) -> Iterable[MetadataWorkUnit]:
         """Enhance regular dataset metadata with marketplace purchase info"""
@@ -222,26 +233,44 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             # Create marketplace-enhanced properties
             marketplace_properties = {
                 "marketplace_purchase": "true",
-                "marketplace_listing_global_name": purchase.listing_global_name,
-                "marketplace_provider": purchase.provider_name,
+                "database_type": "IMPORTED_DATABASE",
+                "owner": purchase.owner,
                 "purchase_date": purchase.purchase_date.isoformat(),
-                "purchase_status": purchase.purchase_status,
-                "is_auto_fulfill": str(purchase.is_auto_fulfill),
             }
 
-            # If we have the corresponding listing, add the data product URN
-            if purchase.listing_global_name in self._marketplace_listings:
+            if purchase.comment:
+                marketplace_properties["comment"] = purchase.comment
+
+            # Try to match with known listings by searching comment
+            listing_global_name = self._find_listing_for_purchase(purchase)
+
+            if (
+                listing_global_name
+                and listing_global_name in self._marketplace_listings
+            ):
                 data_product_urn = self.identifiers.gen_marketplace_data_product_urn(
-                    purchase.listing_global_name
+                    listing_global_name
                 )
                 marketplace_properties["data_product_source"] = data_product_urn
+                marketplace_properties["marketplace_listing_global_name"] = (
+                    listing_global_name
+                )
+
+                listing = self._marketplace_listings[listing_global_name]
+                marketplace_properties["marketplace_provider"] = listing.provider
+                purchase_status = "INSTALLED"
+            else:
+                purchase_status = "UNKNOWN_LISTING"
+
+            marketplace_properties["purchase_status"] = purchase_status
 
             # Enhance the dataset properties
             enhanced_properties = DatasetProperties(
-                name=purchase.listing_display_name,
-                qualifiedName=f"{purchase.database_name}",
+                name=purchase.database_name,
+                qualifiedName=purchase.database_name.upper(),
                 customProperties=marketplace_properties,
-                description=f"Marketplace dataset from {purchase.provider_name}",
+                description=purchase.comment
+                or "Database imported from internal marketplace",
             )
 
             yield MetadataChangeProposalWrapper(
@@ -254,12 +283,18 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         """Create lineage from marketplace listings to purchased datasets"""
 
         for purchase in self._marketplace_purchases.values():
-            if purchase.listing_global_name not in self._marketplace_listings:
+            # Try to match with a known listing
+            listing_global_name = self._find_listing_for_purchase(purchase)
+
+            if (
+                not listing_global_name
+                or listing_global_name not in self._marketplace_listings
+            ):
                 continue
 
             # Generate URNs using existing identifier logic
             data_product_urn = self.identifiers.gen_marketplace_data_product_urn(
-                purchase.listing_global_name
+                listing_global_name
             )
 
             dataset_identifier = self.identifiers.snowflake_identifier(
@@ -281,6 +316,41 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 entityUrn=database_urn, aspect=upstream_lineage
             ).as_workunit()
 
+    def _parse_share_objects(self, share_objects_str: str) -> List[str]:
+        """
+        Parse SHARE_OBJECTS_ACCESSED JSON to extract database names.
+
+        SHARE_OBJECTS_ACCESSED is a JSON array of objects like:
+        [{"objectName": "DB.SCHEMA.TABLE", "objectDomain": "Table", ...}, ...]
+
+        We extract the database names (first part of objectName).
+        """
+        try:
+            objects = (
+                json.loads(share_objects_str)
+                if isinstance(share_objects_str, str)
+                else share_objects_str
+            )
+            databases: Set[str] = set()
+
+            if not isinstance(objects, list):
+                return []
+
+            for obj in objects:
+                if isinstance(obj, dict):
+                    # Extract database from objectName (format: "DB"."SCHEMA"."TABLE")
+                    object_name = obj.get("objectName", "")
+                    if object_name:
+                        parts = object_name.split(".")
+                        if parts:
+                            # Remove quotes and get database name
+                            databases.add(parts[0].strip('"').strip("'"))
+
+            return list(databases)
+        except (json.JSONDecodeError, AttributeError, KeyError, TypeError) as e:
+            logger.warning(f"Failed to parse share objects: {e}")
+            return []
+
     def _create_marketplace_usage_statistics(self) -> Iterable[MetadataWorkUnit]:
         """Create marketplace usage statistics"""
 
@@ -294,91 +364,112 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 )
             )
 
-            # Group usage events by database and time bucket
-            usage_by_database: Dict[str, List[SnowflakeMarketplaceAccessEvent]] = (
-                defaultdict(list)
-            )
+            # Group usage events by listing and database
+            usage_by_listing_db: Dict[
+                str, Dict[str, List[SnowflakeMarketplaceAccessEvent]]
+            ] = defaultdict(lambda: defaultdict(list))
 
             for row in cur:
+                # Parse share objects to extract database names
+                databases = self._parse_share_objects(
+                    row.get("SHARE_OBJECTS_ACCESSED", "[]")
+                )
+
+                # Parse the share objects for the event
+                share_objects_raw = row.get("SHARE_OBJECTS_ACCESSED", "[]")
+                share_objects: List[Dict[str, Any]] = (
+                    json.loads(share_objects_raw)
+                    if isinstance(share_objects_raw, str)
+                    else share_objects_raw
+                )
+
                 event = SnowflakeMarketplaceAccessEvent(
                     event_timestamp=row["EVENT_TIMESTAMP"],
                     listing_global_name=row["LISTING_GLOBAL_NAME"],
-                    listing_display_name=row["LISTING_DISPLAY_NAME"],
                     user_name=row["USER_NAME"],
-                    database_name=row["DATABASE_NAME"],
-                    schema_name=row.get("SCHEMA_NAME"),
-                    table_name=row.get("TABLE_NAME"),
-                    query_id=row.get("QUERY_ID"),
-                    bytes_accessed=row.get("BYTES_ACCESSED"),
-                    rows_accessed=row.get("ROWS_ACCESSED"),
+                    query_id=row["QUERY_ID"],
+                    share_name=row["SHARE_NAME"],
+                    share_objects_accessed=share_objects,
                 )
 
-                usage_by_database[event.database_name].append(event)
-                self.report.marketplace_usage_events_processed += 1
+                # Group by listing and database
+                listing_name = event.listing_global_name
+                for db_name in databases:
+                    usage_by_listing_db[listing_name][db_name].append(event)
+                    self.report.marketplace_usage_events_processed += 1
 
-            # Create usage statistics for each database
-            for database_name, events in usage_by_database.items():
-                if database_name not in self._marketplace_purchases:
+            # Create usage statistics for each database accessed via marketplace
+            for listing_name, db_events in usage_by_listing_db.items():
+                # Check if this listing is in our known listings
+                if listing_name not in self._marketplace_listings:
+                    logger.debug(f"Skipping usage for unknown listing: {listing_name}")
                     continue
 
-                dataset_identifier = self.identifiers.snowflake_identifier(
-                    database_name
-                )
-                database_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
+                for database_name, events in db_events.items():
+                    # Check if this database is a known purchase
+                    if database_name not in self._marketplace_purchases:
+                        logger.debug(
+                            f"Skipping usage for unknown database: {database_name}"
+                        )
+                        continue
 
-                # Aggregate usage data
-                unique_users = set(event.user_name for event in events)
-                total_queries = len(
-                    set(event.query_id for event in events if event.query_id)
-                )
+                    dataset_identifier = self.identifiers.snowflake_identifier(
+                        database_name
+                    )
+                    database_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
 
-                # Create user usage counts
-                user_counts = []
-                user_query_counts: Dict[str, int] = defaultdict(int)
-                for event in events:
-                    if event.query_id:
+                    # Aggregate usage data
+                    unique_users: Set[str] = set(event.user_name for event in events)
+                    total_queries = len(set(event.query_id for event in events))
+
+                    # Create user usage counts
+                    user_counts = []
+                    user_query_counts: Dict[str, int] = defaultdict(int)
+                    for event in events:
                         user_query_counts[event.user_name] += 1
 
-                for user_name, query_count in user_query_counts.items():
-                    user_email = None
-                    if self.config.email_domain:
-                        user_email = f"{user_name}@{self.config.email_domain}".lower()
-
-                    if user_email and self.config.user_email_pattern.allowed(
-                        user_email
-                    ):
-                        user_counts.append(
-                            DatasetUserUsageCounts(
-                                user=make_user_urn(
-                                    self.identifiers.get_user_identifier(
-                                        user_name, user_email
-                                    )
-                                ),
-                                count=query_count,
-                                userEmail=user_email,
+                    for user_name, query_count in user_query_counts.items():
+                        user_email = None
+                        if self.config.email_domain:
+                            user_email = (
+                                f"{user_name}@{self.config.email_domain}".lower()
                             )
-                        )
 
-                # Create usage statistics
-                usage_stats = DatasetUsageStatistics(
-                    timestampMillis=start_time_millis,
-                    eventGranularity=TimeWindowSize(
-                        unit=self.config.bucket_duration, multiple=1
-                    ),
-                    totalSqlQueries=total_queries,
-                    uniqueUserCount=len(unique_users),
-                    userCounts=sorted(user_counts, key=lambda x: x.user),
-                )
+                        if user_email and self.config.user_email_pattern.allowed(
+                            user_email
+                        ):
+                            user_counts.append(
+                                DatasetUserUsageCounts(
+                                    user=make_user_urn(
+                                        self.identifiers.get_user_identifier(
+                                            user_name, user_email
+                                        )
+                                    ),
+                                    count=query_count,
+                                    userEmail=user_email,
+                                )
+                            )
 
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=database_urn, aspect=usage_stats
-                ).as_workunit()
+                    # Create usage statistics
+                    usage_stats = DatasetUsageStatistics(
+                        timestampMillis=start_time_millis,
+                        eventGranularity=TimeWindowSize(
+                            unit=self.config.bucket_duration, multiple=1
+                        ),
+                        totalSqlQueries=total_queries,
+                        uniqueUserCount=len(unique_users),
+                        userCounts=sorted(user_counts, key=lambda x: x.user),
+                    )
+
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=database_urn, aspect=usage_stats
+                    ).as_workunit()
 
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 self.structured_reporter.warning(
                     "Failed to get marketplace usage statistics - insufficient permissions",
-                    context="Make sure the role has access to SNOWFLAKE.ORGANIZATION_USAGE.MARKETPLACE_LISTING_ACCESS_HISTORY",
+                    context="Make sure the role has access to SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY",
                     exc=e,
                 )
             else:

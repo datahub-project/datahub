@@ -177,40 +177,37 @@ class SnowflakeStream:
 
 @dataclass
 class SnowflakeMarketplaceListing:
+    """Represents an available internal marketplace listing from SHOW AVAILABLE LISTINGS"""
+
+    name: str  # listing name
     listing_global_name: str
-    listing_display_name: str
-    provider_name: str
+    title: str  # display name
+    provider: str
     category: Optional[str]
     description: Optional[str]
-    listing_created_on: Optional[datetime]
-    listing_updated_on: Optional[datetime]
-    is_personal_data: bool
-    is_free: bool
+    created_on: Optional[datetime]
 
 
 @dataclass
 class SnowflakeMarketplacePurchase:
-    listing_global_name: str
-    listing_display_name: str
-    provider_name: str
-    purchase_date: datetime
+    """Represents a database created from an internal marketplace listing"""
+
     database_name: str
-    is_auto_fulfill: bool
-    purchase_status: str
+    purchase_date: datetime
+    owner: str
+    comment: Optional[str]
 
 
 @dataclass
 class SnowflakeMarketplaceAccessEvent:
+    """Represents a marketplace listing access event"""
+
     event_timestamp: datetime
     listing_global_name: str
-    listing_display_name: str
     user_name: str
-    database_name: str
-    schema_name: Optional[str]
-    table_name: Optional[str]
-    query_id: Optional[str]
-    bytes_accessed: Optional[int]
-    rows_accessed: Optional[int]
+    query_id: str
+    share_name: str
+    share_objects_accessed: List[Dict[str, Any]]
 
 
 class _SnowflakeTagCache:

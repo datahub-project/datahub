@@ -196,32 +196,37 @@ class SnowflakeConfig(
 
 
 class SnowflakeMarketplaceConfig(ConfigModel):
+    """Configuration for Snowflake Internal Marketplace (private data sharing within organization)"""
+
     include_marketplace_listings: bool = Field(
         default=False,
-        description="Whether to ingest marketplace listings available to the account as Data Products",
+        description="Whether to ingest internal marketplace listings (from SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE) as Data Products. "
+        "This captures data products shared privately within your Snowflake organization.",
     )
 
     include_marketplace_purchases: bool = Field(
         default=False,
-        description="Whether to ingest purchased marketplace datasets and enhance them with marketplace metadata",
+        description="Whether to ingest databases created from internal marketplace listings (imported databases) "
+        "and enhance them with marketplace metadata. This tracks data products your account has installed.",
     )
 
     include_marketplace_usage: bool = Field(
         default=False,
-        description="Whether to ingest marketplace dataset usage statistics",
+        description="Whether to ingest internal marketplace dataset usage statistics from DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY. "
+        "Tracks how consumers are accessing shared data products.",
     )
 
     marketplace_listing_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for marketplace listings to include in ingestion",
+        description="Regex patterns for internal marketplace listings to include in ingestion",
     )
 
     marketplace_domain: Dict[str, AllowDenyPattern] = Field(
         default={},
         description=(
-            "Map of domain names to regex patterns for marketplace listings. "
+            "Map of domain names to regex patterns for internal marketplace listings. "
             "Domain keys can be URNs like 'urn:li:domain:finance' or names like 'Finance'. "
-            "When a marketplace listing name matches a pattern, it will be associated with that domain. "
+            "When an internal marketplace listing name matches a pattern, it will be associated with that domain. "
             "Example: {'urn:li:domain:finance': AllowDenyPattern(allow=['.*Financial.*', '.*Banking.*'])}"
         ),
     )

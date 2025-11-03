@@ -1015,59 +1015,42 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
 
     @staticmethod
     def marketplace_listings() -> str:
-        """Get available marketplace listings"""
-        return """
-            SELECT 
-                listing_global_name AS "LISTING_GLOBAL_NAME",
-                listing_display_name AS "LISTING_DISPLAY_NAME",
-                provider_name AS "PROVIDER_NAME",
-                category AS "CATEGORY",
-                description AS "DESCRIPTION",
-                listing_created_on AS "LISTING_CREATED_ON",
-                listing_updated_on AS "LISTING_UPDATED_ON",
-                is_personal_data AS "IS_PERSONAL_DATA",
-                is_free AS "IS_FREE"
-            FROM SNOWFLAKE.ACCOUNT_USAGE.MARKETPLACE_LISTINGS
-            WHERE listing_created_on IS NOT NULL
-            ORDER BY listing_created_on DESC
-            """
+        """Get internal marketplace listings (private data sharing) - Note: requires SHOW LISTINGS command"""
+        # This is a placeholder - actual implementation uses SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE
+        # which returns: name, created_on, listing_global_name, title, description, provider, category
+        return "SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE"
 
     @staticmethod
     def marketplace_purchases() -> str:
-        """Get purchased marketplace datasets"""
+        """Get databases created from internal marketplace listings"""
         return """
             SELECT
-                listing_global_name AS "LISTING_GLOBAL_NAME",
-                listing_display_name AS "LISTING_DISPLAY_NAME", 
-                provider_name AS "PROVIDER_NAME",
-                purchase_date AS "PURCHASE_DATE",
-                database_name AS "DATABASE_NAME",
-                is_auto_fulfill AS "IS_AUTO_FULFILL",
-                purchase_status AS "PURCHASE_STATUS"
-            FROM SNOWFLAKE.ACCOUNT_USAGE.MARKETPLACE_PURCHASES  
-            WHERE purchase_date IS NOT NULL
-            ORDER BY purchase_date DESC
+                DATABASE_NAME AS "DATABASE_NAME",
+                CREATED AS "PURCHASE_DATE",
+                DATABASE_OWNER AS "OWNER",
+                COMMENT AS "COMMENT"
+            FROM SNOWFLAKE.ACCOUNT_USAGE.DATABASES
+            WHERE TYPE = 'IMPORTED DATABASE'
+            AND DELETED IS NULL
+            ORDER BY CREATED DESC
             """
 
     @staticmethod
     def marketplace_listing_access_history(
         start_time_millis: int, end_time_millis: int
     ) -> str:
-        """Get marketplace listing access history"""
+        """Get internal marketplace listing access history (from data exchanges)"""
         return f"""
             SELECT
-                event_timestamp AS "EVENT_TIMESTAMP",
-                listing_global_name AS "LISTING_GLOBAL_NAME",
-                listing_display_name AS "LISTING_DISPLAY_NAME",
-                user_name AS "USER_NAME",
-                database_name AS "DATABASE_NAME",
-                schema_name AS "SCHEMA_NAME",
-                table_name AS "TABLE_NAME",
-                query_id AS "QUERY_ID",
-                bytes_accessed AS "BYTES_ACCESSED",
-                rows_accessed AS "ROWS_ACCESSED"
-            FROM SNOWFLAKE.ORGANIZATION_USAGE.MARKETPLACE_LISTING_ACCESS_HISTORY
-            WHERE event_timestamp >= to_timestamp_ltz({start_time_millis}, 3)
-              AND event_timestamp < to_timestamp_ltz({end_time_millis}, 3)
-            ORDER BY event_timestamp DESC
+                QUERY_DATE AS "EVENT_TIMESTAMP",
+                QUERY_TOKEN AS "QUERY_ID",
+                LISTING_GLOBAL_NAME AS "LISTING_GLOBAL_NAME",
+                CONSUMER_ACCOUNT_NAME AS "USER_NAME",
+                SHARE_NAME AS "SHARE_NAME",
+                SHARE_OBJECTS_ACCESSED AS "SHARE_OBJECTS_ACCESSED"
+            FROM SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY
+            WHERE QUERY_DATE >= to_timestamp_ltz({start_time_millis}, 3)
+            AND QUERY_DATE < to_timestamp_ltz({end_time_millis}, 3)
+            AND IS_SHARE = TRUE
+            ORDER BY QUERY_DATE DESC
             """
