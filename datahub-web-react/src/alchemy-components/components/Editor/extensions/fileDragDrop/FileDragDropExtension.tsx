@@ -31,9 +31,8 @@ import {
 import { FileUploadFailureType, FileUploadSource } from '@components/components/Editor/types';
 import { notification } from '@components/components/Notification/notification';
 
-interface FileDragDropOptions {
+interface FileUploadProps {
     onFileUpload?: (file: File) => Promise<string>;
-    supportedTypes?: string[];
     onFileUploadAttempt?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
     onFileUploadFailed?: (
         fileType: string,
@@ -44,6 +43,11 @@ interface FileDragDropOptions {
     ) => void;
     onFileUploadSucceeded?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
     onFileDownloadView?: (fileType: string, fileSize: number) => void;
+}
+
+interface FileDragDropOptions {
+    uploadFileProps?: FileUploadProps;
+    supportedTypes?: string[];
 }
 
 /**
@@ -144,12 +148,12 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
         // Process each file
         const fileArray = Array.from(files);
         const processPromises = fileArray.map(async (file) => {
-            this.options.onFileUploadAttempt?.(file.type, file.size, 'drag-and-drop');
+            this.options.uploadFileProps?.onFileUploadAttempt?.(file.type, file.size, 'drag-and-drop');
 
             const validation = validateFile(file, { allowedTypes: supportedTypes });
             if (!validation.isValid) {
                 console.error(validation.error);
-                this.options.onFileUploadFailed?.(
+                this.options.uploadFileProps?.onFileUploadFailed?.(
                     file.type,
                     file.size,
                     'drag-and-drop',
@@ -184,14 +188,14 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
             view.dispatch(transaction);
 
             // Upload file if handler is provided
-            if (this.options.onFileUpload) {
+            if (this.options.uploadFileProps?.onFileUpload) {
                 try {
-                    const finalUrl = await this.options.onFileUpload(file);
+                    const finalUrl = await this.options.uploadFileProps.onFileUpload(file);
                     this.updateNodeWithUrl(view, placeholderAttrs.id, finalUrl);
-                    this.options.onFileUploadSucceeded?.(file.type, file.size, 'drag-and-drop');
+                    this.options.uploadFileProps.onFileUploadSucceeded?.(file.type, file.size, 'drag-and-drop');
                 } catch (uploadError) {
                     console.error(uploadError);
-                    this.options.onFileUploadFailed?.(
+                    this.options.uploadFileProps.onFileUploadFailed?.(
                         file.type,
                         file.size,
                         'drag-and-drop',
@@ -205,7 +209,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                     });
                 }
             } else {
-                this.options.onFileUploadFailed?.(
+                this.options.uploadFileProps?.onFileUploadFailed?.(
                     file.type,
                     file.size,
                     'drag-and-drop',
@@ -218,7 +222,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
             }
         } catch (error) {
             console.error(error);
-            this.options.onFileUploadFailed?.(
+            this.options.uploadFileProps?.onFileUploadFailed?.(
                 file.type,
                 file.size,
                 'drag-and-drop',
@@ -385,7 +389,9 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
     ReactComponent: ComponentType<NodeViewComponentProps> = (props) => (
         <FileNodeView
             {...props}
-            onFileDownloadView={(fileType, fileSize) => this.options.onFileDownloadView?.(fileType, fileSize)}
+            onFileDownloadView={(fileType, fileSize) =>
+                this.options.uploadFileProps?.onFileDownloadView?.(fileType, fileSize)
+            }
         />
     );
 
@@ -408,12 +414,14 @@ const decoratedExt = extension<FileDragDropOptions>({
     handlerKeys: [],
     customHandlerKeys: [],
     defaultOptions: {
-        onFileUpload: async (_file: File) => '',
+        uploadFileProps: {
+            onFileUpload: async (_file: File) => '',
+            onFileUploadAttempt: () => {},
+            onFileUploadFailed: () => {},
+            onFileUploadSucceeded: () => {},
+            onFileDownloadView: () => {},
+        },
         supportedTypes: SUPPORTED_FILE_TYPES,
-        onFileUploadAttempt: () => {},
-        onFileUploadFailed: () => {},
-        onFileUploadSucceeded: () => {},
-        onFileDownloadView: () => {},
     },
 })(FileDragDropExtension);
 

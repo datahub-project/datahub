@@ -54,7 +54,8 @@ export const FileUploadContent = ({ hideDropdown }: Props) => {
         if (files.length === 0) return;
 
         const supportedTypes = SUPPORTED_FILE_TYPES;
-        const { onFileUpload, onFileUploadAttempt, onFileUploadFailed, onFileUploadSucceeded } = fileExtension.options;
+        const { onFileUpload, onFileUploadAttempt, onFileUploadFailed, onFileUploadSucceeded } =
+            fileExtension.options.uploadFileProps || {};
 
         try {
             // Process files concurrently
