@@ -11,7 +11,7 @@ import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import java.util.Map;
 import org.testng.annotations.Test;
 
-public class MappingsBuilderTest {
+public class V2MappingsBuilderTest {
   @Test
   public void testMappingsOperations() {
     final AspectSpec aspectSpec =

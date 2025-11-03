@@ -24,6 +24,7 @@ record MLModelProperties includes CustomProperties, ExternalReference, MLModelLi
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "queryByDefault": true,
+    "searchTier": 1
   }
   name: optional string
 
@@ -33,7 +34,8 @@ record MLModelProperties includes CustomProperties, ExternalReference, MLModelLi
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2
   }
   description: optional string
 

@@ -54,6 +54,7 @@ public class IndexUtils {
   private static List<ReindexConfig> _reindexConfigs = new ArrayList<>();
 
   public static List<ReindexConfig> getAllReindexConfigs(
+      OperationContext opContext,
       List<ElasticSearchIndexed> elasticSearchIndexedList,
       Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties)
       throws IOException {
@@ -61,7 +62,8 @@ public class IndexUtils {
     List<ReindexConfig> reindexConfigs = new ArrayList<>(_reindexConfigs);
     if (reindexConfigs.isEmpty()) {
       for (ElasticSearchIndexed elasticSearchIndexed : elasticSearchIndexedList) {
-        reindexConfigs.addAll(elasticSearchIndexed.buildReindexConfigs(structuredProperties));
+        reindexConfigs.addAll(
+            elasticSearchIndexed.buildReindexConfigs(opContext, structuredProperties));
       }
       _reindexConfigs = new ArrayList<>(reindexConfigs);
     }
@@ -204,7 +206,7 @@ public class IndexUtils {
             }
           });
     } catch (Exception e) {
-      log.error("All {} attempts failed", maxAttempts);
+      log.error("All {} attempts failed", maxAttempts, e);
       return false;
     }
   }

@@ -73,7 +73,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected abstract String getElasticSearchImplementation();
 
-  private final IndexConvention _indexConvention = IndexConventionImpl.noPrefix("MD5");
+  private final IndexConvention _indexConvention =
+      IndexConventionImpl.noPrefix("MD5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
   private OperationContext operationContext;
@@ -84,7 +85,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   public void setup() {
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
     _client = buildService(getElasticSearchConfiguration(), TEST_GRAPH_SERVICE_CONFIG);
-    _client.reindexAll(Collections.emptySet());
+    _client.reindexAll(operationContext, Collections.emptySet());
   }
 
   @BeforeMethod
