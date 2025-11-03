@@ -139,11 +139,11 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     // Instead of calling the update function individually whenever selectedOptions changes,
     // we use the useEffect hook to trigger the onUpdate function automatically when selectedOptions is updated.
     useEffect(() => {
-        if (onUpdate) {
+        if (onUpdate && !shouldDisplayConfirmationFooter) {
             onUpdate(selectedOptions);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedOptions]);
+    }, [selectedOptions, shouldDisplayConfirmationFooter]);
 
     // Sync staged and selected options automaticly when shouldDisplayConfirmationFooter disabled
     useEffect(() => {
@@ -152,9 +152,10 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
 
     const onClickUpdateButton = useCallback(() => {
         setSelectedOptions(stagedOptions); // update selected options
+        onUpdate?.(stagedOptions);
         closeDropdown();
         handleSearch('');
-    }, [closeDropdown, stagedOptions, handleSearch]);
+    }, [closeDropdown, stagedOptions, handleSearch, onUpdate]);
 
     const onClickCancelButton = useCallback(() => {
         setStagedOptions(selectedOptions); // reset staged options

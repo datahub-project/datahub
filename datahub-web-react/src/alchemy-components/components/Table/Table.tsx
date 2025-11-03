@@ -195,10 +195,9 @@ export const Table = <T,>({
                         const canExpand = expandable?.rowExpandable?.(row); // Check if row is expandable
                         const key = `row-${index}-${sortColumn ?? 'none'}-${sortOrder ?? 'none'}`;
                         return (
-                            <>
+                            <React.Fragment key={key}>
                                 {/* Render the main row */}
                                 <TableRow
-                                    key={key}
                                     canExpand={canExpand}
                                     onClick={(e) => {
                                         if (focusedRowIndex === index) {
@@ -298,7 +297,7 @@ export const Table = <T,>({
                                         </TableCell>
                                     </TableRow>
                                 )}
-                            </>
+                            </React.Fragment>
                         );
                     })}
                     {footer}

@@ -409,7 +409,7 @@ export const SearchBar = ({
                     data-testid="search-input"
                     onFocus={handleFocus}
                     onBlur={handleBlur}
-                    allowClear={(isFocused && { clearIcon: <ClearIcon /> }) || false}
+                    allowClear={(isFocused && { clearIcon: <ClearIcon data-testid="button-clear" /> }) || false}
                     prefix={
                         <>
                             {viewsEnabled && (

@@ -46,9 +46,12 @@ export default defineConfig(async ({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
     process.env = { ...process.env, ...env };
 
-    const themeConfigFile = `./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`;
-    // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
-    const themeConfig = require(themeConfigFile);
+    let antThemeConfig: any;
+    if (process.env.ANT_THEME_CONFIG) {
+        const themeConfigFile = `./src/conf/theme/${process.env.ANT_THEME_CONFIG}`;
+        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
+        antThemeConfig = require(themeConfigFile);
+    }
 
     // Setup proxy to the datahub-frontend service.
     const frontendProxy = {
@@ -134,7 +137,7 @@ export default defineConfig(async ({ mode }) => {
                     javascriptEnabled: true,
                     // Override antd theme variables.
                     // https://4x.ant.design/docs/react/customize-theme#Ant-Design-Less-variables
-                    modifyVars: themeConfig.styles,
+                    modifyVars: antThemeConfig,
                 },
             },
         },
