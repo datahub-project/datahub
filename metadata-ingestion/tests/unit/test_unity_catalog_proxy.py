@@ -958,6 +958,7 @@ class TestUnityCatalogProxy:
                 created_at=None,
                 updated_at=None,
                 created_by=None,
+                run_details=None,
             )
 
             list(proxy.ml_model_versions(model, include_aliases=True))
@@ -1017,6 +1018,7 @@ class TestUnityCatalogProxy:
                 created_at=None,
                 updated_at=None,
                 created_by=None,
+                run_details=None,
             )
 
             list(proxy.ml_model_versions(model, include_aliases=False))

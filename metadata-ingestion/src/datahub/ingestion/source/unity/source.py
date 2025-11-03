@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 from urllib.parse import urljoin
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
@@ -742,6 +742,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
+        # Extract run details if available
+        training_metrics: Optional[Dict[str, str]] = None
+        hyper_params: Optional[Dict[str, str]] = None
+        custom_properties: Optional[Dict[str, str]] = None
+
+        if ml_model_version.run_details:
+            # Convert run details to DataHub format using proxy helper method
+            converted = (
+                self.unity_catalog_api_proxy.convert_run_details_to_datahub_format(
+                    ml_model_version.run_details
+                )
+            )
+            training_metrics = converted.get("training_metrics")
+            hyper_params = converted.get("hyper_params")
+            custom_properties = converted.get("custom_properties")
+
         ml_model = MLModel(
             id=ml_model_version.id,
             name=ml_model_version.name,
@@ -751,6 +767,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             model_group=ml_model_urn,
             platform=self.platform,
             last_modified=ml_model_version.updated_at,
+            training_metrics=cast(Optional[Dict[str, Optional[str]]], training_metrics),
+            hyper_params=cast(Optional[Dict[str, Optional[str]]], hyper_params),
+            custom_properties=custom_properties,
             extra_aspects=extra_aspects,
         )
 

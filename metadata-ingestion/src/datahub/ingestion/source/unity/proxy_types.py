@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, FrozenSet, List, Optional, Set, Union
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Union
 
 from databricks.sdk.service.catalog import (
     CatalogType,
@@ -340,7 +340,77 @@ class Notebook:
 
 
 @dataclass
+class ModelSignature:
+    """
+    Represents the model signature with input and output schemas extracted from MLflow.
+
+    In Unity Catalog, model signatures define the expected input/output formats for ML models.
+
+    Attributes:
+        inputs: List of input schema specifications, each containing name, type, dtype, shape
+        outputs: List of output schema specifications, each containing name, type, dtype, shape
+        signature_type: Type of signature (e.g., "tensor_spec", "column_spec")
+    """
+
+    inputs: List[Dict[str, Any]]
+    outputs: List[Dict[str, Any]]
+    signature_type: Optional[str] = None
+
+
+@dataclass
+class ModelRunDetails:
+    """
+    Represents comprehensive details from an MLflow run associated with a Unity Catalog model version.
+
+    In Unity Catalog, each model version is linked to an MLflow run via run_id. This dataclass
+    contains all the metadata extracted from that MLflow run, including metrics, parameters,
+    tags, and the model signature.
+
+    Attributes:
+        run_id: MLflow run ID
+        experiment_id: MLflow experiment ID
+        status: Run status (e.g., "FINISHED", "RUNNING")
+        start_time: Run start timestamp (milliseconds since epoch)
+        end_time: Run end timestamp (milliseconds since epoch)
+        user_id: User who initiated the run
+        run_name: Name of the run
+        metrics: Training metrics (e.g., accuracy, loss)
+        parameters: Hyperparameters used for training
+        tags: Run tags/metadata
+        signature: Model signature extracted from the run
+    """
+
+    run_id: str
+    experiment_id: str
+    status: str
+    start_time: Optional[int] = None
+    end_time: Optional[int] = None
+    user_id: Optional[str] = None
+    run_name: Optional[str] = None
+    metrics: Optional[Dict[str, Any]] = None
+    parameters: Optional[Dict[str, Any]] = None
+    tags: Optional[Dict[str, str]] = None
+    signature: Optional["ModelSignature"] = None
+
+
+@dataclass
 class Model:
+    """
+    Represents a Unity Catalog registered ML model (model group).
+
+    In Unity Catalog, a registered model is a collection of model versions.
+    This dataclass corresponds to a Unity Catalog RegisteredModelInfo.
+
+    Attributes:
+        id: Full qualified name (e.g., "catalog.schema.model_name")
+        name: Model name without catalog/schema prefix
+        schema_name: Schema name containing the model
+        catalog_name: Catalog name containing the model
+        description: Model description/comment
+        created_at: Model creation timestamp
+        updated_at: Last update timestamp
+    """
+
     id: str
     name: str
     schema_name: str
@@ -352,6 +422,27 @@ class Model:
 
 @dataclass
 class ModelVersion:
+    """
+    Represents a specific version of a Unity Catalog registered ML model.
+
+    In Unity Catalog, each model version is linked to an MLflow run (via run_id).
+    This dataclass corresponds to a Unity Catalog ModelVersionInfo.
+
+    Attributes:
+        id: Unique identifier combining model ID and version (e.g., "catalog.schema.model_1")
+        name: Versioned model name
+        model: Reference to the parent Model (model group)
+        version: Version number as string
+        aliases: List of aliases (e.g., ["prod", "latest"])
+        description: Version description/comment
+        created_at: Version creation timestamp
+        updated_at: Last update timestamp
+        created_by: User who created this version
+        run_details: Comprehensive MLflow run details (metrics, parameters, tags, signature)
+                     extracted from the MLflow run linked to this model version.
+                     None if run_id is not available or run details couldn't be fetched.
+    """
+
     id: str
     name: str
     model: Model
@@ -361,3 +452,4 @@ class ModelVersion:
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
     created_by: Optional[str]
+    run_details: Optional["ModelRunDetails"] = None

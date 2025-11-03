@@ -303,6 +303,7 @@ class TestUnityCatalogSource:
             created_at=datetime(2023, 1, 3),
             updated_at=datetime(2023, 1, 4),
             created_by="test_user",
+            run_details=None,
         )
 
         # Process the model
