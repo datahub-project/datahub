@@ -9,6 +9,29 @@ from datahub.ingestion.source.unity.source import UnityCatalogSource
 
 
 class TestUnityCatalogSource:
+    @pytest.mark.parametrize(
+        "azure_auth_partial",
+        [
+            {"tenant_id": "tid", "client_secret": "sec"},  # missing client_id
+            {"client_id": "cid", "client_secret": "sec"},  # missing tenant_id
+            {"client_id": "cid", "tenant_id": "tid"},      # missing client_secret
+        ],
+    )
+    def test_azure_auth_config_missing_fields(self, azure_auth_partial):
+        """Test that missing any of client_id, tenant_id, or client_secret in azure_auth raises a validation error."""
+        config_dict = {
+            "workspace_url": "https://test.databricks.com",
+            "warehouse_id": "test_warehouse",
+            "azure_auth": azure_auth_partial,
+        }
+        with pytest.raises(Exception) as exc_info:
+            UnityCatalogSourceConfig.parse_obj(config_dict)
+        # Should mention the missing field in the error message
+        assert (
+            "client_id" in str(exc_info.value)
+            or "tenant_id" in str(exc_info.value)
+            or "client_secret" in str(exc_info.value)
+        )
     @pytest.fixture
     def minimal_config(self):
         """Create a minimal config for testing."""
