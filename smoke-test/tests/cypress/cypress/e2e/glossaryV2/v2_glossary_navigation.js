@@ -65,6 +65,7 @@ describe("glossary sidebar navigation test", () => {
   it("create term and term parent group, move and delete term group", () => {
     nevigateGlossaryPage();
     cy.clickOptionWithTestId("add-term-group-button-v2");
+    cy.clickOptionWithText("Create Term Group");
     cy.waitTextVisible("Create Glossary");
     cy.enterTextInTestId(
       "create-glossary-entity-modal-name",
