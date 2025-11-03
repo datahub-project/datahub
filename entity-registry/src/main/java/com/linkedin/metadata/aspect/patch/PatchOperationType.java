@@ -4,9 +4,11 @@ import lombok.Getter;
 
 public enum PatchOperationType {
   ADD("add"),
-  REMOVE("remove");
-  // The other operations do not work as expected, the limited list was to avoid usage of unintended
-  // operations.
+  REMOVE("remove"),
+  REPLACE("replace"),
+  MOVE("move"),
+  COPY("copy"),
+  TEST("test");
 
   @Getter private final String value;
 

@@ -144,8 +144,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # TODO: once more supported versions are aded, this should become list last n versions
-        datahub_version: ["v1.1.0", "head"]
+        # TODO: once more supported versions are added, this should become list last n versions
+        datahub_version: ["v1.1.0", "v1.2.0", "head"]
       fail-fast: false
     steps:
       - name: Free up disk space
@@ -220,7 +220,7 @@ jobs:
     strategy:
       matrix:
         # TODO: once more supported versions are aded, this should become list last n versions
-        datahub_version: ["v1.0.0", "v1.1.0"]
+        datahub_version: ["v1.1.0", "v1.2.0"]
       fail-fast: false
     steps:
       - name: Free up disk space

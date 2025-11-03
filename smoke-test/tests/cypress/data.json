@@ -1857,6 +1857,38 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:CypressNode.RelatedCypressTerm",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "Related",
+              "parentNode": "urn:li:glossaryNode:CypressNode",
+              "termSource": "EXTERNAL"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
         "urn": "urn:li:glossaryTerm:CypressNode.CypressTerm",
         "aspects": [
           {
@@ -1883,6 +1915,13 @@
                 "time": 1581407189000,
                 "actor": "urn:li:corpuser:jdoe"
               }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms": {
+              "hasRelatedTerms": [
+                "urn:li:glossaryTerm:CypressNode.RelatedCypressTerm"
+              ]
             }
           }
         ]
@@ -2337,12 +2376,97 @@
   },
   {
     "auditHeader": null,
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:testing",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "value": "{\"owners\":[{\"owner\":\"urn:li:corpuser:jdoe\",\"type\":\"TECHNICAL_OWNER\",\"typeUrn\":\"urn:li:ownershipType:__system__technical_owner\",\"source\":{\"type\":\"MANUAL\"}}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:CypressNode.CypressTerm",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "value": "{\"domains\":[\"urn:li:domain:testing\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,cypress_baz)",
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
       "value": "{\"domains\": [\"urn:li:domain:testing\"] }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:testing",
+    "changeType": "UPSERT",
+    "aspectName": "dataProductProperties",
+    "aspect": {
+      "value": "{\"name\":\"Testing\",\"description\":\"My testing data product\",\"assets\":[{\"sourceUrn\":\"urn:li:dataProduct:testing\",\"destinationUrn\":\"urn:li:dashboard:(looker,cypress_baz)\"}] }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:testing",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "value": "{\"domains\":[\"urn:li:domain:testing\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:testing",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+      "value": "{\"tags\":[{\"tag\":\"urn:li:tag:Cypress\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:testing",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+      "value": "{\"terms\":[{\"urn\":\"urn:li:glossaryTerm:CypressNode.CypressTerm\"}],\"auditStamp\":{\"time\":0,\"actor\":\"urn:li:corpuser:jdoe\",\"impersonator\":null}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:subdomain",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "value": "{\"name\": \"Subdomain\", \"description\": \"Subdomain\", \"parentDomain\": \"urn:li:domain:testing\" }",
       "contentType": "application/json"
     },
     "systemMetadata": null
