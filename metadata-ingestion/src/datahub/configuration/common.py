@@ -20,6 +20,7 @@ from typing import (
 
 import pydantic
 import pydantic_core
+from pydantic.fields import ModelField
 from cached_property import cached_property
 from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
@@ -154,6 +155,13 @@ class ConfigModel(BaseModel):
         else:
             with unittest.mock.patch.object(cls.Config, "extra", pydantic.Extra.allow):
                 return cls.parse_obj(obj)
+
+    @classmethod
+    def is_field_required(cls, field_name: str) -> bool:
+        field: ModelField | None = cls.__fields__.get(field_name, None)
+        if field:
+            return field.required
+        return False
 
 
 class PermissiveConfigModel(ConfigModel):

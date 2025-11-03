@@ -26,6 +26,7 @@ from datahub.cli.graphql_cli import graphql
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.session_cli import session
 from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
@@ -185,6 +186,7 @@ datahub.add_command(forms)
 datahub.add_command(datacontract)
 datahub.add_command(assertions)
 datahub.add_command(container)
+datahub.add_command(session)
 
 try:
     from datahub.cli.iceberg_cli import iceberg
