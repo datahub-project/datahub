@@ -571,7 +571,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
-    "sql-queries": usage_common | sqlglot_lib,
+    "sql-queries": usage_common | sqlglot_lib | aws_common | {"smart-open[s3]>=5.2.1"},
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
