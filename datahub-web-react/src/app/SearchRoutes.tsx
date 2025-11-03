@@ -2,6 +2,7 @@ import React from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
 
 import { AnalyticsPage } from '@app/analyticsDashboard/components/AnalyticsPage';
+import { AnalyticsPage as AnalyticsPageV2 } from '@app/analyticsDashboardV2/components/AnalyticsPage';
 import { ManageApplications } from '@app/applications/ManageApplications';
 import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
 import { BusinessAttributes } from '@app/businessAttribute/BusinessAttributes';
@@ -64,6 +65,13 @@ export const SearchRoutes = (): JSX.Element => {
     const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
     const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
 
+    const renderAnalyticsPage = () => {
+        if (!showAnalytics) {
+            return <NoPageFound />;
+        }
+        return isThemeV2 ? <AnalyticsPageV2 /> : <AnalyticsPage />;
+    };
+
     return (
         <FinalSearchablePage>
             <Switch>
@@ -87,10 +95,7 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                 <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
-                <Route
-                    path={PageRoutes.ANALYTICS}
-                    render={() => (showAnalytics ? <AnalyticsPage /> : <NoPageFound />)}
-                />
+                <Route path={PageRoutes.ANALYTICS} render={renderAnalyticsPage} />
                 <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                 <Route
                     path={PageRoutes.SETTINGS_POLICIES}
