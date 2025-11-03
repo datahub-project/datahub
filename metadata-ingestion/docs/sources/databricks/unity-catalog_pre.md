@@ -4,10 +4,24 @@
 - Create a [Databricks Service Principal](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#what-is-a-service-principal)
   - You can skip this step and use your own account to get things running quickly,
     but we strongly recommend creating a dedicated service principal for production use.
+
+#### Authentication Options
+
+You can authenticate with Databricks using either a Personal Access Token or Azure authentication:
+
+**Option 1: Personal Access Token (PAT)**
 - Generate a Databricks Personal Access token following the following guides:
   - [Service Principals](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#personal-access-tokens)
   - [Personal Access Tokens](https://docs.databricks.com/dev-tools/auth.html#databricks-personal-access-tokens)
-- Provision your service account:
+
+**Option 2: Azure Authentication (for Azure Databricks)**
+- Create an Azure Active Directory application:
+  - Follow the [Azure AD app registration guide](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app)
+  - Note down the `client_id` (Application ID), `tenant_id` (Directory ID), and create a `client_secret`
+- Grant the Azure AD application access to your Databricks workspace:
+  - Add the service principal to your Databricks workspace following [this guide](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#add-a-service-principal-to-your-azure-databricks-account-using-the-account-console)
+
+#### Provision your service account:
   - To ingest your workspace's metadata and lineage, your service principal must have all of the following:
     - One of: metastore admin role, ownership of, or `USE CATALOG` privilege on any catalogs you want to ingest
     - One of: metastore admin role, ownership of, or `USE SCHEMA` privilege on any schemas you want to ingest
@@ -27,4 +41,4 @@
   - To ingest `profiling` information with `method: analyze` and `call_analyze: true` (enabled by default), your service principal must have ownership or `MODIFY` privilege on any tables you want to profile.
     - Alternatively, you can run [ANALYZE TABLE](https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-analyze-table.html) yourself on any tables you want to profile, then set `call_analyze` to `false`.
       You will still need `SELECT` privilege on those tables to fetch the results.
-- Check the starter recipe below and replace `workspace_url` and `token` with your information from the previous steps.
+- Check the starter recipe below and replace `workspace_url` and either `token` (for PAT authentication) or `azure_auth` credentials (for Azure authentication) with your information from the previous steps.
