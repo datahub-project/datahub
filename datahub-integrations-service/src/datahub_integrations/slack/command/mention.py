@@ -75,28 +75,63 @@ class SlackMentionEvent(BaseModel):
 
 
 def _build_progress_message(steps: List[str]) -> tuple[str, List[dict]]:
-    # returns (plain text message fallback, rich Slack message blocks)
+    """
+    Build a progress message for Slack display.
+
+    Returns:
+        tuple[str, List[dict]]: (plain text message fallback, rich Slack message blocks)
+
+    Behavior:
+    - When the current step is a plan (multi-line with all execution history),
+      show only that plan without previous steps since it already contains full context.
+    - When the current step is a regular progress update (single concept),
+      show last 9 previous steps + current step (Slack limit: 10 elements).
+    """
     # Current step is always the last one
     current_step = steps[-1]
-    # Previous steps are everything except the last
-    previous_steps = steps[:-1]
 
-    # Show last 9 previous steps (Slack limit: 10 elements)
-    shown_previous = previous_steps[-9:]
+    # Check if current step is a plan message (contains newlines AND plan indicators)
+    # Plan messages from format_plan_progress contain:
+    # - Multiple lines (newlines)
+    # - Plan title marker "**Plan:"
+    # - Step status icons (✓, ▶, •)
+    is_plan_message = "\n" in current_step and (
+        "**Plan:" in current_step or "✓" in current_step or "▶" in current_step
+    )
 
-    # Build display elements
-    elements = [f":white_check_mark: _{step}_" for step in shown_previous]
-    elements.append(f":hourglass_flowing_sand: _*{current_step}*_")
+    if is_plan_message:
+        # Plan message already contains full execution history and formatting.
+        # Display it as-is without additional decoration.
+        blocks: List[dict] = [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": current_step},
+            }
+        ]
+        # For plain text fallback, return the full plan message
+        return current_step, blocks
+    else:
+        # Regular progress update: show last 9 previous + current
+        previous_steps = steps[:-1]
+        shown_previous = previous_steps[-9:]
 
-    # Render blocks
-    blocks = [
-        {
-            "type": "context",
-            "elements": [{"type": "mrkdwn", "text": element} for element in elements],
-        }
-    ]
+        # Build display elements
+        elements: List[str] = [
+            f":white_check_mark: _{step}_" for step in shown_previous
+        ]
+        elements.append(f":hourglass_flowing_sand: _*{current_step}*_")
 
-    return f":hourglass_flowing_sand: _*{current_step}*_", blocks
+        # Render blocks
+        blocks = [
+            {
+                "type": "context",
+                "elements": [
+                    {"type": "mrkdwn", "text": element} for element in elements
+                ],
+            }
+        ]
+
+        return f":hourglass_flowing_sand: _*{current_step}*_", blocks
 
 
 def handle_app_mention(app: App, event: SlackMentionEvent) -> None:

@@ -41,6 +41,69 @@ def test_build_progress_message_limits_to_ten_elements() -> None:
     assert "Step 15" in blocks[0]["elements"][9]["text"]
 
 
+def test_build_progress_message_plan_execution() -> None:
+    """Test that plan messages are displayed in full without previous steps."""
+    # Simulate previous regular steps
+    steps = [
+        "Analyzing query",
+        "Searching for entities",
+    ]
+
+    # Add a plan message (multi-line with plan indicators)
+    plan_message = """**Plan: Find affected Looker dashboards**
+
+✓ Find orders dataset
+✓ Get downstream lineage
+▶ Filter for Looker assets
+> _Examining 12 downstream entities_
+• Fetch dashboard details"""
+
+    steps.append(plan_message)
+
+    text, blocks = _build_progress_message(steps)
+
+    # Plain text should show the full plan message
+    assert text == plan_message
+
+    # Should use section block (not context) for better multi-line formatting
+    assert len(blocks) == 1
+    assert blocks[0]["type"] == "section"
+    assert blocks[0]["text"]["type"] == "mrkdwn"
+
+    # Full plan message should be in the block
+    assert "**Plan: Find affected Looker dashboards**" in blocks[0]["text"]["text"]
+    assert "✓ Find orders dataset" in blocks[0]["text"]["text"]
+    assert "▶ Filter for Looker assets" in blocks[0]["text"]["text"]
+    assert "• Fetch dashboard details" in blocks[0]["text"]["text"]
+
+    # Previous non-plan steps should NOT be included
+    assert "Analyzing query" not in blocks[0]["text"]["text"]
+    assert "Searching for entities" not in blocks[0]["text"]["text"]
+
+
+def test_build_progress_message_plan_with_checkmarks() -> None:
+    """Test that plan messages with checkmarks are detected correctly."""
+    steps = ["Step 1", "Step 2"]
+
+    # Plan with just checkmarks (no "**Plan:" marker)
+    plan_message = """✓ Completed step 1
+▶ Working on step 2
+• Pending step 3"""
+
+    steps.append(plan_message)
+    text, blocks = _build_progress_message(steps)
+
+    # Plain text should show the full plan message
+    assert text == plan_message
+
+    # Should detect as plan and use section block
+    assert blocks[0]["type"] == "section"
+    assert "✓ Completed step 1" in blocks[0]["text"]["text"]
+
+    # Previous steps should not be included
+    assert "Step 1" not in blocks[0]["text"]["text"]
+
+
 def test_handle_app_mention_chat_max_tool_calls_error() -> None:
     mock_event = SlackMentionEvent(
         channel_id="C123",
