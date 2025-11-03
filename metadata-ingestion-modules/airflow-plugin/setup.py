@@ -57,6 +57,15 @@ plugins: Dict[str, Set[str]] = {
         # This provider is required for SQL lineage extraction to work.
         "apache-airflow-providers-openlineage>=1.0.0",
     },
+    # Aliases for backward compatibility
+    "openlineage-airflow2": {
+        # Alias for plugin-v2
+        "openlineage-airflow>=1.2.0",
+    },
+    "openlineage-native": {
+        # Alias for plugin-v2-airflow3
+        "apache-airflow-providers-openlineage>=1.0.0",
+    },
 }
 
 # Require some plugins by default.
