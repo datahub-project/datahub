@@ -352,7 +352,7 @@ function createNameColumn(
             return (
                 <div style={{ paddingLeft: `${record._indentSize || 0}px`, display: 'flex', alignItems: 'center' }}>
                     {expandButton}
-                    <span title={fullyQualifiedName}>{fullyQualifiedName}</span>
+                    <span title={fullyQualifiedName}>{record.name}</span>
                 </div>
             );
         },
