@@ -1,0 +1,49 @@
+namespace com.linkedin.assertion
+
+/**
+ * Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
+ */
+enum AssertionType {
+    /**
+    * A single-dataset assertion.
+    * When this is the value, the datasetAssertion field will be populated.
+    */
+    DATASET
+
+    /**
+    * A freshness assertion, or an assertion which indicates when a particular operation should occur
+    * to an asset.
+    */
+    FRESHNESS
+
+    /**
+    * A volume assertion, or an assertion which indicates how much data should be available for a
+    * particular asset.
+    */
+    VOLUME
+
+    /**
+    * A raw SQL-statement based assertion
+    */
+    SQL
+
+    /**
+    * A structured assertion targeting a specific column or field of the Dataset.
+    */
+    FIELD
+
+    /**
+    * A schema or structural assertion.
+    *
+    * Would have named this SCHEMA but the codegen for PDL does not allow this (reserved word).
+    */
+    DATA_SCHEMA
+
+    /**
+    * A custom assertion. 
+    * When this is the value, the customAssertion field will be populated.
+    * Use this assertion type when the exact type of assertion is not modeled in DataHub or
+    * as a starting point when integrating third-party data quality tools.
+    */
+    CUSTOM
+}
