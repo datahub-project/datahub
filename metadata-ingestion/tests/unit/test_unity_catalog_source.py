@@ -14,7 +14,7 @@ class TestUnityCatalogSource:
         [
             {"tenant_id": "tid", "client_secret": "sec"},  # missing client_id
             {"client_id": "cid", "client_secret": "sec"},  # missing tenant_id
-            {"client_id": "cid", "tenant_id": "tid"},      # missing client_secret
+            {"client_id": "cid", "tenant_id": "tid"},  # missing client_secret
         ],
     )
     def test_azure_auth_config_missing_fields(self, azure_auth_partial):
@@ -32,6 +32,7 @@ class TestUnityCatalogSource:
             or "tenant_id" in str(exc_info.value)
             or "client_secret" in str(exc_info.value)
         )
+
     @pytest.fixture
     def minimal_config(self):
         """Create a minimal config for testing."""
