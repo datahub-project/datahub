@@ -44,6 +44,11 @@ meta_mapping:
     config:
       link: {{ $match }}
       description: "Documentation Link"
+  data_domain:
+    match: "Finance"
+    operation: "add_domain"
+    config:
+      domain: "finance"
 column_meta_mapping:
   terms_list:
     match: ".*"
@@ -73,10 +78,11 @@ We support the following operations:
    - You can use commas to specify multiple owners - e.g. `business_owner: "jane,john,urn:li:corpGroup:data-team"`.
 
 5. add_doc_link - Requires `link` and `description` properties in config. Upon ingestion run, this will overwrite current links in the institutional knowledge section with this new link. The anchor text is defined here in the meta_mappings as `description`.
+6. add_domain - Requires `domain` property in config. Adds the specified domain to the dataset.
 
 Note:
 
-1. The dbt `meta_mapping` config works at the model level, while the `column_meta_mapping` config works at the column level. The `add_owner` operation is not supported at the column level.
+1. The dbt `meta_mapping` config works at the model level, while the `column_meta_mapping` config works at the column level. The `add_owner` and `add_domain` operations are not supported at the column level.
 2. For string meta properties we support regex matching.
 3. **List support**: YAML lists are now supported in meta properties. Each item in the list that matches the regex pattern will be processed.
 
@@ -198,6 +204,39 @@ meta_mapping:
 ```
 
 This will add `alice@company.com` and `bob@company.com` as owners (matching `.*@company.com`) but skip `contractor@external.com` (doesn't match the pattern).
+
+#### Domains - Assign models to domains based on meta properties
+
+If your meta section looks like this:
+
+```yaml
+meta:
+  team: "Finance"
+```
+
+and you want to assign models to a specific domain based on the team, you can use the following meta_mapping section:
+
+```yaml
+meta_mapping:
+  team:
+    match: "Finance"
+    operation: "add_domain"
+    config:
+      domain: "finance"
+```
+
+This will assign the model to the `finance` domain when the `team` meta property matches "Finance". You can also use regex matching with domain assignments:
+
+```yaml
+meta_mapping:
+  department:
+    match: "Finance|Accounting|Treasury"
+    operation: "add_domain"
+    config:
+      domain: "{{ $match | lower }}"
+```
+
+This will assign models to domains `finance`, `accounting`, or `treasury` based on the department meta property value.
 
 ### dbt query_tag automated mappings
 
