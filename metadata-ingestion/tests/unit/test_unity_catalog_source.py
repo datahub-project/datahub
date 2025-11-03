@@ -353,7 +353,7 @@ class TestUnityCatalogSource:
         assert config.azure_auth is not None
         assert config.azure_auth.client_id == "test-client-id"
         assert config.azure_auth.tenant_id == "test-tenant-id"
-        assert config.azure_auth.client_secret == "test-secret"
+        assert config.azure_auth.client_secret.get_secret_value() == "test-secret"
 
         # Test that personal access token is not required when Azure auth is provided
         assert config.token is None
@@ -389,7 +389,7 @@ class TestUnityCatalogSource:
             assert connection_test_config.azure_auth is not None
             assert connection_test_config.azure_auth.client_id == "test-client-id"
             assert connection_test_config.azure_auth.tenant_id == "test-tenant-id"
-            assert connection_test_config.azure_auth.client_secret == "test-secret"
+            assert connection_test_config.azure_auth.client_secret.get_secret_value() == "test-secret"
             assert connection_test_config.databricks_api_page_size == 100
             assert (
                 connection_test_config.token is None
