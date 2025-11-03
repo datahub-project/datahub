@@ -119,8 +119,8 @@ export class UrnManager {
         urnMap.set(entity.id, entity.urn);
       } else if (entity.status === 'new') {
         // Generate new URN for new entities
-        const urn = this.generateEntityUrn(entity.type);
-        urnMap.set(entity.id, urn);
+          const urn = this.generateEntityUrn(entity.type);
+          urnMap.set(entity.id, urn);
       }
     });
     

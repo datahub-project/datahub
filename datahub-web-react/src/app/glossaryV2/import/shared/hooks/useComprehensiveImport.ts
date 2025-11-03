@@ -150,7 +150,6 @@ export const useComprehensiveImport = ({
       }
       return ownershipTypeMap;
     } catch (error) {
-      console.error('Failed to load existing ownership types:', error);
       return new Map();
     }
   }, [executeGetOwnershipTypesQuery]);
@@ -163,8 +162,6 @@ export const useComprehensiveImport = ({
     existingEntities: Entity[],
     existingOwnershipTypes: Map<string, string>,
   ): Promise<void> => {
-    console.log('🚀 Starting comprehensive import...');
-    
     try {
       // 1. Categorize entities to get only new and updated for entity patches
       const categorizationResult = categorizeEntities(allEntities, existingEntities);
@@ -236,7 +233,6 @@ export const useComprehensiveImport = ({
               error: null,
             });
           } catch (error) {
-            console.error('Failed to create relationship:', error);
             results.push({
               urn: relationshipPatch.urn,
               success: false,
@@ -293,8 +289,6 @@ export const useComprehensiveImport = ({
       }
       
     } catch (error) {
-      console.error('Comprehensive import failed:', error);
-      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       // Get the total from the current progress state (already set to correct value)
@@ -323,11 +317,8 @@ export const useComprehensiveImport = ({
    */
   const startImport = useCallback(async (entities: Entity[], existingEntities: Entity[]): Promise<void> => {
     if (isProcessing) {
-      console.warn('Import already in progress');
       return;
     }
-
-    console.log('🎯 Starting comprehensive import process...');
     
     setIsProcessing(true);
     setIsPaused(false);
@@ -389,8 +380,6 @@ export const useComprehensiveImport = ({
       await executeComprehensiveImport(entities, existingEntities, existingOwnershipTypes);
 
     } catch (error) {
-      console.error('❌ Import process failed:', error);
-      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       addError({
         entityId: '',
@@ -457,7 +446,6 @@ export const useComprehensiveImport = ({
 
          const retryFailed = useCallback(async () => {
            if (!currentPlanRef.current) {
-             console.warn('No import plan available for retry');
              return;
            }
     
@@ -468,15 +456,12 @@ export const useComprehensiveImport = ({
     // Check if there are retryable errors
     const hasRetryableErrors = progress.errors.some(error => error.retryable);
     if (!hasRetryableErrors) {
-      console.log('No retryable errors found');
       return;
     }
 
     // Since the mutation is atomic, we need to retry the entire batch
     // We'll need the original entities and existing entities to retry
     // This is a limitation of the atomic nature - we can't retry individual entities
-    console.log('⚠️ Retrying entire batch due to atomic nature of GraphQL mutations');
-    
     // For now, we'll just reset and let the user manually retry
     // In a real implementation, you'd want to store the original entities
     resetProgress();

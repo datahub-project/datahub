@@ -332,7 +332,7 @@ function hasDomainDataChanged(newEntity: Entity, existingEntity: Entity): boolea
 function createOwnershipPatches(
   entities: Entity[],
   urnMap: Map<string, string>,
-  existingOwnershipTypes: Map<string, string>,
+  ownershipTypeMap: Map<string, string>,
   existingEntities: Entity[] = [],
 ): ComprehensivePatchInput[] {
   const patches: ComprehensivePatchInput[] = [];
@@ -362,7 +362,7 @@ function createOwnershipPatches(
         }
       }
       
-      const ownershipPatchOps = createOwnershipPatchOperations(parsedOwnership, existingOwnershipTypes, isUpdate);
+      const ownershipPatchOps = createOwnershipPatchOperations(parsedOwnership, ownershipTypeMap, isUpdate);
       
       if (ownershipPatchOps.length > 0) {
         const urn = UrnManager.resolveEntityUrn(entity, urnMap);

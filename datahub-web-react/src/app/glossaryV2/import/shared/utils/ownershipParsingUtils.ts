@@ -226,7 +226,14 @@ export function createOwnershipPatchOperations(
   const ownersArray = parsedOwnership.map(({ ownershipTypeName, ownerUrn }) => {
     const ownershipTypeUrn = ownershipTypeMap.get(ownershipTypeName.toLowerCase());
     if (!ownershipTypeUrn) {
-      throw new Error(`Ownership type "${ownershipTypeName}" not found in ownership type map`);
+      // Provide helpful error message with available ownership types
+      const availableTypes = Array.from(ownershipTypeMap.keys()).join(', ');
+      throw new Error(
+        `Ownership type "${ownershipTypeName}" not found in ownership type map. ` +
+        `Available types: ${availableTypes || '(none)'}. ` +
+        `Note: System ownership types are "Technical Owner", "Business Owner", "Data Steward", and "None". ` +
+        `Custom ownership types must be created first.`
+      );
     }
 
     return {
