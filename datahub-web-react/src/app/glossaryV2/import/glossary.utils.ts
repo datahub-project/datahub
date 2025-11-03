@@ -175,6 +175,7 @@ export function validateUrl(url: string): ValidationResult {
 
   if (url && url.trim() !== '') {
     try {
+      // eslint-disable-next-line no-new
       new URL(url);
     } catch (error) {
       errors.push({
@@ -234,7 +235,7 @@ export function findDuplicateNames(entities: EntityData[]): ValidationResult {
   // Key format: "parent1,parent2" (sorted, comma-separated) or "" for root level
   const hierarchyGroups = new Map<string, EntityData[]>();
 
-  entities.forEach((entity, index) => {
+  entities.forEach((entity) => {
     const parentKey = entity.parent_nodes 
       ? parseCommaSeparated(entity.parent_nodes).sort().join(',').toLowerCase()
       : '';
@@ -262,7 +263,7 @@ export function findDuplicateNames(entities: EntityData[]): ValidationResult {
     nameCounts.forEach((indices, name) => {
       if (indices.length > 1) {
         const parentLabel = parentKey ? `with parent(s) "${parentKey}"` : 'at root level';
-        indices.forEach(rowIndex => {
+        indices.forEach(() => {
           errors.push({
             field: 'name',
             message: `Duplicate name "${name}" found ${parentLabel} in rows ${indices.map(i => i + 1).join(', ')}`,
@@ -400,14 +401,14 @@ export function convertGraphQLEntityToEntity(graphqlEntity: GraphQLEntity): Enti
   };
 }
 
-export function calculateHierarchyLevel(entity: Entity, allEntities: Entity[]): number {
+export function calculateHierarchyLevel(entity: Entity): number {
   return entity.parentNames.length;
 }
 
 export function sortEntitiesByHierarchy(entities: Entity[]): Entity[] {
   const entitiesWithLevels = entities.map(entity => ({
     ...entity,
-    level: calculateHierarchyLevel(entity, entities),
+    level: calculateHierarchyLevel(entity),
   }));
 
   return entitiesWithLevels.sort((a, b) => {
@@ -433,10 +434,10 @@ export function detectCircularDependencies(entities: Entity[]): ValidationResult
       visited.add(entityName);
       stack.add(entityName);
       
-      const entity = entities.find(e => e.name === entityName);
-      if (entity) {
-        for (const parentName of entity.parentNames) {
-          if (hasCycle(parentName)) return true;
+      const foundEntity = entities.find(e => e.name === entityName);
+      if (foundEntity) {
+        if (foundEntity.parentNames.some(parentName => hasCycle(parentName))) {
+          return true;
         }
       }
       
@@ -505,7 +506,9 @@ export function throttle<T extends (...args: any[]) => any>(
     if (!inThrottle) {
       func(...args);
       inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
+      setTimeout(() => {
+        inThrottle = false;
+      }, limit);
     }
   };
 }

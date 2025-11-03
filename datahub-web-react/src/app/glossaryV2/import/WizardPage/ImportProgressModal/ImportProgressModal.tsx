@@ -2,13 +2,12 @@ import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { Modal } from '@components';
 import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
-import { ComprehensiveImportProgress, ImportError, ImportWarning } from '@app/glossaryV2/import/shared/hooks/useComprehensiveImport';
+import { ComprehensiveImportProgress } from '@app/glossaryV2/import/shared/hooks/useComprehensiveImport';
 
 interface ImportProgressModalProps {
   visible: boolean;
   onClose: () => void;
   progress: ComprehensiveImportProgress;
-  isProcessing: boolean;
 }
 
 const ModalContainer = styled.div`
@@ -75,41 +74,17 @@ const ErrorItem = styled.div`
   }
 `;
 
-const WarningItem = styled.div`
-  padding: 8px 12px;
-  background: #fffbeb;
-  border: 1px solid #fed7aa;
-  border-radius: 6px;
-  margin-bottom: 8px;
-  
-  &:last-child {
-    margin-bottom: 0;
-  }
-`;
 
 
 export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
   visible,
   onClose,
   progress,
-  isProcessing,
 }) => {
   const progressPercent = progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
   const hasErrors = progress.errors.length > 0;
   const isCompleted = progress.processed === progress.total && progress.total > 0;
   const hasFailed = progress.failed > 0;
-
-  const getProgressStatus = () => {
-    if (hasFailed) return 'exception';
-    if (isCompleted) return 'success';
-    return 'active';
-  };
-
-  const getProgressColor = () => {
-    if (hasFailed) return '#ef4444';
-    if (isCompleted) return '#10b981';
-    return '#3b82f6';
-  };
 
   useEffect(() => {
     if (isCompleted) {
@@ -159,8 +134,8 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
               Errors ({progress.errors.length})
             </h5>
             <ErrorList>
-              {progress.errors.slice(0, 5).map((error, index) => (
-                <ErrorItem key={index}>
+              {progress.errors.slice(0, 5).map((error) => (
+                <ErrorItem key={error.entityId || error.error}>
                   <strong>{error.entityName}</strong>
                   <br />
                   <span style={{ color: '#6b7280' }}>{error.error}</span>

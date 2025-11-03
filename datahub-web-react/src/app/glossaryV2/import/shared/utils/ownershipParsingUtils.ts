@@ -21,22 +21,22 @@ export function parseOwnershipFromColumns(usersColumn: string, groupsColumn: str
   
   if (usersColumn && usersColumn.trim()) {
     const userEntries = usersColumn.split('|').map(entry => entry.trim()).filter(entry => entry);
-    for (const entry of userEntries) {
+    userEntries.forEach(entry => {
       const parsed = parseSingleOwnership(entry, 'CORP_USER');
       if (parsed) {
         results.push(parsed);
       }
-    }
+    });
   }
   
   if (groupsColumn && groupsColumn.trim()) {
     const groupEntries = groupsColumn.split('|').map(entry => entry.trim()).filter(entry => entry);
-    for (const entry of groupEntries) {
+    groupEntries.forEach(entry => {
       const parsed = parseSingleOwnership(entry, 'CORP_GROUP');
       if (parsed) {
         results.push(parsed);
       }
-    }
+    });
   }
   
   return results;
@@ -59,13 +59,13 @@ export function parseSingleOwnership(ownershipString: string, corpType: 'CORP_US
   
   // Handle case where ownerName contains colons (like URNs)
   if (parts.length > 2) {
-    const ownershipTypeName = parts[parts.length - 1];
-    const ownerName = parts.slice(0, -1).join(':');
+    const ownershipTypeNameFromUrn = parts[parts.length - 1];
+    const ownerNameFromUrn = parts.slice(0, -1).join(':');
     return {
-      ownershipTypeName,
-      ownerName,
+      ownershipTypeName: ownershipTypeNameFromUrn,
+      ownerName: ownerNameFromUrn,
       corpType: 'CORP_USER',
-      ownerUrn: ownerName,
+      ownerUrn: ownerNameFromUrn,
       ownerType: 'NONE' as const,
     };
   }
@@ -114,7 +114,7 @@ export function parseOwnershipString(ownershipString: string): ParsedOwnership[]
     .filter(owner => owner.length > 0);
 
   return ownershipStrings
-    .map(ownershipString => parseSingleOwnership(ownershipString, 'CORP_USER'))
+    .map(ownershipStr => parseSingleOwnership(ownershipStr, 'CORP_USER'))
     .filter((parsed): parsed is ParsedOwnership => parsed !== null);
 }
 
@@ -160,7 +160,8 @@ export function validateOwnershipColumns(usersColumn: string, groupsColumn: stri
 
   if (usersColumn && usersColumn.trim()) {
     const userEntries = usersColumn.split('|').map(entry => entry.trim());
-    for (const entry of userEntries) {
+    for (let i = 0; i < userEntries.length; i++) {
+      const entry = userEntries[i];
       if (!entry) {
         return { 
           isValid: false, 
@@ -179,7 +180,8 @@ export function validateOwnershipColumns(usersColumn: string, groupsColumn: stri
 
   if (groupsColumn && groupsColumn.trim()) {
     const groupEntries = groupsColumn.split('|').map(entry => entry.trim());
-    for (const entry of groupEntries) {
+    for (let i = 0; i < groupEntries.length; i++) {
+      const entry = groupEntries[i];
       if (!entry) {
         return { 
           isValid: false, 
@@ -209,7 +211,6 @@ export function validateOwnershipColumns(usersColumn: string, groupsColumn: stri
 export function createOwnershipPatchOperations(
   parsedOwnership: ParsedOwnership[],
   ownershipTypeMap: Map<string, string>,
-  isUpdate = false,
 ): Array<{ op: 'ADD' | 'REMOVE' | 'REPLACE' | 'MOVE' | 'COPY' | 'TEST'; path: string; value?: string }> {
   const patches: Array<{ op: 'ADD' | 'REMOVE' | 'REPLACE' | 'MOVE' | 'COPY' | 'TEST'; path: string; value?: string }> = [];
 

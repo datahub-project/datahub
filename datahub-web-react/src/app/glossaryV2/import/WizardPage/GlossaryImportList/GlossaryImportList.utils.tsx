@@ -158,6 +158,14 @@ const EditableCell = ({
     return (
         <div 
             onClick={() => handleCellEdit(record.id, field)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleCellEdit(record.id, field);
+              }
+            }}
+            role="button"
+            tabIndex={0}
             style={{ cursor: 'pointer' }}
         >
             {displayValue !== undefined ? displayValue : (record.data[field] || '-')}
@@ -299,6 +307,7 @@ function createNameColumn(
             
             const expandButton = hasChildren ? (
                 <button
+                    type="button"
                     onClick={(e) => {
                         e.stopPropagation();
                         handleExpandRow(record);
@@ -384,6 +393,14 @@ function createEntityTypeColumn(
             return (
                 <div 
                     onClick={() => handleCellEdit(record.id, 'entity_type')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleCellEdit(record.id, 'entity_type');
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
                     style={{ cursor: 'pointer' }}
                 >
                     {record.data.entity_type}
@@ -431,6 +448,14 @@ function createTermSourceColumn(
             return (
                 <div 
                     onClick={() => handleCellEdit(record.id, 'term_source')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleCellEdit(record.id, 'term_source');
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
                     style={{ cursor: 'pointer' }}
                 >
                     {(record.data.term_source || 'INTERNAL').toUpperCase()}

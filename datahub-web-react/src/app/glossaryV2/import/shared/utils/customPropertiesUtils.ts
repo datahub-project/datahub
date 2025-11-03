@@ -24,7 +24,7 @@ export function parseCustomProperties(input: string | null | undefined): Record<
   const result: Record<string, string> = {};
   const pairs = trimmed.split(',');
   
-  for (const pair of pairs) {
+  pairs.forEach(pair => {
     const colonIndex = pair.indexOf(':');
     if (colonIndex > 0) {
       const key = pair.substring(0, colonIndex).trim();
@@ -33,7 +33,7 @@ export function parseCustomProperties(input: string | null | undefined): Record<
         result[key] = value;
       }
     }
-  }
+  });
 
   return result;
 }

@@ -118,7 +118,7 @@ export const WizardPage = () => {
             
             setUploadProgress(90);
             try {
-                const existingEntities = await executeUnifiedGlossaryQuery({
+                const fetchedEntities = await executeUnifiedGlossaryQuery({
                     input: {
                         types: ['GLOSSARY_TERM', 'GLOSSARY_NODE'],
                         query: '*',
@@ -127,7 +127,7 @@ export const WizardPage = () => {
                 });
                 
                 const urnToNameMap = new Map<string, string>();
-                existingEntities.forEach((entity: any) => {
+                fetchedEntities.forEach((entity: any) => {
                     const name = entity.properties?.name || entity.name || '';
                     if (name) {
                         urnToNameMap.set(entity.urn, name);
@@ -136,7 +136,7 @@ export const WizardPage = () => {
 
                 // SPECIALIZED converter for CSV import comparison flow - differs from glossary.utils.convertGraphQLEntityToEntity()
                 // Uses URN as ID, extracts only immediate parent, converts relationships to hierarchical names
-                const convertedExistingEntities: Entity[] = existingEntities.map((entity: any) => {
+                const convertedExistingEntities: Entity[] = fetchedEntities.map((entity: any) => {
                     const isTerm = entity.__typename === 'GlossaryTerm';
                     const properties = entity.properties || {};
                     const parentNodes = entity.parentNodes?.nodes || [];

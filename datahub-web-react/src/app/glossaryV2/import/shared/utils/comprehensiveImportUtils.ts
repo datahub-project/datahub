@@ -3,7 +3,7 @@
  * Handles single GraphQL call with hierarchical ordering and dependency resolution
  */
 
-import { Entity, EntityData, PatchOperation } from '@app/glossaryV2/import/glossary.types';
+import { Entity, PatchOperation } from '@app/glossaryV2/import/glossary.types';
 import { UrnManager } from '@app/glossaryV2/import/shared/utils/urnManager';
 import { sortEntitiesByHierarchy } from '@app/glossaryV2/import/glossary.utils';
 import { parseOwnershipFromColumns, createOwnershipPatchOperations } from '@app/glossaryV2/import/shared/utils/ownershipParsingUtils';
@@ -322,7 +322,7 @@ function createOwnershipPatches(
         }
       }
       
-      const ownershipPatchOps = createOwnershipPatchOperations(parsedOwnership, ownershipTypeMap, isUpdate);
+      const ownershipPatchOps = createOwnershipPatchOperations(parsedOwnership, ownershipTypeMap);
       
       if (ownershipPatchOps.length > 0) {
         const urn = UrnManager.resolveEntityUrn(entity, urnMap);

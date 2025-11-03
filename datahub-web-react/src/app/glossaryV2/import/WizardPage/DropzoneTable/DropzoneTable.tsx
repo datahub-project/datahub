@@ -4,21 +4,22 @@
 
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
-import { Button , Badge, Text , Icon } from '@components';
+import { Button, Text, Icon } from '@components';
 
 
 const DropzoneContainer = styled.div<{ isDragActive: boolean; hasFile: boolean }>`
-  border: 2px dashed ${props => 
-    props.isDragActive ? '#1890ff' : 
-    props.hasFile ? '#52c41a' : '#d9d9d9'
-  };
+  border: 2px dashed ${props => {
+    if (props.isDragActive) return '#1890ff';
+    if (props.hasFile) return '#52c41a';
+    return '#d9d9d9';
+  }};
   border-radius: 8px;
   padding: 48px 24px;
   text-align: center;
-  background-color: ${props => 
-    props.isDragActive ? '#f6ffed' : 
-    props.hasFile ? '#f6ffed' : '#fafafa'
-  };
+  background-color: ${props => {
+    if (props.isDragActive || props.hasFile) return '#f6ffed';
+    return '#fafafa';
+  }};
   transition: all 0.3s ease;
   cursor: pointer;
   position: relative;
@@ -44,13 +45,6 @@ const UploadIcon = styled.div`
   justify-content: center;
 `;
 
-const FileIcon = styled.div`
-  font-size: 32px;
-  color: #52c41a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
 
 const StatusIcon = styled.div<{ status: 'success' | 'error' | 'processing' }>`
   width: 32px;
@@ -62,11 +56,11 @@ const StatusIcon = styled.div<{ status: 'success' | 'error' | 'processing' }>`
   svg {
     width: 24px;
     height: 24px;
-    color: ${props => 
-      props.status === 'success' ? '#52c41a' :
-      props.status === 'error' ? '#ff4d4f' :
-      '#1890ff'
-    };
+    color: ${props => {
+      if (props.status === 'success') return '#52c41a';
+      if (props.status === 'error') return '#ff4d4f';
+      return '#1890ff';
+    }};
   }
 `;
 
@@ -141,6 +135,24 @@ export default function DropzoneTable({
   acceptedFileTypes = ['.csv'],
   maxFileSize = 10,
 }: DropzoneTableProps) {
+  const validateAndSelectFile = useCallback((selectedFile: File) => {
+    // Validate file type
+    const fileExtension = `.${  selectedFile.name.split('.').pop()?.toLowerCase()}`;
+    if (!acceptedFileTypes.includes(fileExtension)) {
+      // This would be handled by the parent component
+      return;
+    }
+
+    // Validate file size
+    const fileSizeMB = selectedFile.size / (1024 * 1024);
+    if (fileSizeMB > maxFileSize) {
+      // This would be handled by the parent component
+      return;
+    }
+
+    onFileSelect(selectedFile);
+  }, [acceptedFileTypes, maxFileSize, onFileSelect]);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -165,33 +177,15 @@ export default function DropzoneTable({
       const droppedFile = files[0];
       validateAndSelectFile(droppedFile);
     }
-  }, []);
+  }, [validateAndSelectFile]);
 
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const {files} = e.target;
-    if (files && files.length > 0) {
-      const selectedFile = files[0];
+    const {files: inputFiles} = e.target;
+    if (inputFiles && inputFiles.length > 0) {
+      const selectedFile = inputFiles[0];
       validateAndSelectFile(selectedFile);
     }
-  }, []);
-
-  const validateAndSelectFile = useCallback((file: File) => {
-    // Validate file type
-    const fileExtension = `.${  file.name.split('.').pop()?.toLowerCase()}`;
-    if (!acceptedFileTypes.includes(fileExtension)) {
-      // This would be handled by the parent component
-      return;
-    }
-
-    // Validate file size
-    const fileSizeMB = file.size / (1024 * 1024);
-    if (fileSizeMB > maxFileSize) {
-      // This would be handled by the parent component
-      return;
-    }
-
-    onFileSelect(file);
-  }, [acceptedFileTypes, maxFileSize, onFileSelect]);
+  }, [validateAndSelectFile]);
 
   const handleClick = useCallback(() => {
     if (!file && !isProcessing) {
@@ -205,7 +199,7 @@ export default function DropzoneTable({
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))  } ${  sizes[i]}`;
+    return `${parseFloat((bytes / (k ** i)).toFixed(2))  } ${  sizes[i]}`;
   };
 
   const getStatusIcon = () => {

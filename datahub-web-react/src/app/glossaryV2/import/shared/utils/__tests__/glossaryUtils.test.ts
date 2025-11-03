@@ -251,7 +251,7 @@ describe('Glossary Utils', () => {
 
       const entitiesWithLevels = entities.map(entity => ({
         ...entity,
-        level: calculateHierarchyLevel(entity, entities),
+        level: calculateHierarchyLevel(entity),
       }));
 
       expect(entitiesWithLevels[0].level).toBe(0); // Root
@@ -276,7 +276,7 @@ describe('Glossary Utils', () => {
 
       const entitiesWithLevels = entities.map(entity => ({
         ...entity,
-        level: calculateHierarchyLevel(entity, entities),
+        level: calculateHierarchyLevel(entity),
       }));
       expect(entitiesWithLevels[0].level).toBe(0);
     });

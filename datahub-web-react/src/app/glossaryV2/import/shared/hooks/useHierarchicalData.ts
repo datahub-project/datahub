@@ -101,20 +101,18 @@ export function useHierarchicalData({
      */
     const flattenedData = useMemo(() => {
         const flatten = (
-            entities: HierarchicalEntity[], 
+            entitiesToFlatten: HierarchicalEntity[], 
             level = 0,
         ): (HierarchicalEntity & { _indentLevel: number; _indentSize: number })[] => {
             const result: (HierarchicalEntity & { _indentLevel: number; _indentSize: number })[] = [];
             
-            entities.forEach(entity => {
-                // Add entity with indentation metadata
+            entitiesToFlatten.forEach(entity => {
                 result.push({
                     ...entity,
                     _indentLevel: level,
                     _indentSize: level * indentSize,
                 });
                 
-                // Add children if expanded
                 if (entity.children.length > 0 && expandedKeys.includes(entity.name)) {
                     result.push(...flatten(entity.children, level + 1));
                 }
@@ -129,9 +127,9 @@ export function useHierarchicalData({
     /**
      * Collect all expandable keys recursively
      */
-    const collectExpandableKeys = useCallback((entities: HierarchicalEntity[]): string[] => {
+    const collectExpandableKeys = useCallback((entitiesToCollect: HierarchicalEntity[]): string[] => {
         const keys: string[] = [];
-        entities.forEach(entity => {
+        entitiesToCollect.forEach(entity => {
             if (entity.children && entity.children.length > 0) {
                 keys.push(entity.name);
                 keys.push(...collectExpandableKeys(entity.children));

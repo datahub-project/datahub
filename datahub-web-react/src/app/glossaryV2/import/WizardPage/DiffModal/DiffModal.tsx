@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Modal, Button, Table, Text, Badge } from '@components';
+import { Modal, Table, Text, Badge } from '@components';
 import { EntityData, Entity } from '@app/glossaryV2/import/glossary.types';
 import { parseCustomProperties, compareCustomProperties } from '@app/glossaryV2/import/shared/utils/customPropertiesUtils';
 
@@ -80,8 +80,16 @@ const createTableColumns = () => [
     render: (record: ComparisonField) => (
       <div style={{ 
         padding: '8px 12px',
-        backgroundColor: record.isConflict ? '#fef2f2' : record.hasChanges ? '#fef3c7' : '#f9fafb',
-        border: `1px solid ${record.isConflict ? '#fecaca' : record.hasChanges ? '#fde68a' : '#e5e7eb'}`,
+        backgroundColor: (() => {
+          if (record.isConflict) return '#fef2f2';
+          if (record.hasChanges) return '#fef3c7';
+          return '#f9fafb';
+        })(),
+        border: `1px solid ${(() => {
+          if (record.isConflict) return '#fecaca';
+          if (record.hasChanges) return '#fde68a';
+          return '#e5e7eb';
+        })()}`,
         borderRadius: '6px',
         minHeight: '40px',
         display: 'flex',
@@ -90,7 +98,11 @@ const createTableColumns = () => [
       }}>
         {record.existingValue ? (
           <Text 
-            color={record.isConflict ? 'red' : record.hasChanges ? 'yellow' : 'gray'}
+            color={(() => {
+              if (record.isConflict) return 'red';
+              if (record.hasChanges) return 'yellow';
+              return 'gray';
+            })()}
             size="sm"
             style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
           >
@@ -129,8 +141,16 @@ const createTableColumns = () => [
     render: (record: ComparisonField) => (
       <div style={{ 
         padding: '8px 12px',
-        backgroundColor: record.isConflict ? '#fef2f2' : record.hasChanges ? '#fef3c7' : '#f9fafb',
-        border: `1px solid ${record.isConflict ? '#fecaca' : record.hasChanges ? '#fde68a' : '#e5e7eb'}`,
+        backgroundColor: (() => {
+          if (record.isConflict) return '#fef2f2';
+          if (record.hasChanges) return '#fef3c7';
+          return '#f9fafb';
+        })(),
+        border: `1px solid ${(() => {
+          if (record.isConflict) return '#fecaca';
+          if (record.hasChanges) return '#fde68a';
+          return '#e5e7eb';
+        })()}`,
         borderRadius: '6px',
         minHeight: '40px',
         display: 'flex',
@@ -139,7 +159,11 @@ const createTableColumns = () => [
       }}>
         {record.importedValue ? (
           <Text 
-            color={record.isConflict ? 'red' : record.hasChanges ? 'yellow' : 'gray'}
+            color={(() => {
+              if (record.isConflict) return 'red';
+              if (record.hasChanges) return 'yellow';
+              return 'gray';
+            })()}
             size="sm"
             style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
           >
@@ -237,9 +261,6 @@ export const DiffModal: React.FC<DiffModalProps> = ({
   }, [entity, existingEntity]);
 
   const status = entity?.status || 'new';
-  const statusColor = status === 'conflict' ? 'red' : 
-                     status === 'updated' ? 'orange' : 
-                     status === 'new' ? 'green' : 'blue';
 
   if (!entity) {
     return null;

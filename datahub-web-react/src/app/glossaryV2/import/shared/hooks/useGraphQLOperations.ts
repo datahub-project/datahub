@@ -292,6 +292,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
       // Using smaller batch size (50) due to deep nested relationship data to avoid timeout
       const BATCH_SIZE = 50;
       
+      // eslint-disable-next-line no-await-in-loop
       while (hasMore) {
         const { data } = await apolloClient.query({
           query: UNIFIED_GLOSSARY_QUERY,

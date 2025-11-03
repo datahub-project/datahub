@@ -5,17 +5,13 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { ApolloClient } from '@apollo/client';
-import { useUserContext } from '@app/context/useUserContext';
 import { 
   createComprehensiveImportPlan, 
   convertPlanToPatchInputs,
-  ComprehensivePatchInput, 
 } from '@app/glossaryV2/import/shared/utils/comprehensiveImportUtils';
-import { preGenerateUrns } from '@app/glossaryV2/import/shared/utils/urnGenerationUtils';
-import { Entity, EntityData, HierarchyMaps, ValidationError, ValidationWarning } from '@app/glossaryV2/import/glossary.types';
+import { Entity } from '@app/glossaryV2/import/glossary.types';
 import { useGraphQLOperations } from '@app/glossaryV2/import/shared/hooks/useGraphQLOperations';
 import { useHierarchyManagement } from '@app/glossaryV2/import/shared/hooks/useHierarchyManagement';
-import { useEntityManagement } from '@app/glossaryV2/import/shared/hooks/useEntityManagement';
 import { useEntityComparison } from '@app/glossaryV2/import/shared/hooks/useEntityComparison';
 
 export interface ComprehensiveImportProgress {
@@ -45,7 +41,7 @@ export interface ImportWarning {
 }
 
 export interface UseComprehensiveImportProps {
-  apolloClient: ApolloClient<any>;
+  apolloClient?: ApolloClient<any>;
   onProgress?: (progress: ComprehensiveImportProgress) => void;
 }
 
@@ -63,7 +59,6 @@ export interface UseComprehensiveImportReturn {
 }
 
 export const useComprehensiveImport = ({
-  apolloClient,
   onProgress,
 }: UseComprehensiveImportProps): UseComprehensiveImportReturn => {
   const [progress, setProgress] = useState<ComprehensiveImportProgress>({
@@ -79,21 +74,17 @@ export const useComprehensiveImport = ({
   const [isPaused, setIsPaused] = useState(false);
   const [isCancelled, setIsCancelled] = useState(false);
 
-  const user = useUserContext();
-
   const currentPlanRef = useRef<any>(null);
   const retryCountRef = useRef<Map<string, number>>(new Map());
 
   const { 
-    executeUnifiedGlossaryQuery, 
     executePatchEntitiesMutation,
     executeGetOwnershipTypesQuery,
     executeAddRelatedTermsMutation,
   } = useGraphQLOperations();
   
-  const { createProcessingOrder, validateHierarchy } = useHierarchyManagement();
-  const { normalizeCsvData, compareEntities } = useEntityManagement();
-  const { categorizeEntities, detectConflicts, getChangeDetails } = useEntityComparison();
+  const { validateHierarchy } = useHierarchyManagement();
+  const { categorizeEntities } = useEntityComparison();
 
   const updateProgress = useCallback((updates: Partial<ComprehensiveImportProgress>) => {
     setProgress(prev => {
@@ -111,12 +102,6 @@ export const useComprehensiveImport = ({
     }));
   }, []);
 
-  const addWarning = useCallback((warning: ImportWarning) => {
-    setProgress(prev => ({
-      ...prev,
-      warnings: [...prev.warnings, warning],
-    }));
-  }, []);
 
   const loadExistingOwnershipTypes = useCallback(async (): Promise<Map<string, string>> => {
     try {
@@ -202,32 +187,34 @@ export const useComprehensiveImport = ({
       if (relationshipPatches.length > 0) {
         updateProgress({ currentPhase: 'Creating relationships...' });
         
-        for (const relationshipPatch of relationshipPatches) {
-          try {
-            const input = relationshipPatch.patch[0].value;
-            const addRelatedTermsResult = await executeAddRelatedTermsMutation({
-              urn: relationshipPatch.urn,
-              termUrns: input.termUrns,
-              relationshipType: input.relationshipType,
-            });
-            
-            results.push({
-              urn: relationshipPatch.urn,
-              success: true,
-              error: null,
-            });
-          } catch (error) {
-            results.push({
-              urn: relationshipPatch.urn,
-              success: false,
-              error: error instanceof Error ? error.message : 'Unknown error',
-            });
-          }
-        }
+        const relationshipResults = await Promise.all(
+          relationshipPatches.map(async (relationshipPatch) => {
+            try {
+              const input = relationshipPatch.patch[0].value;
+              await executeAddRelatedTermsMutation({
+                urn: relationshipPatch.urn,
+                termUrns: input.termUrns,
+                relationshipType: input.relationshipType,
+              });
+              
+              return {
+                urn: relationshipPatch.urn,
+                success: true,
+                error: null,
+              };
+            } catch (error) {
+              return {
+                urn: relationshipPatch.urn,
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              };
+            }
+          }),
+        );
+        results.push(...relationshipResults);
       }
       
       const failedResults = results.filter((result: any) => !result.success);
-      const successfulResults = results.filter((result: any) => result.success);
       
       if (failedResults.length > 0) {
         // Aggregate duplicate errors to avoid showing the same error multiple times
@@ -242,7 +229,7 @@ export const useComprehensiveImport = ({
           }
         });
         
-        errorMap.forEach(({ firstResult }, errorMessage) => {
+        errorMap.forEach((_result, errorMessage) => {
           addError({
             entityId: 'comprehensive-import',
             entityName: 'Import operation',
@@ -287,7 +274,7 @@ export const useComprehensiveImport = ({
         currentPhase: 'Import failed - all operations rolled back',
       });
     }
-  }, [executePatchEntitiesMutation, updateProgress, addError, progress.failed]);
+  }, [executePatchEntitiesMutation, executeAddRelatedTermsMutation, updateProgress, addError, categorizeEntities, progress.total]);
 
   const startImport = useCallback(async (entities: Entity[], existingEntities: Entity[]): Promise<void> => {
     if (isProcessing) {

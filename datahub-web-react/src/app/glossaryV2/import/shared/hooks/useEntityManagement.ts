@@ -19,9 +19,6 @@ import {
   parseCommaSeparated,
   convertGraphQLEntityToEntity,
   calculateHierarchyLevel,
-  sortEntitiesByHierarchy,
-  detectCircularDependencies,
-  findOrphanedEntities,
 } from '@app/glossaryV2/import/glossary.utils';
 import { useEntityComparison } from '@app/glossaryV2/import/shared/hooks/useEntityComparison';
 
@@ -49,7 +46,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
 
     return entities.map(entity => ({
       ...entity,
-      level: calculateHierarchyLevel(entity, entities),
+      level: calculateHierarchyLevel(entity),
     }));
   }, []);
 
@@ -126,7 +123,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
 
     const entitiesWithLevels = entities.map(entity => ({
       ...entity,
-      level: calculateHierarchyLevel(entity, entities),
+      level: calculateHierarchyLevel(entity),
     }));
 
     entitiesWithLevels.forEach(entity => {
@@ -190,6 +187,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
 
     if (entity.data.source_url) {
       try {
+        // eslint-disable-next-line no-new
         new URL(entity.data.source_url);
       } catch (error) {
         errors.push({

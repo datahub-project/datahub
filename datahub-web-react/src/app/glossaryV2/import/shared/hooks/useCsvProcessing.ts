@@ -34,7 +34,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
         header: true,
         skipEmptyLines: true,
         transformHeader: (header) => header.trim(),
-        transform: (value, field) => {
+        transform: (value) => {
           if (typeof value === 'string') {
             return value.trim();
           }

@@ -258,7 +258,6 @@ export default function GlossaryImportList({
                 visible={isImportModalVisible}
                 onClose={() => setIsImportModalVisible(false)}
                 progress={progress}
-                isProcessing={isProcessing}
             />
         </>
     );

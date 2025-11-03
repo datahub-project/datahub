@@ -54,7 +54,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
         <BreadcrumbWrapper>
             <BreadcrumbContainer>
                 {items.map((item, index) => (
-                    <React.Fragment key={index}>
+                    <React.Fragment key={item.label || item.href || `breadcrumb-${item.label}`}>
                         {item.href && !item.isActive ? (
                             <Link to={item.href}>
                                 <Text size="lg" color="gray">

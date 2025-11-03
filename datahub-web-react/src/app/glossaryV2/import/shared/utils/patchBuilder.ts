@@ -203,7 +203,7 @@ export class PatchBuilder {
         if (parsedOwnership.length === 0) return;
 
         const urn = UrnManager.resolveEntityUrn(entity, urnMap);
-        const patches = createOwnershipPatchOperations(parsedOwnership, ownershipTypeMap, false);
+        const patches = createOwnershipPatchOperations(parsedOwnership, ownershipTypeMap);
 
         if (patches.length > 0) {
           ownershipPatches.push({
