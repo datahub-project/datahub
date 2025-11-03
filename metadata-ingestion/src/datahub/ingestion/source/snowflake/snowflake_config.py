@@ -205,7 +205,8 @@ class SnowflakeMarketplaceConfig(ConfigModel):
 
     Use this when you want to track:
     - Internal marketplace listings (from SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE)
-    - Databases purchased/imported from internal listings (IMPORTED DATABASE type)
+    - Databases purchased/imported from internal listings (IMPORTED DATABASE type - consumer mode)
+    - Databases you're sharing via OUTBOUND shares (provider mode)
     - Usage of internal marketplace data products
     """
 
@@ -213,8 +214,20 @@ class SnowflakeMarketplaceConfig(ConfigModel):
         default=False,
         description=(
             "Whether to ingest Snowflake INTERNAL marketplace (private data exchange) listings as Data Products. "
-            "When enabled, also ingests purchased databases (imported databases) and usage statistics. "
+            "When enabled, also ingests databases and usage statistics based on the marketplace_mode setting. "
             "NOTE: This is for INTERNAL marketplace only (IS_ORGANIZATION = TRUE), not the public Snowflake Data Marketplace."
+        ),
+    )
+
+    marketplace_mode: str = Field(
+        default="consumer",
+        description=(
+            "Mode for marketplace ingestion: "
+            "'consumer' (default) - Track purchased/imported databases (IMPORTED DATABASE type), "
+            "'provider' - Track databases you're sharing via OUTBOUND shares and marketplace listings, "
+            "'both' - Track both consumer and provider perspectives. "
+            "Consumer mode requires shares config to link imported databases to listings. "
+            "Provider mode works with OUTBOUND shares without requiring imported databases."
         ),
     )
 
@@ -248,6 +261,16 @@ class SnowflakeMarketplaceConfig(ConfigModel):
             "searchable and filterable in the DataHub UI."
         ),
     )
+
+    @validator("marketplace_mode")
+    def validate_marketplace_mode(cls, v: str) -> str:
+        """Validate that marketplace_mode is one of the allowed values."""
+        allowed_modes = ["consumer", "provider", "both"]
+        if v not in allowed_modes:
+            raise ValueError(
+                f"marketplace_mode must be one of {allowed_modes}, got '{v}'"
+            )
+        return v
 
 
 class SnowflakeV2Config(

@@ -4190,6 +4190,7 @@
                 "env": "PROD",
                 "marketplace_listing": "true",
                 "marketplace_type": "internal",
+                "marketplace_mode": "consumer",
                 "provider": "ACME Corp",
                 "category": "Customer Data",
                 "listing_global_name": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
@@ -4208,7 +4209,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ameqth",
+        "runId": "snowflake-2022_06_07-17_00_00-57mnb5",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4241,6 +4242,7 @@
                 "env": "PROD",
                 "marketplace_listing": "true",
                 "marketplace_type": "internal",
+                "marketplace_mode": "consumer",
                 "provider": "Weather Co",
                 "category": "Environmental",
                 "listing_global_name": "WEATHER_CO.PUBLIC.WEATHER_DATA",
@@ -4253,7 +4255,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ameqth",
+        "runId": "snowflake-2022_06_07-17_00_00-57mnb5",
         "lastRunId": "no-run-id-provided"
     }
 },

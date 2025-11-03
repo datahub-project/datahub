@@ -211,6 +211,18 @@ class SnowflakeMarketplacePurchase:
 
 
 @dataclass
+class SnowflakeProviderShare:
+    """Represents an OUTBOUND share for provider mode marketplace tracking"""
+
+    share_name: str
+    source_database: str
+    listing_global_name: Optional[str]  # Links to marketplace listing
+    created_on: Optional[datetime]
+    owner: Optional[str]
+    comment: Optional[str]
+
+
+@dataclass
 class SnowflakeMarketplaceAccessEvent:
     """Represents a marketplace listing access event"""
 

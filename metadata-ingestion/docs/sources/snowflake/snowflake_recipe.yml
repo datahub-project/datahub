@@ -34,6 +34,7 @@ source:
     # (Optional) Ingest INTERNAL marketplace (private data sharing) listings as Data Products
     # NOTE: This is for INTERNAL marketplace only, not the public Snowflake Data Marketplace
     # include_internal_marketplace: true
+    # marketplace_mode: "consumer"  # Options: "consumer" (default), "provider", "both"
     # internal_marketplace_listing_pattern:
     #   allow: [".*"]
     # internal_marketplace_owner_patterns:
