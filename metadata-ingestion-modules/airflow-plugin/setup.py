@@ -28,6 +28,10 @@ base_requirements = {
     # We require Airflow 2.5.x at minimum, since we need the new DAG listener API.
     # We support both Airflow 2.x and 3.x with full backward compatibility.
     "apache-airflow>=2.5.0,<4.0.0",
+    # Use native OpenLineage provider by default (recommended for Airflow 2.7+)
+    # The openlineage-airflow standalone package is deprecated for Airflow 2.7+
+    # This works for both Airflow 2.7+ and 3.x installations.
+    "apache-airflow-providers-openlineage>=1.0.0",
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -41,31 +45,19 @@ plugins: Dict[str, Set[str]] = {
         f"acryl-datahub[sync-file-emitter]{_self_pin}",
     },
     "plugin-v1": set(),
-    "plugin-v2": {
-        f"acryl-datahub[sql-parser]{_self_pin}",
-        # Airflow 2.x: Use the standalone openlineage-airflow package
-        # We remain restrictive on the versions allowed here to prevent
-        # us from being broken by backwards-incompatible changes in the
-        # underlying package.
+    # plugin-v2: Native OpenLineage provider is now in base requirements (Airflow 2.7+/3.x)
+    "plugin-v2": set(),
+    # plugin-v2-airflow3: Native OpenLineage provider is now in base requirements
+    "plugin-v2-airflow3": set(),
+    # Backward compatibility: For legacy Airflow 2.5-2.6 that may need standalone package
+    "plugin-v2-airflow2": {
         "openlineage-airflow>=1.2.0",
     },
-    # plugin-v2-airflow3: For Airflow 3.0+, use native OpenLineage provider instead of openlineage-airflow
-    "plugin-v2-airflow3": {
-        f"acryl-datahub[sql-parser]{_self_pin}",
-        # Airflow 3.0+ uses the native apache-airflow-providers-openlineage provider
-        # instead of the standalone openlineage-airflow package.
-        # This provider is required for SQL lineage extraction to work.
-        "apache-airflow-providers-openlineage>=1.0.0",
-    },
-    # Aliases for backward compatibility
+    # Backward compatibility aliases
     "openlineage-airflow2": {
-        # Alias for plugin-v2
         "openlineage-airflow>=1.2.0",
     },
-    "openlineage-native": {
-        # Alias for plugin-v2-airflow3
-        "apache-airflow-providers-openlineage>=1.0.0",
-    },
+    "openlineage-native": set(),
 }
 
 # Require some plugins by default.
