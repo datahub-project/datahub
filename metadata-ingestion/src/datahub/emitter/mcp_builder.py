@@ -415,19 +415,6 @@ def gen_data_product(
         aspect=StatusClass(removed=False),
     ).as_workunit()
 
-    if data_product_key.platform:
-        yield MetadataChangeProposalWrapper(
-            entityUrn=data_product_urn,
-            aspect=DataPlatformInstance(
-                platform=f"{make_data_platform_urn(data_product_key.platform)}",
-                instance=(
-                    f"{make_dataplatform_instance_urn(data_product_key.platform, data_product_key.instance)}"
-                    if data_product_key.instance
-                    else None
-                ),
-            ),
-        ).as_workunit()
-
     if domain_urn:
         yield from add_domain_to_entity_wu(
             entity_urn=data_product_urn,
