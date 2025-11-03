@@ -23,15 +23,14 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeIdentifierBuilder,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetLineageType,
-    DatasetProperties,
-    DatasetUsageStatistics,
-    DatasetUserUsageCounts,
-    Upstream,
-    UpstreamLineage,
+from datahub.metadata.schema_classes import (
+    DataProductAssociationClass,
+    DataProductPropertiesClass,
+    DatasetPropertiesClass,
+    DatasetUsageStatisticsClass,
+    DatasetUserUsageCountsClass,
+    TimeWindowSizeClass,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.timeseries import TimeWindowSize
 
 logger = logging.getLogger(__name__)
 
@@ -67,14 +66,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         if self.config.include_marketplace_purchases:
             yield from self._enhance_purchased_datasets()
 
-        # 3. Create lineage between listings and purchased data
-        if (
-            self.config.include_marketplace_listings
-            and self.config.include_marketplace_purchases
-        ):
-            yield from self._create_marketplace_lineage()
-
-        # 4. Add marketplace usage statistics
+        # 3. Add marketplace usage statistics
         if self.config.include_marketplace_usage:
             yield from self._create_marketplace_usage_statistics()
 
@@ -171,6 +163,21 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             data_product_key = self.identifiers.gen_marketplace_data_product_key(
                 listing.listing_global_name
             )
+            data_product_urn = data_product_key.as_urn()
+
+            # Find all purchased databases for this listing
+            asset_urns: List[str] = []
+            for purchase in self._marketplace_purchases.values():
+                listing_global_name = self._find_listing_for_purchase(purchase)
+                if (
+                    listing_global_name
+                    and listing_global_name == listing.listing_global_name
+                ):
+                    dataset_identifier = self.identifiers.snowflake_identifier(
+                        purchase.database_name
+                    )
+                    database_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
+                    asset_urns.append(database_urn)
 
             # Create custom properties dictionary
             custom_properties = {
@@ -198,6 +205,23 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 custom_properties=custom_properties,
                 domain_urn=domain_urn,
             )
+
+            # Emit DataProductProperties with assets if we have any purchased databases
+            if asset_urns:
+                data_product_properties = DataProductPropertiesClass(
+                    name=listing.title,
+                    description=listing.description
+                    or f"Internal marketplace listing from {listing.provider}",
+                    assets=[
+                        DataProductAssociationClass(destinationUrn=urn)
+                        for urn in asset_urns
+                    ],
+                )
+
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=data_product_urn,
+                    aspect=data_product_properties,
+                ).as_workunit()
 
             self.report.report_marketplace_data_product_created()
 
@@ -265,7 +289,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             marketplace_properties["purchase_status"] = purchase_status
 
             # Enhance the dataset properties
-            enhanced_properties = DatasetProperties(
+            enhanced_properties = DatasetPropertiesClass(
                 name=purchase.database_name,
                 qualifiedName=purchase.database_name.upper(),
                 customProperties=marketplace_properties,
@@ -278,43 +302,6 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             ).as_workunit()
 
             self.report.report_marketplace_dataset_enhanced()
-
-    def _create_marketplace_lineage(self) -> Iterable[MetadataWorkUnit]:
-        """Create lineage from marketplace listings to purchased datasets"""
-
-        for purchase in self._marketplace_purchases.values():
-            # Try to match with a known listing
-            listing_global_name = self._find_listing_for_purchase(purchase)
-
-            if (
-                not listing_global_name
-                or listing_global_name not in self._marketplace_listings
-            ):
-                continue
-
-            # Generate URNs using existing identifier logic
-            data_product_urn = self.identifiers.gen_marketplace_data_product_urn(
-                listing_global_name
-            )
-
-            dataset_identifier = self.identifiers.snowflake_identifier(
-                purchase.database_name
-            )
-            database_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
-
-            # Create upstream lineage
-            upstream_lineage = UpstreamLineage(
-                upstreams=[
-                    Upstream(
-                        dataset=data_product_urn,
-                        type=DatasetLineageType.COPY,
-                    )
-                ]
-            )
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=database_urn, aspect=upstream_lineage
-            ).as_workunit()
 
     def _parse_share_objects(self, share_objects_str: str) -> List[str]:
         """
@@ -439,7 +426,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                             user_email
                         ):
                             user_counts.append(
-                                DatasetUserUsageCounts(
+                                DatasetUserUsageCountsClass(
                                     user=make_user_urn(
                                         self.identifiers.get_user_identifier(
                                             user_name, user_email
@@ -451,9 +438,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                             )
 
                     # Create usage statistics
-                    usage_stats = DatasetUsageStatistics(
+                    usage_stats = DatasetUsageStatisticsClass(
                         timestampMillis=start_time_millis,
-                        eventGranularity=TimeWindowSize(
+                        eventGranularity=TimeWindowSizeClass(
                             unit=self.config.bucket_duration, multiple=1
                         ),
                         totalSqlQueries=total_queries,
