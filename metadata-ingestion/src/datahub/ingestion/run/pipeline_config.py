@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import Field, validator
 
-from datahub.configuration.common import ConfigModel, DynamicTypedConfig
+from datahub.configuration.common import ConfigModel, DynamicTypedConfig, HiddenFromDocs
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
@@ -85,7 +85,7 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: Optional[DynamicTypedConfig] = None
     transformers: Optional[List[DynamicTypedConfig]] = None
-    flags: FlagsConfig = Field(default=FlagsConfig(), hidden_from_docs=True)
+    flags: HiddenFromDocs[FlagsConfig] = FlagsConfig()
     reporting: List[ReporterConfig] = []
     run_id: str = DEFAULT_RUN_ID
     datahub_api: Optional[DatahubClientConfig] = None

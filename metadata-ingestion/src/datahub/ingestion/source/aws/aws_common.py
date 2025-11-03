@@ -1,14 +1,15 @@
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
+from urllib.parse import parse_qs, urlparse
 
 import boto3
 import requests
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
+from botocore.exceptions import ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
 from pydantic.fields import Field
 
@@ -16,6 +17,16 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     PermissiveConfigModel,
+)
+from datahub.configuration.env_vars import (
+    get_aws_app_runner_service_id,
+    get_aws_execution_env,
+    get_aws_lambda_function_name,
+    get_aws_role_arn,
+    get_aws_web_identity_token_file,
+    get_ecs_container_metadata_uri,
+    get_ecs_container_metadata_uri_v4,
+    get_elastic_beanstalk_environment_name,
 )
 from datahub.configuration.source_common import EnvConfigMixin
 
@@ -100,27 +111,25 @@ def detect_aws_environment() -> AwsEnvironment:
     Order matters as some environments may have multiple indicators.
     """
     # Check Lambda first as it's most specific
-    if os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
-        if os.getenv("AWS_EXECUTION_ENV", "").startswith("CloudFormation"):
+    if get_aws_lambda_function_name():
+        if (get_aws_execution_env() or "").startswith("CloudFormation"):
             return AwsEnvironment.CLOUD_FORMATION
         return AwsEnvironment.LAMBDA
 
     # Check EKS (IRSA)
-    if os.getenv("AWS_WEB_IDENTITY_TOKEN_FILE") and os.getenv("AWS_ROLE_ARN"):
+    if get_aws_web_identity_token_file() and get_aws_role_arn():
         return AwsEnvironment.EKS
 
     # Check App Runner
-    if os.getenv("AWS_APP_RUNNER_SERVICE_ID"):
+    if get_aws_app_runner_service_id():
         return AwsEnvironment.APP_RUNNER
 
     # Check ECS
-    if os.getenv("ECS_CONTAINER_METADATA_URI_V4") or os.getenv(
-        "ECS_CONTAINER_METADATA_URI"
-    ):
+    if get_ecs_container_metadata_uri_v4() or get_ecs_container_metadata_uri():
         return AwsEnvironment.ECS
 
     # Check Elastic Beanstalk
-    if os.getenv("ELASTIC_BEANSTALK_ENVIRONMENT_NAME"):
+    if get_elastic_beanstalk_environment_name():
         return AwsEnvironment.BEANSTALK
 
     if is_running_on_ec2():
@@ -155,7 +164,7 @@ def get_instance_role_arn() -> Optional[str]:
 def get_lambda_role_arn() -> Optional[str]:
     """Get the Lambda function's role ARN"""
     try:
-        function_name = os.getenv("AWS_LAMBDA_FUNCTION_NAME")
+        function_name = get_aws_lambda_function_name()
         if not function_name:
             return None
 
@@ -181,7 +190,7 @@ def get_current_identity() -> Tuple[Optional[str], Optional[str]]:
         return role_arn, AwsServicePrincipal.LAMBDA.value
 
     elif env == AwsEnvironment.EKS:
-        role_arn = os.getenv("AWS_ROLE_ARN")
+        role_arn = get_aws_role_arn()
         return role_arn, AwsServicePrincipal.EKS.value
 
     elif env == AwsEnvironment.APP_RUNNER:
@@ -194,8 +203,8 @@ def get_current_identity() -> Tuple[Optional[str], Optional[str]]:
 
     elif env == AwsEnvironment.ECS:
         try:
-            metadata_uri = os.getenv("ECS_CONTAINER_METADATA_URI_V4") or os.getenv(
-                "ECS_CONTAINER_METADATA_URI"
+            metadata_uri = (
+                get_ecs_container_metadata_uri_v4() or get_ecs_container_metadata_uri()
             )
             if metadata_uri:
                 response = requests.get(f"{metadata_uri}/task", timeout=1)
@@ -457,6 +466,165 @@ class AwsConnectionConfig(ConfigModel):
 
     def get_lakeformation_client(self) -> "LakeFormationClient":
         return self.get_session().client("lakeformation", config=self._aws_config())
+
+    def get_rds_client(self):
+        """Get an RDS client for generating IAM auth tokens."""
+        return self.get_session().client("rds", config=self._aws_config())
+
+
+def generate_rds_iam_token(
+    endpoint: str,
+    username: str,
+    port: int,
+    aws_config: AwsConnectionConfig,
+) -> str:
+    """
+    Generate an AWS RDS IAM authentication token.
+
+    boto3's generate_db_auth_token() returns a presigned URL in the format:
+    "hostname:port/?Action=connect&DBUser=username&X-Amz-Date=...&X-Amz-Expires=..."
+
+    This token should be used as-is by pymysql/psycopg2 drivers.
+
+    Args:
+        endpoint: RDS endpoint hostname
+        username: Database username for IAM authentication
+        port: Database port (5432 for PostgreSQL, 3306 for MySQL)
+        aws_config: AwsConnectionConfig for session management and credentials
+
+    Returns:
+        Authentication token (presigned URL format)
+
+    Raises:
+        ValueError: If AWS credentials are not found or token generation fails
+
+    """
+    try:
+        client = aws_config.get_rds_client()
+        token = client.generate_db_auth_token(
+            DBHostname=endpoint, Port=port, DBUsername=username
+        )
+        logger.debug(f"Generated RDS IAM token for {username}@{endpoint}:{port}")
+        return token
+    except NoCredentialsError as e:
+        raise ValueError("AWS credentials not found") from e
+    except ClientError as e:
+        raise ValueError(f"Failed to generate RDS IAM token: {e}") from e
+
+
+class RDSIAMTokenManager:
+    """
+    Manages RDS IAM token lifecycle with automatic refresh.
+
+    RDS IAM tokens include expiration information in the URL parameters.
+    This manager parses the token expiry and refreshes before expiration
+    to ensure uninterrupted database access.
+    """
+
+    def __init__(
+        self,
+        endpoint: str,
+        username: str,
+        port: int,
+        aws_config: AwsConnectionConfig,
+        refresh_threshold_minutes: int = 5,
+    ):
+        """
+        Initialize the token manager.
+
+        Args:
+            endpoint: RDS endpoint hostname
+            username: Database username for IAM authentication
+            port: Database port
+            aws_config: AwsConnectionConfig for session management and credentials
+            refresh_threshold_minutes: Refresh token when this many minutes remain before expiry
+        """
+        self.endpoint = endpoint
+        self.username = username
+        self.port = port
+        self.aws_config = aws_config
+        self.refresh_threshold = timedelta(minutes=refresh_threshold_minutes)
+
+        self._current_token: Optional[str] = None
+        self._token_expires_at: Optional[datetime] = None
+
+    def get_token(self) -> str:
+        """
+        Get current token, refreshing if necessary.
+
+        Returns:
+            Valid authentication token
+
+        Raises:
+            RuntimeError: If token generation or refresh fails
+        """
+        if self._needs_refresh():
+            self._refresh_token()
+
+        assert self._current_token is not None
+        return self._current_token
+
+    def _needs_refresh(self) -> bool:
+        """Check if token needs to be refreshed."""
+        if self._current_token is None or self._token_expires_at is None:
+            return True
+
+        time_until_expiry = self._token_expires_at - datetime.now(timezone.utc)
+        return time_until_expiry <= self.refresh_threshold
+
+    def _parse_token_expiry(self, token: str) -> datetime:
+        """
+        Parse token expiry from X-Amz-Date and X-Amz-Expires URL parameters.
+
+        Args:
+            token: RDS IAM authentication token (presigned URL)
+
+        Returns:
+            Expiration datetime in UTC
+
+        Raises:
+            ValueError: If token URL format is invalid or missing required parameters
+        """
+        try:
+            parsed_url = urlparse(token)
+            query_params = parse_qs(parsed_url.query)
+
+            # Extract X-Amz-Date (ISO 8601 format: YYYYMMDDTHHMMSSZ)
+            amz_date_list = query_params.get("X-Amz-Date")
+            if not amz_date_list:
+                raise ValueError("Missing X-Amz-Date parameter in RDS IAM token")
+            amz_date_str = amz_date_list[0]
+
+            # Extract X-Amz-Expires (duration in seconds)
+            amz_expires_list = query_params.get("X-Amz-Expires")
+            if not amz_expires_list:
+                raise ValueError("Missing X-Amz-Expires parameter in RDS IAM token")
+            amz_expires_seconds = int(amz_expires_list[0])
+
+            # Parse X-Amz-Date to datetime
+            token_issued_at = datetime.strptime(amz_date_str, "%Y%m%dT%H%M%SZ").replace(
+                tzinfo=timezone.utc
+            )
+
+            # Calculate expiration
+            return token_issued_at + timedelta(seconds=amz_expires_seconds)
+
+        except (ValueError, KeyError, IndexError) as e:
+            raise ValueError(
+                f"Failed to parse RDS IAM token expiry: {e}. Token format may be invalid."
+            ) from e
+
+    def _refresh_token(self) -> None:
+        """Generate and store a new token with parsed expiry."""
+        logger.info("Refreshing RDS IAM authentication token")
+        self._current_token = generate_rds_iam_token(
+            endpoint=self.endpoint,
+            username=self.username,
+            port=self.port,
+            aws_config=self.aws_config,
+        )
+        self._token_expires_at = self._parse_token_expiry(self._current_token)
+        logger.debug(f"Token will expire at {self._token_expires_at}")
 
 
 class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):

@@ -52,15 +52,15 @@ export default function RelatedEntitiesSection() {
                 <ShowRelatedEntitiesSwitch isChecked={isChecked} onChange={toggleShowRelatedEntitiesSwitch} />
             </FormItem>
 
-            <FormItem name={FORM_FIELD_RELATED_ENTITIES_FILTER}>
-                {isChecked && (
+            {isChecked && (
+                <FormItem name={FORM_FIELD_RELATED_ENTITIES_FILTER}>
                     <LogicalFiltersBuilder
                         filters={relatedEntitiesFilter ?? defaultRelatedEntitiesFilter ?? EMPTY_FILTER}
                         onChangeFilters={updateFilters}
                         properties={properties}
                     />
-                )}
-            </FormItem>
+                </FormItem>
+            )}
         </>
     );
 }

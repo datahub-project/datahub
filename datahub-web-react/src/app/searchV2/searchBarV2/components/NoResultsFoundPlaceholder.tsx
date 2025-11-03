@@ -51,7 +51,7 @@ export default function NoResultsFoundPlaceholder({
     }, [hasAppliedFilters, hasSelectedView]);
 
     return (
-        <Container>
+        <Container data-testid="no-results-found">
             <Text color="gray" colorLevel={600} size="md">
                 No results found
             </Text>
@@ -60,7 +60,11 @@ export default function NoResultsFoundPlaceholder({
                 {clearText && (
                     <>
                         , or&nbsp;
-                        <InlineButton variant="text" onClick={onClearFilters}>
+                        <InlineButton
+                            variant="text"
+                            onClick={onClearFilters}
+                            data-testid="no-results-found-button-clear"
+                        >
                             {clearText}
                         </InlineButton>
                         .

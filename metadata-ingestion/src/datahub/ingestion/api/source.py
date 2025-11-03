@@ -25,12 +25,14 @@ from typing_extensions import LiteralString, Self
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
     auto_patch_last_modified,
 )
 from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
     EnsureAspectSizeProcessor,
+)
+from datahub.ingestion.api.auto_work_units.auto_validate_input_fields import (
+    ValidateInputFieldsProcessor,
 )
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
@@ -46,8 +48,15 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit,
     auto_workunit_reporter,
 )
+from datahub.ingestion.api.source_protocols import (
+    MetadataWorkUnitIterable,
+    ProfilingCapable,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.sdk.entity import Entity
+from datahub.ingestion.source_report.ingestion_stage import (
+    IngestionHighStage,
+    IngestionStageReport,
+)
 from datahub.telemetry import stats
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
@@ -205,10 +214,11 @@ class StructuredLogs(Report):
 
 
 @dataclass
-class SourceReport(ExamplesReport):
+class SourceReport(ExamplesReport, IngestionStageReport):
     event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
+    num_input_fields_filtered: int = 0
 
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
@@ -531,12 +541,13 @@ class Source(Closeable, metaclass=ABCMeta):
             auto_status_aspect,
             auto_materialize_referenced_tags_terms,
             partial(
-                auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
+                auto_fix_duplicate_schema_field_paths, platform=self.infer_platform()
             ),
-            partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
+            partial(auto_fix_empty_field_paths, platform=self.infer_platform()),
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
+            ValidateInputFieldsProcessor(self.get_report()).validate_input_fields,
             EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
         ]
 
@@ -553,13 +564,31 @@ class Source(Closeable, metaclass=ABCMeta):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         workunit_processors = self.get_workunit_processors()
         workunit_processors.append(AutoSystemMetadata(self.ctx).stamp)
-        return self._apply_workunit_processors(
+        # Process main workunits
+        yield from self._apply_workunit_processors(
             workunit_processors, auto_workunit(self.get_workunits_internal())
         )
+        # Process profiling workunits
+        yield from self._process_profiling_stage(workunit_processors)
+
+    def _process_profiling_stage(
+        self, processors: List[Optional[MetadataWorkUnitProcessor]]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process profiling stage if source supports it."""
+        if (
+            not isinstance(self, ProfilingCapable)
+            or not self.is_profiling_enabled_internal()
+        ):
+            return
+        with self.get_report().new_high_stage(IngestionHighStage.PROFILING):
+            profiling_stream = self._apply_workunit_processors(
+                processors, auto_workunit(self.get_profiling_internal())
+            )
+            yield from profiling_stream
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
+    ) -> MetadataWorkUnitIterable:
         raise NotImplementedError(
             "get_workunits_internal must be implemented if get_workunits is not overriden."
         )
@@ -583,7 +612,7 @@ class Source(Closeable, metaclass=ABCMeta):
     def close(self) -> None:
         self.get_report().close()
 
-    def _infer_platform(self) -> Optional[str]:
+    def infer_platform(self) -> Optional[str]:
         config = self.get_config()
         platform = (
             getattr(config, "platform_name", None)
@@ -598,7 +627,7 @@ class Source(Closeable, metaclass=ABCMeta):
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()
 
-        platform = self._infer_platform()
+        platform = self.infer_platform()
         env = getattr(config, "env", None)
         browse_path_drop_dirs = [
             platform,

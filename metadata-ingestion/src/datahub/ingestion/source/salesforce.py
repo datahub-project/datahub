@@ -110,30 +110,33 @@ class SalesforceConfig(
     auth: SalesforceAuthType = SalesforceAuthType.USERNAME_PASSWORD
 
     # Username, Password Auth
-    username: Optional[str] = Field(description="Salesforce username")
-    password: Optional[str] = Field(description="Password for Salesforce user")
+    username: Optional[str] = Field(None, description="Salesforce username")
+    password: Optional[str] = Field(None, description="Password for Salesforce user")
     consumer_key: Optional[str] = Field(
-        description="Consumer key for Salesforce JSON web token access"
+        None, description="Consumer key for Salesforce JSON web token access"
     )
     private_key: Optional[str] = Field(
-        description="Private key as a string for Salesforce JSON web token access"
+        None, description="Private key as a string for Salesforce JSON web token access"
     )
     security_token: Optional[str] = Field(
-        description="Security token for Salesforce username"
+        None, description="Security token for Salesforce username"
     )
     # client_id, client_secret not required
 
     # Direct - Instance URL, Access Token Auth
     instance_url: Optional[str] = Field(
-        description="Salesforce instance url. e.g. https://MyDomainName.my.salesforce.com"
+        None,
+        description="Salesforce instance url. e.g. https://MyDomainName.my.salesforce.com",
     )
     # Flag to indicate whether the instance is production or sandbox
     is_sandbox: bool = Field(
         default=False, description="Connect to Sandbox instance of your Salesforce"
     )
-    access_token: Optional[str] = Field(description="Access token for instance url")
+    access_token: Optional[str] = Field(
+        None, description="Access token for instance url"
+    )
 
-    ingest_tags: Optional[bool] = Field(
+    ingest_tags: bool = Field(
         default=False,
         description="Ingest Tags from source. This will override Tags entered from UI",
     )
@@ -147,7 +150,8 @@ class SalesforceConfig(
         description='Regex patterns for tables/schemas to describe domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain keys specified.',
     )
     api_version: Optional[str] = Field(
-        description="If specified, overrides default version used by the Salesforce package. Example value: '59.0'"
+        None,
+        description="If specified, overrides default version used by the Salesforce package. Example value: '59.0'",
     )
 
     profiling: SalesforceProfilingConfig = SalesforceProfilingConfig()
@@ -523,7 +527,7 @@ class SalesforceApi:
 
 @platform_name("Salesforce")
 @config_class(SalesforceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(
     capability_name=SourceCapability.PLATFORM_INSTANCE,
     description="Can be equivalent to Salesforce organization",

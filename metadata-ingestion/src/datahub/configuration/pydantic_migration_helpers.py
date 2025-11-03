@@ -9,14 +9,6 @@ PYDANTIC_VERSION_2 = _pydantic_version >= Version("2.0")
 # https://docs.pydantic.dev/latest/changelog/#v250-2023-11-13
 PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR = _pydantic_version >= Version("2.5.0")
 
-# This can be used to silence deprecation warnings while we migrate.
-if PYDANTIC_VERSION_2:
-    from pydantic import PydanticDeprecatedSince20  # type: ignore
-else:
-
-    class PydanticDeprecatedSince20(Warning):  # type: ignore
-        pass
-
 
 if PYDANTIC_VERSION_2:
     from pydantic import BaseModel as GenericModel
@@ -52,7 +44,6 @@ class v1_ConfigModel(v1_BaseModel):
 __all__ = [
     "PYDANTIC_VERSION_2",
     "PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR",
-    "PydanticDeprecatedSince20",
     "GenericModel",
     "v1_ConfigModel",
     "v1_Field",

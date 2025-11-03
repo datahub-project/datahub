@@ -89,8 +89,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
-    PROFILING,
     USAGE_EXTRACTION_INGESTION,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes, TimeStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -143,7 +143,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.USAGE_STATS,
-    "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+    "Optionally enabled via `include_usage_statistics`",
 )
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
@@ -446,7 +446,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if self.config.is_profiling_enabled():
-            with self.report.new_stage(PROFILING):
+            with self.report.new_high_stage(IngestionHighStage.PROFILING):
                 profiler = RedshiftProfiler(
                     config=self.config,
                     report=self.report,

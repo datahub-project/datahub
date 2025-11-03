@@ -48,6 +48,7 @@ dependencies {
   implementation project(":metadata-service:restli-client")
   implementation project(":metadata-service:auth-config")
   implementation project(":metadata-service:configuration")
+  implementation project(":metadata-utils")
 
   implementation externalDependency.springCore
   implementation externalDependency.springBeans

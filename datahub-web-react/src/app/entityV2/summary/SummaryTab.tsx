@@ -23,6 +23,7 @@ interface Props {
 
 export default function SummaryTab({ properties }: { properties?: Props }) {
     const { urn } = useEntityData();
+
     return (
         <PageTemplateProvider templateType={PageTemplateSurfaceType.AssetSummary}>
             <SummaryWrapper>

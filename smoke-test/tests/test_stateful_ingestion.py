@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional, Union, cast
 
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
@@ -6,18 +6,24 @@ from sqlalchemy.sql import text
 from datahub.ingestion.api.committable import StatefulCommittable
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
+from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
-from tests.utils import get_mysql_password, get_mysql_url, get_mysql_username
+from tests.utils import get_db_password, get_db_type, get_db_url, get_db_username
 
 
 def test_stateful_ingestion(auth_session):
-    def create_mysql_engine(mysql_source_config_dict: Dict[str, Any]) -> Any:
-        mysql_config = MySQLConfig.parse_obj(mysql_source_config_dict)
-        url = mysql_config.get_sql_alchemy_url()
+    def create_db_engine(sql_source_config_dict: Dict[str, Any]) -> Any:
+        sql_config: Union[MySQLConfig, PostgresConfig]
+        if get_db_type() == "mysql":
+            sql_config = MySQLConfig.parse_obj(sql_source_config_dict)
+        else:
+            sql_config = PostgresConfig.parse_obj(sql_source_config_dict)
+
+        url = sql_config.get_sql_alchemy_url()
         return create_engine(url)
 
     def create_table(engine: Any, name: str, defn: str) -> None:
@@ -49,17 +55,21 @@ def test_stateful_ingestion(auth_session):
         pipeline: Pipeline,
     ) -> Optional[Checkpoint[GenericCheckpointState]]:
         # TODO: Refactor to use the helper method in the metadata-ingestion tests, instead of copying it here.
-        mysql_source = cast(MySQLSource, pipeline.source)
-        return mysql_source.state_provider.get_current_checkpoint(
+        sql_source: Union[MySQLSource, PostgresSource]
+        if get_db_type() == "mysql":
+            sql_source = cast(MySQLSource, pipeline.source)
+        else:
+            sql_source = cast(PostgresSource, pipeline.source)
+        return sql_source.state_provider.get_current_checkpoint(
             StaleEntityRemovalHandler.compute_job_id(
-                getattr(mysql_source, "platform", "default")
+                getattr(sql_source, "platform", "default")
             )
         )
 
     source_config_dict: Dict[str, Any] = {
-        "host_port": get_mysql_url(),
-        "username": get_mysql_username(),
-        "password": get_mysql_password(),
+        "host_port": get_db_url(),
+        "username": get_db_username(),
+        "password": get_db_password(),
         "database": "datahub",
         "stateful_ingestion": {
             "enabled": True,
@@ -70,7 +80,7 @@ def test_stateful_ingestion(auth_session):
 
     pipeline_config_dict: Dict[str, Any] = {
         "source": {
-            "type": "mysql",
+            "type": get_db_type(),
             "config": source_config_dict,
         },
         "sink": {
@@ -80,7 +90,7 @@ def test_stateful_ingestion(auth_session):
                 "token": auth_session.gms_token(),
             },
         },
-        "pipeline_name": "mysql_stateful_ingestion_smoke_test_pipeline",
+        "pipeline_name": "sql_stateful_ingestion_smoke_test_pipeline",
         "reporting": [
             {
                 "type": "datahub",
@@ -89,7 +99,7 @@ def test_stateful_ingestion(auth_session):
     }
 
     # 1. Setup the SQL engine
-    mysql_engine = create_mysql_engine(source_config_dict)
+    sql_engine = create_db_engine(source_config_dict)
 
     # 2. Create test tables for first run of the  pipeline.
     table_prefix = "stateful_ingestion_test"
@@ -99,7 +109,7 @@ def test_stateful_ingestion(auth_session):
     }
     table_names = sorted(table_defs.keys())
     for table_name, defn in table_defs.items():
-        create_table(mysql_engine, table_name, defn)
+        create_table(sql_engine, table_name, defn)
 
     # 3. Do the first run of the pipeline and get the default job's checkpoint.
     pipeline_run1 = run_and_get_pipeline(pipeline_config_dict)
@@ -108,7 +118,7 @@ def test_stateful_ingestion(auth_session):
     assert checkpoint1.state
 
     # 4. Drop table t1 created during step 2 + rerun the pipeline and get the checkpoint state.
-    drop_table(mysql_engine, table_names[0])
+    drop_table(sql_engine, table_names[0])
     pipeline_run2 = run_and_get_pipeline(pipeline_config_dict)
     checkpoint2 = get_current_checkpoint_from_pipeline(auth_session, pipeline_run2)
     assert checkpoint2
@@ -121,13 +131,14 @@ def test_stateful_ingestion(auth_session):
         state1.get_urns_not_in(type="*", other_checkpoint_state=state2)
     )
     assert len(difference_urns) == 1
+    table_prefix = "datahub" if (get_db_type() == "mysql") else "datahub.public"
     assert (
         difference_urns[0]
-        == "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.stateful_ingestion_test_t1,PROD)"
+        == f"urn:li:dataset:(urn:li:dataPlatform:{get_db_type()},{table_prefix}.stateful_ingestion_test_t1,PROD)"
     )
 
     # 6. Cleanup table t2 as well to prevent other tests that rely on data in the smoke-test world.
-    drop_table(mysql_engine, table_names[1])
+    drop_table(sql_engine, table_names[1])
 
     # 7. Validate that all providers have committed successfully.
     # NOTE: The following validation asserts for presence of state as well

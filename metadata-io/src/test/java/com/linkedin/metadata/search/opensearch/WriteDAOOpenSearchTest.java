@@ -6,12 +6,12 @@ import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.update.WriteDAOTestBase;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.fixtures.search.SampleDataFixtureConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 })
 public class WriteDAOOpenSearchTest extends WriteDAOTestBase {
 
-  @Autowired private RestHighLevelClient searchClient;
+  @Autowired private SearchClientShim<?> searchClient;
 
   @Autowired private ESWriteDAO esWriteDAO;
 

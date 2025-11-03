@@ -123,6 +123,7 @@ describe('PageTemplateContext', () => {
             removeModule: mockRemoveModule,
             upsertModule: mockUpsertModule,
             moveModule: mockMoveModule,
+            moduleContext: {} as any,
         });
     });
 

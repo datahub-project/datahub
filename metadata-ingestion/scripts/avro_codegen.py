@@ -45,6 +45,7 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
         "mxe/MetadataChangeLog.avsc",
         "mxe/PlatformEvent.avsc",
         "platform/event/v1/EntityChangeEvent.avsc",
+        "platform/event/v1/RelationshipChangeEvent.avsc",
         "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
     }
 
@@ -468,6 +469,10 @@ def create_from_ids(cls, data_flow_urn: str, job_id: str) -> "DataJobUrn":
 
 def get_data_flow_urn(self) -> "DataFlowUrn":
     return DataFlowUrn.from_string(self.flow)
+
+@property
+def orchestrator(self) -> str:
+    return self.get_data_flow_urn().orchestrator
 
 @deprecated(reason="Use .job_id instead")
 def get_job_id(self) -> str:

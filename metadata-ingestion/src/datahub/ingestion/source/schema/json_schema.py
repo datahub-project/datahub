@@ -4,7 +4,6 @@ import logging
 import os
 import tempfile
 import unittest
-import urllib.request
 from dataclasses import dataclass
 from os.path import basename, dirname
 from pathlib import Path
@@ -12,6 +11,7 @@ from typing import Any, Iterable, List, Optional, Union
 from urllib.parse import urlparse
 
 import jsonref
+import requests
 from pydantic import AnyHttpUrl, DirectoryPath, FilePath, validator
 from pydantic.fields import Field
 
@@ -91,19 +91,18 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
     )
 
     @validator("path")
-    def download_http_url_to_temp_file(v):
+    def download_http_url_to_temp_file(cls, v):
         if isinstance(v, AnyHttpUrl):
             try:
-                with urllib.request.urlopen(v) as response:
-                    schema_dict = json.load(response)
-                    if not JsonSchemaTranslator._get_id_from_any_schema(schema_dict):
-                        schema_dict["$id"] = str(v)
-                    with tempfile.NamedTemporaryFile(
-                        mode="w", delete=False
-                    ) as tmp_file:
-                        tmp_file.write(json.dumps(schema_dict))
-                        tmp_file.flush()
-                        return tmp_file.name
+                response = requests.get(str(v))
+                response.raise_for_status()
+                schema_dict = response.json()
+                if not JsonSchemaTranslator._get_id_from_any_schema(schema_dict):
+                    schema_dict["$id"] = str(v)
+                with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
+                    tmp_file.write(json.dumps(schema_dict))
+                    tmp_file.flush()
+                    return tmp_file.name
             except Exception as e:
                 logger.error(
                     f"Failed to localize url {v} due to {e}. Run with --debug to get full stacktrace"
@@ -353,7 +352,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         if self.config.platform_instance:
             browse_prefix = f"/{self.config.env.lower()}/{self.config.platform}/{self.config.platform_instance}"
 
-        if os.path.isdir(self.config.path):
+        if isinstance(self.config.path, Path) and self.config.path.is_dir():
             for root, _, files in os.walk(self.config.path, topdown=False):
                 for file_name in [f for f in files if f.endswith(".json")]:
                     try:
@@ -373,10 +372,11 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
 
         else:
             try:
+                assert isinstance(self.config.path, Path)
                 yield from self._load_one_file(
                     ref_loader,
                     browse_prefix=browse_prefix,
-                    root_dir=Path(os.path.dirname(Path(self.config.path))),
+                    root_dir=self.config.path.parent,
                     file_name=str(self.config.path),
                 )
             except Exception as e:

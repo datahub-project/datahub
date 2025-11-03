@@ -10,6 +10,9 @@ import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/componen
 import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import { useReloadableQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableQuery';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import {
@@ -43,6 +46,8 @@ interface Props {
     properties?: FieldProperties;
 }
 
+const MAX_STRUCTURED_PROPERTIES_TO_FETCH = 100;
+
 const SidebarStructuredProperties = ({ properties }: Props) => {
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
@@ -55,7 +60,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
         types: [EntityType.StructuredProperty],
         query: '',
         start: 0,
-        count: 50,
+        count: MAX_STRUCTURED_PROPERTIES_TO_FETCH,
         searchFlags: { skipCache: true },
         orFilters: [
             {
@@ -74,12 +79,20 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     };
 
     // Execute search
-    const { data } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: inputs,
+
+    const { data } = useReloadableQuery(
+        useGetSearchResultsForMultipleQuery,
+        {
+            type: getReloadableKeyType(ReloadableKeyTypeNamespace.STRUCTURED_PROPERTY, 'EntitySummaryTabSidebar'),
+            id: `${entityType}-${isSchemaSidebar ? 'schema' : 'entity'}-sidebar`,
         },
-        fetchPolicy: 'cache-first',
-    });
+        {
+            variables: {
+                input: inputs,
+            },
+            fetchPolicy: 'cache-first',
+        },
+    );
 
     const entityTypeProperties = data?.searchAcrossEntities?.searchResults;
 
@@ -102,10 +115,16 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     return (
         <>
             {entityTypeProperties?.map((property) => {
+                const structuredProperty = property.entity as StructuredPropertyEntity;
                 const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
                 const isRichText = propertyRow?.dataType?.info?.type === StdDataType.RichText;
                 const values = propertyRow?.values;
-                const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);
+                const propertyName = getDisplayName(structuredProperty);
+                const shouldHideIfPropertyIsEmpty = structuredProperty.settings?.hideInAssetSummaryWhenEmpty;
+
+                if (!isSchemaSidebar && shouldHideIfPropertyIsEmpty && !values) {
+                    return null;
+                }
 
                 return (
                     <>

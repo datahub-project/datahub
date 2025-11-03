@@ -34,7 +34,6 @@ from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
     SoftDeletedEntitiesCleanupConfig,
     SoftDeletedEntitiesReport,
 )
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +86,6 @@ class DataHubGcSourceReport(
     DataProcessCleanupReport,
     SoftDeletedEntitiesReport,
     DatahubExecutionRequestCleanupReport,
-    IngestionStageReport,
 ):
     expired_tokens_revoked: int = 0
 

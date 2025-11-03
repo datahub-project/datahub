@@ -171,4 +171,9 @@ def test_state_provider_configs(
             config_class.parse_obj_allow_extras(config_dict)
     else:
         config = config_class.parse_obj_allow_extras(config_dict)
-        assert config == expected
+        # Using model_dump() here is important. Pydantic will pass through any
+        # unknown fields, but those will still impact the equality check.
+        # Using model_dump() ensures we only compare the explicitly defined
+        # fields.
+        assert expected is not None
+        assert config.model_dump() == expected.model_dump()

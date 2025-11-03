@@ -36,6 +36,8 @@ class DatasetSubTypes(StrEnum):
     PROJECTIONS = "Projections"
     TIMESCALEDB_HYPERTABLE = "Hypertable"
     TIMESCALEDB_CONTINUOUS_AGGREGATE = "Continuous Aggregate"
+    GOOGLE_SHEETS = "Google Sheets"
+    GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"

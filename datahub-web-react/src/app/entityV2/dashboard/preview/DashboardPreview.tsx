@@ -88,7 +88,7 @@ export const DashboardPreview = ({
     isOutputPort?: boolean;
     tier?: PopularityTier;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
     browsePaths?: BrowsePathV2;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();

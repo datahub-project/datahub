@@ -50,6 +50,9 @@ export const DEFAULT_APP_CONFIG = {
     searchCardConfig: {
         showDescription: false,
     },
+    searchFlagsConfig: {
+        defaultSkipHighlighting: false,
+    },
     homePageConfig: {
         firstInPersonalSidebar: PersonalSidebarSection.YourAssets,
     },
@@ -83,6 +86,7 @@ export const DEFAULT_APP_CONFIG = {
         showIntroducePage: false,
         showIngestionPageRedesign: false,
         showLineageExpandMore: false,
+        showDefaultExternalLinks: true,
         showStatsTabRedesign: false,
         showHomePageRedesign: false,
         showProductUpdates: false,
@@ -90,6 +94,7 @@ export const DEFAULT_APP_CONFIG = {
         logicalModelsEnabled: false,
         showHomepageUserRole: false,
         assetSummaryPageV1: false,
+        documentationFileUploadV1: false,
     },
     chromeExtensionConfig: {
         enabled: false,

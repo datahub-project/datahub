@@ -33,6 +33,8 @@ type Props = {
     searchBarInputStyle?: any;
     entityAction?: React.FC<EntityActionProps>;
     applyView?: boolean;
+    isViewAllMode?: boolean | false;
+    handleViewAllClickWarning?: () => void;
 };
 
 export const EmbeddedListSearchModal = ({
@@ -48,6 +50,8 @@ export const EmbeddedListSearchModal = ({
     searchBarInputStyle,
     entityAction,
     applyView,
+    isViewAllMode,
+    handleViewAllClickWarning,
 }: Props) => {
     // Component state
     const [query, setQuery] = useState<string>('');
@@ -70,7 +74,7 @@ export const EmbeddedListSearchModal = ({
 
     return (
         <Modal
-            width={800}
+            width={1200}
             style={modalStyle}
             bodyStyle={modalBodyStyle}
             title={title}
@@ -98,6 +102,8 @@ export const EmbeddedListSearchModal = ({
                     searchBarInputStyle={searchBarInputStyle}
                     entityAction={entityAction}
                     applyView={applyView}
+                    isViewAllMode={isViewAllMode}
+                    handleViewAllClickWarning={handleViewAllClickWarning}
                 />
             </SearchContainer>
         </Modal>

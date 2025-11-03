@@ -331,6 +331,25 @@ def test_dir_allowed_with_debug_logging() -> None:
     assert result is True
 
 
+@pytest.mark.parametrize(
+    "include, allowed",
+    [
+        ("s3://bucket/{table}/1/*.json", "s3://bucket/table/1/"),
+        ("s3://bucket/{table}/1/*/*.json", "s3://bucket/table/1/"),
+        ("s3://bucket/{table}/1/*/*.json", "s3://bucket/table/1/2/"),
+    ],
+)
+def test_dir_allowed_with_table_filter_pattern(include: str, allowed: str) -> None:
+    """Test dir_allowed method with table filter patterns."""
+    path_spec = PathSpec(
+        include=include,
+        tables_filter_pattern=AllowDenyPattern(
+            allow=["^table$"],
+        ),
+    )
+    assert path_spec.dir_allowed(allowed) is True
+
+
 # Tests for get_parsable_include classmethod
 @pytest.mark.parametrize(
     "include, expected",

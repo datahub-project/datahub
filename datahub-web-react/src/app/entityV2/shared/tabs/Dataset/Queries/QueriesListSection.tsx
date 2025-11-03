@@ -141,7 +141,7 @@ export default function QueriesListSection({
         createdByColumn,
         createdDateColumn,
         powersColumn,
-        usedByColumn,
+        topUsersColumn,
         columnsColumn,
         editColumn,
     } = useQueryTableColumns({
@@ -165,7 +165,7 @@ export default function QueriesListSection({
         editColumn,
     ];
 
-    const popularQueriesColumns = [queryTextColumn(), usedByColumn, columnsColumn];
+    const popularQueriesColumns = [queryTextColumn(), topUsersColumn, columnsColumn];
 
     const downstreamQueriesColumns = [queryTextColumn(550), powersColumn];
 

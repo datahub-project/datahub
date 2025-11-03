@@ -71,6 +71,7 @@ describe("incidents", () => {
       .click();
     cy.get('[data-testid="incident-create-button"]').click();
     // Wait for the incident to be created and appear in the list
+    cy.get('[data-testid="group-header-collapsed-icon"]').click();
     cy.get(`[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`, {
       timeout: 15000,
     }).should("exist");
@@ -135,21 +136,16 @@ describe("incidents", () => {
     cy.get('[data-testid="status-select-input-type"]').click();
     cy.get('[data-testid="status-options-list"]').contains("Resolved").click();
     cy.get('[data-testid="incident-create-button"]').click();
-    // Wait for the incident to be updated and page to reload
-    cy.get('[data-testid="nested-options-dropdown-container"]', {
-      timeout: 15000,
-    })
-      .should("be.visible")
-      .click();
+    cy.get('[data-testid="filter-base"]').click();
     cy.get('[data-testid="child-option-RESOLVED"]').click();
-    cy.get('[data-testid="nested-options-dropdown-container"]').click();
+    cy.get('[data-testid="filter-base"]').click();
     cy.get('[data-testid="incident-group-HIGH"]').scrollIntoView();
     cy.get('[data-testid="incident-group-HIGH"]').within(() => {
       cy.get('[data-testid="group-header-collapsed-icon"]')
         .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
         .then(($icon) => {
           if ($icon.length > 0 && $icon.is(":visible")) {
-            cy.wrap($icon).click();
+            cy.wrap($icon).should("be.visible").click();
           } else {
             cy.log("Collapsed icon not found or not visible, skipping click");
           }
@@ -242,7 +238,7 @@ describe("incidents", () => {
         .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
         .then(($icon) => {
           if ($icon.length > 0 && $icon.is(":visible")) {
-            cy.wrap($icon).click();
+            cy.wrap($icon).should("be.visible").click();
           } else {
             cy.log("Collapsed icon not found or not visible, skipping click");
           }
@@ -316,7 +312,7 @@ describe("incidents", () => {
         .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
         .then(($icon) => {
           if ($icon.length > 0 && $icon.is(":visible")) {
-            cy.wrap($icon).click();
+            cy.wrap($icon).should("be.visible").click();
           } else {
             cy.log("Collapsed icon not found or not visible, skipping click");
           }

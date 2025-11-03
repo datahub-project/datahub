@@ -1,7 +1,7 @@
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Type, Union
 
 import yaml
 from pydantic import Field, StrictStr, validator
@@ -48,7 +48,7 @@ VALID_ENTITY_TYPE_URNS = [
 _VALID_ENTITY_TYPES_STRING = f"Valid entity type urns are {', '.join(VALID_ENTITY_TYPE_URNS)}, etc... Ensure that the entity type is valid."
 
 
-def _validate_entity_type_urn(v: str) -> str:
+def _validate_entity_type_urn(cls: Type, v: str) -> str:
     urn = Urn.make_entity_type_urn(v)
     if urn not in VALID_ENTITY_TYPE_URNS:
         raise ValueError(

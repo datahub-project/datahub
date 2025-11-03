@@ -12,6 +12,7 @@ import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -26,7 +27,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.slice.SliceBuilder;
@@ -35,10 +35,10 @@ import org.opensearch.search.slice.SliceBuilder;
 @Slf4j
 public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
 
-  @Getter private final RestHighLevelClient client;
+  @Getter private final SearchClientShim<?> client;
 
   public GraphQueryElasticsearch7DAO(
-      RestHighLevelClient client,
+      SearchClientShim<?> client,
       GraphServiceConfiguration graphServiceConfig,
       ElasticSearchConfiguration config,
       MetricUtils metricUtils) {

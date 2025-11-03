@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,7 +26,6 @@ import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -142,7 +142,7 @@ public class TestUtils {
    * each slice
    */
   public static void mockSliceBasedSearch(
-      RestHighLevelClient mockClient,
+      SearchClientShim<?> mockClient,
       List<SearchResponse> slice1Responses,
       List<SearchResponse> slice2Responses) {
 

@@ -37,6 +37,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+GCS_ENDPOINT_URL = "https://storage.googleapis.com"
+
 
 class HMACKey(ConfigModel):
     hmac_access_id: str = Field(description="Access ID")
@@ -112,7 +114,7 @@ class GCSSource(StatefulIngestionSourceBase):
         s3_config = DataLakeSourceConfig(
             path_specs=s3_path_specs,
             aws_config=AwsConnectionConfig(
-                aws_endpoint_url="https://storage.googleapis.com",
+                aws_endpoint_url=GCS_ENDPOINT_URL,
                 aws_access_key_id=self.config.credential.hmac_access_id,
                 aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
                 aws_region="auto",
@@ -121,15 +123,25 @@ class GCSSource(StatefulIngestionSourceBase):
             max_rows=self.config.max_rows,
             number_of_files_to_sample=self.config.number_of_files_to_sample,
             platform=PLATFORM_GCS,  # Ensure GCS platform is used for correct container subtypes
+            platform_instance=self.config.platform_instance,
         )
         return s3_config
 
     def create_equivalent_s3_path_specs(self):
         s3_path_specs = []
         for path_spec in self.config.path_specs:
+            # PathSpec modifies the passed-in include to add /** to the end if
+            # autodetecting partitions. Remove that, otherwise creating a new
+            # PathSpec will complain.
+            # TODO: this should be handled inside PathSpec, which probably shouldn't
+            # modify its input.
+            include = path_spec.include
+            if include.endswith("{table}/**") and not path_spec.allow_double_stars:
+                include = include.removesuffix("**")
+
             s3_path_specs.append(
                 PathSpec(
-                    include=path_spec.include.replace("gs://", "s3://"),
+                    include=include.replace("gs://", "s3://"),
                     exclude=(
                         [exc.replace("gs://", "s3://") for exc in path_spec.exclude]
                         if path_spec.exclude
@@ -140,6 +152,11 @@ class GCSSource(StatefulIngestionSourceBase):
                     table_name=path_spec.table_name,
                     enable_compression=path_spec.enable_compression,
                     sample_files=path_spec.sample_files,
+                    allow_double_stars=path_spec.allow_double_stars,
+                    autodetect_partitions=path_spec.autodetect_partitions,
+                    include_hidden_folders=path_spec.include_hidden_folders,
+                    tables_filter_pattern=path_spec.tables_filter_pattern,
+                    traversal_method=path_spec.traversal_method,
                 )
             )
 

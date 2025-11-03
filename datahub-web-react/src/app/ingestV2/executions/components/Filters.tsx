@@ -4,6 +4,7 @@ import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import ExecutorTypeFilter from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
+import ResultStatusFilter from '@app/ingestV2/shared/components/filters/ResultStatusFilter';
 import SourceFilter from '@app/ingestV2/shared/components/filters/SourceFilter';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
 import useFilters from '@app/searchV2/utils/useFilters';
@@ -12,6 +13,7 @@ import { FacetFilterInput } from '@types';
 
 export const INGESTION_SOURCE_FIELD = 'ingestionSource';
 export const EXECUTOR_TYPE_FIELD = 'executorType';
+export const RESULT_STATUS_FIELD = 'resultStatus';
 
 const Container = styled.div`
     display: flex;
@@ -96,6 +98,10 @@ export default function Filters({ onFiltersApplied, hideSystemSources, shouldPre
                 shouldPreserveParams={shouldPreserveParams}
             />
             <ExecutorTypeFilter onUpdate={(values) => onUpdate(EXECUTOR_TYPE_FIELD, values)} />
+            <ResultStatusFilter
+                defaultValues={defaultValues.get(RESULT_STATUS_FIELD)}
+                onUpdate={(values) => onUpdate(RESULT_STATUS_FIELD, values)}
+            />
         </Container>
     );
 }

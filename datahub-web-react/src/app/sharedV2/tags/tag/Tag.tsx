@@ -9,6 +9,7 @@ import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext
 import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useRemoveTagMutation } from '@graphql/mutations.generated';
 import { EntityType, SubResourceType, TagAssociation } from '@types';
@@ -147,7 +148,10 @@ export default function Tag({
                     <StyledTag
                         onClick={() => {
                             if (isEmbeddedProfile) {
-                                window.open(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn), '_blank');
+                                window.open(
+                                    resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)),
+                                    '_blank',
+                                );
                             } else if (!options?.shouldNotOpenDrawerOnClick) {
                                 showTagProfileDrawer(tag?.tag?.urn);
                             }

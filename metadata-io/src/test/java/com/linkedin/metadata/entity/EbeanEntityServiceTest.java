@@ -73,6 +73,8 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 /**
@@ -88,25 +90,43 @@ public class EbeanEntityServiceTest
 
   public EbeanEntityServiceTest() throws EntityRegistryException {}
 
+  @DataProvider(name = "cdcModeVariants")
+  public Object[][] cdcModeVariants() {
+    return new Object[][] {
+      {false}, // Non-CDC mode
+      {true} // CDC mode
+    };
+  }
+
   @BeforeClass
   public void beforeClass() {
     _mockProducer = mock(EventProducer.class);
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
   }
 
+  @Parameters({"cdcMode"})
   @BeforeMethod
-  public void setupTest() {
+  public void setupTestWithParameter(
+      @org.testng.annotations.Optional("false") String cdcModeParam) {
+    boolean cdcMode = Boolean.parseBoolean(cdcModeParam);
+    setupTestWithCdcMode(cdcMode);
+  }
+
+  private void setupTestWithCdcMode(boolean cdcMode) {
+    this.cdcModeChangeLog = cdcMode;
     reset(_mockProducer);
     reset(_mockUpdateIndicesService);
 
-    Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
+    Database server =
+        EbeanTestUtils.createTestServer(
+            EbeanEntityServiceTest.class.getSimpleName() + "_" + (cdcMode ? "CDC" : "NonCDC"));
 
     _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(_aspectDao, _mockProducer, false, preProcessHooks, true);
+        new EntityServiceImpl(_aspectDao, _mockProducer, false, cdcMode, preProcessHooks, true);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);

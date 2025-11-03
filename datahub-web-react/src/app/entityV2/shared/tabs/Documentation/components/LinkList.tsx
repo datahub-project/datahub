@@ -1,7 +1,7 @@
 import { DeleteOutlined, LinkOutlined } from '@ant-design/icons';
 import { colors } from '@components';
+import { Pencil } from '@phosphor-icons/react';
 import { Button, List, Typography, message } from 'antd';
-import { Pencil } from 'phosphor-react';
 import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -15,23 +15,27 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useRemoveLinkMutation, useUpdateLinkMutation } from '@graphql/mutations.generated';
 import { InstitutionalMemoryMetadata } from '@types';
 
-const LinkListItem = styled(List.Item)`
-    border-radius: 5px;
-    > .ant-btn {
-        opacity: 0;
-    }
-    &:hover {
-        background-color: ${ANTD_GRAY[2]};
-        > .ant-btn {
-            opacity: 1;
-        }
-    }
-`;
-
 const LinkButtonsContainer = styled.div`
     display: flex;
     flex-direction: row;
     gap: 8px;
+`;
+
+const LinkListItem = styled(List.Item)`
+    border-radius: 5px;
+    ${LinkButtonsContainer} {
+        > .ant-btn {
+            opacity: 0;
+        }
+    }
+    &:hover {
+        background-color: ${ANTD_GRAY[2]};
+        ${LinkButtonsContainer} {
+            > .ant-btn {
+                opacity: 1;
+            }
+        }
+    }
 `;
 
 const ListOffsetIcon = styled.span`
@@ -90,6 +94,9 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                             resourceUrn: editingMetadata.associatedUrn || entityUrn,
                             label: formData.label,
                             linkUrl: formData.url,
+                            settings: {
+                                showInAssetPreview: formData.showInAssetPreview,
+                            },
                         },
                     },
                 });
@@ -111,6 +118,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
         setInitialValuesOfEditForm({
             label: metadata.label || metadata.description,
             url: metadata.url,
+            showInAssetPreview: !!metadata.settings?.showInAssetPreview,
         });
         setIsEditFormModalOpened(true);
     }, []);
@@ -125,16 +133,28 @@ export const LinkList = ({ refetch }: LinkListProps) => {
         <>
             {links.length > 0 && (
                 <List
+                    data-testid="link-list"
                     size="large"
                     dataSource={links}
                     renderItem={(link) => (
                         <LinkListItem
                             extra={
                                 <LinkButtonsContainer>
-                                    <Button onClick={() => onEdit(link)} type="text" shape="circle">
+                                    <Button
+                                        onClick={() => onEdit(link)}
+                                        type="text"
+                                        shape="circle"
+                                        data-testid="edit-link-button"
+                                    >
                                         <Pencil size={16} color={colors.gray[500]} />
                                     </Button>
-                                    <Button onClick={() => handleDeleteLink(link)} type="text" shape="circle" danger>
+                                    <Button
+                                        onClick={() => handleDeleteLink(link)}
+                                        type="text"
+                                        shape="circle"
+                                        data-testid="remove-link-button"
+                                        danger
+                                    >
                                         <DeleteOutlined />
                                     </Button>
                                 </LinkButtonsContainer>

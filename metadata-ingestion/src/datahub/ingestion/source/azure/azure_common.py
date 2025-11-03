@@ -81,7 +81,7 @@ class AzureConnectionConfig(ConfigModel):
             )
         return self.sas_token if self.sas_token is not None else self.account_key
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def _check_credential_values(cls, values: Dict) -> Dict:
         if (
             values.get("account_key")

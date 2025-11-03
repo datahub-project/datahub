@@ -89,6 +89,7 @@ export default function useStructuredProp({
         showInSearchFilters: false,
         showAsAssetBadge: false,
         showInAssetSummary: false,
+        hideInAssetSummaryWhenEmpty: false,
         showInColumnsTable: false,
     };
 
@@ -100,6 +101,16 @@ export default function useStructuredProp({
                 settings: {
                     ...settingsDefault,
                     [settingField]: value,
+                },
+            }));
+        } else if (settingField === 'showInAssetSummary' && !value) {
+            // Automatically disable `hideInAssetSummaryWhenEmpty` on disabling of `showInAssetSummary`
+            setFormValues((prev) => ({
+                ...prev,
+                settings: {
+                    ...(prev?.settings || settingsDefault),
+                    showInAssetSummary: false,
+                    hideInAssetSummaryWhenEmpty: false,
                 },
             }));
         } else {

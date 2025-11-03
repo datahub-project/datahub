@@ -375,11 +375,15 @@ fragment institutionalMemoryFields on InstitutionalMemory {
             ...resolvedActorFields
         }
         description
+        label
         created {
             actor
             time
         }
         associatedUrn
+        settings {
+            showInAssetPreview
+        }
     }
 }
 
@@ -1213,6 +1217,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     browsePathV2 {
         ...browsePathV2Fields
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
 }
 
 fragment platformFields on DataPlatform {
@@ -1645,6 +1652,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         showInSearchFilters
         showAsAssetBadge
         showInAssetSummary
+        hideInAssetSummaryWhenEmpty
         showInColumnsTable
     }
 }
@@ -1951,6 +1959,9 @@ fragment ingestionSourceFields on IngestionSource {
         urn
         type
         name
+    }
+    source {
+        type
     }
 }
 

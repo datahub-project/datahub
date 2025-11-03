@@ -1,8 +1,25 @@
 from pydantic import Field, validator
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.env_vars import (
+    get_gms_base_path,
+    get_kafka_schema_registry_url,
+)
 from datahub.configuration.kafka_consumer_config import CallableConsumerConfig
 from datahub.configuration.validate_host_port import validate_host_port
+
+
+def _get_schema_registry_url() -> str:
+    """Get schema registry URL with proper base path handling."""
+    explicit_url = get_kafka_schema_registry_url()
+    if explicit_url:
+        return explicit_url
+
+    base_path = get_gms_base_path()
+    if base_path in ("/", ""):
+        base_path = ""
+
+    return f"http://localhost:8080{base_path}/schema-registry/api/"
 
 
 class _KafkaConnectionConfig(ConfigModel):
@@ -10,7 +27,10 @@ class _KafkaConnectionConfig(ConfigModel):
     bootstrap: str = "localhost:9092"
 
     # schema registry location
-    schema_registry_url: str = "http://localhost:8080/schema-registry/api/"
+    schema_registry_url: str = Field(
+        default_factory=_get_schema_registry_url,
+        description="Schema registry URL. Can be overridden with KAFKA_SCHEMAREGISTRY_URL environment variable, or will use DATAHUB_GMS_BASE_PATH if not set.",
+    )
 
     schema_registry_config: dict = Field(
         default_factory=dict,

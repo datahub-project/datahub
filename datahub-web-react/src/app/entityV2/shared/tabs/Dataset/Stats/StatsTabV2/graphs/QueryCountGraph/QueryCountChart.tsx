@@ -58,6 +58,7 @@ const QueryCountChart = () => {
         return (
             <BarChart
                 data={chartData}
+                dataTestId="query-count-chart"
                 bottomAxisProps={{ tickFormat: (x) => getXAxisTickFormat(groupInterval, x) }}
                 leftAxisProps={{ hideZero: true }}
                 margin={{ left: 50 }}
@@ -77,6 +78,7 @@ const QueryCountChart = () => {
     return (
         <GraphCard
             title={chartName}
+            dataTestId="query-count-card"
             renderGraph={renderBarChart}
             renderControls={() => (
                 <>

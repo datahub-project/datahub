@@ -27,7 +27,7 @@ from typing_extensions import TypeAlias
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.structuredproperties.structuredproperties import AllowedTypes
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, LaxStr
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
@@ -143,7 +143,6 @@ class SchemaFieldSpecification(StrictModel):
     jsonPath: Union[None, str] = None
     nullable: bool = False
     description: Union[None, str] = None
-    doc: Union[None, str] = None  # doc is an alias for description
     label: Optional[str] = None
     created: Optional[dict] = None
     lastModified: Optional[dict] = None
@@ -221,14 +220,14 @@ class SchemaFieldSpecification(StrictModel):
         return v
 
     @root_validator(pre=True)
-    def sync_description_and_doc(cls, values: Dict) -> Dict:
-        """Synchronize doc and description fields if one is provided but not the other."""
+    def sync_doc_into_description(cls, values: Dict) -> Dict:
+        """Synchronize doc into description field if doc is provided."""
         description = values.get("description")
-        doc = values.get("doc")
+        doc = values.pop("doc", None)
 
-        if description is not None and doc is None:
-            values["doc"] = description
-        elif doc is not None and description is None:
+        if doc is not None:
+            if description is not None:
+                raise ValueError("doc and description cannot both be provided")
             values["description"] = doc
 
         return values
@@ -296,10 +295,6 @@ class SchemaFieldSpecification(StrictModel):
             """Custom dict method for Pydantic v1 to handle YAML serialization properly."""
             exclude = kwargs.pop("exclude", None) or set()
 
-            # If description and doc are identical, exclude doc from the output
-            if self.description == self.doc and self.description is not None:
-                exclude.add("doc")
-
             # if nativeDataType and type are identical, exclude nativeDataType from the output
             if self.nativeDataType == self.type and self.nativeDataType is not None:
                 exclude.add("nativeDataType")
@@ -326,10 +321,6 @@ class SchemaFieldSpecification(StrictModel):
         def model_dump(self, **kwargs):
             """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
             exclude = kwargs.pop("exclude", None) or set()
-
-            # If description and doc are identical, exclude doc from the output
-            if self.description == self.doc and self.description is not None:
-                exclude.add("doc")
 
             # if nativeDataType and type are identical, exclude nativeDataType from the output
             if self.nativeDataType == self.type and self.nativeDataType is not None:
@@ -387,7 +378,7 @@ class Dataset(StrictModel):
     name: Optional[str] = Field(None, validate_default=True)
     schema_metadata: Optional[SchemaSpecification] = Field(default=None, alias="schema")
     downstreams: Optional[List[str]] = None
-    properties: Optional[Dict[str, str]] = None
+    properties: Optional[Dict[str, LaxStr]] = None
     subtype: Optional[str] = None
     subtypes: Optional[List[str]] = None
     tags: Optional[List[str]] = None
@@ -605,7 +596,7 @@ class Dataset(StrictModel):
                         ],
                         platformSchema=OtherSchemaClass(
                             rawSchema=yaml.dump(
-                                self.schema_metadata.dict(
+                                self.schema_metadata.model_dump(
                                     exclude_none=True, exclude_unset=True
                                 )
                             )

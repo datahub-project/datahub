@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -23,6 +24,8 @@ class Workspace(BaseModel):
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         # Update name if presonal workspace
         if values["name"] == "User Folder":
             values["name"] = "My documents"

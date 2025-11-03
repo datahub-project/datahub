@@ -49,6 +49,7 @@ from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
+    RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -145,7 +146,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
             None
         )
-        if self.config.enable_stateful_lineage_ingestion:
+        if (
+            self.config.enable_stateful_lineage_ingestion
+            and not self.config.use_queries_v2
+        ):
             redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
                 source=self,
                 config=self.config,
@@ -296,6 +300,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             ):
                 return
 
+            redundant_queries_run_skip_handler: Optional[
+                RedundantQueriesRunSkipHandler
+            ] = None
+            if self.config.enable_stateful_time_window:
+                redundant_queries_run_skip_handler = RedundantQueriesRunSkipHandler(
+                    source=self,
+                    config=self.config,
+                    pipeline_name=self.ctx.pipeline_name,
+                    run_id=self.ctx.run_id,
+                )
+
             with (
                 self.report.new_stage(f"*: {QUERIES_EXTRACTION}"),
                 BigQueryQueriesExtractor(
@@ -315,6 +330,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     structured_report=self.report,
                     filters=self.filters,
                     identifiers=self.identifiers,
+                    redundant_run_skip_handler=redundant_queries_run_skip_handler,
                     schema_resolver=self.sql_parser_schema_resolver,
                     discovered_tables=self.bq_schema_extractor.table_refs,
                 ) as queries_extractor,
