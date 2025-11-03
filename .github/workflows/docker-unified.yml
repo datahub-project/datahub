@@ -244,8 +244,10 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.gradle/caches
             ~/.gradle/wrapper
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/jars-*
+            ~/.gradle/caches/transforms-*
           key: gradle-plugins-cache
           restore-keys: |
             gradle-plugins-cache
@@ -327,8 +329,10 @@ jobs:
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
-            ~/.gradle/caches
             ~/.gradle/wrapper
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/jars-*
+            ~/.gradle/caches/transforms-*
           key: gradle-plugins-cache
 
   scan_images:
