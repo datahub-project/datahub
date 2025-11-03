@@ -231,6 +231,38 @@ class SnowflakeMarketplaceConfig(ConfigModel):
         ),
     )
 
+    # Owner enrichment options
+    marketplace_owner_by_provider: Dict[str, List[str]] = Field(
+        default={},
+        description=(
+            "Map of regex patterns (matched against listing provider) to owners for the data product. "
+            "Owners can be user or group identifiers or full URNs (e.g., 'datahub', 'analytics', 'urn:li:corpGroup:finance'). "
+            "Multiple owners per pattern are supported."
+        ),
+    )
+
+    marketplace_owner_by_listing: Dict[str, List[str]] = Field(
+        default={},
+        description=(
+            "Map of regex patterns (matched against listing title or listing_global_name) to owners for the data product. "
+            "Owners can be user or group identifiers or full URNs."
+        ),
+    )
+
+    use_provider_as_group_owner: bool = Field(
+        default=False,
+        description=(
+            "If true, use the listing provider value as a corpGroup owner for the data product when no explicit mapping matches."
+        ),
+    )
+
+    fetch_listing_details: bool = Field(
+        default=False,
+        description=(
+            "If enabled, fetches DESCRIBE AVAILABLE LISTING for each listing to enrich custom properties (best-effort)."
+        ),
+    )
+
 
 class SnowflakeV2Config(
     SnowflakeConfig,

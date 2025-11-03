@@ -19,10 +19,12 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataproduct import (
+    DataProductProperties,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
     DatasetUsageStatistics,
-    UpstreamLineage,
 )
 
 
@@ -175,6 +177,7 @@ def create_handler(
     mock_listings: Optional[List[Dict[str, Any]]] = None,
     mock_purchases: Optional[List[Dict[str, Any]]] = None,
     mock_usage: Optional[List[Dict[str, Any]]] = None,
+    mock_describe: Optional[List[Dict[str, Any]]] = None,
 ) -> SnowflakeMarketplaceHandler:
     """Helper to create a SnowflakeMarketplaceHandler with mocked data."""
     config = SnowflakeV2Config.parse_obj(config_dict)
@@ -189,6 +192,8 @@ def create_handler(
         fake_native.set_mock_response("IMPORTED DATABASE", mock_purchases)
     if mock_usage is not None:
         fake_native.set_mock_response("LISTING_ACCESS_HISTORY", mock_usage)
+    if mock_describe is not None:
+        fake_native.set_mock_response("DESCRIBE AVAILABLE LISTING", mock_describe)
 
     connection = SnowflakeConnection(fake_native)  # type: ignore[arg-type]
 
@@ -257,32 +262,66 @@ class TestMarketplaceBasicFunctionality:
         assert handler.report.marketplace_data_products_created == 2
         assert handler.report.marketplace_enhanced_datasets == 2
 
-    def test_lineage_creation_between_listing_and_purchase(
+    def test_listing_details_enrichment(
         self,
         base_config: Dict[str, Any],
         mock_listings: List[Dict[str, Any]],
-        mock_purchases: List[Dict[str, Any]],
     ) -> None:
-        """Test lineage creation between listings and purchased databases."""
-        handler = create_handler(base_config, mock_listings, mock_purchases)
-        wus = list(handler.get_marketplace_workunits())
+        """Test that DESCRIBE AVAILABLE LISTING enrichment maps to custom properties and externalUrl."""
+        config_dict = base_config.copy()
+        config_dict["include_marketplace_purchases"] = False
+        config_dict["include_marketplace_usage"] = False
+        config_dict["fetch_listing_details"] = True
 
-        # Find lineage workunits
-        lineage_wus = [
-            wu
-            for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), UpstreamLineage)
+        # Only use the first listing (ACME)
+        listings = [mock_listings[0]]
+
+        describe_rows = [
+            {"property": "DOCUMENTATION_URL", "value": "https://docs.acme.example"},
+            {"property": "QUICKSTART_URL", "value": "https://quick.acme.example"},
+            {"property": "SUPPORT_EMAIL", "value": "support@acme.example"},
+            {"property": "CONTACT", "value": "Acme Support"},
+            {"property": "REQUEST_APPROVER", "value": "approver@acme.example"},
         ]
 
-        assert len(lineage_wus) >= 1
+        handler = create_handler(
+            config_dict,
+            listings,
+            mock_purchases=[],
+            mock_usage=None,
+            mock_describe=describe_rows,
+        )
 
-        # Verify lineage points to data product
-        lineage = cast(UpstreamLineage, lineage_wus[0].metadata.aspect)  # type: ignore[union-attr]
-        assert len(lineage.upstreams) == 1
-        # The URN is hashed, but should contain dataProduct entity type
-        upstream_urn = lineage.upstreams[0].dataset
-        assert "urn:li:dataProduct:" in upstream_urn
+        wus = list(handler.get_marketplace_workunits())
+
+        # Find DataProductProperties for the ACME listing via customProperties listing_global_name
+        dp_props: List[DataProductProperties] = []
+        for wu in wus:
+            aspect_any = getattr(wu.metadata, "aspect", None)
+            if isinstance(aspect_any, DataProductProperties):
+                aspect = cast(DataProductProperties, aspect_any)
+                if (
+                    aspect.customProperties is not None
+                    and aspect.customProperties.get("listing_global_name")
+                    == "ACME.DATA.LISTING"
+                ):
+                    dp_props.append(aspect)
+
+        assert len(dp_props) == 1
+        props = dp_props[0]
+        # externalUrl should be populated from documentation_url
+        assert props.externalUrl == "https://docs.acme.example"
+        # Mapped properties should be present
+        assert (
+            props.customProperties.get("documentation_url")
+            == "https://docs.acme.example"
+        )
+        assert (
+            props.customProperties.get("quickstart_url") == "https://quick.acme.example"
+        )
+        assert props.customProperties.get("support_email") == "support@acme.example"
+        assert props.customProperties.get("support_contact") == "Acme Support"
+        assert props.customProperties.get("request_approver") == "approver@acme.example"
 
 
 # Heuristic Matching Tests

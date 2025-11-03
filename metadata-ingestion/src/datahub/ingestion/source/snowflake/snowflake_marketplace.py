@@ -3,9 +3,9 @@ import logging
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Set
 
-from datahub.emitter.mce_builder import make_domain_urn, make_user_urn
+from datahub.emitter.mce_builder import make_domain_urn, make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import gen_data_product
+from datahub.emitter.mcp_builder import add_owner_to_entity_wu, gen_data_product
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
@@ -156,6 +156,160 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     exc=e,
                 )
 
+    def _normalize_owner_urn(self, owner: str) -> str:
+        """Return a valid corpuser/corpGroup URN from a flexible owner string."""
+        if not owner:
+            return owner
+        val = owner.strip()
+        if val.startswith("urn:li:corpuser:") or val.startswith("urn:li:corpGroup:"):
+            return val
+        # Support explicit prefixes
+        if val.lower().startswith("user:"):
+            return make_user_urn(val.split(":", 1)[1])
+        if val.lower().startswith("group:"):
+            return make_group_urn(val.split(":", 1)[1])
+        # Default to user
+        return make_user_urn(val)
+
+    def _resolve_owners_for_listing(
+        self, listing: SnowflakeMarketplaceListing
+    ) -> List[str]:
+        """Determine owner URNs for a given listing based on config mappings."""
+        owners: List[str] = []
+        title = listing.title or ""
+        global_name = listing.listing_global_name or ""
+        provider = listing.provider or ""
+
+        # Listing-based patterns (match title or global name)
+        try:
+            import re
+
+            for pattern, owner_vals in self.config.marketplace_owner_by_listing.items():
+                if re.search(pattern, title, flags=re.IGNORECASE) or re.search(
+                    pattern, global_name, flags=re.IGNORECASE
+                ):
+                    owners.extend(self._normalize_owner_urn(o) for o in owner_vals)
+
+            # Provider-based patterns
+            for (
+                pattern,
+                owner_vals,
+            ) in self.config.marketplace_owner_by_provider.items():
+                if re.search(pattern, provider, flags=re.IGNORECASE):
+                    owners.extend(self._normalize_owner_urn(o) for o in owner_vals)
+        except Exception as e:
+            logger.debug(f"Owner mapping failed for listing {global_name}: {e}")
+
+        # Fallback: use provider as group owner
+        if not owners and self.config.use_provider_as_group_owner and provider:
+            owners.append(make_group_urn(provider))
+
+        # De-duplicate while preserving order
+        deduped: List[str] = []
+        seen: Set[str] = set()
+        for o in owners:
+            if o and o not in seen:
+                deduped.append(o)
+                seen.add(o)
+        return deduped
+
+    def _enrich_listing_custom_properties(
+        self, listing: SnowflakeMarketplaceListing, props: Dict[str, str]
+    ) -> Dict[str, Any]:
+        """Optionally enrich custom properties via DESCRIBE AVAILABLE LISTING (best-effort).
+
+        Returns a dict with optional keys:
+          - owners: List[str] of owner identifiers derived from details
+          - external_url: Optional[str] preferred documentation URL
+        """
+        result: Dict[str, Any] = {"owners": [], "external_url": None}
+        if not self.config.fetch_listing_details:
+            return result
+        try:
+            query = f"DESCRIBE AVAILABLE LISTING '{listing.listing_global_name}'"
+            cur = self.connection.query(query)
+            for row in cur:
+                # Common DESCRIBE pattern: PROPERTY / VALUE columns
+                if "property" in row and "value" in row:
+                    key = str(row["property"]).strip()
+                    val = row.get("value")
+                    if key and val is not None:
+                        norm_key = "listing_detail_" + key.lower().replace(
+                            " ", "_"
+                        ).replace("-", "_")
+                        props[norm_key] = str(val)
+                else:
+                    # Fallback: add all primitive columns
+                    for k, v in row.items():
+                        if v is None:
+                            continue
+                        norm_key = "listing_detail_" + str(k).lower().replace(" ", "_")
+                        props[norm_key] = str(v)
+
+            # After collection, map recognized fields from props
+            def first(*keys: str) -> Optional[str]:
+                for k in keys:
+                    v = props.get(k)
+                    if v:
+                        return v
+                return None
+
+            documentation_url = first(
+                "listing_detail_documentation_url", "listing_detail_docs_url"
+            )
+            quickstart_url = first(
+                "listing_detail_quickstart_url",
+                "listing_detail_quick_start_url",
+                "listing_detail_quickstart",
+            )
+            support_contact = first(
+                "listing_detail_contact",
+                "listing_detail_support_contact",
+                "listing_detail_support_name",
+            )
+            support_email = first(
+                "listing_detail_support_email", "listing_detail_contact_email"
+            )
+            support_url = first(
+                "listing_detail_support_url", "listing_detail_contact_url"
+            )
+            request_approver = first(
+                "listing_detail_request_approver",
+                "listing_detail_approver",
+                "listing_detail_listing_approver",
+            )
+
+            # Persist mapped properties
+            if documentation_url:
+                props["documentation_url"] = documentation_url
+            if quickstart_url:
+                props["quickstart_url"] = quickstart_url
+            if support_contact:
+                props["support_contact"] = support_contact
+            if support_email:
+                props["support_email"] = support_email
+            if support_url:
+                props["support_url"] = support_url
+            if request_approver:
+                props["request_approver"] = request_approver
+
+            owners_from_details: List[str] = []
+            if support_email:
+                owners_from_details.append(support_email)
+            if request_approver:
+                owners_from_details.append(request_approver)
+            if support_contact and "@" in support_contact:
+                owners_from_details.append(support_contact)
+
+            result["owners"] = owners_from_details
+            result["external_url"] = documentation_url or support_url
+
+        except Exception as e:
+            logger.debug(
+                f"DESCRIBE AVAILABLE LISTING enrichment failed for {listing.listing_global_name}: {e}"
+            )
+        return result
+
     def _create_marketplace_data_products(self) -> Iterable[MetadataWorkUnit]:
         """Create Data Product entities for internal marketplace listings"""
 
@@ -193,8 +347,21 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             if listing.created_on:
                 custom_properties["listing_created_on"] = listing.created_on.isoformat()
 
+            # Optional: add DESCRIBE details
+            details = self._enrich_listing_custom_properties(listing, custom_properties)
+
             # Resolve domain for this listing
             domain_urn = self._resolve_domain_for_listing(listing.title)
+
+            # Resolve owners for this listing
+            owner_urns = self._resolve_owners_for_listing(listing)
+            # Extend with owners derived from DESCRIBE details if any
+            for hint in details.get("owners", []):
+                urn = self._normalize_owner_urn(str(hint))
+                if urn and urn not in owner_urns:
+                    owner_urns.append(urn)
+            # Choose external URL if available
+            external_url = details.get("external_url")
 
             # Use the gen_data_product function from mcp_builder
             yield from gen_data_product(
@@ -202,9 +369,20 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 name=listing.title,
                 description=listing.description
                 or f"Internal marketplace listing from {listing.provider}",
+                external_url=str(external_url) if external_url else None,
                 custom_properties=custom_properties,
                 domain_urn=domain_urn,
+                owner_urn=owner_urns[0] if owner_urns else None,
             )
+
+            # Emit any additional owners beyond the first
+            if len(owner_urns) > 1:
+                for extra_owner in owner_urns[1:]:
+                    yield from add_owner_to_entity_wu(
+                        entity_type="dataProduct",
+                        entity_urn=data_product_urn,
+                        owner_urn=extra_owner,
+                    )
 
             # Emit DataProductProperties with assets if we have any purchased databases
             if asset_urns:
@@ -302,6 +480,8 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             ).as_workunit()
 
             self.report.report_marketplace_dataset_enhanced()
+
+            # Note: Data Products do not currently participate in Dataset lineage aspects.
 
     def _parse_share_objects(self, share_objects_str: str) -> List[str]:
         """
