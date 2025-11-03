@@ -221,6 +221,41 @@ export function validateUrl(url: string): ValidationResult {
 }
 
 /**
+ * Validate term source (only for glossaryTerm entities)
+ */
+export function validateTermSource(termSource: string, entityType: string): ValidationResult {
+  const errors: ValidationError[] = [];
+  const warnings: ValidationWarning[] = [];
+
+  // Only validate for glossaryTerm entities
+  if (entityType !== 'glossaryTerm') {
+    return {
+      isValid: true,
+      errors: [],
+      warnings: [],
+    };
+  }
+
+  // If termSource is provided, it must be either INTERNAL or EXTERNAL
+  if (termSource && termSource.trim() !== '') {
+    const normalizedValue = termSource.trim().toUpperCase();
+    if (normalizedValue !== 'INTERNAL' && normalizedValue !== 'EXTERNAL') {
+      errors.push({
+        field: 'term_source',
+        message: 'Term source must be either "INTERNAL" or "EXTERNAL"',
+        code: 'INVALID_TERM_SOURCE',
+      });
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+  };
+}
+
+/**
  * Check for duplicate names in entity data
  * NOTE: Only detects duplicates within the same hierarchy level (same parent)
  * Entities with different parents can have the same name

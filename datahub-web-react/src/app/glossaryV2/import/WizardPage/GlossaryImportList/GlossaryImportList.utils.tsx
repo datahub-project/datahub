@@ -31,14 +31,7 @@ const EDITABLE_COLUMNS: EditableColumnConfig[] = [
         placeholder: 'Enter description',
         sortable: true,
     },
-    {
-        key: 'term_source',
-        title: 'Term Source',
-        width: 180,
-        minWidth: 150,
-        placeholder: 'Enter term source',
-        sortable: true,
-    },
+    // Note: term_source is handled separately with a dropdown, not in EDITABLE_COLUMNS
     {
         key: 'source_ref',
         title: 'Source Ref',
@@ -404,6 +397,57 @@ function createEntityTypeColumn(
     };
 }
 
+/**
+ * Create Term Source column with select dropdown (only for glossaryTerm entities)
+ */
+function createTermSourceColumn(
+    isEditing: (rowId: string, field: string) => boolean,
+    handleCellEdit: (rowId: string, field: string) => void,
+    handleCellSave: (rowId: string, field: string, value: string) => void,
+): Column<Entity> {
+    return {
+        title: 'Term Source',
+        key: 'term_source',
+        render: (record) => {
+            // Only show dropdown for glossaryTerm entities
+            if (record.type !== 'glossaryTerm') {
+                return <div style={{ color: '#999' }}>-</div>;
+            }
+
+            if (isEditing(record.id, 'term_source')) {
+                const currentValue = record.data.term_source || 'INTERNAL';
+                return (
+                    <SimpleSelect
+                        values={[currentValue.toUpperCase()]}
+                        onUpdate={(values) => handleCellSave(record.id, 'term_source', values[0])}
+                        width="full"
+                        options={[
+                            { value: 'INTERNAL', label: 'INTERNAL' },
+                            { value: 'EXTERNAL', label: 'EXTERNAL' },
+                        ]}
+                    />
+                );
+            }
+            return (
+                <div 
+                    onClick={() => handleCellEdit(record.id, 'term_source')}
+                    style={{ cursor: 'pointer' }}
+                >
+                    {(record.data.term_source || 'INTERNAL').toUpperCase()}
+                </div>
+            );
+        },
+        width: '180px',
+        minWidth: '150px',
+        alignment: 'left',
+        sorter: (a, b) => {
+            const aValue = (a.data.term_source || 'INTERNAL').toUpperCase();
+            const bValue = (b.data.term_source || 'INTERNAL').toUpperCase();
+            return aValue.localeCompare(bValue);
+        },
+    };
+}
+
 // ============================================
 // MAIN EXPORT
 // ============================================
@@ -438,6 +482,7 @@ export const getTableColumns = (
             editingValue,
         ),
         createEntityTypeColumn(isEditing, handleCellEdit, handleCellSave),
+        createTermSourceColumn(isEditing, handleCellEdit, handleCellSave),
     ];
 
     // Editable columns from config

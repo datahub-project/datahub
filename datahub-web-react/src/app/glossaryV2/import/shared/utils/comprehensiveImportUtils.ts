@@ -187,7 +187,15 @@ function createEntityPatches(
       patch.push({ op: 'ADD' as const, path: '/definition', value: entity.data.description || "" });
       
       if (entity.type === 'glossaryTerm') {
-        patch.push({ op: 'ADD' as const, path: '/termSource', value: entity.data.term_source || 'INTERNAL' });
+        // Validate and normalize term_source
+        const termSource = entity.data.term_source || 'INTERNAL';
+        const normalizedTermSource = termSource.trim().toUpperCase();
+        if (normalizedTermSource !== 'INTERNAL' && normalizedTermSource !== 'EXTERNAL') {
+          console.warn(`Invalid term_source "${termSource}" for entity "${entity.name}", defaulting to INTERNAL`);
+          patch.push({ op: 'ADD' as const, path: '/termSource', value: 'INTERNAL' });
+        } else {
+          patch.push({ op: 'ADD' as const, path: '/termSource', value: normalizedTermSource });
+        }
       }
     } else {
       // For existing entities, only patch fields that have actual values
@@ -198,7 +206,14 @@ function createEntityPatches(
         patch.push({ op: 'ADD' as const, path: '/definition', value: entity.data.description });
       }
       if (entity.type === 'glossaryTerm' && entity.data.term_source) {
-        patch.push({ op: 'ADD' as const, path: '/termSource', value: entity.data.term_source });
+        // Validate and normalize term_source
+        const termSource = entity.data.term_source;
+        const normalizedTermSource = termSource.trim().toUpperCase();
+        if (normalizedTermSource !== 'INTERNAL' && normalizedTermSource !== 'EXTERNAL') {
+          console.warn(`Invalid term_source "${termSource}" for entity "${entity.name}", skipping`);
+        } else {
+          patch.push({ op: 'ADD' as const, path: '/termSource', value: normalizedTermSource });
+        }
       }
     }
     

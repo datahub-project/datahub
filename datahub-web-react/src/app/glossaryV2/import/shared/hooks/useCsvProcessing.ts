@@ -19,6 +19,7 @@ import {
   validateDomainUrn,
   validateCustomProperties,
   validateUrl,
+  validateTermSource,
   findDuplicateNames,
 } from '@app/glossaryV2/import/glossary.utils';
 
@@ -255,6 +256,19 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       const typeValidation = validateEntityType(entityData.entity_type);
       if (!typeValidation.isValid) {
         typeValidation.errors.forEach(error => {
+          errors.push({
+            row: index + 1,
+            field: error.field,
+            message: error.message,
+            type: 'validation',
+          });
+        });
+      }
+
+      // Validate term_source for glossaryTerm entities
+      const termSourceValidation = validateTermSource(entityData.term_source || '', entityData.entity_type || '');
+      if (!termSourceValidation.isValid) {
+        termSourceValidation.errors.forEach(error => {
           errors.push({
             row: index + 1,
             field: error.field,
