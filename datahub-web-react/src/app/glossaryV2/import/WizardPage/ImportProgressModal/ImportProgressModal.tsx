@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { Modal } from '@components';
-// Progress component not available, using custom progress bar
-import { Message } from '@app/shared/Message';
+import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
 import { ComprehensiveImportProgress, ImportError, ImportWarning } from '@app/glossaryV2/import/shared/hooks/useComprehensiveImport';
 
 interface ImportProgressModalProps {
@@ -112,6 +111,16 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
     return '#3b82f6';
   };
 
+  useEffect(() => {
+    if (isCompleted) {
+      showToastMessage(
+        hasFailed ? ToastType.WARNING : ToastType.SUCCESS,
+        hasFailed ? "Import completed with errors" : "Import completed successfully",
+        3
+      );
+    }
+  }, [isCompleted, hasFailed]);
+
   return (
         <Modal
           open={visible}
@@ -161,17 +170,6 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
                 <span style={{ color: '#6b7280' }}>... and {progress.errors.length - 5} more errors</span>
               )}
             </ErrorList>
-          </div>
-        )}
-
-
-        {isCompleted && (
-          <div style={{ marginTop: '16px' }}>
-            <Message
-              content={hasFailed ? "Import completed with errors" : "Import completed successfully"}
-              type={hasFailed ? "warning" : "success"}
-              style={{ marginBottom: 0 }}
-            />
           </div>
         )}
       </ModalContainer>
