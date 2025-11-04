@@ -1,6 +1,6 @@
 import * as utils from "./utils";
 
-const TEST_USER_DISPLAY_NAME = "jdoe";
+const TEST_USER_DISPLAY_NAME = "John Doe";
 const TEST_GLOSSARY_TERM_URN = "urn:li:glossaryTerm:CypressNode.CypressTerm";
 const TEST_DOMAIN_NAME = "Testing";
 const TEST_RELATED_TERM_NAME = "RelatedCypressTerm";
