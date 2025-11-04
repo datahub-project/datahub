@@ -27,11 +27,18 @@ public class DataHubFieldComplexityCalculator implements FieldComplexityCalculat
     int complexity = 1;
     Map<String, Object> args = environment.getArguments();
     if (args.containsKey(INPUT_ARG)) {
-      Map<String, Object> input = (Map<String, Object>) args.get(INPUT_ARG);
-      if (input.containsKey(COUNT_ARG) && (Integer) input.get(COUNT_ARG) > 1) {
-        Integer count = (Integer) input.get(COUNT_ARG);
-        Field field = environment.getField();
-        complexity += countRecursiveLineageComplexity(count, field);
+      Object inputObj = args.get(INPUT_ARG);
+      if (inputObj instanceof Map) {
+        Map<String, Object> input = (Map<String, Object>) inputObj;
+        if (input.containsKey(COUNT_ARG) && (Integer) input.get(COUNT_ARG) > 1) {
+          Integer count = (Integer) input.get(COUNT_ARG);
+          Field field = environment.getField();
+          complexity += countRecursiveLineageComplexity(count, field);
+        }
+      } else if (inputObj instanceof List) {
+        // Handle array inputs (like patchEntities)
+        List<?> inputList = (List<?>) inputObj;
+        complexity += inputList.size(); // Add complexity based on array size
       }
     }
     if (GRAPHQL_QUERY_TYPE.equals(environment.getParentType().getName())) {

@@ -1,7 +1,11 @@
 package com.linkedin.metadata.search;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.datahub.test.Snapshot;
@@ -16,17 +20,21 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -52,7 +60,7 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
   @Nonnull
   protected abstract ElasticSearchConfiguration getElasticSearchConfiguration();
 
-  private SettingsBuilder settingsBuilder;
+  private V2LegacySettingsBuilder settingsBuilder;
   private ElasticSearchService elasticSearchService;
   private OperationContext opContext;
 
@@ -60,19 +68,25 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
 
   @BeforeClass
   public void setup() {
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("es_service_test")
+                .hashIdAlgo("MD5")
+                .build(),
+            SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
             new SnapshotEntityRegistry(new Snapshot()),
-            new IndexConventionImpl(
-                IndexConventionImpl.IndexConventionConfig.builder()
-                    .prefix("es_service_test")
-                    .hashIdAlgo("MD5")
-                    .build()));
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
-    settingsBuilder = new SettingsBuilder(null, indexConfiguration);
+            SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
+    IndexConvention mockIndexConvention = mock(IndexConvention.class);
+    when(mockIndexConvention.isV2EntityIndex(anyString())).thenReturn(true);
+    settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
     elasticSearchService = buildService();
-    elasticSearchService.reindexAll(Collections.emptySet());
+    elasticSearchService.reindexAll(opContext, Collections.emptySet());
   }
 
   @BeforeMethod
@@ -104,10 +118,10 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            settingsBuilder,
             TEST_SEARCH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
+            new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
+            settingsBuilder,
             searchDAO,
             browseDAO,
             writeDAO);

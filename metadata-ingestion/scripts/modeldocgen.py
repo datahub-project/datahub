@@ -1550,6 +1550,11 @@ def generate(  # noqa: C901
 
     sorted_entity_names = get_sorted_entity_names(entity_names)
 
+    # Create separate directory for DataHub-optimized variants (not for Docusaurus sidebar)
+    datahub_entity_dir = f"{generated_docs_dir}/.datahub-variant/"
+    shutil.rmtree(datahub_entity_dir, ignore_errors=True)
+    os.makedirs(datahub_entity_dir, exist_ok=True)
+
     index = 0
     for _, sorted_entities in sorted_entity_names:
         for entity_name in sorted_entities:
@@ -1564,12 +1569,9 @@ def generate(  # noqa: C901
                 fp.write("---\n")
                 fp.write(generated_documentation[entity_name])
 
-            # Write DataHub variant (simplified, with inline directives expanded)
+            # Write DataHub variant to separate directory (for ingestion only, not for sidebar)
             if entity_name in generated_documentation_datahub:
-                with open(f"{entity_dir}/{entity_name}-datahub.md", "w") as fp:
-                    fp.write("---\n")
-                    fp.write(f"sidebar_position: {index}\n")
-                    fp.write("---\n")
+                with open(f"{datahub_entity_dir}/{entity_name}-datahub.md", "w") as fp:
                     fp.write(generated_documentation_datahub[entity_name])
 
             index += 1

@@ -16,6 +16,8 @@ public class ElasticSearchConfiguration {
   private SearchConfiguration search;
   private String idHashAlgo;
   private IndexConfiguration index;
+  private ScrollConfiguration scroll;
+  private EntityIndexConfiguration entityIndex;
   private String host;
   private int port;
   private int threadCount;
