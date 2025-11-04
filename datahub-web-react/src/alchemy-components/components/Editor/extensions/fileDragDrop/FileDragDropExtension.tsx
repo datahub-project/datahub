@@ -306,7 +306,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
 
         const url = node.getAttribute(FILE_ATTRS.url) || '';
         const name = node.getAttribute(FILE_ATTRS.name) || '';
-        const type = node.getAttribute(FILE_ATTRS.type) || '';
+        const type = node.getAttribute(FILE_ATTRS.type) || getFileTypeFromUrl(url) || '';
         const size = parseInt(node.getAttribute(FILE_ATTRS.size) || '0', 10);
         const id = node.getAttribute(FILE_ATTRS.id) || '';
 
