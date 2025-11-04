@@ -88,12 +88,15 @@ describe("glossary import", () => {
 
     uploadCsvFile(csvContent);
 
-    // Wait for processing to complete - wait for the term to appear instead of hardcoded wait
-    cy.contains(testGlossaryTerm, { timeout: 15000 }).should("be.visible");
+    // Wait for processing to complete and page to transition to import list
+    // Wait for the search input which indicates we're on the import list step
+    cy.get('input[placeholder*="Search entities"]', { timeout: 20000 }).should(
+      "be.visible",
+    );
 
-    // Verify import list is displayed
-    cy.contains("Import").should("be.visible");
-    cy.contains(testGlossaryTerm).should("be.visible");
+    // Wait for the term to appear in the import list
+    cy.contains(testGlossaryTerm, { timeout: 20000 }).should("be.visible");
+    cy.contains("CypressImportTerm2", { timeout: 10000 }).should("be.visible");
   });
 
   it("upload CSV with parent node relationship", () => {
@@ -125,9 +128,14 @@ describe("glossary import", () => {
 
     uploadCsvFile(csvContent);
 
-    // Wait for processing - wait for the term to appear instead of hardcoded wait
-    cy.contains(testGlossaryTerm, { timeout: 15000 }).should("be.visible");
-    cy.contains(testGlossaryTermGroup).should("be.visible");
+    // Wait for processing to complete and page to transition to import list
+    cy.get('input[placeholder*="Search entities"]', { timeout: 20000 }).should(
+      "be.visible",
+    );
+
+    // Wait for the term to appear in the import list
+    cy.contains(testGlossaryTerm, { timeout: 20000 }).should("be.visible");
+    cy.contains(testGlossaryTermGroup, { timeout: 10000 }).should("be.visible");
   });
 
   it("handle invalid CSV file format", () => {
@@ -182,10 +190,16 @@ glossaryNode,CypressImportGroup2,Group 2 description,INTERNAL
 glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
 
     uploadCsvFile(csvContent);
-    // Wait for entities to appear instead of hardcoded wait
-    cy.contains("CypressImportGroup1", { timeout: 15000 }).should("be.visible");
-    cy.contains("CypressImportTerm1").should("be.visible");
-    cy.contains("CypressImportTerm2").should("be.visible");
+
+    // Wait for processing to complete and page to transition to import list
+    cy.get('input[placeholder*="Search entities"]', { timeout: 20000 }).should(
+      "be.visible",
+    );
+
+    // Wait for entities to appear in the import list
+    cy.contains("CypressImportGroup1", { timeout: 20000 }).should("be.visible");
+    cy.contains("CypressImportTerm1", { timeout: 10000 }).should("be.visible");
+    cy.contains("CypressImportTerm2", { timeout: 10000 }).should("be.visible");
   });
 
   it("test search functionality in import list", () => {
@@ -200,8 +214,14 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     ]);
 
     uploadCsvFile(csvContent);
+
+    // Wait for processing to complete and page to transition to import list
+    cy.get('input[placeholder*="Search entities"]', { timeout: 20000 }).should(
+      "be.visible",
+    );
+
     // Wait for entities to appear before searching
-    cy.contains("SearchableTerm1", { timeout: 15000 }).should("be.visible");
+    cy.contains("SearchableTerm1", { timeout: 20000 }).should("be.visible");
 
     // Find search input and search for term
     cy.get('input[placeholder*="Search"]', { timeout: 5000 })
@@ -224,8 +244,14 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     ]);
 
     uploadCsvFile(csvContent);
-    // Wait for the reset button to appear instead of hardcoded wait
-    cy.contains("Reset", { timeout: 15000 }).should("be.visible").click();
+
+    // Wait for processing to complete and page to transition to import list
+    cy.get('input[placeholder*="Search entities"]', { timeout: 20000 }).should(
+      "be.visible",
+    );
+
+    // Wait for the reset button to appear
+    cy.contains("Reset", { timeout: 20000 }).should("be.visible").click();
 
     // Verify we're back to upload step
     cy.contains("Drop your CSV file here").should("be.visible");
@@ -258,9 +284,15 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     ]);
 
     uploadCsvFile(csvContent);
-    // Wait for the entity to appear in the import list instead of hardcoded wait
-    cy.contains(existingTermName, { timeout: 15000 }).should("be.visible");
-    cy.contains("Updated").should("be.visible");
+
+    // Wait for processing to complete and page to transition to import list
+    cy.get('input[placeholder*="Search entities"]', { timeout: 20000 }).should(
+      "be.visible",
+    );
+
+    // Wait for the entity to appear in the import list
+    cy.contains(existingTermName, { timeout: 20000 }).should("be.visible");
+    cy.contains("Updated", { timeout: 10000 }).should("be.visible");
 
     // Find and click the Diff button for this entity
     cy.contains(existingTermName)
@@ -329,8 +361,14 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     ]);
 
     uploadCsvFile(csvContent);
-    // Wait for the entity to appear in the import list instead of hardcoded wait
-    cy.contains(conflictTermName, { timeout: 15000 }).should("be.visible");
+
+    // Wait for processing to complete and page to transition to import list
+    cy.get('input[placeholder*="Search entities"]', { timeout: 20000 }).should(
+      "be.visible",
+    );
+
+    // Wait for the entity to appear in the import list
+    cy.contains(conflictTermName, { timeout: 20000 }).should("be.visible");
 
     // Find and click the Diff button
     cy.contains(conflictTermName)
@@ -390,8 +428,14 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
 glossaryTerm,${diffTestTerm},New description,EXTERNAL,REF123,https://example.com,admin:Technical Owner,`;
 
     uploadCsvFile(csvContent);
-    // Wait for the entity to appear in the import list instead of hardcoded wait
-    cy.contains(diffTestTerm, { timeout: 15000 })
+
+    // Wait for processing to complete and page to transition to import list
+    cy.get('input[placeholder*="Search entities"]', { timeout: 20000 }).should(
+      "be.visible",
+    );
+
+    // Wait for the entity to appear in the import list
+    cy.contains(diffTestTerm, { timeout: 20000 })
       .parent()
       .parent()
       .within(() => {
