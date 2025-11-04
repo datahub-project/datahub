@@ -1413,3 +1413,66 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **2bcbd76ede** - fix(cypress): fix ingestion_source cypress test (#15154)
   *by Purnima Garg on 2025-10-30*
 
+
+## Upstream Merge Session - 2025-11-04 00:00:12
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-11-04-000011`
+- **Merge Base**: `2bcbd76edef79525973b4b3af1ff15a20bf8830a`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 16
+- **Strategy**: stacked
+- **Started**: Tue Nov  4 00:00:12 UTC 2025
+
+### Commits Included in This Merge
+- **660a26bda1** - chore(): bump kubectl (#15157)
+  *by david-leifker on 2025-10-30*
+
+- **df6e6a94c2** - docs(search): improve docs for upstream and downstream advanced query (#15167)
+  *by Aseem Bansal on 2025-10-31*
+
+- **4e0b8b76d4** - feat(OpenAPI v3): Improve generic scroll API to have advanced pagination and facets (#14877)
+  *by Jesse Jia on 2025-10-31*
+
+- **8ee03b40b2** - fix(upgrade reindex): Ensure count uses all the restore job args to accurately estimate the… (#15094)
+  *by Harsh Verma on 2025-10-31*
+
+- **e7d71568a4** - fix(lineage): Use lineage viz methods when ignoreAsHops is specified (#15171)
+  *by Andrew Sikowitz on 2025-10-31*
+
+- **0203ab6fa7** - fix(build): regression in nuke task when running non-debug profiles (#15016)
+  *by Chakru on 2025-11-03*
+
+- **5ab063f68f** - feat(files) Add combined commits together for file upload/download (#15170)
+  *by Chris Collins on 2025-11-03*
+
+- **6eb27d625c** - fix(ci): cache gradle plugins (#15175)
+  *by Chakru on 2025-11-03*
+
+- **aacaa76e38** - feat(ui): Modernize Analytics Page with v2/Alchemy Components (#6872) (#15068)
+  *by Chris Collins on 2025-11-03*
+
+- **e1d7f118f8** - fix(tests): fix v2_edit_documentation (bring from SaaS) (#15165)
+  *by v-tarasevich-blitz-brain on 2025-11-03*
+
+- **07b8508b3d** - fix(tests): bring fixes for modules.js cypress tests from saas (#15081)
+  *by v-tarasevich-blitz-brain on 2025-11-03*
+
+- **8472531be9** - fix(ingest): Handle empty column names from Snowflake access history (#15106)
+  *by kyungsoo-datahub on 2025-11-03*
+
+- **523555167a** - feat(models): AssertionInfo with note (#15031)
+  *by Jay on 2025-11-03*
+
+- **e06d37e86e** - feat(pdl): Add Microsoft Teams as a new notification sink type (#15186)
+  *by Anush Kumar on 2025-11-03*
+
+- **41cb01c101** - docs(observe): add documentation for smart sql assertions (#15187)
+  *by Peter Wang on 2025-11-03*
+
+- **12dec48ce1** - fix(modules) Support unknown module types gracefully in the app (#15185)
+  *by Chris Collins on 2025-11-03*
+

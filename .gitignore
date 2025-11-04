@@ -34,6 +34,8 @@ dmypy.json
 MANIFEST
 *.pyc
 .python-version
+Pipfile
+Pipfile.lock
 
 # Generated files
 **/bin

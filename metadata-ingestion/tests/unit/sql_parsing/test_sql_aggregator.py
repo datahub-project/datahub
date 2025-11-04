@@ -1297,3 +1297,141 @@ def test_partial_empty_downstream_column_in_snowflake_lineage(
         RESOURCE_DIR
         / "test_partial_empty_downstream_column_in_snowflake_lineage_golden.json",
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_empty_column_in_query_subjects(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that QuerySubjects with empty column names doesn't create invalid URNs.
+
+    This simulates a scenario where Snowflake's access_history may contain empty
+    column names, which should not result in invalid schemaField URNs.
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        generate_queries=True,
+        generate_query_subject_fields=True,
+    )
+
+    downstream_urn = DatasetUrn(
+        "snowflake", "production.dca_core.snowplow_user_engagement_mart"
+    ).urn()
+    upstream_urn = DatasetUrn(
+        "snowflake", "production.dca_core.snowplow_user_engagement_mart__dbt_tmp"
+    ).urn()
+
+    # Simulate a query where Snowflake's access_history contains empty column names.
+    preparsed_query = PreparsedQuery(
+        query_id="test-delete-query",
+        query_text=(
+            "delete from PRODUCTION.DCA_CORE.snowplow_user_engagement_mart "
+            "as DBT_INTERNAL_DEST where (unique_key_input) in ("
+            "select distinct unique_key_input from "
+            "PRODUCTION.DCA_CORE.snowplow_user_engagement_mart__dbt_tmp "
+            "as DBT_INTERNAL_SOURCE)"
+        ),
+        upstreams=[upstream_urn],
+        downstream=downstream_urn,
+        column_lineage=[
+            # This simulates a case where an empty column name might be present in the audit log.
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column=""),
+                upstreams=[ColumnRef(table=upstream_urn, column="unique_key_input")],
+            ),
+        ],
+        column_usage={
+            upstream_urn: {"unique_key_input", ""},  # Empty column from Snowflake
+        },
+        query_type=QueryType.DELETE,
+        timestamp=_ts(20),
+    )
+
+    aggregator.add_preparsed_query(preparsed_query)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    query_mcpws = [
+        mcpw
+        for mcpw in mcpws
+        if mcpw.entityUrn and mcpw.entityUrn.startswith("urn:li:query:")
+    ]
+
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, query_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR / "test_empty_column_in_query_subjects_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_empty_column_in_query_subjects_only_column_usage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that QuerySubjects with empty columns ONLY in column_usage doesn't create invalid URNs.
+
+    This simulates the exact customer scenario where:
+    - Snowflake returns empty columns in direct_objects_accessed (column_usage)
+    - But NO empty columns in objects_modified (column_lineage is empty or valid)
+
+    This is the scenario that would send invalid URNs to GMS rather than crash in Python,
+    matching the customer's error: "Provided urn urn:li:schemaField:(...,) is invalid"
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        generate_queries=True,
+        generate_query_subject_fields=True,
+        generate_query_usage_statistics=True,
+        usage_config=BaseUsageConfig(
+            bucket_duration=BucketDuration.DAY,
+            start_time=parse_user_datetime("2024-02-06T00:00:00Z"),
+            end_time=parse_user_datetime("2024-02-07T00:00:00Z"),
+        ),
+    )
+
+    # Simulate table name from user: production.dsd_digital_private.gsheets_legacy_views
+    upstream_urn = DatasetUrn(
+        "snowflake", "production.dsd_digital_private.gsheets_legacy_views"
+    ).urn()
+
+    # Simulate a SELECT query (no downstream) where the audit log contains empty column names.
+    preparsed_query = PreparsedQuery(
+        query_id="test-select-gsheets-view",
+        query_text="SELECT * FROM production.dsd_digital_private.gsheets_legacy_views WHERE id = 123",
+        upstreams=[upstream_urn],
+        downstream=None,  # SELECT query has no downstream
+        column_lineage=[],  # No column lineage because no downstream
+        column_usage={
+            # Simulate a case where an empty column name is present in the audit log.
+            upstream_urn: {"id", "name", ""},  # Empty column from Snowflake!
+        },
+        query_type=QueryType.SELECT,
+        timestamp=_ts(20),
+    )
+
+    aggregator.add_preparsed_query(preparsed_query)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    query_mcpws = [
+        mcpw
+        for mcpw in mcpws
+        if mcpw.entityUrn and mcpw.entityUrn.startswith("urn:li:query:")
+    ]
+
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, query_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR
+        / "test_empty_column_in_query_subjects_only_column_usage_golden.json",
+    )

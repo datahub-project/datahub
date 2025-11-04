@@ -18,11 +18,12 @@ Smart Assertions are Anomaly Detection monitors that will train on the historica
 
 ## How do I create Smart Assertions?
 
-Today, you can create Smart Assertions for 3 types of assertions. To learn more about each one, click the respective links below:
+Today, you can create Smart Assertions for 4 types of assertions. To learn more about each one, click the respective links below:
 
 1. [Volume](./volume-assertions.md#anomaly-detection-with-smart-assertions-)
 2. [Freshness](./freshness-assertions.md#anomaly-detection-with-smart-assertions-)
 3. [Column Metrics](./column-assertions.md#anomaly-detection-with-smart-assertions-)
+4. [Custom SQL](./custom-sql-assertions.md#anomaly-detection-with-smart-assertions-)
 
 You can also create Freshness & Volume Smart Assertions in bulk on the [Data Health page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions):
 
