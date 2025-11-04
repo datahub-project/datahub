@@ -1,6 +1,6 @@
-import { Loader, PageTitle, SelectOption, SimpleSelect } from '@components';
+import { Loader, PageTitle, SelectOption, SimpleSelect, Text } from '@components';
 import { Alert } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { ChartGroup } from '@app/analyticsDashboardV2/components/ChartGroup';
@@ -73,6 +73,12 @@ const LoaderContainer = styled.div`
     min-height: 200px;
 `;
 
+const EmptyDomainText = styled(Text)`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+`;
+
 export const AnalyticsPage = () => {
     const isV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -95,6 +101,7 @@ export const AnalyticsPage = () => {
         fetchPolicy: 'no-cache',
     });
     const [domain, setDomain] = useState('ALL');
+    const [metadataAnalyticsDataInitialized, setMetadataAnalyticsDataInitialized] = useState(false);
 
     const onDomainChange = (inputDomains) => setDomain(inputDomains[0]);
     const {
@@ -112,7 +119,17 @@ export const AnalyticsPage = () => {
         skip: false,
     });
 
-    const isLoading = highlightLoading || chartLoading || domainLoading || metadataAnalyticsLoading;
+    useEffect(() => {
+        if (!metadataAnalyticsDataInitialized && !!metadataAnalyticsData) {
+            setMetadataAnalyticsDataInitialized(true);
+        }
+    }, [metadataAnalyticsDataInitialized, metadataAnalyticsData]);
+
+    const isLoading =
+        highlightLoading ||
+        chartLoading ||
+        domainLoading ||
+        (metadataAnalyticsLoading && !metadataAnalyticsDataInitialized);
 
     const domainOptions =
         domainData?.listDomains?.domains?.map((d) => ({ value: d.urn, label: d?.properties?.name || '' })) || [];
@@ -178,6 +195,14 @@ export const AnalyticsPage = () => {
                     {metadataAnalyticsData?.getMetadataAnalyticsCharts?.map((chartGroup) => (
                         <ChartGroup chartGroup={{ ...chartGroup, title: '' }} key={chartGroup.groupId} />
                     ))}
+                    {metadataAnalyticsLoading && !metadataAnalyticsData && <Loader />}
+                    {!metadataAnalyticsLoading &&
+                        (!metadataAnalyticsData?.getMetadataAnalyticsCharts?.length ||
+                            !metadataAnalyticsData?.getMetadataAnalyticsCharts[0]?.charts?.length) && (
+                            <EmptyDomainText size="md" weight="bold" color="gray" colorLevel={600}>
+                                No analytics data for this domain
+                            </EmptyDomainText>
+                        )}
 
                     {chartError && <Alert type="error" message={chartError?.message || 'Failed to load charts'} />}
                     {chartData?.getAnalyticsCharts
