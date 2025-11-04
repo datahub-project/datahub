@@ -10,13 +10,13 @@ Apache Airflow 3.0 introduced significant breaking changes. The DataHub Airflow 
 
 **The plugin now uses separate implementations for Airflow 2.x and 3.x** to achieve clean type safety and maintainability:
 
-| Component                    | Airflow 2.x Implementation     | Airflow 3.x Implementation           |
-| ---------------------------- | ------------------------------ | ------------------------------------ |
-| **Main Module**              | `plugin_v2/datahub_listener.py` | `plugin_v2_airflow3/datahub_listener.py` |
-| **Shims/Imports**            | `plugin_v2/_shims.py`           | `plugin_v2_airflow3/_shims.py`        |
-| **Lineage Extraction**       | Extractor-based (`_extractors.py`) | OpenLineage native (`_airflow3_sql_parser_patch.py`) |
-| **OpenLineage Package**      | `openlineage-airflow>=1.2.0`    | Native provider (`apache-airflow-providers-openlineage`) |
-| **Type Checking**            | ✅ Clean Airflow 2.x types      | ✅ Clean Airflow 3.x types            |
+| Component               | Airflow 2.x Implementation         | Airflow 3.x Implementation                               |
+| ----------------------- | ---------------------------------- | -------------------------------------------------------- |
+| **Main Module**         | `plugin_v2/datahub_listener.py`    | `plugin_v2_airflow3/datahub_listener.py`                 |
+| **Shims/Imports**       | `plugin_v2/_shims.py`              | `plugin_v2_airflow3/_shims.py`                           |
+| **Lineage Extraction**  | Extractor-based (`_extractors.py`) | OpenLineage native (`_airflow3_sql_parser_patch.py`)     |
+| **OpenLineage Package** | `openlineage-airflow>=1.2.0`       | Native provider (`apache-airflow-providers-openlineage`) |
+| **Type Checking**       | ✅ Clean Airflow 2.x types         | ✅ Clean Airflow 3.x types                               |
 
 **Version Dispatcher:** The main `datahub_listener.py` automatically imports the correct implementation at runtime:
 
@@ -529,6 +529,7 @@ if Variable.get("datahub_airflow_plugin_disable_listener", "false").lower() == "
 The plugin now has separate kill switch implementations for each version:
 
 **Airflow 2.x** (`plugin_v2/datahub_listener.py`):
+
 ```python
 def check_kill_switch(self) -> bool:
     # For Airflow 2.x, use Variable.get()
@@ -542,6 +543,7 @@ def check_kill_switch(self) -> bool:
 ```
 
 **Airflow 3.x** (`plugin_v2_airflow3/datahub_listener.py`):
+
 ```python
 def check_kill_switch(self) -> bool:
     """
@@ -639,6 +641,7 @@ task_instance_copy.render_templates()
 The plugin now has separate template rendering implementations for each version:
 
 **Airflow 2.x** (`plugin_v2/datahub_listener.py`):
+
 ```python
 def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
     # Render templates in a copy of the task instance
@@ -652,6 +655,7 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
 ```
 
 **Airflow 3.x** (`plugin_v2_airflow3/datahub_listener.py`):
+
 ```python
 def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
     """
