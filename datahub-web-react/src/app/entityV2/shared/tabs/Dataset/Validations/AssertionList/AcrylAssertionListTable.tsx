@@ -1,26 +1,35 @@
 import ResizeObserver from 'rc-resize-observer';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
-import { StyledTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTable';
+import { Pagination } from '@components/components/Pagination';
+import { Table } from '@components/components/Table';
+import { SortingState } from '@components/components/Table/types';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { useAssertionsTableColumns } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
-import {
-    AssertionListTableRow,
-    AssertionTable,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
-import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { mapAssertionDataToTableProperties } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import { AssertionWithMonitorDetails } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { DataContract } from '@src/types.generated';
 
 type Props = {
-    assertionData: AssertionTable;
+    assertions: AssertionWithMonitorDetails[];
     refetch: () => void;
-    contract: DataContract;
+    contract: DataContract | undefined;
+    isEntityReachable: boolean;
+    page: number;
+    setPage: (page: number) => void;
+    pageSize: number;
+    totalAssertions: number;
+    loading: boolean;
+    entityData: GenericEntityProperties;
+    onSortColumnChange: (sorter: { sortColumn: string; sortOrder: SortingState }) => void;
 };
 
-const HEADER_AND_PAGINATION_HEIGHT_PX = 130;
+const HEADER_AND_PAGINATION_HEIGHT_PX = 46;
 
 const TableContainer = styled.div`
     overflow: hidden;
@@ -28,8 +37,28 @@ const TableContainer = styled.div`
     max-height: 100%;
 `;
 
-export const AcrylAssertionListTable = ({ assertionData, refetch, contract }: Props) => {
-    const { entityData } = useEntityData();
+const TableWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    .acryl-assertion-list-table-pagination {
+        margin-bottom: 0;
+    }
+`;
+
+export const AcrylAssertionListTable = ({
+    assertions,
+    refetch,
+    contract,
+    isEntityReachable: _isEntityReachable,
+    page,
+    setPage,
+    pageSize,
+    totalAssertions,
+    loading,
+    entityData,
+    onSortColumnChange,
+}: Props) => {
     const [tableHeight, setTableHeight] = useState(0);
 
     // get columns data from the custom hooks
@@ -39,17 +68,7 @@ export const AcrylAssertionListTable = ({ assertionData, refetch, contract }: Pr
     });
 
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
-    const focusedAssertion = assertionData.assertions.find((assertion) => assertion.urn === focusAssertionUrn);
-    const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion.assertion) : undefined;
-
-    const focusedAssertionEntity =
-        focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
-
-    useEffect(() => {
-        if (focusAssertionUrn && !focusedAssertion) {
-            setFocusAssertionUrn(null);
-        }
-    }, [focusAssertionUrn, focusedAssertion]);
+    const assertionRows = mapAssertionDataToTableProperties(assertions);
 
     useOpenAssertionDetailModal(setFocusAssertionUrn);
 
@@ -63,20 +82,15 @@ export const AcrylAssertionListTable = ({ assertionData, refetch, contract }: Pr
         return 'acryl-assertions-table-row';
     };
 
-    const memoizedData = useMemo(
-        () => assertionData.assertions.map((assertion) => ({ ...assertion, key: assertion.urn })),
-        [assertionData.assertions],
-    );
+    const handleRowClick = useCallback((record: AssertionListTableRow) => {
+        setFocusAssertionUrn(record.urn);
+    }, []);
 
-    const handleRowClick = useCallback(
-        (record) => {
-            return {
-                onClick: () => {
-                    setFocusAssertionUrn(record.urn);
-                },
-            };
+    const handleSortColumnChange = useCallback(
+        ({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) => {
+            onSortColumnChange({ sortColumn, sortOrder });
         },
-        [setFocusAssertionUrn],
+        [onSortColumnChange],
     );
 
     return (
@@ -84,32 +98,37 @@ export const AcrylAssertionListTable = ({ assertionData, refetch, contract }: Pr
             <ResizeObserver
                 onResize={(dimensions) => setTableHeight(dimensions.height - HEADER_AND_PAGINATION_HEIGHT_PX)}
             >
-                <StyledTable<AssertionListTableRow>
-                    columns={assertionsTableCols}
-                    showSelect
-                    dataSource={memoizedData}
-                    showHeader
-                    scroll={{
-                        y: tableHeight,
-                        x: 'max-content',
-                    }}
-                    pagination={{
-                        pageSize: 50,
-                        position: ['bottomCenter'],
-                        showSizeChanger: false,
-                    }}
-                    rowClassName={rowClassName}
-                    bordered={false}
-                    onRow={handleRowClick}
-                    tableLayout="fixed"
-                />
+                <TableWrapper>
+                    <Table<AssertionListTableRow>
+                        columns={assertionsTableCols}
+                        data={assertionRows}
+                        showHeader
+                        isLoading={loading}
+                        isScrollable
+                        maxHeight={`${tableHeight}px`}
+                        onRowClick={handleRowClick}
+                        rowClassName={rowClassName}
+                        handleSortColumnChange={handleSortColumnChange}
+                        rowKey="urn"
+                    />
+                    <Pagination
+                        currentPage={page}
+                        itemsPerPage={pageSize}
+                        total={totalAssertions}
+                        onPageChange={(newPage) => {
+                            setPage(newPage);
+                        }}
+                        loading={loading}
+                        className="acryl-assertion-list-table-pagination"
+                    />
+                </TableWrapper>
             </ResizeObserver>
-            {focusAssertionUrn && focusedAssertionEntity && (
+            {focusAssertionUrn && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
-                    contract={contract}
+                    entity={entityData}
+                    canEditAssertions={entityData?.privileges?.canEditAssertions || false}
                     closeDrawer={() => setFocusAssertionUrn(null)}
-                    refetch={refetch}
                 />
             )}
         </TableContainer>

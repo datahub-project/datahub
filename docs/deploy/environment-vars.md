@@ -701,6 +701,15 @@ Reference Links:
 | `SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_DELAY_MS`                | `5000`  | Schema fields doc IDs delay                   | System Update |
 | `SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_LIMIT`                   | `0`     | Schema fields doc IDs limit                   | System Update |
 
+### Assertion Entity Field Configuration
+
+| Environment Variable                                        | Default | Description                              | Components    |
+| ----------------------------------------------------------- | ------- | ---------------------------------------- | ------------- |
+| `BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_ENABLED`    | `true`  | Populate entity field on `AssertionInfo` | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_BATCH_SIZE` | `500`   | Batch size                               | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_DELAY_MS`   | `1000`  | Delay                                    | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_LIMIT`      | `0`     | No limit                                 | System Update |
+
 ### Process Instance Configuration
 
 | Environment Variable                                        | Default | Description                                 | Components    |

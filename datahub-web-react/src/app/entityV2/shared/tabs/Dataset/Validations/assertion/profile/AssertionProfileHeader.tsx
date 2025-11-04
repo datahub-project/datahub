@@ -43,17 +43,18 @@ const Title = styled.div`
 
 type Props = {
     assertion: Assertion;
-    contract?: DataContract;
+    contract?: DataContract | null;
     result?: AssertionResult;
-    canEditContract: boolean;
+    canEditAssertion: boolean;
     close: () => void;
     refetch: () => void;
 };
 
 // TODO: Add support for V2 styled actions: Delete, start, stop.
 // TODO: Replace with the newer close Icon.
-export const AssertionProfileHeader = ({ assertion, contract, result, canEditContract, close, refetch }: Props) => {
+export const AssertionProfileHeader = ({ assertion, contract, result, canEditAssertion, close, refetch }: Props) => {
     const isFieldAssertion = assertion?.info?.type === AssertionType.Field;
+    const canEditContract = canEditAssertion;
     return (
         <>
             <NavBar>
@@ -62,6 +63,7 @@ export const AssertionProfileHeader = ({ assertion, contract, result, canEditCon
                     <Actions
                         assertion={assertion}
                         contract={contract}
+                        canEditAssertion={canEditAssertion}
                         canEditContract={canEditContract}
                         refetch={refetch}
                     />

@@ -10,7 +10,9 @@ record AssertionSource {
      * The type of the Assertion Source
      */
     @Searchable = {
-       "fieldName": "sourceType"
+       "fieldName": "sourceType",
+       "fieldType": "KEYWORD",
+       "addToFilters": true,
     }
     type:  enum AssertionSourceType {
       /**

@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
+import com.linkedin.datahub.upgrade.system.assertions.GenerateAssertionEntityField;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
@@ -136,6 +137,23 @@ public class NonBlockingConfigs {
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit}") final Integer limit) {
     return new GenerateSchemaFieldsFromSchemaMetadata(
+        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade generateAssertionEntityField(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      final AspectDao aspectDao,
+      // BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_ENABLED
+      @Value("${systemUpdate.assertionEntityField.enabled}") final boolean enabled,
+      // BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_BATCH_SIZE
+      @Value("${systemUpdate.assertionEntityField.batchSize}") final Integer batchSize,
+      // BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_DELAY_MS
+      @Value("${systemUpdate.assertionEntityField.delayMs}") final Integer delayMs,
+      // BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_LIMIT
+      @Value("${systemUpdate.assertionEntityField.limit}") final Integer limit) {
+    return new GenerateAssertionEntityField(
         opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
   }
 

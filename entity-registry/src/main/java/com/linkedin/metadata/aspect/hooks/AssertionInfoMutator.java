@@ -62,8 +62,8 @@ public class AssertionInfoMutator extends MutationHook {
   private static boolean processAssertionInfoAspect(ChangeMCP item) {
     boolean mutated = false;
     final AssertionInfo next = item.getAspect(AssertionInfo.class);
-    if (next != null && next.getEntity() == null) {
-      next.setEntity(getEntityFromAssertionInfo(next));
+    if (next != null && next.getEntityUrn() == null) {
+      next.setEntityUrn(getEntityFromAssertionInfo(next));
       mutated = true;
     }
     return mutated;

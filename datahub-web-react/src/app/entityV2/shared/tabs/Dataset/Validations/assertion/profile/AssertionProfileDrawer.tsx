@@ -1,21 +1,26 @@
 import { Drawer } from 'antd';
 import React from 'react';
 
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionProfile } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfile';
-
-import { DataContract } from '@types';
 
 type Props = {
     urn: string;
-    contract?: DataContract;
+    entity: GenericEntityProperties;
+    canEditAssertions: boolean;
     closeDrawer: () => void;
-    refetch?: () => void;
 };
 
-export const AssertionProfileDrawer = ({ urn, contract, closeDrawer, refetch }: Props) => {
+export const AssertionProfileDrawer = ({
+    urn,
+    entity,
+    canEditAssertions,
+
+    closeDrawer,
+}: Props) => {
     return (
-        <Drawer width={600} placement="right" closable={false} visible bodyStyle={{ padding: 0 }} onClose={closeDrawer}>
-            <AssertionProfile urn={urn} contract={contract} close={closeDrawer} refetch={refetch} />
+        <Drawer width={620} placement="right" closable={false} visible bodyStyle={{ padding: 0 }} onClose={closeDrawer}>
+            <AssertionProfile urn={urn} entity={entity} canEditAssertions={canEditAssertions} close={closeDrawer} />
         </Drawer>
     );
 };

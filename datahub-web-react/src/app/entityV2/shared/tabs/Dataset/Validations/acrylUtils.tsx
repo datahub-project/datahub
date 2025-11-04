@@ -16,6 +16,10 @@ import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.gen
 
 import { Assertion, AssertionResultType, AssertionType, CronSchedule, EntityType } from '@types';
 
+export type AssertionWithMonitorDetails = Assertion & {
+    monitors?: any[]; // Monitor entities from relationships
+};
+
 const StyledApiOutlined = styled(ApiOutlined)`
     && {
         margin: 0px;
@@ -155,10 +159,12 @@ export const tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery = (
  * @param assertions The assertions to extract the summary for
  */
 export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSummary => {
-    const summary = {
+    const summary: AssertionStatusSummary = {
         passing: 0,
         failing: 0,
         erroring: 0,
+        initializing: 0,
+        notRunning: 0,
         total: 0,
         totalAssertions: assertions.length,
     };
@@ -175,9 +181,14 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
             if (AssertionResultType.Error === resultType) {
                 summary.erroring++;
             }
+            if (AssertionResultType.Init === resultType) {
+                summary.initializing++;
+            }
             if (AssertionResultType.Init !== resultType) {
                 summary.total++; // only count assertions for which there is one completed run event, ignoring INIT statuses!
             }
+        } else {
+            summary.notRunning++;
         }
     });
     return summary;

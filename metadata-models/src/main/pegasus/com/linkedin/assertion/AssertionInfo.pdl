@@ -17,7 +17,11 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     /**
     * Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
     */
-    @Searchable = { }
+    @Searchable = {
+      "fieldName": "assertionType",
+      "fieldType": "KEYWORD",
+      "addToFilters": true
+    }
     type: enum AssertionType {
       /**
        * A single-dataset assertion.
@@ -124,5 +128,5 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       "fieldType": "URN",
       "fieldName": "entity"
     }
-    entity: optional Urn
+    entityUrn: optional Urn
 }

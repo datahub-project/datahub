@@ -378,6 +378,10 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull final AuditStamp auditStamp,
       @Nullable SystemMetadata systemMetadata);
 
+  /**
+   * @deprecated Use {@link #ingestProposal(OperationContext, AspectsBatch, boolean)} instead.
+   */
+  @Deprecated
   List<UpdateAspectResult> ingestAspects(
       @Nonnull OperationContext opContext,
       @Nonnull final AspectsBatch aspectsBatch,
