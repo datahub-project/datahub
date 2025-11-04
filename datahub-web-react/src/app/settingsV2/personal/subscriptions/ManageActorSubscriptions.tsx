@@ -24,7 +24,7 @@ import { scrollToTop } from '@app/shared/searchUtils';
 import useActorSinkSettings from '@app/shared/subscribe/drawer/useSinkSettings';
 
 import { useGetOwnedGroupsQuery } from '@graphql/group.generated';
-import { useSearchSubscriptionsQuery } from '@graphql/subscriptions.generated';
+import { SearchSubscriptionsQueryVariables, useSearchSubscriptionsQuery } from '@graphql/subscriptions.generated';
 import { useGetUserGroupsQuery } from '@graphql/user.generated';
 import {
     AndFilterInput,
@@ -230,13 +230,14 @@ const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentP
     const orFilters = buildOrFilters(selectedFilters, actorUrn, groupUrns);
     const { searchText } = selectedFilters.filterCriteria;
     const start = (page - 1) * PAGE_SIZE;
-    const searchVariables = {
+    const searchVariables: SearchSubscriptionsQueryVariables['input'] = {
         types: [EntityType.Subscription],
         query: searchText || '*',
         start,
         count: PAGE_SIZE,
         orFilters: orFilters.length > 0 ? orFilters : undefined,
         sortInput: { sortCriterion: { field: 'createdOn', sortOrder: SortOrder.Descending } },
+        searchFlags: { skipCache: true },
     };
     const {
         data: searchResults,
