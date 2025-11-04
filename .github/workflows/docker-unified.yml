@@ -236,6 +236,17 @@ jobs:
           restore-keys: |
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/jars-*
+            ~/.gradle/caches/transforms-*
+          key: gradle-plugins-cache
+          restore-keys: |
+            gradle-plugins-cache
+
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@v1
@@ -309,6 +320,15 @@ jobs:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
+      - uses: actions/cache/save@v4
+        if: ${{ github.ref == 'refs/heads/master' }}
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/jars-*
+            ~/.gradle/caches/transforms-*
+          key: gradle-plugins-cache
 
   scan_images:
     permissions:
@@ -371,8 +391,8 @@ jobs:
             echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
-            echo "cypress_batch_count=11" >> "$GITHUB_OUTPUT"
-            echo "python_batch_count=6" >> "$GITHUB_OUTPUT"
+            echo "cypress_batch_count=8" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
           fi
 
       - id: set-matrix
@@ -417,6 +437,7 @@ jobs:
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
       - name: Free up disk space
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
           sudo rm -rf /usr/local/.ghcup || true

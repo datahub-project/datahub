@@ -27,6 +27,7 @@ dependencies {
   api project(':entity-registry')
   api project(':metadata-events:mxe-avro')
   api project(':metadata-events:mxe-utils-avro')
+  api project(':metadata-service:configuration')
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
