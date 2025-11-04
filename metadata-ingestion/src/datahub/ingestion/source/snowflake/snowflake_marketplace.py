@@ -216,17 +216,22 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             cur = self.connection.query(SnowflakeQuery.marketplace_listings())
 
             for row in cur:
-                # SHOW AVAILABLE LISTINGS returns: name, created_on, global_name, title, description, provider, category
+                # SHOW AVAILABLE LISTINGS returns: global_name, title, created_on, uniform_listing_locator, organization_profile_name
                 # Note: The column is "global_name" not "listing_global_name"
+                # Fields not in SHOW output (name, provider, category, description) can be obtained from DESCRIBE AVAILABLE LISTING
                 listing = SnowflakeMarketplaceListing(
-                    name=row.get("name", ""),
+                    name=row.get(
+                        "uniform_listing_locator", ""
+                    ),  # SHOW returns uniform_listing_locator, not "name"
                     listing_global_name=row.get(
                         "global_name", ""
                     ),  # Column is "global_name"
                     title=row.get("title", ""),
-                    provider=row.get("provider", ""),
-                    category=row.get("category"),
-                    description=row.get("description"),
+                    provider=row.get(
+                        "organization_profile_name", ""
+                    ),  # SHOW returns organization_profile_name, not "provider"
+                    category=None,  # Not available in SHOW AVAILABLE LISTINGS
+                    description=None,  # Not available in SHOW AVAILABLE LISTINGS
                     created_on=row.get("created_on"),
                 )
 
@@ -389,7 +394,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         if not self.config.fetch_internal_marketplace_listing_details:
             return result
         try:
-            query = f"DESCRIBE AVAILABLE LISTING '{listing.listing_global_name}'"
+            query = f"DESCRIBE AVAILABLE LISTING {listing.listing_global_name}"  # No quotes around listing name
             cur = self.connection.query(query)
             for row in cur:
                 # Common DESCRIBE pattern: PROPERTY / VALUE columns

@@ -94,19 +94,19 @@ def mock_listings() -> List[Dict[str, Any]]:
     """Mock marketplace listings data."""
     return [
         {
-            "name": "acme_data_listing",
             "global_name": "ACME.DATA.LISTING",  # Snowflake returns "global_name" not "listing_global_name"
             "title": "Acme Data",
-            "provider": "Acme Corp",
+            "uniform_listing_locator": "ORGACME$INTERNAL$ACME_DATA_LISTING",  # Used as fallback for name
+            "organization_profile_name": "INTERNAL",  # Used as fallback for provider
             "category": "Sample",
             "description": "Sample listing",
             "created_on": datetime(2024, 1, 1, tzinfo=timezone.utc),
         },
         {
-            "name": "weather_listing",
             "global_name": "WEATHER.PUBLIC.GLOBAL_DATA",  # Snowflake returns "global_name"
             "title": "Weather Data",
-            "provider": "Weather Co",
+            "uniform_listing_locator": "ORGWEATHER$INTERNAL$WEATHER_DATA",
+            "organization_profile_name": "INTERNAL",
             "category": "Environmental",
             "description": "Global weather data",
             "created_on": datetime(2024, 2, 1, tzinfo=timezone.utc),
