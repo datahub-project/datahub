@@ -237,7 +237,12 @@ def default_query_results(  # noqa: C901
                 "name": "TEST_DB",
                 "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "comment": "Comment for TEST_DB",
-            }
+            },
+            {
+                "name": "DEMO_DATABASE",
+                "created_on": datetime(2023, 3, 15, 0, 0, 0, 0),
+                "comment": "Customer data from ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+            },
         ]
     elif query == SnowflakeQuery.get_databases("TEST_DB"):
         return [
@@ -246,6 +251,15 @@ def default_query_results(  # noqa: C901
                 "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "COMMENT": "Comment for TEST_DB",
+            }
+        ]
+    elif query == SnowflakeQuery.get_databases("DEMO_DATABASE"):
+        return [
+            {
+                "DATABASE_NAME": "DEMO_DATABASE",
+                "CREATED": datetime(2023, 3, 15, 0, 0, 0, 0),
+                "LAST_ALTERED": datetime(2023, 3, 15, 0, 0, 0, 0),
+                "COMMENT": "Customer data from ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
             }
         ]
     elif query == SnowflakeQuery.schemas_for_database("TEST_DB"):
@@ -263,8 +277,50 @@ def default_query_results(  # noqa: C901
                 "COMMENT": "comment for TEST_DB.TEST_SCHEMA",
             },
         ]
-    elif query == SnowflakeQuery.tables_for_database("TEST_DB"):
+    elif query == SnowflakeQuery.schemas_for_database("DEMO_DATABASE"):
+        return [
+            {
+                "SCHEMA_NAME": "PUBLIC",
+                "CREATED": datetime(2023, 3, 15, 0, 0, 0, 0),
+                "LAST_ALTERED": datetime(2023, 3, 15, 0, 0, 0, 0),
+                "COMMENT": "Public schema for DEMO_DATABASE",
+            },
+        ]
+    elif query == SnowflakeQuery.tables_for_database(
+        "TEST_DB"
+    ) or query == SnowflakeQuery.tables_for_database("DEMO_DATABASE"):
         raise Exception("Information schema query returned too much data")
+    elif query == SnowflakeQuery.tables_for_schema("PUBLIC", "DEMO_DATABASE"):
+        return [
+            {
+                "TABLE_SCHEMA": "PUBLIC",
+                "TABLE_NAME": "CUSTOMERS",
+                "TABLE_TYPE": "BASE TABLE",
+                "CREATED": datetime(2023, 3, 15, 0, 0, 0, 0),
+                "LAST_ALTERED": datetime(2023, 3, 15, 0, 0, 0, 0),
+                "BYTES": 50000,
+                "ROW_COUNT": 1000,
+                "COMMENT": "Customer master data",
+                "CLUSTERING_KEY": None,
+                "IS_ICEBERG": "NO",
+                "IS_DYNAMIC": "NO",
+                "IS_HYBRID": "NO",
+            },
+            {
+                "TABLE_SCHEMA": "PUBLIC",
+                "TABLE_NAME": "ORDERS",
+                "TABLE_TYPE": "BASE TABLE",
+                "CREATED": datetime(2023, 3, 15, 0, 0, 0, 0),
+                "LAST_ALTERED": datetime(2023, 3, 15, 0, 0, 0, 0),
+                "BYTES": 250000,
+                "ROW_COUNT": 5000,
+                "COMMENT": "Order transactions",
+                "CLUSTERING_KEY": None,
+                "IS_ICEBERG": "NO",
+                "IS_DYNAMIC": "NO",
+                "IS_HYBRID": "NO",
+            },
+        ]
     elif query == SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB"):
         return [
             {
@@ -353,6 +409,61 @@ def default_query_results(  # noqa: C901
             )
             for col_idx in range(1, num_cols + 1)
         ]
+    elif query == SnowflakeQuery.columns_for_schema("PUBLIC", "DEMO_DATABASE"):
+        return [
+            {
+                "TABLE_CATALOG": "DEMO_DATABASE",
+                "TABLE_SCHEMA": "PUBLIC",
+                "TABLE_NAME": "CUSTOMERS",
+                "COLUMN_NAME": "CUSTOMER_ID",
+                "ORDINAL_POSITION": 1,
+                "IS_NULLABLE": "NO",
+                "DATA_TYPE": "NUMBER",
+                "COMMENT": "Customer ID",
+                "CHARACTER_MAXIMUM_LENGTH": None,
+                "NUMERIC_PRECISION": 38,
+                "NUMERIC_SCALE": 0,
+            },
+            {
+                "TABLE_CATALOG": "DEMO_DATABASE",
+                "TABLE_SCHEMA": "PUBLIC",
+                "TABLE_NAME": "CUSTOMERS",
+                "COLUMN_NAME": "CUSTOMER_NAME",
+                "ORDINAL_POSITION": 2,
+                "IS_NULLABLE": "YES",
+                "DATA_TYPE": "TEXT",
+                "COMMENT": "Customer Name",
+                "CHARACTER_MAXIMUM_LENGTH": 255,
+                "NUMERIC_PRECISION": None,
+                "NUMERIC_SCALE": None,
+            },
+            {
+                "TABLE_CATALOG": "DEMO_DATABASE",
+                "TABLE_SCHEMA": "PUBLIC",
+                "TABLE_NAME": "ORDERS",
+                "COLUMN_NAME": "ORDER_ID",
+                "ORDINAL_POSITION": 1,
+                "IS_NULLABLE": "NO",
+                "DATA_TYPE": "NUMBER",
+                "COMMENT": "Order ID",
+                "CHARACTER_MAXIMUM_LENGTH": None,
+                "NUMERIC_PRECISION": 38,
+                "NUMERIC_SCALE": 0,
+            },
+            {
+                "TABLE_CATALOG": "DEMO_DATABASE",
+                "TABLE_SCHEMA": "PUBLIC",
+                "TABLE_NAME": "ORDERS",
+                "COLUMN_NAME": "CUSTOMER_ID",
+                "ORDINAL_POSITION": 2,
+                "IS_NULLABLE": "YES",
+                "DATA_TYPE": "NUMBER",
+                "COMMENT": "Customer ID (FK)",
+                "CHARACTER_MAXIMUM_LENGTH": None,
+                "NUMERIC_PRECISION": 38,
+                "NUMERIC_SCALE": 0,
+            },
+        ]
     elif query == SnowflakeQuery.streams_for_database("TEST_DB"):
         # TODO: Add tests for stream pagination.
         return [
@@ -375,10 +486,13 @@ def default_query_results(  # noqa: C901
             }
             for stream_idx in range(1, num_streams + 1)
         ]
-    elif query in (
+    elif query == SnowflakeQuery.streams_for_database("DEMO_DATABASE") or query in (
         SnowflakeQuery.use_database("TEST_DB"),
         SnowflakeQuery.show_primary_keys_for_schema("TEST_SCHEMA", "TEST_DB"),
         SnowflakeQuery.show_foreign_keys_for_schema("TEST_SCHEMA", "TEST_DB"),
+        SnowflakeQuery.use_database("DEMO_DATABASE"),
+        SnowflakeQuery.show_primary_keys_for_schema("PUBLIC", "DEMO_DATABASE"),
+        SnowflakeQuery.show_foreign_keys_for_schema("PUBLIC", "DEMO_DATABASE"),
     ):
         return []
     elif query == SnowflakeQuery.get_access_history_date_range():
@@ -784,8 +898,12 @@ def default_query_results(  # noqa: C901
                 "COMMENT": "This is a test procedure 2",
             },
         ]
+    elif query == SnowflakeQuery.procedures_for_database("DEMO_DATABASE"):
+        return []
     elif query == SnowflakeQuery.get_dynamic_table_graph_history("TEST_DB"):
         # Return empty result for dynamic table graph history in test environment
+        return []
+    elif query == SnowflakeQuery.get_dynamic_table_graph_history("DEMO_DATABASE"):
         return []
     elif query == SnowflakeQuery.show_dynamic_tables_for_database("TEST_DB"):
         # Return dynamic table definitions for TABLE_2 which should be a dynamic table
@@ -807,25 +925,24 @@ def default_query_results(  # noqa: C901
                 "owner_role_type": "ROLE",
             }
         ]
+    elif query == SnowflakeQuery.show_dynamic_tables_for_database("DEMO_DATABASE"):
+        return []
     elif query == "SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE":
         # SHOW AVAILABLE LISTINGS returns lowercase column names
+        # NOTE: The actual Snowflake output uses 'global_name', not 'listing_global_name'
         return [
             {
                 "name": "customer_360_listing",
-                "listing_global_name": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+                "global_name": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
                 "title": "Customer 360 View",
-                "provider": "ACME Corp",
-                "category": "Customer Data",
-                "description": "Comprehensive customer data for analysis",
+                "organization_profile_name": "ACME Corp",
                 "created_on": datetime(2023, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc),
             },
             {
                 "name": "weather_data_listing",
-                "listing_global_name": "WEATHER_CO.PUBLIC.WEATHER_DATA",
+                "global_name": "WEATHER_CO.PUBLIC.WEATHER_DATA",
                 "title": "Global Weather Data",
-                "provider": "Weather Co",
-                "category": "Environmental",
-                "description": "Real-time weather data from global stations",
+                "organization_profile_name": "Weather Co",
                 "created_on": datetime(2023, 2, 1, 0, 0, 0, 0, tzinfo=timezone.utc),
             },
         ]
@@ -883,6 +1000,88 @@ def default_query_results(  # noqa: C901
                         },
                     ]
                 ),
+            },
+        ]
+    elif query.startswith("DESCRIBE AVAILABLE LISTING"):
+        # Extract the listing name from the query
+        # Format: "DESCRIBE AVAILABLE LISTING <listing_global_name>"
+        listing_name = query.replace("DESCRIBE AVAILABLE LISTING ", "").strip()
+
+        if listing_name == "ACME_CORP.DATA_PRODUCT.CUSTOMER_360":
+            return [
+                {"property": "listing_detail_category", "value": "Customer Data"},
+                {
+                    "property": "listing_detail_description",
+                    "value": "Comprehensive customer data for analysis",
+                },
+                {
+                    "property": "listing_detail_resources",
+                    "value": '{"documentation": "https://docs.acme.com/customer360"}',
+                },
+                {
+                    "property": "listing_detail_approver_contact",
+                    "value": "approver@acme.com",
+                },
+                {
+                    "property": "listing_detail_support_contact",
+                    "value": "support@acme.com",
+                },
+            ]
+        elif listing_name == "WEATHER_CO.PUBLIC.WEATHER_DATA":
+            return [
+                {"property": "listing_detail_category", "value": "Environmental"},
+                {
+                    "property": "listing_detail_description",
+                    "value": "Real-time weather data from global stations",
+                },
+                {
+                    "property": "listing_detail_resources",
+                    "value": '{"documentation": "https://weather.co/docs"}',
+                },
+                {
+                    "property": "listing_detail_support_contact",
+                    "value": "support@weather.co",
+                },
+            ]
+        else:
+            return []
+    elif (
+        "information_schema.tables" in query.lower()
+        and "demo_database" in query.lower()
+    ):
+        # Mock INFORMATION_SCHEMA.TABLES query for DEMO_DATABASE (consumer mode table-level assets)
+        return [
+            {
+                "TABLE_CATALOG": "DEMO_DATABASE",
+                "TABLE_SCHEMA": "PUBLIC",
+                "TABLE_NAME": "CUSTOMERS",
+                "TABLE_TYPE": "BASE TABLE",
+                "CREATED": datetime(2023, 3, 15, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "LAST_ALTERED": datetime(2023, 3, 15, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "COMMENT": "Customer master data",
+                "ROW_COUNT": 1000,
+                "BYTES": 50000,
+                "CLUSTERING_KEY": None,
+                "AUTO_CLUSTERING_ON": None,
+                "IS_DYNAMIC": "NO",
+                "IS_ICEBERG": "NO",
+                "IS_HYBRID": "NO",
+            },
+            {
+                "TABLE_CATALOG": "DEMO_DATABASE",
+                "TABLE_SCHEMA": "PUBLIC",
+                "TABLE_NAME": "ORDERS",
+                "TABLE_TYPE": "BASE TABLE",
+                "CREATED": datetime(2023, 3, 15, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "LAST_ALTERED": datetime(2023, 3, 15, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "COMMENT": "Order transactions",
+                "ROW_COUNT": 5000,
+                "BYTES": 250000,
+                "CLUSTERING_KEY": None,
+                "AUTO_CLUSTERING_ON": None,
+                "IS_DYNAMIC": "NO",
+                "IS_ICEBERG": "NO",
+                "IS_HYBRID": "NO",
             },
         ]
     raise ValueError(f"Unexpected query: {query}")

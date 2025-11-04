@@ -34,6 +34,8 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
     DatasetUserUsageCountsClass,
+    InstitutionalMemoryClass,
+    InstitutionalMemoryMetadataClass,
     OwnershipTypeClass,
     TimeWindowSizeClass,
 )
@@ -381,7 +383,60 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 seen.add(o)
         return deduped
 
-    def _enrich_listing_custom_properties(  # noqa: C901
+    def _extract_field_from_props(
+        self, props: Dict[str, str], *keys: str
+    ) -> Optional[str]:
+        """Extract first non-empty value from props for given keys."""
+        for k in keys:
+            v = props.get(k)
+            if v:
+                return v
+        return None
+
+    def _parse_resources_json(self, resources_json: Optional[str]) -> Optional[str]:
+        """Parse resources JSON to extract documentation URL."""
+        if not resources_json:
+            return None
+        try:
+            resources = json.loads(resources_json)
+            if isinstance(resources, dict) and "documentation" in resources:
+                return resources["documentation"]
+        except (json.JSONDecodeError, TypeError):
+            logger.debug(f"Failed to parse resources JSON: {resources_json}")
+        return None
+
+    def _extract_owners_from_details(self, props: Dict[str, str]) -> List[str]:
+        """Extract owner identifiers from DESCRIBE listing details."""
+        owners: List[str] = []
+
+        support_email = self._extract_field_from_props(
+            props, "listing_detail_support_email", "listing_detail_contact_email"
+        )
+        request_approver = self._extract_field_from_props(
+            props,
+            "listing_detail_request_approver",
+            "listing_detail_approver",
+            "listing_detail_approver_contact",
+            "listing_detail_listing_approver",
+        )
+        support_contact = self._extract_field_from_props(
+            props,
+            "listing_detail_contact",
+            "listing_detail_support_contact",
+            "listing_detail_support_name",
+        )
+
+        if support_email:
+            owners.append(support_email)
+        if request_approver:
+            owners.append(request_approver)
+        if support_contact and "@" in support_contact:
+            owners.append(support_contact)
+
+        # Deduplicate
+        return list(dict.fromkeys(owners))
+
+    def _enrich_listing_custom_properties(
         self, listing: SnowflakeMarketplaceListing, props: Dict[str, str]
     ) -> Dict[str, Any]:
         """Optionally enrich custom properties via DESCRIBE AVAILABLE LISTING (best-effort).
@@ -389,15 +444,24 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         Returns a dict with optional keys:
           - owners: List[str] of owner identifiers derived from details
           - external_url: Optional[str] preferred documentation URL
+          - description: Optional[str] description from listing details
+          - documentation_links: List[str] of documentation URLs for institutional memory
         """
-        result: Dict[str, Any] = {"owners": [], "external_url": None}
+        result: Dict[str, Any] = {
+            "owners": [],
+            "external_url": None,
+            "description": None,
+            "documentation_links": [],
+        }
         if not self.config.fetch_internal_marketplace_listing_details:
             return result
+
         try:
-            query = f"DESCRIBE AVAILABLE LISTING {listing.listing_global_name}"  # No quotes around listing name
+            query = f"DESCRIBE AVAILABLE LISTING {listing.listing_global_name}"
             cur = self.connection.query(query)
+
+            # Collect all properties from DESCRIBE output
             for row in cur:
-                # Common DESCRIBE pattern: PROPERTY / VALUE columns
                 if "property" in row and "value" in row:
                     key = str(row["property"]).strip()
                     val = row.get("value")
@@ -407,77 +471,80 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                         ).replace("-", "_")
                         props[norm_key] = str(val)
                 else:
-                    # Fallback: add all primitive columns
                     for k, v in row.items():
-                        if v is None:
-                            continue
-                        norm_key = "listing_detail_" + str(k).lower().replace(" ", "_")
-                        props[norm_key] = str(v)
+                        if v is not None:
+                            norm_key = "listing_detail_" + str(k).lower().replace(
+                                " ", "_"
+                            )
+                            props[norm_key] = str(v)
 
-            # After collection, map recognized fields from props
-            def first(*keys: str) -> Optional[str]:
-                for k in keys:
-                    v = props.get(k)
-                    if v:
-                        return v
-                return None
-
-            documentation_url = first(
-                "listing_detail_documentation_url", "listing_detail_docs_url"
+            # Extract fields
+            description = self._extract_field_from_props(
+                props, "listing_detail_description", "listing_detail_desc"
             )
-            quickstart_url = first(
+
+            # Try resources JSON first, then fallback
+            resources_json = self._extract_field_from_props(
+                props, "listing_detail_resources"
+            )
+            documentation_url = self._parse_resources_json(resources_json)
+            if not documentation_url:
+                documentation_url = self._extract_field_from_props(
+                    props, "listing_detail_documentation_url", "listing_detail_docs_url"
+                )
+
+            quickstart_url = self._extract_field_from_props(
+                props,
                 "listing_detail_quickstart_url",
                 "listing_detail_quick_start_url",
                 "listing_detail_quickstart",
             )
-            support_contact = first(
+            support_url = self._extract_field_from_props(
+                props, "listing_detail_support_url", "listing_detail_contact_url"
+            )
+            support_email = self._extract_field_from_props(
+                props, "listing_detail_support_email", "listing_detail_contact_email"
+            )
+            support_contact = self._extract_field_from_props(
+                props,
                 "listing_detail_contact",
                 "listing_detail_support_contact",
                 "listing_detail_support_name",
             )
-            support_email = first(
-                "listing_detail_support_email", "listing_detail_contact_email"
-            )
-            support_url = first(
-                "listing_detail_support_url", "listing_detail_contact_url"
-            )
-            request_approver = first(
+            request_approver = self._extract_field_from_props(
+                props,
                 "listing_detail_request_approver",
                 "listing_detail_approver",
-                "listing_detail_approver_contact",  # Actual field from DESCRIBE
+                "listing_detail_approver_contact",
                 "listing_detail_listing_approver",
             )
 
-            # Persist mapped properties
+            # Update props with mapped fields
+            if description:
+                props["description"] = description
             if documentation_url:
                 props["documentation_url"] = documentation_url
             if quickstart_url:
                 props["quickstart_url"] = quickstart_url
-            if support_contact:
-                props["support_contact"] = support_contact
-            if support_email:
-                props["support_email"] = support_email
             if support_url:
                 props["support_url"] = support_url
+            if support_email:
+                props["support_email"] = support_email
+            if support_contact:
+                props["support_contact"] = support_contact
             if request_approver:
                 props["request_approver"] = request_approver
 
-            owners_from_details: List[str] = []
-            if support_email:
-                owners_from_details.append(support_email)
-            if request_approver:
-                owners_from_details.append(request_approver)
-            if support_contact:
-                # Support contact might be an email or a name
-                if "@" in support_contact:
-                    owners_from_details.append(support_contact)
+            # Extract owners
+            result["owners"] = self._extract_owners_from_details(props)
+            result["description"] = description
 
-            # Also check for approver_contact field (direct from DESCRIBE)
-            approver_contact = first("listing_detail_approver_contact")
-            if approver_contact and approver_contact not in owners_from_details:
-                owners_from_details.append(approver_contact)
-
-            result["owners"] = owners_from_details
+            # Build documentation links
+            doc_links = []
+            for url in [documentation_url, quickstart_url, support_url]:
+                if url and url not in doc_links:
+                    doc_links.append(url)
+            result["documentation_links"] = doc_links
             result["external_url"] = documentation_url or support_url
 
         except Exception as e:
@@ -486,7 +553,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             )
         return result
 
-    def _create_marketplace_data_products(self) -> Iterable[MetadataWorkUnit]:
+    def _create_marketplace_data_products(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         """Create Data Product entities for internal marketplace listings"""
 
         for listing in self._marketplace_listings.values():
@@ -498,6 +565,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             # Find all assets for this listing (purchased databases and/or provider source databases)
             asset_urns: List[str] = []
             purchased_db_names: List[str] = []
+            databases_to_query: List[str] = []  # Databases to get tables from
 
             # Consumer mode: Find purchased/imported databases
             if self.config.marketplace_mode in ["consumer", "both"]:
@@ -515,6 +583,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                         )
                         asset_urns.append(database_urn)
                         purchased_db_names.append(purchase.database_name)
+                        databases_to_query.append(purchase.database_name)
 
             # Provider mode: Find source databases being shared
             if self.config.marketplace_mode in ["provider", "both"]:
@@ -533,6 +602,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                         )
                         asset_urns.append(database_urn)
                         purchased_db_names.append(provider_share.source_database)
+                        databases_to_query.append(provider_share.source_database)
                         logger.info(
                             f"Provider mode: Linked source database {provider_share.source_database} "
                             f"to Data Product for listing {listing.listing_global_name}"
@@ -547,6 +617,113 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                         f"Provider mode: No provider share found for listing {listing.listing_global_name}. "
                         f"Available shares: {list(self._provider_shares.keys())}"
                     )
+
+            # Add tables that are actually shared in the marketplace listing
+            # For provider mode, we need to check what's in the share, not all tables in the database
+            if self.config.marketplace_mode in ["provider", "both"]:
+                provider_share = self._provider_shares.get(listing.listing_global_name)
+                if provider_share and provider_share.share_name:
+                    try:
+                        # DESC SHARE shows the actual objects shared in the marketplace listing
+                        query = f"DESC SHARE {provider_share.share_name}"
+                        cur = self.connection.query(query)
+                        table_count = 0
+                        for row in cur:
+                            kind = row.get("kind", "")
+                            name = row.get("name", "")
+
+                            # Only include tables, views, and materialized views
+                            if kind in ("TABLE", "VIEW", "MATERIALIZED_VIEW") and name:
+                                # Parse the full table name (format: DATABASE.SCHEMA.TABLE)
+                                parts = name.split(".")
+                                if len(parts) == 3:
+                                    db_name, schema_name, table_name = parts
+
+                                    # Check if allowed by patterns
+                                    if self.config.database_pattern.allowed(db_name):
+                                        if self.config.schema_pattern.allowed(
+                                            f"{db_name}.{schema_name}"
+                                        ):
+                                            if self.config.table_pattern.allowed(
+                                                f"{db_name}.{schema_name}.{table_name}"
+                                            ):
+                                                # Create dataset URN for the table
+                                                table_identifier = self.identifiers.get_dataset_identifier(
+                                                    table_name=table_name,
+                                                    schema_name=schema_name,
+                                                    db_name=db_name,
+                                                )
+                                                table_urn = (
+                                                    self.identifiers.gen_dataset_urn(
+                                                        table_identifier
+                                                    )
+                                                )
+                                                asset_urns.append(table_urn)
+                                                table_count += 1
+
+                        if table_count > 0:
+                            logger.info(
+                                f"Added {table_count} tables from share {provider_share.share_name} "
+                                f"as assets to Data Product for listing {listing.listing_global_name}"
+                            )
+                    except Exception as e:
+                        logger.debug(
+                            f"Failed to describe share {provider_share.share_name}: {e}. "
+                            f"Will only include database-level asset."
+                        )
+
+            # For consumer mode, try to get tables from imported database via SHOW GRANTS
+            if self.config.marketplace_mode in ["consumer", "both"]:
+                for db_name in purchased_db_names:
+                    if db_name and self.config.database_pattern.allowed(db_name):
+                        try:
+                            # For imported databases, we can query INFORMATION_SCHEMA
+                            # since we have access to the database
+                            query = f"""
+                                SELECT 
+                                    TABLE_SCHEMA as schema_name,
+                                    TABLE_NAME as table_name,
+                                    TABLE_TYPE as table_type
+                                FROM {db_name}.INFORMATION_SCHEMA.TABLES
+                                WHERE TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+                                ORDER BY TABLE_SCHEMA, TABLE_NAME
+                            """
+                            cur = self.connection.query(query)
+                            table_count = 0
+                            for row in cur:
+                                schema_name = row["SCHEMA_NAME"]
+                                table_name = row["TABLE_NAME"]
+
+                                # Check patterns
+                                if self.config.schema_pattern.allowed(
+                                    f"{db_name}.{schema_name}"
+                                ):
+                                    if self.config.table_pattern.allowed(
+                                        f"{db_name}.{schema_name}.{table_name}"
+                                    ):
+                                        # Create dataset URN
+                                        table_identifier = (
+                                            self.identifiers.get_dataset_identifier(
+                                                table_name=table_name,
+                                                schema_name=schema_name,
+                                                db_name=db_name,
+                                            )
+                                        )
+                                        table_urn = self.identifiers.gen_dataset_urn(
+                                            table_identifier
+                                        )
+                                        asset_urns.append(table_urn)
+                                        table_count += 1
+
+                            if table_count > 0:
+                                logger.info(
+                                    f"Added {table_count} tables from imported database {db_name} "
+                                    f"as assets to Data Product for listing {listing.listing_global_name}"
+                                )
+                        except Exception as e:
+                            logger.debug(
+                                f"Failed to query tables from imported database {db_name}: {e}"
+                            )
 
             # Build properties (either custom or structured based on config)
             custom_properties: Optional[Dict[str, str]] = None
@@ -603,16 +780,25 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 urn = self._normalize_owner_urn(str(hint))
                 if urn and urn not in owner_urns:
                     owner_urns.append(urn)
-            # Choose external URL if available
-            external_url = details.get("external_url")
+
+            # Build external URL - prefer Snowflake marketplace URL
+            # Format: https://app.snowflake.com/marketplace/internal/listing/{listing_global_name}
+            marketplace_url = f"https://app.snowflake.com/marketplace/internal/listing/{listing.listing_global_name}"
+            # Use documentation URL from DESCRIBE as fallback
+            external_url = details.get("external_url") or marketplace_url
+
+            # Use description from DESCRIBE if available, otherwise use listing description
+            description = details.get("description") or listing.description
+            if not description:
+                # Only use fallback if no description at all
+                description = f"Internal marketplace listing from {listing.provider}"
 
             # Use the gen_data_product function from mcp_builder with assets and owners
             # Always use TECHNICAL_OWNER for marketplace data products
             yield from gen_data_product(
                 data_product_key=data_product_key,
                 name=listing.title,
-                description=listing.description
-                or f"Internal marketplace listing from {listing.provider}",
+                description=description,
                 external_url=str(external_url) if external_url else None,
                 custom_properties=custom_properties,
                 structured_properties=structured_properties,  # type: ignore
@@ -621,6 +807,31 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 owner_type=OwnershipTypeClass.TECHNICAL_OWNER,  # This is a string constant
                 assets=asset_urns if asset_urns else None,
             )
+
+            # Add institutional memory for documentation links
+            doc_links = details.get("documentation_links", [])
+            if doc_links:
+                data_product_urn = data_product_key.as_urn()
+                memory_elements = []
+                for link in doc_links:
+                    memory_elements.append(
+                        InstitutionalMemoryMetadataClass(
+                            url=link,
+                            description="Documentation from Snowflake Marketplace listing",
+                            createStamp=AuditStamp(
+                                time=int(listing.created_on.timestamp() * 1000)
+                                if listing.created_on
+                                else 0,
+                                actor="urn:li:corpuser:datahub",
+                            ),
+                        )
+                    )
+
+                if memory_elements:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=data_product_urn,
+                        aspect=InstitutionalMemoryClass(elements=memory_elements),
+                    ).as_workunit()
 
             self.report.report_marketplace_data_product_created()
 

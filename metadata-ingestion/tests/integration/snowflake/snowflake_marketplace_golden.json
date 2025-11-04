@@ -4192,13 +4192,14 @@
                 "marketplace_type": "internal",
                 "marketplace_mode": "consumer",
                 "provider": "ACME Corp",
-                "category": "Customer Data",
+                "category": "",
                 "listing_global_name": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
-                "listing_name": "customer_360_listing",
+                "listing_name": "",
                 "listing_created_on": "2023-01-01T00:00:00+00:00"
             },
+            "externalUrl": "https://app.snowflake.com/marketplace/internal/listing/ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
             "name": "Customer 360 View",
-            "description": "Comprehensive customer data for analysis",
+            "description": "Internal marketplace listing from ACME Corp",
             "assets": [
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,demo_database,PROD)",
@@ -4209,7 +4210,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-57mnb5",
+        "runId": "snowflake-2022_06_07-17_00_00-je1o6g",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4244,18 +4245,19 @@
                 "marketplace_type": "internal",
                 "marketplace_mode": "consumer",
                 "provider": "Weather Co",
-                "category": "Environmental",
+                "category": "",
                 "listing_global_name": "WEATHER_CO.PUBLIC.WEATHER_DATA",
-                "listing_name": "weather_data_listing",
+                "listing_name": "",
                 "listing_created_on": "2023-02-01T00:00:00+00:00"
             },
+            "externalUrl": "https://app.snowflake.com/marketplace/internal/listing/WEATHER_CO.PUBLIC.WEATHER_DATA",
             "name": "Global Weather Data",
-            "description": "Real-time weather data from global stations"
+            "description": "Internal marketplace listing from Weather Co"
         }
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-57mnb5",
+        "runId": "snowflake-2022_06_07-17_00_00-je1o6g",
         "lastRunId": "no-run-id-provided"
     }
 },

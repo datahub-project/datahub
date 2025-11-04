@@ -39,7 +39,7 @@ def test_snowflake_marketplace(pytestconfig, tmp_path, mock_time, mock_datahub_g
                     "account_id": "ABC12345",
                     "warehouse": "COMPUTE_WH",
                     "role": "datahub_role",
-                    "database_pattern": {"allow": ["TEST_DB"]},
+                    "database_pattern": {"allow": ["TEST_DB", "DEMO_DATABASE"]},
                     # Enable INTERNAL marketplace features
                     "include_internal_marketplace": True,
                     # Add shares configuration to link databases to listings
@@ -119,7 +119,7 @@ def test_snowflake_marketplace_with_filtering(
                     "account_id": "ABC12345",
                     "warehouse": "COMPUTE_WH",
                     "role": "datahub_role",
-                    "database_pattern": {"allow": ["TEST_DB"]},
+                    "database_pattern": {"allow": ["TEST_DB", "DEMO_DATABASE"]},
                     # Enable INTERNAL marketplace with filtering
                     "include_internal_marketplace": True,
                     "internal_marketplace_listing_pattern": {
