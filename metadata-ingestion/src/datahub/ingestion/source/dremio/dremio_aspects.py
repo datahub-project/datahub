@@ -22,6 +22,7 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioDatasetType,
     DremioGlossaryTerm,
 )
+from datahub.ingestion.source.dremio.dremio_models import DremioEntityContainerType
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     AuditStampClass,
@@ -365,10 +366,35 @@ class DremioAspects:
     ) -> Optional[BrowsePathsV2Class]:
         paths = []
 
-        if entity.subclass == DatasetContainerSubTypes.DREMIO_SPACE.value:
+        # Add platform instance if present
+        if self.platform_instance:
+            platform_instance_urn = make_dataplatform_instance_urn(
+                self.platform, self.platform_instance
+            )
+            paths.append(
+                BrowsePathEntryClass(
+                    id=platform_instance_urn, urn=platform_instance_urn
+                )
+            )
+
+        # Add container type prefix (Spaces/Sources)
+        if entity.subclass == DatasetContainerSubTypes.DREMIO_SPACE:
             paths.append(BrowsePathEntryClass(id="Spaces"))
-        elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE.value:
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE:
             paths.append(BrowsePathEntryClass(id="Sources"))
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_FOLDER:
+            # For folders, use the root container type to determine prefix
+            root_type = getattr(entity, "root_container_type", None)
+            if root_type == DremioEntityContainerType.SPACE:
+                paths.append(BrowsePathEntryClass(id="Spaces"))
+            elif root_type == DremioEntityContainerType.SOURCE:
+                paths.append(BrowsePathEntryClass(id="Sources"))
+
+        # Add the entity path elements
+        if entity.path:
+            for path_element in entity.path:
+                paths.append(BrowsePathEntryClass(id=path_element))
+
         if paths:
             return BrowsePathsV2Class(path=paths)
         return None

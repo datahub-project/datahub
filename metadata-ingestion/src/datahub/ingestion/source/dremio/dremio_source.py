@@ -39,11 +39,11 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioCatalog,
     DremioContainer,
     DremioDataset,
-    DremioDatasetType,
     DremioGlossaryTerm,
     DremioQuery,
     DremioSourceContainer,
 )
+from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
 from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -162,10 +162,10 @@ class DremioSource(StatefulIngestionSourceBase):
         self.source_map: Dict[str, DremioSourceMapEntry] = dict()
 
         # Initialize API operations
-        dremio_api = DremioAPIOperations(self.config, self.report)
+        api = DremioAPIOperations(self.config, self.report)
 
         # Initialize catalog
-        self.dremio_catalog = DremioCatalog(dremio_api)
+        self.dremio_catalog = DremioCatalog(api)
 
         # Initialize aspects
         self.dremio_aspects = DremioAspects(
@@ -174,7 +174,7 @@ class DremioSource(StatefulIngestionSourceBase):
             ingest_owner=self.config.ingest_owner,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            ui_url=dremio_api.ui_url,
+            ui_url=api.ui_url,
         )
         self.max_workers = config.max_workers
 
@@ -190,7 +190,7 @@ class DremioSource(StatefulIngestionSourceBase):
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
         # For profiling
-        self.profiler = DremioProfiler(config, self.report, dremio_api)
+        self.profiler = DremioProfiler(config, self.report, api)
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":

@@ -58,6 +58,7 @@ class DatasetContainerSubTypes(StrEnum):
     NAMESPACE = "Namespace"  # Iceberg
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    DREMIO_FOLDER = "Dremio Folder"
 
 
 class BIContainerSubTypes(StrEnum):
