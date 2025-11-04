@@ -8,7 +8,7 @@ _codegen_config: dict = json.loads(_codegen_config_file.read_text())
 
 acryl_datahub = [
     # 1.3.0: Pydantic v2 was introduced in 1.2.0.10 and later RCs fixed in OSS some missing code from /metadata-ingestion SaaS
-    "acryl-datahub==1.3.0"
+    "acryl-datahub==1.3.1"
 ]
 
 # Note: We are using the croniter library for cron parsing which is different from executor, which uses apscheduler, so there is a risk of mismatch here.

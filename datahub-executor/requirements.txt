@@ -4,13 +4,13 @@
     # via -r requirements-local.in
 -e ../metadata-ingestion-modules/acryl-cloud
     # via -r requirements-local.in
-acryl-datahub==1.3.0
+acryl-datahub==1.3.1
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-cloud
     #   acryl-datahub-executor
     #   acryl-executor
-acryl-datahub-actions==1.3.0
+acryl-datahub-actions==1.3.1
     # via acryl-datahub-executor
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
@@ -735,7 +735,9 @@ pydantic==2.11.9
     #   thinc
     #   weasel
 pydantic-core==2.33.2
-    # via pydantic
+    # via
+    #   acryl-datahub
+    #   pydantic
 pydeequ==1.1.1
     # via acryl-datahub
 pygments==2.18.0
@@ -959,9 +961,9 @@ sqlalchemy-redshift==0.8.14
     # via acryl-datahub
 sqlalchemy-stubs==0.4
     # via acryl-executor
-sqlglot==27.12.0
+sqlglot==27.27.0
     # via acryl-datahub
-sqlglotrs==0.6.2
+sqlglotrs==0.7.3
     # via sqlglot
 sqlparse==0.4.4
     # via acryl-datahub
