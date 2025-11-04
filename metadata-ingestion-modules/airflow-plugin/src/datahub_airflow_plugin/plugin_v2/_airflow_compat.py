@@ -5,33 +5,13 @@ from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 
 assert MARKUPSAFE_PATCHED
 
-# Apply Airflow 2.x patches
-# These imports must be after MARKUPSAFE_PATCHED assertion because they import Airflow modules.
-# We need to ensure markupsafe is patched first to maintain compatibility.
-
-# Operator-specific patches (conditional based on operator availability)
-try:
-    from datahub_airflow_plugin._sqlite_openlineage_patch import patch_sqlite_hook
-
-    patch_sqlite_hook()
-except ImportError:
-    pass
-
-try:
-    from datahub_airflow_plugin._athena_openlineage_patch import patch_athena_operator
-
-    patch_athena_operator()
-except ImportError:
-    pass
-
-try:
-    from datahub_airflow_plugin._bigquery_openlineage_patch import (
-        patch_bigquery_insert_job_operator,
-    )
-
-    patch_bigquery_insert_job_operator()
-except ImportError:
-    pass
+# Airflow 2.x doesn't need the OpenLineage patches that are specific to Airflow 3.x
+# Those patches target Airflow 3.0+ features like:
+# - SQLParser.generate_openlineage_metadata_from_sql()
+# - get_openlineage_facets_on_complete() methods
+# - get_openlineage_database_info() for SqliteHook
+#
+# These don't exist in Airflow 2.x, so we don't apply any patches here.
 
 AIRFLOW_PATCHED = True
 
