@@ -323,8 +323,22 @@ describe('fileUtils', () => {
             expect(getFileIconFromExtension('PPTX')).toBe('FilePpt');
         });
 
-        it('should return FileImage for image extensions', () => {
-            ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff'].forEach((ext) => {
+        it('should return FileJpg for image extensions', () => {
+            ['jpg', 'jpeg'].forEach((ext) => {
+                expect(getFileIconFromExtension(ext)).toBe('FileJpg');
+                expect(getFileIconFromExtension(ext.toUpperCase())).toBe('FileJpg');
+            });
+        });
+
+        it('should return FilePng for png extensions', () => {
+            ['png'].forEach((ext) => {
+                expect(getFileIconFromExtension(ext)).toBe('FilePng');
+                expect(getFileIconFromExtension(ext.toUpperCase())).toBe('FilePng');
+            });
+        });
+
+        it('should return FileImage for other image extensions', () => {
+            ['gif', 'webp', 'bmp', 'tiff'].forEach((ext) => {
                 expect(getFileIconFromExtension(ext)).toBe('FileImage');
                 expect(getFileIconFromExtension(ext.toUpperCase())).toBe('FileImage');
             });
