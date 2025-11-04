@@ -100,7 +100,8 @@ public class MapperUtilsTest {
     QueryContext context = mock(QueryContext.class);
     OperationContext operationContext = mock(OperationContext.class);
     when(context.getOperationContext()).thenReturn(operationContext);
-    when(operationContext.authorize(eq("VIEW_ENTITY_PAGE"), any())).thenThrow(new RuntimeException("boom"));
+    when(operationContext.authorize(eq("VIEW_ENTITY_PAGE"), any()))
+        .thenThrow(new RuntimeException("boom"));
     SearchEntity searchEntity = buildSearchEntity();
 
     SearchResult result = MapperUtils.mapResult(context, searchEntity);
