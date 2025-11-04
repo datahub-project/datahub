@@ -11,6 +11,7 @@ import more_itertools
 import tenacity
 from anyio import to_thread
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from loguru import logger
 
@@ -320,16 +321,24 @@ def generate_entity_descriptions_for_urn(
     """
 
     entity = graph_client.get_entity_semityped(urn)
-    extracted_entity_info = extract_metadata_for_urn(entity, urn, graph_client)
+
+    # Track metadata extraction time
+    with PerfTimer() as metadata_timer:
+        extracted_entity_info = extract_metadata_for_urn(entity, urn, graph_client)
 
     # Resolve extra instructions at entry point
     extra_instructions = get_extra_documentation_instructions(graph_client)
 
-    return generate_entity_descriptions_for_urn_eval_v3(
+    result = generate_entity_descriptions_for_urn_eval_v3(
         urn,
         extracted_entity_info,
         extra_instructions=extra_instructions,
     )
+
+    # Add metadata extraction time to result
+    result.metadata_extraction_time_ms = metadata_timer.elapsed_seconds() * 1000
+
+    return result
 
 
 def generate_entity_descriptions_for_urn_eval_v3(

@@ -27,3 +27,7 @@ class InferDocsApiResponseEvent(BaseEvent):
     has_column_descriptions: Optional[bool] = None
 
     entity_description: Optional[str] = None
+
+    num_columns: Optional[int] = None
+    num_columns_with_description: Optional[int] = None
+    metadata_extraction_time_ms: Optional[float] = None

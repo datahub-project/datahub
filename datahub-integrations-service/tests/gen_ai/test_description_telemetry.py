@@ -6,8 +6,10 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn, QueryUrn
 
 from datahub_integrations import __version__
-from datahub_integrations.gen_ai.description_context import ExtractedTableInfo
-from datahub_integrations.gen_ai.description_v3 import EntityDescriptionResult
+from datahub_integrations.gen_ai.description_context import (
+    EntityDescriptionResult,
+    ExtractedTableInfo,
+)
 from datahub_integrations.gen_ai.router import suggest_description
 from datahub_integrations.telemetry.ai_docs_events import (
     InferDocsApiRequestEvent,
@@ -266,3 +268,50 @@ def test_suggest_description_tracks_failed_generation(
         assert response_call.has_column_descriptions is False
         assert response_call.error_msg == "Failed to generate description"
         assert response_call.datahub_integrations_version == __version__
+
+
+def test_entity_description_result_column_metrics(
+    mock_graph: DataHubGraph,
+) -> None:
+    """Test that num_columns and num_columns_with_description properties work correctly and are tracked in telemetry."""
+    # Create an ExtractedTableInfo with 3 columns: 2 with descriptions, 1 without
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
+    extracted_info = ExtractedTableInfo(
+        urn=dataset_urn,
+        table_name="test_table",
+        table_description="A test table",
+        column_names={
+            "col1": "col1",
+            "col2": "col2",
+            "col3": "col3",
+        },
+    )
+
+    # Test the properties directly
+    result = EntityDescriptionResult(
+        table_description="Test table",
+        column_descriptions={
+            "col1": "First column with description",
+            "col2": "Second column with description",
+        },
+        extracted_entity_info=extracted_info,
+        metadata_extraction_time_ms=123.45,
+    )
+    assert result.num_columns == 3
+    assert (
+        result.num_columns_with_description == 2
+    )  # Only col1 and col2 have descriptions
+
+    # Test that metrics are tracked in telemetry event
+    with (
+        patch("datahub_integrations.gen_ai.router.track_saas_event") as mock_track,
+        patch(
+            "datahub_integrations.gen_ai.router.generate_entity_descriptions_for_urn",
+            return_value=result,
+        ),
+    ):
+        suggest_description(mock_graph, dataset_urn)
+        response_call = mock_track.call_args_list[1][0][0]
+        assert response_call.num_columns == 3
+        assert response_call.num_columns_with_description == 2
+        assert response_call.metadata_extraction_time_ms == 123.45

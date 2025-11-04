@@ -129,6 +129,26 @@ class EntityDescriptionResult:
     column_descriptions: Optional[Dict[str, str]]
     extracted_entity_info: "ExtractedTableInfo"
     failure_reason: Optional[str] = None
+    metadata_extraction_time_ms: Optional[float] = None
+
+    @property
+    def num_columns(self) -> int:
+        """Number of columns in the dataset."""
+        if self.extracted_entity_info.column_names:
+            return len(self.extracted_entity_info.column_names)
+        return 0
+
+    @property
+    def num_columns_with_description(self) -> int:
+        """Number of columns that have descriptions."""
+        column_descriptions = self.column_descriptions
+        if not column_descriptions:
+            return 0
+        return sum(
+            1
+            for desc in column_descriptions.values()
+            if desc is not None and len(desc) > 0
+        )
 
 
 class ColumnMetadataInfo(BaseModel):

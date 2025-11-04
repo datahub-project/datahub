@@ -129,6 +129,9 @@ def suggest_description(
                     and len(result.column_descriptions) > 0,
                     error_msg=result.failure_reason,
                     entity_description=result.table_description,
+                    num_columns=result.num_columns,
+                    num_columns_with_description=result.num_columns_with_description,
+                    metadata_extraction_time_ms=result.metadata_extraction_time_ms,
                 )
             )
 
