@@ -3,6 +3,7 @@ export type FileUploadSource = 'drag-and-drop' | 'button';
 export enum FileUploadFailureType {
     FILE_SIZE = 'file_size',
     FILE_TYPE = 'file_type',
+    UPLOADING_NOT_SUPPORTED = 'uploading_not_supported',
     UNKNOWN = 'unknown',
 }
 
