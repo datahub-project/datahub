@@ -17,7 +17,7 @@ global.crypto = {
             // Validate that data is in a compatible format - crypto.subtle.digest accepts ArrayBufferLike
             // In our mock, we just need to return the expected hash regardless of input
             // The actual implementation will handle the conversion
-            
+
             // Return expected hash for 'content' string: ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73
             // This is the SHA-256 hash of the string 'content'
             const hashHex = 'ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73';
