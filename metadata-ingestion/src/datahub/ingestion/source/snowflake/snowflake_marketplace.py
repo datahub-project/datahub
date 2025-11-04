@@ -216,10 +216,13 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             cur = self.connection.query(SnowflakeQuery.marketplace_listings())
 
             for row in cur:
-                # SHOW AVAILABLE LISTINGS returns: name, created_on, listing_global_name, title, description, provider, category
+                # SHOW AVAILABLE LISTINGS returns: name, created_on, global_name, title, description, provider, category
+                # Note: The column is "global_name" not "listing_global_name"
                 listing = SnowflakeMarketplaceListing(
                     name=row.get("name", ""),
-                    listing_global_name=row.get("listing_global_name", ""),
+                    listing_global_name=row.get(
+                        "global_name", ""
+                    ),  # Column is "global_name"
                     title=row.get("title", ""),
                     provider=row.get("provider", ""),
                     category=row.get("category"),
@@ -373,7 +376,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 seen.add(o)
         return deduped
 
-    def _enrich_listing_custom_properties(
+    def _enrich_listing_custom_properties(  # noqa: C901
         self, listing: SnowflakeMarketplaceListing, props: Dict[str, str]
     ) -> Dict[str, Any]:
         """Optionally enrich custom properties via DESCRIBE AVAILABLE LISTING (best-effort).
@@ -436,6 +439,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             request_approver = first(
                 "listing_detail_request_approver",
                 "listing_detail_approver",
+                "listing_detail_approver_contact",  # Actual field from DESCRIBE
                 "listing_detail_listing_approver",
             )
 
@@ -458,8 +462,15 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 owners_from_details.append(support_email)
             if request_approver:
                 owners_from_details.append(request_approver)
-            if support_contact and "@" in support_contact:
-                owners_from_details.append(support_contact)
+            if support_contact:
+                # Support contact might be an email or a name
+                if "@" in support_contact:
+                    owners_from_details.append(support_contact)
+
+            # Also check for approver_contact field (direct from DESCRIBE)
+            approver_contact = first("listing_detail_approver_contact")
+            if approver_contact and approver_contact not in owners_from_details:
+                owners_from_details.append(approver_contact)
 
             result["owners"] = owners_from_details
             result["external_url"] = documentation_url or support_url
@@ -502,17 +513,34 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
             # Provider mode: Find source databases being shared
             if self.config.marketplace_mode in ["provider", "both"]:
+                logger.debug(
+                    f"Provider mode check for listing {listing.listing_global_name}: "
+                    f"Available provider shares: {list(self._provider_shares.keys())}"
+                )
                 provider_share = self._provider_shares.get(listing.listing_global_name)
-                if provider_share and provider_share.source_database:
-                    dataset_identifier = self.identifiers.snowflake_identifier(
-                        provider_share.source_database
-                    )
-                    database_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
-                    asset_urns.append(database_urn)
-                    purchased_db_names.append(provider_share.source_database)
-                    logger.info(
-                        f"Provider mode: Linked source database {provider_share.source_database} "
-                        f"to Data Product for listing {listing.listing_global_name}"
+                if provider_share:
+                    if provider_share.source_database:
+                        dataset_identifier = self.identifiers.snowflake_identifier(
+                            provider_share.source_database
+                        )
+                        database_urn = self.identifiers.gen_dataset_urn(
+                            dataset_identifier
+                        )
+                        asset_urns.append(database_urn)
+                        purchased_db_names.append(provider_share.source_database)
+                        logger.info(
+                            f"Provider mode: Linked source database {provider_share.source_database} "
+                            f"to Data Product for listing {listing.listing_global_name}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Provider mode: Found share {provider_share.share_name} for listing {listing.listing_global_name} "
+                            f"but source_database is empty!"
+                        )
+                else:
+                    logger.warning(
+                        f"Provider mode: No provider share found for listing {listing.listing_global_name}. "
+                        f"Available shares: {list(self._provider_shares.keys())}"
                     )
 
             # Build properties (either custom or structured based on config)
@@ -666,6 +694,14 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 logger.info(
                     f"Matched imported database {purchase.database_name} to listing {listing_global_name} "
                     f"via shares config (exact name match: {source_db_name})"
+                )
+                return listing_global_name
+
+            # Also check listing title (display name like "DataHub Test Data Product")
+            if listing.title and source_db_name.lower() in listing.title.lower():
+                logger.info(
+                    f"Matched imported database {purchase.database_name} to listing {listing_global_name} "
+                    f"via shares config (title match: {source_db_name} in '{listing.title}')"
                 )
                 return listing_global_name
 

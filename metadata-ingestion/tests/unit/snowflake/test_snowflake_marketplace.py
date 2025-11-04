@@ -95,7 +95,7 @@ def mock_listings() -> List[Dict[str, Any]]:
     return [
         {
             "name": "acme_data_listing",
-            "listing_global_name": "ACME.DATA.LISTING",
+            "global_name": "ACME.DATA.LISTING",  # Snowflake returns "global_name" not "listing_global_name"
             "title": "Acme Data",
             "provider": "Acme Corp",
             "category": "Sample",
@@ -104,7 +104,7 @@ def mock_listings() -> List[Dict[str, Any]]:
         },
         {
             "name": "weather_listing",
-            "listing_global_name": "WEATHER.PUBLIC.GLOBAL_DATA",
+            "global_name": "WEATHER.PUBLIC.GLOBAL_DATA",  # Snowflake returns "global_name"
             "title": "Weather Data",
             "provider": "Weather Co",
             "category": "Environmental",
@@ -766,7 +766,7 @@ class TestMarketplaceEdgeCases:
         minimal_listing = [
             {
                 "name": "minimal",
-                "listing_global_name": "MINIMAL.LISTING",
+                "global_name": "MINIMAL.LISTING",  # Snowflake returns "global_name"
                 "title": "Minimal",
                 "provider": "Test",
                 "category": None,
