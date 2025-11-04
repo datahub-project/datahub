@@ -67,7 +67,7 @@ export const Toolbar = ({ styles }: Props) => {
     const remirrorContext = useRemirrorContext();
     const fileExtension = remirrorContext.getExtension(FileDragDropExtension);
 
-    const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.onFileUpload;
+    const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.uploadFileProps?.onFileUpload;
 
     return (
         <Container style={styles}>
