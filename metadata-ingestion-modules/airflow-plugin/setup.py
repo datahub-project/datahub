@@ -50,7 +50,6 @@ plugins: Dict[str, Set[str]] = {
     },
     # plugin-v2-airflow3: For Airflow 3.x, use native OpenLineage provider
     "plugin-v2-airflow3": {
-        "apache-airflow>=3.0.0,<4.0.0",
         "apache-airflow-providers-openlineage>=1.0.0",
     },
     # Backward compatibility aliases

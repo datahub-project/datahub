@@ -13,19 +13,10 @@ from datahub.emitter.generic_emitter import Emitter
 from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
-from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 from datahub_airflow_plugin._airflow_version_specific import (
     get_task_instance_attributes,
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
-
-# Verify that Airflow compatibility patches were applied correctly
-if not AIRFLOW_PATCHED:
-    raise RuntimeError(
-        "Airflow compatibility patches were not applied correctly. "
-        "This indicates a plugin initialization error. "
-        "Please check that datahub_airflow_plugin._airflow_compat was imported successfully."
-    )
 
 if TYPE_CHECKING:
     from airflow import DAG

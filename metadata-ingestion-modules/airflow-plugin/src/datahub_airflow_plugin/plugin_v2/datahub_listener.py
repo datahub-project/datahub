@@ -24,7 +24,16 @@ import airflow.version
 import packaging.version
 from airflow.models import Variable
 from airflow.models.serialized_dag import SerializedDagModel
-from openlineage.client.serde import Serde
+
+# Conditional import for OpenLineage (may not be installed)
+try:
+    from openlineage.client.serde import Serde
+
+    OPENLINEAGE_AVAILABLE = True
+except ImportError:
+    # Not available when openlineage packages aren't installed
+    Serde = None  # type: ignore[assignment,misc]
+    OPENLINEAGE_AVAILABLE = False
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
@@ -477,7 +486,7 @@ class DataHubListener:
         )
 
         # Write all other OL facets as DataHub properties
-        if task_metadata:
+        if task_metadata and Serde is not None:
             for k, v in task_metadata.job_facets.items():
                 datajob.properties[f"openlineage_job_facet_{k}"] = Serde.to_json(
                     redact_with_exclusions(v)  # type: ignore[arg-type]
