@@ -289,10 +289,11 @@ export function ensurePropertiesAreVisible(propertyTypes) {
 
 export function ensurePropertyExist(property) {
   cy.getWithTestId(`property-${property.type}`).within(() => {
-    cy.getWithTestId("property-title").contains(property.name);
+    cy.getWithTestId("property-title").should("contain", property.name);
     if (property.value !== undefined) {
-      // RegExp is used to make `contains` case insensitive
-      cy.getWithTestId("property-value").contains(
+      // Use should with match for case-insensitive regex matching with retry
+      cy.getWithTestId("property-value").should(
+        "match",
         new RegExp(property.value, "i"),
       );
     }
