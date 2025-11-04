@@ -168,6 +168,12 @@ class QueryMetadata:
             query_subject_urns.add(upstream)
             if include_fields:
                 for column in sorted(self.column_usage.get(upstream, [])):
+                    # Skip empty column names to avoid creating invalid URNs
+                    if not column or not column.strip():
+                        logger.warning(
+                            f"Skipping empty upstream column name for query {self.query_id} on upstream {upstream}"
+                        )
+                        continue
                     query_subject_urns.add(
                         builder.make_schema_field_urn(upstream, column)
                     )
@@ -175,6 +181,15 @@ class QueryMetadata:
             query_subject_urns.add(downstream_urn)
             if include_fields:
                 for column_lineage in self.column_lineage:
+                    # Skip empty downstream columns to avoid creating invalid URNs
+                    if (
+                        not column_lineage.downstream.column
+                        or not column_lineage.downstream.column.strip()
+                    ):
+                        logger.warning(
+                            f"Skipping empty downstream column name for query {self.query_id} on downstream {downstream_urn}"
+                        )
+                        continue
                     query_subject_urns.add(
                         builder.make_schema_field_urn(
                             downstream_urn, column_lineage.downstream.column
