@@ -4,7 +4,6 @@ const testGlossaryTerm = "CypressImportTestTerm";
 const navigateToGlossaryImportPage = () => {
   cy.visit("/glossary/import");
   cy.waitTextVisible("Import Glossary");
-  cy.wait(1000);
 };
 
 const createSimpleCsvContent = (terms) => {
@@ -29,28 +28,19 @@ const uploadCsvFile = (fileContent, filename = "test-glossary.csv") => {
   const fixturesPath = "cypress/fixtures/";
   cy.writeFile(`${fixturesPath}${filename}`, fileContent);
 
-  // Click the dropzone area which triggers the file input
-  cy.contains("Drop your CSV file here").click();
+  // Wait for the file input to be available
+  cy.get("#file-input", { timeout: 10000 }).should("exist");
 
-  // Upload file - try selectFile first (Cypress 13+), fallback to native input
-  cy.get("#file-input", { timeout: 5000 }).then(($input) => {
-    // Use selectFile if available, otherwise manually trigger file selection
-    cy.window().then((win) => {
-      const file = new win.File([fileContent], filename, {
-        type: "text/csv",
-      });
-      const dataTransfer = new win.DataTransfer();
-      dataTransfer.items.add(file);
-
-      const inputElement = $input[0];
-      Object.defineProperty(inputElement, "files", {
-        value: dataTransfer.files,
-        writable: false,
-        configurable: true,
-      });
-      $input.trigger("change", { force: true });
-    });
-  });
+  // Use Cypress's selectFile command - it can accept file contents directly
+  // This is more reliable than manually setting file properties
+  cy.get("#file-input").selectFile(
+    {
+      contents: fileContent,
+      fileName: filename,
+      mimeType: "text/csv",
+    },
+    { force: true }
+  );
 };
 
 describe("glossary import", () => {
@@ -89,9 +79,8 @@ describe("glossary import", () => {
 
     uploadCsvFile(csvContent);
 
-    // Wait for processing to complete
-    cy.wait(2000);
-    cy.contains(testGlossaryTerm, { timeout: 10000 }).should("be.visible");
+    // Wait for processing to complete - wait for the term to appear instead of hardcoded wait
+    cy.contains(testGlossaryTerm, { timeout: 15000 }).should("be.visible");
 
     // Verify import list is displayed
     cy.contains("Import").should("be.visible");
@@ -113,7 +102,8 @@ describe("glossary import", () => {
       testGlossaryTermGroup,
       "glossary-entity-modal-create-button",
     );
-    cy.wait(2000);
+    // Wait for the group to be created before proceeding
+    cy.contains(testGlossaryTermGroup, { timeout: 10000 }).should("be.visible");
 
     // Navigate to import page
     navigateToGlossaryImportPage();
@@ -126,9 +116,8 @@ describe("glossary import", () => {
 
     uploadCsvFile(csvContent);
 
-    // Wait for processing
-    cy.wait(2000);
-    cy.contains(testGlossaryTerm, { timeout: 10000 }).should("be.visible");
+    // Wait for processing - wait for the term to appear instead of hardcoded wait
+    cy.contains(testGlossaryTerm, { timeout: 15000 }).should("be.visible");
     cy.contains(testGlossaryTermGroup).should("be.visible");
   });
 
@@ -140,10 +129,16 @@ describe("glossary import", () => {
     const invalidCsv = "invalid,csv,content\nno,proper,format";
     uploadCsvFile(invalidCsv, "invalid.csv");
 
-    // Should show error or handle gracefully
-    cy.wait(2000);
-    // The UI should either show an error message or not process the file
-    // This test verifies the error handling works
+    // Should show error or handle gracefully - wait for error message or file area to reset
+    cy.get("body").then(($body) => {
+      // Check if error message appears or if we're back to upload state
+      if ($body.text().includes("error") || $body.text().includes("Error")) {
+        cy.contains(/error/i, { timeout: 10000 }).should("be.visible");
+      } else {
+        // If no error shown, verify file area is still available
+        cy.contains("Drop your CSV file here", { timeout: 10000 }).should("be.visible");
+      }
+    });
   });
 
   it("test file removal after upload", () => {
@@ -156,10 +151,8 @@ describe("glossary import", () => {
     ]);
 
     uploadCsvFile(csvContent);
-    cy.wait(2000);
-
-    // Look for remove file button and click it
-    cy.contains("Remove File", { timeout: 5000 }).should("be.visible").click();
+    // Wait for the file to be processed and remove button to appear
+    cy.contains("Remove File", { timeout: 10000 }).should("be.visible").click();
 
     // Verify file is removed and upload area is reset
     cy.contains("Drop your CSV file here").should("be.visible");
@@ -178,10 +171,8 @@ glossaryNode,CypressImportGroup2,Group 2 description,INTERNAL
 glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
 
     uploadCsvFile(csvContent);
-    cy.wait(3000);
-
-    // Verify entities are listed
-    cy.contains("CypressImportGroup1", { timeout: 10000 }).should("be.visible");
+    // Wait for entities to appear instead of hardcoded wait
+    cy.contains("CypressImportGroup1", { timeout: 15000 }).should("be.visible");
     cy.contains("CypressImportTerm1").should("be.visible");
     cy.contains("CypressImportTerm2").should("be.visible");
   });
@@ -198,7 +189,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     ]);
 
     uploadCsvFile(csvContent);
-    cy.wait(3000);
+    // Wait for entities to appear before searching
+    cy.contains("SearchableTerm1", { timeout: 15000 }).should("be.visible");
 
     // Find search input and search for term
     cy.get('input[placeholder*="Search"]', { timeout: 5000 })
@@ -221,10 +213,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     ]);
 
     uploadCsvFile(csvContent);
-    cy.wait(3000);
-
-    // Click reset button
-    cy.contains("Reset", { timeout: 5000 }).should("be.visible").click();
+    // Wait for the reset button to appear instead of hardcoded wait
+    cy.contains("Reset", { timeout: 15000 }).should("be.visible").click();
 
     // Verify we're back to upload step
     cy.contains("Drop your CSV file here").should("be.visible");
@@ -246,7 +236,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     cy.enterTextInTestId("create-glossary-entity-modal-name", existingTermName);
     cy.clickOptionWithTestId("glossary-entity-modal-create-button");
     cy.waitTextVisible(`Created Glossary Term!`);
-    cy.wait(2000);
+    // Wait for the term to be created before proceeding
+    cy.contains(existingTermName, { timeout: 10000 }).should("be.visible");
 
     // Navigate to import page and upload CSV with same term but different description
     navigateToGlossaryImportPage();
@@ -256,10 +247,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     ]);
 
     uploadCsvFile(csvContent);
-    cy.wait(3000);
-
-    // Verify the entity shows as "Updated" in the list
-    cy.contains(existingTermName, { timeout: 10000 }).should("be.visible");
+    // Wait for the entity to appear in the import list instead of hardcoded wait
+    cy.contains(existingTermName, { timeout: 15000 }).should("be.visible");
     cy.contains("Updated").should("be.visible");
 
     // Find and click the Diff button for this entity
@@ -294,7 +283,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
       cy.contains("Cancel").click();
     });
 
-    cy.wait(1000);
+    // Wait for modal to close
+    cy.get('[data-testid="diff-modal"]').should("not.exist");
   });
 
   it("test diff modal for conflicting entity", () => {
@@ -317,7 +307,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     // For now, just create the term
     cy.clickOptionWithTestId("glossary-entity-modal-create-button");
     cy.waitTextVisible(`Created Glossary Term!`);
-    cy.wait(2000);
+    // Wait for the term to be created before proceeding
+    cy.contains(conflictTermName, { timeout: 10000 }).should("be.visible");
 
     // Navigate to import page and upload CSV with same term but different description
     navigateToGlossaryImportPage();
@@ -327,10 +318,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     ]);
 
     uploadCsvFile(csvContent);
-    cy.wait(3000);
-
-    // Verify the entity appears in the list
-    cy.contains(conflictTermName, { timeout: 10000 }).should("be.visible");
+    // Wait for the entity to appear in the import list instead of hardcoded wait
+    cy.contains(conflictTermName, { timeout: 15000 }).should("be.visible");
 
     // Find and click the Diff button
     cy.contains(conflictTermName)
@@ -360,7 +349,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
       cy.contains("Cancel").click();
     });
 
-    cy.wait(1000);
+    // Wait for modal to close
+    cy.get('[data-testid="diff-modal"]').should("not.exist");
   });
 
   it("test diff modal shows all field comparisons", () => {
@@ -378,7 +368,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     cy.enterTextInTestId("create-glossary-entity-modal-name", diffTestTerm);
     cy.clickOptionWithTestId("glossary-entity-modal-create-button");
     cy.waitTextVisible(`Created Glossary Term!`);
-    cy.wait(2000);
+    // Wait for the term to be created before proceeding
+    cy.contains(diffTestTerm, { timeout: 10000 }).should("be.visible");
 
     // Navigate to import page
     navigateToGlossaryImportPage();
@@ -388,10 +379,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
 glossaryTerm,${diffTestTerm},New description,EXTERNAL,REF123,https://example.com,admin:Technical Owner,`;
 
     uploadCsvFile(csvContent);
-    cy.wait(3000);
-
-    // Open diff modal
-    cy.contains(diffTestTerm, { timeout: 10000 })
+    // Wait for the entity to appear in the import list instead of hardcoded wait
+    cy.contains(diffTestTerm, { timeout: 15000 })
       .parent()
       .parent()
       .within(() => {
@@ -419,7 +408,8 @@ glossaryTerm,${diffTestTerm},New description,EXTERNAL,REF123,https://example.com
       cy.contains("Cancel").click();
     });
 
-    cy.wait(1000);
+    // Wait for modal to close
+    cy.get('[data-testid="diff-modal"]').should("not.exist");
   });
 
   // Cleanup after tests - attempt to delete test entities
@@ -427,19 +417,18 @@ glossaryTerm,${diffTestTerm},New description,EXTERNAL,REF123,https://example.com
     cy.loginWithCredentials();
     cy.visit("/glossary");
     cy.waitTextVisible("Business Glossary");
-    cy.wait(2000);
 
     // Try to delete test term if it exists
     cy.get("body").then(($body) => {
       if ($body.text().includes(testGlossaryTerm)) {
         cy.contains(testGlossaryTerm).click({ force: true });
-        cy.wait(1000);
-        cy.get('[data-testid="MoreVertOutlinedIcon"]')
+        cy.get('[data-testid="MoreVertOutlinedIcon"]', { timeout: 5000 })
           .should("be.visible")
           .click();
         cy.clickOptionWithText("Delete");
         cy.clickOptionWithText("Yes");
-        cy.wait(1000);
+        // Wait for deletion to complete
+        cy.contains(testGlossaryTerm, { timeout: 5000 }).should("not.exist");
       }
     });
 
@@ -447,12 +436,13 @@ glossaryTerm,${diffTestTerm},New description,EXTERNAL,REF123,https://example.com
     cy.get("body").then(($body) => {
       if ($body.text().includes(testGlossaryTermGroup)) {
         cy.contains(testGlossaryTermGroup).click({ force: true });
-        cy.wait(1000);
-        cy.get('[data-testid="MoreVertOutlinedIcon"]')
+        cy.get('[data-testid="MoreVertOutlinedIcon"]', { timeout: 5000 })
           .should("be.visible")
           .click();
         cy.clickOptionWithText("Delete");
         cy.clickOptionWithText("Yes");
+        // Wait for deletion to complete
+        cy.contains(testGlossaryTermGroup, { timeout: 5000 }).should("not.exist");
       }
     });
 
@@ -467,13 +457,13 @@ glossaryTerm,${diffTestTerm},New description,EXTERNAL,REF123,https://example.com
       cy.get("body").then(($body) => {
         if ($body.text().includes(termName)) {
           cy.contains(termName).click({ force: true });
-          cy.wait(1000);
-          cy.get('[data-testid="MoreVertOutlinedIcon"]')
+          cy.get('[data-testid="MoreVertOutlinedIcon"]', { timeout: 5000 })
             .should("be.visible")
             .click();
           cy.clickOptionWithText("Delete");
           cy.clickOptionWithText("Yes");
-          cy.wait(1000);
+          // Wait for deletion to complete
+          cy.contains(termName, { timeout: 5000 }).should("not.exist");
         }
       });
     });
