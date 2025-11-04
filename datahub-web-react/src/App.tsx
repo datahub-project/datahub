@@ -12,6 +12,7 @@ import { GlobalStyles } from '@components/components/GlobalStyles';
 
 import { Routes } from '@app/Routes';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { ErrorCodes } from '@app/shared/constants';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
@@ -88,6 +89,7 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider>
                 <GlobalStyles />
+                <FilesUploadingDownloadingLatencyTracker />
 
                 <Helmet>
                     <title>{useCustomTheme().theme?.content?.title}</title>
