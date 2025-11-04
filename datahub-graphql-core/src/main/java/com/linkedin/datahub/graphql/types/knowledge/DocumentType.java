@@ -40,11 +40,14 @@ public class DocumentType
           Constants.DOCUMENT_KEY_ASPECT_NAME,
           Constants.DOCUMENT_INFO_ASPECT_NAME,
           Constants.OWNERSHIP_ASPECT_NAME,
-          Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          Constants.STATUS_ASPECT_NAME,
+          Constants.BROWSE_PATHS_V2_ASPECT_NAME,
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.DOMAINS_ASPECT_NAME,
           Constants.SUB_TYPES_ASPECT_NAME,
-          Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+          Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+          Constants.GLOBAL_TAGS_ASPECT_NAME,
+          Constants.GLOSSARY_TERMS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

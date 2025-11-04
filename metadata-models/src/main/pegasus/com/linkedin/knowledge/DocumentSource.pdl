@@ -1,7 +1,6 @@
 namespace com.linkedin.knowledge
 
 import com.linkedin.common.Urn
-import com.linkedin.common.AuditStamp
 
 /**
  * Information about the source of a document, especially for externally sourced documents.
@@ -31,18 +30,9 @@ record DocumentSource {
   externalUrl: optional string
 
   /**
-   * Unique identifier in the external system
+   * Unique identifier in the external system. Searchable in case we need to find ingested docs via filtering.
    */
+  @Searchable = {}
   externalId: optional string
-
-  /**
-   * When the document was last synced from the external source
-   */
-  lastSynced: optional AuditStamp
-
-  /**
-   * Additional metadata about the source
-   */
-  properties: optional map[string, string] = { }
 }
 

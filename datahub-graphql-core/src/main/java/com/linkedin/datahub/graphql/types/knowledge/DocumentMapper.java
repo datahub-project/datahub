@@ -2,9 +2,12 @@ package com.linkedin.datahub.graphql.types.knowledge;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
-import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -17,10 +20,15 @@ import com.linkedin.datahub.graphql.generated.DocumentRelatedAsset;
 import com.linkedin.datahub.graphql.generated.DocumentRelatedDocument;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -44,7 +52,7 @@ public class DocumentMapper {
     if (envelopedInfo != null) {
       result.setInfo(
           mapDocumentInfo(
-              new com.linkedin.knowledge.DocumentInfo(envelopedInfo.getValue().data())));
+              new com.linkedin.knowledge.DocumentInfo(envelopedInfo.getValue().data()), entityUrn));
     }
 
     // Map SubTypes aspect to subType field (get first type if available)
@@ -74,15 +82,13 @@ public class DocumentMapper {
               context, new Ownership(envelopedOwnership.getValue().data()), entityUrn));
     }
 
-    // Map Institutional Memory aspect
-    final EnvelopedAspect envelopedInstitutionalMemory =
-        aspects.get(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME);
-    if (envelopedInstitutionalMemory != null) {
-      result.setInstitutionalMemory(
-          InstitutionalMemoryMapper.map(
-              context,
-              new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data()),
-              entityUrn));
+    // Map Browse Paths V2 aspect
+    final EnvelopedAspect envelopedBrowsePathsV2 =
+        aspects.get(Constants.BROWSE_PATHS_V2_ASPECT_NAME);
+    if (envelopedBrowsePathsV2 != null) {
+      result.setBrowsePathV2(
+          BrowsePathsV2Mapper.map(
+              context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
     }
 
     // Map Structured Properties aspect
@@ -94,6 +100,39 @@ public class DocumentMapper {
               context,
               new StructuredProperties(envelopedStructuredProps.getValue().data()),
               entityUrn));
+    }
+
+    // Map Global Tags aspect
+    final EnvelopedAspect envelopedGlobalTags = aspects.get(Constants.GLOBAL_TAGS_ASPECT_NAME);
+    if (envelopedGlobalTags != null) {
+      result.setTags(
+          GlobalTagsMapper.map(
+              context, new GlobalTags(envelopedGlobalTags.getValue().data()), entityUrn));
+    }
+
+    // Map Glossary Terms aspect
+    final EnvelopedAspect envelopedGlossaryTerms =
+        aspects.get(Constants.GLOSSARY_TERMS_ASPECT_NAME);
+    if (envelopedGlossaryTerms != null) {
+      result.setGlossaryTerms(
+          GlossaryTermsMapper.map(
+              context, new GlossaryTerms(envelopedGlossaryTerms.getValue().data()), entityUrn));
+    }
+
+    // Map Domains aspect
+    final EnvelopedAspect envelopedDomains = aspects.get(Constants.DOMAINS_ASPECT_NAME);
+    if (envelopedDomains != null) {
+      final Domains domains = new Domains(envelopedDomains.getValue().data());
+      // domains.getDomains() returns a UrnArray
+      if (domains.hasDomains() && !domains.getDomains().isEmpty()) {
+        result.setDomain(DomainAssociationMapper.map(context, domains, entityUrn.toString()));
+      }
+    }
+
+    // Map Status aspect for soft delete
+    final EnvelopedAspect envelopedStatus = aspects.get(Constants.STATUS_ASPECT_NAME);
+    if (envelopedStatus != null) {
+      result.setExists(!new Status(envelopedStatus.getValue().data()).isRemoved());
     }
 
     // Note: Relationships are handled separately via batch resolvers in GraphQL
@@ -108,7 +147,8 @@ public class DocumentMapper {
   }
 
   /** Maps the Document Info PDL model to the GraphQL model */
-  private static DocumentInfo mapDocumentInfo(final com.linkedin.knowledge.DocumentInfo info) {
+  private static DocumentInfo mapDocumentInfo(
+      final com.linkedin.knowledge.DocumentInfo info, final Urn entityUrn) {
     final DocumentInfo result = new DocumentInfo();
 
     if (info.hasTitle()) {
@@ -187,6 +227,11 @@ public class DocumentMapper {
       result.setDraftOf(draftOfInfo);
     }
 
+    // Map custom properties (included via CustomProperties mixin in PDL)
+    if (info.hasCustomProperties() && !info.getCustomProperties().isEmpty()) {
+      result.setCustomProperties(CustomPropertiesMapper.map(info.getCustomProperties(), entityUrn));
+    }
+
     return result;
   }
 
@@ -220,24 +265,6 @@ public class DocumentMapper {
 
     if (source.hasExternalId()) {
       result.setExternalId(source.getExternalId());
-    }
-
-    if (source.hasLastSynced()) {
-      result.setLastSynced(AuditStampMapper.map(null, source.getLastSynced()));
-    }
-
-    if (source.hasProperties()) {
-      result.setProperties(
-          source.getProperties().entrySet().stream()
-              .map(
-                  entry -> {
-                    final com.linkedin.datahub.graphql.generated.StringMapEntry mapEntry =
-                        new com.linkedin.datahub.graphql.generated.StringMapEntry();
-                    mapEntry.setKey(entry.getKey());
-                    mapEntry.setValue(entry.getValue());
-                    return mapEntry;
-                  })
-              .collect(java.util.stream.Collectors.toList()));
     }
 
     return result;

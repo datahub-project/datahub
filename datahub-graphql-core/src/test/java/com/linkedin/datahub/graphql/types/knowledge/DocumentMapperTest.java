@@ -5,7 +5,8 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -87,6 +88,13 @@ public class DocumentMapperTest {
     lastModifiedStamp.setActor(actorUrn);
     documentInfo.setLastModified(lastModifiedStamp);
 
+    // Add custom properties
+    com.linkedin.data.template.StringMap customProperties =
+        new com.linkedin.data.template.StringMap();
+    customProperties.put("key1", "value1");
+    customProperties.put("key2", "value2");
+    documentInfo.setCustomProperties(customProperties);
+
     addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
 
     // Embed relationships inside DocumentInfo
@@ -111,16 +119,22 @@ public class DocumentMapperTest {
     ownership.setOwners(new com.linkedin.common.OwnerArray());
     addAspectToResponse(entityResponse, OWNERSHIP_ASPECT_NAME, ownership);
 
-    // Add institutional memory
-    InstitutionalMemory institutionalMemory = new InstitutionalMemory();
-    institutionalMemory.setElements(new com.linkedin.common.InstitutionalMemoryMetadataArray());
-    addAspectToResponse(entityResponse, INSTITUTIONAL_MEMORY_ASPECT_NAME, institutionalMemory);
-
     // Add structured properties
     StructuredProperties structuredProperties = new StructuredProperties();
     structuredProperties.setProperties(
         new com.linkedin.structured.StructuredPropertyValueAssignmentArray());
     addAspectToResponse(entityResponse, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
+
+    // Add global tags
+    GlobalTags globalTags = new GlobalTags();
+    globalTags.setTags(new com.linkedin.common.TagAssociationArray());
+    addAspectToResponse(entityResponse, GLOBAL_TAGS_ASPECT_NAME, globalTags);
+
+    // Add glossary terms
+    GlossaryTerms glossaryTerms = new GlossaryTerms();
+    glossaryTerms.setTerms(new com.linkedin.common.GlossaryTermAssociationArray());
+    glossaryTerms.setAuditStamp(new AuditStamp().setTime(TEST_TIMESTAMP).setActor(actorUrn));
+    addAspectToResponse(entityResponse, GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms);
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
@@ -148,8 +162,15 @@ public class DocumentMapperTest {
 
       // Verify other aspects
       assertNotNull(result.getOwnership());
-      assertNotNull(result.getInstitutionalMemory());
       assertNotNull(result.getStructuredProperties());
+      assertNotNull(result.getTags());
+      assertNotNull(result.getGlossaryTerms());
+
+      // Verify custom properties
+      assertNotNull(result.getInfo().getCustomProperties());
+      assertEquals(result.getInfo().getCustomProperties().size(), 2);
+      assertEquals(result.getInfo().getCustomProperties().get(0).getKey(), "key1");
+      assertEquals(result.getInfo().getCustomProperties().get(0).getValue(), "value1");
     }
   }
 
@@ -198,8 +219,9 @@ public class DocumentMapperTest {
       assertNull(result.getInfo().getRelatedAssets());
       assertNull(result.getInfo().getRelatedDocuments());
       assertNull(result.getOwnership());
-      assertNull(result.getInstitutionalMemory());
       assertNull(result.getStructuredProperties());
+      assertNull(result.getTags());
+      assertNull(result.getGlossaryTerms());
     }
   }
 

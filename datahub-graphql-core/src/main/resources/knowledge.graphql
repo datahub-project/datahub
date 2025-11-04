@@ -94,9 +94,29 @@ type Document implements Entity {
   ownership: Ownership
 
   """
-  References to internal resources related to the Document
+  The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  institutionalMemory: InstitutionalMemory
+  browsePathV2: BrowsePathV2
+
+  """
+  Tags applied to the Document
+  """
+  tags: GlobalTags
+
+  """
+  Glossary terms associated with the Document
+  """
+  glossaryTerms: GlossaryTerms
+
+  """
+  The Domain associated with the Document
+  """
+  domain: DomainAssociation
+
+  """
+  Whether or not this entity exists on DataHub
+  """
+  exists: Boolean
 
   """
   Edges extending from this entity
@@ -207,6 +227,11 @@ type DocumentInfo {
   When set, this document should be hidden from normal knowledge base browsing.
   """
   draftOf: DocumentDraftOf
+
+  """
+  Custom properties of the Document
+  """
+  customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -252,16 +277,6 @@ type DocumentSource {
   Unique identifier in the external system
   """
   externalId: String
-
-  """
-  When the document was last synced from the external source
-  """
-  lastSynced: AuditStamp
-
-  """
-  Additional metadata about the source
-  """
-  properties: [StringMapEntry!]
 }
 
 """

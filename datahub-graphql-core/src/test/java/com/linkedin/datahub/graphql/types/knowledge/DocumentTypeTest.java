@@ -9,14 +9,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.InstitutionalMemory;
-import com.linkedin.common.InstitutionalMemoryMetadata;
-import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
-import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Document;
@@ -52,19 +48,6 @@ public class DocumentTypeTest {
                       new Owner()
                           .setType(OwnershipType.DATAOWNER)
                           .setOwner(Urn.createFromTuple("corpuser", "test")))));
-
-  private static final InstitutionalMemory TEST_DOCUMENT_1_INSTITUTIONAL_MEMORY =
-      new InstitutionalMemory()
-          .setElements(
-              new InstitutionalMemoryMetadataArray(
-                  ImmutableList.of(
-                      new InstitutionalMemoryMetadata()
-                          .setUrl(new Url("https://www.test.com"))
-                          .setDescription("test description")
-                          .setCreateStamp(
-                              new AuditStamp()
-                                  .setTime(0L)
-                                  .setActor(Urn.createFromTuple("corpuser", "test"))))));
 
   private static final String TEST_DOCUMENT_2_URN = "urn:li:document:document-2";
 
@@ -121,12 +104,7 @@ public class DocumentTypeTest {
                                     .setValue(new Aspect(TEST_DOCUMENT_1_INFO.data())),
                                 Constants.OWNERSHIP_ASPECT_NAME,
                                 new EnvelopedAspect()
-                                    .setValue(new Aspect(TEST_DOCUMENT_1_OWNERSHIP.data())),
-                                Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(
-                                        new Aspect(
-                                            TEST_DOCUMENT_1_INSTITUTIONAL_MEMORY.data())))))));
+                                    .setValue(new Aspect(TEST_DOCUMENT_1_OWNERSHIP.data())))))));
 
     DocumentType type = new DocumentType(client);
 
@@ -150,7 +128,6 @@ public class DocumentTypeTest {
     assertEquals(document1.getOwnership().getOwners().size(), 1);
     assertEquals(document1.getInfo().getTitle(), "Test Tutorial");
     assertEquals(document1.getInfo().getContents().getText(), "Test content");
-    assertEquals(document1.getInstitutionalMemory().getElements().size(), 1);
 
     // Assert second element is null.
     assertNull(result.get(1));

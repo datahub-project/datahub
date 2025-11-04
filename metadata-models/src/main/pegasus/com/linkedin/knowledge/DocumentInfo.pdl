@@ -1,6 +1,7 @@
 namespace com.linkedin.knowledge
 
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.CustomProperties
 
 /**
  * Information about a document
@@ -8,7 +9,7 @@ import com.linkedin.common.AuditStamp
 @Aspect = {
   "name": "documentInfo"
 }
-record DocumentInfo {
+record DocumentInfo includes CustomProperties {
 
     /**
      * Optional title for the document. 

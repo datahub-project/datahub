@@ -337,11 +337,13 @@ entities:
       - documentInfo
       - status
       - ownership
-      - institutionalMemory
       - domains
       - structuredProperties
       - subTypes
       - dataPlatformInstance
+      - browsePathsV2
+      - globalTags
+      - glossaryTerms
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey

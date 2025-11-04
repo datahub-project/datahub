@@ -8,6 +8,8 @@ record DocumentContents {
      * The text contents of the document.
      * This needs to be added to semantic search! 
      */
-    @Searchable = {}
+    @Searchable = {
+        "fieldType": "TEXT"
+    }
     text: string
 }
