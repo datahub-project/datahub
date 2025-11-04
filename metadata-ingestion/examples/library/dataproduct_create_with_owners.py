@@ -2,9 +2,18 @@
 Example showing how to create a Data Product with multiple owners and custom ownership types.
 
 This example demonstrates the enhanced gen_data_product functionality that supports:
-- Multiple owners (owner_urns)
-- Custom ownership types (owner_type_urn)
-- Assets included in the initial creation
+- Multiple owners (owner_urns parameter)
+- Custom ownership types (owner_type parameter supports both string constants and custom URNs)
+- Assets included in the initial creation (assets parameter)
+
+The function is backward compatible - existing code will continue to work with defaults.
+
+Examples of owner_type values:
+- "DATAOWNER" (default)
+- "TECHNICAL_OWNER"
+- "BUSINESS_OWNER"
+- "DATA_STEWARD"
+- "urn:li:ownershipType:producer" (custom URN)
 """
 
 import logging
@@ -12,7 +21,6 @@ import logging
 from datahub.emitter.mce_builder import make_dataset_urn, make_user_urn
 from datahub.emitter.mcp_builder import DataProductKey, gen_data_product
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import OwnershipTypeClass
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -57,7 +65,7 @@ for wu in gen_data_product(
     },
     domain_urn="urn:li:domain:analytics",
     owner_urns=owners,
-    owner_type=OwnershipTypeClass.BUSINESS_OWNER,  # All owners get this type
+    owner_type="BUSINESS_OWNER",  # All owners get this type (defaults to DATAOWNER)
     assets=assets,  # Assets included in initial creation
     tags=["production", "pii"],
 ):
