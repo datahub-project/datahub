@@ -40,7 +40,7 @@ enum AssertionType {
     DATA_SCHEMA
 
     /**
-    * A custom assertion. 
+    * A custom assertion.
     * When this is the value, the customAssertion field will be populated.
     * Use this assertion type when the exact type of assertion is not modeled in DataHub or
     * as a starting point when integrating third-party data quality tools.
