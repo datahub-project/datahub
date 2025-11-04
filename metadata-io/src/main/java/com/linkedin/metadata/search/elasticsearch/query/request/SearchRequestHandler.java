@@ -590,7 +590,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     List<SearchEntity> results = new ArrayList<>(searchHits.length);
     for (SearchHit hit : searchHits) {
       // Build base SearchEntity
-      SearchEntity entity = getResult(hit);
+      SearchEntity entity = getResult(opContext.getObjectMapper(), hit);
       // Compute per-hit scrollId using this hit's sort values
       Object[] sort = hit.getSortValues();
       String perHitScrollId =
