@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Union
+from typing import Dict, FrozenSet, List, Optional, Set, Union
 
 from databricks.sdk.service.catalog import (
     CatalogType,
@@ -349,12 +349,12 @@ class ModelSignature:
     Attributes:
         inputs: List of input schema specifications, each containing name, type, dtype, shape
         outputs: List of output schema specifications, each containing name, type, dtype, shape
-        signature_type: Type of signature (e.g., "tensor_spec", "column_spec")
+        parameters: List of model parameters
     """
 
-    inputs: List[Dict[str, Any]]
-    outputs: List[Dict[str, Any]]
-    signature_type: Optional[str] = None
+    inputs: Optional[List[Dict[str, str]]]
+    outputs: Optional[List[Dict[str, str]]]
+    parameters: Optional[List[Dict[str, str]]]
 
 
 @dataclass
@@ -373,7 +373,6 @@ class ModelRunDetails:
         start_time: Run start timestamp (milliseconds since epoch)
         end_time: Run end timestamp (milliseconds since epoch)
         user_id: User who initiated the run
-        run_name: Name of the run
         metrics: Training metrics (e.g., accuracy, loss)
         parameters: Hyperparameters used for training
         tags: Run tags/metadata
@@ -383,14 +382,13 @@ class ModelRunDetails:
     run_id: str
     experiment_id: str
     status: str
-    start_time: Optional[int] = None
-    end_time: Optional[int] = None
-    user_id: Optional[str] = None
-    run_name: Optional[str] = None
-    metrics: Optional[Dict[str, Any]] = None
-    parameters: Optional[Dict[str, Any]] = None
-    tags: Optional[Dict[str, str]] = None
-    signature: Optional["ModelSignature"] = None
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
+    user_id: Optional[str]
+    metrics: Optional[Dict[str, str]]
+    parameters: Optional[Dict[str, str]]
+    tags: Optional[Dict[str, str]]
+    signature: Optional["ModelSignature"]
 
 
 @dataclass
@@ -452,4 +450,4 @@ class ModelVersion:
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
     created_by: Optional[str]
-    run_details: Optional["ModelRunDetails"] = None
+    run_details: Optional["ModelRunDetails"]

@@ -1,3 +1,5 @@
+import dataclasses
+import json
 import logging
 import re
 import time
@@ -741,22 +743,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     created=TimeStampClass(time=created_time, actor=created_actor),
                 )
             )
-
-        # Extract run details if available
-        training_metrics: Optional[Dict[str, str]] = None
-        hyper_params: Optional[Dict[str, str]] = None
-        custom_properties: Optional[Dict[str, str]] = None
-
+        custom_properties = {}
         if ml_model_version.run_details:
-            # Convert run details to DataHub format using proxy helper method
-            converted = (
-                self.unity_catalog_api_proxy.convert_run_details_to_datahub_format(
-                    ml_model_version.run_details
+            if ml_model_version.run_details.signature:
+                custom_properties["signature"] = json.dumps(
+                    dataclasses.asdict(ml_model_version.run_details.signature)
                 )
-            )
-            training_metrics = converted.get("training_metrics")
-            hyper_params = converted.get("hyper_params")
-            custom_properties = converted.get("custom_properties")
+            if ml_model_version.run_details.tags:
+                custom_properties["mlflow_tags"] = json.dumps(
+                    ml_model_version.run_details.tags
+                )
 
         ml_model = MLModel(
             id=ml_model_version.id,
@@ -767,9 +763,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             model_group=ml_model_urn,
             platform=self.platform,
             last_modified=ml_model_version.updated_at,
-            training_metrics=cast(Optional[Dict[str, Optional[str]]], training_metrics),
-            hyper_params=cast(Optional[Dict[str, Optional[str]]], hyper_params),
-            custom_properties=custom_properties,
+            training_metrics=cast(
+                Optional[Dict[str, Optional[str]]], ml_model_version.run_details.metrics
+            )
+            if ml_model_version.run_details and ml_model_version.run_details.metrics
+            else None,
+            hyper_params=cast(
+                Optional[Dict[str, Optional[str]]],
+                ml_model_version.run_details.parameters,
+            )
+            if ml_model_version.run_details and ml_model_version.run_details.parameters
+            else None,
+            custom_properties=custom_properties if custom_properties else None,
             extra_aspects=extra_aspects,
         )
 

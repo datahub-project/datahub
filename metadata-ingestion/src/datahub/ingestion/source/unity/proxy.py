@@ -26,7 +26,7 @@ from databricks.sdk.service.catalog import (
     SchemaInfo,
     TableInfo,
 )
-from databricks.sdk.service.files import FilesAPI
+from databricks.sdk.service.files import DownloadResponse, FilesAPI
 from databricks.sdk.service.iam import ServicePrincipal as DatabricksServicePrincipal
 from databricks.sdk.service.ml import (
     ExperimentsAPI,
@@ -220,32 +220,35 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         try:
             run_response = self._experiments_api.get_run(run_id)
             run = run_response.run
-            if run is None:
+
+            if (
+                not run
+                or not run.info
+                or not run.info.run_id
+                or not run.info.experiment_id
+            ):
                 return None
 
             # Extract metrics
             metrics: Dict[str, Any] = {}
-            if run.data and hasattr(run.data, "metrics") and run.data.metrics:
+            if run.data and run.data.metrics:
                 for metric in run.data.metrics:
                     if metric.key is not None:
                         metrics[metric.key] = metric.value
 
             # Extract parameters
             parameters: Dict[str, Any] = {}
-            if run.data and hasattr(run.data, "params") and run.data.params:
+            if run.data and run.data.params:
                 for param in run.data.params:
                     if param.key is not None:
                         parameters[param.key] = param.value
 
             # Extract tags
             tags: Dict[str, str] = {}
-            if run.data and hasattr(run.data, "tags") and run.data.tags:
+            if run.data and run.data.tags:
                 for tag in run.data.tags:
                     if tag.key is not None and tag.value is not None:
                         tags[tag.key] = tag.value
-
-            if not run.info or not run.info.run_id or not run.info.experiment_id:
-                return None
 
             # Extract signature using Files API if model_version is provided
             signature: Optional[ModelSignature] = None
@@ -262,17 +265,27 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 run_id=run.info.run_id,
                 experiment_id=run.info.experiment_id,
                 status=str(run.info.status) if run.info.status else "",
-                start_time=run.info.start_time,
-                end_time=run.info.end_time,
+                start_time=parse_ts_millis(run.info.start_time),
+                end_time=parse_ts_millis(run.info.end_time),
                 user_id=run.info.user_id,
-                run_name=run.info.run_name,
                 metrics=metrics,
                 parameters=parameters,
                 tags=tags,
                 signature=signature,
             )
         except Exception as e:
-            logger.error(f"Error getting run details for {run_id}: {e}")
+            model_name = getattr(model_version, "model_name", "unknown")
+            model_version = getattr(model_version, "version", "unknown")
+            self.report.report_warning(
+                title="Unable to get run details for MLflow experiment",
+                message="Error while getting run details for MLflow experiment",
+                context=f"model-name: {model_name}, model-version: {model_version}, run-id: {run_id}",
+                exc=e,
+            )
+            logger.warning(
+                f"Unable to get run details for MLflow experiment, model-name: {model_name}, model-version: {model_version}, run-id: {run_id}",
+                exc_info=True,
+            )
             return None
 
     def _normalize_signature_spec(self, spec: Dict[str, Any]) -> Dict[str, Any]:
@@ -360,20 +373,18 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             logger.debug(f"Downloading MLmodel from FilesAPI: {file_path}")
 
             # Download the file using FilesAPI
-            download_response = self._files_api.download(file_path=file_path)
+            download_response: DownloadResponse = self._files_api.download(
+                file_path=file_path
+            )
 
             # Read the file content
             # DownloadResponse.contents is a BinaryIO object
-            if hasattr(download_response, "contents") and download_response.contents:
+            if download_response and download_response.contents:
                 content_stream = download_response.contents
 
                 # Read from the binary stream
-                if hasattr(content_stream, "read"):
-                    mlmodel_content = content_stream.read().decode("utf-8")
-                elif isinstance(content_stream, bytes):
-                    mlmodel_content = content_stream.decode("utf-8")
-                else:
-                    mlmodel_content = str(content_stream)
+                if content_stream:
+                    mlmodel_content: str = content_stream.read().decode("utf-8")
 
                 logger.debug(
                     f"MLmodel file contents from FilesAPI ({file_path}):\n{mlmodel_content}"
@@ -391,122 +402,55 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     signature_data = {}
                     if "inputs" in signature_raw:
                         try:
-                            inputs_json = signature_raw["inputs"]
-                            if isinstance(inputs_json, str):
-                                signature_data["inputs"] = json.loads(inputs_json)
-                            else:
-                                signature_data["inputs"] = inputs_json
+                            signature_data["inputs"] = json.loads(
+                                signature_raw["inputs"]
+                            )
                         except (json.JSONDecodeError, TypeError) as e:
                             logger.debug(f"Failed to parse inputs JSON: {e}")
-                            signature_data["inputs"] = []
 
                     if "outputs" in signature_raw:
                         try:
-                            outputs_json = signature_raw["outputs"]
-                            if isinstance(outputs_json, str):
-                                signature_data["outputs"] = json.loads(outputs_json)
-                            else:
-                                signature_data["outputs"] = outputs_json
+                            signature_data["outputs"] = json.loads(
+                                signature_raw["outputs"]
+                            )
                         except (json.JSONDecodeError, TypeError) as e:
                             logger.debug(f"Failed to parse outputs JSON: {e}")
-                            signature_data["outputs"] = []
 
-                    signature_data["signature_type"] = signature_raw.get(
-                        "signature_type", "tensor_spec"
+                    if "parameters" in signature_raw:
+                        try:
+                            signature_data["parameters"] = json.loads(
+                                signature_raw["parameters"]
+                            )
+                        except (json.JSONDecodeError, TypeError) as e:
+                            logger.debug(f"Failed to parse parameters JSON: {e}")
+
+                    return ModelSignature(
+                        inputs=signature_data["inputs"]
+                        if "inputs" in signature_raw
+                        else None,
+                        outputs=signature_data["outputs"]
+                        if "outputs" in signature_raw
+                        else None,
+                        parameters=signature_data["parameters"]
+                        if "parameters" in signature_raw
+                        else None,
                     )
-
-                    # Process the signature data to extract dtype and shape from tensor-spec format
-                    processed_signature = self._process_tensor_spec_signature(
-                        signature_data
-                    )
-
-                    if processed_signature:
-                        logger.debug(
-                            f"Successfully extracted signature from MLmodel via FilesAPI at {file_path}"
-                        )
-                        return processed_signature
                 else:
                     logger.debug(f"No signature found in MLmodel data from {file_path}")
 
         except Exception as e:
-            logger.debug(
-                f"Failed to extract signature from FilesAPI for model version {getattr(model_version, 'model_name', 'unknown')}: {e}"
+            model_name = getattr(model_version, "model_name", "unknown")
+            model_version = getattr(model_version, "version", "unknown")
+            self.report.report_warning(
+                title="Unable to extract signature from MLmodel file",
+                message="Error while extracting signature from MLmodel file",
+                context=f"model-name: {model_name}, model-version: {model_version}",
+                exc=e,
             )
-
-        return None
-
-    def _process_tensor_spec_signature(
-        self, signature_data: Dict[str, Any]
-    ) -> Optional[ModelSignature]:
-        """
-        Process signature data from MLmodel YAML where inputs/outputs are in tensor-spec format.
-        Converts from: [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 10]}}]
-        To normalized format with dtype and shape extracted.
-
-        Args:
-            signature_data: Dictionary with inputs/outputs in tensor-spec format
-
-        Returns:
-            ModelSignature with normalized dtype and shape information
-        """
-        try:
-            inputs = signature_data.get("inputs", [])
-            outputs = signature_data.get("outputs", [])
-            signature_type = signature_data.get("signature_type", "tensor_spec")
-
-            # Process inputs - extract from tensor-spec format
-            processed_inputs = []
-            for inp in inputs:
-                if isinstance(inp, dict):
-                    # Check if it's in tensor-spec format
-                    if "tensor-spec" in inp:
-                        tensor_spec = inp["tensor-spec"]
-                        processed_inputs.append(
-                            {
-                                "name": inp.get("name", None),
-                                "type": inp.get("type", "tensor"),
-                                "dtype": tensor_spec.get("dtype", None),
-                                "shape": tensor_spec.get("shape", None),
-                            }
-                        )
-                    else:
-                        # Already in expected format or needs normalization
-                        processed_inputs.append(self._normalize_signature_spec(inp))
-                else:
-                    processed_inputs.append(
-                        {"name": None, "type": None, "dtype": None, "shape": None}
-                    )
-
-            # Process outputs - extract from tensor-spec format
-            processed_outputs = []
-            for out in outputs:
-                if isinstance(out, dict):
-                    # Check if it's in tensor-spec format
-                    if "tensor-spec" in out:
-                        tensor_spec = out["tensor-spec"]
-                        processed_outputs.append(
-                            {
-                                "name": out.get("name", None),
-                                "type": out.get("type", "tensor"),
-                                "dtype": tensor_spec.get("dtype", None),
-                                "shape": tensor_spec.get("shape", None),
-                            }
-                        )
-                    else:
-                        # Already in expected format or needs normalization
-                        processed_outputs.append(self._normalize_signature_spec(out))
-                else:
-                    processed_outputs.append(
-                        {"name": None, "type": None, "dtype": None, "shape": None}
-                    )
-
-            return ModelSignature(
-                inputs=processed_inputs,
-                outputs=processed_outputs,
-                signature_type=signature_type,
+            logger.warning(
+                f"Unable to extract signature from MLmodel file, model-name: {model_name}, model-version: {model_version}",
+                exc_info=True,
             )
-        except Exception as e:
-            logger.error(f"Error processing tensor-spec signature: {e}")
             return None
 
     def check_basic_connectivity(self) -> bool:
@@ -1567,41 +1511,3 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
 
         return result_dict
-
-    def convert_run_details_to_datahub_format(
-        self, run_details: ModelRunDetails
-    ) -> Dict[str, Optional[Dict[str, str]]]:
-        """
-        Convert ModelRunDetails to DataHub MLModel format.
-
-        Returns a dictionary with:
-        - 'training_metrics': Dict[str, str] - converted metrics
-        - 'hyper_params': Dict[str, str] - converted parameters
-        - 'custom_properties': Dict[str, str] - signature as JSON string
-        """
-        training_metrics: Optional[Dict[str, str]] = None
-        hyper_params: Optional[Dict[str, str]] = None
-        custom_properties: Optional[Dict[str, str]] = None
-
-        # Convert metrics to Dict[str, str]
-        if run_details.metrics:
-            training_metrics = {k: str(v) for k, v in run_details.metrics.items()}
-
-        # Convert parameters to Dict[str, str]
-        if run_details.parameters:
-            hyper_params = {k: str(v) for k, v in run_details.parameters.items()}
-
-        # Convert signature to JSON string
-        if run_details.signature:
-            signature_dict = {
-                "inputs": run_details.signature.inputs,
-                "outputs": run_details.signature.outputs,
-                "signature_type": run_details.signature.signature_type,
-            }
-            custom_properties = {"mlflow_model_signature": json.dumps(signature_dict)}
-
-        return {
-            "training_metrics": training_metrics,
-            "hyper_params": hyper_params,
-            "custom_properties": custom_properties,
-        }
