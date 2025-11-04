@@ -1,5 +1,12 @@
 import dataclasses
-from typing import Any, List, Optional
+import logging
+import os
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
+
+if TYPE_CHECKING:
+    from pyspark.sql import SparkSession
+    from pyspark.sql.dataframe import DataFrame as SparkDataFrame
 
 from pandas import DataFrame
 from pydeequ.analyzers import (
@@ -15,7 +22,6 @@ from pydeequ.analyzers import (
     Minimum,
     StandardDeviation,
 )
-from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, count, isnan, when
 from pyspark.sql.types import (
     DataType as SparkDataType,
@@ -32,6 +38,13 @@ from pyspark.sql.types import (
 )
 
 from datahub.emitter.mce_builder import get_sys_time
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.s3_util import (
+    get_bucket_name,
+    get_bucket_relative_path,
+)
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
@@ -46,10 +59,15 @@ from datahub.metadata.schema_classes import (
     ValueFrequencyClass,
 )
 from datahub.telemetry import stats, telemetry
+from datahub.utilities.perf_timer import PerfTimer
 
 NUM_SAMPLE_ROWS = 20
 QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
 MAX_HIST_BINS = 25
+
+# hide annoying debug errors from py4j
+logging.getLogger("py4j").setLevel(logging.ERROR)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def null_str(value: Any) -> Optional[str]:
@@ -73,7 +91,7 @@ class _SingleColumnSpec:
 
 
 class _SingleTableProfiler:
-    spark: SparkSession
+    spark: "SparkSession"
     dataframe: DataFrame
     analyzer: AnalysisRunBuilder
     column_specs: List[_SingleColumnSpec]
@@ -88,7 +106,7 @@ class _SingleTableProfiler:
     def __init__(
         self,
         dataframe: DataFrame,
-        spark: SparkSession,
+        spark: "SparkSession",
         profiling_config: DataLakeProfilerConfig,
         report: DataLakeSourceReport,
         file_path: str,
@@ -470,3 +488,254 @@ class _SingleTableProfiler:
 
             # append the column profile to the dataset profile
             self.profile.fieldProfiles.append(column_profile)
+
+
+class SparkProfiler:
+    """
+    Handles Spark-based profiling for S3/data lake sources.
+
+    This class encapsulates all PySpark and Deequ dependencies, allowing them to be
+    optional for non-profiling use cases.
+    """
+
+    def __init__(
+        self,
+        aws_config: Optional[AwsConnectionConfig],
+        spark_driver_memory: str,
+        spark_config: Dict[str, Any],
+        report: DataLakeSourceReport,
+        profiling_times_taken: List[float],
+        profiling_config: DataLakeProfilerConfig,
+    ):
+        # TODO: Try to avoid passing a list reference here (limiting side effects)
+        self.profiling_times_taken = profiling_times_taken
+        self.profiling_config = profiling_config
+        self.aws_config = aws_config
+        self.spark_driver_memory = spark_driver_memory
+        self.spark_config = spark_config
+        self.report = report
+        self.spark = self.init_spark()
+
+    def init_spark(self) -> "SparkSession":
+        """Initialize Spark session with appropriate configuration for S3 access."""
+        # Importing here to avoid PySpark/Deequ dependency for non profiling use cases
+        import pydeequ
+        from pyspark.conf import SparkConf
+        from pyspark.sql import SparkSession
+
+        spark_version = os.environ["SPARK_VERSION"]
+
+        conf = SparkConf()
+        conf.set(
+            "spark.jars.packages",
+            ",".join(
+                [
+                    "org.apache.hadoop:hadoop-aws:3.0.3",
+                    # Spark's avro version needs to be matched with the Spark version
+                    f"org.apache.spark:spark-avro_2.12:{spark_version}{'.0' if spark_version.count('.') == 1 else ''}",
+                    pydeequ.deequ_maven_coord,
+                ]
+            ),
+        )
+
+        if self.aws_config is not None:
+            credentials = self.aws_config.get_credentials()
+
+            aws_access_key_id = credentials.get("aws_access_key_id")
+            aws_secret_access_key = credentials.get("aws_secret_access_key")
+            aws_session_token = credentials.get("aws_session_token")
+
+            aws_provided_credentials = [
+                aws_access_key_id,
+                aws_secret_access_key,
+                aws_session_token,
+            ]
+
+            if any(x is not None for x in aws_provided_credentials):
+                # see https://hadoop.apache.org/docs/r3.0.3/hadoop-aws/tools/hadoop-aws/index.html#Changing_Authentication_Providers
+                if all(x is not None for x in aws_provided_credentials):
+                    conf.set(
+                        "spark.hadoop.fs.s3a.aws.credentials.provider",
+                        "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider",
+                    )
+
+                else:
+                    conf.set(
+                        "spark.hadoop.fs.s3a.aws.credentials.provider",
+                        "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
+                    )
+
+                if aws_access_key_id is not None:
+                    conf.set("spark.hadoop.fs.s3a.access.key", aws_access_key_id)
+                if aws_secret_access_key is not None:
+                    conf.set(
+                        "spark.hadoop.fs.s3a.secret.key",
+                        aws_secret_access_key,
+                    )
+                if aws_session_token is not None:
+                    conf.set(
+                        "spark.hadoop.fs.s3a.session.token",
+                        aws_session_token,
+                    )
+            else:
+                # if no explicit AWS config is provided, use a default AWS credentials provider
+                conf.set(
+                    "spark.hadoop.fs.s3a.aws.credentials.provider",
+                    "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
+                )
+
+            if self.aws_config.aws_endpoint_url is not None:
+                conf.set("fs.s3a.endpoint", self.aws_config.aws_endpoint_url)
+            if self.aws_config.aws_region is not None:
+                conf.set("fs.s3a.endpoint.region", self.aws_config.aws_region)
+
+        conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
+        conf.set("spark.driver.memory", self.spark_driver_memory)
+
+        if self.spark_config:
+            for key, value in self.spark_config.items():
+                conf.set(key, value)
+
+        return SparkSession.builder.config(conf=conf).getOrCreate()
+
+    def read_file_spark(self, file: str, ext: str) -> Optional["SparkDataFrame"]:
+        """Read a file using Spark and return a DataFrame."""
+        from pyspark.sql.utils import AnalysisException
+
+        logger.debug(f"Opening file {file} for profiling in spark")
+        if "s3://" in file:
+            # replace s3:// with s3a://, and make sure standalone bucket names always end with a slash.
+            # Spark will fail if given a path like `s3a://mybucket`, and requires it to be `s3a://mybucket/`.
+            file = f"s3a://{get_bucket_name(file)}/{get_bucket_relative_path(file)}"
+
+        telemetry.telemetry_instance.ping("data_lake_file", {"extension": ext})
+
+        if ext.endswith(".parquet"):
+            df = self.spark.read.parquet(file)
+        elif ext.endswith(".csv"):
+            # see https://sparkbyexamples.com/pyspark/pyspark-read-csv-file-into-dataframe
+            df = self.spark.read.csv(
+                file,
+                header="True",
+                inferSchema="True",
+                sep=",",
+                ignoreLeadingWhiteSpace=True,
+                ignoreTrailingWhiteSpace=True,
+            )
+        elif ext.endswith(".tsv"):
+            df = self.spark.read.csv(
+                file,
+                header="True",
+                inferSchema="True",
+                sep="\t",
+                ignoreLeadingWhiteSpace=True,
+                ignoreTrailingWhiteSpace=True,
+            )
+        elif ext.endswith(".json") or ext.endswith(".jsonl"):
+            df = self.spark.read.json(file)
+        elif ext.endswith(".avro"):
+            try:
+                df = self.spark.read.format("avro").load(file)
+            except AnalysisException as e:
+                self.report.report_warning(
+                    file,
+                    f"Avro file reading failed with exception. The error was: {e}",
+                )
+                return None
+
+        # TODO: add support for more file types
+        # elif file.endswith(".orc"):
+        # df = self.spark.read.orc(file)
+        else:
+            self.report.report_warning(file, f"file {file} has unsupported extension")
+            return None
+        logger.debug(f"dataframe read for file {file} with row count {df.count()}")
+        # replace periods in names because they break PyDeequ
+        # see https://mungingdata.com/pyspark/avoid-dots-periods-column-names/
+        return df.toDF(*(c.replace(".", "_") for c in df.columns))
+
+    def get_table_profile(
+        self, table_data: Any, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate profiling metadata for a table.
+
+        Args:
+            table_data: TableData object containing information about the table
+            dataset_urn: URN for the dataset
+
+        Yields:
+            MetadataWorkUnit containing profile information
+        """
+        # Importing here to avoid Deequ dependency for non profiling use cases
+        from pydeequ.analyzers import AnalyzerContext
+
+        # read in the whole table with Spark for profiling
+        table = None
+        try:
+            if table_data.partitions:
+                table = self.read_file_spark(
+                    table_data.table_path, os.path.splitext(table_data.full_path)[1]
+                )
+            else:
+                table = self.read_file_spark(
+                    table_data.full_path, os.path.splitext(table_data.full_path)[1]
+                )
+        except Exception as e:
+            logger.error(e)
+
+        # if table is not readable, skip
+        if table is None:
+            self.report.report_warning(
+                table_data.display_name,
+                f"unable to read table {table_data.display_name} from file {table_data.full_path}",
+            )
+            return
+
+        with PerfTimer() as timer:
+            # init PySpark analysis object
+            logger.debug(
+                f"Profiling {table_data.full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            table_profiler = _SingleTableProfiler(
+                table,
+                self.spark,
+                self.profiling_config,
+                self.report,
+                table_data.full_path,
+            )
+
+            logger.debug(
+                f"Profiling {table_data.full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            # instead of computing each profile individually, we run them all in a single analyzer.run() call
+            # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
+            # since multiple profiles reuse computations, this saves a lot of time
+            table_profiler.prepare_table_profiles()
+
+            # compute the profiles
+            logger.debug(
+                f"Profiling {table_data.full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            analysis_result = table_profiler.analyzer.run()
+            analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
+                self.spark, analysis_result
+            )
+
+            logger.debug(
+                f"Profiling {table_data.full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            table_profiler.extract_table_profiles(analysis_metrics)
+
+            time_taken = timer.elapsed_seconds()
+
+            logger.info(
+                f"Finished profiling {table_data.full_path}; took {time_taken:.3f} seconds"
+            )
+
+            self.profiling_times_taken.append(time_taken)
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=table_profiler.profile,
+        ).as_workunit()

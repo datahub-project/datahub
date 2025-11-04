@@ -19,6 +19,15 @@ from datahub.ingestion.source.s3.source import (
     partitioned_folder_comparator,
 )
 
+# Check if profiling dependencies are available
+try:
+    import pydeequ  # noqa: F401
+    import pyspark  # noqa: F401
+
+    _PROFILING_ENABLED = True
+except ImportError:
+    _PROFILING_ENABLED = False
+
 logging.getLogger("boto3").setLevel(logging.INFO)
 logging.getLogger("botocore").setLevel(logging.INFO)
 logging.getLogger("s3transfer").setLevel(logging.INFO)
@@ -662,3 +671,77 @@ class TestResolveTemplatedFolders:
         # assert
         expected = ["s3://my-bucket/data/", "s3://my-bucket-1/data/"]
         assert result == expected
+
+
+class TestS3SourcePySparkDependency:
+    """Tests for S3Source PySpark dependency handling.
+
+    Note: Tests for behavior WITHOUT PySpark are in integration/s3/test_s3_slim_no_pyspark.py
+    since they require a clean environment without PySpark installed.
+    """
+
+    @pytest.mark.skipif(
+        not _PROFILING_ENABLED,
+        reason="PySpark not available, skipping test",
+    )
+    @patch("datahub.ingestion.source.s3.profiling.SparkProfiler.init_spark")
+    def test_read_file_spark_avro_exception_handling(self, mock_init_spark):
+        """Test that read_file_spark handles exceptions for avro files gracefully."""
+        # Mock Spark session to avoid actual Spark initialization
+        mock_spark = Mock()
+        mock_init_spark.return_value = mock_spark
+
+        config_dict = {
+            "path_specs": [
+                {
+                    "include": "s3://test-bucket/data/*.avro",
+                }
+            ],
+            "profiling": {"enabled": True},
+        }
+
+        ctx = PipelineContext(run_id="test-s3-avro")
+        source = S3Source.create(config_dict, ctx)
+
+        # Mock the Spark read to raise AnalysisException
+        from pyspark.sql.utils import AnalysisException
+
+        mock_spark.read.format.return_value.load.side_effect = AnalysisException(
+            "Test error"
+        )
+
+        # Try reading a non-existent avro file
+        result = source.profiler.read_file_spark(
+            "s3://non-existent-bucket/data/test.avro", ".avro"
+        )
+
+        # Should return None and log a warning instead of raising
+        assert result is None
+        assert source.report.warnings is not None
+
+    @pytest.mark.skipif(
+        not _PROFILING_ENABLED,
+        reason="PySpark not available, skipping test",
+    )
+    @patch("datahub.ingestion.source.s3.profiling.SparkProfiler.init_spark")
+    def test_init_spark_with_pyspark_succeeds(self, mock_init_spark):
+        """Test that SparkProfiler is created when profiling is enabled."""
+        # Mock Spark session to avoid actual Spark initialization
+        mock_spark = Mock()
+        mock_init_spark.return_value = mock_spark
+
+        config_dict = {
+            "path_specs": [
+                {
+                    "include": "s3://test-bucket/data/*.csv",
+                }
+            ],
+            "profiling": {"enabled": True},
+        }
+
+        ctx = PipelineContext(run_id="test-s3-pyspark-success")
+        source = S3Source.create(config_dict, ctx)
+
+        # Should have created profiler with mocked spark
+        assert source.profiler is not None
+        assert source.profiler.spark is mock_spark

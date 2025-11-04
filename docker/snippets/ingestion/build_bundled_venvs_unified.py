@@ -23,12 +23,22 @@ def generate_venv_mappings(plugins: List[str]) -> List[Tuple[str, str]]:
     return venv_mappings
 
 
-def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base_path: str) -> bool:
-    """Create a single bundled venv for a plugin."""
+def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base_path: str, slim_mode: bool = False) -> bool:
+    """Create a single bundled venv for a plugin.
+
+    Args:
+        plugin: Plugin name (e.g., "s3", "demo-data")
+        venv_name: Name of the venv directory (e.g., "s3-bundled")
+        bundled_cli_version: DataHub CLI version to install
+        venv_base_path: Base directory for venvs
+        slim_mode: If True, use -slim variants for data lake sources (s3-slim, gcs-slim, abs-slim)
+    """
     venv_path = os.path.join(venv_base_path, venv_name)
 
     print(f"Creating bundled venv for {plugin}: {venv_name}")
     print(f"  Venv Path: {venv_path}")
+    if slim_mode:
+        print(f"  Slim Mode: Will use -slim variants for data lake sources")
 
     try:
         # Create the venv
@@ -40,11 +50,25 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
         base_cmd = f'source {venv_path}/bin/activate && uv pip install --upgrade pip wheel setuptools'
         subprocess.run(['bash', '-c', base_cmd], check=True, capture_output=True)
 
+        # Determine which plugin extra to use
+        # In slim mode, use -slim suffix for data lake sources to avoid PySpark
+        plugin_extra = plugin
+        if slim_mode and plugin in ['s3', 'gcs', 'abs']:
+            plugin_extra = f"{plugin}-slim"
+            print(f"  → Using {plugin_extra} extra (slim mode, no PySpark)")
+
         # Install DataHub with the specific plugin
-        print(f"  → Installing datahub with {plugin} plugin...")
-        datahub_package = f'acryl-datahub[datahub-rest,datahub-kafka,file,{plugin}]=={bundled_cli_version}'
-        constraints_path = os.path.join(venv_base_path, "constraints.txt")
-        install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}"  --constraints {constraints_path}'
+        print(f"  → Installing datahub with {plugin_extra} plugin...")
+        # Use local metadata-ingestion if available (for development), otherwise use PyPI
+        if os.path.exists('/metadata-ingestion/setup.py'):
+            print(f"  → Using local /metadata-ingestion source")
+            datahub_package = f'-e /metadata-ingestion[datahub-rest,datahub-kafka,file,{plugin_extra}]'
+            constraints_path = os.path.join(venv_base_path, "constraints.txt")
+            install_cmd = f'source {venv_path}/bin/activate && uv pip install {datahub_package} --constraints {constraints_path}'
+        else:
+            datahub_package = f'acryl-datahub[datahub-rest,datahub-kafka,file,{plugin_extra}]=={bundled_cli_version}'
+            constraints_path = os.path.join(venv_base_path, "constraints.txt")
+            install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraints {constraints_path}'
         subprocess.run(['bash', '-c', install_cmd], check=True, capture_output=True)
 
         print(f"  ✅ Successfully created {venv_name}")
@@ -64,6 +88,8 @@ def main():
     plugins_str = os.environ.get('BUNDLED_VENV_PLUGINS', 's3,demo-data')
     bundled_cli_version = os.environ.get('BUNDLED_CLI_VERSION')
     venv_base_path = os.environ.get('DATAHUB_BUNDLED_VENV_PATH', '/opt/datahub/venvs')
+    slim_mode_str = os.environ.get('BUNDLED_VENV_SLIM_MODE', 'false').lower()
+    slim_mode = slim_mode_str in ['true', '1', 'yes']
 
     if not bundled_cli_version:
         print("ERROR: BUNDLED_CLI_VERSION environment variable must be set")
@@ -82,6 +108,7 @@ def main():
     print(f"DataHub CLI Version: {bundled_cli_version}")
     print(f"Plugins: {', '.join(plugins)}")
     print(f"Venv Base Path: {venv_base_path}")
+    print(f"Slim Mode: {slim_mode}")
     print(f"Total Plugins: {len(plugins)}")
     print()
 
@@ -91,7 +118,10 @@ def main():
 
     print("Generated venv mappings:")
     for plugin, venv_name in venv_mappings:
-        print(f"  {plugin} → {venv_name}")
+        extra_info = ""
+        if slim_mode and plugin in ['s3', 'gcs', 'abs']:
+            extra_info = " (will use -slim extra)"
+        print(f"  {plugin} → {venv_name}{extra_info}")
     print()
 
     # Ensure the venv base directory exists
@@ -105,7 +135,7 @@ def main():
 
     for plugin, venv_name in venv_mappings:
         try:
-            if create_venv(plugin, venv_name, bundled_cli_version, venv_base_path):
+            if create_venv(plugin, venv_name, bundled_cli_version, venv_base_path, slim_mode):
                 success_count += 1
             else:
                 failed_plugins.append(plugin)
