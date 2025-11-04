@@ -4,6 +4,10 @@ const testGlossaryTerm = "CypressImportTestTerm";
 const navigateToGlossaryImportPage = () => {
   cy.visit("/glossary/import");
   cy.waitTextVisible("Import Glossary");
+  // Wait for the dropzone to be fully rendered
+  cy.contains("Drop your CSV file here", { timeout: 10000 }).should(
+    "be.visible",
+  );
 };
 
 const createSimpleCsvContent = (terms) => {
@@ -28,8 +32,10 @@ const uploadCsvFile = (fileContent, filename = "test-glossary.csv") => {
   const fixturesPath = "cypress/fixtures/";
   cy.writeFile(`${fixturesPath}${filename}`, fileContent);
 
-  // Wait for the file input to be available
-  cy.get("#file-input", { timeout: 10000 }).should("exist");
+  // Wait for the file input to be available and not disabled
+  cy.get("#file-input", { timeout: 10000 })
+    .should("exist")
+    .should("not.be.disabled");
 
   // Use Cypress's selectFile command - it can accept file contents directly
   // This is more reliable than manually setting file properties
@@ -39,8 +45,11 @@ const uploadCsvFile = (fileContent, filename = "test-glossary.csv") => {
       fileName: filename,
       mimeType: "text/csv",
     },
-    { force: true }
+    { force: true },
   );
+
+  // Wait a moment for file processing to start
+  cy.wait(500);
 };
 
 describe("glossary import", () => {
@@ -136,7 +145,9 @@ describe("glossary import", () => {
         cy.contains(/error/i, { timeout: 10000 }).should("be.visible");
       } else {
         // If no error shown, verify file area is still available
-        cy.contains("Drop your CSV file here", { timeout: 10000 }).should("be.visible");
+        cy.contains("Drop your CSV file here", { timeout: 10000 }).should(
+          "be.visible",
+        );
       }
     });
   });
@@ -442,7 +453,9 @@ glossaryTerm,${diffTestTerm},New description,EXTERNAL,REF123,https://example.com
         cy.clickOptionWithText("Delete");
         cy.clickOptionWithText("Yes");
         // Wait for deletion to complete
-        cy.contains(testGlossaryTermGroup, { timeout: 5000 }).should("not.exist");
+        cy.contains(testGlossaryTermGroup, { timeout: 5000 }).should(
+          "not.exist",
+        );
       }
     });
 
