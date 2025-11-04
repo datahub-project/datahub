@@ -4,6 +4,7 @@ import functools
 import html
 import inspect
 import json
+import os
 import pathlib
 import re
 from typing import (
@@ -34,10 +35,16 @@ from fastmcp import FastMCP
 from loguru import logger
 from pydantic import BaseModel
 
+from datahub_integrations.chat.context_reducer import TokenCountEstimator
+
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
 DESCRIPTION_LENGTH_HARD_LIMIT = 1000
 QUERY_LENGTH_HARD_LIMIT = 5000
+
+# Per-entity token budget for field truncation
+# Assumes ~5 entities per response: 80K total / 5 = 16K per entity
+ENTITY_TOKEN_BUDGET = int(os.getenv("ENTITY_TOKEN_BUDGET", "16000"))
 
 
 def sanitize_html_content(text: str) -> str:
@@ -518,7 +525,219 @@ def clean_gql_response(response: Any) -> Any:
         return response
 
 
+def _sort_fields_by_priority(fields: List[dict]) -> Iterator[dict]:
+    """
+    Yield schema fields sorted by priority for deterministic truncation.
+
+    Priority order:
+    1. Primary/partition keys (isPartOfKey, isPartitioningKey)
+    2. Fields with descriptions
+    3. Fields with tags or glossary terms
+    4. Alphabetically by fieldPath
+
+    Each field gets a score tuple for sorting:
+    - key_score: 2 if isPartOfKey, 1 if isPartitioningKey, 0 otherwise
+    - has_description: 1 if description exists, 0 otherwise
+    - has_tags: 1 if tags or glossary terms exist, 0 otherwise
+    - fieldPath: for alphabetical tiebreaker
+
+    Sorted in descending order by score components, then ascending by fieldPath.
+
+    Args:
+        fields: List of field dicts from GraphQL response
+
+    Yields:
+        Fields in priority order (generator for memory efficiency)
+    """
+    # Score each field with tuple: (key_score, has_description, has_tags, fieldPath, index)
+    scored_fields = []
+    for idx, field in enumerate(fields):
+        # Score key fields (highest priority)
+        key_score = 0
+        if field.get("isPartOfKey"):
+            key_score = 2
+        elif field.get("isPartitioningKey"):
+            key_score = 1
+
+        # Score fields with descriptions
+        has_description = 1 if field.get("description") else 0
+
+        # Score fields with tags or glossary terms
+        has_tags_or_terms = 0
+        if field.get("tags") or field.get("glossaryTerms"):
+            has_tags_or_terms = 1
+
+        # Get fieldPath for alphabetical sorting (tiebreaker)
+        field_path = field.get("fieldPath", "")
+
+        # Store as (score_tuple, original_index, field)
+        # Sort descending by scores, ascending by fieldPath
+        score_tuple = (-key_score, -has_description, -has_tags_or_terms, field_path)
+        scored_fields.append((score_tuple, idx, field))
+
+    # Sort by score tuple
+    scored_fields.sort(key=lambda x: x[0])
+
+    # Yield fields in sorted order
+    for _, _, field in scored_fields:
+        yield field
+
+
+def _clean_schema_fields(
+    sorted_fields: Iterator[dict], editable_map: dict[str, dict]
+) -> Iterator[dict]:
+    """
+    Clean and normalize schema fields for response.
+
+    Yields cleaned field dicts with only essential properties for SQL generation
+    and understanding schema structure. Merges user-edited metadata (descriptions,
+    tags, glossary terms) into fields with "edited*" prefix when they differ.
+
+    Note: All fields are expected to have fieldPath (always requested in GraphQL).
+    If fieldPath is missing, it indicates a data quality issue.
+
+    Args:
+        sorted_fields: Iterator of fields in priority order
+        editable_map: Map of fieldPath -> editable field data for merging
+
+    Yields:
+        Cleaned field dicts with merged editable data (generator for memory efficiency)
+    """
+    for f in sorted_fields:
+        # fieldPath is required - it's always requested in GraphQL and is essential
+        # for identifying the field. If missing, fail fast rather than silently skipping.
+        field_dict = {"fieldPath": f["fieldPath"]}
+
+        # Add type if present (essential for SQL)
+        if field_type := f.get("type"):
+            field_dict["type"] = field_type
+
+        # Add nativeDataType if present (important for SQL type casting)
+        if native_type := f.get("nativeDataType"):
+            field_dict["nativeDataType"] = native_type
+
+        # Add description if present (truncated)
+        if description := f.get("description"):
+            field_dict["description"] = description[:120]
+
+        # Add nullable if present (important for SQL NULL handling)
+        if f.get("nullable") is not None:
+            field_dict["nullable"] = f.get("nullable")
+
+        # Add label if present (useful for human-readable names)
+        if label := f.get("label"):
+            field_dict["label"] = label
+
+        # Add isPartOfKey only if truthy (important for joins)
+        if f.get("isPartOfKey"):
+            field_dict["isPartOfKey"] = True
+
+        # Add isPartitioningKey only if truthy (important for query optimization)
+        if f.get("isPartitioningKey"):
+            field_dict["isPartitioningKey"] = True
+
+        # Add recursive only if truthy
+        if f.get("recursive"):
+            field_dict["recursive"] = True
+
+        # Add deprecation status if present (warn about deprecated fields)
+        if schema_field_entity := f.get("schemaFieldEntity"):
+            if deprecation := schema_field_entity.get("deprecation"):
+                if deprecation.get("deprecated"):
+                    field_dict["deprecated"] = {
+                        "deprecated": True,
+                        "note": deprecation.get("note", "")[:120],  # Truncate note
+                    }
+
+        # Add tags if present (keep minimal info for classification context)
+        if tags := f.get("tags"):
+            if tag_list := tags.get("tags"):
+                # Keep just tag names for context
+                field_dict["tags"] = [
+                    t["tag"]["properties"]["name"]
+                    for t in tag_list
+                    if t.get("tag", {}).get("properties", {}).get("name")
+                ]
+
+        # Add glossary terms if present (keep minimal info for business context)
+        if glossary_terms := f.get("glossaryTerms"):
+            if terms_list := glossary_terms.get("terms"):
+                # Keep just term names for context
+                field_dict["glossaryTerms"] = [
+                    t["term"]["properties"]["name"]
+                    for t in terms_list
+                    if t.get("term", {}).get("properties", {}).get("name")
+                ]
+
+        # Merge editable metadata if available for this field
+        field_path = f["fieldPath"]
+        if editable := editable_map.get(field_path):
+            # Add editedDescription if it differs from system description
+            if editable_desc := editable.get("description"):
+                system_desc = field_dict.get("description", "")
+                # Only add if different (token optimization)
+                if editable_desc[:120] != system_desc:  # Compare truncated versions
+                    field_dict["editedDescription"] = editable_desc[:120]
+
+            # Add editedTags if present and different
+            if editable_tags := editable.get("tags"):
+                if tag_list := editable_tags.get("tags"):
+                    edited_tag_names = [
+                        t["tag"]["properties"]["name"]
+                        for t in tag_list
+                        if t.get("tag", {}).get("properties", {}).get("name")
+                    ]
+                    if edited_tag_names:
+                        system_tags = field_dict.get("tags", [])
+                        if edited_tag_names != system_tags:
+                            field_dict["editedTags"] = edited_tag_names
+
+            # Add editedGlossaryTerms if present and different
+            if editable_terms := editable.get("glossaryTerms"):
+                if terms_list := editable_terms.get("terms"):
+                    edited_term_names = [
+                        t["term"]["properties"]["name"]
+                        for t in terms_list
+                        if t.get("term", {}).get("properties", {}).get("name")
+                    ]
+                    if edited_term_names:
+                        system_terms = field_dict.get("glossaryTerms", [])
+                        if edited_term_names != system_terms:
+                            field_dict["editedGlossaryTerms"] = edited_term_names
+
+        yield field_dict
+
+
 def clean_get_entities_response(raw_response: dict) -> dict:
+    """
+    Clean and optimize entity responses for LLM consumption.
+
+    Performs several transformations to reduce token usage while preserving essential information:
+
+    1. **Clean GraphQL artifacts**: Removes __typename, null values, empty objects/arrays
+       (via clean_gql_response)
+
+    2. **Schema field processing** (if schemaMetadata.fields exists):
+       - Sorts fields by priority: keys → descriptions → tags → alphabetical
+       - Cleans each field to keep only essential properties (fieldPath, type, description, etc.)
+       - Merges editableSchemaMetadata into fields with "edited*" prefix (editedDescription,
+         editedTags, editedGlossaryTerms) - only included when they differ from system values
+       - Applies token-based truncation (ENTITY_TOKEN_BUDGET, default 16K tokens per entity)
+       - Adds schemaFieldsTruncated metadata when fields are cut
+
+    3. **Remove duplicates**: Deletes editableSchemaMetadata after merging into schemaMetadata
+
+    4. **Truncate view definitions**: Limits SQL view logic to QUERY_LENGTH_HARD_LIMIT
+
+    The result is optimized for LLM tool responses: reduced token usage, no duplication,
+    clear distinction between system-generated and user-curated content.
+
+    Args:
+        raw_response: Raw entity dict from GraphQL query
+
+    Returns:
+        Cleaned entity dict optimized for LLM consumption
+    """
     response = clean_gql_response(raw_response)
 
     if response and (schema_metadata := response.get("schemaMetadata")):
@@ -531,79 +750,57 @@ def clean_get_entities_response(raw_response: dict) -> dict:
         # Clean schemaMetadata.fields to keep important fields while reducing size
         # Keep fields essential for SQL generation and understanding schema structure
         if fields := schema_metadata.get("fields"):
-            cleaned_fields = []
-            for f in fields:
-                if not f.get("fieldPath"):  # Skip fields without fieldPath
-                    continue
+            total_fields = len(fields)  # Use original count before any filtering
 
-                field_dict = {"fieldPath": f.get("fieldPath")}
+            # Build editable map from editableSchemaMetadata for merging
+            # Make this safe - if duplicate fieldPaths exist, last one wins (no failure)
+            editable_map = {}
+            if editable_schema := response.get("editableSchemaMetadata"):
+                if editable_fields := editable_schema.get("editableSchemaFieldInfo"):
+                    for editable_field in editable_fields:
+                        if field_path := editable_field.get("fieldPath"):
+                            editable_map[field_path] = editable_field
 
-                # Add type if present (essential for SQL)
-                if field_type := f.get("type"):
-                    field_dict["type"] = field_type
+            # Sort fields by priority, then clean them (both are iterators for memory efficiency)
+            sorted_fields = _sort_fields_by_priority(fields)
+            cleaned_fields = _clean_schema_fields(sorted_fields, editable_map)
 
-                # Add nativeDataType if present (important for SQL type casting)
-                if native_type := f.get("nativeDataType"):
-                    field_dict["nativeDataType"] = native_type
+            # Truncate fields to fit within per-entity token budget
+            selected_fields: list[dict] = []
+            accumulated_tokens = 0
 
-                # Add description if present (truncated)
-                if description := f.get("description"):
-                    field_dict["description"] = description[:120]
+            for field in cleaned_fields:
+                field_tokens = TokenCountEstimator.estimate_dict_tokens(field)
+                if (
+                    accumulated_tokens + field_tokens > ENTITY_TOKEN_BUDGET
+                    and selected_fields
+                ):
+                    # Would exceed budget, stop here (keep at least 1 field)
+                    logger.info(
+                        f"Truncating schema fields: {len(selected_fields)}/{total_fields} "
+                        f"fields fit in {ENTITY_TOKEN_BUDGET:,} token budget "
+                        f"(accumulated {accumulated_tokens:,} tokens)"
+                    )
+                    break
+                selected_fields.append(field)
+                accumulated_tokens += field_tokens
 
-                # Add nullable if present (important for SQL NULL handling)
-                if f.get("nullable") is not None:
-                    field_dict["nullable"] = f.get("nullable")
+            # Add truncation metadata if fields were cut
+            if len(selected_fields) < total_fields:
+                schema_metadata["schemaFieldsTruncated"] = {
+                    "totalFields": total_fields,
+                    "includedFields": len(selected_fields),
+                }
+                logger.warning(
+                    f"Schema fields truncated: included {len(selected_fields)}/{total_fields} fields "
+                    f"({accumulated_tokens:,} tokens, budget: {ENTITY_TOKEN_BUDGET:,})"
+                )
 
-                # Add label if present (useful for human-readable names)
-                if label := f.get("label"):
-                    field_dict["label"] = label
+            schema_metadata["fields"] = selected_fields
 
-                # Add isPartOfKey only if truthy (important for joins)
-                if f.get("isPartOfKey"):
-                    field_dict["isPartOfKey"] = True
-
-                # Add isPartitioningKey only if truthy (important for query optimization)
-                if f.get("isPartitioningKey"):
-                    field_dict["isPartitioningKey"] = True
-
-                # Add recursive only if truthy
-                if f.get("recursive"):
-                    field_dict["recursive"] = True
-
-                # Add deprecation status if present (warn about deprecated fields)
-                if schema_field_entity := f.get("schemaFieldEntity"):
-                    if deprecation := schema_field_entity.get("deprecation"):
-                        if deprecation.get("deprecated"):
-                            field_dict["deprecated"] = {
-                                "deprecated": True,
-                                "note": deprecation.get("note", "")[
-                                    :120
-                                ],  # Truncate note
-                            }
-
-                # Add tags if present (keep minimal info for classification context)
-                if tags := f.get("tags"):
-                    if tag_list := tags.get("tags"):
-                        # Keep just tag names for context
-                        field_dict["tags"] = [
-                            t["tag"]["properties"]["name"]
-                            for t in tag_list
-                            if t.get("tag", {}).get("properties", {}).get("name")
-                        ]
-
-                # Add glossary terms if present (keep minimal info for business context)
-                if glossary_terms := f.get("glossaryTerms"):
-                    if terms_list := glossary_terms.get("terms"):
-                        # Keep just term names for context
-                        field_dict["glossaryTerms"] = [
-                            t["term"]["properties"]["name"]
-                            for t in terms_list
-                            if t.get("term", {}).get("properties", {}).get("name")
-                        ]
-
-                cleaned_fields.append(field_dict)
-
-            schema_metadata["fields"] = cleaned_fields
+    # Remove editableSchemaMetadata - data has been merged into schemaMetadata fields
+    if "editableSchemaMetadata" in response:
+        del response["editableSchemaMetadata"]
 
     # Truncate long view definition to prevent context window issues
     if response and (view_properties := response.get("viewProperties")):

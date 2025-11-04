@@ -135,17 +135,21 @@ class TestSelectResultsWithinBudget:
 
         assert len(results) == 1
 
+    @patch("datahub_integrations.smart_search.smart_search.truncate_descriptions")
     @patch("datahub_integrations.smart_search.smart_search.clean_get_entities_response")
     @patch("datahub_integrations.smart_search.smart_search.TokenCountEstimator")
-    def test_cleans_entities_before_yielding(self, mock_estimator, mock_clean_response):
-        """Test that entities are cleaned before being yielded."""
+    def test_truncates_and_cleans_entities_before_yielding(
+        self, mock_estimator, mock_clean_response, mock_truncate
+    ):
+        """Test that entities are truncated and cleaned before being yielded."""
         # Setup mocks
         mock_estimator.estimate_dict_tokens.return_value = 100
         mock_clean_response.return_value = {"cleaned": True}
 
         # Create test data
         rerank_results = [RerankResult(index=0, score=0.9)]
-        candidates = [{"entity": {"urn": "urn:li:dataset:1", "raw": "data"}}]
+        raw_entity = {"urn": "urn:li:dataset:1", "raw": "data"}
+        candidates = [{"entity": raw_entity}]
 
         # Execute
         results = list(
@@ -157,8 +161,10 @@ class TestSelectResultsWithinBudget:
             )
         )
 
-        # Verify clean_get_entities_response was called
-        mock_clean_response.assert_called_once()
+        # Verify truncate_descriptions was called first
+        mock_truncate.assert_called_once_with(raw_entity)
+        # Verify clean_get_entities_response was called after
+        mock_clean_response.assert_called_once_with(raw_entity)
         assert results[0] == {"cleaned": True}
 
     @patch("datahub_integrations.smart_search.smart_search.clean_get_entities_response")

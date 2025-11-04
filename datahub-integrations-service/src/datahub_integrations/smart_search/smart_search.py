@@ -12,6 +12,7 @@ from datahub_integrations.chat.context_reducer import TokenCountEstimator
 from datahub_integrations.mcp.mcp_server import (
     _search_implementation,
     clean_get_entities_response,
+    truncate_descriptions,
 )
 from datahub_integrations.mcp.tool import TOOL_RESPONSE_TOKEN_LIMIT
 from datahub_integrations.smart_search.models import SmartSearchResponse
@@ -55,7 +56,13 @@ def _select_results_within_budget(
 
     for rerank_result in rerank_results[:max_results]:
         candidate = candidates[rerank_result.index]
-        entity = clean_get_entities_response(candidate.get("entity", {}))
+        raw_entity = candidate.get("entity", {})
+
+        # Truncate all descriptions to prevent overly long content
+        # (entity descriptions, tag descriptions, glossary terms, etc.)
+        truncate_descriptions(raw_entity)
+
+        entity = clean_get_entities_response(raw_entity)
 
         # Fast token estimation (no JSON serialization)
         entity_tokens = TokenCountEstimator.estimate_dict_tokens(entity)

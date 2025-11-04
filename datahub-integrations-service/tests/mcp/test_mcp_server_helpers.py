@@ -5,6 +5,8 @@ from datahub.ingestion.graph.links import make_url_for_urn
 
 from datahub_integrations.mcp import mcp_server
 from datahub_integrations.mcp.mcp_server import (
+    _clean_schema_fields,
+    _sort_fields_by_priority,
     clean_get_entities_response,
     clean_gql_response,
     inject_urls_for_urns,
@@ -436,18 +438,15 @@ def test_clean_get_entities_response_with_schema_metadata() -> None:
 
     result = clean_get_entities_response(raw_response)
 
+    # Expected result with fields sorted by priority:
+    # 1. email (isPartOfKey=True, isPartitioningKey=True) - highest priority
+    # 2. created_at (has glossaryTerms) - medium priority
+    # 3. user_id (plain field) - lowest priority
     expected_result = {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.raw_schema.users,PROD)",
         "name": "users",
         "schemaMetadata": {
             "fields": [
-                {
-                    "fieldPath": "user_id",
-                    "type": "STRING",
-                    "nativeDataType": "VARCHAR(255)",
-                    "nullable": True,
-                    "label": "User ID",
-                },
                 {
                     "fieldPath": "email",
                     "type": "STRING",
@@ -467,6 +466,13 @@ def test_clean_get_entities_response_with_schema_metadata() -> None:
                     "nativeDataType": "TIMESTAMP_NTZ",
                     "nullable": False,
                     "glossaryTerms": ["Record Creation Time"],
+                },
+                {
+                    "fieldPath": "user_id",
+                    "type": "STRING",
+                    "nativeDataType": "VARCHAR(255)",
+                    "nullable": True,
+                    "label": "User ID",
                 },
             ]
         },
@@ -596,3 +602,583 @@ def test_get_lineage_normalizes_null_string() -> None:
             # Should be converted to schema field URN
             assert directive.urn.startswith("urn:li:schemaField:")
             assert "user_id" in directive.urn
+
+
+class TestSortFieldsByPriority:
+    """Tests for _sort_fields_by_priority generator function."""
+
+    def test_sorts_keys_first(self) -> None:
+        """Test that primary and partition keys are sorted first."""
+        fields: list[dict] = [
+            {"fieldPath": "regular_field", "description": "desc"},
+            {"fieldPath": "partition_key", "isPartitioningKey": True},
+            {"fieldPath": "primary_key", "isPartOfKey": True},
+            {"fieldPath": "another_field"},
+        ]
+
+        result = list(_sort_fields_by_priority(fields))
+
+        # Primary keys (score=2) come first, then partition keys (score=1), then others
+        assert result[0]["fieldPath"] == "primary_key"
+        assert result[1]["fieldPath"] == "partition_key"
+
+    def test_sorts_fields_with_descriptions_higher(self) -> None:
+        """Test that fields with descriptions are prioritized."""
+        fields: list[dict] = [
+            {"fieldPath": "z_field", "description": "has description"},
+            {"fieldPath": "a_field"},  # No description but alphabetically first
+            {"fieldPath": "m_field", "description": "also has description"},
+        ]
+
+        result = list(_sort_fields_by_priority(fields))
+
+        # Fields with descriptions come before those without
+        # Among fields with descriptions, alphabetical order
+        assert result[0]["fieldPath"] == "m_field"
+        assert result[1]["fieldPath"] == "z_field"
+        assert result[2]["fieldPath"] == "a_field"
+
+    def test_sorts_fields_with_tags_higher(self) -> None:
+        """Test that fields with tags/glossary terms are prioritized."""
+        fields: list[dict] = [
+            {"fieldPath": "z_field"},
+            {"fieldPath": "tagged_field", "tags": {"tags": [{"tag": {}}]}},
+            {
+                "fieldPath": "glossary_field",
+                "glossaryTerms": {"terms": [{"term": {}}]},
+            },
+        ]
+
+        result = list(_sort_fields_by_priority(fields))
+
+        # Fields with tags/glossary come before those without
+        assert result[0]["fieldPath"] == "glossary_field"
+        assert result[1]["fieldPath"] == "tagged_field"
+        assert result[2]["fieldPath"] == "z_field"
+
+    def test_alphabetical_tiebreaker(self) -> None:
+        """Test alphabetical sorting when all other factors equal."""
+        fields = [
+            {"fieldPath": "zebra", "description": "desc"},
+            {"fieldPath": "apple", "description": "desc"},
+            {"fieldPath": "middle", "description": "desc"},
+        ]
+
+        result = list(_sort_fields_by_priority(fields))
+
+        # Alphabetical order when all have same priority
+        assert result[0]["fieldPath"] == "apple"
+        assert result[1]["fieldPath"] == "middle"
+        assert result[2]["fieldPath"] == "zebra"
+
+    def test_deterministic_ordering(self) -> None:
+        """Test that sorting is deterministic across multiple calls."""
+        fields: list[dict] = [
+            {"fieldPath": "field_3", "description": "desc"},
+            {"fieldPath": "field_1", "isPartOfKey": True},
+            {"fieldPath": "field_2", "tags": {"tags": [{}]}},
+        ]
+
+        result1 = list(_sort_fields_by_priority(fields))
+        result2 = list(_sort_fields_by_priority(fields))
+
+        # Same order every time
+        assert [f["fieldPath"] for f in result1] == [f["fieldPath"] for f in result2]
+
+    def test_returns_iterator(self) -> None:
+        """Test that function returns an iterator, not a list."""
+        fields = [{"fieldPath": "field"}]
+        result = _sort_fields_by_priority(fields)
+
+        # Should be an iterator
+        assert hasattr(result, "__iter__")
+        assert hasattr(result, "__next__")
+
+
+class TestCleanSchemaFields:
+    """Tests for _clean_schema_fields generator function."""
+
+    def test_cleans_field_properties(self) -> None:
+        """Test that only essential properties are kept."""
+        fields = [
+            {
+                "fieldPath": "user_id",
+                "type": "STRING",
+                "nativeDataType": "VARCHAR(255)",
+                "nullable": True,
+                "label": "User ID",
+                "description": "The user identifier",
+                "extra_property": "should_be_removed",
+                "__typename": "SchemaField",
+            }
+        ]
+
+        result = list(_clean_schema_fields(iter(fields), editable_map={}))
+
+        assert len(result) == 1
+        field = result[0]
+        assert field["fieldPath"] == "user_id"
+        assert field["type"] == "STRING"
+        assert field["nativeDataType"] == "VARCHAR(255)"
+        assert field["nullable"] is True
+        assert field["label"] == "User ID"
+        assert field["description"] == "The user identifier"
+        assert "extra_property" not in field
+        assert "__typename" not in field
+
+    def test_truncates_long_descriptions(self) -> None:
+        """Test that field descriptions are truncated to 120 chars."""
+        long_desc = "x" * 200
+        fields = [{"fieldPath": "field", "description": long_desc}]
+
+        result = list(_clean_schema_fields(iter(fields), editable_map={}))
+
+        assert len(result[0]["description"]) == 120
+        assert result[0]["description"] == long_desc[:120]
+
+    def test_omits_false_boolean_flags(self) -> None:
+        """Test that isPartOfKey, isPartitioningKey, recursive are omitted when False."""
+        fields = [
+            {
+                "fieldPath": "field",
+                "isPartOfKey": False,
+                "isPartitioningKey": False,
+                "recursive": False,
+            }
+        ]
+
+        result = list(_clean_schema_fields(iter(fields), editable_map={}))
+
+        assert "isPartOfKey" not in result[0]
+        assert "isPartitioningKey" not in result[0]
+        assert "recursive" not in result[0]
+
+    def test_includes_true_boolean_flags(self) -> None:
+        """Test that isPartOfKey, isPartitioningKey, recursive are included when True."""
+        fields = [
+            {
+                "fieldPath": "field",
+                "isPartOfKey": True,
+                "isPartitioningKey": True,
+                "recursive": True,
+            }
+        ]
+
+        result = list(_clean_schema_fields(iter(fields), editable_map={}))
+
+        assert result[0]["isPartOfKey"] is True
+        assert result[0]["isPartitioningKey"] is True
+        assert result[0]["recursive"] is True
+
+    def test_includes_nullable_when_false(self) -> None:
+        """Test that nullable is included even when False (important for SQL)."""
+        fields = [{"fieldPath": "field", "nullable": False}]
+
+        result = list(_clean_schema_fields(iter(fields), editable_map={}))
+
+        assert "nullable" in result[0]
+        assert result[0]["nullable"] is False
+
+    def test_extracts_tag_names(self) -> None:
+        """Test that tag names are extracted from nested structure."""
+        fields = [
+            {
+                "fieldPath": "field",
+                "tags": {
+                    "tags": [
+                        {"tag": {"properties": {"name": "PII"}}},
+                        {"tag": {"properties": {"name": "Sensitive"}}},
+                    ]
+                },
+            }
+        ]
+
+        result = list(_clean_schema_fields(iter(fields), editable_map={}))
+
+        assert result[0]["tags"] == ["PII", "Sensitive"]
+
+    def test_extracts_glossary_term_names(self) -> None:
+        """Test that glossary term names are extracted from nested structure."""
+        fields = [
+            {
+                "fieldPath": "field",
+                "glossaryTerms": {
+                    "terms": [
+                        {"term": {"properties": {"name": "User Identifier"}}},
+                        {"term": {"properties": {"name": "Primary Key"}}},
+                    ]
+                },
+            }
+        ]
+
+        result = list(_clean_schema_fields(iter(fields), editable_map={}))
+
+        assert result[0]["glossaryTerms"] == ["User Identifier", "Primary Key"]
+
+    def test_handles_deprecation_info(self) -> None:
+        """Test that deprecation information is preserved."""
+        fields = [
+            {
+                "fieldPath": "old_field",
+                "schemaFieldEntity": {
+                    "deprecation": {
+                        "deprecated": True,
+                        "note": "Use new_field instead",
+                    }
+                },
+            }
+        ]
+
+        result = list(_clean_schema_fields(iter(fields), editable_map={}))
+
+        assert result[0]["deprecated"]["deprecated"] is True
+        assert result[0]["deprecated"]["note"] == "Use new_field instead"
+
+    def test_truncates_long_deprecation_notes(self) -> None:
+        """Test that deprecation notes are truncated to 120 chars."""
+        long_note = "x" * 200
+        fields = [
+            {
+                "fieldPath": "field",
+                "schemaFieldEntity": {
+                    "deprecation": {"deprecated": True, "note": long_note}
+                },
+            }
+        ]
+
+        result = list(_clean_schema_fields(iter(fields), editable_map={}))
+
+        assert len(result[0]["deprecated"]["note"]) == 120
+
+    def test_returns_iterator(self) -> None:
+        """Test that function returns an iterator, not a list."""
+        fields = [{"fieldPath": "field"}]
+        result = _clean_schema_fields(iter(fields), editable_map={})
+
+        # Should be an iterator
+        assert hasattr(result, "__iter__")
+        assert hasattr(result, "__next__")
+
+    def test_fails_fast_on_missing_fieldpath(self) -> None:
+        """Test that missing fieldPath raises KeyError (fail fast)."""
+        fields = [{"description": "field without fieldPath"}]
+
+        with pytest.raises(KeyError, match="fieldPath"):
+            list(_clean_schema_fields(iter(fields), editable_map={}))
+
+    def test_merges_edited_description_when_different(self) -> None:
+        """Test that editedDescription is added when it differs from system description."""
+        fields = [{"fieldPath": "email", "description": "System generated description"}]
+        editable_map = {
+            "email": {"fieldPath": "email", "description": "User-friendly description"}
+        }
+
+        result = list(_clean_schema_fields(iter(fields), editable_map=editable_map))
+
+        assert result[0]["description"] == "System generated description"
+        assert result[0]["editedDescription"] == "User-friendly description"
+
+    def test_omits_edited_description_when_same(self) -> None:
+        """Test that editedDescription is omitted when identical to system description."""
+        fields = [{"fieldPath": "email", "description": "Same description"}]
+        editable_map = {
+            "email": {"fieldPath": "email", "description": "Same description"}
+        }
+
+        result = list(_clean_schema_fields(iter(fields), editable_map=editable_map))
+
+        assert result[0]["description"] == "Same description"
+        assert "editedDescription" not in result[0]
+
+    def test_merges_edited_tags_when_different(self) -> None:
+        """Test that editedTags are added when they differ from system tags."""
+        fields = [
+            {
+                "fieldPath": "email",
+                "tags": {"tags": [{"tag": {"properties": {"name": "SystemTag"}}}]},
+            }
+        ]
+        editable_map = {
+            "email": {
+                "fieldPath": "email",
+                "tags": {
+                    "tags": [
+                        {"tag": {"properties": {"name": "PII"}}},
+                        {"tag": {"properties": {"name": "Sensitive"}}},
+                    ]
+                },
+            }
+        }
+
+        result = list(_clean_schema_fields(iter(fields), editable_map=editable_map))
+
+        assert result[0]["tags"] == ["SystemTag"]
+        assert result[0]["editedTags"] == ["PII", "Sensitive"]
+
+    def test_merges_edited_glossary_terms_when_different(self) -> None:
+        """Test that editedGlossaryTerms are added when they differ."""
+        fields = [{"fieldPath": "email"}]
+        editable_map = {
+            "email": {
+                "fieldPath": "email",
+                "glossaryTerms": {
+                    "terms": [
+                        {"term": {"properties": {"name": "Email Address"}}},
+                    ]
+                },
+            }
+        }
+
+        result = list(_clean_schema_fields(iter(fields), editable_map=editable_map))
+
+        assert result[0]["editedGlossaryTerms"] == ["Email Address"]
+        assert "glossaryTerms" not in result[0]  # System didn't have any
+
+
+class TestCleanGetEntitiesResponseFieldTruncation:
+    """Tests for field truncation in clean_get_entities_response."""
+
+    @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
+    @patch("datahub_integrations.mcp.mcp_server.ENTITY_TOKEN_BUDGET", 1000)
+    def test_truncates_fields_when_exceeds_budget(self, mock_estimator) -> None:
+        """Test that fields are truncated when they exceed token budget."""
+        # Each field is 300 tokens, budget is 1000, so should fit 3 fields
+        mock_estimator.estimate_dict_tokens.return_value = 300
+
+        raw_response = {
+            "urn": "urn:li:dataset:test",
+            "schemaMetadata": {
+                "fields": [
+                    {"fieldPath": f"field_{i}", "type": "STRING"} for i in range(10)
+                ]
+            },
+        }
+
+        result = clean_get_entities_response(raw_response)
+
+        # Should have 3 fields (3 * 300 = 900 tokens, 4th would be 1200 > 1000)
+        assert len(result["schemaMetadata"]["fields"]) == 3
+        assert result["schemaMetadata"]["schemaFieldsTruncated"]["totalFields"] == 10
+        assert result["schemaMetadata"]["schemaFieldsTruncated"]["includedFields"] == 3
+
+    @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
+    @patch("datahub_integrations.mcp.mcp_server.ENTITY_TOKEN_BUDGET", 10000)
+    def test_no_truncation_when_within_budget(self, mock_estimator) -> None:
+        """Test that no truncation occurs when fields fit within budget."""
+        mock_estimator.estimate_dict_tokens.return_value = 100
+
+        raw_response = {
+            "urn": "urn:li:dataset:test",
+            "schemaMetadata": {
+                "fields": [
+                    {"fieldPath": f"field_{i}", "type": "STRING"} for i in range(5)
+                ]
+            },
+        }
+
+        result = clean_get_entities_response(raw_response)
+
+        # All 5 fields should be included (5 * 100 = 500 < 10000)
+        assert len(result["schemaMetadata"]["fields"]) == 5
+        assert "schemaFieldsTruncated" not in result["schemaMetadata"]
+
+    @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
+    @patch("datahub_integrations.mcp.mcp_server.ENTITY_TOKEN_BUDGET", 500)
+    def test_always_includes_at_least_one_field(self, mock_estimator) -> None:
+        """Test that at least 1 field is included even if it exceeds budget."""
+        # First field exceeds budget (1000 > 500)
+        mock_estimator.estimate_dict_tokens.return_value = 1000
+
+        raw_response = {
+            "urn": "urn:li:dataset:test",
+            "schemaMetadata": {
+                "fields": [
+                    {"fieldPath": "huge_field", "type": "STRING"},
+                    {"fieldPath": "zzz_another_field", "type": "STRING"},
+                ]
+            },
+        }
+
+        result = clean_get_entities_response(raw_response)
+
+        # Should include at least 1 field even though it exceeds budget
+        # Fields are sorted alphabetically, so "huge_field" comes first
+        assert len(result["schemaMetadata"]["fields"]) == 1
+        assert result["schemaMetadata"]["fields"][0]["fieldPath"] == "huge_field"
+        assert "schemaFieldsTruncated" in result["schemaMetadata"]
+
+    def test_fields_sorted_by_priority_before_truncation(self) -> None:
+        """Test that fields are sorted by priority before truncation."""
+        raw_response = {
+            "urn": "urn:li:dataset:test",
+            "schemaMetadata": {
+                "fields": [
+                    {"fieldPath": "z_regular"},
+                    {"fieldPath": "a_primary_key", "isPartOfKey": True},
+                    {"fieldPath": "m_partition", "isPartitioningKey": True},
+                ]
+            },
+        }
+
+        result = clean_get_entities_response(raw_response)
+
+        # Keys should be sorted first, then alphabetically
+        fields = result["schemaMetadata"]["fields"]
+        assert fields[0]["fieldPath"] == "a_primary_key"  # Primary key
+        assert fields[1]["fieldPath"] == "m_partition"  # Partition key
+        assert fields[2]["fieldPath"] == "z_regular"  # Regular field
+
+    def test_deterministic_field_selection(self) -> None:
+        """Test that same entity produces same fields every time."""
+        raw_response = {
+            "urn": "urn:li:dataset:test",
+            "schemaMetadata": {
+                "fields": [
+                    {"fieldPath": f"field_{i}", "type": "STRING"} for i in range(100)
+                ]
+            },
+        }
+
+        result1 = clean_get_entities_response(raw_response.copy())
+        result2 = clean_get_entities_response(raw_response.copy())
+
+        fields1 = [f["fieldPath"] for f in result1["schemaMetadata"]["fields"]]
+        fields2 = [f["fieldPath"] for f in result2["schemaMetadata"]["fields"]]
+
+        # Same fields in same order
+        assert fields1 == fields2
+
+    @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
+    @patch("datahub_integrations.mcp.mcp_server.ENTITY_TOKEN_BUDGET", 1000)
+    def test_truncation_metadata_accuracy(self, mock_estimator) -> None:
+        """Test that truncation metadata accurately reflects field counts."""
+        # Each field is 300 tokens, budget is 1000, so 3 fields fit
+        mock_estimator.estimate_dict_tokens.return_value = 300
+
+        raw_response = {
+            "urn": "urn:li:dataset:test",
+            "schemaMetadata": {
+                "fields": [{"fieldPath": f"field_{i:03d}"} for i in range(10)]
+            },
+        }
+
+        result = clean_get_entities_response(raw_response)
+
+        metadata = result["schemaMetadata"]["schemaFieldsTruncated"]
+        included_count = len(result["schemaMetadata"]["fields"])
+
+        assert metadata["totalFields"] == 10
+        assert metadata["includedFields"] == included_count
+        assert included_count == 3  # 3 fields fit (3 * 300 = 900 < 1000)
+
+
+def test_clean_get_entities_response_preserves_existing_behavior() -> None:
+    """Test that existing cleaning behavior is preserved (removal of empty platformSchema, etc.)."""
+    raw_response = {
+        "urn": "urn:li:dataset:test",
+        "schemaMetadata": {
+            "platformSchema": {"schema": ""},  # Empty schema should be removed
+            "fields": [{"fieldPath": "field1", "type": "STRING"}],
+        },
+    }
+
+    result = clean_get_entities_response(raw_response)
+
+    # Empty platformSchema should be removed
+    assert "platformSchema" not in result["schemaMetadata"]
+    # Field should be preserved
+    assert len(result["schemaMetadata"]["fields"]) == 1
+
+
+class TestEditableSchemaMetadataMerging:
+    """Tests for editableSchemaMetadata merging into schemaMetadata fields."""
+
+    def test_editable_metadata_removed_after_merge(self) -> None:
+        """Test that editableSchemaMetadata is removed from response after merging."""
+        raw_response = {
+            "urn": "urn:li:dataset:test",
+            "schemaMetadata": {"fields": [{"fieldPath": "field1"}]},
+            "editableSchemaMetadata": {
+                "editableSchemaFieldInfo": [
+                    {"fieldPath": "field1", "description": "User edited"}
+                ]
+            },
+        }
+
+        result = clean_get_entities_response(raw_response)
+
+        # editableSchemaMetadata should be removed
+        assert "editableSchemaMetadata" not in result
+        # Data should be merged into schemaMetadata
+        assert "schemaMetadata" in result
+
+    def test_merged_fields_include_edited_description(self) -> None:
+        """Test that edited descriptions are merged into schema fields."""
+        raw_response = {
+            "urn": "urn:li:dataset:test",
+            "schemaMetadata": {
+                "fields": [
+                    {
+                        "fieldPath": "email",
+                        "description": "System description",
+                        "type": "STRING",
+                    }
+                ]
+            },
+            "editableSchemaMetadata": {
+                "editableSchemaFieldInfo": [
+                    {"fieldPath": "email", "description": "User-friendly email field"}
+                ]
+            },
+        }
+
+        result = clean_get_entities_response(raw_response)
+
+        field = result["schemaMetadata"]["fields"][0]
+        assert field["description"] == "System description"
+        assert field["editedDescription"] == "User-friendly email field"[:120]
+
+    def test_merged_fields_include_edited_tags(self) -> None:
+        """Test that edited tags are merged into schema fields."""
+        raw_response = {
+            "urn": "urn:li:dataset:test",
+            "schemaMetadata": {"fields": [{"fieldPath": "email", "type": "STRING"}]},
+            "editableSchemaMetadata": {
+                "editableSchemaFieldInfo": [
+                    {
+                        "fieldPath": "email",
+                        "tags": {
+                            "tags": [
+                                {"tag": {"properties": {"name": "PII"}}},
+                                {"tag": {"properties": {"name": "Sensitive"}}},
+                            ]
+                        },
+                    }
+                ]
+            },
+        }
+
+        result = clean_get_entities_response(raw_response)
+
+        field = result["schemaMetadata"]["fields"][0]
+        assert field["editedTags"] == ["PII", "Sensitive"]
+
+    def test_handles_duplicate_fieldpaths_safely(self) -> None:
+        """Test that duplicate fieldPaths in editableSchemaMetadata don't cause failures."""
+        raw_response = {
+            "urn": "urn:li:dataset:test",
+            "schemaMetadata": {"fields": [{"fieldPath": "email", "type": "STRING"}]},
+            "editableSchemaMetadata": {
+                "editableSchemaFieldInfo": [
+                    {"fieldPath": "email", "description": "First edit"},
+                    {"fieldPath": "email", "description": "Second edit"},  # Duplicate
+                ]
+            },
+        }
+
+        # Should not raise, last one wins
+        result = clean_get_entities_response(raw_response)
+
+        field = result["schemaMetadata"]["fields"][0]
+        # Last duplicate wins
+        assert field["editedDescription"] == "Second edit"[:120]
