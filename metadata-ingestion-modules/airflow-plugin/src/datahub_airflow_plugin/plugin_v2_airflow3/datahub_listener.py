@@ -23,6 +23,7 @@ from openlineage.client.serde import Serde
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -273,9 +274,11 @@ class DataHubListener:
         self.config = config
         self._set_log_level()
 
-        self._emitter = config.make_emitter_hook().make_emitter()
+        # Lazy-load emitter to avoid connection retrieval during plugin initialization
+        # Connection retrieval via BaseHook.get_connection() only works during task execution
+        # where SUPERVISOR_COMMS is available
+        self._emitter: Optional[Emitter] = None
         self._graph: Optional[DataHubGraph] = None
-        logger.info(f"DataHub plugin v2 using {repr(self._emitter)}")
 
         # For Airflow 3.0+, we don't need TaskHolder (dict is used as placeholder)
         self._task_holder: Dict[str, Any] = {}
@@ -291,20 +294,55 @@ class DataHubListener:
         # https://github.com/apache/airflow/blob/e99a518970b2d349a75b1647f6b738c8510fa40e/airflow/listeners/listener.py#L56
         # self.__class__ = types.ModuleType
 
+    def _get_emitter(self):
+        """
+        Lazy-load emitter on first use during task execution.
+
+        This is a method (not a property) to avoid triggering during pluggy's
+        attribute introspection when registering the listener.
+        """
+        if self._emitter is None:
+            try:
+                self._emitter = self.config.make_emitter_hook().make_emitter()
+                logger.info(f"DataHub plugin v2 using {repr(self._emitter)}")
+            except ImportError as e:
+                if "SUPERVISOR_COMMS" in str(e):
+                    # Connection retrieval via BaseHook only works in task execution context
+                    # where SUPERVISOR_COMMS is available. During plugin registration,
+                    # we'll get this error which we can safely ignore - the emitter will
+                    # be created later when actually needed.
+                    logger.debug(
+                        "Deferring emitter creation - will retry during task execution "
+                        f"(error: {e})"
+                    )
+                    # Return a dummy object that will cause retry on next access
+                    return None
+                else:
+                    raise
+        return self._emitter
+
     @property
     def emitter(self):
-        return self._emitter
+        """Compatibility property that delegates to _get_emitter()."""
+        result = self._get_emitter()
+        if result is None:
+            # Retry emitter creation
+            self._emitter = None  # Reset to force retry
+            return self._get_emitter()
+        return result
 
     @property
     def graph(self) -> Optional[DataHubGraph]:
         if self._graph:
             return self._graph
 
-        if isinstance(self._emitter, DatahubRestEmitter) and not isinstance(
-            self._emitter, DataHubGraph
+        # Use _get_emitter() method to ensure lazy-loading happens first
+        emitter = self._get_emitter()
+        if isinstance(emitter, DatahubRestEmitter) and not isinstance(
+            emitter, DataHubGraph
         ):
             # This is lazy initialized to avoid throwing errors on plugin load.
-            self._graph = self._emitter.to_graph()
+            self._graph = emitter.to_graph()
             self._emitter = self._graph
 
         return self._graph

@@ -7,14 +7,9 @@ from typing import List
 
 from airflow.models.baseoperator import BaseOperator
 
-# Operator type alias
-try:
-    from airflow.models.mappedoperator import MappedOperator
-    from airflow.models.operator import Operator
-except (ModuleNotFoundError, ImportError):
-    # Older Airflow 2.x versions don't have MappedOperator (added in 2.3.0)
-    MappedOperator = None  # type: ignore
-    Operator = BaseOperator  # type: ignore
+# Operator type alias - these always exist in Airflow 2.5.0+ (plugin's minimum version)
+from airflow.models.mappedoperator import MappedOperator
+from airflow.models.operator import Operator
 
 # OpenLineage imports for Airflow 2.x
 from openlineage.airflow.listener import TaskHolder

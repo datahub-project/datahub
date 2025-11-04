@@ -3,24 +3,15 @@ Airflow 3.x specific shims and imports.
 Clean, simple imports without cross-version compatibility complexity.
 """
 
-from typing import List
+from typing import List, Union
 
-# Airflow 3.x SDK imports
-try:
-    from airflow.sdk.bases.operator import BaseOperator
-except (ModuleNotFoundError, ImportError):
-    from airflow.models.baseoperator import BaseOperator  # type: ignore
+from airflow.models.mappedoperator import MappedOperator
 
-try:
-    from airflow.sdk.types import Operator
-except (ModuleNotFoundError, ImportError):
-    Operator = BaseOperator  # type: ignore
+# Airflow 3.x SDK imports - these always exist in Airflow 3.x
+from airflow.sdk.bases.operator import BaseOperator
 
-# MappedOperator may or may not exist in Airflow 3.x
-try:
-    from airflow.models.mappedoperator import MappedOperator
-except (ModuleNotFoundError, ImportError):
-    MappedOperator = None  # type: ignore
+# Operator type represents any operator (regular or mapped)
+Operator = Union[BaseOperator, MappedOperator]
 
 # OpenLineage imports for Airflow 3.x (native provider)
 try:
