@@ -14,7 +14,7 @@ The integration enables your team to:
 The Teams App makes data discovery easier and more accessible, by making DataHub available where you work.
 Learn more about [how to set up the Teams app](./saas-teams-setup.md).
 
-## Ask DataHub in Teams
+## Ask DataHub in Slack
 
 Simply mention @DataHub in any channel or chat to ask questions about your data. Some popular use cases include:
 
