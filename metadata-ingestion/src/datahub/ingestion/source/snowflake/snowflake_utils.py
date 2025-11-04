@@ -329,7 +329,7 @@ class SnowflakeIdentifierBuilder:
     ) -> DataProductKey:
         """Generate a data product key for marketplace listings"""
         return DataProductKey(
-            platform="snowflake-marketplace",
+            platform="snowflake",  # Use 'snowflake' platform for proper UI integration
             name=self.snowflake_identifier(listing_global_name),
             instance=self.identifier_config.platform_instance,
             env=self.identifier_config.env,

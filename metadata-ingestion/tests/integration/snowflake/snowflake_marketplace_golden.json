@@ -4179,13 +4179,13 @@
 },
 {
     "entityType": "dataProduct",
-    "entityUrn": "urn:li:dataProduct:c003035c5866c5d96a71dc01cc8fad05",
+    "entityUrn": "urn:li:dataProduct:29f7e6b2c04b8b632892fe79aaf3b42e",
     "changeType": "UPSERT",
     "aspectName": "dataProductProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "platform": "snowflake-marketplace",
+                "platform": "snowflake",
                 "name": "acme_corp.data_product.customer_360",
                 "env": "PROD",
                 "marketplace_listing": "true",
@@ -4202,7 +4202,11 @@
             "description": "Internal marketplace listing from ACME Corp",
             "assets": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,demo_database,PROD)",
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,demo_database.public.customers,PROD)",
+                    "outputPort": false
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,demo_database.public.orders,PROD)",
                     "outputPort": false
                 }
             ]
@@ -4210,35 +4214,49 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-je1o6g",
+        "runId": "snowflake-2022_06_07-17_00_00-hux7gw",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataProduct",
-    "entityUrn": "urn:li:dataProduct:c003035c5866c5d96a71dc01cc8fad05",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,demo_database,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "removed": false
+            "customProperties": {
+                "marketplace_purchase": "true",
+                "database_type": "IMPORTED_DATABASE",
+                "owner": "ACCOUNTADMIN",
+                "purchase_date": "2023-03-15T00:00:00+00:00",
+                "comment": "Customer data from ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+                "data_product_source": "urn:li:dataProduct:29f7e6b2c04b8b632892fe79aaf3b42e",
+                "marketplace_listing_global_name": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+                "marketplace_provider": "ACME Corp",
+                "purchase_status": "INSTALLED"
+            },
+            "name": "DEMO_DATABASE",
+            "qualifiedName": "DEMO_DATABASE",
+            "description": "Customer data from ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+            "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ameqth",
+        "runId": "snowflake-2022_06_07-17_00_00-xnrb8f",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProduct",
-    "entityUrn": "urn:li:dataProduct:7f74a4c4483e361d62a0d0505df46945",
+    "entityUrn": "urn:li:dataProduct:63cb5ec97e3bd9fa1214c193ee028dce",
     "changeType": "UPSERT",
     "aspectName": "dataProductProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "platform": "snowflake-marketplace",
+                "platform": "snowflake",
                 "name": "weather_co.public.weather_data",
                 "env": "PROD",
                 "marketplace_listing": "true",
@@ -4257,13 +4275,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-je1o6g",
+        "runId": "snowflake-2022_06_07-17_00_00-xnrb8f",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProduct",
-    "entityUrn": "urn:li:dataProduct:7f74a4c4483e361d62a0d0505df46945",
+    "entityUrn": "urn:li:dataProduct:29f7e6b2c04b8b632892fe79aaf3b42e",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -4273,37 +4291,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ameqth",
+        "runId": "snowflake-2022_06_07-17_00_00-xnrb8f",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,demo_database,PROD)",
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:63cb5ec97e3bd9fa1214c193ee028dce",
     "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "customProperties": {
-                "marketplace_purchase": "true",
-                "database_type": "IMPORTED_DATABASE",
-                "owner": "ACCOUNTADMIN",
-                "purchase_date": "2023-03-15T00:00:00+00:00",
-                "comment": "Customer data from ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
-                "data_product_source": "urn:li:dataProduct:c003035c5866c5d96a71dc01cc8fad05",
-                "marketplace_listing_global_name": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
-                "marketplace_provider": "ACME Corp",
-                "purchase_status": "INSTALLED"
-            },
-            "name": "DEMO_DATABASE",
-            "qualifiedName": "DEMO_DATABASE",
-            "description": "Customer data from ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
-            "tags": []
+            "removed": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ameqth",
+        "runId": "snowflake-2022_06_07-17_00_00-xnrb8f",
         "lastRunId": "no-run-id-provided"
     }
 },

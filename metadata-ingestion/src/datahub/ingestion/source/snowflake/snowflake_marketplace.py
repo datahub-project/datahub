@@ -539,13 +539,12 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             result["owners"] = self._extract_owners_from_details(props)
             result["description"] = description
 
-            # Build documentation links
+            # Build documentation links for InstitutionalMemory
             doc_links = []
             for url in [documentation_url, quickstart_url, support_url]:
                 if url and url not in doc_links:
                     doc_links.append(url)
             result["documentation_links"] = doc_links
-            result["external_url"] = documentation_url or support_url
 
         except Exception as e:
             logger.debug(
@@ -575,13 +574,8 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                         listing_global_name
                         and listing_global_name == listing.listing_global_name
                     ):
-                        dataset_identifier = self.identifiers.snowflake_identifier(
-                            purchase.database_name
-                        )
-                        database_urn = self.identifiers.gen_dataset_urn(
-                            dataset_identifier
-                        )
-                        asset_urns.append(database_urn)
+                        # Track the database for table querying, but DON'T add database as an asset
+                        # Only fully qualified tables should be assets
                         purchased_db_names.append(purchase.database_name)
                         databases_to_query.append(purchase.database_name)
 
@@ -594,18 +588,13 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 provider_share = self._provider_shares.get(listing.listing_global_name)
                 if provider_share:
                     if provider_share.source_database:
-                        dataset_identifier = self.identifiers.snowflake_identifier(
-                            provider_share.source_database
-                        )
-                        database_urn = self.identifiers.gen_dataset_urn(
-                            dataset_identifier
-                        )
-                        asset_urns.append(database_urn)
+                        # Track the database for table querying, but DON'T add database as an asset
+                        # Only fully qualified tables should be assets
                         purchased_db_names.append(provider_share.source_database)
                         databases_to_query.append(provider_share.source_database)
                         logger.info(
-                            f"Provider mode: Linked source database {provider_share.source_database} "
-                            f"to Data Product for listing {listing.listing_global_name}"
+                            f"Provider mode: Found source database {provider_share.source_database} "
+                            f"for listing {listing.listing_global_name}. Will query tables from share."
                         )
                     else:
                         logger.warning(
@@ -681,9 +670,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                             # since we have access to the database
                             query = f"""
                                 SELECT 
-                                    TABLE_SCHEMA as schema_name,
-                                    TABLE_NAME as table_name,
-                                    TABLE_TYPE as table_type
+                                    TABLE_SCHEMA AS "SCHEMA_NAME",
+                                    TABLE_NAME AS "TABLE_NAME",
+                                    TABLE_TYPE AS "TABLE_TYPE"
                                 FROM {db_name}.INFORMATION_SCHEMA.TABLES
                                 WHERE TABLE_SCHEMA != 'INFORMATION_SCHEMA'
                                 ORDER BY TABLE_SCHEMA, TABLE_NAME
@@ -751,6 +740,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             else:
                 # Use custom properties (default)
                 custom_properties = {
+                    "platform": "snowflake",  # Platform is 'snowflake' for UI integration
                     "marketplace_listing": "true",
                     "marketplace_type": "internal",  # Internal/private data exchange
                     "marketplace_mode": self.config.marketplace_mode,  # consumer/provider/both
@@ -784,8 +774,8 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             # Build external URL - prefer Snowflake marketplace URL
             # Format: https://app.snowflake.com/marketplace/internal/listing/{listing_global_name}
             marketplace_url = f"https://app.snowflake.com/marketplace/internal/listing/{listing.listing_global_name}"
-            # Use documentation URL from DESCRIBE as fallback
-            external_url = details.get("external_url") or marketplace_url
+            # Always use the marketplace URL as the primary external URL (not documentation)
+            external_url = marketplace_url
 
             # Use description from DESCRIBE if available, otherwise use listing description
             description = details.get("description") or listing.description
@@ -817,7 +807,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     memory_elements.append(
                         InstitutionalMemoryMetadataClass(
                             url=link,
-                            description="Documentation from Snowflake Marketplace listing",
+                            description="Documentation",
                             createStamp=AuditStamp(
                                 time=int(listing.created_on.timestamp() * 1000)
                                 if listing.created_on

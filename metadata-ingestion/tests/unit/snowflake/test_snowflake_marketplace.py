@@ -314,8 +314,11 @@ class TestMarketplaceBasicFunctionality:
 
         assert len(dp_props) == 1
         props = dp_props[0]
-        # externalUrl should be populated from documentation_url
-        assert props.externalUrl == "https://docs.acme.example"
+        # externalUrl should be the Snowflake marketplace URL (not documentation URL)
+        assert (
+            props.externalUrl
+            == "https://app.snowflake.com/marketplace/internal/listing/ACME.DATA.LISTING"
+        )
         # Mapped properties should be present
         assert (
             props.customProperties.get("documentation_url")
@@ -327,6 +330,24 @@ class TestMarketplaceBasicFunctionality:
         assert props.customProperties.get("support_email") == "support@acme.example"
         assert props.customProperties.get("support_contact") == "Acme Support"
         assert props.customProperties.get("request_approver") == "approver@acme.example"
+
+        # Check InstitutionalMemory aspect for documentation links
+        from datahub.metadata.schema_classes import InstitutionalMemoryClass
+
+        institutional_memory_aspects = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, InstitutionalMemoryClass)
+        ]
+        assert len(institutional_memory_aspects) == 1
+        memory = institutional_memory_aspects[0]
+        assert len(memory.elements) >= 2  # At least documentation and quickstart URLs
+        # Check that documentation links have simple "Documentation" description
+        assert memory.elements[0].url == "https://docs.acme.example"
+        assert memory.elements[0].description == "Documentation"
+        assert memory.elements[1].url == "https://quick.acme.example"
+        assert memory.elements[1].description == "Documentation"
 
 
 # Heuristic Matching Tests

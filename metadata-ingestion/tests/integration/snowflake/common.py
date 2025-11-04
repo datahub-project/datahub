@@ -1050,10 +1050,10 @@ def default_query_results(  # noqa: C901
         and "demo_database" in query.lower()
     ):
         # Mock INFORMATION_SCHEMA.TABLES query for DEMO_DATABASE (consumer mode table-level assets)
+        # Note: Column names match the AS "COLUMN_NAME" aliases from the query
         return [
             {
-                "TABLE_CATALOG": "DEMO_DATABASE",
-                "TABLE_SCHEMA": "PUBLIC",
+                "SCHEMA_NAME": "PUBLIC",
                 "TABLE_NAME": "CUSTOMERS",
                 "TABLE_TYPE": "BASE TABLE",
                 "CREATED": datetime(2023, 3, 15, 0, 0, 0, 0, tzinfo=timezone.utc),
@@ -1068,8 +1068,7 @@ def default_query_results(  # noqa: C901
                 "IS_HYBRID": "NO",
             },
             {
-                "TABLE_CATALOG": "DEMO_DATABASE",
-                "TABLE_SCHEMA": "PUBLIC",
+                "SCHEMA_NAME": "PUBLIC",
                 "TABLE_NAME": "ORDERS",
                 "TABLE_TYPE": "BASE TABLE",
                 "CREATED": datetime(2023, 3, 15, 0, 0, 0, 0, tzinfo=timezone.utc),

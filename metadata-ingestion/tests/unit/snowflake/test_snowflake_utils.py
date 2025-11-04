@@ -36,7 +36,7 @@ class TestSnowflakeIdentifierBuilderMarketplace:
         key = builder.gen_marketplace_data_product_key(listing_name)
 
         assert isinstance(key, DataProductKey)
-        assert key.platform == "snowflake-marketplace"
+        assert key.platform == "snowflake"
         assert key.name == "test_listing_123"  # Should be lowercased
         assert key.instance == "test_instance"
         assert key.env == "PROD"
@@ -94,7 +94,7 @@ class TestSnowflakeIdentifierBuilderMarketplace:
 
         # Should handle special characters gracefully
         assert isinstance(key, DataProductKey)
-        assert key.platform == "snowflake-marketplace"
+        assert key.platform == "snowflake"
         assert key.name == "test-listing_with.special@chars"
 
     def test_marketplace_data_product_key_different_configs(self):
@@ -144,8 +144,7 @@ class TestSnowflakeIdentifierBuilderMarketplace:
         listing_name = "TEST_LISTING"
         key = builder.gen_marketplace_data_product_key(listing_name)
 
-        assert key.platform == "snowflake-marketplace"
-        assert key.platform != "snowflake"  # Should be different from regular platform
+        assert key.platform == "snowflake"
 
     def test_marketplace_urn_format(self, builder):
         """Test that marketplace URNs follow the correct format"""
