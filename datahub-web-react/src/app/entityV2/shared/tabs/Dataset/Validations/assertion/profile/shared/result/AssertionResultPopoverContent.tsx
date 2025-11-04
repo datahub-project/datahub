@@ -32,6 +32,7 @@ import {
     AssertionResultType,
     AssertionRunEvent,
     AssertionSourceType,
+    Maybe,
     Monitor,
     VolumeAssertionType,
 } from '@types';
@@ -160,7 +161,7 @@ const OpenNoteButton = styled(Button)`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     run?: AssertionRunEvent;
     showProfileButton?: boolean;
     onClickProfileButton?: () => void;

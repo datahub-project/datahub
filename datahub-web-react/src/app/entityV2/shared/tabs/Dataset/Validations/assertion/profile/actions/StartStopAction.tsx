@@ -9,11 +9,11 @@ import { StructuredPopover } from '@src/alchemy-components/components/Structured
 import { ActionMenuItem } from '@src/app/entityV2/shared/EntityDropdown/styledComponents';
 
 import { useUpdateMonitorStatusMutation } from '@graphql/monitor.generated';
-import { Assertion, Monitor, MonitorMode } from '@types';
+import { Assertion, Maybe, Monitor, MonitorMode } from '@types';
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     canEdit: boolean;
     refetch?: () => void;
 };

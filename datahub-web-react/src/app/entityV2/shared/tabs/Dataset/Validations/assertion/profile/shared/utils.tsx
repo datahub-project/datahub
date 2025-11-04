@@ -18,6 +18,7 @@ import {
     AssertionExclusionWindowType,
     AssertionRunEvent,
     CronSchedule,
+    Maybe,
     Monitor,
 } from '@types';
 
@@ -43,13 +44,13 @@ export const toReadableLocalDateTimeString = (timeMs: number) => {
     });
 };
 
-export const tryGetScheduleFromMonitor = (monitor?: Monitor): CronSchedule | undefined => {
+export const tryGetScheduleFromMonitor = (monitor?: Maybe<Monitor>): CronSchedule | undefined => {
     return monitor?.info?.assertionMonitor?.assertions?.length
         ? monitor?.info?.assertionMonitor?.assertions[0]?.schedule
         : undefined;
 };
 
-const getInferenceDetails = (monitor?: Monitor) => {
+const getInferenceDetails = (monitor?: Maybe<Monitor>) => {
     const monitorInferenceSettings = monitor?.info?.assertionMonitor?.settings?.inferenceSettings;
     return {
         sensitivity: monitorInferenceSettings?.sensitivity?.level ?? undefined,
@@ -92,7 +93,7 @@ export const useAssertionFeedbackActions = ({
     refetchResults,
 }: {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     run?: AssertionRunEvent;
     isAnomaly?: boolean;
     refetchResults?: () => Promise<unknown>;

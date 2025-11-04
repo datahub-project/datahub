@@ -16,7 +16,7 @@ import {
 import { TuneSmartAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/TuneSmartAssertionModal';
 import { useAppConfig } from '@src/app/useAppConfig';
 
-import { Assertion, AssertionType, CronSchedule, Monitor } from '@types';
+import { Assertion, AssertionType, CronSchedule, Maybe, Monitor } from '@types';
 
 const Row = styled.div`
     display: flex;
@@ -43,7 +43,7 @@ type Props = {
     disabled?: boolean;
     collapsable?: boolean;
     isEditMode?: boolean;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     assertion?: Assertion;
 };
 

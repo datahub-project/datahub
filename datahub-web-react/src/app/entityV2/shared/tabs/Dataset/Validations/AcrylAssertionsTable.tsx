@@ -8,11 +8,10 @@ import {
     ActionsColumn,
     DetailsColumn,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
-import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
 
-import { Assertion, AssertionRunStatus, AssertionType, DataContract, Entity } from '@types';
+import { Assertion, AssertionRunStatus, AssertionType, DataContract } from '@types';
 
 type StyledTableProps = {
     showSelect?: boolean;
@@ -120,19 +119,6 @@ export const AcrylAssertionsTable = ({
 }: Props) => {
     const { entityData } = useEntityData();
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
-    const focusedAssertion = assertions.find((assertion) => assertion.urn === focusAssertionUrn);
-    const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion) : undefined;
-    const focusedAssertionEntity =
-        focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
-
-    const canEditFocusAssertion = focusedAssertion
-        ? (focusedAssertion?.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
-        : false;
-    const canEditFocusMonitor = focusedAssertion ? canEditMonitors : false;
-
-    if (focusAssertionUrn && !focusedAssertion) {
-        setFocusAssertionUrn(null);
-    }
 
     useOpenAssertionDetailModal(setFocusAssertionUrn);
 
@@ -246,12 +232,13 @@ export const AcrylAssertionsTable = ({
                 showHeader={false}
                 pagination={false}
             />
-            {focusAssertionUrn && focusedAssertionEntity && (
+            {focusAssertionUrn && entityData && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
-                    entity={focusedAssertionEntity as Entity}
-                    canEditAssertion={canEditFocusAssertion}
-                    canEditMonitor={canEditFocusMonitor}
+                    entity={entityData}
+                    canEditAssertions={canEditAssertions}
+                    canEditSqlAssertions={canEditSqlAssertions}
+                    canEditMonitors={canEditMonitors}
                     closeDrawer={() => setFocusAssertionUrn(null)}
                 />
             )}

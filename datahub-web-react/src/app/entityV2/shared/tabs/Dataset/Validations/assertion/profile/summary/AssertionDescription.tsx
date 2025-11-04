@@ -3,11 +3,11 @@ import React from 'react';
 
 import { useBuildAssertionDescriptionLabels } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 
-import { Assertion, Monitor } from '@types';
+import { Assertion, Maybe, Monitor } from '@types';
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     options?: {
         noSecondarySpacing?: boolean;
         showColumnTag?: boolean;

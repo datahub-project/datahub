@@ -16,7 +16,7 @@ import { applyOpacityToHexColor } from '@app/shared/styleUtils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useAppConfig } from '@app/useAppConfig';
 
-import { Assertion, AssertionRunEvent, AssertionSourceType, Monitor } from '@types';
+import { Assertion, AssertionRunEvent, AssertionSourceType, Maybe, Monitor } from '@types';
 
 const Container = styled.div<{ highlightColor?: string }>`
     display: flex;
@@ -56,7 +56,7 @@ const HeaderText = styled.div`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     run: AssertionRunEvent;
     refetchResults: () => Promise<unknown>;
     openAssertionNote: () => void;

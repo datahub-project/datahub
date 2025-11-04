@@ -4,9 +4,9 @@ import { AssertionResultDot } from '@app/entityV2/shared/tabs/Dataset/Validation
 import { AssertionPredictionTableItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/AssertionPredictionTableItem.saas';
 import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { Assertion, AssertionResultType, AssertionRunEvent, Monitor } from '@src/types.generated';
+import { Assertion, AssertionResultType, AssertionRunEvent, Maybe, Monitor } from '@src/types.generated';
 
-export const useAssertionPredictionItem = (assertion: Assertion, monitor?: Monitor) => {
+export const useAssertionPredictionItem = (assertion: Assertion, monitor?: Maybe<Monitor>) => {
     // We can only show predictions if smart assertions are being trained online
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
     if (!onlineSmartAssertionsEnabled) {

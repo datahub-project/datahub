@@ -19,7 +19,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import QualityTabRowCountGraph from '@app/entityV2/shared/tabs/Dataset/Validations/shared/QualityTabRowCountGraph';
 
-import { Assertion, AssertionType, CronSchedule, DatasetVolumeSourceType, Monitor } from '@types';
+import { Assertion, AssertionType, CronSchedule, DatasetVolumeSourceType, Maybe, Monitor } from '@types';
 
 const Section = styled.div`
     display: flex;
@@ -33,7 +33,7 @@ type Props = {
     updateState: (newState: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
     isEditMode?: boolean;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     assertion?: Assertion;
 };
 

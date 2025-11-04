@@ -4,7 +4,7 @@ import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Data
 import { tryGetScheduleFromMonitor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
 
 import { AssertionRunEventDetailsFragment } from '@graphql/assertion.generated';
-import { CronSchedule, Monitor } from '@types';
+import { CronSchedule, Maybe, Monitor } from '@types';
 
 export const ONE_HOUR_IN_MS = 60 * 60 * 1000; // Milliseconds in one hour
 export const ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS; // Milliseconds in one day
@@ -74,7 +74,7 @@ const tryGetNextTSFromCron = (cronSched?: CronSchedule): number | undefined => {
 
 export function calculateInitialLookbackWindowFromRunEvents(
     allRunEvents: Array<{ __typename?: 'AssertionRunEvent' } & AssertionRunEventDetailsFragment>,
-    monitor?: Monitor,
+    monitor?: Maybe<Monitor>,
 ): LookbackWindow | undefined {
     if (!allRunEvents?.length) return undefined;
 

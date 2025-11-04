@@ -5,11 +5,11 @@ import React from 'react';
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
 import { ResultStatusType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 
-import { Assertion, AssertionRunEvent, Monitor } from '@types';
+import { Assertion, AssertionRunEvent, Maybe, Monitor } from '@types';
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     run?: AssertionRunEvent;
     showProfileButton?: boolean;
     onClickProfileButton?: () => void;

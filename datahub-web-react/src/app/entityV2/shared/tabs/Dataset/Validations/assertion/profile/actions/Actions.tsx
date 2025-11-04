@@ -23,7 +23,7 @@ const ActionList = styled.div`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     contract?: Maybe<DataContract>;
     canEditAssertion: boolean;
     canEditMonitor: boolean;

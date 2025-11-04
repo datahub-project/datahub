@@ -7,7 +7,7 @@ import { useDeleteAssertionMutationWithCache } from '@app/entityV2/shared/tabs/D
 import { ActionItem } from '@app/shared/actions';
 
 import { useDeleteMonitorMutation } from '@graphql/monitor.generated';
-import { Assertion, Monitor } from '@types';
+import { Assertion, Maybe, Monitor } from '@types';
 
 const StyledDeleteOutlined = styled(DeleteOutlined)`
     && {
@@ -18,7 +18,7 @@ const StyledDeleteOutlined = styled(DeleteOutlined)`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     canEdit: boolean;
     // Should be defined if canEdit
     refetch?: () => void;

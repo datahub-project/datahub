@@ -8,11 +8,11 @@ import { AssertionResultsTable } from '@app/entityV2/shared/tabs/Dataset/Validat
 import { AssertionResultsTimeline } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionResultsTimeline';
 import { AssertionScheduleSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/AssertionScheduleSummary';
 
-import { Assertion, Monitor, MonitorMode } from '@types';
+import { Assertion, Maybe, Monitor, MonitorMode } from '@types';
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     openAssertionNote: () => void;
     refreshData?: () => Promise<unknown>;
 };

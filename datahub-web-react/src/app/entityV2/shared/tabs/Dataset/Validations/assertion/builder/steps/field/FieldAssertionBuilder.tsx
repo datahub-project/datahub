@@ -26,6 +26,7 @@ import {
     DatasetFieldAssertionSourceType,
     DatasetFilter,
     FieldAssertionType,
+    Maybe,
     Monitor,
 } from '@types';
 
@@ -44,7 +45,7 @@ type Props = {
     updateState: (state: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
     assertion?: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
 } & (
     | {
           isEditMode: true;

@@ -18,7 +18,7 @@ import { getAssertionResultChartData } from '@app/entityV2/shared/tabs/Dataset/V
 import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
 import { TuneSmartAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/TuneSmartAssertionModal';
 
-import { Assertion, AssertionRunEventsResult, AssertionRunStatus, AssertionSourceType, Monitor } from '@types';
+import { Assertion, AssertionRunEventsResult, AssertionRunStatus, AssertionSourceType, Maybe, Monitor } from '@types';
 
 const VIZ_CONTAINER_TITLE_HEIGHT = 36;
 
@@ -50,7 +50,7 @@ const VizHeaderTitle = styled(Typography.Text)`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     timeRange: TimeRange;
     results?: AssertionRunEventsResult | null;
     isInitializing: boolean;

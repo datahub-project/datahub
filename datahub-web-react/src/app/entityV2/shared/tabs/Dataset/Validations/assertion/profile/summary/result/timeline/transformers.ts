@@ -1,5 +1,3 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
-
 import {
     AssertionDataPoint,
     AssertionResultChartData,
@@ -14,6 +12,7 @@ import {
     AssertionType,
     FieldAssertionInfo,
     FieldAssertionType,
+    Maybe,
     Monitor,
 } from '@types';
 
@@ -128,7 +127,7 @@ function tryGetFieldAssertionYAxisLabel(info?: Maybe<FieldAssertionInfo>): strin
 export const getAssertionResultChartData = (
     assertion: Assertion,
     completedRuns: AssertionRunEvent[],
-    monitor?: Monitor,
+    monitor?: Maybe<Monitor>,
 ): AssertionResultChartData => {
     const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(
         completedRuns,
@@ -140,7 +139,7 @@ export const getAssertionResultChartData = (
         yAxisLabel: maybeYAxisLabel,
         context: {
             assertion,
-            monitor,
+            monitor: monitor ?? undefined,
         },
     };
 };

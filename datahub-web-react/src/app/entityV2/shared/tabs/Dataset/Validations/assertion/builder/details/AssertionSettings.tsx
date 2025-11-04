@@ -3,6 +3,7 @@ import { Form } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionSettingsHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/AssertionSettingsHeader';
 import { EditButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/EditButton';
@@ -27,12 +28,12 @@ import {
     getAssertionEditabilityType,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/assertionUtils';
 
-import { Assertion, AssertionSourceType, AssertionType, Entity, Monitor } from '@types';
+import { Assertion, AssertionSourceType, AssertionType, Entity, Maybe, Monitor } from '@types';
 
 type Props = {
     assertion: Assertion;
-    entity: Entity;
-    monitor?: Monitor;
+    entity: Entity | GenericEntityProperties;
+    monitor?: Maybe<Monitor>;
     editable?: boolean;
     editAllowed?: boolean;
     refetch?: () => void;
@@ -166,11 +167,13 @@ export const AssertionSettings = (props: Props) => {
                                     <SaveButton tooltip="Save changes to this assertion" onClick={save} />
                                 </AssertionContainer>
 
-                                <TestAssertionModal
-                                    visible={isTestAssertionModalVisible}
-                                    handleClose={hideTestAssertionModal}
-                                    input={getAssertionInput(builderState, props?.entity?.urn)}
-                                />
+                                {props.entity?.urn ? (
+                                    <TestAssertionModal
+                                        visible={isTestAssertionModalVisible}
+                                        handleClose={hideTestAssertionModal}
+                                        input={getAssertionInput(builderState, props.entity.urn)}
+                                    />
+                                ) : null}
                             </>
                         )
                     }

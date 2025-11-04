@@ -9,7 +9,7 @@ import { AssertionScheduleSummarySection } from '@app/entityV2/shared/tabs/Datas
 import { ProviderSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/ProviderSummarySection';
 import { getLocaleTimezone } from '@app/shared/time/timeUtils';
 
-import { Assertion, AssertionSourceType, CronSchedule, Monitor } from '@types';
+import { Assertion, AssertionSourceType, CronSchedule, Maybe, Monitor } from '@types';
 
 const Container = styled.div`
     margin-top: 20px;
@@ -35,7 +35,7 @@ const StyledLastUpdatedLogo = styled(InferredAssertionLogo)`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     schedule?: CronSchedule;
     lastEvaluatedAtMillis?: number | undefined;
     nextEvaluatedAtMillis?: number | undefined;

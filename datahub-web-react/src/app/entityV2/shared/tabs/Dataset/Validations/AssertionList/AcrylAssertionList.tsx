@@ -304,9 +304,10 @@ export const AcrylAssertionList = () => {
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                 />
             ) : null}
-            {hasResults || showPreviousResultsWhileRefetching ? (
+            {(hasResults || showPreviousResultsWhileRefetching) && entityData ? (
                 <AcrylAssertionListTable
                     contract={contract}
+                    entityData={entityData}
                     assertions={hasResults ? assertionMonitorData : prevAssertionMonitorData}
                     refetch={() => {
                         refetch();

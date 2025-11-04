@@ -11,7 +11,7 @@ import { useAssertionPredictionItem } from '@app/entityV2/shared/tabs/Dataset/Va
 import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
 import { useGetAssertionRunsQuery } from '@graphql/assertion.generated';
-import { Assertion, AssertionResultType, AssertionRunEvent, Monitor } from '@types';
+import { Assertion, AssertionResultType, AssertionRunEvent, Maybe, Monitor } from '@types';
 
 const Container = styled.div`
     margin-top: 20px;
@@ -31,7 +31,7 @@ const ShowMoreButton = styled.div`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     openAssertionNote: () => void;
 };
 

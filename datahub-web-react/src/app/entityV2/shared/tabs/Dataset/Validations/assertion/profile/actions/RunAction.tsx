@@ -7,7 +7,7 @@ import { RunAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations
 import { ActionItem } from '@app/shared/actions';
 import { useAppConfig } from '@app/useAppConfig';
 
-import { Assertion, AssertionSourceType, Monitor } from '@types';
+import { Assertion, AssertionSourceType, Maybe, Monitor } from '@types';
 
 const StyledRefresh = styled(RefreshOutlined)`
     && {
@@ -19,7 +19,7 @@ const StyledRefresh = styled(RefreshOutlined)`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     canEdit: boolean;
     refetch?: () => void;
     isExpandedView?: boolean;

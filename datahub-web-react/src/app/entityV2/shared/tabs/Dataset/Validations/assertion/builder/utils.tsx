@@ -1,7 +1,7 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
 import { keyBy } from 'lodash';
 import React from 'react';
 
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import {
     AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_CRON,
     AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
@@ -21,6 +21,7 @@ import { BIGQUERY_URN, DATABRICKS_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '@app/
 import { DBT_URN } from '@app/ingestV2/source/builder/constants';
 import { cleanAssertionDescription, removeNestedTypeNames } from '@app/shared/subscribe/drawer/utils';
 import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
+import { Maybe } from '@src/types.generated';
 
 import { UpdateAssertionMetadataMutationVariables } from '@graphql/assertion.generated';
 import {
@@ -1009,8 +1010,8 @@ export const convertInferenceSettingsToBuilderState = (inferenceSettings?: Maybe
 
 export const createAssertionMonitorBuilderState = (
     assertion: Assertion,
-    entity: Entity & { platform?: DataPlatform },
-    monitor?: Monitor,
+    entity: (Entity & { platform?: DataPlatform }) | GenericEntityProperties,
+    monitor?: Maybe<Monitor>,
 ): AssertionMonitorBuilderState => {
     return {
         entityUrn: entity.urn,

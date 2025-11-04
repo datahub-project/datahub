@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionProfileFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileFooter';
 import { AssertionProfileHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeader';
 import { AssertionProfileHeaderLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeaderLoading';
@@ -15,7 +17,7 @@ import {
 
 import { useGetDatasetContractQuery } from '@graphql/contract.generated';
 import { useGetAssertionWithMonitorsQuery } from '@graphql/monitor.generated';
-import { Assertion, DataContract, Entity, Maybe, Monitor } from '@types';
+import { Assertion, AssertionType, DataContract, Maybe, Monitor } from '@types';
 
 enum TabType {
     Summary = 'Summary',
@@ -25,29 +27,59 @@ enum TabType {
 
 type Props = {
     urn: string;
-    entity: Entity; // TODO: ideally this would be a field on the assertion itself.
+    entity: GenericEntityProperties; // TODO: ideally this would be a field on the assertion itself.
     // TODO: Ideally this would come from the load of the assertion details itself with the GraphQL call.
     // Currently this is a function of privileges on the target dataset!
-    canEditAssertion: boolean;
-    canEditMonitor: boolean;
+    canEditAssertions: boolean;
+    canEditMonitors: boolean;
+    canEditSqlAssertions: boolean;
     close: () => void;
 };
 
 // TODO: Handling Loading Errors.
 
-export const AssertionProfile = ({ urn, entity, canEditAssertion, canEditMonitor, close }: Props) => {
+export const AssertionProfile = ({
+    urn,
+    entity,
+    canEditAssertions,
+    canEditMonitors,
+    canEditSqlAssertions,
+    close,
+}: Props) => {
+    const [selectedTab, setSelectedTab] = useState<string>(TabType.Summary);
+    const openAssertionNote = useCallback(() => {
+        setSelectedTab(TabType.Note);
+    }, []);
+    // Refresh assertion details when switching to the settings tab
+    // This is because the assertion settings (such as exclusion window) may have changed by the other tabs
+    const [isRefetchingForSettingsTab, setIsRefetchingForSettingsTab] = useState(false);
+    const hasViewedNoteTabRef = useRef(false);
     const {
         data: assertionData,
         loading: assertionLoading,
         refetch: assertionRefetch,
     } = useGetAssertionWithMonitorsQuery({ variables: { assertionUrn: urn }, fetchPolicy: 'cache-first' });
+
+    const assertion = assertionData?.assertion as Maybe<Assertion>;
+    const monitor = assertionData?.assertion?.monitor?.relationships?.[0]?.entity as Maybe<Monitor>;
+    const result = assertion?.runEvents?.runEvents[0]?.result;
+    const assertionEntityUrn = assertion ? getEntityUrnForAssertion(assertion) : undefined;
+    const canEditAssertion = assertion
+        ? (assertion?.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
+        : false;
+    const editAllowed = canEditMonitors && canEditAssertion;
+    const assertionEntitySibling = assertionEntityUrn ? getSiblingWithUrn(entity, assertionEntityUrn) : undefined;
+
     const {
         data: contractData,
         refetch: contractRefetch,
         loading: contractLoading,
     } = useGetDatasetContractQuery({
-        variables: { urn: entity.urn },
+        // Query will be skipped if assertionEntityUrn is undefined
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        variables: { urn: assertionEntityUrn! },
         fetchPolicy: 'cache-first',
+        skip: !assertionEntityUrn,
     });
 
     const fullRefetch = useCallback(async () => {
@@ -58,24 +90,6 @@ export const AssertionProfile = ({ urn, entity, canEditAssertion, canEditMonitor
         }
     }, [assertionRefetch, contractRefetch]);
 
-    // TODO: we should move these casts to a deep partial assertion type
-    const assertion = assertionData?.assertion as Maybe<Assertion>;
-    const monitor = assertionData?.assertion?.monitor?.relationships?.[0]?.entity as Monitor;
-    const result = assertion?.runEvents?.runEvents[0]?.result;
-    const contract = contractData?.dataset?.contract as DataContract | null | undefined;
-    const editAllowed = canEditMonitor && canEditAssertion;
-    const isLoading = assertionLoading || contractLoading;
-
-    const [selectedTab, setSelectedTab] = useState<string>(TabType.Summary);
-    const hasViewedNoteTabRef = useRef(false);
-
-    const openAssertionNote = useCallback(() => {
-        setSelectedTab(TabType.Note);
-    }, []);
-
-    // Refresh assertion details when switching to the settings tab
-    // This is because the assertion settings (such as exclusion window) may have changed by the other tabs
-    const [isRefetchingForSettingsTab, setIsRefetchingForSettingsTab] = useState(false);
     useEffect(() => {
         if (selectedTab === TabType.Settings) {
             setIsRefetchingForSettingsTab(true);
@@ -89,13 +103,16 @@ export const AssertionProfile = ({ urn, entity, canEditAssertion, canEditMonitor
                 analytics.event({
                     type: EventType.ViewAssertionNoteTabEvent,
                     assertionUrn: assertion?.urn || '',
-                    entityUrn: entity?.urn || '',
+                    entityUrn: assertionEntityUrn || '',
                     assertionType: assertion?.info?.type || '',
                 });
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedTab]);
+
+    const contract = contractData?.dataset?.contract as DataContract | null | undefined;
+    const isLoading = assertionLoading || contractLoading;
 
     const tabs = useMemo(
         () => [
@@ -124,7 +141,7 @@ export const AssertionProfile = ({ urn, entity, canEditAssertion, canEditMonitor
                     <AssertionSettingsTab
                         loading={isLoading || isRefetchingForSettingsTab}
                         assertion={assertion}
-                        entity={entity}
+                        entity={assertionEntitySibling}
                         refetch={fullRefetch}
                         monitor={monitor}
                         editable={
@@ -143,7 +160,7 @@ export const AssertionProfile = ({ urn, entity, canEditAssertion, canEditMonitor
             fullRefetch,
             editAllowed,
             isRefetchingForSettingsTab,
-            entity,
+            assertionEntitySibling,
         ],
     );
 
@@ -158,7 +175,7 @@ export const AssertionProfile = ({ urn, entity, canEditAssertion, canEditMonitor
                     contract={contract}
                     result={result || undefined}
                     canEditAssertion={canEditAssertion}
-                    canEditMonitor={canEditMonitor}
+                    canEditMonitor={canEditMonitors}
                     canEditContract
                     refetch={fullRefetch}
                     close={close}

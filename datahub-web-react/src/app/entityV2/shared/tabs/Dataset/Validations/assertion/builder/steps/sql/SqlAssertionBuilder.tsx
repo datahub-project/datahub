@@ -10,14 +10,14 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/utils';
 import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 
-import { Assertion, AssertionType, CronSchedule, Monitor } from '@types';
+import { Assertion, AssertionType, CronSchedule, Maybe, Monitor } from '@types';
 
 type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (newState: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
     isEditMode?: boolean;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     assertion?: Assertion;
 };
 

@@ -13,7 +13,7 @@ import { Message } from '@app/shared/Message';
 import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
 
 import { useGetAssertionRunsLazyQuery } from '@graphql/assertion.generated';
-import { Assertion, AssertionType, Monitor } from '@types';
+import { Assertion, AssertionType, Maybe, Monitor } from '@types';
 
 const RESULT_CHART_WIDTH_PX = 560;
 const VIZ_CONTAINER_HEIGHT = 260;
@@ -25,7 +25,7 @@ const Container = styled.div`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     openAssertionNote?: () => void;
     refreshData?: () => Promise<unknown>;
 };

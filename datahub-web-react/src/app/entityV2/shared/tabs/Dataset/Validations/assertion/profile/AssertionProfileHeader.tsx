@@ -5,7 +5,7 @@ import { Actions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion
 import { CloseButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/CloseButton';
 import { AssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionDescription';
 import { AssertionResultPill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionResultPill';
-import { AssertionSourceType, AssertionType } from '@src/types.generated';
+import { AssertionSourceType, AssertionType, Maybe } from '@src/types.generated';
 
 import { Assertion, AssertionResult, DataContract, Monitor } from '@types';
 
@@ -43,7 +43,7 @@ const Title = styled.div`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
+    monitor?: Maybe<Monitor>;
     contract?: DataContract | null;
     result?: AssertionResult;
     canEditAssertion: boolean;
