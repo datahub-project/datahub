@@ -264,7 +264,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return ModelRunDetails(
                 run_id=run.info.run_id,
                 experiment_id=run.info.experiment_id,
-                status=str(run.info.status) if run.info.status else "",
+                status=run.info.status.value if run.info.status else None,
                 start_time=parse_ts_millis(run.info.start_time),
                 end_time=parse_ts_millis(run.info.end_time),
                 user_id=run.info.user_id,
@@ -275,15 +275,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
         except Exception as e:
             model_name = getattr(model_version, "model_name", "unknown")
-            model_version = getattr(model_version, "version", "unknown")
+            version_num = getattr(model_version, "version", "unknown")
             self.report.report_warning(
                 title="Unable to get run details for MLflow experiment",
                 message="Error while getting run details for MLflow experiment",
-                context=f"model-name: {model_name}, model-version: {model_version}, run-id: {run_id}",
+                context=f"model-name: {model_name}, model-version: {version_num}, run-id: {run_id}",
                 exc=e,
             )
             logger.warning(
-                f"Unable to get run details for MLflow experiment, model-name: {model_name}, model-version: {model_version}, run-id: {run_id}",
+                f"Unable to get run details for MLflow experiment, model-name: {model_name}, model-version: {version_num}, run-id: {run_id}",
                 exc_info=True,
             )
             return None
@@ -386,69 +386,74 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if content_stream:
                     mlmodel_content: str = content_stream.read().decode("utf-8")
 
-                logger.debug(
-                    f"MLmodel file contents from FilesAPI ({file_path}):\n{mlmodel_content}"
-                )
-
-                # Parse YAML content
-                mlmodel_data = yaml.safe_load(mlmodel_content)
-
-                # Extract signature from MLmodel YAML
-                if mlmodel_data and "signature" in mlmodel_data:
-                    signature_raw = mlmodel_data["signature"]
-
-                    # Signature inputs and outputs are stored as JSON strings in the YAML
-                    # Parse them into proper dict/list format
-                    signature_data = {}
-                    if "inputs" in signature_raw:
-                        try:
-                            signature_data["inputs"] = json.loads(
-                                signature_raw["inputs"]
-                            )
-                        except (json.JSONDecodeError, TypeError) as e:
-                            logger.debug(f"Failed to parse inputs JSON: {e}")
-
-                    if "outputs" in signature_raw:
-                        try:
-                            signature_data["outputs"] = json.loads(
-                                signature_raw["outputs"]
-                            )
-                        except (json.JSONDecodeError, TypeError) as e:
-                            logger.debug(f"Failed to parse outputs JSON: {e}")
-
-                    if "parameters" in signature_raw:
-                        try:
-                            signature_data["parameters"] = json.loads(
-                                signature_raw["parameters"]
-                            )
-                        except (json.JSONDecodeError, TypeError) as e:
-                            logger.debug(f"Failed to parse parameters JSON: {e}")
-
-                    return ModelSignature(
-                        inputs=signature_data["inputs"]
-                        if "inputs" in signature_raw
-                        else None,
-                        outputs=signature_data["outputs"]
-                        if "outputs" in signature_raw
-                        else None,
-                        parameters=signature_data["parameters"]
-                        if "parameters" in signature_raw
-                        else None,
+                    logger.debug(
+                        f"MLmodel file contents from FilesAPI ({file_path}):\n{mlmodel_content}"
                     )
-                else:
-                    logger.debug(f"No signature found in MLmodel data from {file_path}")
+
+                    # Parse YAML content
+                    mlmodel_data = yaml.safe_load(mlmodel_content)
+
+                    # Extract signature from MLmodel YAML
+                    if mlmodel_data and "signature" in mlmodel_data:
+                        signature_raw = mlmodel_data["signature"]
+
+                        # Signature inputs and outputs are stored as JSON strings in the YAML
+                        # Parse them into proper dict/list format
+                        signature_data = {}
+                        if "inputs" in signature_raw:
+                            try:
+                                signature_data["inputs"] = json.loads(
+                                    signature_raw["inputs"]
+                                )
+                            except (json.JSONDecodeError, TypeError) as e:
+                                logger.debug(f"Failed to parse inputs JSON: {e}")
+
+                        if "outputs" in signature_raw:
+                            try:
+                                signature_data["outputs"] = json.loads(
+                                    signature_raw["outputs"]
+                                )
+                            except (json.JSONDecodeError, TypeError) as e:
+                                logger.debug(f"Failed to parse outputs JSON: {e}")
+
+                        if "parameters" in signature_raw:
+                            try:
+                                signature_data["parameters"] = json.loads(
+                                    signature_raw["parameters"]
+                                )
+                            except (json.JSONDecodeError, TypeError) as e:
+                                logger.debug(f"Failed to parse parameters JSON: {e}")
+
+                        return ModelSignature(
+                            inputs=signature_data["inputs"]
+                            if "inputs" in signature_raw
+                            else None,
+                            outputs=signature_data["outputs"]
+                            if "outputs" in signature_raw
+                            else None,
+                            parameters=signature_data["parameters"]
+                            if "parameters" in signature_raw
+                            else None,
+                        )
+                    else:
+                        logger.debug(
+                            f"No signature found in MLmodel data from {file_path}"
+                        )
+                        return None
+
+            return None
 
         except Exception as e:
             model_name = getattr(model_version, "model_name", "unknown")
-            model_version = getattr(model_version, "version", "unknown")
+            version_num = getattr(model_version, "version", "unknown")
             self.report.report_warning(
                 title="Unable to extract signature from MLmodel file",
                 message="Error while extracting signature from MLmodel file",
-                context=f"model-name: {model_name}, model-version: {model_version}",
+                context=f"model-name: {model_name}, model-version: {version_num}",
                 exc=e,
             )
             logger.warning(
-                f"Unable to extract signature from MLmodel file, model-name: {model_name}, model-version: {model_version}",
+                f"Unable to extract signature from MLmodel file, model-name: {model_name}, model-version: {version_num}",
                 exc_info=True,
             )
             return None

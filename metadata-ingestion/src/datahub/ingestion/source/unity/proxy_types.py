@@ -345,6 +345,7 @@ class ModelSignature:
     Represents the model signature with input and output schemas extracted from MLflow.
 
     In Unity Catalog, model signatures define the expected input/output formats for ML models.
+    Model signature is stored in the MLmodel YAML file.
 
     Attributes:
         inputs: List of input schema specifications, each containing name, type, dtype, shape
@@ -381,7 +382,7 @@ class ModelRunDetails:
 
     run_id: str
     experiment_id: str
-    status: str
+    status: Optional[str]
     start_time: Optional[datetime]
     end_time: Optional[datetime]
     user_id: Optional[str]
