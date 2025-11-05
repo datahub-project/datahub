@@ -1,5 +1,5 @@
 # mypy: disable-error-code="no-redef, attr-defined"
-from typing import List
+from typing import List, Union
 
 import airflow.version
 import packaging.version
@@ -17,36 +17,20 @@ try:
 except (ModuleNotFoundError, ImportError):
     from airflow.models.baseoperator import BaseOperator  # type: ignore
 
-# Operator type alias and MappedOperator
-# Use version-based logic to avoid deeply nested try/except blocks
-if IS_AIRFLOW_3_OR_HIGHER:
-    # Airflow 3.x: Try to import Operator from sdk.types or models
-    try:
-        from airflow.sdk.types import Operator
-    except (ModuleNotFoundError, ImportError):
-        # In some Airflow 3.x versions, Operator might still be in models or not exist
-        try:
-            from airflow.models.operator import Operator  # type: ignore
-        except (ModuleNotFoundError, ImportError):
-            # If Operator type doesn't exist anywhere, fall back to BaseOperator
-            Operator = BaseOperator  # type: ignore
+# MappedOperator import (added in Airflow 2.3.0, exists in all supported versions 2.7+)
+try:
+    from airflow.models.mappedoperator import MappedOperator
+except (ModuleNotFoundError, ImportError):
+    # Should not happen in supported Airflow versions (2.7+), but handle gracefully
+    MappedOperator = None  # type: ignore
 
-    # MappedOperator may or may not exist in Airflow 3.x
-    try:
-        from airflow.models.mappedoperator import MappedOperator
-    except (ModuleNotFoundError, ImportError):
-        MappedOperator = None  # type: ignore
+# Define Operator type alias ourselves to avoid deprecation warnings
+# Operator is Union[BaseOperator, MappedOperator] when MappedOperator exists
+# In all supported Airflow versions (2.7+, 3.x), MappedOperator exists
+if MappedOperator is not None:
+    Operator = Union[BaseOperator, MappedOperator]  # type: ignore
 else:
-    # Airflow 2.x: Try to import from models
-    try:
-        from airflow.models.mappedoperator import MappedOperator
-        from airflow.models.operator import Operator
-    except (ModuleNotFoundError, ImportError):
-        # Older Airflow 2.x versions don't have MappedOperator (added in 2.3.0)
-        # Operator is a type alias for Union[BaseOperator, MappedOperator],
-        # so when MappedOperator doesn't exist, we just use BaseOperator.
-        MappedOperator = None  # type: ignore
-        Operator = BaseOperator  # type: ignore
+    Operator = BaseOperator  # type: ignore
 
 # ExternalTaskSensor import - prefer standard provider in Airflow 3.x
 try:

@@ -236,7 +236,6 @@ def _datahub_generate_openlineage_metadata_from_sql(
             job_facets={"sql": SqlJobFacet(query=sql)},
             run_facets=run_facets,
         )
-
         return operator_lineage
 
     except Exception as e:

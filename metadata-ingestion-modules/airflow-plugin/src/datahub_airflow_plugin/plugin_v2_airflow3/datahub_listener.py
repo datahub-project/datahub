@@ -300,26 +300,92 @@ class DataHubListener:
 
         This is a method (not a property) to avoid triggering during pluggy's
         attribute introspection when registering the listener.
+
+        Uses database access to retrieve connection details, avoiding SUPERVISOR_COMMS
+        limitations that prevent hook-based methods from working in listener context.
         """
         if self._emitter is None:
             try:
-                self._emitter = self.config.make_emitter_hook().make_emitter()
-                logger.info(f"DataHub plugin v2 using {repr(self._emitter)}")
-            except ImportError as e:
-                if "SUPERVISOR_COMMS" in str(e):
-                    # Connection retrieval via BaseHook only works in task execution context
-                    # where SUPERVISOR_COMMS is available. During plugin registration,
-                    # we'll get this error which we can safely ignore - the emitter will
-                    # be created later when actually needed.
-                    logger.debug(
-                        "Deferring emitter creation - will retry during task execution "
-                        f"(error: {e})"
+                self._emitter = self._create_emitter_from_db()
+                if self._emitter:
+                    logger.info(
+                        f"DataHub plugin v2 using {repr(self._emitter)} (created via DB access)"
                     )
-                    # Return a dummy object that will cause retry on next access
-                    return None
                 else:
-                    raise
+                    logger.debug(
+                        "Could not create emitter via DB access - will retry during task execution"
+                    )
+                    return None
+            except Exception as db_error:
+                logger.debug(
+                    f"Failed to create emitter via DB access: {db_error}. "
+                    "Will retry during task execution."
+                )
+                return None
         return self._emitter
+
+    def _create_emitter_from_db(self):
+        """
+        Create emitter by directly querying the Airflow database for connection details.
+        This works around the SUPERVISOR_COMMS limitation in listener context.
+        """
+        try:
+            from airflow.configuration import conf
+            from airflow.models import Connection
+            from airflow.utils.db import provide_session
+
+            from datahub.emitter.rest_emitter import DataHubRestEmitter
+            from datahub.ingestion.graph.config import ClientMode
+
+            @provide_session
+            def get_connection_from_db(session=None):
+                """Get connection from database."""
+                conn_id = self.config.datahub_conn_id
+                # Try to get connection from database
+                conn = (
+                    session.query(Connection)
+                    .filter(Connection.conn_id == conn_id)
+                    .first()
+                )
+                if not conn:
+                    logger.warning(f"Connection '{conn_id}' not found in database")
+                    return None
+
+                # Build host with port if needed
+                host = conn.host or ""
+                if conn.port:
+                    if ":" not in host:
+                        host = f"{host}:{conn.port}"
+
+                if not host:
+                    logger.warning(f"Connection '{conn_id}' has no host configured")
+                    return None
+
+                # Get token - check airflow.cfg first, then connection password
+                token = conf.get("datahub", "token", fallback=None)
+                if token is None:
+                    token = conn.password
+
+                # Get extra args
+                extra_args = conn.extra_dejson or {}
+
+                logger.debug(
+                    f"Retrieved connection '{conn_id}' from DB: host={host}, has_token={bool(token)}"
+                )
+
+                # Create emitter
+                return DataHubRestEmitter(
+                    host,
+                    token,
+                    client_mode=ClientMode.INGESTION,
+                    datahub_component="airflow-plugin",
+                    **extra_args,
+                )
+
+            return get_connection_from_db()
+        except Exception as e:
+            logger.debug(f"Failed to create emitter from DB: {e}", exc_info=True)
+            return None
 
     @property
     def emitter(self):
@@ -379,6 +445,9 @@ class DataHubListener:
         output_urns: List[str] = []
         sql_parsing_result: Optional[SqlParsingResult] = None
 
+        logger.debug(
+            f"Extracting lineage for task {task.task_id} (complete={complete})"
+        )
         logger.debug("Airflow 3.0+: Attempting to get lineage from OpenLineage")
         try:
             from datahub_airflow_plugin._datahub_ol_adapter import (
@@ -391,8 +460,16 @@ class DataHubListener:
                 if complete
                 else "get_openlineage_facets_on_start"
             )
+            has_on_complete = hasattr(task, "get_openlineage_facets_on_complete")
+            has_on_start = hasattr(task, "get_openlineage_facets_on_start")
+            logger.debug(
+                f"Task {task.task_id} OpenLineage support: on_complete={has_on_complete}, on_start={has_on_start}, operator_type={type(task).__name__}, required_method={facet_method_name}"
+            )
+
             if not hasattr(task, facet_method_name):
-                logger.debug(f"Task {task.task_id} does not have OpenLineage support")
+                logger.debug(
+                    f"Task {task.task_id} does not have OpenLineage support (missing {facet_method_name}) - SQL parsing will not be triggered"
+                )
                 return input_urns, output_urns, sql_parsing_result
 
             facet_method = getattr(task, facet_method_name)
@@ -404,11 +481,13 @@ class DataHubListener:
                 )
 
                 if not operator_lineage:
-                    logger.debug("OpenLineage facet method returned None")
+                    logger.debug(
+                        f"OpenLineage facet method {facet_method_name} returned None for task {task.task_id}"
+                    )
                     return input_urns, output_urns, sql_parsing_result
 
                 logger.debug(
-                    f"Got OpenLineage operator lineage: inputs={len(operator_lineage.inputs)}, outputs={len(operator_lineage.outputs)}"
+                    f"Got OpenLineage operator lineage for task {task.task_id}: inputs={len(operator_lineage.inputs)}, outputs={len(operator_lineage.outputs)}, run_facets_keys={list(operator_lineage.run_facets.keys()) if hasattr(operator_lineage, 'run_facets') else 'N/A'}"
                 )
 
                 # Translate OpenLineage datasets to DataHub URNs
@@ -427,14 +506,36 @@ class DataHubListener:
                     )
 
                 # Check if DataHub SQL parsing result is in run_facets (from our patch)
-                if DATAHUB_SQL_PARSING_RESULT_KEY in operator_lineage.run_facets:
-                    sql_parsing_result = operator_lineage.run_facets[
-                        DATAHUB_SQL_PARSING_RESULT_KEY
-                    ]  # type: ignore
-                    if sql_parsing_result is not None:
+                logger.debug(
+                    f"Checking for SQL parsing result in OpenLineage run facets for task {task.task_id}. Key: {DATAHUB_SQL_PARSING_RESULT_KEY}"
+                )
+                if (
+                    hasattr(operator_lineage, "run_facets")
+                    and operator_lineage.run_facets
+                ):
+                    logger.debug(
+                        f"Run facets available: {list(operator_lineage.run_facets.keys())}"
+                    )
+                    if DATAHUB_SQL_PARSING_RESULT_KEY in operator_lineage.run_facets:
+                        sql_parsing_result = operator_lineage.run_facets[
+                            DATAHUB_SQL_PARSING_RESULT_KEY
+                        ]  # type: ignore
+                        if sql_parsing_result is not None:
+                            logger.info(
+                                f"✓ Found DataHub SQL parsing result for task {task.task_id} with {len(sql_parsing_result.column_lineage or [])} column lineages"
+                            )
+                        else:
+                            logger.debug(
+                                f"SQL parsing result key exists but value is None for task {task.task_id}"
+                            )
+                    else:
                         logger.debug(
-                            f"Found DataHub SQL parsing result with {len(sql_parsing_result.column_lineage or [])} column lineages"
+                            f"SQL parsing result key '{DATAHUB_SQL_PARSING_RESULT_KEY}' not found in run_facets for task {task.task_id}"
                         )
+                else:
+                    logger.debug(
+                        f"No run_facets available in operator_lineage for task {task.task_id}"
+                    )
 
             except Exception as e:
                 logger.debug(
@@ -462,7 +563,7 @@ class DataHubListener:
             return input_urns, output_urns, fine_grained_lineages
 
         if error := sql_parsing_result.debug_info.error:
-            logger.info(f"SQL parsing error: {error}", exc_info=error)
+            logger.debug(f"SQL parsing error: {error}", exc_info=error)
             datajob.properties["datahub_sql_parser_error"] = (
                 f"{type(error).__name__}: {error}"
             )
@@ -508,7 +609,13 @@ class DataHubListener:
         extractor-generated task_metadata and write it to the datajob. This
         routine is also responsible for converting the lineage to DataHub URNs.
         """
+        logger.debug(
+            f"_extract_lineage called for task {task.task_id} (complete={complete}, enable_datajob_lineage={self.config.enable_datajob_lineage})"
+        )
         if not self.config.enable_datajob_lineage:
+            logger.debug(
+                f"Skipping lineage extraction for task {task.task_id} - enable_datajob_lineage is False"
+            )
             return
 
         input_urns: List[str] = []
@@ -519,8 +626,12 @@ class DataHubListener:
         sql_parsing_result: Optional[SqlParsingResult] = None
 
         # Extract lineage using Airflow 3.x OpenLineage integration
+        logger.debug(f"Calling _extract_lineage_from_airflow3 for task {task.task_id}")
         extracted_input_urns, extracted_output_urns, sql_parsing_result = (
             self._extract_lineage_from_airflow3(task, task_instance, complete)
+        )
+        logger.debug(
+            f"Lineage extraction result for task {task.task_id}: inputs={len(extracted_input_urns)}, outputs={len(extracted_output_urns)}, sql_parsing_result={'present' if sql_parsing_result else 'None'}"
         )
         input_urns.extend(extracted_input_urns)
         output_urns.extend(extracted_output_urns)
@@ -790,14 +901,26 @@ class DataHubListener:
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
+        logger.debug(
+            f"on_task_instance_finish called for task {task_instance.task_id} (dag_id={task_instance.dag_id}, status={status})"
+        )
         # Prepare task context (handles template rendering, task retrieval, DAG filtering)
         context = self._prepare_task_context(task_instance, for_completion=True)
         if context is None:
+            logger.debug(
+                f"Task context preparation returned None for task {task_instance.task_id}"
+            )
             return
 
         dagrun, task, dag = context
+        logger.debug(
+            f"Task context prepared for task {task_instance.task_id}: task_type={type(task).__name__}"
+        )
 
         # Generate and emit datajob with lineage
+        logger.debug(
+            f"Generating and emitting DataJob for task {task_instance.task_id} (complete=True)"
+        )
         datajob = self._generate_and_emit_datajob(
             dagrun, task, dag, task_instance, complete=True
         )
@@ -825,7 +948,13 @@ class DataHubListener:
     def on_task_instance_success(  # type: ignore[no-untyped-def]  # Airflow 3.0 removed previous_state parameter
         self, previous_state, task_instance: "TaskInstance", **kwargs
     ) -> None:
+        logger.debug(
+            f"on_task_instance_success hook called for task {task_instance.task_id} (dag_id={task_instance.dag_id})"
+        )
         if self.check_kill_switch():
+            logger.debug(
+                f"Skipping task {task_instance.task_id} - kill switch is enabled"
+            )
             return
 
         self._set_log_level()
@@ -860,6 +989,9 @@ class DataHubListener:
         )
 
     def on_dag_start(self, dag_run: "DagRun") -> None:  # type: ignore[no-untyped-def]
+        logger.debug(
+            f"DataHub on_dag_start called for dag_id={dag_run.dag_id}, run_id={dag_run.run_id}"
+        )
         dag = dag_run.dag
         if not dag:
             logger.warning(
@@ -867,17 +999,29 @@ class DataHubListener:
             )
             return
 
+        logger.debug(f"Generating DataFlow for DAG: {dag.dag_id}")
         dataflow = AirflowGenerator.generate_dataflow(
             config=self.config,
             dag=dag,  # type: ignore[arg-type]
         )
-        dataflow.emit(self.emitter, callback=self._make_emit_callback())
-        logger.debug(f"Emitted DataHub DataFlow: {dataflow}")
+        logger.debug(
+            f"Generated DataFlow URN: {dataflow.urn}, tags: {dataflow.tags}, description: {dataflow.description}"
+        )
+
+        # Ensure emitter is initialized
+        emitter = self._get_emitter()
+        if emitter is None:
+            logger.warning("DataHub emitter not available, skipping DataFlow emission")
+            return
+
+        # Emit dataflow
+        logger.debug(f"Emitting DataFlow MCPs for {dataflow.urn}")
+        dataflow.emit(emitter, callback=self._make_emit_callback())
 
         event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
             entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)
         )
-        self.emitter.emit(event)
+        emitter.emit(event)
 
         for task in dag.tasks:
             task_urn = builder.make_data_job_urn_with_flow(
@@ -886,7 +1030,7 @@ class DataHubListener:
             event = MetadataChangeProposalWrapper(
                 entityUrn=task_urn, aspect=StatusClass(removed=False)
             )
-            self.emitter.emit(event)
+            emitter.emit(event)
 
         if self.config.platform_instance:
             instance = make_dataplatform_instance_urn(
@@ -900,7 +1044,7 @@ class DataHubListener:
                     instance=instance,
                 ),
             )
-            self.emitter.emit(event)
+            emitter.emit(event)
 
         # emit tags
         for tag in dataflow.tags:
@@ -909,7 +1053,7 @@ class DataHubListener:
             event = MetadataChangeProposalWrapper(
                 entityUrn=tag_urn, aspect=StatusClass(removed=False)
             )
-            self.emitter.emit(event)
+            emitter.emit(event)
 
         browsePaths: List[BrowsePathEntryClass] = []
         if self.config.platform_instance:
@@ -926,7 +1070,11 @@ class DataHubListener:
                 ),
             )
         )
-        self.emitter.emit(browse_path_v2_event)
+        logger.debug(
+            f"Emitting BrowsePathsV2 MCP: entityUrn={browse_path_v2_event.entityUrn}, paths={[getattr(p, 'path', str(p)) for p in browsePaths]}"
+        )
+        emitter.emit(browse_path_v2_event)
+        logger.debug(f"Completed emitting all DataFlow MCPs for {dataflow.urn}")
 
         if dag.dag_id == _DATAHUB_CLEANUP_DAG:
             assert self.graph
@@ -1012,6 +1160,9 @@ class DataHubListener:
         @hookimpl
         @run_in_thread
         def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
+            logger.debug(
+                f"DataHub on_dag_run_running called for dag_id={dag_run.dag_id}, run_id={dag_run.run_id}, msg={msg}"
+            )
             if self.check_kill_switch():
                 return
 
@@ -1027,7 +1178,9 @@ class DataHubListener:
                 return
 
             self.on_dag_start(dag_run)
-            self.emitter.flush()
+            emitter = self._get_emitter()
+            if emitter:
+                emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow
 

@@ -768,7 +768,85 @@ if DATAHUB_SQL_PARSING_RESULT_KEY in operator_lineage.run_facets:
 - `src/datahub_airflow_plugin/datahub_listener.py:433-439` - Retrieve sql_parsing_result from run_facets
 - `src/datahub_airflow_plugin/_config.py` - Enable SQL parser patch for Airflow 3.x
 
-### 11. Column-Level Lineage in Airflow 3.x
+### 11. Emitter Initialization: Database Access Instead of BaseHook
+
+In Airflow 3.x, the DataHub plugin uses direct database access to initialize the emitter instead of relying on `BaseHook.get_connection()`.
+
+#### Problem: SUPERVISOR_COMMS Limitation
+
+The `BaseHook.get_connection()` method requires `SUPERVISOR_COMMS` to be available in the execution context. However, in Airflow 3.x listener hooks (such as `on_dag_start`, `on_dag_run_running`), the `SUPERVISOR_COMMS` context is not available, causing connection retrieval to fail:
+
+```python
+# This fails in listener context:
+# ImportError: cannot import name 'SUPERVISOR_COMMS' from 'airflow.sdk.execution_time.task_runner'
+hook = self.config.make_emitter_hook()
+emitter = hook.make_emitter()  # ❌ Fails: SUPERVISOR_COMMS not available
+```
+
+**Why SUPERVISOR_COMMS is unavailable:**
+
+- Listener hooks run in a different context than task execution
+- `SUPERVISOR_COMMS` is only available during actual task execution (when tasks are running)
+- Listener hooks are called by the scheduler/webserver, not by task workers
+- The supervisor communication mechanism is not initialized in listener context
+
+#### Solution: Direct Database Access
+
+The plugin now uses direct database queries to retrieve connection details:
+
+```python
+def _create_emitter_from_db(self):
+    """Create emitter by directly querying the Airflow database for connection details."""
+    from airflow.models import Connection
+    from airflow.utils.db import provide_session
+
+    @provide_session
+    def get_connection_from_db(session=None):
+        conn_id = self.config.datahub_conn_id
+        conn = session.query(Connection).filter(
+            Connection.conn_id == conn_id
+        ).first()
+
+        # Build emitter from connection details
+        host = conn.host
+        if conn.port:
+            host = f"{host}:{conn.port}"
+
+        token = conf.get("datahub", "token", fallback=None) or conn.password
+
+        return DataHubRestEmitter(
+            host, token,
+            client_mode=ClientMode.INGESTION,
+            **conn.extra_dejson
+        )
+
+    return get_connection_from_db()
+```
+
+**Benefits:**
+
+- ✅ **Works in all contexts** - Listener hooks, task execution, DAG parsing
+- ✅ **No SUPERVISOR_COMMS dependency** - Direct database access bypasses the limitation
+- ✅ **More reliable** - Doesn't depend on execution context being fully initialized
+- ✅ **Consistent behavior** - Same initialization method regardless of when it's called
+
+**Token Configuration:**
+
+The plugin supports token configuration via `airflow.cfg` (takes precedence) or connection password:
+
+```ini
+# airflow.cfg
+[datahub]
+token = your_datahub_token_here
+```
+
+If not set in `airflow.cfg`, the connection password field is used as a fallback.
+
+**Files Updated:**
+
+- `src/datahub_airflow_plugin/plugin_v2_airflow3/datahub_listener.py:297-398` - Emitter initialization using database access
+
+### 12. Column-Level Lineage in Airflow 3.x
 
 **Status:** ✅ Fully Working
 
