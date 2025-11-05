@@ -30,6 +30,8 @@ This document lists environment variables specific to Acryl DataHub Cloud / SaaS
 | `FORMS_NOTIFICATIONS_ENABLED`                 | `false` | boolean   | [`GMS`]    | Controls whether to trigger notifications for forms and show the option on the form editor.                           |
 | `SHOW_INGESTION_PAGE_REDESIGN`                | `false` | boolean   | [`GMS`]    | Controls whether to show the new ingestion page and run history tab in the UI.                                        |
 | `VIEW_INGESTION_SOURCE_PRIVILEGES_ENABLED`    | `false` | boolean   | [`GMS`]    | If enabled, any user with permissions to view an ingestion source will be able to get to the ingestion page.          |
+| `DOCUMENTATION_FILE_UPLOAD_V1`                | `false` | boolean   | [`GMS`]    | Turns on the ability to upload files for asset documentation in the UI.                                               |
+| `SHOW_ASK_DATAHUB`                            | `false` | boolean   | [`GMS`]    | Turns on the ability to chat with DataHub AI assistant (Ask DataHub) through the UI.                                  |
 
 ## Compliance Forms
 
@@ -172,3 +174,44 @@ The AI-powered Slack bot, which replies to the @datahub mentions, is covered in 
 | `AUTH_OIDC_IMPLICIT_ENABLED`       | `false` | boolean   | [`Frontend`] | Enables OIDC Implicit Flow                                                |
 | `AUTH_OIDC_IMPLICIT_CLIENT_ISSUER` |         | string    | [`Frontend`] | The issuer for the client's IDP. i.e. Google: https://accounts.google.com |
 | `AUTH_OIDC_IMPLICIT_JWKS_JSON`     |         | string    | [`Frontend`] | Public keys for the IDP as a json string                                  |
+
+## DataHub Integrations Service
+
+The DataHub Integrations Service provides integrations between DataHub and external platforms.
+
+### MCP Server Configuration
+
+| Environment Variable               | Default | Unit/Type | Components               | Description                                                                                                                  |
+| ---------------------------------- | ------- | --------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `SEMANTIC_SEARCH_ENABLED`          | `false` | boolean   | [`Integrations Service`] | Enable semantic search capabilities (requires DataHub Cloud with semantic search support)                                    |
+| `DATAHUB_MCP_DISABLE_DEFAULT_VIEW` | `false` | boolean   | [`Integrations Service`] | Disable automatic application of organization's default global view to MCP search operations (by default, views are applied) |
+
+### AI Model Configuration
+
+#### Core AI Configuration
+
+| Environment Variable                      | Default | Unit/Type | Components               | Description                                                       |
+| ----------------------------------------- | ------- | --------- | ------------------------ | ----------------------------------------------------------------- |
+| `ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX` | `us`    | string    | [`Integrations Service`] | Cross-region inference prefix for Anthropic models (us, eu, apac) |
+
+#### Documentation Generation AI
+
+| Environment Variable                 | Default                                                | Unit/Type | Components               | Description                                                                                                                                        |
+| ------------------------------------ | ------------------------------------------------------ | --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DESCRIPTION_GENERATION_MODEL`       | `bedrock/us.anthropic.claude-3-haiku-20240307-v1:0`    | string    | [`Integrations Service`] | Model identifier for documentation generation AI. Supports models from AWS bedrock (prefix: `bedrock/`) or Google Vertex AI (prefix: `vertex_ai/`) |
+| `QUERY_DESCRIPTION_GENERATION_MODEL` | `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for query description generation.                                                                                                 |
+
+#### Chat Assistant AI
+
+| Environment Variable           | Default                                        | Unit/Type | Components               | Description                                                                         |
+| ------------------------------ | ---------------------------------------------- | --------- | ------------------------ | ----------------------------------------------------------------------------------- |
+| `CHATBOT_MODEL`                | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for DataHub chat assistant. Supports models from AWS bedrock only. |
+| `CHAT_SUMMARIZATION_MODEL`     | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for chat summary generation                                        |
+| `CHATBOT_PLANNING_ENABLED`     | `true`                                         | boolean   | [`Integrations Service`] | Enable planning mode for the DataHub chatbot to create and execute plans.           |
+| `CHATBOT_SMART_SEARCH_ENABLED` | `false`                                        | boolean   | [`Integrations Service`] | Enable smart search capabilities in the chatbot                                     |
+
+#### Term Suggestion AI
+
+| Environment Variable    | Default                                        | Unit/Type | Components               | Description                                                      |
+| ----------------------- | ---------------------------------------------- | --------- | ------------------------ | ---------------------------------------------------------------- |
+| `TERM_SUGGESTION_MODEL` | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for term suggestion / classification automation |

@@ -250,7 +250,5 @@ DATAHUB_EXECUTOR_SERVER_CONFIG_REFRESH_INTERVAL = env_to_int(
     "DATAHUB_EXECUTOR_SERVER_CONFIG_REFRESH_INTERVAL", 60
 )
 DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE = string_to_bool(
-    os.getenv(
-        "DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE", "True"
-    )  # TBC: should we switch to False by default?
+    os.getenv("DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE", "True")
 )

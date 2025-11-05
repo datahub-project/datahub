@@ -19,7 +19,45 @@
 
 This is over and above updating-datahub.md file
 
-## Next
+## v0.3.15
+
+### Breaking Changes
+
+- If you were to upgrade to v0.3.15 and create a "Platforms" home page module, in order to roll back to a previous version of DataHub you will need to either (1) remove the Platforms modules from all home page templates or (2) roll back to v0.3.14.2 which includes a fix to handle unknown module types. This sort of backwards compatibility with home page modules is resolved going forward with v0.3.15.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+Helm Chart: 1.2.187+ Required
+
+**NOTE:** This release introduces two major changes:
+
+- Migration of SaaS data models into a separate package (`acryl-datahub-cloud`)
+- Upgrade of Pydantic from v1 → v2
+
+Because Remote Executor Coordinator and Worker components are typically upgraded asynchronously, it may cause compatibility issues during/after rollout. To mitigate this, new serialization translation logic was added to the
+Worker (PR #6896). This mechanism should handle most mixed-version scenarios, but please remain aware of the Pydantic upgrade and the data model package rename and report any suspected issues promptly to the respective teams —
+#platform, #ingestions, #observability — to ensure timely investigation and resolution.
+
+### Environment variables
+
+- `BOOTSTRAP_SYSTEM_UPDATE_MONITOR_INFO_ENABLED`: Reindexes monitor search index off of the monitorInfo aspect
+- `DOCUMENTATION_FILE_UPLOAD_V1`: Turns on the ability to upload files for asset documentation in the UI. If this is enabled, make sure the customer has S3 configs set up properly. Nothing new is needed for S3 configs other than the existing configuration to set up their S3 bucket name.
+- `DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE`: enables serialization compatibility translation logic in Remote Executor. The translation is enabled by default.
+- `BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_ENABLED`: Populates the `entityUrn` property on `AssertionInfo`. This allows you to query the entity an assertion runs upon at the top level `AssertionInfo` rather than having to dig into the specific assertion type. Corresponding OpenSearch field name is `entity`.
+- `SHOW_ASK_DATAHUB`: Show the Ask DataHub 'Chat' option in the sidebar, and suggest users to use it in the search bar.
+- [integrations-service] `DESCRIPTION_GENERATION_MODEL`: Model identifier for documentation generation AI. Supports models from AWS bedrock (prefix:`bedrock/`) or Google Vertex AI(prefix: `vertex_ai/`) . Default: `bedrock/us.anthropic.claude-3-haiku-20240307-v1:0` (where `us` comes from `ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX` env var)
+- [integrations-service] `QUERY_DESCRIPTION_GENERATION_MODEL`: Model identifier for query description generation. Default: `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0`. Refer `DESCRIPTION_GENERATION_MODEL` for more details.
+- [integrations-service] `TERM_SUGGESTION_MODEL`: Model identifier for term suggestion / classification automation. Default: `us.anthropic.claude-sonnet-4-5-20250929-v1:0`
+- [integrations-service] `CHATBOT_MODEL`: Model identifier for DataHub chat assistant. Supports models from AWS bedrock only. Default: `us.anthropic.claude-sonnet-4-5-20250929-v1:0` (where `us` comes from `ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX` env var).
+- [integrations-service] `CHAT_SUMMARIZATION_MODEL`: Model identifier for chat summary generation. Default: `us.anthropic.claude-sonnet-4-5-20250929-v1:0`. Refer `DESCRIPTION_GENERATION_MODEL` for more details.
+- [integrations-service] `CHATBOT_PLANNING_ENABLED`: Enable planning mode for the DataHub chatbot. Default: true
+- [integrations-service] `CHATBOT_SMART_SEARCH_ENABLED`: Enable smart search capabilities in the chatbot. Default: false
+
+## v0.3.14
 
 ### Breaking Changes
 
