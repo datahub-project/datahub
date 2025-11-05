@@ -19,6 +19,7 @@ import {
     AssertionTable,
     AssertionWithDescription,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     ASSERTION_INFO,
     AssertionWithMonitorDetails,
@@ -33,7 +34,6 @@ import {
     ASSERTION_STATUS_FILTER_NAME,
     ASSERTION_TYPE_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
-import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 import {
