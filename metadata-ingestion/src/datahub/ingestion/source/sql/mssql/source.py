@@ -3,8 +3,8 @@ import re
 import urllib.parse
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-import pydantic
 import sqlalchemy.dialects.mssql
+from pydantic import ValidationInfo, field_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
@@ -140,11 +140,18 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         description="Indicates if the SQL Server instance is running on AWS RDS. When None (default), automatic detection will be attempted using server name analysis.",
     )
 
-    @pydantic.validator("uri_args")
-    def passwords_match(cls, v, values, **kwargs):
-        if values["use_odbc"] and not values["sqlalchemy_uri"] and "driver" not in v:
+    @field_validator("uri_args", mode="after")
+    @classmethod
+    def passwords_match(
+        cls, v: Dict[str, Any], info: ValidationInfo, **kwargs: Any
+    ) -> Dict[str, Any]:
+        if (
+            info.data["use_odbc"]
+            and not info.data["sqlalchemy_uri"]
+            and "driver" not in v
+        ):
             raise ValueError("uri_args must contain a 'driver' option")
-        elif not values["use_odbc"] and v:
+        elif not info.data["use_odbc"] and v:
             raise ValueError("uri_args is not supported when ODBC is disabled")
         return v
 
@@ -314,7 +321,7 @@ class SQLServerSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "SQLServerSource":
-        config = SQLServerConfig.parse_obj(config_dict)
+        config = SQLServerConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     # override to get table descriptions

@@ -84,7 +84,7 @@ def recipe(mcp_output_path: str, source_config_override: Optional[dict] = None) 
                         )
                     ],
                     max_workers=1,
-                ).dict(),
+                ).model_dump(),
                 **source_config_override,
             },
         },
