@@ -4,7 +4,7 @@ import { getFormAssociations } from '@app/entity/shared/containers/profile/sideb
 
 import { FormAssociation } from '@types';
 
-export function isAssignedToForm(formAssociation: FormAssociation, isUserAnOwner: boolean) {
+function isAssignedToForm(formAssociation: FormAssociation, isUserAnOwner: boolean) {
     const { isAssignedToMe, owners: isAssignedToOwners } = formAssociation.form.info.actors;
     return isAssignedToMe || (isAssignedToOwners && isUserAnOwner);
 }

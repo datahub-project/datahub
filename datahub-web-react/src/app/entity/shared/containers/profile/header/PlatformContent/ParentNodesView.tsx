@@ -1,13 +1,8 @@
-import { FolderOutlined, RightOutlined } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
-import React from 'react';
+import { RightOutlined } from '@ant-design/icons';
+import { Tooltip } from 'antd';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import useContentTruncation from '@app/shared/useContentTruncation';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType, GlossaryNode } from '@types';
 
 export const StyledRightOutlined = styled(RightOutlined)`
     color: ${ANTD_GRAY[7]};
@@ -35,59 +30,3 @@ export const StyledTooltip = styled(Tooltip)`
     white-space: nowrap;
     overflow: hidden;
 `;
-
-const GlossaryNodeText = styled(Typography.Text)<{ color: string }>`
-    font-size: 12px;
-    line-height: 20px;
-    color: ${(props) => props.color};
-`;
-
-const GlossaryNodeIcon = styled(FolderOutlined)<{ color: string }>`
-    color: ${(props) => props.color};
-
-    &&& {
-        font-size: 12px;
-        margin-right: 4px;
-    }
-`;
-
-interface Props {
-    parentNodes?: GlossaryNode[] | null;
-}
-
-export default function ParentNodesView({ parentNodes }: Props) {
-    const entityRegistry = useEntityRegistry();
-    const { contentRef, isContentTruncated } = useContentTruncation(parentNodes);
-
-    return (
-        <StyledTooltip
-            title={
-                <>
-                    {[...(parentNodes || [])]?.reverse()?.map((parentNode, idx) => (
-                        <>
-                            <GlossaryNodeIcon color="white" />
-                            <GlossaryNodeText color="white">
-                                {entityRegistry.getDisplayName(EntityType.GlossaryNode, parentNode)}
-                            </GlossaryNodeText>
-                            {idx + 1 !== parentNodes?.length && <StyledRightOutlined data-testid="right-arrow" />}
-                        </>
-                    ))}
-                </>
-            }
-            overlayStyle={isContentTruncated ? {} : { display: 'none' }}
-        >
-            {isContentTruncated && <Ellipsis>...</Ellipsis>}
-            <ParentNodesWrapper ref={contentRef}>
-                {[...(parentNodes || [])]?.map((parentNode, idx) => (
-                    <>
-                        <GlossaryNodeText color={ANTD_GRAY[7]}>
-                            {entityRegistry.getDisplayName(EntityType.GlossaryNode, parentNode)}
-                        </GlossaryNodeText>
-                        <GlossaryNodeIcon color={ANTD_GRAY[7]} />
-                        {idx + 1 !== parentNodes?.length && <StyledRightOutlined data-testid="right-arrow" />}
-                    </>
-                ))}
-            </ParentNodesWrapper>
-        </StyledTooltip>
-    );
-}

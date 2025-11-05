@@ -1,4 +1,4 @@
-import React, { ReactNode, createContext, useContext } from 'react';
+import React, { ReactNode, createContext } from 'react';
 
 interface BrowserTitleContextProps {
     title: string;
@@ -15,12 +15,4 @@ export const BrowserTitleProvider: React.FC<{ children: ReactNode }> = ({ childr
     };
 
     return <BrowserTitleContext.Provider value={{ title, updateTitle }}>{children}</BrowserTitleContext.Provider>;
-};
-
-export const useBrowserTitle = () => {
-    const context = useContext(BrowserTitleContext);
-    if (!context) {
-        throw new Error('useBrowserTitle must be used within a BrowserTitleProvider');
-    }
-    return context;
 };

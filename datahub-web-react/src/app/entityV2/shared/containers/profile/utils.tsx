@@ -16,7 +16,6 @@ import {
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { EntitySidebarSection, EntitySidebarTab, EntityTab } from '@app/entityV2/shared/types';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import {
     ENTITY_PROFILE_DOMAINS_ID,
     ENTITY_PROFILE_GLOSSARY_TERMS_ID,
@@ -39,7 +38,6 @@ import {
     ENTITY_SIDEBAR_V2_PROPERTIES_ID,
 } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
 import usePrevious from '@app/shared/usePrevious';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, FeatureFlagsConfig } from '@types';
@@ -135,13 +133,6 @@ export function getEntityPath(
     }${tabParamsString}`;
 }
 
-export function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {
-    const isLineageMode = useIsLineageMode();
-    const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const entityRegistry = useEntityRegistry();
-    return getEntityPath(entityType, urn, entityRegistry, isLineageMode, isHideSiblingMode, tabName, tabParams);
-}
-
 export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     const { pathname } = useLocation();
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
@@ -154,19 +145,6 @@ export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     }
     // No match found!
     return undefined;
-}
-
-export function useIsOnTab(tabName: string): boolean {
-    const { pathname } = useLocation();
-    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-    // Match against the regex
-    const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
-    if (match && match[1]) {
-        const selectedTabPath = match[1];
-        return selectedTabPath === tabName;
-    }
-    // No match found!
-    return false;
 }
 
 export function useGlossaryActiveTabPath(): string {

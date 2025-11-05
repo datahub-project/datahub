@@ -5,7 +5,7 @@ export interface ValueColumnData {
     entity: Entity | null;
 }
 
-export interface TypeData {
+interface TypeData {
     type: string;
     nativeDataType: string;
 }

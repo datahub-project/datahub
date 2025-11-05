@@ -1,6 +1,6 @@
 import { Assertion, AssertionType } from '@types';
 
-export type AssertionStatusSummary = {
+type AssertionStatusSummary = {
     passing: number;
     failing: number;
     erroring: number;

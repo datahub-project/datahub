@@ -20,4 +20,3 @@ export function useQuickFiltersContext() {
     return useContext(QuickFiltersContext);
 }
 
-export default QuickFiltersContext;

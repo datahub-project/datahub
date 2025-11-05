@@ -39,7 +39,7 @@ const EntityDrawer = styled(Drawer)<{ distanceFromTop: number }>`
     }
 `;
 
-export function getEntityAndType(lineageData?: GetEntityLineageQuery) {
+function getEntityAndType(lineageData?: GetEntityLineageQuery) {
     if (lineageData && lineageData.entity) {
         return {
             type: lineageData.entity.type,

@@ -16,7 +16,7 @@ const StyledButton = styled(Button)`
     border-radius: 0;
 `;
 
-export const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`
+const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`
     background-color: white;
     ${(props) => props.type === 'card' && 'border-radius: 5px;'}
     ${(props) =>

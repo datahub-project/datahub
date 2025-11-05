@@ -11,7 +11,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityPath, EntityType, SearchResult } from '@types';
 
-export const StyledList = styled(List)`
+const StyledList = styled(List)`
     height: 100%;
     flex: 1;
     overflow: auto;
@@ -37,7 +37,7 @@ const StyledCheckbox = styled(Checkbox)`
     margin-right: 12px;
 `;
 
-export const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded; compactUserSearchCardStyle: boolean }>`
+const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded; compactUserSearchCardStyle: boolean }>`
     padding: 20px;
     display: flex;
     align-items: center;

@@ -31,12 +31,12 @@ export function getRecipeJson(recipeYaml: string) {
     return recipeJson;
 }
 
-export function getSourceTypeFromRecipeJson(recipeJson: string) {
+function getSourceTypeFromRecipeJson(recipeJson: string) {
     const recipe = JSON.parse(recipeJson);
     return recipe.source.type;
 }
 
-export function getBasicConnectivityFromResult(result: ExecutionRequestResult) {
+function getBasicConnectivityFromResult(result: ExecutionRequestResult) {
     if (!result?.structuredReport?.serializedValue) {
         return false;
     }

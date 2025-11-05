@@ -95,7 +95,7 @@ const MoreIndicator = styled.span`
     break-word: normal;
 `;
 
-export type Props = {
+type Props = {
     content: string;
     lineLimit?: number | null;
     fixedLineHeight?: boolean;

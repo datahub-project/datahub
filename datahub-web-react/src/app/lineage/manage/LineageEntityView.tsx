@@ -33,7 +33,7 @@ const PlatformLogo = styled.img`
     margin-right: 5px;
 `;
 
-export const EntityName = styled.span<{ shrinkSize?: boolean }>`
+const EntityName = styled.span<{ shrinkSize?: boolean }>`
     font-size: ${(props) => (props.shrinkSize ? '12px' : '14px')};
     font-weight: bold;
 `;

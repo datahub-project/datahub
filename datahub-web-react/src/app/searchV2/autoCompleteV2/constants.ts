@@ -1,6 +1,6 @@
 import { VariantElementsPropsMapping, VariantProps } from '@app/searchV2/autoCompleteV2/types';
 
-export const DEFAULT_STYLES: VariantProps = {
+const DEFAULT_STYLES: VariantProps = {
     showEntityPopover: true,
     nameColor: 'gray',
     nameColorLevel: 600,

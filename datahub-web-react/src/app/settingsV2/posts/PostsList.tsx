@@ -26,7 +26,7 @@ const PostsContainer = styled.div`
     overflow: auto;
 `;
 
-export const PostsPaginationContainer = styled.div`
+const PostsPaginationContainer = styled.div`
     display: flex;
     justify-content: center;
     padding: 12px;

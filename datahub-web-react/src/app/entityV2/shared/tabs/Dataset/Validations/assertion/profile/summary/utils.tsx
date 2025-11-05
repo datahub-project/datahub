@@ -61,7 +61,7 @@ import { useGetUserQuery } from '@graphql/user.generated';
  * @link getOperatorText
  * Returns the Plain Text to render for the operator portion of the Assertion Description
  */
-export const getOperatorPlainText = (
+const getOperatorPlainText = (
     op: AssertionStdOperator,
     parameters: AssertionStdParameters | undefined,
     nativeType: string | undefined,
@@ -130,7 +130,7 @@ export const getOperatorPlainText = (
  *
  * Schema assertions require an aggregation.
  */
-export const getSchemaAggregationPlainText = (
+const getSchemaAggregationPlainText = (
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
 ) => {
@@ -156,7 +156,7 @@ export const getSchemaAggregationPlainText = (
  *
  * Row assertions require an aggregation.
  */
-export const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | undefined | null) => {
+const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | undefined | null) => {
     switch (aggregation) {
         case AssertionStdAggregation.RowCount:
             return 'Dataset row count is';
@@ -176,7 +176,7 @@ export const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Columns
  */
-export const getColumnAggregationPlainText = (
+const getColumnAggregationPlainText = (
     aggregation: AssertionStdAggregation | undefined | null,
     field: SchemaFieldRef | undefined,
 ) => {
@@ -230,7 +230,7 @@ export const getColumnAggregationPlainText = (
  * @link getAggregationText
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  */
-export const getAggregationPlainText = (
+const getAggregationPlainText = (
     scope: DatasetAssertionScope,
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
@@ -254,7 +254,7 @@ export const getAggregationPlainText = (
  * A human-readable Plain Text description of a Dataset Assertion.
  */
 
-export const getDatasetAssertionPlainTextDescription = (datasetAssertion: DatasetAssertionInfo): string => {
+const getDatasetAssertionPlainTextDescription = (datasetAssertion: DatasetAssertionInfo): string => {
     const { scope, aggregation, fields, operator, parameters, nativeType } = datasetAssertion;
     const aggregationPlainText = getAggregationPlainText(scope, aggregation, fields);
     const operatorPlainText = getOperatorPlainText(operator, parameters || undefined, nativeType || undefined);
@@ -266,7 +266,7 @@ export const getDatasetAssertionPlainTextDescription = (datasetAssertion: Datase
  * @link getAggregationText
  * A human-readable Plain Text description of a Volume Assertion.
  */
-export const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionInfo): string => {
+const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionInfo): string => {
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
     const volumeTypeDescription = getVolumeTypeDescription(volumeType);
@@ -284,7 +284,7 @@ export const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAsse
  * @link getAggregationText
  * A human-readable Plain Text description of a Field Assertion.
  */
-export const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
+const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
     const field = getFieldDescription(assertionInfo);
     const transform = getFieldTransformDescription(assertionInfo);
     // Do not pluralize if this is a metric assertion since you're checking one metric, not multiple values
@@ -300,7 +300,7 @@ export const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssert
  * @link getAggregationText
  * A human-readable Plain Text description of a Schema Assertion.
  */
-export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {
+const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {
     const { compatibility } = assertionInfo;
     const matchText = compatibility === SchemaAssertionCompatibility.ExactMatch ? 'exactly match' : 'include';
     const expectedColumnCount = assertionInfo?.fields?.length || 0;
@@ -312,7 +312,7 @@ export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAsse
 /**
  * A human-readable Plain Text description of an Freshness Assertion.
  */
-export const getFreshnessAssertionPlainTextDescription = (
+const getFreshnessAssertionPlainTextDescription = (
     assertionInfo: FreshnessAssertionInfo,
     monitorSchedule: CronSchedule,
 ) => {

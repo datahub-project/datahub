@@ -81,7 +81,7 @@ const SelectContainer = styled.div`
     align-items: flex-start;
 `;
 
-export enum StatusType {
+enum StatusType {
     ALL,
     ACTIVE,
     INACTIVE,

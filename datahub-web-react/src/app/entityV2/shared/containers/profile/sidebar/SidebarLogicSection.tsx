@@ -87,7 +87,7 @@ interface HelperProps {
 }
 
 // exported for testing only
-export function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
+function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
     const [showFullContentModal, setShowFullContentModal] = useState(false);
     const isEmbeddedProfile = useIsEmbeddedProfile();
 

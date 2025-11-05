@@ -1,4 +1,4 @@
-import { geekblue } from '@ant-design/colors';
+
 import { Tooltip } from '@components';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import React from 'react';
@@ -9,13 +9,6 @@ import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { UsageQueryResult } from '@types';
-
-export const UsageBar = styled.div<{ width: number }>`
-    width: ${(props) => props.width}px;
-    height: 4px;
-    background-color: ${geekblue[3]};
-    border-radius: 2px;
-`;
 
 const IconsContainer = styled.div`
     display: flex;

@@ -18,7 +18,7 @@ import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import { useListSecretsQuery } from '@graphql/ingestion.generated';
 import { IngestionSource } from '@types';
 
-export const ControlsContainer = styled.div`
+const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 12px;

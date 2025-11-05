@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { DomainsPaginationContainer } from '@app/domain/DomainsList';
+import { DomainsPaginationContainer } from '@app/domainV2/DomainsList';
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import CreateDataProductModal from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
 import DataProductResult from '@app/entityV2/domain/DataProductsTab/DataProductResult';

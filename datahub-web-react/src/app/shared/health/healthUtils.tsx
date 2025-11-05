@@ -1,17 +1,13 @@
 import {
     CheckCircleOutlined,
-    CheckOutlined,
-    CloseOutlined,
     ExclamationCircleOutlined,
     ExclamationCircleTwoTone,
-    WarningFilled,
-    WarningOutlined,
 } from '@ant-design/icons';
 import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import { SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
@@ -86,68 +82,6 @@ export const getHealthSummaryIcon = (
 export const getHealthSummaryMessage = (healths: Health[]) => {
     const unhealthy = isUnhealthy(healths);
     return unhealthy ? 'This asset may be unhealthy' : 'This asset is healthy';
-};
-
-export const getHealthColor = (status: HealthStatus) => {
-    switch (status) {
-        case HealthStatus.Pass: {
-            return 'green';
-        }
-        case HealthStatus.Fail: {
-            return 'red';
-        }
-        case HealthStatus.Warn: {
-            return 'yellow';
-        }
-        default:
-            throw new Error(`Unrecognized Health Status ${status} provided`);
-    }
-};
-
-export const getAssertionsHealthIcon = (status: HealthStatus, fontSize: number) => {
-    switch (status) {
-        case HealthStatus.Pass: {
-            return <CheckOutlined style={{ color: getHealthColor(status), fontSize }} />;
-        }
-        case HealthStatus.Fail: {
-            return <CloseOutlined style={{ color: getHealthColor(status), fontSize }} />;
-        }
-        case HealthStatus.Warn: {
-            return <WarningOutlined style={{ color: getHealthColor(status), fontSize }} />;
-        }
-        default:
-            throw new Error(`Unrecognized Health Status ${status} provided`);
-    }
-};
-
-export const getIncidentsHealthIcon = (status: HealthStatus, fontSize: number) => {
-    switch (status) {
-        case HealthStatus.Pass: {
-            // No "success" logo.
-            return null;
-        }
-        case HealthStatus.Fail: {
-            return <WarningFilled style={{ color: FAILURE_COLOR_HEX, fontSize }} />;
-        }
-        case HealthStatus.Warn: {
-            return <WarningFilled style={{ color: FAILURE_COLOR_HEX, fontSize }} />;
-        }
-        default:
-            throw new Error(`Unrecognized Health Status ${status} provided`);
-    }
-};
-
-export const getHealthIcon = (type: HealthStatusType, status: HealthStatus, fontSize: number) => {
-    switch (type) {
-        case HealthStatusType.Assertions: {
-            return getAssertionsHealthIcon(status, fontSize);
-        }
-        case HealthStatusType.Incidents: {
-            return getIncidentsHealthIcon(status, fontSize);
-        }
-        default:
-            throw new Error(`Unrecognized Health Status Type ${type} provided`);
-    }
 };
 
 export const getHealthRedirectPath = (type: HealthStatusType) => {

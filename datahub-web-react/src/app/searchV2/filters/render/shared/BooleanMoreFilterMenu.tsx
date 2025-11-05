@@ -10,7 +10,7 @@ const StyledButton = styled(Button)`
     border-radius: 0;
 `;
 
-export const DropdownMenu = styled.div`
+const DropdownMenu = styled.div`
     background-color: white;
     border-radius: 5px;
     box-shadow:

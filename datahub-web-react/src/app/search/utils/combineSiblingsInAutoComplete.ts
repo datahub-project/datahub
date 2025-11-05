@@ -2,7 +2,7 @@ import { CombinedEntity, createSiblingEntityCombiner } from '@app/entity/shared/
 
 import { AutoCompleteResultForEntity, EntityType } from '@types';
 
-export type CombinedSuggestion = {
+type CombinedSuggestion = {
     type: EntityType;
     combinedEntities: Array<CombinedEntity>;
     suggestions?: AutoCompleteResultForEntity['suggestions'];

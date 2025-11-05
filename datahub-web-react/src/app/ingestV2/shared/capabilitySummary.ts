@@ -20,4 +20,4 @@ interface CapabilitySummary {
 }
 
 // Export types for use in other files
-export type { CapabilitySummary, PluginDetails, Capability };
+export type { CapabilitySummary, PluginDetails  };

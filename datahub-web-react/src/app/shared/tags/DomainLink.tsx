@@ -53,7 +53,7 @@ function DomainContent({ domain, name, closable, onClose, tagStyle, fontSize }: 
     );
 }
 
-export type Props = {
+type Props = {
     domain: Domain;
     name?: string;
     closable?: boolean;

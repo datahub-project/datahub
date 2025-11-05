@@ -63,7 +63,7 @@ const SsoTextSpan = styled.span`
     padding-top: 6px;
 `;
 
-export type LogInProps = Record<string, never>;
+type LogInProps = Record<string, never>;
 
 export const LogIn: React.VFC<LogInProps> = () => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);

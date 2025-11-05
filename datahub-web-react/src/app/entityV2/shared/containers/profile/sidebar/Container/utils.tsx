@@ -13,13 +13,13 @@ const SummaryText = styled.span`
     color: ${ANTD_GRAY[7]};
 `;
 
-export type ContentTypeSummary = {
+type ContentTypeSummary = {
     type: string;
     count: number;
     isEntityType: boolean; // If false, this represents a sub-type.
 };
 
-export type ContentsSummary = {
+type ContentsSummary = {
     total: number;
     types: ContentTypeSummary[];
 };

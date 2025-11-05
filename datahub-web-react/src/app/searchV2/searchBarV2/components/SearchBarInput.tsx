@@ -37,7 +37,7 @@ const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
 
 const ViewSelectContainer = styled.div``;
 
-export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
+const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
     background: transparent;
     width: 100%;
     min-width: 500px;

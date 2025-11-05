@@ -18,18 +18,18 @@ import { FacetFilterInput, FacetMetadata } from '@types';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 6;
 
-export const FlexWrapper = styled.div`
+const FlexWrapper = styled.div`
     display: flex;
     flex-wrap: wrap;
     align-items: center;
 `;
 
-export const FlexSpacer = styled.div`
+const FlexSpacer = styled.div`
     display: flex;
     justify-content: space-between;
 `;
 
-export const FilterButtonsWrapper = styled.div`
+const FilterButtonsWrapper = styled.div`
     display: flex;
     flex-wrap: nowrap;
 `;

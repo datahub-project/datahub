@@ -93,7 +93,7 @@ const DescriptionLabel = styled(Typography.Text)`
     }
 `;
 
-export const EmptyValue = styled.div`
+const EmptyValue = styled.div`
     &:after {
         content: 'None';
         color: #b7b7b7;

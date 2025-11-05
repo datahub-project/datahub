@@ -31,11 +31,11 @@ import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '@graphql/user.generated';
 import { EntityRelationship, EntityType } from '@types';
 
-export interface Props {
+interface Props {
     urn: string;
 }
 
-export enum TabType {
+enum TabType {
     Assets = 'Owner Of',
     Groups = 'Groups',
 }
@@ -72,15 +72,6 @@ const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     `}
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-`;
-
-export const EmptyValue = styled.div`
-    &:after {
-        content: 'None';
-        color: #b7b7b7;
-        font-style: italic;
-        font-weight: 100;
-    }
 `;
 
 const ContentContainer = styled.div<{ isVisible: boolean }>`

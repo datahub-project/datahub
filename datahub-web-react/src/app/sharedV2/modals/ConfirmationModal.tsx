@@ -9,7 +9,7 @@ const ButtonsContainer = styled.div`
     justify-content: end;
 `;
 
-export const StyledModal = styled(Modal)`
+const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {

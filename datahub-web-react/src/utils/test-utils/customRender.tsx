@@ -3,7 +3,7 @@ import { RenderOptions, render } from '@testing-library/react';
 import React from 'react';
 
 // ApolloTestWrapper wraps children in MockedProvider with default settings
-export const ApolloTestWrapper: React.FC<Partial<MockedProviderProps> & { children: React.ReactNode }> = ({
+const ApolloTestWrapper: React.FC<Partial<MockedProviderProps> & { children: React.ReactNode }> = ({
     mocks = [],
     addTypename = false,
     children,

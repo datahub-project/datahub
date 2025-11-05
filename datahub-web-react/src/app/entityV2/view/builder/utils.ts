@@ -6,18 +6,7 @@ import {
     UnionType,
 } from '@app/search/utils/constants';
 
-import { DataHubViewType, Entity, EntityType, FacetFilter, FacetFilterInput, LogicalOperator } from '@types';
-
-/**
- * Extract the special "Entity Type" filter values from a list
- * of filters.
- */
-export const extractEntityTypesFilterValues = (filters: Array<FacetFilterInput>) => {
-    // Currently we only support 1 entity type filter.
-    return filters
-        .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .flatMap((filter) => filter.values as EntityType[]);
-};
+import { Entity, FacetFilterInput, LogicalOperator } from '@types';
 
 /**
  * Converts the nested subtype filter to be split into entity type filters and subType filters.
@@ -49,42 +38,6 @@ export function convertNestedSubTypeFilter(filters: Array<FacetFilterInput>) {
     }
     return convertedFilters;
 }
-
-/**
- * Build an object representation of a View Definition, which consists of a list of entity types +
- * a set of filters joined in either conjunction or disjunction.
- *
- * @param filters a list of Facet Filter Inputs representing the view filters. This can include the entity type filter.
- * @param operatorType a logical operator to be used when joining the filters into the View definition.
- */
-export const buildViewDefinition = (filters: Array<FacetFilterInput>, operatorType: LogicalOperator) => {
-    const convertedFilters = convertNestedSubTypeFilter(filters);
-    const entityTypes = extractEntityTypesFilterValues(convertedFilters);
-    const filteredFilters = convertedFilters.filter((filter) => filter.field !== ENTITY_FILTER_NAME);
-    return {
-        entityTypes,
-        filter: {
-            operator: operatorType,
-            filters: (filteredFilters.length > 0 ? filteredFilters : []) as FacetFilter[],
-        },
-    };
-};
-
-/**
- * Build an object representation of a View Definition, which consists of a list of entity types +
- * a set of filters joined in either conjunction or disjunction.
- *
- * @param filters a list of Facet Filter Inputs representing the view filters. This can include the entity type filter.
- * @param operatorType a logical operator to be used when joining the filters into the View definition.
- */
-export const buildInitialViewState = (filters: Array<FacetFilterInput>, operatorType: LogicalOperator) => {
-    return {
-        viewType: DataHubViewType.Personal,
-        name: '',
-        description: null,
-        definition: buildViewDefinition(filters, operatorType),
-    };
-};
 
 /**
  * Convert a LogicalOperator to the equivalent UnionType.

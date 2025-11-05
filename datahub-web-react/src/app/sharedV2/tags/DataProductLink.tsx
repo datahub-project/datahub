@@ -76,7 +76,7 @@ function DataProductContent({ dataProduct, name, closable, onClose, tagStyle, fo
     );
 }
 
-export type Props = {
+type Props = {
     dataProduct: DataProductEntity;
     name?: string;
     closable?: boolean;

@@ -1,11 +1,5 @@
 import {
-    BookOutlined,
-    DatabaseOutlined,
-    FileOutlined,
     FolderFilled,
-    FolderOutlined,
-    TagOutlined,
-    UserOutlined,
 } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
 import moment from 'moment-timezone';
@@ -15,62 +9,32 @@ import styled from 'styled-components';
 import { IconStyleType } from '@app/entity/Entity';
 import EntityRegistry from '@app/entity/EntityRegistry';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { FACETS_TO_ENTITY_TYPES } from '@app/search/filters/constants';
 import { FilterOptionType } from '@app/search/filters/types';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
-    DOMAINS_FILTER_NAME,
     ENTITY_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
     FILTER_DELIMITER,
-    GLOSSARY_TERMS_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
-    OWNERS_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     STRUCTURED_PROPERTIES_FILTER_NAME,
-    TAGS_FILTER_NAME,
-    TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/search/utils/constants';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fields';
 import { DATE_TYPE_URN } from '@src/app/shared/constants';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import TableIcon from '@src/images/table-icon.svg?react';
-
-import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {
-    AggregationMetadata,
     Container,
     DataPlatform,
     DataPlatformInstance,
     Domain,
     Entity,
     EntityType,
-    FacetFilterInput,
-    FacetMetadata,
     GlossaryTerm,
     StructuredPropertyEntity,
 } from '@types';
-
-import DomainsIcon from '@images/domain.svg?react';
-
-// either adds or removes selectedFilterValues to/from activeFilters for a given filterField
-export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
-    let newFilters = activeFilters;
-    if (activeFilters.find((activeFilter) => activeFilter.field === filterField)) {
-        newFilters = activeFilters
-            .map((f) => (f.field === filterField ? { ...f, values: selectedFilterValues } : f))
-            .filter((f) => !(f.values?.length === 0));
-    } else {
-        newFilters = [...activeFilters, { field: filterField, values: selectedFilterValues }].filter(
-            (f) => !(f.values?.length === 0),
-        );
-    }
-    return newFilters;
-}
 
 export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[], filterValue: string) {
     const parentFilterValues = filterValue.includes(FILTER_DELIMITER)
@@ -83,14 +47,6 @@ export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[]
 
 export function isAnyOptionSelected(selectedFilterOptions: FilterOptionType[], filterValues?: string[]) {
     return selectedFilterOptions.some((option) => filterValues?.some((filterValue) => filterValue === option.value));
-}
-
-export function getFilterEntity(filterField: string, filterValue: string, availableFilters: FacetMetadata[] | null) {
-    return (
-        availableFilters
-            ?.find((facet) => facet.field === filterField)
-            ?.aggregations.find((agg) => agg.value === filterValue)?.entity || null
-    );
 }
 
 export const PlatformIcon = styled.img<{ size?: number }>`
@@ -235,143 +191,6 @@ export function getFilterIconAndLabel(
     return { icon, label };
 }
 
-export function getNumActiveFiltersForFilter(activeFilters: FacetFilterInput[], filter: FacetMetadata) {
-    return activeFilters.find((f) => f.field === filter.field)?.values?.length || 0;
-}
-
-export function getNumActiveFiltersForGroupOfFilters(activeFilters: FacetFilterInput[], filters: FacetMetadata[]) {
-    let numActiveFilters = 0;
-    filters.forEach((filter) => {
-        numActiveFilters += getNumActiveFiltersForFilter(activeFilters, filter);
-    });
-    return numActiveFilters;
-}
-
-// combine existing aggs from search response with new aggregateAcrossEntities response
-export function combineAggregations(
-    filterField: string,
-    originalAggs: AggregationMetadata[],
-    newFacets?: FacetMetadata[] | null,
-) {
-    const combinedAggregations = [...originalAggs];
-    if (newFacets) {
-        const newAggregations = newFacets.find((facet) => facet.field === filterField)?.aggregations;
-        newAggregations?.forEach((agg) => {
-            // only add the new aggregations if it is not already in the original to avoid dupes
-            if (!originalAggs.find((existingAgg) => existingAgg.value === agg.value)) {
-                combinedAggregations.push(agg);
-            }
-        });
-    }
-    return combinedAggregations;
-}
-
-// filter out any aggregations with a count of 0 unless it's already selected and in activeFilters
-export function filterEmptyAggregations(aggregations: AggregationMetadata[], activeFilters: FacetFilterInput[]) {
-    return aggregations.filter((agg) => {
-        if (agg.count === 0) {
-            return activeFilters.find((activeFilter) => activeFilter.values?.includes(agg.value));
-        }
-        return true;
-    });
-}
-
-export function sortFacets(facetA: FacetMetadata, facetB: FacetMetadata, sortedFacetFields: string[]) {
-    if (sortedFacetFields.indexOf(facetA.field) === -1) return 1;
-    if (sortedFacetFields.indexOf(facetB.field) === -1) return -1;
-    return sortedFacetFields.indexOf(facetA.field) - sortedFacetFields.indexOf(facetB.field);
-}
-
-export function getFilterDropdownIcon(field: string) {
-    if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)) {
-        return STRUCTURED_PROPERTY_FILTER.icon as JSX.Element;
-    }
-    if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)) {
-        return <Icon component={TableIcon} />;
-    }
-
-    switch (field) {
-        case PLATFORM_FILTER_NAME:
-            return <DatabaseOutlined />;
-        case ENTITY_FILTER_NAME:
-            return <FileOutlined />;
-        case TYPE_NAMES_FILTER_NAME:
-            return <FileOutlined />;
-        case GLOSSARY_TERMS_FILTER_NAME:
-            return <BookOutlined />;
-        case TAGS_FILTER_NAME:
-            return <TagOutlined />;
-        case OWNERS_FILTER_NAME:
-            return <UserOutlined />;
-        case CONTAINER_FILTER_NAME:
-            return <FolderOutlined />;
-        case DOMAINS_FILTER_NAME:
-            return <Icon component={DomainsIcon} />;
-        default:
-            return null;
-    }
-}
-
-// maps aggregations and auto complete results to FilterOptionType[] and adds selected filter options if not already there
-export function getFilterOptions(
-    filterField: string,
-    aggregations: AggregationMetadata[],
-    selectedFilterOptions: FilterOptionType[],
-    autoCompleteResults?: GetAutoCompleteMultipleResultsQuery,
-    filterEntity?: Entity | null,
-) {
-    const aggregationFilterOptions = aggregations.map((agg) => ({
-        field: filterField,
-        displayName: getStructuredPropFilterDisplayName(filterField, agg.value, filterEntity),
-        ...agg,
-    }));
-
-    const searchResults = autoCompleteResults?.autoCompleteForMultiple?.suggestions?.find((suggestion) =>
-        FACETS_TO_ENTITY_TYPES[filterField]?.includes(suggestion.type),
-    );
-    const searchFilterOptions = searchResults?.entities
-        .filter((entity) => !aggregations.find((agg) => agg.value === entity.urn))
-        .map((entity) => ({ field: filterField, value: entity.urn, entity }));
-
-    let filterOptions: FilterOptionType[] = searchFilterOptions
-        ? [...aggregationFilterOptions, ...searchFilterOptions]
-        : aggregationFilterOptions;
-
-    // if a selected filter option is not in this list (because search results have changed) then insert at the beginning of the list
-    selectedFilterOptions.forEach((selectedOption) => {
-        if (!filterOptions.find((option) => option.value === selectedOption.value)) {
-            filterOptions = [selectedOption, ...filterOptions];
-        }
-    });
-
-    return filterOptions;
-}
-
-export function filterOptionsWithSearch(searchQuery: string, name: string, nestedOptions: FilterOptionType[] = []) {
-    if (searchQuery) {
-        return (
-            name.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()) ||
-            !!nestedOptions.find((option) => option.value.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()))
-        );
-    }
-    return true;
-}
-
-export const createBrowseV2SearchFilter = (path: Array<string>) => `${UNIT_SEPARATOR}${path.join(UNIT_SEPARATOR)}`;
-
-export function canCreateViewFromFilters(activeFilters: FacetFilterInput[]) {
-    const nestedSubTypeFilter = activeFilters.find((f) => f.field === ENTITY_SUB_TYPE_FILTER_NAME);
-    if (nestedSubTypeFilter) {
-        const entityTypes = nestedSubTypeFilter.values?.filter((value) => !value.includes(FILTER_DELIMITER));
-        const subTypes = nestedSubTypeFilter.values?.filter((value) => value.includes(FILTER_DELIMITER));
-
-        if (entityTypes?.length && subTypes?.length) {
-            return false;
-        }
-    }
-    return true;
-}
-
 export function getParentEntities(entity: Entity): Entity[] | null {
     if (!entity) {
         return null;
@@ -412,7 +231,7 @@ export function useElementDimensions(ref) {
     return dimensions;
 }
 
-export function getStructuredPropFilterDisplayName(field: string, value: string, entity?: Entity | null) {
+function getStructuredPropFilterDisplayName(field: string, value: string, entity?: Entity | null) {
     const isStructuredPropertyValue = field.startsWith('structuredProperties.');
     if (!isStructuredPropertyValue) return undefined;
 
@@ -433,21 +252,4 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
     }
 
     return removeMarkdown(value);
-}
-
-export function useFilterDisplayName(filter: FacetMetadata, predicateDisplayName?: string) {
-    const entityRegistry = useEntityRegistry();
-
-    if (filter.entity) {
-        return entityRegistry.getDisplayName(filter.entity.type, filter.entity);
-    }
-
-    return predicateDisplayName || filter.displayName || filter.field;
-}
-
-export function getIsDateRangeFilter(field: FacetMetadata) {
-    if (field.entity && field.entity.type === EntityType.StructuredProperty) {
-        return (field.entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN;
-    }
-    return false;
 }

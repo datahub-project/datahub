@@ -1,9 +1,9 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
+
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
-import { DataProduct, Entity, EntityRelationshipsResult, EntityType, PropertyValue } from '@types';
+import { Entity, EntityType, PropertyValue } from '@types';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
     return Object.keys(params)
@@ -32,12 +32,6 @@ export function decodeUrn(encodedUrn: string) {
     return decodeURIComponent(encodedUrn).replace(/{{encoded_percent}}/g, '%');
 }
 
-export function getNumberWithOrdinal(n) {
-    const suffixes = ['th', 'st', 'nd', 'rd'];
-    const v = n % 100;
-    return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
-}
-
 export const encodeComma = (str: string) => {
     return str.replace(/,/g, '%2C');
 };
@@ -45,10 +39,6 @@ export const encodeComma = (str: string) => {
 export const decodeComma = (str: string) => {
     return str.replace(/%2C/g, ',');
 };
-
-export function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
-    return value !== null && value !== undefined;
-}
 
 export const truncate = (length: number, input?: string | null) => {
     if (!input) return '';
@@ -74,8 +64,6 @@ export const singularizeCollectionName = (collectionName: string): string => {
 export function getPlatformName(entityData: GenericEntityProperties | null) {
     return entityData?.platform?.properties?.displayName || capitalizeFirstLetterOnly(entityData?.platform?.name);
 }
-
-export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
 
 export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
 
@@ -125,12 +113,6 @@ export function getFineGrainedLineageWithSiblings(
     });
     return fineGrainedLineages;
 }
-export function getDataProduct(dataProductResult: Maybe<EntityRelationshipsResult> | undefined) {
-    if (dataProductResult?.relationships && dataProductResult.relationships.length > 0) {
-        return dataProductResult.relationships[0].entity as DataProduct;
-    }
-    return null;
-}
 
 export function getStructuredPropertyValue(value: PropertyValue) {
     if (value.__typename === 'StringValue') {
@@ -143,7 +125,7 @@ export function getStructuredPropertyValue(value: PropertyValue) {
 }
 
 // Utility for formatting any casing of type to the expected casing for the API
-export function formatEntityType(type: string): string {
+function formatEntityType(type: string): string {
     if (!type) return '';
 
     switch (type.toLowerCase()) {

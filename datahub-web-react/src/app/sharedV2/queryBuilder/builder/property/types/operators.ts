@@ -65,7 +65,7 @@ export type Operator = {
 /**
  * A list of well-supported operators.
  */
-export const OPERATORS: Operator[] = [
+const OPERATORS: Operator[] = [
     {
         id: OperatorId.EQUAL_TO,
         displayName: 'Equals',

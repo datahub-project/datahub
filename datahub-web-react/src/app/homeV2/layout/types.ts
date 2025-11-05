@@ -22,7 +22,7 @@ export interface NavSubMenuItem {
     onClick?: () => void;
 }
 
-export interface NavSubMenu {
+interface NavSubMenu {
     isOpen: boolean;
     open: () => void;
     close: () => void;

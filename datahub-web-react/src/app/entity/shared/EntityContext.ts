@@ -19,7 +19,6 @@ export const EntityContext = React.createContext<EntityContextType>({
     entityState: { shouldRefetchContents: false, setShouldRefetchContents: () => {} },
 });
 
-export default EntityContext;
 
 export function useEntityContext() {
     return useContext(EntityContext);
@@ -53,11 +52,6 @@ export const useRouteToTab = () => {
 export const useRefetch = () => {
     const { refetch } = useContext(EntityContext);
     return refetch;
-};
-
-export const useLineageData = () => {
-    const { lineage } = useContext(EntityContext);
-    return lineage;
 };
 
 export const useMutationUrn = () => {

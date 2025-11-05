@@ -12,14 +12,14 @@ interface DraggedModuleData {
     isSmall: boolean;
 }
 
-export interface DroppableData {
+interface DroppableData {
     rowIndex: number;
     moduleIndex?: number; // If undefined, drop at the end of the row
     insertNewRow?: boolean; // If true, create a new row at this position
     isSmall?: boolean; // If undefined, accept any module size
 }
 
-export interface ActiveDragModule {
+interface ActiveDragModule {
     module: PageModuleFragment;
     position: ModulePositionInput;
     isSmall: boolean;

@@ -43,7 +43,7 @@ export type UserContextType = {
     refetchUser: () => any;
 };
 
-export const DEFAULT_LOCAL_STATE: LocalState = {
+const DEFAULT_LOCAL_STATE: LocalState = {
     selectedViewUrn: undefined,
 };
 
@@ -58,7 +58,7 @@ export const DEFAULT_STATE: State = {
     customState: DEFAULT_CUSTOM_STATE,
 };
 
-export const DEFAULT_CONTEXT = {
+const DEFAULT_CONTEXT = {
     loaded: false,
     urn: undefined,
     user: undefined,

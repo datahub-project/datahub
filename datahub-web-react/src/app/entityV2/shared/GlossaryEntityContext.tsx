@@ -3,7 +3,7 @@ import React, { useContext } from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity } from '@src/types.generated';
 
-export interface GlossaryEntityContextType {
+interface GlossaryEntityContextType {
     isInGlossaryContext: boolean;
     entityData: GenericEntityProperties | null;
     setEntityData: (entityData: GenericEntityProperties | null) => void;

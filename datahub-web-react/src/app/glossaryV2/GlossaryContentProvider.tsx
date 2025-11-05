@@ -17,7 +17,7 @@ const MainContentWrapper = styled.div`
     flex-direction: column;
 `;
 
-export const HeaderWrapper = styled.div`
+const HeaderWrapper = styled.div`
     padding: 16px 20px 12px 20px;
     display: flex;
     align-items: center;

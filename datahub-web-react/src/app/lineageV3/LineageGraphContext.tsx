@@ -1,6 +1,6 @@
 import React from 'react';
 
-export interface LineageGraphContextType {
+interface LineageGraphContextType {
     isDAGView: boolean;
 }
 

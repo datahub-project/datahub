@@ -9,7 +9,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DownstreamEntityRelationships, EntityType, UpstreamEntityRelationships } from '@types';
 
-export type Props = {
+type Props = {
     upstreamLineage?: UpstreamEntityRelationships | null;
     downstreamLineage?: DownstreamEntityRelationships | null;
 };

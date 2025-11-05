@@ -14,7 +14,7 @@ import { useDomainsContext } from '@src/app/domainV2/DomainsContext';
 import { Domain, EntityType } from '@types';
 
 // filter out entity itself and its children
-export function filterResultsForMove(entity: Domain, entityUrn: string) {
+function filterResultsForMove(entity: Domain, entityUrn: string) {
     return (
         entity.urn !== entityUrn &&
         entity.__typename === 'Domain' &&

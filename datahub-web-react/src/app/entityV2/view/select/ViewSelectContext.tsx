@@ -18,7 +18,7 @@ type ViewBuilderDisplayState = {
     view?: DataHubView;
 };
 
-export type ViewSelectContextType = {
+type ViewSelectContextType = {
     isInternalOpen: boolean;
     onOpenChangeHandler: () => void;
     privateView: boolean;
@@ -80,7 +80,7 @@ const DEFAULT_CONTEXT: ViewSelectContextType = {
     toggleOpenState: () => {},
 };
 
-export const ViewSelectContext = React.createContext<ViewSelectContextType>(DEFAULT_CONTEXT);
+const ViewSelectContext = React.createContext<ViewSelectContextType>(DEFAULT_CONTEXT);
 
 const DEFAULT_VIEW_BUILDER_DISPLAY_STATE = {
     mode: ViewBuilderMode.EDITOR,

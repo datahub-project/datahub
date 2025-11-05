@@ -97,7 +97,7 @@ const CloseIconStyle = styled(CloseIcon)`
     color: white;
 `;
 
-export const TermRibbon = styled.span<{ color: string; opacity?: number }>`
+const TermRibbon = styled.span<{ color: string; opacity?: number }>`
     position: absolute;
     left: -20px;
     top: 4px;

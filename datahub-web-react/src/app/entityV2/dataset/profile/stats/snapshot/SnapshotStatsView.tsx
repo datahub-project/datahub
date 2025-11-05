@@ -20,7 +20,7 @@ const decimalToPercentStr = (decimal: number, precision: number): string => {
     return `${(decimal * 100).toFixed(precision)}%`;
 };
 
-export type Props = {
+type Props = {
     profile: DatasetProfile;
 };
 

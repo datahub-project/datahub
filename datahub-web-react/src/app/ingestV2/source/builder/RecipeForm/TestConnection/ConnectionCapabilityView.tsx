@@ -30,12 +30,12 @@ const StyledQuestion = styled(QuestionCircleOutlined)`
     margin-left: 4px;
 `;
 
-export const StyledCheck = styled(CheckOutlined)`
+const StyledCheck = styled(CheckOutlined)`
     color: ${green[6]};
     margin-right: 15px;
 `;
 
-export const StyledClose = styled(CloseOutlined)`
+const StyledClose = styled(CloseOutlined)`
     color: ${red[5]};
     margin-right: 15px;
 `;

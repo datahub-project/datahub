@@ -1,23 +1,9 @@
-import { RightOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
+
 import styled from 'styled-components';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { VIEW_CARD_MIN_WIDTH } from '@app/entityV2/view/select/constants';
 import { colors, typography } from '@src/alchemy-components';
-
-export const NoMarginButton = styled(Button)`
-    && {
-        margin: 0px;
-    }
-`;
-
-export const StyledRightOutlined = styled(RightOutlined)`
-    && {
-        font-size: 8px;
-        color: ${ANTD_GRAY[7]};
-    }
-`;
 
 export const ViewContainer = styled.div<{
     $selected?: boolean;

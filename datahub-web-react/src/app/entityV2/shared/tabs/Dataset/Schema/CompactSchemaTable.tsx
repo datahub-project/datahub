@@ -21,7 +21,7 @@ import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { EditableSchemaMetadata, EntityType, SchemaField, SchemaMetadata, UsageQueryResult } from '@types';
 
-export type Props = {
+type Props = {
     rows: Array<ExtendedSchemaFields>;
     schemaMetadata: SchemaMetadata | undefined | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;

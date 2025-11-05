@@ -37,7 +37,7 @@ export function useGetLatestProductAnnouncementData() {
     return data.latestProductUpdate;
 }
 
-export type ProductAnnouncementResult = {
+type ProductAnnouncementResult = {
     visible: boolean;
     refetch: () => void;
 };

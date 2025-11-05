@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { EmptyContainer } from '@app/govern/structuredProperties/styledComponents';
 import EmptyFormsImage from '@src/images/empty-forms.svg?react';
 
-export const TextContainer = styled.div`
+const TextContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
