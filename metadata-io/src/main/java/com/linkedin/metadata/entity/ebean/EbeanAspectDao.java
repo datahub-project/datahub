@@ -552,6 +552,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return exp.findCount();
   }
 
+  @Nonnull
+  @Override
+  public Integer countAspect(final RestoreIndicesArgs args) {
+    return buildExpressionList(args, true).findCount();
+  }
+
   /**
    * Warning this inner Streams must be closed
    *
@@ -576,56 +582,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    */
   public PartitionedStream<EbeanAspectV2> streamAspectBatches(
       final RestoreIndicesArgs args, final TxIsolation isolationLevel) {
-    ExpressionList<EbeanAspectV2> exp =
-        server
-            .find(EbeanAspectV2.class)
-            .select(EbeanAspectV2.ALL_COLUMNS)
-            .where()
-            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
-    if (args.aspectName != null) {
-      exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
-    }
-    if (args.aspectNames != null && !args.aspectNames.isEmpty()) {
-      exp = exp.in(EbeanAspectV2.ASPECT_COLUMN, args.aspectNames);
-    }
-    if (args.urn != null) {
-      exp = exp.eq(EbeanAspectV2.URN_COLUMN, args.urn);
-    }
-    if (args.urnLike != null) {
-      exp = exp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
-    }
-    if (args.gePitEpochMs > 0) {
-      exp =
-          exp.ge(
-                  EbeanAspectV2.CREATED_ON_COLUMN,
-                  Timestamp.from(Instant.ofEpochMilli(args.gePitEpochMs)))
-              .le(
-                  EbeanAspectV2.CREATED_ON_COLUMN,
-                  Timestamp.from(Instant.ofEpochMilli(args.lePitEpochMs)));
-    }
-
-    int start = args.start;
-    if (args.urnBasedPagination) {
-      start = 0;
-      if (args.lastUrn != null && !args.lastUrn.isEmpty()) {
-        exp = exp.where().ge(EbeanAspectV2.URN_COLUMN, args.lastUrn);
-
-        // To prevent processing the same aspect multiple times in a restore, it compares against
-        // the last aspect if the urn matches the last urn
-        if (args.lastAspect != null && !args.lastAspect.isEmpty()) {
-          exp =
-              exp.where()
-                  .and()
-                  .or()
-                  .ne(EbeanAspectV2.URN_COLUMN, args.lastUrn)
-                  .gt(EbeanAspectV2.ASPECT_COLUMN, args.lastAspect);
-        }
-      }
-    }
-
+    ExpressionList<EbeanAspectV2> exp = buildExpressionList(args, false);
     if (args.limit > 0) {
       exp = exp.setMaxRows(args.limit);
     }
+
+    int start = args.urnBasedPagination ? 0 : args.start;
 
     // Execute with specific transaction isolation level
     Stream<EbeanAspectV2> stream;
@@ -653,6 +615,55 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
 
     return PartitionedStream.<EbeanAspectV2>builder().delegateStream(stream).build();
+  }
+
+  private ExpressionList<EbeanAspectV2> buildExpressionList(
+      RestoreIndicesArgs args, boolean forCount) {
+    ExpressionList<EbeanAspectV2> exp =
+        server
+            .find(EbeanAspectV2.class)
+            .select(forCount ? EbeanAspectV2.KEY_ID : EbeanAspectV2.ALL_COLUMNS)
+            .where()
+            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
+    if (args.aspectName != null) {
+      exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
+    }
+    if (args.aspectNames != null && !args.aspectNames.isEmpty()) {
+      exp = exp.in(EbeanAspectV2.ASPECT_COLUMN, args.aspectNames);
+    }
+    if (args.urn != null) {
+      exp = exp.eq(EbeanAspectV2.URN_COLUMN, args.urn);
+    }
+    if (args.urnLike != null) {
+      exp = exp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
+    }
+    if (args.gePitEpochMs > 0) {
+      exp =
+          exp.ge(
+                  EbeanAspectV2.CREATED_ON_COLUMN,
+                  Timestamp.from(Instant.ofEpochMilli(args.gePitEpochMs)))
+              .le(
+                  EbeanAspectV2.CREATED_ON_COLUMN,
+                  Timestamp.from(Instant.ofEpochMilli(args.lePitEpochMs)));
+    }
+
+    if (args.urnBasedPagination) {
+      if (args.lastUrn != null && !args.lastUrn.isEmpty()) {
+        exp = exp.where().ge(EbeanAspectV2.URN_COLUMN, args.lastUrn);
+
+        // To prevent processing the same aspect multiple times in a restore, it compares against
+        // the last aspect if the urn matches the last urn
+        if (args.lastAspect != null && !args.lastAspect.isEmpty()) {
+          exp =
+              exp.where()
+                  .and()
+                  .or()
+                  .ne(EbeanAspectV2.URN_COLUMN, args.lastUrn)
+                  .gt(EbeanAspectV2.ASPECT_COLUMN, args.lastAspect);
+        }
+      }
+    }
+    return exp;
   }
 
   /**

@@ -21,4 +21,4 @@ export const DEBOUNCE_SEARCH_MS = 300;
 export const ANT_NOTIFICATION_Z_INDEX = 1010;
 
 // S3 folder to store product assets
-export const PRODUCT_ASSETS_FOLDER = 'product-assets';
+export const PRODUCT_ASSETS_FOLDER = 'product_assets';

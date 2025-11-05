@@ -109,7 +109,7 @@ class CassandraSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = CassandraSourceConfig.parse_obj(config_dict)
+        config = CassandraSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_platform(self) -> str:
