@@ -956,12 +956,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               .map(mcl -> Pair.of(preprocessEvent(opContext, mcl), mcl))
               .map(
                   preprocessResult ->
-                      MCLEmitResult.builder()
-                          .emitted(false)
-                          .processedMCL(preprocessResult.getFirst())
-                          .mclFuture(null)
-                          .metadataChangeLog(preprocessResult.getSecond())
-                          .build())
+                      MCLEmitResult.notEmitted(
+                          preprocessResult.getSecond(),
+                          preprocessResult.getFirst()))
               .collect(Collectors.toList());
     }
     updateAspectResults =
@@ -2295,18 +2292,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         }
       }
 
-      return MCLEmitResult.builder()
-          .metadataChangeLog(metadataChangeLog)
-          .mclFuture(emissionStatus.getFirst())
-          .processedMCL(emissionStatus.getSecond())
-          .emitted(emissionStatus.getFirst() != null)
-          .build();
+      Future<?> future = emissionStatus.getFirst();
+      if (future != null) {
+        return MCLEmitResult.emitted(
+            metadataChangeLog,
+            future,
+            emissionStatus.getSecond());
+      } else {
+        return MCLEmitResult.notEmitted(
+            metadataChangeLog,
+            emissionStatus.getSecond());
+      }
     } else {
       log.info(
           "Skipped producing MCL for ingested aspect {}, urn {}. Aspect has not changed.",
           aspectSpec.getName(),
           entityUrn);
-      return MCLEmitResult.builder().metadataChangeLog(metadataChangeLog).emitted(false).build();
+      return MCLEmitResult.notEmitted(metadataChangeLog, true);
     }
   }
 
