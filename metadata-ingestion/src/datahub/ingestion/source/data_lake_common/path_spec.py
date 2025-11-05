@@ -346,16 +346,16 @@ class PathSpec(ConfigModel):
                     )
             return v
 
-    @field_validator("default_extension")
+    @field_validator("default_extension", mode="after")
     @classmethod
-    def validate_default_extension(cls, v):
+    def validate_default_extension(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in SUPPORTED_FILE_TYPES:
             raise ValueError(
                 f"default extension {v} not in supported default file extension. Please specify one from {SUPPORTED_FILE_TYPES}"
             )
         return v
 
-    @field_validator("exclude")
+    @field_validator("exclude", mode="after")
     @classmethod
     def no_named_fields_in_exclude(cls, v: Optional[List[str]]) -> Optional[List[str]]:
         if v is None:

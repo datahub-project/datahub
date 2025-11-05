@@ -257,9 +257,9 @@ class TableauConnectionConfig(ConfigModel):
         description="When enabled, extracts column-level lineage from Tableau Datasources",
     )
 
-    @field_validator("connect_uri")
+    @field_validator("connect_uri", mode="after")
     @classmethod
-    def remove_trailing_slash(cls, v):
+    def remove_trailing_slash(cls, v: str) -> str:
         return config_clean.remove_trailing_slashes(v)
 
     def get_tableau_auth(

@@ -90,7 +90,7 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
         description="Use this if URI-s need to be modified during reference resolution. Simple string match - replace capabilities are supported.",
     )
 
-    @field_validator("path")
+    @field_validator("path", mode="after")
     def download_http_url_to_temp_file(cls, v):
         if isinstance(v, AnyHttpUrl):
             try:

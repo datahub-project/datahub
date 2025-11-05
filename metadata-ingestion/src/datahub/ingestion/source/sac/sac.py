@@ -159,7 +159,7 @@ class SACSourceConfig(
         description="Template for generating dataset urns of consumed queries, the placeholder {query} can be used within the template for inserting the name of the query",
     )
 
-    @field_validator("tenant_url", "token_url")
+    @field_validator("tenant_url", "token_url", mode="after")
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)

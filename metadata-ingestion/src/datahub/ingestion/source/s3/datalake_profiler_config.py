@@ -74,7 +74,7 @@ class DataLakeProfilerConfig(ConfigModel):
     )
 
     @model_validator(mode="after")
-    def ensure_field_level_settings_are_normalized(self):
+    def ensure_field_level_settings_are_normalized(self) -> "DataLakeProfilerConfig":
         max_num_fields_to_profile = self.max_number_of_fields_to_profile
 
         # Disable all field-level metrics.

@@ -83,7 +83,7 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 
     @field_validator("max_per_batch", mode="before")
     @classmethod
-    def validate_max_per_batch(cls, v):
+    def validate_max_per_batch(cls, v: int) -> int:
         if v > BATCH_INGEST_MAX_PAYLOAD_LENGTH:
             raise ValueError(
                 f"max_per_batch must be less than or equal to {BATCH_INGEST_MAX_PAYLOAD_LENGTH}"

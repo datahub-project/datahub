@@ -16,9 +16,9 @@ class FileReporterConfig(ConfigModel):
     filename: str
     format: str = "json"
 
-    @field_validator("format")
+    @field_validator("format", mode="after")
     @classmethod
-    def only_json_supported(cls, v):
+    def only_json_supported(cls, v: str) -> str:
         if v and v.lower() != "json":
             raise ValueError(
                 f"Format {v} is not yet supported. Only json is supported at this time"

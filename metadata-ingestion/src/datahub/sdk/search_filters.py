@@ -143,7 +143,7 @@ class _PlatformFilter(_BaseFilter):
     platform: List[str]
     # TODO: Add validator to convert string -> list of strings
 
-    @field_validator("platform")
+    @field_validator("platform", mode="before")
     @classmethod
     def validate_platform(cls, v):
         # Subtle - we use the constructor instead of the from_string method
@@ -166,7 +166,7 @@ class _PlatformFilter(_BaseFilter):
 class _DomainFilter(_BaseFilter):
     domain: List[str]
 
-    @field_validator("domain")
+    @field_validator("domain", mode="before")
     @classmethod
     def validate_domain(cls, v):
         if isinstance(v, list):
@@ -191,7 +191,7 @@ class _ContainerFilter(_BaseFilter):
         description="If true, only entities that are direct descendants of the container will be returned.",
     )
 
-    @field_validator("container")
+    @field_validator("container", mode="before")
     @classmethod
     def validate_container(cls, v):
         if isinstance(v, list):
@@ -260,7 +260,7 @@ class _OwnerFilter(_BaseFilter):
         description="The owner to filter on. Should be user or group URNs.",
     )
 
-    @field_validator("owner")
+    @field_validator("owner", mode="before")
     @classmethod
     def validate_owner(cls, v):
         validated = []
@@ -298,7 +298,7 @@ class _GlossaryTermFilter(_BaseFilter):
         description="The glossary term to filter on. Should be glossary term URNs.",
     )
 
-    @field_validator("glossary_term")
+    @field_validator("glossary_term", mode="before")
     @classmethod
     def validate_glossary_term(cls, v):
         validated = []
@@ -332,7 +332,7 @@ class _TagFilter(_BaseFilter):
         description="The tag to filter on. Should be tag URNs.",
     )
 
-    @field_validator("tag")
+    @field_validator("tag", mode="before")
     @classmethod
     def validate_tag(cls, v):
         validated = []
@@ -453,7 +453,7 @@ class _Not(_BaseFilter):
 
     not_: "Filter" = pydantic.Field(alias="not")
 
-    @field_validator("not_")
+    @field_validator("not_", mode="after")
     @classmethod
     def validate_not(cls, v: "Filter") -> "Filter":
         inner_filter = v.compile()

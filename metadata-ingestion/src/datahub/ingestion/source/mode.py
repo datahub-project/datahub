@@ -218,12 +218,12 @@ class ModeConfig(
         default=False, description="Exclude archived reports"
     )
 
-    @field_validator("connect_uri")
+    @field_validator("connect_uri", mode="after")
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    @field_validator("items_per_page")
+    @field_validator("items_per_page", mode="after")
     @classmethod
     def validate_items_per_page(cls, v):
         if 1 <= v <= DEFAULT_API_ITEMS_PER_PAGE:

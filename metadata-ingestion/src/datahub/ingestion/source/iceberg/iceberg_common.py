@@ -132,7 +132,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         # In case the input is already the new format or is invalid
         return value
 
-    @field_validator("catalog")
+    @field_validator("catalog", mode="after")
     @classmethod
     def validate_catalog_size(cls, value):
         if len(value) != 1:

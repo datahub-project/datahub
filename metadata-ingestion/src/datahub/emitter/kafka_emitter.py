@@ -50,7 +50,7 @@ class KafkaEmitterConfig(ConfigModel):
         },
     )
 
-    @field_validator("topic_routes")
+    @field_validator("topic_routes", mode="after")
     @classmethod
     def validate_topic_routes(cls, v: Dict[str, str]) -> Dict[str, str]:
         assert MCE_KEY in v, f"topic_routes must contain a route for {MCE_KEY}"

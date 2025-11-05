@@ -565,7 +565,7 @@ class PowerBiDashboardSourceConfig(
 
         return self
 
-    @field_validator("dataset_type_mapping")
+    @field_validator("dataset_type_mapping", mode="after")
     @classmethod
     def map_data_platform(cls, value):
         # For backward compatibility convert input PostgreSql to PostgreSQL

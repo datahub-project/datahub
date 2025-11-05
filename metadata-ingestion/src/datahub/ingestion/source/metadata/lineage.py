@@ -51,7 +51,7 @@ class EntityConfig(EnvConfigMixin):
     platform: str
     platform_instance: Optional[str] = None
 
-    @field_validator("type")
+    @field_validator("type", mode="after")
     @classmethod
     def type_must_be_supported(cls, v: str) -> str:
         allowed_types = ["dataset"]
@@ -61,7 +61,7 @@ class EntityConfig(EnvConfigMixin):
             )
         return v
 
-    @field_validator("name")
+    @field_validator("name", mode="after")
     @classmethod
     def validate_name(cls, v: str) -> str:
         if v.startswith("urn:li:"):
@@ -79,7 +79,7 @@ class FineGrainedLineageConfig(ConfigModel):
     transformOperation: Optional[str]
     confidenceScore: Optional[float] = 1.0
 
-    @field_validator("upstreamType")
+    @field_validator("upstreamType", mode="after")
     @classmethod
     def upstream_type_must_be_supported(cls, v: str) -> str:
         allowed_types = [
@@ -93,7 +93,7 @@ class FineGrainedLineageConfig(ConfigModel):
             )
         return v
 
-    @field_validator("downstreamType")
+    @field_validator("downstreamType", mode="after")
     @classmethod
     def downstream_type_must_be_supported(cls, v: str) -> str:
         allowed_types = [
@@ -128,7 +128,7 @@ class LineageFileSourceConfig(ConfigModel):
 class LineageConfig(VersionedConfig):
     lineage: List[EntityNodeConfig]
 
-    @field_validator("version")
+    @field_validator("version", mode="after")
     @classmethod
     def version_must_be_1(cls, v):
         if v != "1":

@@ -674,12 +674,12 @@ class HiveConfig(TwoTierSQLAlchemyConfig):
         description="Platform instance for the storage system",
     )
 
-    @field_validator("host_port")
+    @field_validator("host_port", mode="after")
     @classmethod
-    def clean_host_port(cls, v):
+    def clean_host_port(cls, v: str) -> str:
         return config_clean.remove_protocol(v)
 
-    @field_validator("hive_storage_lineage_direction")
+    @field_validator("hive_storage_lineage_direction", mode="after")
     @classmethod
     def _validate_direction(cls, v: str) -> str:
         """Validate the lineage direction."""

@@ -198,14 +198,14 @@ class LookerConnectionDefinition(ConfigModel):
         "the top level Looker configuration",
     )
 
-    @field_validator("platform_env")
+    @field_validator("platform_env", mode="after")
     @classmethod
     def platform_env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             return EnvConfigMixin.env_must_be_one_of(v)
         return v
 
-    @field_validator("platform", "default_db", "default_schema")
+    @field_validator("platform", "default_db", "default_schema", mode="after")
     @classmethod
     def lower_everything(cls, v: Optional[str]) -> Optional[str]:
         """We lower case all strings passed in to avoid casing issues later"""

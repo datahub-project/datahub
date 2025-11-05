@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Callable, Iterable, List, Optional, Union
+from typing import Any, Callable, Iterable, List, Optional, Union
 
 from pydantic import BaseModel, field_validator
 
@@ -69,9 +69,9 @@ class CorpGroup(BaseModel):
 
     _rename_admins_to_owners = pydantic_renamed_field("admins", "owners")
 
-    @field_validator("owners", "members")
+    @field_validator("owners", "members", mode="before")
     @classmethod
-    def make_urn_if_needed(cls, v):
+    def make_urn_if_needed(cls, v: Any) -> Any:
         if isinstance(v, list):
             return [
                 builder.make_user_urn(item) if isinstance(item, str) else item

@@ -391,7 +391,7 @@ class SnowflakeV2Config(
         "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
     )
 
-    @field_validator("convert_urns_to_lowercase")
+    @field_validator("convert_urns_to_lowercase", mode="after")
     @classmethod
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:
@@ -401,7 +401,7 @@ class SnowflakeV2Config(
 
         return v
 
-    @field_validator("include_column_lineage")
+    @field_validator("include_column_lineage", mode="after")
     @classmethod
     def validate_include_column_lineage(cls, v, info):
         if not info.data.get("include_table_lineage") and v:
@@ -439,7 +439,7 @@ class SnowflakeV2Config(
 
         return self
 
-    @field_validator("shares")
+    @field_validator("shares", mode="after")
     @classmethod
     def validate_shares(
         cls, shares: Optional[Dict[str, SnowflakeShareConfig]], info: ValidationInfo

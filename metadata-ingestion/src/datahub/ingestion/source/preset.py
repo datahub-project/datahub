@@ -55,7 +55,7 @@ class PresetConfig(SupersetConfig):
         description="Can be used to change mapping for database names in superset to what you have in datahub",
     )
 
-    @field_validator("connect_uri", "display_uri")
+    @field_validator("connect_uri", "display_uri", mode="after")
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)

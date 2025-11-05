@@ -202,7 +202,7 @@ class LookerViewId:
             folder_path=os.path.dirname(self.file_path),
         )
 
-    @field_validator("view_name")
+    @field_validator("view_name", mode="after")
     @classmethod
     def remove_quotes(cls, v: str) -> str:
         # Sanitize the name.
@@ -932,7 +932,7 @@ class LookerExplore:
     source_file: Optional[str] = None
     tags: List[str] = dataclasses_field(default_factory=list)
 
-    @field_validator("name")
+    @field_validator("name", mode="after")
     @classmethod
     def remove_quotes(cls, v: str) -> str:
         # Sanitize the name.

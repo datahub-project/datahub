@@ -66,7 +66,7 @@ class CorpUser(ConfigModel):
     phone: Optional[str] = None
 
     @model_validator(mode="after")
-    def full_name_can_be_built_from_first_name_last_name(self):
+    def full_name_can_be_built_from_first_name_last_name(self) -> "CorpUser":
         if not self.full_name:
             if self.first_name or self.last_name:
                 first_name = self.first_name or ""

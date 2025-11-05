@@ -1,8 +1,7 @@
 import logging
 from typing import Any, Dict, Optional, Union
 
-import pydantic
-from pydantic import field_validator, model_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -119,7 +118,7 @@ class DataLakeSourceConfig(
 
     @field_validator("path_specs", mode="before")
     @classmethod
-    def check_path_specs(cls, path_specs: Any, info: pydantic.ValidationInfo) -> Any:
+    def check_path_specs(cls, path_specs: Any, info: ValidationInfo) -> Any:
         if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
 
@@ -128,14 +127,14 @@ class DataLakeSourceConfig(
         return path_specs
 
     @model_validator(mode="after")
-    def ensure_profiling_pattern_is_passed_to_profiling(self):
+    def ensure_profiling_pattern_is_passed_to_profiling(self) -> "DataLakeSourceConfig":
         profiling = self.profiling
         if profiling is not None and profiling.enabled:
             profiling._allow_deny_patterns = self.profile_patterns
         return self
 
     @model_validator(mode="after")
-    def validate_platform_and_config_consistency(self):
+    def validate_platform_and_config_consistency(self) -> "DataLakeSourceConfig":
         """Infer platform from path_specs and validate config consistency."""
         # Track whether platform was explicitly provided
         platform_was_explicit = bool(self.platform)

@@ -61,9 +61,9 @@ def _validate_entity_type_urn(cls: Type, v: str) -> str:
 class TypeQualifierAllowedTypes(ConfigModel):
     allowed_types: List[str]
 
-    @field_validator("allowed_types")
+    @field_validator("allowed_types", mode="before")
     @classmethod
-    def _check_allowed_types(cls, v):
+    def _check_allowed_types(cls, v: Union[str, List[str]]) -> Union[str, List[str]]:
         if isinstance(v, list):
             return [_validate_entity_type_urn(cls, item) for item in v]
         return _validate_entity_type_urn(cls, v)
@@ -83,14 +83,14 @@ class StructuredProperties(ConfigModel):
     type_qualifier: Optional[TypeQualifierAllowedTypes] = None
     immutable: Optional[bool] = False
 
-    @field_validator("entity_types")
+    @field_validator("entity_types", mode="before")
     @classmethod
-    def _check_entity_types(cls, v):
+    def _check_entity_types(cls, v: Union[str, List[str]]) -> Union[str, List[str]]:
         if isinstance(v, list):
             return [_validate_entity_type_urn(cls, item) for item in v]
         return _validate_entity_type_urn(cls, v)
 
-    @field_validator("type")
+    @field_validator("type", mode="after")
     @classmethod
     def validate_type(cls, v: str) -> str:
         # This logic is somewhat hacky, since we need to deal with
@@ -131,7 +131,7 @@ class StructuredProperties(ConfigModel):
         return id
 
     @model_validator(mode="after")
-    def urn_must_be_present(self):
+    def urn_must_be_present(self) -> "StructuredProperties":
         if not self.urn:
             if not hasattr(self, "id") or not self.id:
                 raise ValueError("id must be present if urn is not")

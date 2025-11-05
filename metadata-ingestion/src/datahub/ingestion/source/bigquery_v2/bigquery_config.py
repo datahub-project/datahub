@@ -70,9 +70,9 @@ class BigQueryBaseConfig(ConfigModel):
         description="The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
     )
 
-    @field_validator("sharded_table_pattern")
+    @field_validator("sharded_table_pattern", mode="after")
     @classmethod
-    def sharded_table_pattern_is_a_valid_regexp(cls, v):
+    def sharded_table_pattern_is_a_valid_regexp(cls, v: str) -> str:
         try:
             re.compile(v)
         except Exception as e:
@@ -518,7 +518,7 @@ class BigQueryV2Config(
 
         return values
 
-    @field_validator("bigquery_audit_metadata_datasets")
+    @field_validator("bigquery_audit_metadata_datasets", mode="after")
     @classmethod
     def validate_bigquery_audit_metadata_datasets(
         cls, v: Optional[List[str]], info: ValidationInfo
@@ -530,7 +530,7 @@ class BigQueryV2Config(
 
         return v
 
-    @field_validator("upstream_lineage_in_report")
+    @field_validator("upstream_lineage_in_report", mode="after")
     @classmethod
     def validate_upstream_lineage_in_report(cls, v: bool, info: ValidationInfo) -> bool:
         if v and info.data.get("use_queries_v2", True):

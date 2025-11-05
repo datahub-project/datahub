@@ -172,7 +172,7 @@ class SalesforceConfig(
             self.profiling.operation_config
         )
 
-    @field_validator("instance_url")
+    @field_validator("instance_url", mode="after")
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)

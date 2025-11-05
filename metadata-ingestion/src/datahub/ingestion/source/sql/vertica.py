@@ -105,9 +105,9 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme: str = pydantic.Field(default="vertica+vertica_python")
 
-    @field_validator("host_port")
+    @field_validator("host_port", mode="after")
     @classmethod
-    def clean_host_port(cls, v):
+    def clean_host_port(cls, v: str) -> str:
         return config_clean.remove_protocol(v)
 
 

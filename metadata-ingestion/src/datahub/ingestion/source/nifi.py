@@ -190,7 +190,7 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
 
         return self
 
-    @field_validator("site_url")
+    @field_validator("site_url", mode="after")
     @classmethod
     def validator_site_url(cls, site_url: str) -> str:
         assert site_url.startswith(("http://", "https://")), (

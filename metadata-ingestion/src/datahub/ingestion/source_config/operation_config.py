@@ -42,7 +42,7 @@ class OperationConfig(ConfigModel):
             )
         return values
 
-    @field_validator("profile_day_of_week")
+    @field_validator("profile_day_of_week", mode="after")
     @classmethod
     def validate_profile_day_of_week(cls, v: Optional[int]) -> Optional[int]:
         profile_day_of_week = v
@@ -54,7 +54,7 @@ class OperationConfig(ConfigModel):
             )
         return profile_day_of_week
 
-    @field_validator("profile_date_of_month")
+    @field_validator("profile_date_of_month", mode="after")
     @classmethod
     def validate_profile_date_of_month(cls, v: Optional[int]) -> Optional[int]:
         profile_date_of_month = v

@@ -103,7 +103,7 @@ class FileSourceConfig(StatefulIngestionConfigBase):
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @field_validator("file_extension")
+    @field_validator("file_extension", mode="after")
     @classmethod
     def add_leading_dot_to_extension(cls, v: str) -> str:
         if v:

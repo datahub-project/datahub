@@ -397,14 +397,14 @@ class UnityCatalogSourceConfig(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
 
-    @field_validator("start_time")
+    @field_validator("start_time", mode="after")
     @classmethod
     def within_thirty_days(cls, v: datetime) -> datetime:
         if (datetime.now(timezone.utc) - v).days > 30:
             raise ValueError("Query history is only maintained for 30 days.")
         return v
 
-    @field_validator("workspace_url")
+    @field_validator("workspace_url", mode="after")
     @classmethod
     def workspace_url_should_start_with_http_scheme(cls, workspace_url: str) -> str:
         if not workspace_url.lower().startswith(("http://", "https://")):
@@ -413,7 +413,7 @@ class UnityCatalogSourceConfig(
             )
         return workspace_url
 
-    @field_validator("include_metastore")
+    @field_validator("include_metastore", mode="after")
     @classmethod
     def include_metastore_warning(cls, v: bool) -> bool:
         if v:

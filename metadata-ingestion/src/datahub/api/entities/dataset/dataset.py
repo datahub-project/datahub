@@ -3,6 +3,7 @@ import logging
 import time
 from pathlib import Path
 from typing import (
+    Any,
     Dict,
     Iterable,
     List,
@@ -19,6 +20,7 @@ from pydantic import (
     BaseModel,
     Field,
     StrictStr,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -221,7 +223,7 @@ class SchemaFieldSpecification(StrictModel):
 
     @model_validator(mode="before")
     @classmethod
-    def sync_doc_into_description(cls, values: Dict) -> Dict:
+    def sync_doc_into_description(cls, values: Any) -> Any:
         """Synchronize doc into description field if doc is provided."""
         description = values.get("description")
         doc = values.pop("doc", None)
@@ -349,9 +351,9 @@ class SchemaSpecification(BaseModel):
     fields: Optional[List[SchemaFieldSpecification]] = None
     raw_schema: Optional[str] = None
 
-    @field_validator("file")
+    @field_validator("file", mode="after")
     @classmethod
-    def file_must_be_avsc(cls, v):
+    def file_must_be_avsc(cls, v: Optional[str]) -> Optional[str]:
         if v and not v.endswith(".avsc"):
             raise ValueError("file must be a .avsc file")
         return v
@@ -361,7 +363,7 @@ class Ownership(ConfigModel):
     id: str
     type: str
 
-    @field_validator("type")
+    @field_validator("type", mode="after")
     @classmethod
     def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
         _, _ = validate_ownership_type(v)
@@ -402,7 +404,7 @@ class Dataset(StrictModel):
 
     @field_validator("urn", mode="before")
     @classmethod
-    def urn_must_be_present(cls, v, info):
+    def urn_must_be_present(cls, v: Any, info: ValidationInfo) -> Any:
         if not v:
             values = info.data
             assert "id" in values, "id must be present if urn is not"
@@ -413,23 +415,23 @@ class Dataset(StrictModel):
 
     @field_validator("name", mode="before")
     @classmethod
-    def name_filled_with_id_if_not_present(cls, v, info):
+    def name_filled_with_id_if_not_present(cls, v: Any, info: ValidationInfo) -> Any:
         if not v:
             values = info.data
             assert "id" in values, "id must be present if name is not"
             return values["id"]
         return v
 
-    @field_validator("platform")
+    @field_validator("platform", mode="after")
     @classmethod
-    def platform_must_not_be_urn(cls, v):
-        if v.startswith("urn:li:dataPlatform:"):
+    def platform_must_not_be_urn(cls, v: Optional[str]) -> Optional[str]:
+        if v and v.startswith("urn:li:dataPlatform:"):
             return v[len("urn:li:dataPlatform:") :]
         return v
 
-    @field_validator("structured_properties")
+    @field_validator("structured_properties", mode="after")
     @classmethod
-    def simplify_structured_properties(cls, v):
+    def simplify_structured_properties(cls, v: Any) -> Any:
         return StructuredPropertiesHelper.simplify_structured_properties_list(v)
 
     def _mint_auditstamp(self, message: str) -> AuditStampClass:

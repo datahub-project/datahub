@@ -97,9 +97,11 @@ class DeltaLakeSourceConfig(
 
         return complete_path
 
-    @field_validator("version_history_lookback")
+    @field_validator("version_history_lookback", mode="after")
     @classmethod
-    def negative_version_history_implies_no_limit(cls, v):
+    def negative_version_history_implies_no_limit(
+        cls, v: Optional[int]
+    ) -> Optional[int]:
         if v and v < 0:
             return None
         return v

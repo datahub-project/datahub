@@ -78,9 +78,9 @@ class DremioConnectionConfig(ConfigModel):
         description="ID of Dremio Cloud Project. Found in Project Settings in the Dremio Cloud UI",
     )
 
-    @field_validator("authentication_method")
+    @field_validator("authentication_method", mode="after")
     @classmethod
-    def validate_auth_method(cls, value):
+    def validate_auth_method(cls, value: str) -> str:
         allowed_methods = ["password", "PAT"]
         if value not in allowed_methods:
             raise ValueError(
@@ -88,7 +88,7 @@ class DremioConnectionConfig(ConfigModel):
             )
         return value
 
-    @field_validator("password")
+    @field_validator("password", mode="after")
     @classmethod
     def validate_password(
         cls, value: Optional[str], info: ValidationInfo

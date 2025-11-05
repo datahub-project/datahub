@@ -114,8 +114,11 @@ class DataHubClassifierConfig(ConfigModel):
         description="Minimum number of non-null column values required to process `values` prediction factor.",
     )
 
-    @field_validator("info_types_config")
-    def input_config_selectively_overrides_default_config(cls, info_types_config):
+    @field_validator("info_types_config", mode="after")
+    @classmethod
+    def input_config_selectively_overrides_default_config(
+        cls, info_types_config: Dict[str, Any]
+    ) -> Dict[str, Any]:
         for infotype, infotype_config in DEFAULT_CLASSIFIER_CONFIG.items():
             if infotype not in info_types_config:
                 # if config for some info type is not provided by user, use default config for that info type.

@@ -4,7 +4,7 @@ import urllib.parse
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import sqlalchemy.dialects.mssql
-from pydantic import field_validator
+from pydantic import ValidationInfo, field_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
@@ -136,9 +136,11 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         description="Represent a schema identifiers combined with quoting preferences. See [sqlalchemy quoted_name docs](https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.quoted_name).",
     )
 
-    @field_validator("uri_args")
+    @field_validator("uri_args", mode="after")
     @classmethod
-    def passwords_match(cls, v, info, **kwargs):
+    def passwords_match(
+        cls, v: Dict[str, Any], info: ValidationInfo, **kwargs: Any
+    ) -> Dict[str, Any]:
         if (
             info.data["use_odbc"]
             and not info.data["sqlalchemy_uri"]

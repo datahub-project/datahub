@@ -227,7 +227,7 @@ class BaseUsageConfig(BaseTimeWindowConfig):
         default=True, description="Whether to ingest the top_n_queries."
     )
 
-    @field_validator("top_n_queries")
+    @field_validator("top_n_queries", mode="after")
     @classmethod
     def ensure_top_n_queries_is_not_too_big(cls, v: int, info: ValidationInfo) -> int:
         minimum_query_size = 20

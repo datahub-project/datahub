@@ -330,7 +330,7 @@ class ElasticsearchSourceConfig(
             self.profiling.operation_config
         )
 
-    @field_validator("host")
+    @field_validator("host", mode="after")
     @classmethod
     def host_colon_port_comma(cls, host_val: str) -> str:
         for entry in host_val.split(","):

@@ -114,7 +114,7 @@ class MetabaseConfig(
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @field_validator("connect_uri", "display_uri")
+    @field_validator("connect_uri", "display_uri", mode="after")
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)

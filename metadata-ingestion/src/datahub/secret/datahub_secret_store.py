@@ -18,9 +18,11 @@ class DataHubSecretStoreConfig(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    @field_validator("graph_client")
+    @field_validator("graph_client", mode="after")
     @classmethod
-    def check_graph_connection(cls, v: DataHubGraph) -> DataHubGraph:
+    def check_graph_connection(
+        cls, v: Optional[DataHubGraph]
+    ) -> Optional[DataHubGraph]:
         if v is not None:
             v.test_connection()
         return v

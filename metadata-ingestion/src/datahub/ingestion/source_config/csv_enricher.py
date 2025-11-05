@@ -20,7 +20,7 @@ class CSVEnricherConfig(ConfigModel):
         description="Delimiter to use when parsing array fields (tags, terms and owners)",
     )
 
-    @field_validator("write_semantics")
+    @field_validator("write_semantics", mode="after")
     @classmethod
     def validate_write_semantics(cls, write_semantics: str) -> str:
         if write_semantics.lower() not in {"patch", "override"}:
@@ -31,7 +31,7 @@ class CSVEnricherConfig(ConfigModel):
             )
         return write_semantics
 
-    @field_validator("array_delimiter")
+    @field_validator("array_delimiter", mode="after")
     @classmethod
     def validator_diff(cls, array_delimiter: str, info: pydantic.ValidationInfo) -> str:
         if array_delimiter == info.data["delimiter"]:

@@ -71,7 +71,7 @@ class Ownership(ConfigModel):
     id: str
     type: str
 
-    @field_validator("type")
+    @field_validator("type", mode="after")
     @classmethod
     def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
         _, _ = builder.validate_ownership_type(v)
@@ -117,9 +117,9 @@ class DataProduct(ConfigModel):
     output_ports: Optional[List[str]] = None
     _original_yaml_dict: Optional[dict] = None
 
-    @field_validator("assets")
+    @field_validator("assets", mode="before")
     @classmethod
-    def assets_must_be_urns(cls, v):
+    def assets_must_be_urns(cls, v: Any) -> Any:
         if isinstance(v, list):
             for item in v:
                 try:
@@ -134,9 +134,9 @@ class DataProduct(ConfigModel):
                 raise ValueError(f"asset {v} is not an urn: {e}") from e
             return v
 
-    @field_validator("output_ports")
+    @field_validator("output_ports", mode="before")
     @classmethod
-    def output_ports_must_be_urns(cls, v):
+    def output_ports_must_be_urns(cls, v: Any) -> Any:
         if v is not None:
             if isinstance(v, list):
                 for item in v:
@@ -154,7 +154,7 @@ class DataProduct(ConfigModel):
         return v
 
     @model_validator(mode="after")
-    def output_ports_must_be_from_asset_list(self):
+    def output_ports_must_be_from_asset_list(self) -> "DataProduct":
         if self.output_ports and self.assets:
             for port in self.output_ports:
                 if port not in self.assets:

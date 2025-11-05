@@ -89,7 +89,7 @@ class BaseTimeWindowConfig(ConfigModel):
             )
         return self
 
-    @field_validator("start_time", "end_time")
+    @field_validator("start_time", "end_time", mode="after")
     @classmethod
     def ensure_timestamps_in_utc(cls, v: datetime) -> datetime:
         if v.tzinfo is None:

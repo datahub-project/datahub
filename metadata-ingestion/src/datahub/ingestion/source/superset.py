@@ -246,9 +246,9 @@ class SupersetConfig(
         # This is required to allow preset configs to get parsed
         extra = "allow"
 
-    @field_validator("connect_uri", "display_uri")
+    @field_validator("connect_uri", "display_uri", mode="after")
     @classmethod
-    def remove_trailing_slash(cls, v):
+    def remove_trailing_slash(cls, v: str) -> str:
         return config_clean.remove_trailing_slashes(v)
 
     @model_validator(mode="after")

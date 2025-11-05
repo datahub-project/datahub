@@ -42,7 +42,7 @@ class _KafkaConnectionConfig(ConfigModel):
         description="The request timeout used when interacting with the Kafka APIs.",
     )
 
-    @field_validator("bootstrap")
+    @field_validator("bootstrap", mode="after")
     @classmethod
     def bootstrap_host_colon_port_comma(cls, val: str) -> str:
         for entry in val.split(","):
@@ -58,7 +58,7 @@ class KafkaConsumerConnectionConfig(_KafkaConnectionConfig):
         description="Extra consumer config serialized as JSON. These options will be passed into Kafka's DeserializingConsumer. See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#deserializingconsumer and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md .",
     )
 
-    @field_validator("consumer_config")
+    @field_validator("consumer_config", mode="after")
     @classmethod
     def resolve_callback(cls, value: dict) -> dict:
         if CallableConsumerConfig.is_callable_config(value):

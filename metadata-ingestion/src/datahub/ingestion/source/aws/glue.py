@@ -221,7 +221,7 @@ class GlueSourceConfig(
     def lakeformation_client(self):
         return self.get_lakeformation_client()
 
-    @field_validator("glue_s3_lineage_direction")
+    @field_validator("glue_s3_lineage_direction", mode="after")
     @classmethod
     def check_direction(cls, v: str) -> str:
         if v.lower() not in ["upstream", "downstream"]:
@@ -230,7 +230,7 @@ class GlueSourceConfig(
             )
         return v.lower()
 
-    @field_validator("platform")
+    @field_validator("platform", mode="after")
     @classmethod
     def platform_validator(cls, v: str) -> str:
         if not v or v in VALID_PLATFORMS:

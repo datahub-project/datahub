@@ -99,7 +99,7 @@ class GrafanaSourceConfig(
         description="Map of Grafana datasource types/UIDs to platform connection configs for lineage extraction",
     )
 
-    @field_validator("url")
+    @field_validator("url", mode="after")
     @classmethod
     def remove_trailing_slash(cls, v: str) -> str:
         return config_clean.remove_trailing_slashes(v)

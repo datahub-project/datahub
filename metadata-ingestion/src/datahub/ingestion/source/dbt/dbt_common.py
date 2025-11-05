@@ -417,7 +417,7 @@ class DBTCommonConfig(
         "This ensures that lineage is generated reliably, but will lose any documentation associated only with the source.",
     )
 
-    @field_validator("target_platform")
+    @field_validator("target_platform", mode="after")
     @classmethod
     def validate_target_platform_value(cls, target_platform: str) -> str:
         if target_platform.lower() == DBT_PLATFORM:
@@ -440,7 +440,7 @@ class DBTCommonConfig(
             values.setdefault("convert_column_urns_to_lowercase", True)
         return values
 
-    @field_validator("write_semantics")
+    @field_validator("write_semantics", mode="after")
     @classmethod
     def validate_write_semantics(cls, write_semantics: str) -> str:
         if write_semantics.lower() not in {"patch", "override"}:
@@ -451,7 +451,7 @@ class DBTCommonConfig(
             )
         return write_semantics
 
-    @field_validator("meta_mapping")
+    @field_validator("meta_mapping", mode="after")
     @classmethod
     def meta_mapping_validator(cls, meta_mapping: Dict[str, Any]) -> Dict[str, Any]:
         for k, v in meta_mapping.items():

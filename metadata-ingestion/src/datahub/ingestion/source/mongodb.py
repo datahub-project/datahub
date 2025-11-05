@@ -138,7 +138,7 @@ class MongoDBConfig(
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @field_validator("maxDocumentSize")
+    @field_validator("maxDocumentSize", mode="after")
     @classmethod
     def check_max_doc_size_filter_is_valid(cls, doc_size_filter_value):
         if doc_size_filter_value > 16793600:

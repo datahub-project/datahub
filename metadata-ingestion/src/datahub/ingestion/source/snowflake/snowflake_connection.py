@@ -126,7 +126,7 @@ class SnowflakeConnectionConfig(ConfigModel):
 
     rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")  # type: ignore[pydantic-field]
 
-    @field_validator("account_id")
+    @field_validator("account_id", mode="after")
     @classmethod
     def validate_account_id(cls, account_id: str, info: pydantic.ValidationInfo) -> str:
         account_id = remove_protocol(account_id)
