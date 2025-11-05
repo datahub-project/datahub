@@ -85,7 +85,7 @@ def list(details: bool, to_file: str) -> None:
             with open(file, "r") as fp:
                 existing_objects = yaml.load(fp)  # this is a list of dicts
                 existing_objects = [
-                    StructuredProperties.parse_obj(obj) for obj in existing_objects
+                    StructuredProperties.model_validate(obj) for obj in existing_objects
                 ]
                 objects = [obj for obj in objects]
                 # do a positional update of the existing objects

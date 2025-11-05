@@ -4,6 +4,7 @@ import os
 from typing import Annotated, Any, Dict, List, Optional
 
 import pydantic
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
@@ -212,7 +213,8 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Whether to profile complex types like structs, arrays and maps. ",
     )
 
-    @pydantic.root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def deprecate_bigquery_temp_table_schema(cls, values):
         # TODO: Update docs to remove mention of this field.
         if "bigquery_temp_table_schema" in values:
@@ -222,16 +224,17 @@ class GEProfilingConfig(GEProfilingBaseConfig):
             del values["bigquery_temp_table_schema"]
         return values
 
-    @pydantic.root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def ensure_field_level_settings_are_normalized(
-        cls: "GEProfilingConfig", values: Dict[str, Any]
+        cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
         max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
         max_num_fields_to_profile = values.get(max_num_fields_to_profile_key)
 
         # Disable all field-level metrics.
         if values.get("profile_table_level_only"):
-            for field_level_metric in cls.__fields__:
+            for field_level_metric in cls.model_fields:
                 if field_level_metric.startswith("include_field_"):
                     if values.get(field_level_metric):
                         raise ValueError(
@@ -267,7 +270,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         )
 
     def config_for_telemetry(self) -> Dict[str, Any]:
-        config_dict = self.dict()
+        config_dict = self.model_dump()
 
         return {
             flag: config_dict[flag]
