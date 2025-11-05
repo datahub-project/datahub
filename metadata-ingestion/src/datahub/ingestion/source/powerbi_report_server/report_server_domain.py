@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, model_validator
 
 from datahub.ingestion.source.powerbi_report_server.constants import (
     RelationshipDirection,
@@ -30,11 +30,13 @@ class CatalogItem(BaseModel):
     has_data_sources: bool = Field(False, alias="HasDataSources")
     data_sources: Optional[List["DataSource"]] = Field(None, alias="DataSources")
 
-    @validator("display_name", always=True)
-    def validate_diplay_name(cls, value, values):
-        if values["created_by"]:
-            return values["created_by"].split("\\")[-1]
-        return ""
+    @model_validator(mode="after")
+    def validate_diplay_name(self):
+        if self.created_by:
+            self.display_name = self.created_by.split("\\")[-1]
+        else:
+            self.display_name = ""
+        return self
 
     def get_urn_part(self):
         return f"reports.{self.id}"

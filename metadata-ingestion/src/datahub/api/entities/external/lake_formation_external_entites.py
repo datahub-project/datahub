@@ -12,7 +12,7 @@
 # https://learn.microsoft.com/en-us/azure/databricks/database-objects/tags#constraint
 from typing import Any, Dict, Optional
 
-from pydantic import validator
+from pydantic import field_validator
 from typing_extensions import ClassVar
 
 from datahub.api.entities.external.external_tag import ExternalTag
@@ -50,11 +50,10 @@ class LakeFormationTag(ExternalTag):
     value: Optional[LakeFormationTagValueText] = None
     catalog: Optional[str] = None
 
-    # Pydantic v1 validators
-    @validator("key", pre=True)
+    @field_validator("key", mode="before")
     @classmethod
     def _validate_key(cls, v: Any) -> LakeFormationTagKeyText:
-        """Validate and convert key field for Pydantic v1."""
+        """Validate and convert key field."""
         if isinstance(v, LakeFormationTagKeyText):
             return v
 
@@ -64,10 +63,10 @@ class LakeFormationTag(ExternalTag):
 
         return LakeFormationTagKeyText(raw_text=v)
 
-    @validator("value", pre=True)
+    @field_validator("value", mode="before")
     @classmethod
     def _validate_value(cls, v: Any) -> Optional[LakeFormationTagValueText]:
-        """Validate and convert value field for Pydantic v1."""
+        """Validate and convert value field."""
         if v is None:
             return None
 

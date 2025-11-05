@@ -15,7 +15,7 @@ The integration enables your team to:
 The Slack App makes data discovery easier and more accessible, by making DataHub available where you work.
 Learn more about [how to set up the Slack app](./saas-slack-setup.md) or [how to troubleshoot issues](./saas-slack-troubleshoot.md).
 
-## Ask DataHub
+## Ask DataHub in Slack
 
 **Ask DataHub** is DataHub's conversational AI assistant. In Slack, you can mention @DataHub in any channel to ask questions about your metadata.
 
