@@ -16,15 +16,15 @@ Key capabilities include:
 
 Search for data assets using plain English instead of memorizing exact table names or technical identifiers. Ask DataHub understands context and synonyms to help you find what you need.
 
-### Finding Trustworthy Data
+### Find Trustworthy Data
 
 Discover high-quality, reliable data assets based on usage patterns, documentation quality, ownership information, and data quality metrics. Ask DataHub helps you identify the most authoritative sources for your analysis.
 
-### Understanding Impact of Changes
+### Impact Analysis
 
 Quickly assess how changes to a data asset will ripple through your organization. Ask DataHub can trace lineage and identify all downstream dependencies, helping you make informed decisions before making changes.
 
-### Understanding Social and Organizational Context
+### Understand Social and Organizational Context
 
 Get insights into the human side of your data:
 
@@ -33,7 +33,7 @@ Get insights into the human side of your data:
 - **Collaboration**: Understand which teams work with particular datasets
 - **History**: Learn about past usage patterns and organizational knowledge
 
-### Assessing Data Quality
+### Assess Data Quality
 
 Quickly understand the health and reliability of your data assets:
 
@@ -42,11 +42,24 @@ Quickly understand the health and reliability of your data assets:
 - Identify potential issues before using data
 - Get context on historical quality trends
 
-### Writing SQL Queries
+### Write SQL Queries
 
 Generate first-draft SQL queries to answer specific analytical questions, accelerating your data exploration and analysis workflows.
 
 ## Where You Can Use Ask DataHub
+
+## Getting Started
+
+To start using Ask DataHub:
+
+1. **In Slack or Teams**: Simply mention @DataHub followed by your question in any channel or chat
+2. **Enable the feature**: As of DataHub Cloud v0.3.13, Ask DataHub is in public beta and can be enabled in Settings → AI
+3. **Start asking questions**: Try queries like:
+   - "What tables contain customer email data?"
+   - "Who owns the sales_facts table?"
+   - "What would break if I change the orders table schema?"
+   - "Find me the most reliable revenue datasets"
+   - "Show me tables with data quality issues"
 
 ### Slack
 
@@ -64,11 +77,11 @@ Learn more: [Ask DataHub in Teams](../../managed-datahub/teams/saas-teams-app.md
 
 Ask DataHub is coming soon to the DataHub UI, providing seamless access to AI assistance while browsing your data catalog.
 
-<small>_Ask DataHub is currently available in the DataHub UI as part of a private beta. If you're interested in enabling this feature, please reach out to your DataHub representative._</small>
+Ask DataHub is currently available in the DataHub UI as part of a private beta. If you're interested in enabling this feature, please reach out to your DataHub representative.
 
 ## Customize Ask DataHub
 
-You can customize how Ask DataHub responds to queries by configuring custom instructions. These are injected into AI context to tailor the AI assistant's behavior to match your organization's specific needs, terminology, and guidelines.
+As of v0.3.15, you can customize how Ask DataHub responds to queries by configuring custom instructions. These are injected into AI context to tailor the AI assistant's behavior to match your organization's specific needs, terminology, and guidelines.
 
 ### Configuring Custom Instructions
 
@@ -93,7 +106,7 @@ Custom base prompts can be used to:
 
 ### Default Organization View
 
-By default, Ask DataHub automatically applies your organization's default view (if one is set). This means the assistant will prioritize asset discovery within the scope of your default view filters.
+By default, Ask DataHub applies your organization's default **Search View** (if one is set). This means the assistant will prioritize finding assets from a narrower set of assets, enabling it to separate the signal from the noise by default.
 
 This ensures that Ask DataHub's responses are always relevant to your team's specific data landscape, without requiring additional filtering in your queries.
 
@@ -112,29 +125,3 @@ Ask DataHub leverages your complete metadata graph to provide intelligent, conte
 - Data quality and assertion results
 - Tags, glossary terms, and classifications
 - Schema information and sample values
-
-## Getting Started
-
-To start using Ask DataHub:
-
-1. **In Slack or Teams**: Simply mention @DataHub followed by your question in any channel or chat
-2. **Enable the feature**: As of DataHub Cloud v0.3.13, Ask DataHub is in public beta and can be enabled in Settings → AI
-3. **Start asking questions**: Try queries like:
-   - "What tables contain customer email data?"
-   - "Who owns the sales_facts table?"
-   - "What would break if I change the orders table schema?"
-   - "Find me the most reliable revenue datasets"
-   - "Show me tables with data quality issues"
-
-## Examples
-
-Here are some example queries to help you get started:
-
-- **Discovery**: "Show me all tables related to customer churn"
-- **Impact Analysis**: "What dashboards depend on the user_events table?"
-- **Ownership**: "Who should I talk to about the marketing schema?"
-- **Quality**: "Are there any data quality issues with the revenue table?"
-- **Context**: "Tell me about the customer_360 dataset"
-- **SQL Generation**: "Write a query to find the top 10 customers by revenue"
-
-Start exploring your data ecosystem with Ask DataHub today!
