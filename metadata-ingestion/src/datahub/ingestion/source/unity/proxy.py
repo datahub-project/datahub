@@ -6,7 +6,6 @@ import dataclasses
 import json
 import logging
 import os
-import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
@@ -269,67 +268,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 exc=e,
             )
             return None
-
-    def _normalize_signature_spec(self, spec: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize signature spec dictionary to ensure consistent shape formatting."""
-        normalized = spec.copy() if isinstance(spec, dict) else {}
-
-        # Handle shape formatting - ensure it's properly formatted as a list
-        if "shape" in normalized:
-            shape = normalized["shape"]
-            if shape is not None:
-                if isinstance(shape, tuple):
-                    normalized["shape"] = list(shape)
-                elif isinstance(shape, str):
-                    # Try to parse string representation of shape
-                    try:
-                        import ast
-
-                        parsed = ast.literal_eval(shape)
-                        normalized["shape"] = (
-                            list(parsed) if isinstance(parsed, tuple) else parsed
-                        )
-                    except (ValueError, SyntaxError):
-                        normalized["shape"] = shape
-                # If already a list or other format, keep as-is
-
-        # Extract dtype from type field if it's in "Tensor (dtype: float64, shape: [-1,10])" format
-        if "type" in normalized and normalized.get("dtype") is None:
-            type_val = normalized["type"]
-            if isinstance(type_val, str):
-                # Check for "Tensor (dtype: float64, shape: [-1,10])" format
-                if "dtype:" in type_val:
-                    dtype_match = re.search(r"dtype:\s*(\w+)", type_val)
-                    if dtype_match:
-                        normalized["dtype"] = dtype_match.group(1)
-                    # Also try to extract shape from type string if shape is missing
-                    if "shape" not in normalized or normalized["shape"] is None:
-                        shape_match = re.search(r"shape:\s*(\[[^\]]+\])", type_val)
-                        if shape_match:
-                            try:
-                                import ast
-
-                                normalized["shape"] = ast.literal_eval(
-                                    shape_match.group(1)
-                                )
-                            except (ValueError, SyntaxError):
-                                pass
-                # If type is just a dtype string (like "float64", "int32"), use it as dtype
-                elif type_val and type_val not in ["unknown", "None"]:
-                    # Common dtype patterns
-                    dtype_pattern = r"^(float|int|bool|string|double|long)(\d+)?$"
-                    if re.match(dtype_pattern, type_val):
-                        normalized["dtype"] = type_val
-
-        # Ensure all standard fields exist
-        if "name" not in normalized:
-            normalized["name"] = None
-        if "type" not in normalized:
-            normalized["type"] = None
-        if "dtype" not in normalized:
-            normalized["dtype"] = None
-
-        return normalized
 
     def _extract_signature_from_files_api(
         self, model_version: ModelVersionInfo
