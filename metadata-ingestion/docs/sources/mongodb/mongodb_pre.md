@@ -1,0 +1,3 @@
+## Prerequisites and Permissions
+**Important:**  
+The user account used for MongoDB ingestion must have the `readWrite` role on each database to be ingested. Schema inference and sampling logic executes on system collections (such as `system.profile` and `system.views`), which are not permitted with only `read` or `readAnyDatabase` roles. Without `readWrite`, ingestion will fail with an authorization error.
