@@ -2,13 +2,13 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.OpenSearchStatusException;
-import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.CreateIndexResponse;
@@ -31,10 +31,10 @@ public class UsageEventIndexUtils {
    *
    * <p>This method creates an ILM policy that manages the lifecycle of usage event indices,
    * including rollover and retention policies. The policy is loaded from the resource file {@code
-   * /index/usage-event/policy.json} and applied to the specified policy name.
+   * /index/usage-event/elasticsearch_policy.json} and applied to the specified policy name.
    *
    * <p>The method uses the low-level REST client to make a PUT request to the {@code
-   * _ilm/policy/{policyName}} endpoint, which provides upsert behavior (creates if not exists,
+   * /_ilm/policy/{policyName}} endpoint, which provides upsert behavior (creates if not exists,
    * updates if exists).
    *
    * @param esComponents the Elasticsearch components factory providing search client access
@@ -47,23 +47,47 @@ public class UsageEventIndexUtils {
       String policyName)
       throws IOException {
     try {
-      String policyJson = loadResourceAsString("/index/usage-event/policy.json");
+      String policyJson =
+          IndexUtils.loadResourceAsString("/index/usage-event/elasticsearch_policy.json");
 
       // Use the low-level client to make the PUT request to _ilm/policy endpoint
-      String endpoint = "_ilm/policy/" + policyName;
+      String endpoint = "/_ilm/policy/" + policyName;
 
-      Request request = new Request("PUT", endpoint);
-      request.setJsonEntity(policyJson);
+      // Use retry logic for policy creation
+      boolean success =
+          IndexUtils.retryWithBackoff(
+              5,
+              2000,
+              () -> {
+                try {
+                  RawResponse response =
+                      IndexUtils.performPutRequest(esComponents, endpoint, policyJson);
 
-      RawResponse response = esComponents.getSearchClient().performLowLevelRequest(request);
+                  int statusCode = response.getStatusLine().getStatusCode();
+                  if (statusCode == 200 || statusCode == 201) {
+                    log.info("Successfully created ILM policy: {}", policyName);
+                    return true;
+                  } else if (statusCode == 409) {
+                    log.info("ILM policy {} already exists", policyName);
+                    return true; // Consider this a success since policy exists
+                  } else {
+                    log.error("ILM policy creation returned status: {}", statusCode);
+                    return false;
+                  }
+                } catch (ResponseException e) {
+                  if (e.getResponse().getStatusLine().getStatusCode() == 409) {
+                    log.info("ILM policy {} already exists", policyName);
+                    return true;
+                  } else {
+                    throw e;
+                  }
+                }
+              });
 
-      if (response.getStatusLine().getStatusCode() == 200
-          || response.getStatusLine().getStatusCode() == 201) {
-        log.info("Successfully created ILM policy: {}", policyName);
-      } else {
-        log.error(
-            "ILM policy creation returned status: {}", response.getStatusLine().getStatusCode());
+      if (!success) {
+        throw new IOException("Failed to create ILM policy after retries: " + policyName);
       }
+
     } catch (ResponseException e) {
       if (e.getResponse().getStatusLine().getStatusCode() == 409) {
         log.info("ILM policy {} already exists", policyName);
@@ -74,58 +98,271 @@ public class UsageEventIndexUtils {
   }
 
   /**
-   * Creates an Index State Management (ISM) policy for AWS OpenSearch usage events.
+   * Creates or updates an Index State Management (ISM) policy for AWS OpenSearch usage events.
    *
-   * <p>This method creates an ISM policy that manages the lifecycle of usage event indices in AWS
-   * OpenSearch environments. The policy is loaded from the resource file {@code
-   * /index/usage-event/aws_es_ism_policy.json} and applied to the specified policy name.
+   * <p>This method follows the same pattern as the Docker setup script: first checking if the
+   * policy exists, then either updating the existing policy or creating a new one. The policy is
+   * loaded from the resource file {@code /index/usage-event/opensearch_policy.json} and applied to
+   * the specified policy name.
    *
-   * <p>The method uses the low-level REST client to make a PUT request to the {@code
-   * _plugins/_ism/policies/{policyName}} endpoint, which is specific to AWS OpenSearch. The policy
+   * <p>The method uses the low-level REST client to make requests to the {@code
+   * /_plugins/_ism/policies/{policyName}} endpoint, which is specific to AWS OpenSearch. The policy
    * template includes placeholder replacement for the index prefix.
    *
    * <p>ISM policies in OpenSearch provide similar functionality to ILM policies in Elasticsearch,
    * including rollover conditions, state transitions, and retention policies.
    *
+   * <p>This method handles the following scenarios:
+   *
+   * <ul>
+   *   <li>Policy exists (200): Updates the existing policy using optimistic concurrency control
+   *   <li>Policy doesn't exist (404): Creates a new policy
+   *   <li>ISM not supported (400): Returns false gracefully
+   * </ul>
+   *
    * @param esComponents the Elasticsearch components factory providing search client access
-   * @param policyName the name of the ISM policy to create (e.g., "datahub_usage_event_policy")
+   * @param policyName the name of the ISM policy to create/update (e.g.,
+   *     "datahub_usage_event_policy")
    * @param prefix the index prefix to apply to policy configurations (e.g., "prod_")
+   * @return true if the policy was successfully created, updated, or already exists, false if
+   *     policy operation failed due to unsupported features or other errors
    * @throws IOException if there's an error reading the policy template or making the request
-   * @throws ResponseException if the request fails with a non-409 status code
    */
-  public static void createIsmPolicy(
+  public static boolean createIsmPolicy(
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String policyName,
-      String prefix)
+      String prefix,
+      OperationContext operationContext)
       throws IOException {
     try {
-      String policyJson = loadResourceAsString("/index/usage-event/aws_es_ism_policy.json");
-      // Replace placeholders
-      policyJson = policyJson.replace("PREFIX", prefix);
+      log.debug("Creating ISM policy: {}", policyName);
 
-      // For AWS OpenSearch, we need to use the low-level REST client for ISM policies
-      // since the high-level client doesn't support the _plugins/_ism/policies endpoint
-      String endpoint = "_plugins/_ism/policies/" + policyName;
+      String policyJson = loadPolicyTemplate(prefix);
+      String endpoint = "/_plugins/_ism/policies/" + policyName;
 
-      // Use the low-level client to make the PUT request
-      Request request = new Request("PUT", endpoint);
-      request.setJsonEntity(policyJson);
+      // Use retry logic for the entire policy creation operation (like the Docker script)
+      boolean success =
+          IndexUtils.retryWithBackoff(
+              5,
+              2000,
+              () -> {
+                try {
+                  RawResponse getResponse = IndexUtils.performGetRequest(esComponents, endpoint);
+                  return handleGetResponse(
+                      getResponse,
+                      esComponents,
+                      policyName,
+                      prefix,
+                      endpoint,
+                      policyJson,
+                      operationContext);
+                } catch (ResponseException e) {
+                  return handleResponseException(
+                      e, esComponents, policyName, prefix, endpoint, policyJson, operationContext);
+                }
+              });
 
-      RawResponse response = esComponents.getSearchClient().performLowLevelRequest(request);
+      return success;
+    } catch (Exception e) {
+      log.error("Unexpected error creating ISM policy {}: {}", policyName, e.getMessage(), e);
+      return false;
+    }
+  }
 
-      if (response.getStatusLine().getStatusCode() == 200
-          || response.getStatusLine().getStatusCode() == 201) {
+  /**
+   * Handles the response from a GET request to check ISM policy existence.
+   *
+   * @param getResponse the response from the GET request
+   * @param esComponents the Elasticsearch components factory
+   * @param policyName the name of the ISM policy
+   * @param prefix the prefix for index patterns
+   * @param endpoint the API endpoint
+   * @param policyJson the policy JSON to create
+   * @param operationContext the operation context for JSON parsing
+   * @return true if successful, false if retry is needed
+   */
+  private static boolean handleGetResponse(
+      RawResponse getResponse,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String policyName,
+      String prefix,
+      String endpoint,
+      String policyJson,
+      OperationContext operationContext) {
+
+    int getStatusCode = getResponse.getStatusLine().getStatusCode();
+
+    if (getStatusCode == 200) {
+      return handleExistingPolicy(esComponents, policyName, prefix, operationContext);
+    }
+
+    if (getStatusCode == 404) {
+      return createNewPolicy(esComponents, endpoint, policyJson, policyName);
+    }
+
+    // Handle other GET errors - these are retryable (like the Docker script)
+    String getResponseBody = extractResponseBody(getResponse);
+    log.warn(
+        "Failed to check ISM policy existence. Status: {}. Response: {}. Will retry.",
+        getStatusCode,
+        getResponseBody);
+    throw new RuntimeException("Retryable error: " + getStatusCode + " - " + getResponseBody);
+  }
+
+  /**
+   * Handles ResponseException from GET request.
+   *
+   * @param e the ResponseException
+   * @param esComponents the Elasticsearch components factory
+   * @param policyName the name of the ISM policy
+   * @param prefix the prefix for index patterns
+   * @param endpoint the API endpoint
+   * @param policyJson the policy JSON to create
+   * @param operationContext the operation context for JSON parsing
+   * @return true if successful, false if retry is needed
+   */
+  private static boolean handleResponseException(
+      ResponseException e,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String policyName,
+      String prefix,
+      String endpoint,
+      String policyJson,
+      OperationContext operationContext) {
+
+    int statusCode = e.getResponse().getStatusLine().getStatusCode();
+    String responseBody = extractResponseBody(e.getResponse());
+
+    if (statusCode == 200) {
+      log.info("ISM policy {} already exists (from exception), updating it", policyName);
+      return handleExistingPolicy(esComponents, policyName, prefix, operationContext);
+    }
+
+    if (statusCode == 404) {
+      log.info("ISM policy {} doesn't exist (from exception), creating it", policyName);
+      return createNewPolicy(esComponents, endpoint, policyJson, policyName);
+    }
+
+    // Handle all other errors as retryable (including 400 with .opendistro-ism-config)
+    log.warn(
+        "ISM policy operation failed with status: {}. Response: {}. Will retry.",
+        statusCode,
+        responseBody);
+    throw new RuntimeException("Retryable error: " + statusCode + " - " + responseBody);
+  }
+
+  /**
+   * Handles the case when an ISM policy already exists by updating it.
+   *
+   * @param esComponents the Elasticsearch components factory
+   * @param policyName the name of the ISM policy
+   * @param prefix the prefix for index patterns
+   * @param operationContext the operation context for JSON parsing
+   * @return true if successful, false otherwise
+   */
+  private static boolean handleExistingPolicy(
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String policyName,
+      String prefix,
+      OperationContext operationContext) {
+
+    log.info("ISM policy {} already exists, updating it", policyName);
+    try {
+      updateIsmPolicy(esComponents, policyName, prefix, operationContext);
+      return true;
+    } catch (Exception updateException) {
+      log.warn(
+          "Failed to update existing ISM policy {} (non-fatal): {}",
+          policyName,
+          updateException.getMessage());
+      return true; // Still consider this success since policy exists
+    }
+  }
+
+  /**
+   * Creates a new ISM policy.
+   *
+   * @param esComponents the Elasticsearch components factory
+   * @param endpoint the API endpoint
+   * @param policyJson the policy JSON to create
+   * @param policyName the name of the ISM policy
+   * @return true if successful, false otherwise
+   */
+  private static boolean createNewPolicy(
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String endpoint,
+      String policyJson,
+      String policyName) {
+
+    log.info("ISM policy {} doesn't exist, creating it", policyName);
+
+    try {
+      RawResponse createResponse = IndexUtils.performPutRequest(esComponents, endpoint, policyJson);
+      int createStatusCode = createResponse.getStatusLine().getStatusCode();
+
+      if (createStatusCode == 200 || createStatusCode == 201) {
         log.info("Successfully created ISM policy: {}", policyName);
-      } else {
-        log.warn(
-            "ISM policy creation returned status: {}", response.getStatusLine().getStatusCode());
+        return true;
       }
-    } catch (ResponseException e) {
-      if (e.getResponse().getStatusLine().getStatusCode() == 409) {
+
+      if (createStatusCode == 409) {
         log.info("ISM policy {} already exists", policyName);
-      } else {
-        throw e;
+        return true; // Consider this a success since policy exists
       }
+
+      log.error("ISM policy creation returned status: {}", createStatusCode);
+      return false;
+    } catch (IOException e) {
+      log.error("Failed to create ISM policy {}: {}", policyName, e.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * Loads the ISM policy template and applies the prefix.
+   *
+   * @param prefix the prefix to apply to policy configurations
+   * @return the policy JSON with the prefix applied
+   * @throws IOException if there's an error reading the policy template
+   */
+  private static String loadPolicyTemplate(String prefix) throws IOException {
+    return IndexUtils.loadResourceAsString("/index/usage-event/opensearch_policy.json")
+        .replace("PREFIX", prefix);
+  }
+
+  /**
+   * Extracts the response body from a RawResponse.
+   *
+   * @param response the RawResponse
+   * @return the response body as a string, or a default message if extraction fails
+   */
+  private static String extractResponseBody(RawResponse response) {
+    if (response.getEntity() == null) {
+      return "No response body";
+    }
+
+    try {
+      return new String(response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      return "Error reading response body: " + e.getMessage();
+    }
+  }
+
+  /**
+   * Extracts the response body from a Response.
+   *
+   * @param response the Response
+   * @return the response body as a string, or a default message if extraction fails
+   */
+  private static String extractResponseBody(Response response) {
+    if (response.getEntity() == null) {
+      return "No response body";
+    }
+
+    try {
+      return new String(response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      return "Error reading response body: " + e.getMessage();
     }
   }
 
@@ -134,7 +371,7 @@ public class UsageEventIndexUtils {
    *
    * <p>This method creates an index template that defines the structure and settings for usage
    * event indices in standard Elasticsearch environments. The template is loaded from the resource
-   * file {@code /index/usage-event/index_template.json} and configured with the specified
+   * file {@code /index/usage-event/elasticsearch_template.json} and configured with the specified
    * parameters.
    *
    * <p>The template includes:
@@ -147,7 +384,7 @@ public class UsageEventIndexUtils {
    * </ul>
    *
    * <p>The method uses the low-level REST client to make a PUT request to the {@code
-   * _index_template/{templateName}} endpoint, which provides upsert behavior.
+   * /_index_template/{templateName}} endpoint, which provides upsert behavior.
    *
    * @param esComponents the Elasticsearch components factory providing search client access
    * @param templateName the name of the index template to create (e.g.,
@@ -168,19 +405,17 @@ public class UsageEventIndexUtils {
       String prefix)
       throws IOException {
     try {
-      String templateJson = loadResourceAsString("/index/usage-event/index_template.json");
+      String templateJson =
+          IndexUtils.loadResourceAsString("/index/usage-event/elasticsearch_template.json");
       // Replace placeholders
       templateJson = templateJson.replace("PREFIX", prefix);
       templateJson = templateJson.replace("DUE_SHARDS", String.valueOf(numShards));
       templateJson = templateJson.replace("DUE_REPLICAS", String.valueOf(numReplicas));
 
       // Use the low-level client for index templates
-      String endpoint = "_index_template/" + templateName;
+      String endpoint = "/_index_template/" + templateName;
 
-      Request request = new Request("PUT", endpoint);
-      request.setJsonEntity(templateJson);
-
-      RawResponse response = esComponents.getSearchClient().performLowLevelRequest(request);
+      RawResponse response = IndexUtils.performPutRequest(esComponents, endpoint, templateJson);
 
       if (response.getStatusLine().getStatusCode() == 200
           || response.getStatusLine().getStatusCode() == 201) {
@@ -204,7 +439,7 @@ public class UsageEventIndexUtils {
    *
    * <p>This method creates an index template that defines the structure and settings for usage
    * event indices in AWS OpenSearch environments. The template is loaded from the resource file
-   * {@code /index/usage-event/aws_es_index_template.json} and configured with the specified
+   * {@code /index/usage-event/opensearch_template.json} and configured with the specified
    * parameters.
    *
    * <p>The template includes:
@@ -217,7 +452,7 @@ public class UsageEventIndexUtils {
    * </ul>
    *
    * <p>The method uses the low-level REST client to make a PUT request to the {@code
-   * _template/{templateName}} endpoint, which is the legacy template API used by AWS OpenSearch.
+   * /_template/{templateName}} endpoint, which is the legacy template API used by AWS OpenSearch.
    * This provides upsert behavior.
    *
    * @param esComponents the Elasticsearch components factory providing search client access
@@ -237,24 +472,25 @@ public class UsageEventIndexUtils {
       String prefix)
       throws IOException {
     try {
-      String templateJson = loadResourceAsString("/index/usage-event/aws_es_index_template.json");
+      String templateJson;
+      String endpoint;
+
+      // Both AWS OpenSearch Service and self-hosted OpenSearch use the same endpoint and template
+      // format
+      templateJson = IndexUtils.loadResourceAsString("/index/usage-event/opensearch_template.json");
+      endpoint = "/_index_template/" + templateName;
+
       // Replace placeholders
       templateJson = templateJson.replace("PREFIX", prefix);
       templateJson = templateJson.replace("DUE_SHARDS", String.valueOf(numShards));
       templateJson = templateJson.replace("DUE_REPLICAS", String.valueOf(numReplicas));
 
-      // For AWS OpenSearch, we need to use the _template endpoint instead of _index_template
-      String endpoint = "_template/" + templateName;
-
       // Use the low-level client to make the PUT request
-      Request request = new Request("PUT", endpoint);
-      request.setJsonEntity(templateJson);
-
-      RawResponse response = esComponents.getSearchClient().performLowLevelRequest(request);
+      RawResponse response = IndexUtils.performPutRequest(esComponents, endpoint, templateJson);
 
       if (response.getStatusLine().getStatusCode() == 200
           || response.getStatusLine().getStatusCode() == 201) {
-        log.info("Successfully created OpenSearch index template: {}", templateName);
+        log.info("Successfully created/updated OpenSearch index template: {}", templateName);
       } else {
         log.warn(
             "OpenSearch index template creation returned status: {}",
@@ -263,6 +499,12 @@ public class UsageEventIndexUtils {
     } catch (ResponseException e) {
       if (e.getResponse().getStatusLine().getStatusCode() == 409) {
         log.info("OpenSearch index template {} already exists", templateName);
+      } else if (e.getResponse().getStatusLine().getStatusCode() == 400) {
+        // Handle 400 Bad Request - this may indicate template format issues or unsupported features
+        log.warn(
+            "Index template creation failed with 400 Bad Request. This may indicate an issue with the template format or unsupported features. Template: {}",
+            templateName);
+        throw e;
       } else {
         throw e;
       }
@@ -329,15 +571,46 @@ public class UsageEventIndexUtils {
   }
 
   /**
+   * Creates an index with a write alias in a single request.
+   *
+   * <p>This method uses the common syntax supported by both Elasticsearch and OpenSearch to create
+   * an index and assign a write alias atomically. This is more efficient than creating the index
+   * and alias separately.
+   *
+   * @param esComponents the Elasticsearch/OpenSearch components factory
+   * @param indexName the name of the index to create
+   * @param aliasName the name of the alias to assign with is_write_index=true
+   * @throws IOException if there's an error creating the index
+   */
+  private static void createIndexWithWriteAlias(
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName,
+      String aliasName)
+      throws IOException {
+    String indexJson = String.format("{\"aliases\":{\"%s\":{\"is_write_index\":true}}}", aliasName);
+
+    CreateIndexRequest request = new CreateIndexRequest(indexName);
+    request.source(indexJson, XContentType.JSON);
+
+    CreateIndexResponse response =
+        esComponents.getSearchClient().createIndex(request, RequestOptions.DEFAULT);
+
+    if (response.isAcknowledged()) {
+      log.info("Successfully created index: {} with write alias: {}", indexName, aliasName);
+    } else {
+      log.warn("Index creation not acknowledged: {}", indexName);
+    }
+  }
+
+  /**
    * Creates an initial index for AWS OpenSearch usage events.
    *
    * <p>This method creates the first index in a time-series setup for usage events in AWS
    * OpenSearch environments. Unlike Elasticsearch data streams, OpenSearch uses numbered indices
    * (e.g., "datahub_usage_event-000001") with aliases for rollover management.
    *
-   * <p>The method loads the index configuration from the resource file {@code
-   * /index/usage-event/aws_es_index.json} and applies the specified prefix. The configuration
-   * includes alias settings that enable ISM policy rollover.
+   * <p>The method creates an empty index configuration and applies the specified prefix. The alias
+   * configuration is handled programmatically after index creation.
    *
    * <p>The created index includes:
    *
@@ -368,23 +641,13 @@ public class UsageEventIndexUtils {
           esComponents.getSearchClient().indexExists(getRequest, RequestOptions.DEFAULT);
 
       if (!exists) {
-        String indexJson = loadResourceAsString("/index/usage-event/aws_es_index.json");
-        // Replace PREFIX placeholder with actual prefix
-        indexJson = indexJson.replace("PREFIX", prefix);
-
-        CreateIndexRequest request = new CreateIndexRequest(indexName);
-        request.source(indexJson, XContentType.JSON);
-
-        CreateIndexResponse response =
-            esComponents.getSearchClient().createIndex(request, RequestOptions.DEFAULT);
-
-        if (response.isAcknowledged()) {
-          log.info("Successfully created OpenSearch index: {}", indexName);
-        } else {
-          log.warn("OpenSearch index creation not acknowledged: {}", indexName);
-        }
+        // Create index with alias in a single request (common syntax for both Elasticsearch and
+        // OpenSearch)
+        String aliasName = prefix + "datahub_usage_event";
+        log.info("Creating new OpenSearch index: {} with alias: {}", indexName, aliasName);
+        createIndexWithWriteAlias(esComponents, indexName, aliasName);
       } else {
-        log.info("OpenSearch index {} already exists", indexName);
+        log.info("OpenSearch index {} already exists - skipping creation", indexName);
       }
     } catch (OpenSearchStatusException e) {
       if (e.getMessage().contains("resource_already_exists_exception")
@@ -397,24 +660,92 @@ public class UsageEventIndexUtils {
   }
 
   /**
-   * Loads a resource file as a UTF-8 encoded string.
+   * Updates an existing ISM policy for AWS OpenSearch usage events.
    *
-   * <p>This utility method reads a resource file from the classpath and returns its contents as a
-   * string. It's used internally by other methods to load JSON templates and configuration files.
+   * <p>This method updates an existing ISM policy using optimistic concurrency control with
+   * sequence numbers and primary terms. It first retrieves the current policy to get the sequence
+   * number and primary term, then updates the policy with the new configuration.
    *
-   * <p>The method uses the class loader to locate the resource and reads it using a buffered input
-   * stream for efficient memory usage.
+   * <p>The method is non-fatal - if the policy cannot be updated (e.g., due to concurrent
+   * modifications), it logs a warning but does not throw an exception. This matches the behavior of
+   * the Docker script.
    *
-   * @param resourcePath the path to the resource file (e.g., "/index/usage-event/policy.json")
-   * @return the contents of the resource file as a UTF-8 encoded string
-   * @throws IOException if the resource cannot be found or read
+   * @param esComponents the Elasticsearch components factory providing search client access
+   * @param policyName the name of the ISM policy to update (e.g., "datahub_usage_event_policy")
+   * @param prefix the index prefix to apply to policy configurations (e.g., "prod_")
+   * @throws IOException if there's an error reading the policy template or making the request
    */
-  private static String loadResourceAsString(String resourcePath) throws IOException {
-    try (InputStream inputStream = UsageEventIndexUtils.class.getResourceAsStream(resourcePath)) {
-      if (inputStream == null) {
-        throw new IOException("Resource not found: " + resourcePath);
+  public static void updateIsmPolicy(
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String policyName,
+      String prefix,
+      OperationContext operationContext)
+      throws IOException {
+    try {
+      String endpoint = "/_plugins/_ism/policies/" + policyName;
+
+      // Get existing policy to retrieve sequence number and primary term
+      RawResponse getResponse = IndexUtils.performGetRequest(esComponents, endpoint);
+
+      if (getResponse.getStatusLine().getStatusCode() != 200) {
+        log.warn("Could not get ISM policy {} for update. Ignoring.", policyName);
+        return;
       }
-      return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+
+      String responseBody =
+          new String(getResponse.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
+
+      // Parse sequence number and primary term from response
+      // The response format is: {"policy_id": "...", "_seq_no": 123, "_primary_term": 456,
+      // "policy": {...}}
+      int seqNo = IndexUtils.extractJsonValue(operationContext, responseBody, "_seq_no");
+      int primaryTerm =
+          IndexUtils.extractJsonValue(operationContext, responseBody, "_primary_term");
+
+      if (seqNo == -1 || primaryTerm == -1) {
+        log.warn(
+            "Could not extract sequence number or primary term from ISM policy {}. Skipping update.",
+            policyName);
+        return;
+      }
+
+      // Load new policy configuration
+      String policyJson =
+          IndexUtils.loadResourceAsString("/index/usage-event/opensearch_policy.json");
+      policyJson = policyJson.replace("PREFIX", prefix);
+
+      // Update policy with optimistic concurrency control
+      String queryParams = "?if_seq_no=" + seqNo + "&if_primary_term=" + primaryTerm;
+      RawResponse updateResponse =
+          IndexUtils.performPutRequestWithParams(esComponents, endpoint, queryParams, policyJson);
+
+      if (updateResponse.getStatusLine().getStatusCode() == 200
+          || updateResponse.getStatusLine().getStatusCode() == 201) {
+        log.info("Successfully updated ISM policy: {}", policyName);
+      } else {
+        log.warn(
+            "Failed to update ISM policy {} after retries (non-fatal). Status: {}",
+            policyName,
+            updateResponse.getStatusLine().getStatusCode());
+      }
+
+    } catch (ResponseException e) {
+      if (e.getResponse().getStatusLine().getStatusCode() == 409) {
+        log.warn("ISM policy {} was modified concurrently. Skipping update.", policyName);
+      } else if (e.getResponse().getStatusLine().getStatusCode() == 400) {
+        log.warn(
+            "Failed to update ISM policy {} (non-fatal). This may indicate that ISM policies are not supported in this environment. Status: {}",
+            policyName,
+            e.getResponse().getStatusLine().getStatusCode());
+      } else {
+        log.warn(
+            "Failed to update ISM policy {} (non-fatal). Status: {}",
+            policyName,
+            e.getResponse().getStatusLine().getStatusCode());
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Unexpected error updating ISM policy {} (non-fatal): {}", policyName, e.getMessage());
     }
   }
 }

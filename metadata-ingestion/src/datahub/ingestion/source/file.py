@@ -9,7 +9,7 @@ from functools import partial
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
 import ijson
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigEnum
@@ -103,7 +103,8 @@ class FileSourceConfig(StatefulIngestionConfigBase):
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("file_extension", always=True)
+    @field_validator("file_extension", mode="after")
+    @classmethod
     def add_leading_dot_to_extension(cls, v: str) -> str:
         if v:
             if v.startswith("."):
@@ -205,7 +206,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = FileSourceConfig.parse_obj(config_dict)
+        config = FileSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_filenames(self) -> Iterable[FileInfo]:
@@ -358,7 +359,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        config = FileSourceConfig.parse_obj(config_dict)
+        config = FileSourceConfig.model_validate(config_dict)
         exists = os.path.exists(config.path)
         if not exists:
             return TestConnectionReport(

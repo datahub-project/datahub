@@ -1750,7 +1750,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return result.toString();
   }
 
-  private boolean preprocessEvent(
+  boolean preprocessEvent(
       @Nonnull OperationContext opContext, MetadataChangeLog metadataChangeLog) {
     // Deletes cannot rely on System Metadata being passed through so can't always be determined by
     // system metadata,
@@ -1779,6 +1779,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Integer getCountAspect(
       @Nonnull OperationContext opContext, @Nonnull String aspectName, @Nullable String urnLike) {
     return aspectDao.countAspect(aspectName, urnLike);
+  }
+
+  @Override
+  public Integer countAspect(@Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger) {
+    logger.accept(String.format("Args are %s", args));
+    return aspectDao.countAspect(args);
   }
 
   @Nonnull

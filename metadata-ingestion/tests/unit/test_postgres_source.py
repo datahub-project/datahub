@@ -11,7 +11,7 @@ def _base_config():
 
 @patch("datahub.ingestion.source.sql.postgres.create_engine")
 def test_initial_database(create_engine_mock):
-    config = PostgresConfig.parse_obj(_base_config())
+    config = PostgresConfig.model_validate(_base_config())
     assert config.initial_database == "postgres"
     source = PostgresSource(config, PipelineContext(run_id="test"))
     _ = list(source.get_inspectors())
@@ -24,7 +24,9 @@ def test_get_inspectors_multiple_databases(create_engine_mock):
     execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
     execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
 
-    config = PostgresConfig.parse_obj({**_base_config(), "initial_database": "db0"})
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "initial_database": "db0"}
+    )
     source = PostgresSource(config, PipelineContext(run_id="test"))
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 3
@@ -38,7 +40,7 @@ def tests_get_inspectors_with_database_provided(create_engine_mock):
     execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
     execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
 
-    config = PostgresConfig.parse_obj({**_base_config(), "database": "custom_db"})
+    config = PostgresConfig.model_validate({**_base_config(), "database": "custom_db"})
     source = PostgresSource(config, PipelineContext(run_id="test"))
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 1
@@ -50,7 +52,7 @@ def tests_get_inspectors_with_sqlalchemy_uri_provided(create_engine_mock):
     execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
     execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
 
-    config = PostgresConfig.parse_obj(
+    config = PostgresConfig.model_validate(
         {**_base_config(), "sqlalchemy_uri": "custom_url"}
     )
     source = PostgresSource(config, PipelineContext(run_id="test"))
@@ -60,7 +62,7 @@ def tests_get_inspectors_with_sqlalchemy_uri_provided(create_engine_mock):
 
 
 def test_database_in_identifier():
-    config = PostgresConfig.parse_obj({**_base_config(), "database": "postgres"})
+    config = PostgresConfig.model_validate({**_base_config(), "database": "postgres"})
     mock_inspector = mock.MagicMock()
     assert (
         PostgresSource(config, PipelineContext(run_id="test")).get_identifier(
@@ -71,7 +73,7 @@ def test_database_in_identifier():
 
 
 def test_current_sqlalchemy_database_in_identifier():
-    config = PostgresConfig.parse_obj({**_base_config()})
+    config = PostgresConfig.model_validate({**_base_config()})
     mock_inspector = mock.MagicMock()
     mock_inspector.engine.url.database = "current_db"
     assert (

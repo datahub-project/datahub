@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
@@ -20,8 +21,11 @@ import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.ImpactConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
@@ -34,11 +38,22 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
+import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -56,6 +71,9 @@ public class SearchTestUtils {
 
   public static SearchServiceConfiguration TEST_SEARCH_SERVICE_CONFIG =
       SearchServiceConfiguration.builder().limit(TEST_1K_LIMIT_CONFIG).build();
+
+  public static StructuredPropertiesConfiguration TEST_ES_STRUCT_PROPS_DISABLED =
+      StructuredPropertiesConfiguration.builder().enabled(false).systemUpdateEnabled(false).build();
 
   // Base configuration for tests
   private static final ElasticSearchConfiguration BASE_TEST_CONFIG =
@@ -93,8 +111,32 @@ public class SearchTestUtils {
                   .pollInterval(1)
                   .pollIntervalUnit("SECONDS")
                   .build())
+          .index(
+              IndexConfiguration.builder()
+                  .prefix("")
+                  .numShards(1)
+                  .numReplicas(1)
+                  .numRetries(3)
+                  .refreshIntervalSeconds(3)
+                  .maxArrayLength(1000)
+                  .maxObjectKeys(1000)
+                  .maxValueLength(4096)
+                  .enableMappingsReindex(true)
+                  .enableSettingsReindex(true)
+                  .maxReindexHours(0)
+                  .minSearchFilterLength(3)
+                  .build())
           .buildIndices(
               BuildIndicesConfiguration.builder().reindexOptimizationEnabled(true).build())
+          .entityIndex(
+              EntityIndexConfiguration.builder()
+                  .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+                  .v3(
+                      EntityIndexVersionConfiguration.builder()
+                          .enabled(false)
+                          .cleanup(false)
+                          .build())
+                  .build())
           .build();
 
   public static ElasticSearchConfiguration TEST_OS_SEARCH_CONFIG = BASE_TEST_CONFIG;
@@ -152,6 +194,35 @@ public class SearchTestUtils {
             .distinct()
             .collect(Collectors.toList());
   }
+
+  /**
+   * Default EntityIndexConfiguration for testing with V2 enabled and V3 disabled. This is the most
+   * common configuration used in tests.
+   */
+  public static final EntityIndexConfiguration DEFAULT_ENTITY_INDEX_CONFIGURATION =
+      EntityIndexConfiguration.builder()
+          .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+          .v3(EntityIndexVersionConfiguration.builder().enabled(false).cleanup(false).build())
+          .build();
+
+  /**
+   * EntityIndexConfiguration for testing with both V2 and V3 enabled. This configuration matches
+   * the default values from application.yaml: - V2: enabled=true, cleanup=false - V3: enabled=true,
+   * cleanup=false, analyzerConfig=search_entity_analyzer_config.yaml,
+   * mappingConfig=search_entity_mapping_config.yaml, maxFieldsLimit=5000
+   */
+  public static final EntityIndexConfiguration V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION =
+      EntityIndexConfiguration.builder()
+          .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+          .v3(
+              EntityIndexVersionConfiguration.builder()
+                  .enabled(true)
+                  .cleanup(true)
+                  .analyzerConfig("search_entity_analyzer_config.yaml")
+                  .mappingConfig("search_entity_mapping_config.yaml")
+                  .maxFieldsLimit(5000)
+                  .build())
+          .build();
 
   public static SearchResult facetAcrossEntities(
       OperationContext opContext,
@@ -398,5 +469,71 @@ public class SearchTestUtils {
   @FunctionalInterface
   public interface DataAvailabilityChecker {
     boolean check() throws Exception;
+  }
+
+  /**
+   * Creates a DelegatingSettingsBuilder with the appropriate settings builders based on the entity
+   * index configuration. This utility method encapsulates the common pattern of creating a list of
+   * SettingsBuilder implementations and passing them to DelegatingSettingsBuilder constructor.
+   *
+   * @param entityIndexConfiguration the entity index configuration to determine which builders to
+   *     include
+   * @param indexConfiguration the index configuration for LegacySettingsBuilder
+   * @param indexConvention the index convention for the builders
+   * @return a DelegatingSettingsBuilder instance
+   * @throws RuntimeException if MultiEntitySettingsBuilder initialization fails
+   */
+  public static DelegatingSettingsBuilder createDelegatingSettingsBuilder(
+      EntityIndexConfiguration entityIndexConfiguration,
+      IndexConfiguration indexConfiguration,
+      IndexConvention indexConvention) {
+
+    List<SettingsBuilder> settingsBuilders = new ArrayList<>();
+
+    if (entityIndexConfiguration.getV2().isEnabled()) {
+      settingsBuilders.add(new V2LegacySettingsBuilder(indexConfiguration, indexConvention));
+    }
+    if (entityIndexConfiguration.getV3().isEnabled()) {
+      try {
+        settingsBuilders.add(
+            new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention));
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to initialize MultiEntitySettingsBuilder", e);
+      }
+    }
+
+    return new DelegatingSettingsBuilder(settingsBuilders);
+  }
+
+  /**
+   * Creates a DelegatingMappingsBuilder with the appropriate mappings builders based on the entity
+   * index configuration. This utility method encapsulates the common pattern of creating a list of
+   * MappingsBuilder implementations and passing them to DelegatingMappingsBuilder constructor.
+   *
+   * @param entityIndexConfiguration the entity index configuration to determine which builders to
+   *     include
+   * @return a DelegatingMappingsBuilder instance
+   * @throws RuntimeException if MultiEntityMappingsBuilder initialization fails
+   */
+  public static DelegatingMappingsBuilder createDelegatingMappingsBuilder(
+      EntityIndexConfiguration entityIndexConfiguration) {
+
+    List<MappingsBuilder> builders = new ArrayList<>();
+
+    if (entityIndexConfiguration.getV2().isEnabled()) {
+      builders.add(new V2MappingsBuilder(entityIndexConfiguration));
+    }
+    if (entityIndexConfiguration.getV3().isEnabled()) {
+      try {
+        builders.add(new MultiEntityMappingsBuilder(entityIndexConfiguration));
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
+      }
+    }
+
+    // Add NoOpMappingsBuilder as fallback
+    builders.add(new NoOpMappingsBuilder());
+
+    return new DelegatingMappingsBuilder(builders);
   }
 }
