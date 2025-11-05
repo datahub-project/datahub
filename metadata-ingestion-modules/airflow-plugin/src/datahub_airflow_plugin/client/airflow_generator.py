@@ -125,14 +125,16 @@ class AirflowGenerator:
         external_task_upstreams = []
         if isinstance(task, ExternalTaskSensor):
             task = cast(ExternalTaskSensor, task)
-            if hasattr(task, "external_task_id") and task.external_task_id is not None:
+            external_task_id = getattr(task, "external_task_id", None)
+            external_dag_id = getattr(task, "external_dag_id", None)
+            if external_task_id is not None and external_dag_id is not None:
                 external_task_upstreams = [
                     DataJobUrn.create_from_ids(
-                        job_id=task.external_task_id,
+                        job_id=external_task_id,
                         data_flow_urn=str(
                             DataFlowUrn.create_from_ids(
                                 orchestrator=flow_urn.orchestrator,
-                                flow_id=task.external_dag_id,
+                                flow_id=external_dag_id,
                                 env=flow_urn.cluster,
                                 platform_instance=config.platform_instance
                                 if config
