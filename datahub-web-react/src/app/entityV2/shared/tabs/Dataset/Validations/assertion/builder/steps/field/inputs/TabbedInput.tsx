@@ -321,8 +321,15 @@ export const TabbedInput = ({
     // Show tabs in both create and edit flows
     const showTabs = isSetOperation;
 
+    // Only require a value when not using SQL input. When using SQL, show a hint instead of a required error.
+    const formRules = isSqlAssertion ? [] : [{ required: true, message: 'Required' }];
+
     return (
-        <Form.Item name="fieldValue" rules={[{ required: true, message: 'Required' }]}>
+        <Form.Item
+            name="fieldValue"
+            rules={formRules}
+            help={isSetOperation && isSqlAssertion ? 'SQL query should return a single column of values.' : undefined}
+        >
             {showTabs ? (
                 <div>
                     <TabsWrapper>
