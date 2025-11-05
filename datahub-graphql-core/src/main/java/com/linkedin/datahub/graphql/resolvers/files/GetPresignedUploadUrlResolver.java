@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.files;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -10,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlInput;
 import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlResponse;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposalUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.aws.S3Util;
@@ -85,24 +87,27 @@ public class GetPresignedUploadUrlResolver
 
   private void validateInputForAssetDocumentationScenario(
       final QueryContext context, final GetPresignedUploadUrlInput input) {
-    String assetUrn = input.getAssetUrn();
+    String assetUrnString = input.getAssetUrn();
     String schemaFieldUrn = input.getSchemaFieldUrn();
 
-    if (assetUrn == null) {
+    if (assetUrnString == null) {
       throw new IllegalArgumentException("assetUrn is required for ASSET_DOCUMENTATION scenario");
     }
 
+    Urn assetUrn = UrnUtils.getUrn(assetUrnString);
+
     // FYI: for schema field we have to apply another rules to check permissions
     if (schemaFieldUrn != null) {
-      if (!DescriptionUtils.isAuthorizedToUpdateFieldDescription(
-          context, UrnUtils.getUrn(assetUrn))) {
+      if (!DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, assetUrn)
+          && !ProposalUtils.isAuthorizedToProposeDescription(context, assetUrn, schemaFieldUrn)) {
         throw new AuthorizationException(
             "Unauthorized to edit documentation for schema field: " + schemaFieldUrn);
       }
     } else {
-      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, UrnUtils.getUrn(assetUrn))) {
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, assetUrn)
+          && !ProposalUtils.isAuthorizedToProposeDescription(context, assetUrn, null)) {
         throw new AuthorizationException(
-            "Unauthorized to edit documentation for asset: " + assetUrn);
+            "Unauthorized to edit documentation for asset: " + assetUrnString);
       }
     }
   }

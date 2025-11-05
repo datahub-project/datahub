@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlInput;
 import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlResponse;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposalUtils;
 import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.aws.S3Util;
 import graphql.schema.DataFetchingEnvironment;
@@ -48,6 +49,7 @@ public class GetPresignedUploadUrlResolverTest {
 
   private AutoCloseable mocks;
   private MockedStatic<DescriptionUtils> descriptionUtilsMockedStatic;
+  private MockedStatic<ProposalUtils> proposalUtilsMockedStatic;
 
   @BeforeMethod
   public void setup() {
@@ -73,12 +75,21 @@ public class GetPresignedUploadUrlResolverTest {
                 DescriptionUtils.isAuthorizedToUpdateFieldDescription(
                     any(QueryContext.class), any(Urn.class)))
         .thenReturn(true);
+
+    proposalUtilsMockedStatic = mockStatic(ProposalUtils.class);
+    proposalUtilsMockedStatic
+        .when(
+            () ->
+                ProposalUtils.isAuthorizedToProposeDescription(
+                    any(QueryContext.class), any(Urn.class), any(String.class)))
+        .thenReturn(false);
   }
 
   @AfterMethod
   public void tearDown() throws Exception {
     mocks.close();
     descriptionUtilsMockedStatic.close();
+    proposalUtilsMockedStatic.close();
   }
 
   private GetPresignedUploadUrlInput createInput(
@@ -344,6 +355,14 @@ public class GetPresignedUploadUrlResolverTest {
                     any(QueryContext.class), any(Urn.class)))
         .thenReturn(false);
 
+    // Also mock proposal authorization to return false to ensure both fail
+    proposalUtilsMockedStatic
+        .when(
+            () ->
+                ProposalUtils.isAuthorizedToProposeDescription(
+                    any(QueryContext.class), any(Urn.class), eq((String) null)))
+        .thenReturn(false);
+
     when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
     when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
         .thenReturn(TEST_EXPIRATION_SECONDS);
@@ -580,6 +599,13 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(TEST_EXPIRATION_SECONDS);
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
+    proposalUtilsMockedStatic
+        .when(
+            () ->
+                ProposalUtils.isAuthorizedToProposeDescription(
+                    any(QueryContext.class), any(Urn.class), eq(schemaFieldUrn)))
+        .thenReturn(false);
+
     GetPresignedUploadUrlResolver resolver =
         new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
@@ -630,6 +656,14 @@ public class GetPresignedUploadUrlResolverTest {
                     any(QueryContext.class), any(Urn.class)))
         .thenReturn(false);
 
+    // Also mock proposal authorization to return false to ensure both fail
+    proposalUtilsMockedStatic
+        .when(
+            () ->
+                ProposalUtils.isAuthorizedToProposeDescription(
+                    any(QueryContext.class), any(Urn.class), eq(schemaFieldUrn)))
+        .thenReturn(false);
+
     when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
     when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
         .thenReturn(TEST_EXPIRATION_SECONDS);
@@ -669,6 +703,14 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
         .thenReturn(TEST_EXPIRATION_SECONDS);
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    // Mock proposal authorization to return false to maintain expected behavior
+    proposalUtilsMockedStatic
+        .when(
+            () ->
+                ProposalUtils.isAuthorizedToProposeDescription(
+                    any(QueryContext.class), any(Urn.class), eq((String) null)))
+        .thenReturn(false);
 
     GetPresignedUploadUrlResolver resolver =
         new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
@@ -741,6 +783,20 @@ public class GetPresignedUploadUrlResolverTest {
                     any(QueryContext.class), any(Urn.class)))
         .thenReturn(true);
 
+    // Mock proposal authorization as well since it's now part of the combined logic
+    proposalUtilsMockedStatic
+        .when(
+            () ->
+                ProposalUtils.isAuthorizedToProposeDescription(
+                    any(QueryContext.class), any(Urn.class), eq(schemaFieldUrn)))
+        .thenReturn(false);
+    proposalUtilsMockedStatic
+        .when(
+            () ->
+                ProposalUtils.isAuthorizedToProposeDescription(
+                    any(QueryContext.class), any(Urn.class), eq((String) null)))
+        .thenReturn(false);
+
     GetPresignedUploadUrlResolver resolver =
         new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
@@ -767,5 +823,116 @@ public class GetPresignedUploadUrlResolverTest {
 
     assertEquals(result.getFileId(), extractedFileId);
     assertTrue(result.getFileId().contains(testFileName));
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithProposalAuthorizationOnly() throws Exception {
+    String testFileName = "my_test_file.pdf";
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            null, // No schema field urn
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME),
+            s3KeyCaptor.capture(),
+            eq(TEST_EXPIRATION_SECONDS),
+            eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    // Mock DescriptionUtils to return false (not authorized to update description)
+    descriptionUtilsMockedStatic
+        .when(
+            () ->
+                DescriptionUtils.isAuthorizedToUpdateDescription(
+                    any(QueryContext.class), any(Urn.class)))
+        .thenReturn(false);
+
+    // Mock ProposalUtils to return true (authorized to propose description)
+    proposalUtilsMockedStatic
+        .when(
+            () ->
+                ProposalUtils.isAuthorizedToProposeDescription(
+                    any(QueryContext.class), any(Urn.class), eq((String) null)))
+        .thenReturn(true);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
+
+    // The request should succeed because ProposalUtils authorization passed
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+    assertNotNull(result.getFileId());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithSchemaFieldProposalAuthorizationOnly() throws Exception {
+    String testFileName = "my_test_file.pdf";
+    String schemaFieldUrn =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my-dataset,PROD),myField)";
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            schemaFieldUrn,
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME),
+            s3KeyCaptor.capture(),
+            eq(TEST_EXPIRATION_SECONDS),
+            eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    // Mock DescriptionUtils field authorization to return false (not authorized to update field
+    // description)
+    descriptionUtilsMockedStatic
+        .when(
+            () ->
+                DescriptionUtils.isAuthorizedToUpdateFieldDescription(
+                    any(QueryContext.class), any(Urn.class)))
+        .thenReturn(false);
+
+    // Mock ProposalUtils to return true (authorized to propose description for schema field)
+    proposalUtilsMockedStatic
+        .when(
+            () ->
+                ProposalUtils.isAuthorizedToProposeDescription(
+                    any(QueryContext.class), any(Urn.class), eq(schemaFieldUrn)))
+        .thenReturn(true);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
+
+    // The request should succeed because ProposalUtils authorization passed
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+    assertNotNull(result.getFileId());
   }
 }
