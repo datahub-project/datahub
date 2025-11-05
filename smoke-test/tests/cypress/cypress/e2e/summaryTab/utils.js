@@ -533,3 +533,39 @@ export function addModule(module) {
     module.name,
   ).click();
 }
+
+// Tests
+
+export function testPropertiesSection(properties) {
+  const propertyTypes = properties.map((property) => property.type);
+  ensurePropertiesSectionIsVisible();
+  ensurePropertiesAreVisible(propertyTypes); // default properties
+
+  properties.forEach((property) => ensurePropertyExist(property));
+}
+
+export function testAboutSection() {
+  ensureAboutSectionIsVisible();
+  updateDescription("description");
+  ensureDescriptionContainsText("description");
+  updateDescription("updated description");
+  ensureDescriptionContainsText("updated description");
+  addLink("https://test.com", "testLink");
+  ensureLinkExists("https://test.com", "testLink");
+  updateLink(
+    "https://test.com",
+    "testLink",
+    "https://test-updated.com",
+    "testLinkUpdated",
+  );
+  ensureLinkExists("https://test-updated.com", "testLinkUpdated");
+  removeLink("https://test-updated.com", "testLinkUpdated");
+  ensureLinkDoesNotExist("https://test-updated.com", "testLinkUpdated");
+}
+
+export function testTemplateSection(defaultModules) {
+  ensureTemplateSectionIsVisible();
+
+  // Check default modules
+  defaultModules.forEach((module) => ensureModuleExist(module));
+}
