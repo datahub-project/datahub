@@ -137,6 +137,12 @@ module.exports = {
           collapsed: true,
           items: [
             {
+              label: "Ask DataHub",
+              type: "doc",
+              id: "docs/features/feature-guides/ask-datahub",
+              className: "saasOnly",
+            },
+            {
               label: "Documentation Propagation",
               type: "doc",
               id: "docs/automations/docs-propagation",
@@ -213,12 +219,12 @@ module.exports = {
           ],
         },
         {
-          label: "Custom Asset Summaries",
+          label: "Asset Summaries",
           type: "doc",
           id: "docs/features/feature-guides/custom-asset-summaries",
         },
         {
-          label: "Custom Home Page",
+          label: "Home Page",
           type: "doc",
           id: "docs/features/feature-guides/custom-home-page",
         },
