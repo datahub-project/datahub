@@ -30,23 +30,16 @@ const createCsvWithParentGroup = (terms, parentGroup) => {
 const uploadCsvFile = (fileContent, filename = "test-glossary.csv") => {
   // Write CSV content to a fixture file first
   const fixturesPath = "cypress/fixtures/";
-  cy.writeFile(`${fixturesPath}${filename}`, fileContent);
+  const fixtureFilePath = `${fixturesPath}${filename}`;
+  cy.writeFile(fixtureFilePath, fileContent);
 
   // Wait for the file input to be available and not disabled
   cy.get("#file-input", { timeout: 10000 })
     .should("exist")
     .should("not.be.disabled");
 
-  // Use Cypress's selectFile command - it can accept file contents directly
-  // This is more reliable than manually setting file properties
-  cy.get("#file-input").selectFile(
-    {
-      contents: fileContent,
-      fileName: filename,
-      mimeType: "text/csv",
-    },
-    { force: true },
-  );
+  // Use the fixture file path - Cypress selectFile works with fixture paths
+  cy.get("#file-input").selectFile(fixtureFilePath, { force: true });
 
   // Wait a moment for file processing to start
   cy.wait(500);
@@ -108,12 +101,18 @@ describe("glossary import", () => {
     cy.waitTextVisible("Business Glossary");
     cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.clickOptionWithText("Create Term Group");
-    cy.addViaModal(
+    // Wait for modal to appear - use the button instead of title text
+    cy.get('[data-testid="glossary-entity-modal-create-button"]', {
+      timeout: 10000,
+    }).should("be.visible");
+    cy.get('[data-testid="create-glossary-entity-modal-name"]', {
+      timeout: 10000,
+    }).should("be.visible");
+    cy.enterTextInTestId(
+      "create-glossary-entity-modal-name",
       testGlossaryTermGroup,
-      "Create Glossary",
-      testGlossaryTermGroup,
-      "glossary-entity-modal-create-button",
     );
+    cy.clickOptionWithTestId("glossary-entity-modal-create-button");
     // Wait for the group to be created before proceeding
     cy.contains(testGlossaryTermGroup, { timeout: 10000 }).should("be.visible");
 
@@ -269,7 +268,13 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     cy.waitTextVisible("Business Glossary");
     cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.clickOptionWithText("Create Term");
-    cy.waitTextVisible("Create Glossary Term");
+    // Wait for modal to appear - use the button instead of title text
+    cy.get('[data-testid="glossary-entity-modal-create-button"]', {
+      timeout: 10000,
+    }).should("be.visible");
+    cy.get('[data-testid="create-glossary-entity-modal-name"]', {
+      timeout: 10000,
+    }).should("be.visible");
     cy.enterTextInTestId("create-glossary-entity-modal-name", existingTermName);
     cy.clickOptionWithTestId("glossary-entity-modal-create-button");
     cy.waitTextVisible(`Created Glossary Term!`);
@@ -343,7 +348,13 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     cy.waitTextVisible("Business Glossary");
     cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.clickOptionWithText("Create Term");
-    cy.waitTextVisible("Create Glossary Term");
+    // Wait for modal to appear - use the button instead of title text
+    cy.get('[data-testid="glossary-entity-modal-create-button"]', {
+      timeout: 10000,
+    }).should("be.visible");
+    cy.get('[data-testid="create-glossary-entity-modal-name"]', {
+      timeout: 10000,
+    }).should("be.visible");
     cy.enterTextInTestId("create-glossary-entity-modal-name", conflictTermName);
 
     // Add description through documentation modal if available
@@ -413,7 +424,13 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     cy.waitTextVisible("Business Glossary");
     cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.clickOptionWithText("Create Term");
-    cy.waitTextVisible("Create Glossary Term");
+    // Wait for modal to appear - use the button instead of title text
+    cy.get('[data-testid="glossary-entity-modal-create-button"]', {
+      timeout: 10000,
+    }).should("be.visible");
+    cy.get('[data-testid="create-glossary-entity-modal-name"]', {
+      timeout: 10000,
+    }).should("be.visible");
     cy.enterTextInTestId("create-glossary-entity-modal-name", diffTestTerm);
     cy.clickOptionWithTestId("glossary-entity-modal-create-button");
     cy.waitTextVisible(`Created Glossary Term!`);

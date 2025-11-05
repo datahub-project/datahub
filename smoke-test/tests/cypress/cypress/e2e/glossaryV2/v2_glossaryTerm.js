@@ -17,7 +17,13 @@ const applyAdvancedSearchFilter = (filterType, value) => {
 const createTerm = (glossaryTerm) => {
   cy.clickOptionWithText("CypressNode");
   cy.clickOptionWithTestId("add-term-button");
-  cy.waitTextVisible("Create Glossary Term");
+  // Wait for modal to appear - use the button instead of title text
+  cy.get('[data-testid="glossary-entity-modal-create-button"]', {
+    timeout: 10000,
+  }).should("be.visible");
+  cy.get('[data-testid="create-glossary-entity-modal-name"]', {
+    timeout: 10000,
+  }).should("be.visible");
   cy.enterTextInTestId("create-glossary-entity-modal-name", glossaryTerm);
   cy.clickOptionWithTestId("glossary-entity-modal-create-button");
   cy.waitTextVisible(glossaryTerm);
