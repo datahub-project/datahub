@@ -51,6 +51,7 @@ pip install 'acryl-datahub-airflow-plugin[plugin-v2,datahub-file]'
 ```
 
 Available extras:
+
 - `plugin-v2`: OpenLineage support for Airflow 2.x
 - `plugin-v2-airflow3`: OpenLineage support for Airflow 3.x
 - `datahub-kafka`: Kafka-based metadata emission
@@ -59,6 +60,7 @@ Available extras:
 ### Why Different Extras?
 
 Airflow 2.x and 3.x have different OpenLineage integrations:
+
 - **Airflow 2.x** uses the standalone `openlineage-airflow` package
 - **Airflow 3.x** has native OpenLineage support via `apache-airflow-providers-openlineage`
 
