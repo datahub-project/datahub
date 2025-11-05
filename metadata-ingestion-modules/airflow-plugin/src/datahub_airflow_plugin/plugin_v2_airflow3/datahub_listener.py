@@ -21,7 +21,6 @@ import airflow
 from airflow.configuration import conf
 from airflow.models import Connection
 from airflow.models.serialized_dag import SerializedDagModel
-from airflow.utils.db import provide_session
 from openlineage.client.serde import Serde
 
 import datahub.emitter.mce_builder as builder
@@ -310,10 +309,10 @@ class DataHubListener:
         """
         if self._emitter is None:
             try:
-                self._emitter = self._create_emitter_from_db()
+                self._emitter = self._create_emitter_from_connection()
                 if self._emitter:
                     logger.info(
-                        f"DataHub plugin v2 using {repr(self._emitter)} (created via DB access)"
+                        f"DataHub plugin v2 using {repr(self._emitter)} (created via connection API)"
                     )
                 else:
                     logger.debug(
@@ -329,12 +328,18 @@ class DataHubListener:
                 return None
         return self._emitter
 
-    def _create_emitter_from_db(self):
+    def _create_emitter_from_connection(self):
         """
-        Create emitter by directly querying the Airflow database for connection details.
-        This works around the SUPERVISOR_COMMS limitation in listener context.
+        Create emitter by retrieving connection details using Airflow's connection API.
+
+        Uses Connection.get_connection_from_secrets() which works in all contexts:
+        - Task execution (on_task_instance_running, on_task_instance_success, etc.)
+        - DAG lifecycle hooks (on_dag_start, on_dag_run_running, etc.)
+        - Listener hooks (where SUPERVISOR_COMMS is not available)
+
+        This method works around the SUPERVISOR_COMMS limitation and Airflow 3.0's
+        ORM restriction by using the proper Airflow APIs instead of direct database access.
         Supports datahub-rest, datahub-file, and datahub-kafka connection types.
-        Falls back to environment variable connections if not found in database.
         Handles multiple comma-separated connection IDs via CompositeEmitter.
         """
         try:
@@ -345,7 +350,7 @@ class DataHubListener:
                 # Multiple connections - use CompositeEmitter
                 emitters = []
                 for conn_id in connection_ids:
-                    emitter = self._create_single_emitter_from_db(conn_id)
+                    emitter = self._create_single_emitter_from_connection(conn_id)
                     if emitter:
                         emitters.append(emitter)
 
@@ -361,135 +366,134 @@ class DataHubListener:
                 return CompositeEmitter(emitters)
             else:
                 # Single connection
-                return self._create_single_emitter_from_db(connection_ids[0])
+                return self._create_single_emitter_from_connection(connection_ids[0])
 
         except Exception as e:
-            logger.debug(f"Failed to create emitter from DB: {e}", exc_info=True)
+            logger.debug(
+                f"Failed to create emitter from connection: {e}", exc_info=True
+            )
             return None
 
-    def _create_single_emitter_from_db(self, conn_id: str):
-        """Create a single emitter from a connection ID."""
+    def _create_single_emitter_from_connection(self, conn_id: str):
+        """
+        Create a single emitter from a connection ID.
+
+        Uses Connection.get_connection_from_secrets() which works in all contexts:
+        - Task execution (on_task_instance_running, on_task_instance_success, etc.)
+        - DAG lifecycle hooks (on_dag_start, on_dag_run_running, etc.)
+        - Listener hooks (where SUPERVISOR_COMMS is not available)
+
+        This method checks environment variables, secrets backends, and the database
+        through the proper Airflow APIs, avoiding the ORM restriction in Airflow 3.0.
+        """
         try:
-
-            @provide_session
-            def get_connection_from_db(session=None):
-                """Get connection from database and create appropriate emitter."""
-                # Try to get connection from database
-                conn = (
-                    session.query(Connection)
-                    .filter(Connection.conn_id == conn_id)
-                    .first()
+            # In Airflow 3.0, direct ORM database access is not allowed during task execution.
+            # Use Connection.get_connection_from_secrets() which works in all contexts.
+            # This method checks environment variables, secrets backends, and the database
+            # through the proper Airflow APIs.
+            conn = Connection.get_connection_from_secrets(conn_id)
+            if not conn:
+                logger.warning(
+                    f"Connection '{conn_id}' not found in secrets backend or environment variables"
                 )
-                if not conn:
-                    # Try to load from environment variable
-                    logger.debug(
-                        f"Connection '{conn_id}' not found in database, trying environment variable"
+                return None
+
+            # Normalize conn_type (handle both dashes and underscores)
+            conn_type = (conn.conn_type or "").replace("_", "-")
+
+            # Handle file-based emitter (used in tests)
+            if conn_type == "datahub-file":
+                import datahub.emitter.synchronized_file_emitter
+
+                filename = conn.host
+                if not filename:
+                    logger.warning(
+                        f"Connection '{conn_id}' is type datahub-file but has no host (filename) configured"
                     )
-                    conn = Connection.get_connection_from_secrets(conn_id)
-                    if not conn:
-                        logger.warning(
-                            f"Connection '{conn_id}' not found in database or environment variables"
-                        )
-                        return None
+                    return None
 
-                # Normalize conn_type (handle both dashes and underscores)
-                conn_type = (conn.conn_type or "").replace("_", "-")
-
-                # Handle file-based emitter (used in tests)
-                if conn_type == "datahub-file":
-                    import datahub.emitter.synchronized_file_emitter
-
-                    filename = conn.host
-                    if not filename:
-                        logger.warning(
-                            f"Connection '{conn_id}' is type datahub-file but has no host (filename) configured"
-                        )
-                        return None
-
-                    logger.debug(
-                        f"Retrieved connection '{conn_id}' from DB: type=datahub-file, filename={filename}"
-                    )
-                    return datahub.emitter.synchronized_file_emitter.SynchronizedFileEmitter(
+                logger.debug(
+                    f"Retrieved connection '{conn_id}' from secrets: type=datahub-file, filename={filename}"
+                )
+                return (
+                    datahub.emitter.synchronized_file_emitter.SynchronizedFileEmitter(
                         filename=filename
                     )
+                )
 
-                # Handle Kafka-based emitter
-                elif conn_type == "datahub-kafka":
-                    import datahub.emitter.kafka_emitter
-                    import datahub.ingestion.sink.datahub_kafka
+            # Handle Kafka-based emitter
+            elif conn_type == "datahub-kafka":
+                import datahub.emitter.kafka_emitter
+                import datahub.ingestion.sink.datahub_kafka
 
-                    obj = conn.extra_dejson or {}
-                    obj.setdefault("connection", {})
-                    if conn.host:
-                        bootstrap = ":".join(
-                            map(str, filter(None, [conn.host, conn.port]))
-                        )
-                        obj["connection"]["bootstrap"] = bootstrap
+                obj = conn.extra_dejson or {}
+                obj.setdefault("connection", {})
+                if conn.host:
+                    bootstrap = ":".join(map(str, filter(None, [conn.host, conn.port])))
+                    obj["connection"]["bootstrap"] = bootstrap
 
-                    config = (
-                        datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.parse_obj(
-                            obj
-                        )
+                config = datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.parse_obj(
+                    obj
+                )
+                logger.debug(
+                    f"Retrieved connection '{conn_id}' from connection API: type=datahub-kafka"
+                )
+                return datahub.emitter.kafka_emitter.DatahubKafkaEmitter(config)
+
+            # Handle REST-based emitter (default)
+            else:
+                import datahub.emitter.rest_emitter
+                from datahub.ingestion.graph.config import ClientMode
+
+                # Build host URL with port if needed
+                host = conn.host or ""
+                if not host:
+                    logger.warning(f"Connection '{conn_id}' has no host configured")
+                    return None
+
+                # Parse the URL using stdlib urlparse
+                parsed = urlparse(host if "://" in host else f"http://{host}")
+
+                # Add port if specified and not already in URL
+                netloc = parsed.netloc
+                if conn.port and not parsed.port:
+                    netloc = f"{parsed.hostname}:{conn.port}"
+
+                # Reconstruct the URL
+                host = urlunparse(
+                    (
+                        parsed.scheme or "http",
+                        netloc,
+                        parsed.path,
+                        parsed.params,
+                        parsed.query,
+                        parsed.fragment,
                     )
-                    logger.debug(
-                        f"Retrieved connection '{conn_id}' from DB: type=datahub-kafka"
-                    )
-                    return datahub.emitter.kafka_emitter.DatahubKafkaEmitter(config)
+                )
 
-                # Handle REST-based emitter (default)
-                else:
-                    import datahub.emitter.rest_emitter
-                    from datahub.ingestion.graph.config import ClientMode
+                # Get token - check airflow.cfg first, then connection password
+                token = conf.get("datahub", "token", fallback=None)
+                if token is None:
+                    token = conn.password
 
-                    # Build host URL with port if needed
-                    host = conn.host or ""
-                    if not host:
-                        logger.warning(f"Connection '{conn_id}' has no host configured")
-                        return None
+                # Get extra args
+                extra_args = conn.extra_dejson or {}
 
-                    # Parse the URL using stdlib urlparse
-                    parsed = urlparse(host if "://" in host else f"http://{host}")
+                logger.debug(
+                    f"Retrieved connection '{conn_id}' from connection API: type={conn_type or 'datahub-rest'}, host={host}, has_token={bool(token)}"
+                )
 
-                    # Add port if specified and not already in URL
-                    netloc = parsed.netloc
-                    if conn.port and not parsed.port:
-                        netloc = f"{parsed.hostname}:{conn.port}"
-
-                    # Reconstruct the URL
-                    host = urlunparse(
-                        (
-                            parsed.scheme or "http",
-                            netloc,
-                            parsed.path,
-                            parsed.params,
-                            parsed.query,
-                            parsed.fragment,
-                        )
-                    )
-
-                    # Get token - check airflow.cfg first, then connection password
-                    token = conf.get("datahub", "token", fallback=None)
-                    if token is None:
-                        token = conn.password
-
-                    # Get extra args
-                    extra_args = conn.extra_dejson or {}
-
-                    logger.debug(
-                        f"Retrieved connection '{conn_id}' from DB: type={conn_type or 'datahub-rest'}, host={host}, has_token={bool(token)}"
-                    )
-
-                    return datahub.emitter.rest_emitter.DataHubRestEmitter(
-                        host,
-                        token,
-                        client_mode=ClientMode.INGESTION,
-                        datahub_component="airflow-plugin",
-                        **extra_args,
-                    )
-
-            return get_connection_from_db()
+                return datahub.emitter.rest_emitter.DataHubRestEmitter(
+                    host,
+                    token,
+                    client_mode=ClientMode.INGESTION,
+                    datahub_component="airflow-plugin",
+                    **extra_args,
+                )
         except Exception as e:
-            logger.debug(f"Failed to create emitter from DB: {e}", exc_info=True)
+            logger.debug(
+                f"Failed to create emitter from connection: {e}", exc_info=True
+            )
             return None
 
     @property
