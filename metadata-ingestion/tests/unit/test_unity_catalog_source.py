@@ -12,7 +12,7 @@ class TestUnityCatalogSource:
     @pytest.fixture
     def minimal_config(self):
         """Create a minimal config for testing."""
-        return UnityCatalogSourceConfig.parse_obj(
+        return UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -24,7 +24,7 @@ class TestUnityCatalogSource:
     @pytest.fixture
     def config_with_page_size(self):
         """Create a config with custom page size."""
-        return UnityCatalogSourceConfig.parse_obj(
+        return UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -37,7 +37,7 @@ class TestUnityCatalogSource:
     @pytest.fixture
     def config_with_ml_model_settings(self):
         """Create a config with ML model settings."""
-        return UnityCatalogSourceConfig.parse_obj(
+        return UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -110,7 +110,7 @@ class TestUnityCatalogSource:
         self, mock_hive_proxy, mock_unity_proxy
     ):
         """Test that UnityCatalogSource works with hive metastore disabled."""
-        config = UnityCatalogSourceConfig.parse_obj(
+        config = UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -174,7 +174,7 @@ class TestUnityCatalogSource:
         mock_unity_instance.catalogs.return_value = []
         mock_unity_instance.check_basic_connectivity.return_value = True
 
-        config = UnityCatalogSourceConfig.parse_obj(
+        config = UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -242,7 +242,7 @@ class TestUnityCatalogSource:
             Schema,
         )
 
-        config = UnityCatalogSourceConfig.parse_obj(
+        config = UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
