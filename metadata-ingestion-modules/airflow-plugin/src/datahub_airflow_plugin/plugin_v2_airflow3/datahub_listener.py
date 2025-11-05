@@ -28,17 +28,12 @@ from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.generic_emitter import Emitter
-from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DataHubRestEmitter
-from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.graph.config import ClientMode
-from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -400,6 +395,8 @@ class DataHubListener:
 
                 # Handle file-based emitter (used in tests)
                 if conn_type == "datahub-file":
+                    import datahub.emitter.synchronized_file_emitter
+
                     filename = conn.host
                     if not filename:
                         logger.warning(
@@ -410,10 +407,15 @@ class DataHubListener:
                     logger.debug(
                         f"Retrieved connection '{conn_id}' from DB: type=datahub-file, filename={filename}"
                     )
-                    return SynchronizedFileEmitter(filename=filename)
+                    return datahub.emitter.synchronized_file_emitter.SynchronizedFileEmitter(
+                        filename=filename
+                    )
 
                 # Handle Kafka-based emitter
                 elif conn_type == "datahub-kafka":
+                    import datahub.emitter.kafka_emitter
+                    import datahub.ingestion.sink.datahub_kafka
+
                     obj = conn.extra_dejson or {}
                     obj.setdefault("connection", {})
                     if conn.host:
@@ -422,14 +424,21 @@ class DataHubListener:
                         )
                         obj["connection"]["bootstrap"] = bootstrap
 
-                    config = KafkaSinkConfig.parse_obj(obj)
+                    config = (
+                        datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.parse_obj(
+                            obj
+                        )
+                    )
                     logger.debug(
                         f"Retrieved connection '{conn_id}' from DB: type=datahub-kafka"
                     )
-                    return DatahubKafkaEmitter(config)
+                    return datahub.emitter.kafka_emitter.DatahubKafkaEmitter(config)
 
                 # Handle REST-based emitter (default)
                 else:
+                    import datahub.emitter.rest_emitter
+                    from datahub.ingestion.graph.config import ClientMode
+
                     # Build host with port if needed
                     host = conn.host or ""
                     if conn.port:
@@ -452,7 +461,7 @@ class DataHubListener:
                         f"Retrieved connection '{conn_id}' from DB: type={conn_type or 'datahub-rest'}, host={host}, has_token={bool(token)}"
                     )
 
-                    return DataHubRestEmitter(
+                    return datahub.emitter.rest_emitter.DataHubRestEmitter(
                         host,
                         token,
                         client_mode=ClientMode.INGESTION,
@@ -482,12 +491,15 @@ class DataHubListener:
 
         # Use _get_emitter() method to ensure lazy-loading happens first
         emitter = self._get_emitter()
-        if isinstance(emitter, DataHubRestEmitter) and not isinstance(
-            emitter, DataHubGraph
-        ):
-            # This is lazy initialized to avoid throwing errors on plugin load.
-            self._graph = emitter.to_graph()
-            self._emitter = self._graph
+        if emitter is not None:
+            import datahub.emitter.rest_emitter
+
+            if isinstance(
+                emitter, datahub.emitter.rest_emitter.DataHubRestEmitter
+            ) and not isinstance(emitter, DataHubGraph):
+                # This is lazy initialized to avoid throwing errors on plugin load.
+                self._graph = emitter.to_graph()
+                self._emitter = self._graph
 
         return self._graph
 
