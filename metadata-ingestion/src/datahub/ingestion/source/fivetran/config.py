@@ -142,30 +142,28 @@ class FivetranLogConfig(ConfigModel):
         "destination_config", "snowflake_destination_config"
     )
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_destination_platform_and_config(cls, values: Any) -> Any:
-        destination_platform = values["destination_platform"]
-        if destination_platform == "snowflake":
-            if "snowflake_destination_config" not in values:
+    @model_validator(mode="after")
+    def validate_destination_platform_and_config(self) -> "FivetranLogConfig":
+        if self.destination_platform == "snowflake":
+            if self.snowflake_destination_config is None:
                 raise ValueError(
                     "If destination platform is 'snowflake', user must provide snowflake destination configuration in the recipe."
                 )
-        elif destination_platform == "bigquery":
-            if "bigquery_destination_config" not in values:
+        elif self.destination_platform == "bigquery":
+            if self.bigquery_destination_config is None:
                 raise ValueError(
                     "If destination platform is 'bigquery', user must provide bigquery destination configuration in the recipe."
                 )
-        elif destination_platform == "databricks":
-            if "databricks_destination_config" not in values:
+        elif self.destination_platform == "databricks":
+            if self.databricks_destination_config is None:
                 raise ValueError(
                     "If destination platform is 'databricks', user must provide databricks destination configuration in the recipe."
                 )
         else:
             raise ValueError(
-                f"Destination platform '{destination_platform}' is not yet supported."
+                f"Destination platform '{self.destination_platform}' is not yet supported."
             )
-        return values
+        return self
 
 
 @dataclasses.dataclass
