@@ -16,10 +16,23 @@ class UnityCatalogConnectionConfig(ConfigModel):
     """
     Configuration for connecting to Databricks Unity Catalog.
     Contains only connection-related fields that can be reused across different sources.
+
+    Authentication can be configured via:
+    1. Personal access token (legacy): Set `token` field
+    2. OAuth (unified auth): Omit `token` and configure via environment variables or
+       `.databrickscfg` file following Databricks unified authentication.
+       See https://docs.databricks.com/dev-tools/auth/unified-auth
     """
 
     scheme: str = DATABRICKS
-    token: str = pydantic.Field(description="Databricks personal access token")
+    token: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Databricks personal access token (legacy). "
+            "If not provided, OAuth authentication will be attempted using "
+            "Databricks unified authentication (environment variables or .databrickscfg file)."
+        ),
+    )
     workspace_url: str = pydantic.Field(
         description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
     )
@@ -44,14 +57,57 @@ class UnityCatalogConnectionConfig(ConfigModel):
     def __init__(self, **data: Any):
         super().__init__(**data)
 
+    def _resolve_token(self) -> str:
+        """
+        Resolve authentication token using the following priority:
+        1. Explicit token from config
+        2. Token from Databricks SDK Config (environment variables or .databrickscfg)
+        3. OAuth token via service principal
+        """
+        if self.token:
+            return self.token
+
+        try:
+            from databricks.sdk.core import Config, oauth_service_principal
+
+            if self.workspace_url:
+                host = self.workspace_url.replace("https://", "").replace("http://", "")
+                config = Config(host=host)
+            else:
+                config = Config()
+
+            if config.token:
+                return config.token
+
+            try:
+                principal = oauth_service_principal(config)
+                oauth_token = principal.oauth_token()
+                if oauth_token and oauth_token.access_token:
+                    return oauth_token.access_token
+            except Exception:
+                pass
+
+        except ImportError:
+            pass
+        except Exception:
+            pass
+
+        raise ValueError(
+            "No authentication token found. "
+            "Either provide 'token' in config, or configure Databricks unified authentication "
+            "via environment variables or .databrickscfg file. "
+            "See https://docs.databricks.com/dev-tools/auth/unified-auth"
+        )
+
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
+        token = self._resolve_token()
         uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
         if database:
             uri_opts["catalog"] = database
         return make_sqlalchemy_uri(
             scheme=self.scheme,
             username="token",
-            password=self.token,
+            password=token,
             at=urlparse(self.workspace_url).netloc,
             db=database,
             uri_opts=uri_opts,

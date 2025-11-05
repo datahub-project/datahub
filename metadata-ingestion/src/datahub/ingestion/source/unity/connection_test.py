@@ -14,9 +14,10 @@ class UnityCatalogConnectionTest:
     def __init__(self, config: UnityCatalogSourceConfig):
         self.config = config
         self.report = UnityCatalogReport()
+        resolved_token = config._resolve_token()
         self.proxy = UnityCatalogApiProxy(
             self.config.workspace_url,
-            self.config.token,
+            resolved_token,
             self.config.profiling.warehouse_id,
             report=self.report,
             databricks_api_page_size=self.config.databricks_api_page_size,
