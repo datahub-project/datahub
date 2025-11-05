@@ -1,0 +1,58 @@
+[
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:test-delete-query",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "DELETE FROM PRODUCTION.DCA_CORE.snowplow_user_engagement_mart AS DBT_INTERNAL_DEST\nWHERE\n  (\n    unique_key_input\n  ) IN (\n    SELECT DISTINCT\n      unique_key_input\n    FROM PRODUCTION.DCA_CORE.snowplow_user_engagement_mart__dbt_tmp AS DBT_INTERNAL_SOURCE\n  )",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 20000,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 20000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:test-delete-query",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,production.dca_core.snowplow_user_engagement_mart__dbt_tmp,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,production.dca_core.snowplow_user_engagement_mart__dbt_tmp,PROD),unique_key_input)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,production.dca_core.snowplow_user_engagement_mart,PROD)"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:test-delete-query",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    }
+}
+]

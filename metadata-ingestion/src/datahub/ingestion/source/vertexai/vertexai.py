@@ -145,7 +145,7 @@ class PipelineMetadata:
 
 @platform_name("Vertex AI", id="vertexai")
 @config_class(VertexAIConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(
     SourceCapability.DESCRIPTIONS,
     "Extract descriptions for Vertex AI Registered Models and Model Versions",

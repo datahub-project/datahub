@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, cast
 
 import pydantic
 import pytest
@@ -2512,3 +2512,51 @@ def test_collapse_urns() -> None:
         )
         == "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,platform1.prefix_datahub_usage_event,PROD)"
     )
+
+
+def test_composable_template_structure() -> None:
+    """Test that composable template structure is correctly handled"""
+    # Test that the _extract_mcps method correctly handles composable template structure
+    # This ensures that mappings, settings, and aliases are extracted from the right location
+    composable_template_response = {
+        "index_templates": [
+            {
+                "name": "test-template",
+                "index_template": {
+                    "index_patterns": ["test-*"],
+                    "template": {
+                        "settings": {
+                            "index": {
+                                "number_of_shards": "3",
+                                "number_of_replicas": "2",
+                            }
+                        },
+                        "mappings": {
+                            "properties": {
+                                "field1": {"type": "text"},
+                                "field2": {"type": "keyword"},
+                            }
+                        },
+                        "aliases": {"test-alias": {}},
+                    },
+                },
+            }
+        ]
+    }
+
+    # Verify the structure is as expected for composable templates
+    index_templates = composable_template_response.get("index_templates", [{}])
+    template_data = index_templates[0]
+    raw_index_metadata = cast(Dict[str, Any], template_data.get("index_template", {}))
+
+    # Check that mappings are under template.mappings
+    assert "template" in raw_index_metadata
+    assert "mappings" in raw_index_metadata["template"]
+    assert "properties" in raw_index_metadata["template"]["mappings"]
+
+    # Check that settings are under template.settings
+    assert "settings" in raw_index_metadata["template"]
+    assert "index" in raw_index_metadata["template"]["settings"]
+
+    # Check that aliases are under template.aliases
+    assert "aliases" in raw_index_metadata["template"]

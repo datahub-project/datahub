@@ -1,6 +1,7 @@
 /**
  * Utility functions for file handling in the editor
  */
+import { FileUploadFailureType } from '@components/components/Editor/types';
 
 export const FILE_ATTRS = {
     url: 'data-file-url',
@@ -32,7 +33,6 @@ export const SUPPORTED_FILE_TYPES = [
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.ms-excel',
     'application/xml',
     'application/vnd.ms-powerpoint',
@@ -44,6 +44,20 @@ export const SUPPORTED_FILE_TYPES = [
     'audio/mpeg',
     'video/x-ms-wmv',
     'image/tiff',
+    'text/x-python-script',
+    'application/json',
+    'text/html',
+    'text/x-java-source',
+    'image/svg+xml',
+    'application/vnd.oasis.opendocument.text',
+    'application/vnd.oasis.opendocument.spreadsheet',
+    'application/vnd.oasis.opendocument.presentation',
+    'text/css',
+    'application/javascript',
+    'text/x-yaml',
+    'application/x-tar',
+    'text/x-sql',
+    'application/x-sh',
 ];
 
 const EXTENSION_TO_FILE_TYPE = {
@@ -72,7 +86,26 @@ const EXTENSION_TO_FILE_TYPE = {
     tiff: 'image/tiff',
     md: 'text/markdown',
     csv: 'text/csv',
+    py: 'text/x-python-script',
+    json: 'application/json',
+    html: 'text/html',
+    java: 'text/x-java-source',
+    svg: 'image/svg+xml',
+    log: 'text/plain',
+    mov: 'video/quicktime',
+    odt: 'application/vnd.oasis.opendocument.text',
+    ods: 'application/vnd.oasis.opendocument.spreadsheet',
+    odp: 'application/vnd.oasis.opendocument.presentation',
+    css: 'text/css',
+    js: 'application/javascript',
+    yaml: 'text/x-yaml',
+    yml: 'text/x-yaml',
+    tar: 'application/x-tar',
+    sql: 'text/x-sql',
+    sh: 'application/x-sh',
 };
+
+export const FILE_TYPES_TO_PREVIEW = ['text/', 'application/json'];
 
 /**
  * Generate a unique ID for file nodes
@@ -104,6 +137,49 @@ export const createFileNodeAttributes = (file: File): FileNodeAttributes => {
 const MAX_FILE_SIZE_IN_BYTES = 2 * 1000 * 1000 * 1000; // 2GB
 
 /**
+ * Get file extension from file name
+ * @param fileName - name of the file
+ * @returns file extension if found, undefined string otherwise
+ */
+export const getExtensionFromFileName = (fileName: string): string | undefined => {
+    if (typeof fileName !== 'string') {
+        return undefined;
+    }
+
+    // Get the part after the last dot, but only if it's not at the start or end
+    const lastDotIndex = fileName.lastIndexOf('.');
+
+    // No dot found, or dot is at the beginning (hidden file like .gitignore)
+    // or dot is at the very end (filename like "file.")
+    if (lastDotIndex === -1 || lastDotIndex === 0 || lastDotIndex === fileName.length - 1) {
+        return undefined;
+    }
+
+    return fileName.slice(lastDotIndex + 1).toLowerCase();
+};
+
+/**
+ * Extract file type from URL
+ * @param url - the URL to extract type from
+ * @returns MIME type if detectable, empty string otherwise
+ */
+export const getFileTypeFromUrl = (url: string): string => {
+    const extension = getExtensionFromFileName(url);
+    if (!extension) return '';
+
+    return EXTENSION_TO_FILE_TYPE[extension] || '';
+};
+
+/**
+ * Extract file type from filename
+ * @param filename - the filename to extract type from
+ * @returns MIME type if detectable, empty string otherwise
+ */
+export const getFileTypeFromFilename = (filename: string): string => {
+    return getFileTypeFromUrl(filename);
+};
+
+/**
  * Validate file before processing
  */
 export const validateFile = (
@@ -112,22 +188,28 @@ export const validateFile = (
         maxSize?: number; // in bytes
         allowedTypes?: string[];
     },
-): { isValid: boolean; error?: string } => {
+): { isValid: boolean; error?: string; displayError?: string; failureType?: FileUploadFailureType } => {
     const { maxSize = MAX_FILE_SIZE_IN_BYTES, allowedTypes = SUPPORTED_FILE_TYPES } = options || {};
+    const fileType = file.type || getFileTypeFromFilename(file.name);
 
     // Check file size
     if (file.size > maxSize) {
         return {
             isValid: false,
             error: `File size (${(file.size / 1000 / 1000).toFixed(2)}MB) exceeds maximum allowed size (${(maxSize / 1000 / 1000).toFixed(2)}MB)`,
+            displayError: `Your file size (${(file.size / 1000 / 1000 / 1000).toFixed(2)}GB) exceeded the max ${parseFloat((maxSize / 1000 / 1000 / 1000).toFixed(2))}GB`,
+            failureType: FileUploadFailureType.FILE_SIZE,
         };
     }
 
     // Check file type
-    if (!isFileTypeSupported(file.type, allowedTypes)) {
+    if (!isFileTypeSupported(fileType, allowedTypes)) {
+        const extension = getExtensionFromFileName(file.name);
         return {
             isValid: false,
-            error: `File type "${file.type}" is not allowed. Supported types: ${allowedTypes.join(', ')}`,
+            error: `File type "${fileType}" is not allowed. Supported types: ${allowedTypes.join(', ')}`,
+            displayError: `File type not supported${extension ? `: ${extension.toLocaleUpperCase()}` : ''}`,
+            failureType: FileUploadFailureType.FILE_TYPE,
         };
     }
 
@@ -164,22 +246,60 @@ export const isFileUrl = (url: string): boolean => {
 };
 
 /**
- * Extract file type from URL
- * @param url - the URL to extract type from
- * @returns MIME type if detectable, empty string otherwise
+ * Get icon to show based on file extension
+ * @param extension - the extension of the file
+ * @returns string depicting the phosphor icon name
  */
-export const getFileTypeFromUrl = (url: string): string => {
-    const extension = url.split('.').pop()?.toLowerCase();
-    if (!extension) return '';
-
-    return EXTENSION_TO_FILE_TYPE[extension] || '';
-};
-
-/**
- * Extract file type from filename
- * @param filename - the filename to extract type from
- * @returns MIME type if detectable, empty string otherwise
- */
-export const getFileTypeFromFilename = (filename: string): string => {
-    return getFileTypeFromUrl(filename);
+export const getFileIconFromExtension = (extension: string) => {
+    switch (extension.toLowerCase()) {
+        case 'pdf':
+            return 'FilePdf';
+        case 'doc':
+        case 'docx':
+            return 'FileWord';
+        case 'txt':
+        case 'md':
+        case 'rtf':
+        case 'log':
+        case 'json':
+            return 'FileText';
+        case 'xls':
+        case 'xlsx':
+            return 'FileXls';
+        case 'ppt':
+        case 'pptx':
+            return 'FilePpt';
+        case 'svg':
+            return 'FileSvg';
+        case 'jpg':
+        case 'jpeg':
+            return 'FileJpg';
+        case 'png':
+            return 'FilePng';
+        case 'gif':
+        case 'webp':
+        case 'bmp':
+        case 'tiff':
+            return 'FileImage';
+        case 'mp4':
+        case 'wmv':
+        case 'mov':
+            return 'FileVideo';
+        case 'mp3':
+            return 'FileAudio';
+        case 'zip':
+        case 'rar':
+        case 'gz':
+            return 'FileZip';
+        case 'csv':
+            return 'FileCsv';
+        case 'html':
+            return 'FileHtml';
+        case 'py':
+            return 'FilePy';
+        case 'java':
+            return 'FileCode';
+        default:
+            return 'FileArrowDown';
+    }
 };

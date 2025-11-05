@@ -243,7 +243,8 @@ ext {
         if (matchingTask) {
             return [taskName: matchingTask.key, config: matchingTask.value]
         } else {
-            throw new GradleException("No debug quickstart configuration found for profile: ${profile}")
+            logger.debug("No debug quickstart configuration found for profile: ${profile}")
+            return null;
         }
     }
 
@@ -573,11 +574,17 @@ tasks.register("reload", Exec) {
     if (activeProfile) {
       // Find the task and config that matches this profile
       matchingTask = findTaskNameByProfile.call(activeProfile)
-      matchingTaskName = matchingTask.taskName
-      matchingConfig = matchingTask.config
+      if (matchingTask == null) {
+          // This may be called even for non-debug profiles during config stage.
+          // The execution stage needs these and handles if activeProfile is not available.
+          activeProfile = null;
+      } else {
+          matchingTaskName = matchingTask.taskName
+          matchingConfig = matchingTask.config
 
-      // Dynamically depend on the correct prepareAll task
-      dependsOn tasks.named("prepareAll${matchingTaskName}")
+          // Dynamically depend on the correct prepareAll task
+          dependsOn tasks.named("prepareAll${matchingTaskName}")
+      }
     }
 
     doFirst {
@@ -625,10 +632,16 @@ tasks.register("reloadEnv", Exec) {
     if (activeProfile) {
         // Find the task and config that matches this profile
         matchingTask = findTaskNameByProfile.call(activeProfile)
-        matchingTaskName = matchingTask.taskName
-        matchingConfig = matchingTask.config
-        // Dynamically depend on the correct prepareAll task
-        dependsOn tasks.named("prepareAll${matchingTaskName}")
+        if (matchingTask == null) {
+            // This may be called even for non-debug profiles during config stage.
+            // The execution stage needs these and handles if activeProfile is not available.
+            activeProfile = null;
+        } else {
+            matchingTaskName = matchingTask.taskName
+            matchingConfig = matchingTask.config
+            // Dynamically depend on the correct prepareAll task
+            dependsOn tasks.named("prepareAll${matchingTaskName}")
+        }
     }
 
     doFirst {

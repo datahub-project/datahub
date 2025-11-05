@@ -152,6 +152,10 @@ export function openDomain(name) {
   });
 }
 
+export function openDomainByUrn(urn) {
+  cy.visit(`/domain/${urn}`);
+}
+
 export function deleteOpenedDomain() {
   deleteOpenedEntity();
   cy.waitTextVisible("Deleted Domain!");
@@ -224,8 +228,7 @@ export function addRelatedTerm(termName) {
 
 // Data product
 
-export function createDataProduct(domainName, name) {
-  openDomain(domainName);
+export function createDataProductForOpenedDomain(name) {
   cy.clickOptionWithTestId("Data Products-entity-tab-header");
   cy.clickOptionWithTestId("create-data-product-button");
   cy.getWithTestId("create-data-product-modal").within(() => {
@@ -234,17 +237,32 @@ export function createDataProduct(domainName, name) {
   });
 }
 
-export function openDataProduct(domainName, name) {
+export function createDataProduct(domainName, name) {
   openDomain(domainName);
+  createDataProductForOpenedDomain(name);
+}
+
+export function openDataProductOnOpenedDomain(name) {
   cy.clickOptionWithTestId("Data Products-entity-tab-header");
   cy.getWithTestId("entity-title")
     .filter(`:contains("${name}")`)
     .click({ force: true });
 }
+export function openDataProduct(domainName, name) {
+  openDomain(domainName);
+  openDataProductOnOpenedDomain(name);
+}
 
 export function deleteOpenedDataProduct() {
   deleteOpenedEntity();
   cy.waitTextVisible("Deleted Data Product!");
+}
+
+export function reloadPageWithMemoryManagement() {
+  cy.window().then((win) => {
+    win.location.reload();
+  });
+  cy.wait(2000);
 }
 
 // Summary tab
@@ -271,12 +289,12 @@ export function ensurePropertiesAreVisible(propertyTypes) {
 
 export function ensurePropertyExist(property) {
   cy.getWithTestId(`property-${property.type}`).within(() => {
-    cy.getWithTestId("property-title").contains(property.name);
+    cy.getWithTestId("property-title").should("contain", property.name);
     if (property.value !== undefined) {
-      // RegExp is used to make `contains` case insensitive
-      cy.getWithTestId("property-value").contains(
-        new RegExp(property.value, "i"),
-      );
+      cy.getWithTestId("property-value").should(($el) => {
+        const text = $el.text();
+        expect(text).to.match(new RegExp(property.value, "i"));
+      });
     }
   });
 }

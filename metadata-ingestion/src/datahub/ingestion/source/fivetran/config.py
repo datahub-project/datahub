@@ -1,10 +1,10 @@
 import dataclasses
 import logging
 import warnings
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import pydantic
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from typing_extensions import Literal
 
 from datahub.configuration.common import (
@@ -68,13 +68,21 @@ class Constant:
     SUCCESSFUL = "SUCCESSFUL"
     FAILURE_WITH_TASK = "FAILURE_WITH_TASK"
     CANCELED = "CANCELED"
+    GOOGLE_SHEETS_CONNECTOR_TYPE = "google_sheets"
 
 
+# Key: Connector Type, Value: Platform ID/Name
 KNOWN_DATA_PLATFORM_MAPPING = {
     "google_cloud_postgresql": "postgres",
     "postgres": "postgres",
     "snowflake": "snowflake",
+    Constant.GOOGLE_SHEETS_CONNECTOR_TYPE: Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
 }
+
+# Note: (As of Oct 2025) Fivetran Platform Connector has stale lineage metadata for Google Sheets column data (deleted/renamed).
+# Ref: https://fivetran.com/docs/connectors/files/google-sheets#deletingdata
+# TODO: Remove Google Sheets connector type from DISABLE_LINEAGE_FOR_CONNECTOR_TYPES
+DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES = [Constant.GOOGLE_SHEETS_CONNECTOR_TYPE]
 
 
 class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
@@ -90,12 +98,23 @@ class DatabricksDestinationConfig(UnityCatalogConnectionConfig):
     catalog: str = Field(description="The fivetran connector log catalog.")
     log_schema: str = Field(description="The fivetran connector log schema.")
 
-    @pydantic.field_validator("warehouse_id")
+    @field_validator("warehouse_id", mode="after")
     @classmethod
     def warehouse_id_should_not_be_empty(cls, warehouse_id: Optional[str]) -> str:
         if warehouse_id is None or (warehouse_id and warehouse_id.strip() == ""):
             raise ValueError("Fivetran requires warehouse_id to be set")
         return warehouse_id
+
+
+class FivetranAPIConfig(ConfigModel):
+    api_key: str = Field(description="Fivetran API key")
+    api_secret: str = Field(description="Fivetran API secret")
+    base_url: str = Field(
+        default="https://api.fivetran.com", description="Fivetran API base URL"
+    )
+    request_timeout_sec: int = Field(
+        default=30, description="Request timeout in seconds"
+    )
 
 
 class FivetranLogConfig(ConfigModel):
@@ -123,28 +142,30 @@ class FivetranLogConfig(ConfigModel):
         "destination_config", "snowflake_destination_config"
     )
 
-    @model_validator(mode="after")
-    def validate_destination_platfrom_and_config(self) -> "FivetranLogConfig":
-        if self.destination_platform == "snowflake":
-            if self.snowflake_destination_config is None:
+    @model_validator(mode="before")
+    @classmethod
+    def validate_destination_platform_and_config(cls, values: Any) -> Any:
+        destination_platform = values["destination_platform"]
+        if destination_platform == "snowflake":
+            if "snowflake_destination_config" not in values:
                 raise ValueError(
                     "If destination platform is 'snowflake', user must provide snowflake destination configuration in the recipe."
                 )
-        elif self.destination_platform == "bigquery":
-            if self.bigquery_destination_config is None:
+        elif destination_platform == "bigquery":
+            if "bigquery_destination_config" not in values:
                 raise ValueError(
                     "If destination platform is 'bigquery', user must provide bigquery destination configuration in the recipe."
                 )
-        elif self.destination_platform == "databricks":
-            if self.databricks_destination_config is None:
+        elif destination_platform == "databricks":
+            if "databricks_destination_config" not in values:
                 raise ValueError(
                     "If destination platform is 'databricks', user must provide databricks destination configuration in the recipe."
                 )
         else:
             raise ValueError(
-                f"Destination platform '{self.destination_platform}' is not yet supported."
+                f"Destination platform '{destination_platform}' is not yet supported."
             )
-        return self
+        return values
 
 
 @dataclasses.dataclass
@@ -163,6 +184,7 @@ class MetadataExtractionPerfReport(Report):
 @dataclasses.dataclass
 class FivetranSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
+    fivetran_rest_api_call_count: int = 0
     filtered_connectors: LossyList[str] = dataclasses.field(default_factory=LossyList)
     metadata_extraction_perf: MetadataExtractionPerfReport = dataclasses.field(
         default_factory=MetadataExtractionPerfReport
@@ -173,6 +195,9 @@ class FivetranSourceReport(StaleEntityRemovalSourceReport):
 
     def report_connectors_dropped(self, connector: str) -> None:
         self.filtered_connectors.append(connector)
+
+    def report_fivetran_rest_api_call_count(self) -> None:
+        self.fivetran_rest_api_call_count += 1
 
 
 class PlatformDetail(ConfigModel):
@@ -234,9 +259,19 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         description="A mapping of destination id to its platform/instance/env details.",
     )
 
+    """
+    Use Fivetran REST API to get :
+    - Google Sheets Connector details and emit related entities
+    Fivetran Platform Connector syncs limited information about the Google Sheets Connector.
+    """
+    api_config: Optional[FivetranAPIConfig] = Field(
+        default=None,
+        description="Fivetran REST API configuration, used to provide wider support for connections.",
+    )
+
     @model_validator(mode="before")
     @classmethod
-    def compat_sources_to_database(cls, values: Dict) -> Dict:
+    def compat_sources_to_database(cls, values: Any) -> Any:
         if "sources_to_database" in values:
             warnings.warn(
                 "The sources_to_database field is deprecated, please use sources_to_platform_instance instead.",
