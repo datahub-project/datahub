@@ -60,8 +60,8 @@ def assert_sql_result_with_resolver(
     expected = SqlParsingResult.parse_raw(expected_file.read_text())
 
     full_diff = deepdiff.DeepDiff(
-        expected.dict(),
-        res.dict(),
+        expected.model_dump(),
+        res.model_dump(),
         exclude_regex_paths=[
             r"root.column_lineage\[\d+\].logic",
         ],
