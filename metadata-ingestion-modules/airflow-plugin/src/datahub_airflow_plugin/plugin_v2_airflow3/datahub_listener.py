@@ -15,6 +15,7 @@ from typing import (
     TypeVar,
     cast,
 )
+from urllib.parse import urlparse, urlunparse
 
 import airflow
 from airflow.configuration import conf
@@ -322,7 +323,8 @@ class DataHubListener:
             except Exception as db_error:
                 logger.debug(
                     f"Failed to create emitter via DB access: {db_error}. "
-                    "Will retry during task execution."
+                    "Will retry during task execution.",
+                    exc_info=True,
                 )
                 return None
         return self._emitter
@@ -439,15 +441,31 @@ class DataHubListener:
                     import datahub.emitter.rest_emitter
                     from datahub.ingestion.graph.config import ClientMode
 
-                    # Build host with port if needed
+                    # Build host URL with port if needed
                     host = conn.host or ""
-                    if conn.port:
-                        if ":" not in host:
-                            host = f"{host}:{conn.port}"
-
                     if not host:
                         logger.warning(f"Connection '{conn_id}' has no host configured")
                         return None
+
+                    # Parse the URL using stdlib urlparse
+                    parsed = urlparse(host if "://" in host else f"http://{host}")
+
+                    # Add port if specified and not already in URL
+                    netloc = parsed.netloc
+                    if conn.port and not parsed.port:
+                        netloc = f"{parsed.hostname}:{conn.port}"
+
+                    # Reconstruct the URL
+                    host = urlunparse(
+                        (
+                            parsed.scheme or "http",
+                            netloc,
+                            parsed.path,
+                            parsed.params,
+                            parsed.query,
+                            parsed.fragment,
+                        )
+                    )
 
                     # Get token - check airflow.cfg first, then connection password
                     token = conf.get("datahub", "token", fallback=None)
