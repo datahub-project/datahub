@@ -17,20 +17,28 @@ from typing import (
 )
 
 import airflow
+from airflow.configuration import conf
+from airflow.models import Connection
 from airflow.models.serialized_dag import SerializedDagModel
+from airflow.utils.db import provide_session
 from openlineage.client.serde import Serde
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.generic_emitter import Emitter
+from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import ClientMode
+from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -328,19 +336,47 @@ class DataHubListener:
         """
         Create emitter by directly querying the Airflow database for connection details.
         This works around the SUPERVISOR_COMMS limitation in listener context.
+        Supports datahub-rest, datahub-file, and datahub-kafka connection types.
+        Falls back to environment variable connections if not found in database.
+        Handles multiple comma-separated connection IDs via CompositeEmitter.
         """
         try:
-            from airflow.configuration import conf
-            from airflow.models import Connection
-            from airflow.utils.db import provide_session
+            # Parse comma-separated connection IDs
+            connection_ids = self.config._datahub_connection_ids
 
-            from datahub.emitter.rest_emitter import DataHubRestEmitter
-            from datahub.ingestion.graph.config import ClientMode
+            if len(connection_ids) > 1:
+                # Multiple connections - use CompositeEmitter
+                emitters = []
+                for conn_id in connection_ids:
+                    emitter = self._create_single_emitter_from_db(conn_id)
+                    if emitter:
+                        emitters.append(emitter)
+
+                if not emitters:
+                    logger.warning(
+                        f"Could not create any emitters from connection IDs: {connection_ids}"
+                    )
+                    return None
+
+                logger.debug(
+                    f"Created CompositeEmitter with {len(emitters)} emitters from connection IDs: {connection_ids}"
+                )
+                return CompositeEmitter(emitters)
+            else:
+                # Single connection
+                return self._create_single_emitter_from_db(connection_ids[0])
+
+        except Exception as e:
+            logger.debug(f"Failed to create emitter from DB: {e}", exc_info=True)
+            return None
+
+    def _create_single_emitter_from_db(self, conn_id: str):
+        """Create a single emitter from a connection ID."""
+        try:
 
             @provide_session
             def get_connection_from_db(session=None):
-                """Get connection from database."""
-                conn_id = self.config.datahub_conn_id
+                """Get connection from database and create appropriate emitter."""
                 # Try to get connection from database
                 conn = (
                     session.query(Connection)
@@ -348,39 +384,81 @@ class DataHubListener:
                     .first()
                 )
                 if not conn:
-                    logger.warning(f"Connection '{conn_id}' not found in database")
-                    return None
+                    # Try to load from environment variable
+                    logger.debug(
+                        f"Connection '{conn_id}' not found in database, trying environment variable"
+                    )
+                    conn = Connection.get_connection_from_secrets(conn_id)
+                    if not conn:
+                        logger.warning(
+                            f"Connection '{conn_id}' not found in database or environment variables"
+                        )
+                        return None
 
-                # Build host with port if needed
-                host = conn.host or ""
-                if conn.port:
-                    if ":" not in host:
-                        host = f"{host}:{conn.port}"
+                # Normalize conn_type (handle both dashes and underscores)
+                conn_type = (conn.conn_type or "").replace("_", "-")
 
-                if not host:
-                    logger.warning(f"Connection '{conn_id}' has no host configured")
-                    return None
+                # Handle file-based emitter (used in tests)
+                if conn_type == "datahub-file":
+                    filename = conn.host
+                    if not filename:
+                        logger.warning(
+                            f"Connection '{conn_id}' is type datahub-file but has no host (filename) configured"
+                        )
+                        return None
 
-                # Get token - check airflow.cfg first, then connection password
-                token = conf.get("datahub", "token", fallback=None)
-                if token is None:
-                    token = conn.password
+                    logger.debug(
+                        f"Retrieved connection '{conn_id}' from DB: type=datahub-file, filename={filename}"
+                    )
+                    return SynchronizedFileEmitter(filename=filename)
 
-                # Get extra args
-                extra_args = conn.extra_dejson or {}
+                # Handle Kafka-based emitter
+                elif conn_type == "datahub-kafka":
+                    obj = conn.extra_dejson or {}
+                    obj.setdefault("connection", {})
+                    if conn.host:
+                        bootstrap = ":".join(
+                            map(str, filter(None, [conn.host, conn.port]))
+                        )
+                        obj["connection"]["bootstrap"] = bootstrap
 
-                logger.debug(
-                    f"Retrieved connection '{conn_id}' from DB: host={host}, has_token={bool(token)}"
-                )
+                    config = KafkaSinkConfig.parse_obj(obj)
+                    logger.debug(
+                        f"Retrieved connection '{conn_id}' from DB: type=datahub-kafka"
+                    )
+                    return DatahubKafkaEmitter(config)
 
-                # Create emitter
-                return DataHubRestEmitter(
-                    host,
-                    token,
-                    client_mode=ClientMode.INGESTION,
-                    datahub_component="airflow-plugin",
-                    **extra_args,
-                )
+                # Handle REST-based emitter (default)
+                else:
+                    # Build host with port if needed
+                    host = conn.host or ""
+                    if conn.port:
+                        if ":" not in host:
+                            host = f"{host}:{conn.port}"
+
+                    if not host:
+                        logger.warning(f"Connection '{conn_id}' has no host configured")
+                        return None
+
+                    # Get token - check airflow.cfg first, then connection password
+                    token = conf.get("datahub", "token", fallback=None)
+                    if token is None:
+                        token = conn.password
+
+                    # Get extra args
+                    extra_args = conn.extra_dejson or {}
+
+                    logger.debug(
+                        f"Retrieved connection '{conn_id}' from DB: type={conn_type or 'datahub-rest'}, host={host}, has_token={bool(token)}"
+                    )
+
+                    return DataHubRestEmitter(
+                        host,
+                        token,
+                        client_mode=ClientMode.INGESTION,
+                        datahub_component="airflow-plugin",
+                        **extra_args,
+                    )
 
             return get_connection_from_db()
         except Exception as e:
@@ -404,7 +482,7 @@ class DataHubListener:
 
         # Use _get_emitter() method to ensure lazy-loading happens first
         emitter = self._get_emitter()
-        if isinstance(emitter, DatahubRestEmitter) and not isinstance(
+        if isinstance(emitter, DataHubRestEmitter) and not isinstance(
             emitter, DataHubGraph
         ):
             # This is lazy initialized to avoid throwing errors on plugin load.
@@ -768,6 +846,26 @@ class DataHubListener:
         Returns:
             The generated DataJob
         """
+        # Check if emitter is available
+        emitter = self._get_emitter()
+        if emitter is None:
+            logger.warning(
+                f"DataHub emitter not available for task {task.task_id}, skipping metadata emission"
+            )
+            # Still generate the datajob for tracking purposes, but don't emit
+            datajob = AirflowGenerator.generate_datajob(
+                cluster=self.config.cluster,
+                task=task,  # type: ignore[arg-type]
+                dag=dag,
+                capture_tags=self.config.capture_tags_info,
+                capture_owner=self.config.capture_ownership_info,
+                config=self.config,
+            )
+            self._extract_lineage(
+                datajob, dagrun, task, task_instance, complete=complete
+            )  # type: ignore[arg-type]
+            return datajob
+
         datajob = AirflowGenerator.generate_datajob(
             cluster=self.config.cluster,
             task=task,  # type: ignore[arg-type]
@@ -785,7 +883,7 @@ class DataHubListener:
             generate_lineage=self.config.enable_datajob_lineage,
             materialize_iolets=self.config.materialize_iolets,
         ):
-            self.emitter.emit(mcp, self._make_emit_callback())
+            emitter.emit(mcp, self._make_emit_callback())
 
         status_text = f"finish w/ status {complete}" if complete else "start"
         logger.debug(f"Emitted DataHub Datajob {status_text}: {datajob}")
@@ -852,9 +950,10 @@ class DataHubListener:
         )
 
         # Emit process instance if capturing executions
-        if self.config.capture_executions:
+        emitter = self._get_emitter()
+        if self.config.capture_executions and emitter:
             dpi = AirflowGenerator.run_datajob(
-                emitter=self.emitter,
+                emitter=emitter,
                 config=self.config,
                 ti=task_instance,
                 dag=dag,
@@ -864,7 +963,8 @@ class DataHubListener:
             )
             logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
 
-        self.emitter.flush()
+        if emitter:
+            emitter.flush()
 
         logger.debug(
             f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
@@ -874,6 +974,13 @@ class DataHubListener:
 
     def materialize_iolets(self, datajob: DataJob) -> None:
         if self.config.materialize_iolets:
+            emitter = self._get_emitter()
+            if emitter is None:
+                logger.warning(
+                    "DataHub emitter not available, skipping iolet materialization"
+                )
+                return
+
             for outlet in datajob.outlets:
                 reported_time: int = int(time.time() * 1000)
                 operation = OperationClass(
@@ -887,7 +994,7 @@ class DataHubListener:
                     entityUrn=str(outlet), aspect=operation
                 )
 
-                self.emitter.emit(operation_mcp)
+                emitter.emit(operation_mcp)
                 logger.debug(f"Emitted Dataset Operation: {outlet}")
         else:
             if self.graph:
@@ -926,9 +1033,10 @@ class DataHubListener:
         )
 
         # Emit process instance if capturing executions
-        if self.config.capture_executions:
+        emitter = self._get_emitter()
+        if self.config.capture_executions and emitter:
             dpi = AirflowGenerator.complete_datajob(
-                emitter=self.emitter,
+                emitter=emitter,
                 cluster=self.config.cluster,
                 ti=task_instance,
                 dag=dag,
@@ -941,7 +1049,8 @@ class DataHubListener:
                 f"Emitted DataHub DataProcess Instance with status {status}: {dpi}"
             )
 
-        self.emitter.flush()
+        if emitter:
+            emitter.flush()
 
     @hookimpl
     @run_in_thread
