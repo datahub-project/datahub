@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.fields import Field
 
 # This import verifies that the dependencies are available.
@@ -674,11 +674,13 @@ class HiveConfig(TwoTierSQLAlchemyConfig):
         description="Platform instance for the storage system",
     )
 
-    @validator("host_port")
-    def clean_host_port(cls, v):
+    @field_validator("host_port", mode="after")
+    @classmethod
+    def clean_host_port(cls, v: str) -> str:
         return config_clean.remove_protocol(v)
 
-    @validator("hive_storage_lineage_direction")
+    @field_validator("hive_storage_lineage_direction", mode="after")
+    @classmethod
     def _validate_direction(cls, v: str) -> str:
         """Validate the lineage direction."""
         if v.lower() not in ["upstream", "downstream"]:
@@ -725,7 +727,7 @@ class HiveSource(TwoTierSQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = HiveConfig.parse_obj(config_dict)
+        config = HiveConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

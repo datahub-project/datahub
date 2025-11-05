@@ -54,7 +54,8 @@ export const FileUploadContent = ({ hideDropdown }: Props) => {
         if (files.length === 0) return;
 
         const supportedTypes = SUPPORTED_FILE_TYPES;
-        const { onFileUpload, onFileUploadAttempt, onFileUploadFailed, onFileUploadSucceeded } = fileExtension.options;
+        const { onFileUpload, onFileUploadAttempt, onFileUploadFailed, onFileUploadSucceeded } =
+            fileExtension.options.uploadFileProps || {};
 
         try {
             // Process files concurrently
@@ -124,7 +125,7 @@ export const FileUploadContent = ({ hideDropdown }: Props) => {
             <StyledButton size="sm" onClick={handlebuttonClick}>
                 Choose File
             </StyledButton>
-            <FileInput ref={fileInputRef} type="file" onChange={handleFileChange} />
+            <FileInput ref={fileInputRef} type="file" onChange={handleFileChange} data-testid="file-upload-input" />
             <StyledText color="gray" size="sm" lineHeight="normal">
                 Max size: 2GB
             </StyledText>

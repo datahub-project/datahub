@@ -40,7 +40,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     def create(
         cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "DatahubIngestionCheckpointingProvider":
-        config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
+        config = DatahubIngestionStateProviderConfig.model_validate(config_dict)
         if config.datahub_api is not None:
             return cls(DataHubGraph(config.datahub_api))
         elif ctx.graph:
