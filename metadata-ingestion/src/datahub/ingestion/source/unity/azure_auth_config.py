@@ -4,10 +4,12 @@ from datahub.configuration import ConfigModel
 
 
 class AzureAuthConfig(ConfigModel):
-    client_secret: SecretStr = Field(description="Azure client secret")
+    client_secret: SecretStr = Field(
+        description="Azure application client secret used for authentication. This is a confidential credential that should be kept secure."
+    )
     client_id: str = Field(
-        description="Azure client (Application) ID",
+        description="Azure application (client) ID. This is the unique identifier for the registered Azure AD application.",
     )
     tenant_id: str = Field(
-        description="Azure tenant (Directory) ID required when a `client_secret` is used as a credential.",
+        description="Azure tenant (directory) ID. This identifies the Azure AD tenant where the application is registered.",
     )

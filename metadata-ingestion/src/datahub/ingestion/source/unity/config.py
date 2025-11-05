@@ -411,6 +411,26 @@ class UnityCatalogSourceConfig(
             )
         return workspace_url
 
+    @pydantic.root_validator(skip_on_failure=True)
+    def either_token_or_azure_auth_provided(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        token = values.get("token")
+        azure_auth = values.get("azure_auth")
+
+        # Check if exactly one of the authentication methods is provided
+        if not token and not azure_auth:
+            raise ValueError(
+                "Either azure_auth or personal_access_token must be provided."
+            )
+
+        if token and azure_auth:
+            raise ValueError(
+                "Cannot specify both token and azure_auth. Please provide only one authentication method."
+            )
+
+        return values
+
     @pydantic.validator("include_metastore")
     def include_metastore_warning(cls, v: bool) -> bool:
         if v:
