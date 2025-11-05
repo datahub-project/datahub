@@ -365,7 +365,7 @@ class ModelRunDetails:
 
     In Unity Catalog, each model version is linked to an MLflow run via run_id. This dataclass
     contains all the metadata extracted from that MLflow run, including metrics, parameters,
-    tags, and the model signature.
+    and tags.
 
     Attributes:
         run_id: MLflow run ID
@@ -377,7 +377,6 @@ class ModelRunDetails:
         metrics: Training metrics (e.g., accuracy, loss)
         parameters: Hyperparameters used for training
         tags: Run tags/metadata
-        signature: Model signature extracted from the run
     """
 
     run_id: str
@@ -389,7 +388,6 @@ class ModelRunDetails:
     metrics: Optional[Dict[str, str]]
     parameters: Optional[Dict[str, str]]
     tags: Optional[Dict[str, str]]
-    signature: Optional["ModelSignature"]
 
 
 @dataclass
@@ -437,9 +435,10 @@ class ModelVersion:
         created_at: Version creation timestamp
         updated_at: Last update timestamp
         created_by: User who created this version
-        run_details: Comprehensive MLflow run details (metrics, parameters, tags, signature)
+        run_details: Comprehensive MLflow run details (metrics, parameters, tags)
                      extracted from the MLflow run linked to this model version.
-                     None if run_id is not available or run details couldn't be fetched.
+        signature: Model signature extracted from the MLmodel file via Files API.
+                   Contains input/output schema specifications and parameters.
     """
 
     id: str
@@ -452,3 +451,4 @@ class ModelVersion:
     updated_at: Optional[datetime]
     created_by: Optional[str]
     run_details: Optional["ModelRunDetails"]
+    signature: Optional["ModelSignature"]

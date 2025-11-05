@@ -203,16 +203,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
         self._files_api = FilesAPI(self._workspace_client.api_client)
 
-    def get_run_details(
-        self, run_id: str, model_version: Optional[ModelVersionInfo] = None
-    ) -> Optional[ModelRunDetails]:
+    def get_run_details(self, run_id: str) -> Optional[ModelRunDetails]:
         """
         Get comprehensive details from an MLflow run.
-        If model_version is provided, signature will be extracted using Files API.
 
         Args:
             run_id: The MLflow run ID
-            model_version: Optional Unity Catalog ModelVersionInfo object for signature extraction
 
         Returns:
             ModelRunDetails object with comprehensive run information
@@ -250,17 +246,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     if tag.key is not None and tag.value is not None:
                         tags[tag.key] = tag.value
 
-            # Extract signature using Files API if model_version is provided
-            signature: Optional[ModelSignature] = None
-            if model_version:
-                try:
-                    signature = self._extract_signature_from_files_api(model_version)
-                except Exception as e:
-                    model_name = getattr(model_version, "name", "unknown")
-                    logger.debug(
-                        f"Error extracting signature from registered model {model_name}: {e}"
-                    )
-
             return ModelRunDetails(
                 run_id=run.info.run_id,
                 experiment_id=run.info.experiment_id,
@@ -271,20 +256,17 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 metrics=metrics,
                 parameters=parameters,
                 tags=tags,
-                signature=signature,
             )
         except Exception as e:
-            model_name = getattr(model_version, "model_name", "unknown")
-            version_num = getattr(model_version, "version", "unknown")
+            logger.warning(
+                f"Unable to get run details for MLflow experiment, run-id: {run_id}",
+                exc_info=True,
+            )
             self.report.report_warning(
                 title="Unable to get run details for MLflow experiment",
                 message="Error while getting run details for MLflow experiment",
-                context=f"model-name: {model_name}, model-version: {version_num}, run-id: {run_id}",
+                context=f"run-id: {run_id}",
                 exc=e,
-            )
-            logger.warning(
-                f"Unable to get run details for MLflow experiment, model-name: {model_name}, model-version: {version_num}, run-id: {run_id}",
-                exc_info=True,
             )
             return None
 
@@ -1291,14 +1273,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     aliases.append(alias.alias_name)
 
         run_details: Optional[ModelRunDetails] = None
-        # Fetch run details if run_id exists (signature will be populated via Files API)
+        # Fetch run details if run_id exists
         if obj.run_id:
-            try:
-                run_details = self.get_run_details(obj.run_id, model_version=obj)
-            except Exception as e:
-                logger.debug(
-                    f"Error fetching run details for model version {obj.id}: {e}"
-                )
+            run_details = self.get_run_details(obj.run_id)
+
+        # Extract signature separately from Files API
+        signature: Optional[ModelSignature] = self._extract_signature_from_files_api(
+            obj
+        )
+
         return ModelVersion(
             id=f"{model.id}_{obj.version}",
             name=f"{model.name}_{obj.version}",
@@ -1310,6 +1293,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             updated_at=parse_ts_millis(obj.updated_at),
             created_by=obj.created_by,
             run_details=run_details,
+            signature=signature,
         )
 
     def _create_service_principal(

@@ -304,6 +304,7 @@ class TestUnityCatalogSource:
             updated_at=datetime(2023, 1, 4),
             created_by="test_user",
             run_details=None,
+            signature=None,
         )
 
         # Process the model
@@ -421,10 +422,9 @@ class TestUnityCatalogSource:
             metrics={"accuracy": "0.95", "loss": "0.05"},
             parameters={"learning_rate": "0.001", "batch_size": "32"},
             tags={"mlflow.user": "test_user", "mlflow.source.type": "NOTEBOOK"},
-            signature=signature,
         )
 
-        # Create test model version with run details
+        # Create test model version with run details and signature
         test_model_version = ModelVersion(
             id="test_catalog.test_schema.test_model_1",
             name="test_model_1",
@@ -436,6 +436,7 @@ class TestUnityCatalogSource:
             updated_at=datetime(2023, 1, 4),
             created_by="test_user",
             run_details=run_details,
+            signature=signature,
         )
 
         # Process the model version
@@ -529,6 +530,7 @@ class TestUnityCatalogSource:
             updated_at=datetime(2023, 1, 4),
             created_by="test_user",
             run_details=None,
+            signature=None,
         )
 
         # Process the model version - should not fail
@@ -622,7 +624,6 @@ class TestUnityCatalogSource:
             metrics=None,
             parameters=None,
             tags={"mlflow.user": "test_user"},
-            signature=None,
         )
 
         # Create test model version with partial run details
@@ -637,6 +638,7 @@ class TestUnityCatalogSource:
             updated_at=datetime(2023, 1, 4),
             created_by="test_user",
             run_details=run_details,
+            signature=None,
         )
 
         # Process the model version - should not fail

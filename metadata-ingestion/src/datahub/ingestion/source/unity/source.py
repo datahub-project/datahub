@@ -744,15 +744,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
         custom_properties = {}
+        if ml_model_version.signature:
+            for key, value in dataclasses.asdict(ml_model_version.signature).items():
+                if value:
+                    custom_properties[f"signature.{key}"] = json.dumps(value)
+
         if ml_model_version.run_details:
-            if ml_model_version.run_details.signature:
-                custom_properties["signature"] = json.dumps(
-                    dataclasses.asdict(ml_model_version.run_details.signature)
-                )
             if ml_model_version.run_details.tags:
-                custom_properties["mlflow_tags"] = json.dumps(
-                    ml_model_version.run_details.tags
-                )
+                for key, value in ml_model_version.run_details.tags.items():
+                    if value:
+                        custom_properties[key] = json.dumps(value)
 
         ml_model = MLModel(
             id=ml_model_version.id,
