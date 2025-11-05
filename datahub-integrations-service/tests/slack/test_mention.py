@@ -5,9 +5,11 @@ from datahub_integrations.chat.chat_session import (
     ChatSessionMaxTokensExceededError,
 )
 from datahub_integrations.slack.command.mention import (
+    FeedbackPayload,
     SlackMentionEvent,
     _build_progress_message,
     handle_app_mention,
+    handle_feedback,
 )
 
 
@@ -168,3 +170,74 @@ def test_handle_app_mention_chat_session_max_tokens_error() -> None:
             mock_app.client.chat_update.call_args[1]["text"]
             == ":x: Uh, oh ! Looks like I fetched too much information here. Please try asking your question in a new thread."
         )
+
+
+def test_handle_feedback_with_message_contents_in_payload() -> None:
+    channel_id = "C123"
+    bot_message_ts = "1699123500.789012"
+    user_id = "U123"
+    user_name = "alice"
+    thread_ts = "1699123456.123456"
+    user_message_ts = "1699123456.123456"
+
+    payload = FeedbackPayload(
+        thread_ts=thread_ts,
+        message_ts=user_message_ts,
+        feedback="positive",
+        message_contents="What is the schema?",
+    )
+
+    mock_app = Mock()
+    mock_app.client.reactions_add.return_value = {"ok": True}
+
+    with patch(
+        "datahub_integrations.slack.command.mention.track_saas_event"
+    ) as mock_track:
+        handle_feedback(
+            mock_app, channel_id, bot_message_ts, user_id, user_name, payload
+        )
+
+    mock_app.client.conversations_replies.assert_not_called()
+    mock_track.assert_called_once()
+    assert mock_track.call_args[0][0].message_contents == "What is the schema?"
+    mock_app.client.reactions_add.assert_called_once_with(
+        channel=channel_id, timestamp=bot_message_ts, name="thumbsup"
+    )
+
+
+def test_handle_feedback_fetches_message_from_api() -> None:
+    channel_id = "C123"
+    bot_message_ts = "1699123500.789012"
+    user_id = "U123"
+    user_name = "alice"
+    thread_ts = "1699123456.123456"
+    user_message_ts = "1699123456.123456"
+
+    payload = FeedbackPayload(
+        thread_ts=thread_ts,
+        message_ts=user_message_ts,
+        feedback="positive",
+    )
+
+    mock_app = Mock()
+    mock_app.client.conversations_replies.return_value = {
+        "messages": [{"ts": user_message_ts, "text": "User question"}],
+        "ok": True,
+    }
+    mock_app.client.reactions_add.return_value = {"ok": True}
+
+    with patch(
+        "datahub_integrations.slack.command.mention.track_saas_event"
+    ) as mock_track:
+        handle_feedback(
+            mock_app, channel_id, bot_message_ts, user_id, user_name, payload
+        )
+
+    mock_app.client.conversations_replies.assert_called_once_with(
+        channel=channel_id,
+        ts=thread_ts,
+        latest=user_message_ts,
+        limit=5,
+        inclusive=True,
+    )
+    assert mock_track.call_args[0][0].message_contents == "User question"

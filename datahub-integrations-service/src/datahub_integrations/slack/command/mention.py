@@ -196,6 +196,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
             event.message_ts,
             message,
             followup_questions,
+            user_message_text=event.message_text,
         )
 
         # Update the placeholder message with the actual response
@@ -364,6 +365,9 @@ class FeedbackPayload(BaseModel):
     thread_ts: str
     message_ts: str
     feedback: str  # positive or negative
+    message_contents: Optional[str] = (
+        None  # Optional original message text to avoid API call
+    )
 
 
 class FollowupQuestionPayload(BaseModel):
@@ -378,6 +382,7 @@ def _build_response(
     message_ts: str,
     message: str,
     followup_questions: List[str],
+    user_message_text: str,
 ) -> List[dict]:
     # Prepare blocks for the response
     blocks: List[dict] = []
@@ -415,6 +420,29 @@ def _build_response(
             ],
         }
     )
+
+    # Prepare message_contents for payload
+    # Slack button value has a 2000 character limit for the JSON string
+    # So we only include the message contents if it's less than 1000 characters
+    message_contents: Optional[str] = (
+        user_message_text if len(user_message_text) <= 1000 else None
+    )
+
+    # Create payloads for both feedback buttons
+    positive_payload = FeedbackPayload(
+        thread_ts=thread_ts,
+        message_ts=message_ts,
+        message_contents=message_contents,
+        feedback="positive",
+    ).model_dump_json()
+
+    negative_payload = FeedbackPayload(
+        thread_ts=thread_ts,
+        message_ts=message_ts,
+        message_contents=message_contents,
+        feedback="negative",
+    ).model_dump_json()
+
     blocks.append(
         {
             "type": "actions",
@@ -423,21 +451,13 @@ def _build_response(
                     "type": "button",
                     "text": {"type": "plain_text", "text": "👍 Yes", "emoji": True},
                     "action_id": f"{DATAHUB_MENTION_FEEDBACK_BUTTON_ID}_positive",
-                    "value": FeedbackPayload(
-                        thread_ts=thread_ts,
-                        message_ts=message_ts,
-                        feedback="positive",
-                    ).model_dump_json(),
+                    "value": positive_payload,
                 },
                 {
                     "type": "button",
                     "text": {"type": "plain_text", "text": "👎 No", "emoji": True},
                     "action_id": f"{DATAHUB_MENTION_FEEDBACK_BUTTON_ID}_negative",
-                    "value": FeedbackPayload(
-                        thread_ts=thread_ts,
-                        message_ts=message_ts,
-                        feedback="negative",
-                    ).model_dump_json(),
+                    "value": negative_payload,
                 },
             ],
         }
@@ -528,24 +548,38 @@ def handle_feedback(
     # bot_message_ts is the id of the bot's response message.
 
     # Get the original message content if possible.
-    # TODO: Probably should fetch the full message history.
-    message_content = None
-    try:
-        # Fetch the message history to get the original message
-        result = app.client.conversations_history(
-            channel=channel_id,
-            latest=payload.message_ts,
-            limit=1,
-            inclusive=True,
-        )
-        message_content = result["messages"][0].get("text", "No content")
-        logger.info(
-            f"Received {payload.feedback} feedback on message: '{message_content}'"
-        )
-    except slack_sdk.errors.SlackApiError as e:
-        logger.info(
-            f"Received {payload.feedback} feedback on message {payload.message_ts}. Could not fetch actual message: {e}"
-        )
+    # First check if it's already in the payload (avoiding API call)
+    message_content = payload.message_contents
+
+    # Only fetch from API if not already in payload
+    if message_content is None:
+        try:
+            # Fetch messages from the specific thread to get the original user message
+            # Using conversations_replies to scope search to the thread
+            # Using latest parameter to narrow the search window and reduce limit
+            result = app.client.conversations_replies(
+                channel=channel_id,
+                ts=payload.thread_ts,
+                latest=payload.message_ts,  # Only get messages up to user's message
+                limit=5,
+                inclusive=True,  # Include messages at the exact timestamp
+            )
+
+            # Find the exact message by matching timestamp
+            messages: List[dict] = result.get("messages", [])  # type: ignore[assignment]
+            for msg in messages:
+                if msg.get("ts") == payload.message_ts:
+                    message_content = msg.get("text")
+                    break
+
+            if message_content is None:
+                logger.warning(
+                    f"Could not find user message {payload.message_ts} in thread {payload.thread_ts}"
+                )
+        except slack_sdk.errors.SlackApiError as e:
+            logger.info(
+                f"Received {payload.feedback} feedback on message {payload.message_ts}. Could not fetch actual message: {e}"
+            )
 
     track_saas_event(
         ChatbotInteractionFeedbackEvent(
