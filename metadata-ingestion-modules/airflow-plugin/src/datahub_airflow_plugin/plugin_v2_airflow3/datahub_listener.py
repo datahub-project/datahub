@@ -19,8 +19,8 @@ from urllib.parse import urlparse, urlunparse
 
 import airflow
 from airflow.configuration import conf
-from airflow.models import Connection
 from airflow.models.serialized_dag import SerializedDagModel
+from airflow.sdk import Connection
 from openlineage.client.serde import Serde
 
 import datahub.emitter.mce_builder as builder
@@ -332,7 +332,7 @@ class DataHubListener:
         """
         Create emitter by retrieving connection details using Airflow's connection API.
 
-        Uses Connection.get_connection_from_secrets() which works in all contexts:
+        Uses Connection.get() from SDK which works in all contexts:
         - Task execution (on_task_instance_running, on_task_instance_success, etc.)
         - DAG lifecycle hooks (on_dag_start, on_dag_run_running, etc.)
         - Listener hooks (where SUPERVISOR_COMMS is not available)
@@ -378,7 +378,7 @@ class DataHubListener:
         """
         Create a single emitter from a connection ID.
 
-        Uses Connection.get_connection_from_secrets() which works in all contexts:
+        Uses Connection.get() from SDK which works in all contexts:
         - Task execution (on_task_instance_running, on_task_instance_success, etc.)
         - DAG lifecycle hooks (on_dag_start, on_dag_run_running, etc.)
         - Listener hooks (where SUPERVISOR_COMMS is not available)
@@ -388,10 +388,10 @@ class DataHubListener:
         """
         try:
             # In Airflow 3.0, direct ORM database access is not allowed during task execution.
-            # Use Connection.get_connection_from_secrets() which works in all contexts.
+            # Use Connection.get() from SDK which works in all contexts.
             # This method checks environment variables, secrets backends, and the database
             # through the proper Airflow APIs.
-            conn = Connection.get_connection_from_secrets(conn_id)
+            conn = Connection.get(conn_id)
             if not conn:
                 logger.warning(
                     f"Connection '{conn_id}' not found in secrets backend or environment variables"

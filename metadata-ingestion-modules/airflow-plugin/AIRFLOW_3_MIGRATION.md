@@ -768,9 +768,9 @@ if DATAHUB_SQL_PARSING_RESULT_KEY in operator_lineage.run_facets:
 - `src/datahub_airflow_plugin/datahub_listener.py:433-439` - Retrieve sql_parsing_result from run_facets
 - `src/datahub_airflow_plugin/_config.py` - Enable SQL parser patch for Airflow 3.x
 
-### 11. Emitter Initialization: Database Access Instead of BaseHook
+### 11. Emitter Initialization: SDK Connection API Instead of BaseHook
 
-In Airflow 3.x, the DataHub plugin uses direct database access to initialize the emitter instead of relying on `BaseHook.get_connection()`.
+In Airflow 3.x, the DataHub plugin uses the SDK's `Connection.get()` method to initialize the emitter instead of relying on `BaseHook.get_connection()`.
 
 #### Problem: SUPERVISOR_COMMS Limitation
 
@@ -790,45 +790,84 @@ emitter = hook.make_emitter()  # ❌ Fails: SUPERVISOR_COMMS not available
 - Listener hooks are called by the scheduler/webserver, not by task workers
 - The supervisor communication mechanism is not initialized in listener context
 
-#### Solution: Direct Database Access
+#### Solution: Use SDK Connection API
 
-The plugin now uses direct database queries to retrieve connection details:
+The plugin now uses the Airflow SDK's `Connection.get()` method to retrieve connection details:
 
 ```python
-def _create_emitter_from_db(self):
-    """Create emitter by directly querying the Airflow database for connection details."""
-    from airflow.models import Connection
-    from airflow.utils.db import provide_session
+def _create_single_emitter_from_connection(self, conn_id: str):
+    """
+    Create a single emitter from a connection ID.
 
-    @provide_session
-    def get_connection_from_db(session=None):
-        conn_id = self.config.datahub_conn_id
-        conn = session.query(Connection).filter(
-            Connection.conn_id == conn_id
-        ).first()
+    Uses Connection.get() from SDK which works in all contexts.
+    """
+    from airflow.sdk import Connection
 
-        # Build emitter from connection details
-        host = conn.host
-        if conn.port:
-            host = f"{host}:{conn.port}"
-
-        token = conf.get("datahub", "token", fallback=None) or conn.password
-
-        return DataHubRestEmitter(
-            host, token,
-            client_mode=ClientMode.INGESTION,
-            **conn.extra_dejson
+    # Get connection using SDK API (works in all contexts)
+    conn = Connection.get(conn_id)
+    if not conn:
+        logger.warning(
+            f"Connection '{conn_id}' not found in secrets backend or environment variables"
         )
+        return None
 
-    return get_connection_from_db()
+    # Build emitter from connection details
+    host = conn.host or ""
+    if not host:
+        logger.warning(f"Connection '{conn_id}' has no host configured")
+        return None
+
+    # Parse URL and add port if needed
+    from urllib.parse import urlparse, urlunparse
+    parsed = urlparse(host if "://" in host else f"http://{host}")
+    netloc = parsed.netloc
+    if conn.port and not parsed.port:
+        netloc = f"{parsed.hostname}:{conn.port}"
+
+    host = urlunparse((
+        parsed.scheme or "http",
+        netloc,
+        parsed.path,
+        parsed.params,
+        parsed.query,
+        parsed.fragment
+    ))
+
+    token = conf.get("datahub", "token", fallback=None) or conn.password
+
+    return DataHubRestEmitter(
+        host, token,
+        client_mode=ClientMode.INGESTION,
+        datahub_component="airflow-plugin",
+        **conn.extra_dejson
+    )
+```
+
+**Why `Connection.get()` from SDK:**
+
+- ✅ **Official Airflow 3.x API** - `airflow.sdk.Connection` is the proper SDK method
+- ✅ **Not deprecated** - Unlike `Connection.get_connection_from_secrets()` from `airflow.models`
+- ✅ **Works in all contexts** - Listener hooks, task execution, DAG parsing
+- ✅ **No SUPERVISOR_COMMS dependency** - Checks environment variables, secrets backends, and database through proper APIs
+- ✅ **More reliable** - Doesn't depend on execution context being fully initialized
+- ✅ **Consistent behavior** - Same initialization method regardless of when it's called
+- ✅ **Cleaner imports** - Uses SDK module structure instead of legacy models module
+
+**Import Path:**
+
+```python
+# Airflow 3.x (correct, non-deprecated)
+from airflow.sdk import Connection
+
+# Airflow 2.x (deprecated in Airflow 3.x)
+from airflow.models import Connection
 ```
 
 **Benefits:**
 
-- ✅ **Works in all contexts** - Listener hooks, task execution, DAG parsing
-- ✅ **No SUPERVISOR_COMMS dependency** - Direct database access bypasses the limitation
-- ✅ **More reliable** - Doesn't depend on execution context being fully initialized
-- ✅ **Consistent behavior** - Same initialization method regardless of when it's called
+- Uses Python's `urllib.parse` for robust URL handling (handles IPv6, paths, query strings)
+- Supports all DataHub connection types (REST, Kafka, File)
+- Handles multiple comma-separated connection IDs via `CompositeEmitter`
 
 **Token Configuration:**
 
