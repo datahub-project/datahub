@@ -118,7 +118,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 
 
 @platform_name("Iceberg")
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @config_class(IcebergSourceConfig)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
@@ -161,7 +161,7 @@ class IcebergSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
-        config = IcebergSourceConfig.parse_obj(config_dict)
+        config = IcebergSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

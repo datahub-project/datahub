@@ -43,7 +43,12 @@ export default function DomainsSidebarHeader() {
                     data-testid="sidebar-create-domain-button"
                 />
             </Tooltip>
-            {isCreatingDomain && <CreateDomainModal onClose={() => setIsCreatingDomain(false)} />}
+            {isCreatingDomain && (
+                <CreateDomainModal
+                    onClose={() => setIsCreatingDomain(false)}
+                    onCreate={() => setIsCreatingDomain(false)}
+                />
+            )}
         </Wrapper>
     );
 }

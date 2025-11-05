@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field, root_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.qlik_sense.config import QLIK_DATETIME_FORMAT, Constant
@@ -92,7 +92,8 @@ class Space(_QlikBaseModel):
     updatedAt: datetime
     ownerId: Optional[str] = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
@@ -121,7 +122,8 @@ class SchemaField(_QlikBaseModel):
     primaryKey: Optional[bool] = None
     nullable: Optional[bool] = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
@@ -138,7 +140,8 @@ class QlikDataset(Item):
     itemId: str
     datasetSchema: List[SchemaField]
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
@@ -174,7 +177,8 @@ class Chart(_QlikBaseModel):
     qDimension: List[AxisProperty]
     qMeasure: List[AxisProperty]
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
@@ -193,7 +197,8 @@ class Sheet(_QlikBaseModel):
     updatedAt: datetime
     charts: List[Chart] = []
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
@@ -220,7 +225,8 @@ class QlikTable(_QlikBaseModel):
     databaseName: Optional[str] = None
     schemaName: Optional[str] = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
@@ -239,7 +245,8 @@ class App(Item):
     sheets: List[Sheet] = []
     tables: List[QlikTable] = []
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)

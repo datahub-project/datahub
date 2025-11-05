@@ -116,6 +116,7 @@ query appConfig {
             logicalModelsEnabled
             showHomepageUserRole
             assetSummaryPageV1
+            datasetSummaryPageV1
             documentationFileUploadV1
         }
         chromeExtensionConfig {
@@ -179,4 +180,16 @@ mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!
 
 mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
     updateApplicationsSettings(input: $input)
+}
+
+query getLatestProductUpdate {
+    latestProductUpdate {
+        enabled
+        id
+        title
+        description
+        image
+        ctaText
+        ctaLink
+    }
 }
