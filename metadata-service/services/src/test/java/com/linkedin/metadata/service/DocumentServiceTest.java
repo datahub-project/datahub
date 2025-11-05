@@ -60,6 +60,7 @@ public class DocumentServiceTest {
             null, // no parent
             null, // no related assets
             null, // no related documents
+            null, // no draftOfUrn
             TEST_USER_URN);
 
     // Verify the URN was created
@@ -91,6 +92,7 @@ public class DocumentServiceTest {
             TEST_PARENT_URN,
             Arrays.asList(TEST_ASSET_URN),
             Arrays.asList(TEST_DOCUMENT_URN),
+            null, // no draftOfUrn
             TEST_USER_URN);
 
     // Verify the URN was created with custom ID
@@ -122,6 +124,7 @@ public class DocumentServiceTest {
           null,
           null,
           null,
+          null, // no draftOfUrn
           TEST_USER_URN);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
