@@ -160,18 +160,37 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
     yield
 
 
-@pytest.fixture(autouse=True)
-def stop_spark_context():
-    """Stop any existing SparkContext before each test to ensure clean state."""
+@pytest.fixture(autouse=True, scope="function")
+def reset_spark_session():
+    """Reset Spark session before and after each test to ensure clean state with proper jars."""
     if _PROFILING_ENABLED:
         try:
             from pyspark import SparkContext
+            from pyspark.sql import SparkSession
+
+            # Stop any active SparkContext
+            if SparkContext._active_spark_context is not None:
+                SparkContext._active_spark_context.stop()
+
+            # Clear the active SparkSession reference
+            SparkSession._instantiatedSession = None
+        except Exception:
+            pass
+
+    yield
+
+    # Cleanup after test as well
+    if _PROFILING_ENABLED:
+        try:
+            from pyspark import SparkContext
+            from pyspark.sql import SparkSession
 
             if SparkContext._active_spark_context is not None:
                 SparkContext._active_spark_context.stop()
+
+            SparkSession._instantiatedSession = None
         except Exception:
             pass
-    yield
 
 
 @pytest.fixture(scope="module", autouse=True)
