@@ -400,44 +400,63 @@ class TestUnityCatalogSource:
 
     def test_source_creation_fails_without_authentication(self):
         """Test that UnityCatalogSource creation fails when neither token nor azure_auth are provided."""
-        # Test with neither token nor azure_auth provided
-        config_without_auth = UnityCatalogSourceConfig.parse_obj(
-            {
-                "workspace_url": "https://test.databricks.com",
-                "warehouse_id": "test_warehouse",
-                "include_hive_metastore": False,
-                "databricks_api_page_size": 100,
-                # Neither token nor azure_auth provided
-            }
-        )
-
-        ctx = PipelineContext(run_id="test_run")
-
-        # Should raise ValueError when neither authentication method is provided
+        # Test with neither token nor azure_auth provided - this should fail at config parsing
         with pytest.raises(ValueError) as exc_info:
-            UnityCatalogSource.create(config_without_auth, ctx)
+            UnityCatalogSourceConfig.parse_obj(
+                {
+                    "workspace_url": "https://test.databricks.com",
+                    "warehouse_id": "test_warehouse",
+                    "include_hive_metastore": False,
+                    "databricks_api_page_size": 100,
+                    # Neither token nor azure_auth provided
+                }
+            )
 
-        assert "Either azure_auth or personal_access_token must be provided" in str(
-            exc_info.value
+        # Should mention that either authentication method is required
+        assert (
+            "Either 'azure_auth' or 'token' (personal access token) must be provided"
+            in str(exc_info.value)
         )
 
     def test_test_connection_fails_without_authentication(self):
         """Test that test_connection fails when neither token nor azure_auth are provided."""
-        config_dict_without_auth = {
-            "workspace_url": "https://test.databricks.com",
-            "warehouse_id": "test_warehouse",
-            "databricks_api_page_size": 100,
-            # Neither token nor azure_auth provided
-        }
-
-        # Should raise ValueError due to Databricks authentication failure
         with pytest.raises(ValueError) as exc_info:
-            UnityCatalogSource.test_connection(config_dict_without_auth)
+            UnityCatalogSourceConfig.parse_obj(
+                {
+                    "workspace_url": "https://test.databricks.com",
+                    "warehouse_id": "test_warehouse",
+                    "databricks_api_page_size": 100,
+                    # Neither token nor azure_auth provided
+                }
+            )
 
-        # The actual error is from Databricks SDK trying to authenticate without credentials
-        assert "default auth: cannot configure default credentials" in str(
-            exc_info.value
+        # The error should be from our validator
+        assert (
+            "Either 'azure_auth' or 'token' (personal access token) must be provided"
+            in str(exc_info.value)
         )
+
+    def test_source_creation_fails_with_both_authentication_methods(self):
+        """Test that UnityCatalogSource creation fails when both token and azure_auth are provided."""
+        # Test with both token and azure_auth provided - this should fail at config parsing
+        with pytest.raises(ValueError) as exc_info:
+            UnityCatalogSourceConfig.parse_obj(
+                {
+                    "workspace_url": "https://test.databricks.com",
+                    "warehouse_id": "test_warehouse",
+                    "include_hive_metastore": False,
+                    "databricks_api_page_size": 100,
+                    "token": "test_token",  # Both provided
+                    "azure_auth": {
+                        "client_id": "test-client-id",
+                        "tenant_id": "test-tenant-id",
+                        "client_secret": "test-secret",
+                    },
+                }
+            )
+
+        # Should mention that only one authentication method is allowed
+        assert "Cannot specify both 'token' and 'azure_auth'" in str(exc_info.value)
 
     @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
     @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")

@@ -421,12 +421,12 @@ class UnityCatalogSourceConfig(
         # Check if exactly one of the authentication methods is provided
         if not token and not azure_auth:
             raise ValueError(
-                "Either azure_auth or personal_access_token must be provided."
+                "Either 'azure_auth' or 'token' (personal access token) must be provided in the configuration."
             )
 
         if token and azure_auth:
             raise ValueError(
-                "Cannot specify both token and azure_auth. Please provide only one authentication method."
+                "Cannot specify both 'token' and 'azure_auth'. Please provide only one authentication method."
             )
 
         return values
