@@ -291,11 +291,10 @@ export function ensurePropertyExist(property) {
   cy.getWithTestId(`property-${property.type}`).within(() => {
     cy.getWithTestId("property-title").should("contain", property.name);
     if (property.value !== undefined) {
-      // Use should with match for case-insensitive regex matching with retry
-      cy.getWithTestId("property-value").should(
-        "match",
-        new RegExp(property.value, "i"),
-      );
+      cy.getWithTestId("property-value").should(($el) => {
+        const text = $el.text();
+        expect(text).to.match(new RegExp(property.value, "i"));
+      });
     }
   });
 }
