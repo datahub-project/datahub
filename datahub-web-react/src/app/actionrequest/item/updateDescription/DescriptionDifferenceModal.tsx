@@ -1,6 +1,6 @@
 import { blue } from '@ant-design/colors';
 import { FileMarkdownOutlined, FileTextOutlined } from '@ant-design/icons';
-import MDEditor from '@uiw/react-md-editor';
+import { Editor } from '@components';
 import { Button, Modal } from 'antd';
 import React, { useState } from 'react';
 import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer';
@@ -69,9 +69,9 @@ function DescriptionDifferenceModal({ oldDescription, newDescription, closeModal
                 />
             ) : (
                 <FormattedTextWrapper>
-                    <MDEditor.Markdown style={{ fontWeight: 400, flex: 1 }} source={oldDescription} />
+                    <Editor content={oldDescription} readOnly />
                     <VerticalDivider />
-                    <MDEditor.Markdown style={{ fontWeight: 400, flex: 1 }} source={newDescription} />
+                    <Editor content={newDescription} readOnly />
                 </FormattedTextWrapper>
             )}
         </StyledModal>
