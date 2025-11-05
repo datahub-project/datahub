@@ -2253,8 +2253,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "signature": "{\"inputs\": [{\"name\": \"feature1\", \"type\": \"double\"}, {\"name\": \"feature2\", \"type\": \"double\"}, {\"name\": \"feature3\", \"type\": \"long\"}], \"outputs\": [{\"name\": \"prediction\", \"type\": \"long\"}], \"parameters\": null}",
-                "mlflow_tags": "{\"mlflow.user\": \"abc@acryl.io\", \"mlflow.source.type\": \"NOTEBOOK\", \"model_type\": \"classifier\"}"
+                "signature.inputs": "[{\"name\": \"feature1\", \"type\": \"double\"}, {\"name\": \"feature2\", \"type\": \"double\"}, {\"name\": \"feature3\", \"type\": \"long\"}]",
+                "signature.outputs": "[{\"name\": \"prediction\", \"type\": \"long\"}]",
+                "mlflow.user": "\"abc@acryl.io\"",
+                "mlflow.source.type": "\"NOTEBOOK\"",
+                "model_type": "\"classifier\""
             },
             "name": "test_model_1",
             "description": "Version 1 with signature",
@@ -3341,7 +3344,9 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "mlflow_tags": "{\"mlflow.user\": \"abc@acryl.io\", \"mlflow.source.type\": \"NOTEBOOK\", \"model_type\": \"classifier\"}"
+                "mlflow.user": "\"abc@acryl.io\"",
+                "mlflow.source.type": "\"NOTEBOOK\"",
+                "model_type": "\"classifier\""
             },
             "name": "test_model_1",
             "description": "Version 1 with signature",

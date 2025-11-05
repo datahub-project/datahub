@@ -1219,9 +1219,16 @@ class TestUnityCatalogProxy:
             updated_at=1640995200000,
             aliases=[alias1, alias2],
             created_by="test_user",
+            catalog_name="test_catalog",
+            schema_name="test_schema",
+            model_name="test_model",
         )
 
-        result = proxy._create_ml_model_version(model, version_info)
+        # Mock the signature extraction since _create_ml_model_version now calls it
+        with patch.object(
+            proxy, "_extract_signature_from_files_api", return_value=None
+        ):
+            result = proxy._create_ml_model_version(model, version_info)
 
         assert result is not None
         assert result.id == "test_catalog.test_schema.test_model_1"
@@ -1231,6 +1238,7 @@ class TestUnityCatalogProxy:
         assert result.aliases == ["prod", "latest"]
         assert result.description == "Version 1"
         assert result.created_by == "test_user"
+        assert result.signature is None  # Verify signature field exists
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_get_run_details_success(self, mock_workspace_client):
