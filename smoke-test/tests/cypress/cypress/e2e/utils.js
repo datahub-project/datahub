@@ -76,3 +76,5 @@ export const patchObject = (obj, pathValueMap) => {
 
   return copyOfObject;
 };
+
+export const getUniqueTestId = () => `${new Date().getTime()}`;
