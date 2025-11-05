@@ -215,7 +215,7 @@ public class TimelineServiceImpl implements TimelineService {
       }
       glossaryTermElementAspectRegistry.put(elementName, aspects);
     }
- 
+
     // Document registry
     HashMap<ChangeCategory, Set<String>> documentElementAspectRegistry = new HashMap<>();
     String entityTypeDocument = DOCUMENT_ENTITY_NAME;
