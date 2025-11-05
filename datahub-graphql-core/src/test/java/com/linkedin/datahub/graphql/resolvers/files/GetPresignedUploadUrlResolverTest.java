@@ -38,7 +38,7 @@ public class GetPresignedUploadUrlResolverTest {
   private static final String MOCKED_PRESIGNED_URL = "https://mocked.s3.url/test-key";
   private static final Integer TEST_EXPIRATION_SECONDS = 3600; // Default from application.yaml
   private static final String TEST_ASSET_PATH_PREFIX =
-      "product-assets"; // Default from application.yaml
+      "product_assets"; // Default from application.yaml
 
   @Mock private S3Util mockS3Util;
   @Mock private QueryContext mockQueryContext;

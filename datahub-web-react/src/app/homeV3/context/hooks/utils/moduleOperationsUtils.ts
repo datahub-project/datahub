@@ -262,8 +262,8 @@ export function handleModuleAdditionWithSizeMismatch(
 }
 
 /**
- * Helper function to handle references to removed modules.
- * Removes not existing modules from row and cleans up empty rows.
+ * Helper function to handle references to removed modules and unknown modules.
+ * Removes these modules from rows and cleans up empty rows.
  */
 export function filterOutNonExistentModulesFromTemplate(
     template: PageTemplateFragment | undefined | null,
@@ -273,7 +273,9 @@ export function filterOutNonExistentModulesFromTemplate(
     const updatedRows = template.properties.rows
         .map((row) => ({
             ...row,
-            modules: row.modules.filter((module) => module.exists),
+            modules: row.modules.filter(
+                (module) => module.exists && module.properties.type !== DataHubPageModuleType.Unknown,
+            ),
         }))
         .filter((row) => row.modules.length > 0);
 
