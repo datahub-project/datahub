@@ -46,12 +46,19 @@ public class UpdateDocumentContentsResolver implements DataFetcher<CompletableFu
             // Extract content text
             final String content = input.getContents().getText();
 
+            // Extract subType and convert to list if provided
+            final java.util.List<String> subTypes =
+                input.getSubType() != null
+                    ? java.util.Collections.singletonList(input.getSubType())
+                    : null;
+
             // Update using service
             _documentService.updateDocumentContents(
                 context.getOperationContext(),
                 documentUrn,
                 content,
                 input.getTitle(),
+                subTypes,
                 UrnUtils.getUrn(context.getActorUrn()));
 
             return true;

@@ -429,6 +429,11 @@ input UpdateDocumentContentsInput {
   Optional updated title for the document
   """
   title: String
+
+  """
+  Optional updated sub-type for the document (e.g., "FAQ", "Tutorial", "Reference")
+  """
+  subType: String
 }
 
 """

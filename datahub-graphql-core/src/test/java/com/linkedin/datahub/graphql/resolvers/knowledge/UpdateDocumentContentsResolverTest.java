@@ -60,6 +60,7 @@ public class UpdateDocumentContentsResolverTest {
             eq(UrnUtils.getUrn(TEST_ARTICLE_URN)),
             any(),
             eq(null),
+            eq(null),
             any(Urn.class));
   }
 
@@ -78,7 +79,12 @@ public class UpdateDocumentContentsResolverTest {
     // Verify title was passed to service
     verify(mockService, times(1))
         .updateDocumentContents(
-            any(OperationContext.class), any(Urn.class), any(), eq("New Title"), any(Urn.class));
+            any(OperationContext.class),
+            any(Urn.class),
+            any(),
+            eq("New Title"),
+            eq(null),
+            any(Urn.class));
   }
 
   @Test
@@ -91,7 +97,7 @@ public class UpdateDocumentContentsResolverTest {
 
     // Verify service was NOT called
     verify(mockService, times(0))
-        .updateDocumentContents(any(OperationContext.class), any(), any(), any(), any());
+        .updateDocumentContents(any(OperationContext.class), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -102,8 +108,31 @@ public class UpdateDocumentContentsResolverTest {
 
     doThrow(new RuntimeException("Service error"))
         .when(mockService)
-        .updateDocumentContents(any(OperationContext.class), any(), any(), any(), any());
+        .updateDocumentContents(any(OperationContext.class), any(), any(), any(), any(), any());
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testUpdateContentsWithSubType() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setSubType("FAQ");
+
+    Boolean result = resolver.get(mockEnv).get();
+
+    assertTrue(result);
+
+    // Verify subType was passed to service as a list
+    verify(mockService, times(1))
+        .updateDocumentContents(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(),
+            eq(null),
+            eq(java.util.Collections.singletonList("FAQ")),
+            any(Urn.class));
   }
 }

@@ -175,10 +175,11 @@ public class DocumentServiceTest {
 
     // Test updating document contents
     service.updateDocumentContents(
-        opContext, TEST_DOCUMENT_URN, "New content", "Updated Title", TEST_USER_URN);
+        opContext, TEST_DOCUMENT_URN, "New content", "Updated Title", null, TEST_USER_URN);
 
-    // Verify ingest was called
-    verify(mockClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
+    // Verify batch ingest was called
+    verify(mockClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), any(), eq(false));
   }
 
   @Test
@@ -192,11 +193,31 @@ public class DocumentServiceTest {
 
     // Test updating a non-existent document
     try {
-      service.updateDocumentContents(opContext, TEST_DOCUMENT_URN, "Content", null, TEST_USER_URN);
+      service.updateDocumentContents(
+          opContext, TEST_DOCUMENT_URN, "Content", null, null, TEST_USER_URN);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));
     }
+  }
+
+  @Test
+  public void testUpdateArticleContentsWithSubType() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Test updating document contents with subType
+    service.updateDocumentContents(
+        opContext,
+        TEST_DOCUMENT_URN,
+        "New content",
+        "Updated Title",
+        Arrays.asList("FAQ"),
+        TEST_USER_URN);
+
+    // Verify batch ingest was called with 2 proposals (info + subTypes)
+    verify(mockClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), any(), eq(false));
   }
 
   @Test

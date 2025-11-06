@@ -258,6 +258,7 @@ public class DocumentService {
    * @param documentUrn the document URN
    * @param content the new content text
    * @param title optional updated title
+   * @param subTypes optional updated sub-types
    * @throws Exception if update fails
    */
   public void updateDocumentContents(
@@ -265,6 +266,7 @@ public class DocumentService {
       @Nonnull Urn documentUrn,
       @Nonnull String content,
       @Nullable String title,
+      @Nullable List<String> subTypes,
       @Nonnull Urn actorUrn)
       throws Exception {
 
@@ -291,15 +293,34 @@ public class DocumentService {
     lastModified.setActor(actorUrn);
     existingInfo.setLastModified(lastModified);
 
-    // Ingest updated info
-    final MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(documentUrn);
-    mcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    mcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    mcp.setChangeType(ChangeType.UPSERT);
-    mcp.setAspect(GenericRecordUtils.serializeAspect(existingInfo));
+    // Prepare list of MCPs to ingest
+    final List<MetadataChangeProposal> mcps = new java.util.ArrayList<>();
 
-    entityClient.ingestProposal(opContext, mcp, false);
+    // Ingest updated info
+    final MetadataChangeProposal infoMcp = new MetadataChangeProposal();
+    infoMcp.setEntityUrn(documentUrn);
+    infoMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
+    infoMcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
+    infoMcp.setChangeType(ChangeType.UPSERT);
+    infoMcp.setAspect(GenericRecordUtils.serializeAspect(existingInfo));
+    mcps.add(infoMcp);
+
+    // Update subTypes if provided
+    if (subTypes != null && !subTypes.isEmpty()) {
+      final com.linkedin.common.SubTypes subTypesAspect = new com.linkedin.common.SubTypes();
+      subTypesAspect.setTypeNames(new com.linkedin.data.template.StringArray(subTypes));
+
+      final MetadataChangeProposal subTypesMcp = new MetadataChangeProposal();
+      subTypesMcp.setEntityUrn(documentUrn);
+      subTypesMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
+      subTypesMcp.setAspectName(Constants.SUB_TYPES_ASPECT_NAME);
+      subTypesMcp.setChangeType(ChangeType.UPSERT);
+      subTypesMcp.setAspect(GenericRecordUtils.serializeAspect(subTypesAspect));
+      mcps.add(subTypesMcp);
+    }
+
+    // Batch ingest all proposals
+    entityClient.batchIngestProposals(opContext, mcps, false);
 
     log.info("Updated contents for document {}", documentUrn);
   }
