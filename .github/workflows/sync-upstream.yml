@@ -1,0 +1,51 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Sync fork with upstream
+        id: fork-sync
+        uses: tgymnich/fork-sync@v2.0.10
+        with:
+          token: ${{ secrets.PAT_FOR_NIGHTLY_WORKFLOW }}
+          owner: datahub-project
+          base: test-sync-upstream
+          head: master
+          auto_approve: false
+          pr_title: 'chore: [TEST] Sync fork with upstream master'
+          pr_message: |
+            This PR automatically syncs the test-sync-upstream branch with upstream datahub-project/datahub:master.
+            
+            **Note:** This is a TEST sync operation. If there are conflicts, this workflow will stop and require manual intervention.
+          merge_method: rebase
+        continue-on-error: false
+
+      - name: Report sync failure
+        if: failure()
+        run: |
+          echo "::error::Fork sync failed due to conflicts or other errors."
+          echo "::error::The sync operation has been stopped. Please resolve conflicts manually."
+          echo ""
+          echo "**Sync Status:** ❌ Failed"
+          echo "**Reason:** Conflicts detected or sync operation failed"
+          echo "**Action Required:** Manual intervention needed to resolve conflicts"
+          exit 1
+
+      - name: Report sync success
+        if: success()
+        run: |
+          echo "::notice::Fork sync completed successfully."
+          echo "**Sync Status:** ✅ Success"
+          echo "**Action:** PR created and merged automatically (no conflicts detected)"
+
