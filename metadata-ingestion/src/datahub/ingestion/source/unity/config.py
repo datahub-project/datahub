@@ -411,7 +411,7 @@ class UnityCatalogSourceConfig(
             )
         return workspace_url
 
-    @pydantic.root_validator(skip_on_failure=True)
+    @pydantic.model_validator(mode='before')
     def either_token_or_azure_auth_provided(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
