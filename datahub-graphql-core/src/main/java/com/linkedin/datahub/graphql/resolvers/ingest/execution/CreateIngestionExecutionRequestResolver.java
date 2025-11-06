@@ -29,17 +29,25 @@ import com.linkedin.metadata.utils.IngestionUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.MaskingManager;
+import io.datahubproject.metadata.services.SecretMasker;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Creates an on-demand ingestion execution request. */
 public class CreateIngestionExecutionRequestResolver
     implements DataFetcher<CompletableFuture<String>> {
 
+  private static final Logger log =
+      LoggerFactory.getLogger(CreateIngestionExecutionRequestResolver.class);
   private static final String RUN_INGEST_TASK_NAME = "RUN_INGEST";
   private static final String MANUAL_EXECUTION_SOURCE_NAME = "MANUAL_INGESTION_SOURCE";
   private static final String RECIPE_ARG_NAME = "recipe";
@@ -61,13 +69,27 @@ public class CreateIngestionExecutionRequestResolver
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (IngestionAuthUtils.canManageIngestion(context)) {
+          // Check authorization before setting up masking to avoid thread-local leaks
+          if (!IngestionAuthUtils.canManageIngestion(context)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
 
-            final CreateIngestionExecutionRequestInput input =
-                bindArgument(
-                    environment.getArgument("input"), CreateIngestionExecutionRequestInput.class);
+          final CreateIngestionExecutionRequestInput input =
+              bindArgument(
+                  environment.getArgument("input"), CreateIngestionExecutionRequestInput.class);
+
+          try {
+            // Fetch ingestion source once (eliminates redundant fetch)
+            final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
+            final DataHubIngestionSourceInfo sourceInfo =
+                fetchIngestionSource(context.getOperationContext(), ingestionSourceUrn);
+
+            // Setup masking with fetched source info
+            setupSecretMasking(context.getOperationContext(), sourceInfo, ingestionSourceUrn);
 
             try {
+              // Generate execution request ID
               final ExecutionRequestKey key = new ExecutionRequestKey();
               final UUID uuid = UUID.randomUUID();
               final String uuidStr = uuid.toString();
@@ -75,67 +97,36 @@ public class CreateIngestionExecutionRequestResolver
               final Urn executionRequestUrn =
                   EntityKeyUtils.convertEntityKeyToUrn(key, EXECUTION_REQUEST_ENTITY_NAME);
 
-              // Fetch the original ingestion source
-              final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
-              final Map<Urn, EntityResponse> response =
-                  _entityClient.batchGetV2(
-                      context.getOperationContext(),
-                      INGESTION_SOURCE_ENTITY_NAME,
-                      ImmutableSet.of(ingestionSourceUrn),
-                      ImmutableSet.of(INGESTION_INFO_ASPECT_NAME));
-
-              if (!response.containsKey(ingestionSourceUrn)) {
-                throw new DataHubGraphQLException(
-                    String.format(
-                        "Failed to find ingestion source with urn %s",
-                        ingestionSourceUrn.toString()),
-                    DataHubGraphQLErrorCode.BAD_REQUEST);
-              }
-
-              final EnvelopedAspect envelopedInfo =
-                  response.get(ingestionSourceUrn).getAspects().get(INGESTION_INFO_ASPECT_NAME);
-              final DataHubIngestionSourceInfo ingestionSourceInfo =
-                  new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
-
-              if (!ingestionSourceInfo.getConfig().hasRecipe()) {
-                throw new DataHubGraphQLException(
-                    String.format(
-                        "Failed to find valid ingestion source with urn %s. Missing recipe",
-                        ingestionSourceUrn.toString()),
-                    DataHubGraphQLErrorCode.BAD_REQUEST);
-              }
-
-              // Build the arguments map.
+              // Build the arguments map using already-fetched source info
               final ExecutionRequestInput execInput = new ExecutionRequestInput();
-              execInput.setTask(RUN_INGEST_TASK_NAME); // Set the RUN_INGEST task
+              execInput.setTask(RUN_INGEST_TASK_NAME);
               execInput.setSource(
                   new ExecutionRequestSource()
                       .setType(MANUAL_EXECUTION_SOURCE_NAME)
                       .setIngestionSource(ingestionSourceUrn));
-              execInput.setExecutorId(
-                  ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
+              execInput.setExecutorId(sourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
               execInput.setRequestedAt(System.currentTimeMillis());
               execInput.setActorUrn(UrnUtils.getUrn(context.getActorUrn()));
 
               Map<String, String> arguments = new HashMap<>();
-              String recipe = ingestionSourceInfo.getConfig().getRecipe();
+              String recipe = sourceInfo.getConfig().getRecipe();
               recipe = injectRunId(recipe, executionRequestUrn.toString());
               recipe = IngestionUtils.injectPipelineName(recipe, ingestionSourceUrn.toString());
               arguments.put(RECIPE_ARG_NAME, recipe);
               arguments.put(
                   VERSION_ARG_NAME,
-                  ingestionSourceInfo.getConfig().hasVersion()
-                      ? ingestionSourceInfo.getConfig().getVersion()
+                  sourceInfo.getConfig().hasVersion()
+                      ? sourceInfo.getConfig().getVersion()
                       : _ingestionConfiguration.getDefaultCliVersion());
-              if (ingestionSourceInfo.getConfig().hasVersion()) {
-                arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().getVersion());
+              if (sourceInfo.getConfig().hasVersion()) {
+                arguments.put(VERSION_ARG_NAME, sourceInfo.getConfig().getVersion());
               }
               String debugMode = "false";
-              if (ingestionSourceInfo.getConfig().hasDebugMode()) {
-                debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";
+              if (sourceInfo.getConfig().hasDebugMode()) {
+                debugMode = sourceInfo.getConfig().isDebugMode() ? "true" : "false";
               }
-              if (ingestionSourceInfo.getConfig().hasExtraArgs()) {
-                arguments.putAll(ingestionSourceInfo.getConfig().getExtraArgs());
+              if (sourceInfo.getConfig().hasExtraArgs()) {
+                arguments.putAll(sourceInfo.getConfig().getExtraArgs());
               }
               arguments.put(DEBUG_MODE_ARG_NAME, debugMode);
               execInput.setArgs(new StringMap(arguments));
@@ -147,16 +138,117 @@ public class CreateIngestionExecutionRequestResolver
                       EXECUTION_REQUEST_INPUT_ASPECT_NAME,
                       execInput);
               return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
-            } catch (Exception e) {
-              throw new RuntimeException(
-                  String.format("Failed to create new ingestion execution request %s", input), e);
+            } finally {
+              // Always clean up masking regardless of execution success/failure
+              MaskingManager.cleanupForCurrentThread();
             }
+          } catch (Exception e) {
+            // Ensure cleanup even if setup or early initialization fails
+            MaskingManager.cleanupForCurrentThread();
+            throw new RuntimeException(
+                String.format("Failed to create new ingestion execution request %s", input), e);
           }
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  /**
+   * Fetches ingestion source information from the metadata store.
+   *
+   * @param opContext The operation context with authentication
+   * @param ingestionSourceUrn The URN of the ingestion source
+   * @return The ingestion source information
+   * @throws Exception if source not found or fetch fails
+   */
+  private DataHubIngestionSourceInfo fetchIngestionSource(
+      OperationContext opContext, Urn ingestionSourceUrn) throws Exception {
+    final Map<Urn, EntityResponse> response =
+        _entityClient.batchGetV2(
+            opContext,
+            INGESTION_SOURCE_ENTITY_NAME,
+            ImmutableSet.of(ingestionSourceUrn),
+            ImmutableSet.of(INGESTION_INFO_ASPECT_NAME));
+
+    if (!response.containsKey(ingestionSourceUrn)) {
+      throw new DataHubGraphQLException(
+          String.format("Failed to find ingestion source with urn %s", ingestionSourceUrn),
+          DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
+
+    final EnvelopedAspect envelopedInfo =
+        response.get(ingestionSourceUrn).getAspects().get(INGESTION_INFO_ASPECT_NAME);
+    final DataHubIngestionSourceInfo sourceInfo =
+        new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
+
+    if (!sourceInfo.getConfig().hasRecipe()) {
+      throw new DataHubGraphQLException(
+          String.format(
+              "Failed to find valid ingestion source with urn %s. Missing recipe",
+              ingestionSourceUrn),
+          DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
+
+    return sourceInfo;
+  }
+
+  /**
+   * Sets up secret masking for the current thread. Fail-safe: continues without masking if setup
+   * fails, but logs security warnings.
+   *
+   * @param opContext The operation context (used for structured logging)
+   * @param sourceInfo The ingestion source information with recipe
+   * @param ingestionSourceUrn The URN for logging context
+   */
+  private void setupSecretMasking(
+      OperationContext opContext, DataHubIngestionSourceInfo sourceInfo, Urn ingestionSourceUrn) {
+    try {
+      log.debug(
+          "Setting up secret masking [source={}, thread={}]",
+          ingestionSourceUrn,
+          Thread.currentThread().getId());
+
+      String recipe = sourceInfo.getConfig().getRecipe();
+      Set<String> envVars = SecretMasker.extractEnvVarReferences(recipe);
+
+      if (envVars.isEmpty()) {
+        log.debug(
+            "No environment variables found in recipe for source '{}'. Masking not needed.",
+            ingestionSourceUrn);
+        return;
+      }
+
+      // Install masking for the current thread
+      SecretMasker masker = new SecretMasker(envVars);
+      if (!masker.isEnabled()) {
+        log.error(
+            "SECURITY WARNING: Failed to enable secret masking for source '{}' - "
+                + "no valid secrets found despite {} variable references. "
+                + "Secrets may be exposed in logs!",
+            ingestionSourceUrn,
+            envVars.size());
+        return;
+      }
+
+      MaskingManager.installForCurrentThread(masker);
+
+      log.info(
+          "Secret masking ENABLED [source={}, variables={}, thread={}]",
+          ingestionSourceUrn,
+          envVars.size(),
+          Thread.currentThread().getId());
+      log.debug("Masking variables: {}", envVars);
+
+    } catch (Exception e) {
+      log.error(
+          "SECURITY CRITICAL: Failed to set up secret masking for source '{}'. "
+              + "Secrets may be exposed in logs! Error: {}",
+          ingestionSourceUrn,
+          e.getMessage(),
+          e);
+      // Consider throwing in production to fail-fast:
+      // throw new SecurityException("Cannot proceed without secret masking", e);
+    }
   }
 
   /**

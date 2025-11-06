@@ -24,4 +24,11 @@ dependencies {
   annotationProcessor externalDependency.lombok
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockitoInline
+  testImplementation 'com.github.stefanbirkner:system-lambda:1.2.1'
+}
+
+// Required for system-lambda to work with Java 9+ module system
+test {
+  jvmArgs '--add-opens=java.base/java.util=ALL-UNNAMED'
+  jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED'
 }

@@ -24,6 +24,8 @@ import com.linkedin.metadata.utils.IngestionUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.MaskingManager;
+import io.datahubproject.metadata.services.SecretMasker;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -409,6 +411,24 @@ public class IngestionScheduler {
             IngestionUtils.injectPipelineName(
                 ingestionSourceInfo.getConfig().getRecipe(), ingestionSourceUrn.toString());
         arguments.put(RECIPE_ARGUMENT_NAME, recipe);
+
+        // Set up secret masking for this ingestion execution
+        try {
+          Set<String> envVars = SecretMasker.extractEnvVarReferences(recipe);
+          if (!envVars.isEmpty()) {
+            SecretMasker masker = new SecretMasker(envVars);
+            MaskingManager.installForCurrentThread(masker);
+            log.info(
+                "Secret masking enabled for ingestion source {} with {} environment variable(s)",
+                ingestionSourceUrn,
+                envVars.size());
+          }
+        } catch (Exception maskingException) {
+          log.warn(
+              "Failed to set up secret masking for ingestion source {}, continuing without masking",
+              ingestionSourceUrn,
+              maskingException);
+        }
         arguments.put(
             VERSION_ARGUMENT_NAME,
             ingestionSourceInfo.getConfig().hasVersion()
@@ -437,6 +457,9 @@ public class IngestionScheduler {
                 "Caught exception while attempting to create Execution Request for Ingestion Source with urn %s. Will retry on next scheduled attempt.",
                 ingestionSourceUrn),
             e);
+      } finally {
+        // Clean up masking appenders to prevent memory leaks
+        MaskingManager.cleanupForCurrentThread();
       }
 
       // 2. Re-Schedule the next execution request.
