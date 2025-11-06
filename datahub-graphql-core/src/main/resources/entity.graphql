@@ -1770,7 +1770,8 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   Deprecated, use applications instead
   The application associated with the dataset
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The forms associated with the Dataset
@@ -2251,7 +2252,8 @@ type VersionedDataset implements Entity {
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Experimental! The resolved health status of the asset
@@ -2479,7 +2481,8 @@ type GlossaryTerm implements Entity {
   Deprecated, use applications instead
   The application associated with the glossary term
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   References to internal resources related to the Glossary Term
@@ -3149,7 +3152,8 @@ type Container implements Entity {
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The deprecation status of the container
@@ -5720,7 +5724,8 @@ type Notebook implements Entity & BrowsableEntity {
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6018,7 +6023,8 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6367,7 +6373,8 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6777,7 +6784,8 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -7045,7 +7053,8 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Granular API for querying edges extending from this entity
@@ -10441,7 +10450,8 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -10589,7 +10599,8 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -10782,7 +10793,8 @@ type MLFeature implements EntityWithRelationships & Entity {
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -11047,7 +11059,8 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -11207,7 +11220,8 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   Deprecated, use applications instead
   The application associated with the entity
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -13220,7 +13234,8 @@ type DataProduct implements Entity {
   Deprecated, use applications instead
   The application associated with the data product
   """
-  application: ApplicationAssociation @deprecated(reason: "Use applications instead")
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Tags used for searching Data Product
