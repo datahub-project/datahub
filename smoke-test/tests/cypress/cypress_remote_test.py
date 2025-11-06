@@ -7,9 +7,64 @@ import threading
 
 import pytest
 
+from tests.cypress.cypress_junit_parser import parse_cypress_junit_results
+from tests.test_result_msg import get_module_tracker
 from tests.utils import get_cypress_credentials
 
 logger = logging.getLogger(__name__)
+
+
+def process_and_report_cypress_results(results_dir: str, tracker) -> None:
+    """
+    Parse Cypress JUnit XML results and report them to the tracker.
+
+    Deduplicates results by spec_file and aggregates outcomes.
+    Reports as failed if ANY test in a spec failed, otherwise passed if ALL passed.
+    """
+    logger.info(f"Parsing Cypress test results from: {results_dir}")
+
+    results = parse_cypress_junit_results(results_dir)
+    logger.info(f"Found {len(results)} Cypress test results")
+
+    # Deduplicate by spec_file: aggregate outcomes
+    # cypress-junit-reporter creates one <testsuite> per it() test, but doesn't include
+    # individual it() test names in the XML. This means we get multiple results with the
+    # same spec_file and test_name (describe block). We deduplicate by spec_file and report
+    # as failed if ANY test in that spec failed, otherwise passed if ALL passed.
+    # Key: spec_file, Value: {"test_name": str, "has_failure": bool, "has_skip": bool}
+    spec_aggregation: dict[str, dict[str, bool | str]] = {}
+    for test_result in results:
+        spec_file = test_result.spec_file
+        if spec_file not in spec_aggregation:
+            spec_aggregation[spec_file] = {
+                "test_name": test_result.test_name,
+                "has_failure": False,
+                "has_skip": False,
+            }
+
+        if test_result.status == "failed":
+            spec_aggregation[spec_file]["has_failure"] = True
+        elif test_result.status == "skipped":
+            spec_aggregation[spec_file]["has_skip"] = True
+
+    logger.info(
+        f"Deduplicated to {len(spec_aggregation)} unique spec files from {len(results)} results"
+    )
+
+    # Report each spec file once with aggregated status
+    for spec_file, agg_data in spec_aggregation.items():
+        test_name = str(agg_data["test_name"])
+        nodeid = f"{spec_file}::{test_name}"
+
+        if agg_data["has_failure"]:
+            logger.info(f"Recording Cypress test failure: {nodeid}")
+            tracker.record_failure(nodeid, test_name)
+        elif agg_data["has_skip"]:
+            logger.info(f"Recording Cypress test skip: {nodeid}")
+            tracker.record_outcome(nodeid, "skipped")
+        else:  # all passed
+            logger.info(f"Recording Cypress test pass: {nodeid}")
+            tracker.record_outcome(nodeid, "passed")
 
 
 @pytest.mark.remote_tests
@@ -87,5 +142,10 @@ def test_run_cypress_remote():
     stderr_thread.join()
 
     logger.info(f"Return code: {return_code}")
+
+    # Parse Cypress JUnit XML results and report individual tests
+    results_dir = "tests/cypress/build/smoke-test-results"
+    tracker = get_module_tracker()
+    process_and_report_cypress_results(results_dir, tracker)
 
     assert return_code == 0, f"Cypress tests failed with return code {return_code}"

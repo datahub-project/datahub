@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from collections import defaultdict
+from contextlib import contextmanager
 import pytest
 from typing import Dict, List, Optional, Tuple
 from _pytest.nodes import Item
@@ -23,7 +24,7 @@ from tests.utils import (
     get_admin_credentials,
     get_frontend_url,
 )
-from tests.utilities.metadata_operations import verify_auth_session
+from tests.utilities.metadata_operations import verify_auth_session, get_default_channel_name
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +49,19 @@ def build_auth_session():
 
     return session
 
+@contextmanager
+def auth_session_context():
+    # this enable auth_session to be used outside of tests as well, while retaining the auth_session fixture
+    auth_session = build_auth_session()
+    try:
+        yield auth_session
+    finally:
+        auth_session.destroy()
 
 @pytest.fixture(scope="session")
 def auth_session():
-    auth_session = build_auth_session()
-    yield auth_session
-    auth_session.destroy()
+    with auth_session_context() as session:
+        yield session
 
 
 def build_graph_client(auth_session, openapi_ingestion=False):
@@ -137,6 +145,12 @@ def pytest_runtest_logreport(report):
     tracker = get_module_tracker()
     nodeid = report.nodeid
 
+    if "tests/cypress" in nodeid:
+        # This is a cypress test. Reporting this pytest failure doesn't help since this pytest is just a launcher
+        # for multiple cypress tests The cypress test runner will report cypress test failures by calling tracker
+        # based on the cypress test results by parsing the junit xml generated from cypress.
+        return
+
     if report.failed:
         logger.debug(f"Recording failure for {nodeid}")
         tracker.record_failure(nodeid)
@@ -156,11 +170,6 @@ def pytest_runtest_logreport(report):
     elif report.skipped:
         logger.debug(f"Recording skip for {nodeid}")
         tracker.record_outcome(nodeid, "skipped")
-
-    # Send periodic updates
-    if tracker.should_send_update():
-        logger.debug("Sending periodic update")
-        tracker.send_update()
 
 
 def pytest_sessionfinish(session, exitstatus):

@@ -1,18 +1,18 @@
-const WAU_URN =
-  "urn:li:dataset:(urn:li:dataPlatform:dbt,FIGLYTICS.figma.wau,PROD)";
-const GLOSSARY_TERM_URN = "urn:li:glossaryTerm:AccountBalance";
+const DATAFLOW_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:slack,C03BWQPEQ9H,PROD)";
+const GLOSSARY_TERM_URN = "urn:li:tag:jmx";
 
-describe("Search and Search Ranking test", () => {
-  it("should return FIGLYTICS.figma.wau on search `wau`", () => {
+describe("Search and Search Ranking Tests", () => {
+  it("should return cypress-dashboard-notifications on search `cypress`", () => {
     cy.login();
     cy.visit("/search");
     cy.get(".ant-skeleton-input").should("not.exist");
-    cy.get('input[data-testid="search-input"]').type("wau{enter}");
+    cy.get('input[data-testid="search-input"]').type("cypress{enter}");
     cy.get(".ant-skeleton-input").should("not.exist");
     cy.get("#search-result-list ul.ant-list-items")
       .find("div")
       .first()
-      .find(`[data-testid="preview-${WAU_URN}"]`)
+      .find(`[data-testid="preview-${DATAFLOW_URN}"]`)
       .should("exist");
   });
 
@@ -20,7 +20,7 @@ describe("Search and Search Ranking test", () => {
     cy.login();
     cy.visit("/search");
     cy.get(".ant-skeleton-input").should("not.exist");
-    cy.get('input[data-testid="search-input"]').type("AccountBalance{enter}");
+    cy.get('input[data-testid="search-input"]').type("jmx{enter}");
     cy.get(".ant-skeleton-input").should("not.exist");
     cy.get("#search-result-list ul.ant-list-items")
       .find("div")

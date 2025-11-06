@@ -49,6 +49,10 @@ def get_kafka_schema_registry_url() -> Optional[str]:
     return os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL")
 
 
+def get_release_version() -> Optional[str]:
+    return os.getenv("DATAHUB_VERSION")
+
+
 # ============================================================================
 # Admin Credentials
 # ============================================================================

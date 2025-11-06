@@ -1,7 +1,7 @@
 const DATAFLOW_URN = "urn:li:dataFlow:(airflow,snowflake_etl,prod)";
 const GLOSSARY_TERM_URN = "urn:li:glossaryTerm:CypressNode.CypressTerm";
 
-describe("Search invariants", () => {
+describe("Search and Search Ranking Tests", () => {
   it("should return snowflake_etl on search `snowflake`", () => {
     cy.login();
     cy.visit("/search");

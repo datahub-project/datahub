@@ -419,3 +419,20 @@ def verify_auth_session(auth_session, context: str = "") -> bool:
             f"Auth session verification failed{context_str}: {type(e).__name__}: {e}"
         )
         return False
+
+
+def get_default_channel_name(auth_session) -> str | None:
+    """Extract defaultChannelName from global Slack settings."""
+    global_settings = get_global_settings(auth_session)
+    if global_settings is None:
+        return None
+
+    integration_settings = global_settings.get("integrationSettings")
+    if integration_settings is None:
+        return None
+
+    slack_settings = integration_settings.get("slackSettings")
+    if slack_settings is None:
+        return None
+
+    return slack_settings.get("defaultChannelName")
