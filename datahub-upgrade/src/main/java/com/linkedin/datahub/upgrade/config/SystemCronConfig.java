@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.conditions.SystemUpdateCronCondition;
 import com.linkedin.datahub.upgrade.system.cron.SystemUpdateCron;
 import com.linkedin.datahub.upgrade.system.cron.steps.TweakReplicasStep;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;

@@ -639,17 +639,6 @@
       }
     },
     {
-      "Path": "docs/actions/actions/teams",
-      "imgPath": "img/logos/companies/microsoft-teams.svg",
-      "Title": "Microsoft Teams",
-      "Description": "Send notifications to Teams channels on updates to entities in DataHub.",
-      "tags": {
-        "Platform Type": "Messaging",
-        "Connection Type": "Push",
-        "Features": "Notifications, Alerting"
-      }
-    },
-    {
       "Path": "docs/generated/ingestion/sources/teradata",
       "imgPath": "img/logos/platforms/teradata.svg",
       "Title": "Teradata",
@@ -843,6 +832,17 @@
       "Description": "Hex is a collaborative data workspace that allows teams to explore, analyze, and share data insights through interactive notebooks.",
       "tags": {
         "Platform Type": "BI Tool",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/snaplogic",
+      "imgPath": "img/logos/platforms/snaplogic.svg",
+      "Title": "SnapLogic",
+      "Description": "SnapLogic is an enterprise integration platform as a service (iPaaS) that enables organizations to connect applications, data sources, and APIs across cloud and on-premises environments through a low-code drag-and-drop interface with hundreds of pre-built connectors, simplifying and accelerating data and application integration.",
+      "tags": {
+        "Platform Type": "ETL and Processing",
         "Connection Type": "Pull",
         "Features": ""
       }

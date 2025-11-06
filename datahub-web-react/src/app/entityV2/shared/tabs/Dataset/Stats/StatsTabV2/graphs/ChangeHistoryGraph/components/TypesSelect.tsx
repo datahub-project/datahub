@@ -18,6 +18,7 @@ export default function TypesSelect({ options, values, loading, onUpdate }: Type
 
     return (
         <SimpleSelect
+            dataTestId="types-select"
             placeholder="Change Type"
             selectLabelProps={{ variant: 'labeled', label: 'Change Type' }}
             options={options}

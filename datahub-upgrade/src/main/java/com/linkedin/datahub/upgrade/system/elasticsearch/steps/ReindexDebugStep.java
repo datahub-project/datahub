@@ -12,6 +12,7 @@ import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -76,11 +77,20 @@ public class ReindexDebugStep implements UpgradeStep {
     return (context) -> {
       ReindexDebugArgs args = createArgs(context);
       try {
-        setConfig(args.index);
+        if (service == null) {
+          log.error("ReindexDebugStep failed: No ElasticSearchService found");
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+        }
+        setConfig(context.opContext(), args.index);
+        if (config == null) {
+          log.error("ReindexDebugStep failed: No matching config found for index: {}", args.index);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+        }
         try {
           service.getIndexBuilder().buildIndex(config);
         } catch (IOException e) {
-          throw new RuntimeException(e);
+          log.error("ReindexDebugStep failed: IOException during buildIndex", e);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
       } catch (Exception e) {
         log.error("ReindexDebugStep failed.", e);
@@ -90,10 +100,12 @@ public class ReindexDebugStep implements UpgradeStep {
     };
   }
 
-  void setConfig(String targetIndex) throws IOException, IllegalAccessException {
+  void setConfig(OperationContext opContext, String targetIndex)
+      throws IOException, IllegalAccessException {
     // datahubpolicyindex_v2 has some docs upon starting quickdebug...
     //  String targetIndex = "datahubpolicyindex_v2";
-    List<ReindexConfig> configs = service.buildReindexConfigs(structuredProperties);
+    List<ReindexConfig> configs = service.buildReindexConfigs(opContext, structuredProperties);
+    config = null; // Reset config to null
     for (ReindexConfig cfg : configs) {
       String cfgname = cfg.name();
       if (cfgname.startsWith(targetIndex)) {

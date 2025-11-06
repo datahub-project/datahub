@@ -38,7 +38,6 @@ const headerDropdownItems = new Set([
     EntityMenuItems.RAISE_INCIDENT,
     EntityMenuItems.ANNOUNCE,
     EntityMenuItems.LINK_VERSION,
-    EntityMenuItems.EXTERNAL_URL,
 ]);
 
 /**

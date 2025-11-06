@@ -3,6 +3,7 @@ import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { navigateToDomainEntities } from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
+import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { DOMAINS_FILTER_NAME, ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
@@ -14,6 +15,7 @@ const NUMBER_OF_ASSETS_TO_FETCH = 10;
 export const useGetDomainAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => {
     const { urn, entityType } = useEntityData();
     const history = useHistory();
+    const { isReloading, onReloadingFinished } = useModuleContext();
 
     const getInputVariables = useCallback(
         (start: number, count: number) => ({
@@ -47,7 +49,8 @@ export const useGetDomainAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => 
     } = useGetSearchResultsForMultipleQuery({
         variables: getInputVariables(0, initialCount),
         skip: entityType !== EntityType.Domain,
-        fetchPolicy: 'cache-first',
+        fetchPolicy: isReloading ? 'cache-and-network' : 'cache-first',
+        onCompleted: () => onReloadingFinished?.(),
     });
 
     const entityRegistry = useEntityRegistryV2();

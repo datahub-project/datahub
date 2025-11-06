@@ -1,3 +1,4 @@
+import { WatchQueryFetchPolicy } from '@apollo/client';
 import { useMemo } from 'react';
 
 import { isGlossaryNode } from '@app/entityV2/glossaryNode/utils';
@@ -14,6 +15,8 @@ interface Props {
     start?: number;
     count: number;
     skip?: boolean;
+    fetchPolicy?: WatchQueryFetchPolicy;
+    onCompleted?: () => void;
 }
 
 export default function useGlossaryNodesAndTerms({
@@ -22,6 +25,8 @@ export default function useGlossaryNodesAndTerms({
     start = 0,
     count = 0,
     skip = false,
+    fetchPolicy,
+    onCompleted,
 }: Props) {
     const filters: AndFilterInput[] | undefined = useMemo(() => {
         const andFilters: FacetFilterInput[] = [];
@@ -60,10 +65,18 @@ export default function useGlossaryNodesAndTerms({
                         { field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending },
                     ],
                 },
+                searchFlags: {
+                    skipCache: true,
+                },
             },
         },
         skip: !filters || skip,
-        fetchPolicy: glossaryNodesAndTermsUrns?.length ? 'cache-first' : undefined,
+        // FYI: this request could be called manually by some user action (e.g. expanding)
+        // to keep it simple network is used by default for first call
+        // (possible longer first loading of modules with automatic expanding of child nodes)
+        fetchPolicy: fetchPolicy ?? 'cache-and-network',
+        nextFetchPolicy: 'cache-first',
+        onCompleted: () => onCompleted?.(),
     });
 
     const entities = useMemo(() => {

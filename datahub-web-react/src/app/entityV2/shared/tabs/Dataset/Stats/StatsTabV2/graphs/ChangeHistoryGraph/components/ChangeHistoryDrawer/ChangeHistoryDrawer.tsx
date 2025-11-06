@@ -90,7 +90,14 @@ export const ChangeHistoryDrawer = ({
     const initialSelectedUsers = useMemo(() => usersSelectOptions.map((option) => option.value), [usersSelectOptions]);
 
     return (
-        <Drawer title="Change History Details" open={open} onClose={onClose} width={542} maskTransparent>
+        <Drawer
+            title="Change History Details"
+            open={open}
+            onClose={onClose}
+            width={542}
+            maskTransparent
+            dataTestId="change-history-details"
+        >
             <DrawerContent>
                 <Controls>
                     <ControlWrapper>

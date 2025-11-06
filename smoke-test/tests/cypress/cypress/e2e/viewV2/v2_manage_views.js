@@ -9,10 +9,8 @@ describe("manage views", () => {
     cy.goToViewsSettings();
     cy.waitTextVisible("Settings");
     cy.wait(1000);
-    cy.clickOptionWithText("Create new View");
-    cy.get(".ant-input-affix-wrapper > input[type='text']")
-      .first()
-      .type(viewName);
+    cy.clickOptionWithText("Create View");
+    cy.get('[data-testid="view-name-input"]').click().type(viewName);
     cy.clickOptionWithTestId("view-builder-save");
 
     // Confirm that the test has been created.
@@ -21,8 +19,8 @@ describe("manage views", () => {
     // Now edit the View
     cy.clickFirstOptionWithTestId("views-table-dropdown");
     cy.get('[data-testid="view-dropdown-edit"]').click({ force: true });
-    cy.get(".ant-input-affix-wrapper > input[type='text']")
-      .first()
+    cy.get('[data-testid="view-name-input"]')
+      .click()
       .clear()
       .type("New View Name");
     cy.clickOptionWithTestId("view-builder-save");

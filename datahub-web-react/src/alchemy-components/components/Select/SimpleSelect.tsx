@@ -80,6 +80,7 @@ export const SimpleSelect = ({
     applyHoverWidth,
     ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
     isLoading = false,
+    dataTestId,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -171,6 +172,7 @@ export const SimpleSelect = ({
             width={props.width || 255}
             $selectLabelVariant={selectLabelProps?.variant}
             isSelected={selectedValues.length > 0}
+            data-testid={dataTestId}
         >
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
             {isVisible && (
@@ -179,7 +181,11 @@ export const SimpleSelect = ({
                     disabled={isDisabled}
                     placement="bottomRight"
                     dropdownRender={() => (
-                        <DropdownContainer ref={dropdownRef} ignoreMaxHeight={ignoreMaxHeight}>
+                        <DropdownContainer
+                            ref={dropdownRef}
+                            ignoreMaxHeight={ignoreMaxHeight}
+                            data-testid={dataTestId ? `${dataTestId}-dropdown` : undefined}
+                        >
                             {showSearch && (
                                 <DropdownSearchBar
                                     placeholder="Search…"
@@ -207,6 +213,7 @@ export const SimpleSelect = ({
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
                                         key={option.value}
+                                        data-testid={`option-${option.value}`}
                                         onClick={() => {
                                             if (!isMultiSelect) {
                                                 if (optionSwitchable && selectedValues.includes(option.value)) {
@@ -280,6 +287,7 @@ export const SimpleSelect = ({
                         isOpen={isOpen}
                         onClick={handleSelectClick}
                         fontSize={size}
+                        data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         {...props}
                         position={position}
                     >

@@ -1,7 +1,6 @@
 import difflib
 import json
 import logging
-import os
 import pathlib
 import sys
 from pathlib import Path
@@ -14,6 +13,7 @@ from click_default_group import DefaultGroup
 
 from datahub.api.entities.dataproduct.dataproduct import DataProduct
 from datahub.cli.specific.file_loader import load_file
+from datahub.configuration.env_vars import get_dataproduct_external_url
 from datahub.emitter.mce_builder import (
     make_group_urn,
     make_user_urn,
@@ -84,9 +84,7 @@ def mutate(file: Path, validate_assets: bool, external_url: str, upsert: bool) -
     with get_default_graph(ClientMode.CLI) as graph:
         data_product: DataProduct = DataProduct.from_yaml(file, graph)
         external_url_override = (
-            external_url
-            or os.getenv("DATAHUB_DATAPRODUCT_EXTERNAL_URL")
-            or data_product.external_url
+            external_url or get_dataproduct_external_url() or data_product.external_url
         )
         data_product.external_url = external_url_override
         if upsert and not graph.exists(data_product.urn):

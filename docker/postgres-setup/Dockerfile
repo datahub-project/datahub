@@ -13,6 +13,7 @@ RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then
 RUN apk add --no-cache postgresql-client sqlite
 
 COPY docker/postgres-setup/init.sql /init.sql
+COPY docker/postgres-setup/init-cdc.sql /init-cdc.sql
 COPY docker/postgres-setup/init.sh /init.sh
 RUN chmod 755 init.sh
 

@@ -151,4 +151,53 @@ public class DataHubSystemAuthenticatorTest {
     assertEquals(authentication.getCredentials(), authorizationHeaderValue);
     assertEquals(authentication.getClaims(), Collections.emptyMap());
   }
+
+  @Test
+  public void testAuthenticateSuccessWithPasswordContainingSingleColon() throws Exception {
+    final String secretWithColon = "my:secret";
+    final DataHubSystemAuthenticator authenticator = new DataHubSystemAuthenticator();
+    authenticator.init(
+        ImmutableMap.of(
+            SYSTEM_CLIENT_ID_CONFIG, TEST_CLIENT_ID, SYSTEM_CLIENT_SECRET_CONFIG, secretWithColon),
+        null);
+
+    final String authorizationHeaderValue =
+        String.format("Basic %s:%s", TEST_CLIENT_ID, secretWithColon);
+    final AuthenticationRequest context =
+        new AuthenticationRequest(
+            ImmutableMap.of(AUTHORIZATION_HEADER_NAME, authorizationHeaderValue));
+
+    final Authentication authentication = authenticator.authenticate(context);
+
+    assertNotNull(authentication);
+    assertEquals(authentication.getActor().getType(), ActorType.USER);
+    assertEquals(authentication.getActor().getId(), TEST_CLIENT_ID);
+    assertEquals(authentication.getCredentials(), authorizationHeaderValue);
+  }
+
+  @Test
+  public void testAuthenticateSuccessWithPasswordContainingMultipleColons() throws Exception {
+    final String secretWithMultipleColons = "my:complex:secret:2025";
+    final DataHubSystemAuthenticator authenticator = new DataHubSystemAuthenticator();
+    authenticator.init(
+        ImmutableMap.of(
+            SYSTEM_CLIENT_ID_CONFIG,
+            TEST_CLIENT_ID,
+            SYSTEM_CLIENT_SECRET_CONFIG,
+            secretWithMultipleColons),
+        null);
+
+    final String authorizationHeaderValue =
+        String.format("Basic %s:%s", TEST_CLIENT_ID, secretWithMultipleColons);
+    final AuthenticationRequest context =
+        new AuthenticationRequest(
+            ImmutableMap.of(AUTHORIZATION_HEADER_NAME, authorizationHeaderValue));
+
+    final Authentication authentication = authenticator.authenticate(context);
+
+    assertNotNull(authentication);
+    assertEquals(authentication.getActor().getType(), ActorType.USER);
+    assertEquals(authentication.getActor().getId(), TEST_CLIENT_ID);
+    assertEquals(authentication.getCredentials(), authorizationHeaderValue);
+  }
 }

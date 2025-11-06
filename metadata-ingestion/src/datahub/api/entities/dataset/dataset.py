@@ -3,6 +3,7 @@ import logging
 import time
 from pathlib import Path
 from typing import (
+    Any,
     Dict,
     Iterable,
     List,
@@ -19,15 +20,16 @@ from pydantic import (
     BaseModel,
     Field,
     StrictStr,
-    root_validator,
-    validator,
+    ValidationInfo,
+    field_validator,
+    model_validator,
 )
 from ruamel.yaml import YAML
 from typing_extensions import TypeAlias
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.structuredproperties.structuredproperties import AllowedTypes
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, LaxStr
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
@@ -143,7 +145,6 @@ class SchemaFieldSpecification(StrictModel):
     jsonPath: Union[None, str] = None
     nullable: bool = False
     description: Union[None, str] = None
-    doc: Union[None, str] = None  # doc is an alias for description
     label: Optional[str] = None
     created: Optional[dict] = None
     lastModified: Optional[dict] = None
@@ -214,21 +215,22 @@ class SchemaFieldSpecification(StrictModel):
             ),
         )
 
-    @validator("urn", pre=True, always=True)
-    def either_id_or_urn_must_be_filled_out(cls, v, values):
-        if not v and not values.get("id"):
+    @model_validator(mode="after")
+    def either_id_or_urn_must_be_filled_out(self) -> "SchemaFieldSpecification":
+        if not self.urn and not self.id:
             raise ValueError("Either id or urn must be present")
-        return v
+        return self
 
-    @root_validator(pre=True)
-    def sync_description_and_doc(cls, values: Dict) -> Dict:
-        """Synchronize doc and description fields if one is provided but not the other."""
+    @model_validator(mode="before")
+    @classmethod
+    def sync_doc_into_description(cls, values: Any) -> Any:
+        """Synchronize doc into description field if doc is provided."""
         description = values.get("description")
-        doc = values.get("doc")
+        doc = values.pop("doc", None)
 
-        if description is not None and doc is None:
-            values["doc"] = description
-        elif doc is not None and description is None:
+        if doc is not None:
+            if description is not None:
+                raise ValueError("doc and description cannot both be provided")
             values["description"] = doc
 
         return values
@@ -296,10 +298,6 @@ class SchemaFieldSpecification(StrictModel):
             """Custom dict method for Pydantic v1 to handle YAML serialization properly."""
             exclude = kwargs.pop("exclude", None) or set()
 
-            # If description and doc are identical, exclude doc from the output
-            if self.description == self.doc and self.description is not None:
-                exclude.add("doc")
-
             # if nativeDataType and type are identical, exclude nativeDataType from the output
             if self.nativeDataType == self.type and self.nativeDataType is not None:
                 exclude.add("nativeDataType")
@@ -327,10 +325,6 @@ class SchemaFieldSpecification(StrictModel):
             """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
             exclude = kwargs.pop("exclude", None) or set()
 
-            # If description and doc are identical, exclude doc from the output
-            if self.description == self.doc and self.description is not None:
-                exclude.add("doc")
-
             # if nativeDataType and type are identical, exclude nativeDataType from the output
             if self.nativeDataType == self.type and self.nativeDataType is not None:
                 exclude.add("nativeDataType")
@@ -357,8 +351,9 @@ class SchemaSpecification(BaseModel):
     fields: Optional[List[SchemaFieldSpecification]] = None
     raw_schema: Optional[str] = None
 
-    @validator("file")
-    def file_must_be_avsc(cls, v):
+    @field_validator("file", mode="after")
+    @classmethod
+    def file_must_be_avsc(cls, v: Optional[str]) -> Optional[str]:
         if v and not v.endswith(".avsc"):
             raise ValueError("file must be a .avsc file")
         return v
@@ -368,7 +363,8 @@ class Ownership(ConfigModel):
     id: str
     type: str
 
-    @validator("type")
+    @field_validator("type", mode="after")
+    @classmethod
     def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
         _, _ = validate_ownership_type(v)
         return v
@@ -387,7 +383,7 @@ class Dataset(StrictModel):
     name: Optional[str] = Field(None, validate_default=True)
     schema_metadata: Optional[SchemaSpecification] = Field(default=None, alias="schema")
     downstreams: Optional[List[str]] = None
-    properties: Optional[Dict[str, str]] = None
+    properties: Optional[Dict[str, LaxStr]] = None
     subtype: Optional[str] = None
     subtypes: Optional[List[str]] = None
     tags: Optional[List[str]] = None
@@ -406,30 +402,36 @@ class Dataset(StrictModel):
             dataset_urn = DatasetUrn.from_string(self.urn)
             return str(dataset_urn.get_data_platform_urn())
 
-    @validator("urn", pre=True, always=True)
-    def urn_must_be_present(cls, v, values):
+    @field_validator("urn", mode="before")
+    @classmethod
+    def urn_must_be_present(cls, v: Any, info: ValidationInfo) -> Any:
         if not v:
+            values = info.data
             assert "id" in values, "id must be present if urn is not"
             assert "platform" in values, "platform must be present if urn is not"
             assert "env" in values, "env must be present if urn is not"
             return make_dataset_urn(values["platform"], values["id"], values["env"])
         return v
 
-    @validator("name", pre=True, always=True)
-    def name_filled_with_id_if_not_present(cls, v, values):
+    @field_validator("name", mode="before")
+    @classmethod
+    def name_filled_with_id_if_not_present(cls, v: Any, info: ValidationInfo) -> Any:
         if not v:
+            values = info.data
             assert "id" in values, "id must be present if name is not"
             return values["id"]
         return v
 
-    @validator("platform")
-    def platform_must_not_be_urn(cls, v):
-        if v.startswith("urn:li:dataPlatform:"):
+    @field_validator("platform", mode="after")
+    @classmethod
+    def platform_must_not_be_urn(cls, v: Optional[str]) -> Optional[str]:
+        if v and v.startswith("urn:li:dataPlatform:"):
             return v[len("urn:li:dataPlatform:") :]
         return v
 
-    @validator("structured_properties")
-    def simplify_structured_properties(cls, v):
+    @field_validator("structured_properties", mode="after")
+    @classmethod
+    def simplify_structured_properties(cls, v: Any) -> Any:
         return StructuredPropertiesHelper.simplify_structured_properties_list(v)
 
     def _mint_auditstamp(self, message: str) -> AuditStampClass:
@@ -470,7 +472,7 @@ class Dataset(StrictModel):
             if isinstance(datasets, dict):
                 datasets = [datasets]
             for dataset_raw in datasets:
-                dataset = Dataset.parse_obj(dataset_raw)
+                dataset = Dataset.model_validate(dataset_raw)
                 # dataset = Dataset.model_validate(dataset_raw, strict=True)
                 yield dataset
 
@@ -605,7 +607,7 @@ class Dataset(StrictModel):
                         ],
                         platformSchema=OtherSchemaClass(
                             rawSchema=yaml.dump(
-                                self.schema_metadata.dict(
+                                self.schema_metadata.model_dump(
                                     exclude_none=True, exclude_unset=True
                                 )
                             )

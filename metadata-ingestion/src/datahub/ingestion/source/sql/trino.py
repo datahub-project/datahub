@@ -18,6 +18,7 @@ from sqlalchemy.types import TypeEngine
 from trino.sqlalchemy import datatype
 from trino.sqlalchemy.dialect import TrinoDialect
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -222,7 +223,7 @@ class ConnectorDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
 
 class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme: str = Field(default="trino", description="", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="trino")
     database: str = Field(description="database (catalog)")
 
     catalog_to_connector_details: Dict[str, ConnectorDetail] = Field(
@@ -412,7 +413,7 @@ class TrinoSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = TrinoConfig.parse_obj(config_dict)
+        config = TrinoConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_schema_fields_for_column(

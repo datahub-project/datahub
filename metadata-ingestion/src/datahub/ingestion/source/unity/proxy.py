@@ -3,6 +3,7 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 """
 
 import dataclasses
+import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -11,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
 from unittest.mock import patch
 
 import cachetools
+import yaml
 from cachetools import cached
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import (
@@ -23,7 +25,11 @@ from databricks.sdk.service.catalog import (
     SchemaInfo,
     TableInfo,
 )
+from databricks.sdk.service.files import DownloadResponse, FilesAPI
 from databricks.sdk.service.iam import ServicePrincipal as DatabricksServicePrincipal
+from databricks.sdk.service.ml import (
+    ExperimentsAPI,
+)
 from databricks.sdk.service.sql import (
     QueryFilter,
     QueryInfo,
@@ -40,6 +46,7 @@ from datahub.api.entities.external.unity_catalog_external_entites import UnityCa
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.source.unity.config import (
     LineageDataSource,
+    UsageDataSource,
 )
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
@@ -53,6 +60,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     ExternalTableReference,
     Metastore,
     Model,
+    ModelRunDetails,
+    ModelSignature,
     ModelVersion,
     Notebook,
     NotebookReference,
@@ -154,6 +163,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     _workspace_url: str
     report: UnityCatalogReport
     warehouse_id: str
+    _experiments_api: ExperimentsAPI
+    _files_api: FilesAPI
 
     def __init__(
         self,
@@ -163,6 +174,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         report: UnityCatalogReport,
         hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
         lineage_data_source: LineageDataSource = LineageDataSource.AUTO,
+        usage_data_source: UsageDataSource = UsageDataSource.AUTO,
         databricks_api_page_size: int = 0,
     ):
         self._workspace_client = WorkspaceClient(
@@ -175,14 +187,190 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
         self.lineage_data_source = lineage_data_source
+        self.usage_data_source = usage_data_source
         self.databricks_api_page_size = databricks_api_page_size
+        self._workspace_url = workspace_url
         self._sql_connection_params = {
             "server_hostname": self._workspace_client.config.host.replace(
                 "https://", ""
             ),
             "http_path": f"/sql/1.0/warehouses/{self.warehouse_id}",
             "access_token": self._workspace_client.config.token,
+            "user_agent_entry": "datahub",
         }
+        # Initialize MLflow APIs
+        self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
+        self._files_api = FilesAPI(self._workspace_client.api_client)
+
+    def get_run_details(self, run_id: str) -> Optional[ModelRunDetails]:
+        """
+        Get comprehensive details from an MLflow run.
+
+        Args:
+            run_id: The MLflow run ID
+
+        Returns:
+            ModelRunDetails object with comprehensive run information
+        """
+        try:
+            run_response = self._experiments_api.get_run(run_id)
+            run = run_response.run
+
+            if (
+                not run
+                or not run.info
+                or not run.info.run_id
+                or not run.info.experiment_id
+            ):
+                return None
+
+            # Extract metrics
+            metrics: Dict[str, Any] = {}
+            if run.data and run.data.metrics:
+                for metric in run.data.metrics:
+                    if metric.key is not None:
+                        metrics[metric.key] = metric.value
+
+            # Extract parameters
+            parameters: Dict[str, Any] = {}
+            if run.data and run.data.params:
+                for param in run.data.params:
+                    if param.key is not None:
+                        parameters[param.key] = param.value
+
+            # Extract tags
+            tags: Dict[str, str] = {}
+            if run.data and run.data.tags:
+                for tag in run.data.tags:
+                    if tag.key is not None and tag.value is not None:
+                        tags[tag.key] = tag.value
+
+            return ModelRunDetails(
+                run_id=run.info.run_id,
+                experiment_id=run.info.experiment_id,
+                status=run.info.status.value if run.info.status else None,
+                start_time=parse_ts_millis(run.info.start_time),
+                end_time=parse_ts_millis(run.info.end_time),
+                user_id=run.info.user_id,
+                metrics=metrics,
+                parameters=parameters,
+                tags=tags,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Unable to get run details for MLflow experiment, run-id: {run_id}",
+                exc_info=True,
+            )
+            self.report.report_warning(
+                title="Unable to get run details for MLflow experiment",
+                message="Error while getting run details for MLflow experiment",
+                context=f"run-id: {run_id}",
+                exc=e,
+            )
+            return None
+
+    def _extract_signature_from_files_api(
+        self, model_version: ModelVersionInfo
+    ) -> Optional[ModelSignature]:
+        """
+        Extract signature from MLmodel file using Databricks FilesAPI.
+        Uses the API endpoint: /api/2.0/fs/files/Models/{catalog}/{schema}/{model}/{version}/MLmodel
+
+        Args:
+            model_version: Unity Catalog ModelVersionInfo object with catalog_name, schema_name, model_name, version
+
+        Returns:
+            ModelSignature if found, None otherwise
+        """
+        try:
+            # Construct file path for FilesAPI
+            # The correct path format is: /Models/{catalog}/{schema}/{model}/{version}/MLmodel
+            file_path = (
+                f"/Models/{model_version.catalog_name}/{model_version.schema_name}/"
+                f"{model_version.model_name}/{model_version.version}/MLmodel"
+            )
+
+            logger.debug(f"Downloading MLmodel from FilesAPI: {file_path}")
+
+            # Download the file using FilesAPI
+            download_response: DownloadResponse = self._files_api.download(
+                file_path=file_path
+            )
+
+            # Read the file content
+            # DownloadResponse.contents is a BinaryIO object
+            if download_response and download_response.contents:
+                content_stream = download_response.contents
+
+                # Read from the binary stream
+                if content_stream:
+                    mlmodel_content: str = content_stream.read().decode("utf-8")
+
+                    logger.debug(
+                        f"MLmodel file contents from FilesAPI ({file_path}):\n{mlmodel_content}"
+                    )
+
+                    # Parse YAML content
+                    mlmodel_data = yaml.safe_load(mlmodel_content)
+
+                    # Extract signature from MLmodel YAML
+                    if mlmodel_data and "signature" in mlmodel_data:
+                        signature_raw = mlmodel_data["signature"]
+
+                        # Signature inputs and outputs are stored as JSON strings in the YAML
+                        # Parse them into proper dict/list format
+                        signature_data = {}
+                        if "inputs" in signature_raw:
+                            try:
+                                signature_data["inputs"] = json.loads(
+                                    signature_raw["inputs"]
+                                )
+                            except (json.JSONDecodeError, TypeError) as e:
+                                logger.debug(f"Failed to parse inputs JSON: {e}")
+
+                        if "outputs" in signature_raw:
+                            try:
+                                signature_data["outputs"] = json.loads(
+                                    signature_raw["outputs"]
+                                )
+                            except (json.JSONDecodeError, TypeError) as e:
+                                logger.debug(f"Failed to parse outputs JSON: {e}")
+
+                        if "params" in signature_raw:
+                            try:
+                                signature_data["params"] = json.loads(
+                                    signature_raw["params"]
+                                )
+                            except (json.JSONDecodeError, TypeError) as e:
+                                logger.debug(f"Failed to parse params JSON: {e}")
+
+                        return ModelSignature(
+                            inputs=signature_data.get("inputs"),
+                            outputs=signature_data.get("outputs"),
+                            parameters=signature_data.get("params"),
+                        )
+                    else:
+                        logger.debug(
+                            f"No signature found in MLmodel data from {file_path}"
+                        )
+                        return None
+
+            return None
+
+        except Exception as e:
+            model_name = getattr(model_version, "model_name", "unknown")
+            version_num = getattr(model_version, "version", "unknown")
+            self.report.report_warning(
+                title="Unable to extract signature from MLmodel file",
+                message="Error while extracting signature from MLmodel file",
+                context=f"model-name: {model_name}, model-version: {version_num}",
+                exc=e,
+            )
+            logger.warning(
+                f"Unable to extract signature from MLmodel file, model-name: {model_name}, model-version: {version_num}",
+                exc_info=True,
+            )
+            return None
 
     def check_basic_connectivity(self) -> bool:
         return bool(
@@ -399,6 +587,75 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 return
             response = self._workspace_client.api_client.do(  # type: ignore
                 method, path, body={**body, "page_token": response["next_page_token"]}
+            )
+
+    def get_query_history_via_system_tables(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> Iterable[Query]:
+        """Get query history using system.query.history table.
+
+        This method provides an alternative to the REST API for fetching query history,
+        offering better performance and richer data for large query volumes.
+        """
+        logger.info(
+            f"Fetching query history from system.query.history for period: {start_time} to {end_time}"
+        )
+
+        allowed_types = [typ.value for typ in ALLOWED_STATEMENT_TYPES]
+        statement_type_filter = ", ".join(f"'{typ}'" for typ in allowed_types)
+
+        query = f"""
+            SELECT
+                statement_id,
+                statement_text,
+                statement_type,
+                start_time,
+                end_time,
+                executed_by,
+                executed_as,
+                executed_by_user_id,
+                executed_as_user_id
+            FROM system.query.history
+            WHERE
+                start_time >= %s
+                AND end_time <= %s
+                AND execution_status = 'FINISHED'
+                AND statement_type IN ({statement_type_filter})
+            ORDER BY start_time
+        """
+
+        try:
+            rows = self._execute_sql_query(query, (start_time, end_time))
+            for row in rows:
+                try:
+                    yield Query(
+                        query_id=row.statement_id,
+                        query_text=row.statement_text,
+                        statement_type=(
+                            QueryStatementType(row.statement_type)
+                            if row.statement_type
+                            else None
+                        ),
+                        start_time=row.start_time,
+                        end_time=row.end_time,
+                        user_id=row.executed_by_user_id,
+                        user_name=row.executed_by,
+                        executed_as_user_id=row.executed_as_user_id,
+                        executed_as_user_name=row.executed_as,
+                    )
+                except Exception as e:
+                    logger.warning(f"Error parsing query from system table: {e}")
+                    self.report.report_warning("query-parse-system-table", str(e))
+        except Exception as e:
+            logger.error(
+                f"Error fetching query history from system tables: {e}", exc_info=True
+            )
+            self.report.report_failure(
+                title="Failed to fetch query history from system tables",
+                message="Error querying system.query.history table",
+                context=f"Query period: {start_time} to {end_time}",
             )
 
     def _build_datetime_where_conditions(
@@ -946,6 +1203,17 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             for alias in obj.aliases:
                 if alias.alias_name:
                     aliases.append(alias.alias_name)
+
+        run_details: Optional[ModelRunDetails] = None
+        # Fetch run details if run_id exists
+        if obj.run_id:
+            run_details = self.get_run_details(obj.run_id)
+
+        # Extract signature separately from Files API
+        signature: Optional[ModelSignature] = self._extract_signature_from_files_api(
+            obj
+        )
+
         return ModelVersion(
             id=f"{model.id}_{obj.version}",
             name=f"{model.name}_{obj.version}",
@@ -956,6 +1224,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             created_at=parse_ts_millis(obj.created_at),
             updated_at=parse_ts_millis(obj.updated_at),
             created_by=obj.created_by,
+            run_details=run_details,
+            signature=signature,
         )
 
     def _create_service_principal(

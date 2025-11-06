@@ -876,6 +876,21 @@
             "type" : "AuditStamp",
             "doc" : "Audit stamp associated with updation of this record",
             "optional" : true
+          }, {
+            "name" : "settings",
+            "type" : {
+              "type" : "record",
+              "name" : "InstitutionalMemoryMetadataSettings",
+              "doc" : "Settings related to a record of InstitutionalMemoryMetadata",
+              "fields" : [ {
+                "name" : "showInAssetPreview",
+                "type" : "boolean",
+                "doc" : "Show record in asset preview like on entity header and search previews",
+                "default" : false
+              } ]
+            },
+            "doc" : "Settings for this record",
+            "optional" : true
           } ]
         }
       },
@@ -884,7 +899,7 @@
     "Aspect" : {
       "name" : "institutionalMemory"
     }
-  }, "com.linkedin.common.InstitutionalMemoryMetadata", {
+  }, "com.linkedin.common.InstitutionalMemoryMetadata", "com.linkedin.common.InstitutionalMemoryMetadataSettings", {
     "type" : "enum",
     "name" : "MLFeatureDataType",
     "namespace" : "com.linkedin.common",
