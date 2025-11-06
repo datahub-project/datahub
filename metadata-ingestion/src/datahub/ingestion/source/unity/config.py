@@ -413,10 +413,8 @@ class UnityCatalogSourceConfig(
             )
         return workspace_url
 
-    @model_validator(mode='before')
-    def either_token_or_azure_auth_provided(
-        cls, values: dict
-    ) -> dict:
+    @model_validator(mode="before")
+    def either_token_or_azure_auth_provided(cls, values: dict) -> dict:
         token = values.get("token")
         azure_auth = values.get("azure_auth")
 
