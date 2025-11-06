@@ -6,7 +6,7 @@ from datahub.cli.quickstart_versioning import (
     QuickstartVersionMappingConfig,
 )
 
-example_version_mapper = QuickstartVersionMappingConfig.parse_obj(
+example_version_mapper = QuickstartVersionMappingConfig.model_validate(
     {
         "quickstart_version_map": {
             "default": {
@@ -112,7 +112,7 @@ def test_quickstart_version_older_than_v1_2_0_uses_commit_hash():
     This exercises line 168 in quickstart_versioning.py.
     """
     # Create a version mapping with a version older than v1.2.0
-    version_mapper = QuickstartVersionMappingConfig.parse_obj(
+    version_mapper = QuickstartVersionMappingConfig.model_validate(
         {
             "quickstart_version_map": {
                 "v1.1.0": {

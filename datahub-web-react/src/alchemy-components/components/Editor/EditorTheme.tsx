@@ -71,6 +71,7 @@ export const EditorContainer = styled.div<{ $readOnly?: boolean; $hideBorder?: b
         flex: 1 1 100%;
         display: flex;
         flex-direction: column;
+        max-width: 100%;
     }
 
     .remirror-editor.ProseMirror {

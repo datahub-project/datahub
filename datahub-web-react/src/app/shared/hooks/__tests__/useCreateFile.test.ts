@@ -49,7 +49,7 @@ describe('useCreateFile', () => {
                     schemaField,
                     scenario,
                     sizeInBytes: mockFile.size,
-                    storageKey: `product-assets/${fileId}`,
+                    storageKey: `product_assets/${fileId}`,
                     contentHash: 'ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73', // Expected SHA-256 hash of 'content'
                 },
             },
@@ -132,7 +132,7 @@ describe('useCreateFile', () => {
                     schemaField: undefined,
                     scenario,
                     sizeInBytes: mockFile.size,
-                    storageKey: `product-assets/${fileId}`,
+                    storageKey: `product_assets/${fileId}`,
                     contentHash: 'ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73',
                 },
             },

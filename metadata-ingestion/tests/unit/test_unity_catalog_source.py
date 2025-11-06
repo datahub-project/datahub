@@ -36,7 +36,7 @@ class TestUnityCatalogSource:
     @pytest.fixture
     def minimal_config(self):
         """Create a minimal config for testing."""
-        return UnityCatalogSourceConfig.parse_obj(
+        return UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -48,7 +48,7 @@ class TestUnityCatalogSource:
     @pytest.fixture
     def config_with_page_size(self):
         """Create a config with custom page size."""
-        return UnityCatalogSourceConfig.parse_obj(
+        return UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -61,7 +61,7 @@ class TestUnityCatalogSource:
     @pytest.fixture
     def config_with_ml_model_settings(self):
         """Create a config with ML model settings."""
-        return UnityCatalogSourceConfig.parse_obj(
+        return UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -172,7 +172,7 @@ class TestUnityCatalogSource:
         self, mock_hive_proxy, mock_unity_proxy
     ):
         """Test that UnityCatalogSource works with hive metastore disabled."""
-        config = UnityCatalogSourceConfig.parse_obj(
+        config = UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -237,7 +237,7 @@ class TestUnityCatalogSource:
         mock_unity_instance.catalogs.return_value = []
         mock_unity_instance.check_basic_connectivity.return_value = True
 
-        config = UnityCatalogSourceConfig.parse_obj(
+        config = UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -475,7 +475,7 @@ class TestUnityCatalogSource:
             Schema,
         )
 
-        config = UnityCatalogSourceConfig.parse_obj(
+        config = UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -536,6 +536,8 @@ class TestUnityCatalogSource:
             created_at=datetime(2023, 1, 3),
             updated_at=datetime(2023, 1, 4),
             created_by="test_user",
+            run_details=None,
+            signature=None,
         )
 
         # Process the model
@@ -565,3 +567,321 @@ class TestUnityCatalogSource:
             source.report.ml_model_versions.processed_entities[0][1]
             == "test_catalog.test_schema.test_model_1"
         )
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_process_ml_model_version_with_run_details(
+        self, mock_hive_proxy, mock_unity_proxy
+    ):
+        """Test that process_ml_model_version properly handles run_details."""
+        from datetime import datetime
+
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Model,
+            ModelRunDetails,
+            ModelSignature,
+            ModelVersion,
+            Schema,
+        )
+
+        config = UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+            }
+        )
+
+        ctx = PipelineContext(run_id="test_run")
+        source = UnityCatalogSource.create(config, ctx)
+
+        # Create test schema
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="test_catalog",
+            name="test_catalog",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="test_catalog.test_schema",
+            name="test_schema",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+
+        # Create test model
+        test_model = Model(
+            id="test_catalog.test_schema.test_model",
+            name="test_model",
+            description="Test description",
+            schema_name="test_schema",
+            catalog_name="test_catalog",
+            created_at=datetime(2023, 1, 1),
+            updated_at=datetime(2023, 1, 2),
+        )
+
+        # Create model signature
+        signature = ModelSignature(
+            inputs=[{"name": "feature1", "type": "double"}],
+            outputs=[{"name": "prediction", "type": "double"}],
+            parameters=None,
+        )
+
+        # Create run details
+        run_details = ModelRunDetails(
+            run_id="test_run_123",
+            experiment_id="exp_456",
+            status="FINISHED",
+            start_time=datetime(2023, 1, 3, 10, 0, 0),
+            end_time=datetime(2023, 1, 3, 10, 30, 0),
+            user_id="test_user@example.com",
+            metrics={"accuracy": "0.95", "loss": "0.05"},
+            parameters={"learning_rate": "0.001", "batch_size": "32"},
+            tags={"mlflow.user": "test_user", "mlflow.source.type": "NOTEBOOK"},
+        )
+
+        # Create test model version with run details and signature
+        test_model_version = ModelVersion(
+            id="test_catalog.test_schema.test_model_1",
+            name="test_model_1",
+            model=test_model,
+            version="1",
+            aliases=["prod"],
+            description="Version 1",
+            created_at=datetime(2023, 1, 3),
+            updated_at=datetime(2023, 1, 4),
+            created_by="test_user",
+            run_details=run_details,
+            signature=signature,
+        )
+
+        # Process the model version
+        model_urn = source.gen_ml_model_urn(test_model.id)
+        ml_model_version_workunits = list(
+            source.process_ml_model_version(model_urn, test_model_version, schema)
+        )
+
+        # Should generate workunits
+        assert len(ml_model_version_workunits) > 0
+
+        # Verify the report was updated
+        assert len(source.report.ml_model_versions.processed_entities) == 1
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_process_ml_model_version_with_none_run_details(
+        self, mock_hive_proxy, mock_unity_proxy
+    ):
+        """Test that process_ml_model_version handles None run_details gracefully."""
+        from datetime import datetime
+
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Model,
+            ModelVersion,
+            Schema,
+        )
+
+        config = UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+            }
+        )
+
+        ctx = PipelineContext(run_id="test_run")
+        source = UnityCatalogSource.create(config, ctx)
+
+        # Create test schema
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="test_catalog",
+            name="test_catalog",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="test_catalog.test_schema",
+            name="test_schema",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+
+        # Create test model
+        test_model = Model(
+            id="test_catalog.test_schema.test_model",
+            name="test_model",
+            description="Test description",
+            schema_name="test_schema",
+            catalog_name="test_catalog",
+            created_at=datetime(2023, 1, 1),
+            updated_at=datetime(2023, 1, 2),
+        )
+
+        # Create test model version WITHOUT run details
+        test_model_version = ModelVersion(
+            id="test_catalog.test_schema.test_model_1",
+            name="test_model_1",
+            model=test_model,
+            version="1",
+            aliases=["prod"],
+            description="Version 1",
+            created_at=datetime(2023, 1, 3),
+            updated_at=datetime(2023, 1, 4),
+            created_by="test_user",
+            run_details=None,
+            signature=None,
+        )
+
+        # Process the model version - should not fail
+        model_urn = source.gen_ml_model_urn(test_model.id)
+        ml_model_version_workunits = list(
+            source.process_ml_model_version(model_urn, test_model_version, schema)
+        )
+
+        # Should still generate workunits
+        assert len(ml_model_version_workunits) > 0
+
+        # Verify the report was updated
+        assert len(source.report.ml_model_versions.processed_entities) == 1
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_process_ml_model_version_with_partial_run_details(
+        self, mock_hive_proxy, mock_unity_proxy
+    ):
+        """Test that process_ml_model_version handles partial run_details (no metrics/params)."""
+        from datetime import datetime
+
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Model,
+            ModelRunDetails,
+            ModelVersion,
+            Schema,
+        )
+
+        config = UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+            }
+        )
+
+        ctx = PipelineContext(run_id="test_run")
+        source = UnityCatalogSource.create(config, ctx)
+
+        # Create test schema
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="test_catalog",
+            name="test_catalog",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="test_catalog.test_schema",
+            name="test_schema",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+
+        # Create test model
+        test_model = Model(
+            id="test_catalog.test_schema.test_model",
+            name="test_model",
+            description="Test description",
+            schema_name="test_schema",
+            catalog_name="test_catalog",
+            created_at=datetime(2023, 1, 1),
+            updated_at=datetime(2023, 1, 2),
+        )
+
+        # Create run details WITHOUT metrics and parameters
+        run_details = ModelRunDetails(
+            run_id="test_run_123",
+            experiment_id="exp_456",
+            status="FINISHED",
+            start_time=datetime(2023, 1, 3, 10, 0, 0),
+            end_time=datetime(2023, 1, 3, 10, 30, 0),
+            user_id="test_user@example.com",
+            metrics=None,
+            parameters=None,
+            tags={"mlflow.user": "test_user"},
+        )
+
+        # Create test model version with partial run details
+        test_model_version = ModelVersion(
+            id="test_catalog.test_schema.test_model_1",
+            name="test_model_1",
+            model=test_model,
+            version="1",
+            aliases=["prod"],
+            description="Version 1",
+            created_at=datetime(2023, 1, 3),
+            updated_at=datetime(2023, 1, 4),
+            created_by="test_user",
+            run_details=run_details,
+            signature=None,
+        )
+
+        # Process the model version - should not fail
+        model_urn = source.gen_ml_model_urn(test_model.id)
+        ml_model_version_workunits = list(
+            source.process_ml_model_version(model_urn, test_model_version, schema)
+        )
+
+        # Should still generate workunits
+        assert len(ml_model_version_workunits) > 0
+
+        # Verify the report was updated
+        assert len(source.report.ml_model_versions.processed_entities) == 1

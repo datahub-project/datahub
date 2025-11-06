@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.impl;
 
+import com.google.common.base.Throwables;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,8 @@ public class DefaultUpgradeReport implements UpgradeReport {
   public void addLine(String line, Exception e) {
     log.error(line, e);
     reportLines.add(line + String.format(": %s", e));
+    reportLines.add(
+        String.format("Exception stack trace: %s", Throwables.getStackTraceAsString(e)));
   }
 
   @Override
