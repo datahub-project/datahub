@@ -54,11 +54,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         dataTestId,
         onKeyDown,
         hideBorder,
-        uploadFile,
-        onFileUploadAttempt,
-        onFileUploadFailed,
-        onFileUploadSucceeded,
-        onFileDownloadView,
+        uploadFileProps,
     } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
@@ -77,11 +73,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
             new FileDragDropExtension({
-                onFileUpload: uploadFile,
-                onFileUploadAttempt,
-                onFileUploadFailed,
-                onFileUploadSucceeded,
-                onFileDownloadView,
+                uploadFileProps,
             }),
             new GapCursorExtension(), // required to allow cursor placement next to non-editable inline elements
             new ImageExtension({ enableResizing: !readOnly }),

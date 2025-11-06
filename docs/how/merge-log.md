@@ -1476,3 +1476,42 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **12dec48ce1** - fix(modules) Support unknown module types gracefully in the app (#15185)
   *by Chris Collins on 2025-11-03*
 
+
+## Upstream Merge Session - 2025-11-05 00:00:14
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-11-05-000013`
+- **Merge Base**: `12dec48ce17a339f682929e9152bdf0c4a9c6fd3`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 8
+- **Strategy**: stacked
+- **Started**: Wed Nov  5 00:00:14 UTC 2025
+
+### Commits Included in This Merge
+- **135786c1c3** - fix(ingestion): Add aws_common dependency to cockroachdb and mariadb plugins (#15189)
+  *by Anush Kumar on 2025-11-03*
+
+- **34abd003dd** - fix(ui/theme): Catch errors in loading custom theme (#15184)
+  *by Andrew Sikowitz on 2025-11-03*
+
+- **3e5e552cd9** - docs(observe): add documentation for custom sql in column value assertions (#15192)
+  *by Peter Wang on 2025-11-04*
+
+- **76ecfa6e8e** - feat(uploadFiles): bring changes from SaaS (#15166)
+  *by v-tarasevich-blitz-brain on 2025-11-04*
+
+- **3d7d7a6eed** - improvement(upload-files): bring back changes from SaaS (#15181)
+  *by Purnima Garg on 2025-11-04*
+
+- **b0673a67d1** - feat(ui/file-upload): show inline previews of text, pdf and video files (#15182)
+  *by Purnima Garg on 2025-11-04*
+
+- **f429c2a491** - test(uploadFile): add cypress tests (#15195)
+  *by v-tarasevich-blitz-brain on 2025-11-04*
+
+- **bf21758549** - improve(uploadFiles): move upload files related props to its own oject (#15179)
+  *by v-tarasevich-blitz-brain on 2025-11-04*
+

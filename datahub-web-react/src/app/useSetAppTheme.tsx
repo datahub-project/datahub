@@ -47,14 +47,21 @@ export function useSetAppTheme() {
 
         if (customThemeId && customThemeId.endsWith('.json')) {
             if (import.meta.env.DEV) {
-                import(/* @vite-ignore */ `./conf/theme/${customThemeId}`).then((module) => {
-                    updateTheme(module.default as unknown as Theme);
-                });
+                import(/* @vite-ignore */ `./conf/theme/${customThemeId}`)
+                    .then((module) => {
+                        updateTheme(module.default as unknown as Theme);
+                    })
+                    .catch((error) => {
+                        console.error(`Failed to load theme from './conf/theme/${customThemeId}':`, error);
+                    });
             } else {
                 fetch(`assets/conf/theme/${customThemeId}`)
                     .then((response) => response.json())
                     .then((theme) => {
                         updateTheme(theme as unknown as Theme);
+                    })
+                    .catch((error) => {
+                        console.error(`Failed to load theme from 'assets/conf/theme/${customThemeId}':`, error);
                     });
             }
         } else if (customThemeId && themes[customThemeId]) {

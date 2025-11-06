@@ -97,8 +97,10 @@ export default function EditDescriptionModal({
                 onChange={(description) => setUpdatedDescription(description)}
                 toolbarStyles={toolbarStyles}
                 dataTestId="description-editor"
-                uploadFile={uploadFile}
-                {...uploadFileAnalyticsCallbacks}
+                uploadFileProps={{
+                    onFileUpload: uploadFile,
+                    ...uploadFileAnalyticsCallbacks,
+                }}
             />
         </Modal>
     );

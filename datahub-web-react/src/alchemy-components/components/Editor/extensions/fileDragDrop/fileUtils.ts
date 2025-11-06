@@ -105,6 +105,8 @@ const EXTENSION_TO_FILE_TYPE = {
     sh: 'application/x-sh',
 };
 
+export const FILE_TYPES_TO_PREVIEW = ['text/', 'application/json'];
+
 /**
  * Generate a unique ID for file nodes
  */
