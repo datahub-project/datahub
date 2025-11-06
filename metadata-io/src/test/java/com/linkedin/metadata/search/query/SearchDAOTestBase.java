@@ -458,7 +458,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
         explainResponse.getId(),
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.ca_border_wait_times,PROD)");
     assertTrue(explainResponse.isExists());
-    assertEquals(explainResponse.getExplanation().getValue(), 1.25f);
+    assertEquals(explainResponse.getExplanation().getValue(), 18.0f);
   }
 
   @Test

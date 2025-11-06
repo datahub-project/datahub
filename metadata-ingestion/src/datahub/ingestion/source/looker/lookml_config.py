@@ -1,10 +1,11 @@
 import logging
+from copy import deepcopy
 from dataclasses import dataclass, field as dataclass_field
 from datetime import timedelta
 from typing import Any, Dict, Literal, Optional, Union
 
 import pydantic
-from pydantic import root_validator, validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -210,75 +211,74 @@ class LookMLSourceConfig(
         "All if comments are evaluated to true for configured looker_environment value",
     )
 
-    @validator("connection_to_platform_map", pre=True)
-    def convert_string_to_connection_def(cls, conn_map):
-        # Previous version of config supported strings in connection map. This upconverts strings to ConnectionMap
-        for key in conn_map:
-            if isinstance(conn_map[key], str):
-                platform = conn_map[key]
-                if "." in platform:
-                    platform_db_split = conn_map[key].split(".")
-                    connection = LookerConnectionDefinition(
-                        platform=platform_db_split[0],
-                        default_db=platform_db_split[1],
-                        default_schema="",
-                    )
-                    conn_map[key] = connection
-                else:
-                    logger.warning(
-                        f"Connection map for {key} provides platform {platform} but does not provide a default "
-                        f"database name. This might result in failed resolution"
-                    )
-                    conn_map[key] = LookerConnectionDefinition(
-                        platform=platform, default_db="", default_schema=""
-                    )
-        return conn_map
+    @model_validator(mode="before")
+    @classmethod
+    def convert_string_to_connection_def(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        values = deepcopy(values)
+        conn_map = values.get("connection_to_platform_map")
+        if conn_map:
+            # Previous version of config supported strings in connection map. This upconverts strings to ConnectionMap
+            for key in conn_map:
+                if isinstance(conn_map[key], str):
+                    platform = conn_map[key]
+                    if "." in platform:
+                        platform_db_split = conn_map[key].split(".")
+                        connection = LookerConnectionDefinition(
+                            platform=platform_db_split[0],
+                            default_db=platform_db_split[1],
+                            default_schema="",
+                        )
+                        conn_map[key] = connection
+                    else:
+                        logger.warning(
+                            f"Connection map for {key} provides platform {platform} but does not provide a default "
+                            f"database name. This might result in failed resolution"
+                        )
+                        conn_map[key] = LookerConnectionDefinition(
+                            platform=platform, default_db="", default_schema=""
+                        )
+        return values
 
-    @root_validator(skip_on_failure=True)
-    def check_either_connection_map_or_connection_provided(cls, values):
+    @model_validator(mode="after")
+    def check_either_connection_map_or_connection_provided(self):
         """Validate that we must either have a connection map or an api credential"""
-        if not values.get("connection_to_platform_map", {}) and not values.get(
-            "api", {}
-        ):
+        if not (self.connection_to_platform_map or {}) and not (self.api):
             raise ValueError(
                 "Neither api not connection_to_platform_map config was found. LookML source requires either api "
                 "credentials for Looker or a map of connection names to platform identifiers to work correctly"
             )
-        return values
+        return self
 
-    @root_validator(skip_on_failure=True)
-    def check_either_project_name_or_api_provided(cls, values):
+    @model_validator(mode="after")
+    def check_either_project_name_or_api_provided(self):
         """Validate that we must either have a project name or an api credential to fetch project names"""
-        if not values.get("project_name") and not values.get("api"):
+        if not self.project_name and not self.api:
             raise ValueError(
                 "Neither project_name not an API credential was found. LookML source requires either api credentials "
                 "for Looker or a project_name to accurately name views and models."
             )
-        return values
+        return self
 
-    @root_validator(skip_on_failure=True)
-    def check_api_provided_for_view_lineage(cls, values):
+    @model_validator(mode="after")
+    def check_api_provided_for_view_lineage(self):
         """Validate that we must have an api credential to use Looker API for view's column lineage"""
-        if not values.get("api") and values.get("use_api_for_view_lineage"):
+        if not self.api and self.use_api_for_view_lineage:
             raise ValueError(
                 "API credential was not found. LookML source requires api credentials "
                 "for Looker to use Looker APIs for view's column lineage extraction."
                 "Set `use_api_for_view_lineage` to False to skip using Looker APIs."
             )
-        return values
+        return self
 
-    @validator("base_folder", always=True)
-    def check_base_folder_if_not_provided(
-        cls, v: Optional[pydantic.DirectoryPath], values: Dict[str, Any]
-    ) -> Optional[pydantic.DirectoryPath]:
-        if v is None:
-            git_info: Optional[GitInfo] = values.get("git_info")
-            if git_info:
-                if not git_info.deploy_key:
+    @model_validator(mode="after")
+    def check_base_folder_if_not_provided(self):
+        if self.base_folder is None:
+            if self.git_info:
+                if not self.git_info.deploy_key:
                     logger.warning(
                         "git_info is provided, but no SSH key is present. If the repo is not public, we'll fail to "
                         "clone it."
                     )
             else:
                 raise ValueError("Neither base_folder nor git_info has been provided.")
-        return v
+        return self
