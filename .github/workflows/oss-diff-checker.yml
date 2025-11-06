@@ -1,4 +1,21 @@
 name: oss-diff-checker
+
+# This workflow validates OSS vs SaaS differences to prevent uncontrolled drift.
+#
+# Two-tier approach:
+# 1. General OSS diff check (non-blocking) - warns about violations but allows PR to pass
+# 2. Blocking checks for critical directories - FAILS the workflow if violations are found
+#
+# Blocking directories (prevent SaaS-specific additions):
+# - metadata-ingestion: Core ingestion framework should stay aligned with OSS
+# - datahub-actions: Action framework should stay aligned with OSS
+#
+# Implementation note: Blocking checks run in the same job (not a separate matrix job)
+# because auto-loosened exceptions from the main check need to be shared with blocking
+# checks. GitHub job isolation would require artifact passing, adding unnecessary complexity.
+#
+# To extend blocking checks: Add directories to the BLOCKING_DIRS array in the workflow
+
 on:
   pull_request:
     branches:
@@ -75,7 +92,7 @@ jobs:
           uv run ./contrib/oss-diff/oss-diff.py check
           exit_code=$?
           echo "::endgroup::"
-          
+
           if [ $exit_code -eq 0 ]; then
             echo "::notice title=OSS Diff Check::✅ Success: no new diff violations"
             exit 0
@@ -83,6 +100,36 @@ jobs:
             echo "::warning title=OSS Diff Check::🚨 Found diff violations - see details above"
             echo "::notice title=Resolution::To resolve: Send these changes to OSS and have them come into SaaS via an OSS merge"
             exit 0  # Don't fail the CI check, just show as warning
+          fi
+        env:
+          OSS_BRANCH: oss/master
+      - name: Check blocking directories for violations
+        shell: bash
+        run: |
+          # Directories that should NOT have SaaS-specific additions
+          # Violations in these directories will cause the workflow to fail
+          BLOCKING_DIRS=("metadata-ingestion" "datahub-actions")
+
+          overall_exit_code=0
+
+          for dir in "${BLOCKING_DIRS[@]}"; do
+            echo "::group::${dir} OSS Diff Check (BLOCKING)"
+            uv run ./contrib/oss-diff/oss-diff.py check "${dir}"
+            exit_code=$?
+            echo "::endgroup::"
+
+            if [ $exit_code -eq 0 ]; then
+              echo "::notice title=${dir} OSS Diff::✅ Success: no ${dir} diff violations"
+            else
+              echo "::error title=${dir} OSS Diff::🚨 Found ${dir} diff violations - this is blocking!"
+              echo "::error title=Resolution::You must either: 1) Send these changes to OSS first, or 2) Run 'OSS_BRANCH=oss/master uv run ./contrib/oss-diff/oss-diff.py check ${dir} --loosen' and commit the updated exceptions"
+              overall_exit_code=1
+            fi
+          done
+
+          if [ $overall_exit_code -ne 0 ]; then
+            echo "::error title=Blocking Directories Check::One or more blocking directories have OSS diff violations. See details above."
+            exit 1
           fi
         env:
           OSS_BRANCH: oss/master

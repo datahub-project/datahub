@@ -178,6 +178,7 @@ class DiffValidator:
         allow_exception_removal: bool = False,
         allow_exception_loosening: bool = False,
         allow_exception_tightening: bool = False,
+        filepath_filter: Optional[str] = None,
     ):
         self._change_specifier = change_specifier
         self._rules = rules
@@ -190,6 +191,7 @@ class DiffValidator:
         self._allow_exception_removal = allow_exception_removal
         self._allow_exception_loosening = allow_exception_loosening
         self._allow_exception_tightening = allow_exception_tightening
+        self._filepath_filter = filepath_filter
 
     @property
     def _allow_exception_changes(self) -> bool:
@@ -265,17 +267,27 @@ class DiffValidator:
 
     def get_file_changes(self) -> List[FileChange]:
         """Get list of file changes with their types and sizes."""
+        # Build git diff command with optional filepath filter
+        git_args = ["git", "diff", "--name-status", self._change_specifier]
+        if self._filepath_filter:
+            git_args.extend(["--", self._filepath_filter])
+
         # Get file status changes
         status_result = subprocess.run(
-            ["git", "diff", "--name-status", self._change_specifier],
+            git_args,
             capture_output=True,
             text=True,
             check=True,
         )
 
+        # Build git diff command for stats with optional filepath filter
+        git_stats_args = ["git", "diff", "--numstat", self._change_specifier]
+        if self._filepath_filter:
+            git_stats_args.extend(["--", self._filepath_filter])
+
         # Get file size changes
         stats_result = subprocess.run(
-            ["git", "diff", "--numstat", self._change_specifier],
+            git_stats_args,
             capture_output=True,
             text=True,
             check=True,
@@ -582,6 +594,12 @@ To resolve the issues, you can:
             print("✅ Success: no new diff violations")
 
     def _remove_unused_exceptions(self) -> None:
+        # Don't remove unused exceptions when filepath filtering is active,
+        # as exceptions for non-filtered files will appear "unused"
+        if self._filepath_filter:
+            logger.debug("Skipping unused exception removal due to filepath filter")
+            return
+
         # TODO: Tricky - in order to fully implement exception removal, we'd need
         # to check the file against the rules to see if the file would pass
         # without the exception.
@@ -592,18 +610,47 @@ To resolve the issues, you can:
             del self._exceptions[filepath]
 
     def _print_exception_change_summary(self) -> None:
-        new_exceptions = set(self._exceptions) - set(self._original_exceptions)
-        removed_exceptions = set(self._original_exceptions) - set(self._exceptions)
+        # When filepath filtering is active, only report changes for processed files
+        if self._filepath_filter:
+            processed_files = self._used_exceptions.copy()
+            # Also include any new exceptions that were added for the filtered files
+            for filepath in self._exceptions:
+                if self._filepath_matches_filter(filepath):
+                    processed_files.add(filepath)
 
-        modified_exceptions = set()
-        for filepath in set(self._exceptions) & set(self._original_exceptions):
-            if self._exceptions[filepath] != self._original_exceptions[filepath]:
-                modified_exceptions.add(filepath)
+            new_exceptions = {fp for fp in processed_files
+                            if fp in self._exceptions and fp not in self._original_exceptions}
+            removed_exceptions = {fp for fp in processed_files
+                                if fp in self._original_exceptions and fp not in self._exceptions}
+            modified_exceptions = {fp for fp in processed_files
+                                 if fp in self._exceptions and fp in self._original_exceptions
+                                 and self._exceptions[fp] != self._original_exceptions[fp]}
 
-        logger.info("Summary of exception changes:")
+            logger.info("Summary of exception changes (filtered):")
+        else:
+            new_exceptions = set(self._exceptions) - set(self._original_exceptions)
+            removed_exceptions = set(self._original_exceptions) - set(self._exceptions)
+            modified_exceptions = set()
+            for filepath in set(self._exceptions) & set(self._original_exceptions):
+                if self._exceptions[filepath] != self._original_exceptions[filepath]:
+                    modified_exceptions.add(filepath)
+
+            logger.info("Summary of exception changes:")
+
         logger.info(f"  {len(new_exceptions)} new exceptions")
         logger.info(f"  {len(removed_exceptions)} exceptions removed")
         logger.info(f"  {len(modified_exceptions)} exceptions modified")
+
+    def _filepath_matches_filter(self, filepath: str) -> bool:
+        """Check if a filepath matches the current filepath filter."""
+        if not self._filepath_filter:
+            return True
+
+        # Simple path matching - if filter is a directory, check if filepath starts with it
+        # If filter is a file, check for exact match
+        filter_path = self._filepath_filter.rstrip('/')
+        return (filepath == filter_path or
+                filepath.startswith(filter_path + '/'))
 
     def get_updated_exceptions(self) -> Dict[str, ExceptionLimit]:
         return self._exceptions
@@ -611,6 +658,7 @@ To resolve the issues, you can:
 
 @app.command()
 def check(
+    filepath: Optional[str] = typer.Argument(None, help="Optional filepath to restrict validation to"),
     change_specifier: str = _default_change_specifier,
     loosen: bool = False,
     tighten: bool = False,
@@ -628,6 +676,7 @@ def check(
         allow_exception_loosening=loosen,
         allow_exception_tightening=tighten,
         allow_exception_removal=tighten,
+        filepath_filter=filepath,
     )
     validator.run()
 
