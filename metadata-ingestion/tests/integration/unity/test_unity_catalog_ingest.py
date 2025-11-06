@@ -133,6 +133,7 @@ model_uuid: abc123
 signature:
   inputs: '[{"name": "feature1", "type": "double"}, {"name": "feature2", "type": "double"}, {"name": "feature3", "type": "long"}]'
   outputs: '[{"name": "prediction", "type": "long"}]'
+  params: '[{"name": "temperature", "type": "float", "default": 0.7}]'
 """
 
     mock_download_response = mock.MagicMock()
