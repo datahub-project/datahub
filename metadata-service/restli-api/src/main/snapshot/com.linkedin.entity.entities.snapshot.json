@@ -3657,7 +3657,6 @@
                     "name" : "isSupportUser",
                     "type" : "boolean",
                     "doc" : "Whether the corpUser is a support user authenticated through the support OIDC flow.",
-                    "default" : false,
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "BOOLEAN",
@@ -7528,6 +7527,11 @@
       "name" : "numEntities",
       "type" : "int",
       "doc" : "The total number of entities directly under searched path"
+    }, {
+      "name" : "isPartial",
+      "type" : "boolean",
+      "doc" : "Indicates whether the results are partial due to reaching the maxRelations limit or timeout",
+      "optional" : true
     } ]
   }, "com.linkedin.metadata.search.LineageSearchEntity", {
     "type" : "enum",
@@ -7572,6 +7576,11 @@
       "name" : "lineageSearchPath",
       "type" : "LineageSearchPath",
       "doc" : "The path taken when doing search across lineage",
+      "optional" : true
+    }, {
+      "name" : "isPartial",
+      "type" : "boolean",
+      "doc" : "Indicates whether the results are partial due to reaching the maxRelations limit or timeout",
       "optional" : true
     } ]
   }, "com.linkedin.metadata.search.MatchedField", {

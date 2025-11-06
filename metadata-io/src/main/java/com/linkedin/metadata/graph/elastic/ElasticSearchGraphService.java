@@ -230,7 +230,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
         .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
         .setStart(offset)
         .setCount(count)
-        .setTotal(lineageResponse.getTotal());
+        .setTotal(lineageResponse.getTotal())
+        .setPartial(lineageResponse.isPartial());
   }
 
   @Nonnull
@@ -247,7 +248,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
         .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
         .setStart(0)
         .setCount(lineageResponse.getLineageRelationships().size())
-        .setTotal(lineageResponse.getTotal());
+        .setTotal(lineageResponse.getTotal())
+        .setPartial(lineageResponse.isPartial());
   }
 
   private static Filter createUrnFilter(@Nonnull final Urn urn) {

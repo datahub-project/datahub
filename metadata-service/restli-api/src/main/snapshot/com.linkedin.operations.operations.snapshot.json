@@ -2482,7 +2482,6 @@
       "name" : "isSupportUser",
       "type" : "boolean",
       "doc" : "Whether the corpUser is a support user authenticated through the support OIDC flow.",
-      "default" : false,
       "optional" : true,
       "Searchable" : {
         "fieldType" : "BOOLEAN",
