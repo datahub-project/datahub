@@ -9,6 +9,7 @@ import {
     FILE_ATTRS,
     FILE_TYPES_TO_PREVIEW,
     FileNodeAttributes,
+    TEXT_FILE_TYPES_TO_PREVIEW,
     getExtensionFromFileName,
     getFileIconFromExtension,
     getFileTypeFromFilename,
@@ -151,34 +152,37 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
 
     // Text-based files for which preview should be shown
     const shouldShowPreview = FILE_TYPES_TO_PREVIEW.some((t) => fileType?.startsWith(t));
+    const isTextFile = TEXT_FILE_TYPES_TO_PREVIEW.some((t) => fileType?.startsWith(t));
 
     useEffect(() => {
         if (!url) return;
 
         setHasLoaded(false);
 
-        fetch(url)
-            .then((res) => {
-                if (!res.ok) {
-                    setHasError(true);
+        if (shouldShowPreview) {
+            fetch(url)
+                .then((res) => {
+                    if (!res.ok) {
+                        setHasError(true);
+                        return null;
+                    }
+                    if (isTextFile) {
+                        return res.text();
+                    }
                     return null;
-                }
-                if (shouldShowPreview) {
-                    return res.text();
-                }
-                return null;
-            })
-            .then((text) => {
-                if (text) setFileContent(text);
-            })
-            .catch(() => {
-                setHasError(true);
-                setFileContent(null);
-            })
-            .finally(() => {
-                setHasLoaded(true);
-            });
-    }, [url, hasError, shouldShowPreview]);
+                })
+                .then((text) => {
+                    if (text) setFileContent(text);
+                })
+                .catch(() => {
+                    setHasError(true);
+                    setFileContent(null);
+                })
+                .finally(() => {
+                    setHasLoaded(true);
+                });
+        }
+    }, [url, hasError, shouldShowPreview, isTextFile]);
 
     // Show loading state if no URL yet (file is being uploaded)
     if (!url) {
