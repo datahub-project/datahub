@@ -40,7 +40,7 @@ export const ProtectedRoutes = (): JSX.Element => {
     let FinalHomePage;
 
     if (isThemeV2) {
-        FinalHomePage = !showHomepageRedesign ? HomePageV3 : HomePageV2;
+        FinalHomePage = showHomepageRedesign ? HomePageV3 : HomePageV2;
     } else {
         FinalHomePage = HomePage;
     }
