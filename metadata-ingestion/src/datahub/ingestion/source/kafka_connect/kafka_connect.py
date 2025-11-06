@@ -1,6 +1,5 @@
 import base64
 import logging
-from functools import lru_cache
 from typing import Dict, Iterable, List, Optional
 
 import jpype
@@ -113,6 +112,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         self._consumer_group_analyzer = ConsumerGroupAnalyzer(
             self.session, self.config, self.report
         )
+
+        # Cache for all Kafka topics (single ingestion run)
+        self._all_kafka_topics_cache: Optional[List[str]] = None
 
         if not jpype.isJVMStarted():
             jpype.startJVM()
@@ -445,7 +447,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             # Final fallback to config-based approach
             return self._get_topics_from_connector_config(connector_manifest)
 
-    @lru_cache(maxsize=1)
     def _get_all_topics_from_kafka_api(self) -> List[str]:
         """
         Get all topics from Confluent Cloud Kafka REST API v3.
@@ -453,10 +454,16 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         This provides the comprehensive topic list needed for the reverse transform
         pipeline strategy to work effectively.
 
+        Uses instance variable caching to avoid repeated API calls during a single ingestion run.
+
         Returns:
             List of all topic names from the Kafka cluster.
             Empty list if API is not accessible or fails.
         """
+        # Return cached result if available
+        if self._all_kafka_topics_cache is not None:
+            return self._all_kafka_topics_cache
+
         try:
             # Extract cluster information from Connect URI
             kafka_rest_endpoint, cluster_id = self._parse_confluent_cloud_info()
@@ -507,13 +514,19 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 logger.info(
                     f"Retrieved {len(all_topics)} topics from Confluent Cloud Kafka REST API v3"
                 )
+                # Cache the result for subsequent calls
+                self._all_kafka_topics_cache = all_topics
                 return all_topics
             else:
                 logger.warning("Unexpected response format from Kafka REST API")
+                # Cache empty result to avoid repeated failures
+                self._all_kafka_topics_cache = []
                 return []
 
         except Exception as e:
             logger.debug(f"Failed to get topics from Kafka REST API: {e}")
+            # Cache empty result to avoid repeated API calls on failure
+            self._all_kafka_topics_cache = []
             return []
 
     def _parse_confluent_cloud_info(self) -> tuple[Optional[str], Optional[str]]:

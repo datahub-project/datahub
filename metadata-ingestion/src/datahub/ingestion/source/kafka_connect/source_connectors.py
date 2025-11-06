@@ -1692,14 +1692,25 @@ class DebeziumSourceConnector(BaseConnector):
             source_platform = parser.source_platform
             server_name = parser.server_name
             database_name = parser.database_name
+
+            if not self.connector_manifest.topic_names:
+                return lineages
+
+            # Check for EventRouter transform - requires special handling
+            if self._has_event_router_transform():
+                logger.debug(
+                    f"Connector {self.connector_manifest.name} uses EventRouter transform - using table-based lineage extraction"
+                )
+                return self._extract_lineages_for_event_router(
+                    source_platform, database_name
+                )
+
+            # Standard Debezium topic processing
             # Escape server_name to handle cases where topic.prefix contains dots
             # Some users configure topic.prefix like "my.server" which breaks the regex
             server_name = server_name or ""
             # Regex pattern (\w+\.\w+(?:\.\w+)?) supports BOTH 2-part and 3-part table names
             topic_naming_pattern = rf"({re.escape(server_name)})\.(\w+\.\w+(?:\.\w+)?)"
-
-            if not self.connector_manifest.topic_names:
-                return lineages
 
             # Handle connectors with 2-level container (database + schema) in topic pattern
             connector_class = self.connector_manifest.config.get(CONNECTOR_CLASS, "")
@@ -1748,6 +1759,137 @@ class DebeziumSourceConnector(BaseConnector):
             )
 
         return []
+
+    def _has_event_router_transform(self) -> bool:
+        """Check if connector uses Debezium EventRouter transform."""
+        transforms_config = self.connector_manifest.config.get("transforms", "")
+        if not transforms_config:
+            return False
+
+        transform_names = parse_comma_separated_list(transforms_config)
+        for name in transform_names:
+            transform_type = self.connector_manifest.config.get(
+                f"transforms.{name}.type", ""
+            )
+            if transform_type == "io.debezium.transforms.outbox.EventRouter":
+                return True
+
+        return False
+
+    def _extract_lineages_for_event_router(
+        self, source_platform: str, database_name: Optional[str]
+    ) -> List[KafkaConnectLineage]:
+        """
+        Extract lineages for connectors using EventRouter transform.
+
+        EventRouter is a data-dependent transform that reads fields from row data
+        to determine output topics. We cannot predict output topics from configuration alone,
+        so we extract source tables from table.include.list and try to match them to
+        actual topics using RegexRouter patterns.
+
+        Reference: https://debezium.io/documentation/reference/transformations/outbox-event-router.html
+        """
+        lineages: List[KafkaConnectLineage] = []
+
+        # Extract source tables from configuration
+        table_config = self.connector_manifest.config.get(
+            "table.include.list"
+        ) or self.connector_manifest.config.get("table.whitelist")
+
+        if not table_config:
+            logger.warning(
+                f"EventRouter connector {self.connector_manifest.name} has no table.include.list config"
+            )
+            return lineages
+
+        table_names = parse_comma_separated_list(table_config)
+
+        # Try to filter topics using RegexRouter replacement pattern (if available)
+        filtered_topics = self._filter_topics_for_event_router()
+
+        # For each source table, create lineages to filtered topics
+        for table_name in table_names:
+            # Clean quoted table names
+            clean_table = table_name.strip('"')
+
+            # Apply database name if present
+            if database_name:
+                source_dataset = get_dataset_name(database_name, clean_table)
+            else:
+                source_dataset = clean_table
+
+            # Create lineages from this source table to filtered topics
+            for topic in filtered_topics:
+                lineage = KafkaConnectLineage(
+                    source_dataset=source_dataset,
+                    source_platform=source_platform,
+                    target_dataset=topic,
+                    target_platform=KAFKA,
+                )
+                lineages.append(lineage)
+
+        logger.info(
+            f"Created {len(lineages)} EventRouter lineages from {len(table_names)} source tables "
+            f"to {len(filtered_topics)} topics for connector {self.connector_manifest.name}"
+        )
+
+        return lineages
+
+    def _filter_topics_for_event_router(self) -> List[str]:
+        """
+        Filter topics for EventRouter connectors using RegexRouter replacement pattern.
+
+        EventRouter often works with RegexRouter to rename output topics. We can use
+        the RegexRouter replacement pattern to identify which topics belong to this connector.
+        """
+        # Look for RegexRouter transform configuration
+        transforms_config = self.connector_manifest.config.get("transforms", "")
+        if not transforms_config:
+            return list(self.connector_manifest.topic_names)
+
+        transform_names = parse_comma_separated_list(transforms_config)
+
+        # Find RegexRouter configuration
+        regex_replacement = None
+        for name in transform_names:
+            transform_type = self.connector_manifest.config.get(
+                f"transforms.{name}.type", ""
+            )
+            if transform_type in [
+                "org.apache.kafka.connect.transforms.RegexRouter",
+                "io.confluent.connect.cloud.transforms.TopicRegexRouter",
+            ]:
+                # Extract the replacement pattern
+                # Example: "dev.ern.cashout.$1" -> we want topics starting with "dev.ern.cashout."
+                replacement = self.connector_manifest.config.get(
+                    f"transforms.{name}.replacement", ""
+                )
+                if replacement:
+                    # Extract prefix from replacement pattern (before first $)
+                    # "dev.ern.cashout.$1" -> "dev.ern.cashout."
+                    if "$" in replacement:
+                        regex_replacement = replacement.split("$")[0]
+                    else:
+                        regex_replacement = replacement
+                    break
+
+        # Filter topics using the replacement prefix
+        if regex_replacement:
+            filtered_topics = [
+                topic
+                for topic in self.connector_manifest.topic_names
+                if topic.startswith(regex_replacement)
+            ]
+            logger.debug(
+                f"Filtered EventRouter topics to {len(filtered_topics)} topics matching prefix '{regex_replacement}'"
+            )
+            return filtered_topics
+
+        # No RegexRouter found - use all topics (risky but best effort)
+        logger.warning(
+            f"EventRouter connector {self.connector_manifest.name} has no RegexRouter - cannot filter topics accurately"
+        )
+        return list(self.connector_manifest.topic_names)
 
 
 @dataclass

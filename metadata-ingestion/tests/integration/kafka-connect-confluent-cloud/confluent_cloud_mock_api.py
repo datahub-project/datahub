@@ -2,6 +2,7 @@ import base64
 import logging
 import os
 from functools import wraps
+from typing import Any, Dict
 
 from flask import Flask, jsonify, request
 
@@ -149,9 +150,64 @@ CONNECTORS_DATA = {
         "id": None,
         "extensions": {},
     },
+    "outbox-source-connector": {
+        "status": None,
+        "info": {
+            "name": "outbox-source-connector",
+            "type": "source",
+            "config": {
+                "after.state.only": "false",
+                "cloud.environment": "prod",
+                "cloud.provider": "aws",
+                "connector.class": "MySqlCdcSource",
+                "database.connectionTimeZone": "UTC",
+                "database.dbname": "outbox_db",
+                "database.hostname": "mysql-primary.us-west-2.rds.amazonaws.com",
+                "database.password": "****************",
+                "database.port": "3306",
+                "database.server.name": "outbox-db-server",
+                "database.ssl.mode": "required",
+                "database.sslmode": "require",
+                "database.user": "outbox_connector",
+                "hstore.handling.mode": "json",
+                "interval.handling.mode": "numeric",
+                "kafka.auth.mode": "SERVICE_ACCOUNT",
+                "kafka.endpoint": "SASL_SSL://pkc-abc123.us-west-2.aws.confluent.cloud:9092",
+                "kafka.region": "us-west-2",
+                "kafka.service.account.id": "sa-123456",
+                "max.batch.size": "2000",
+                "name": "outbox-source-connector",
+                "output.data.format": "JSON",
+                "output.key.format": "JSON",
+                "poll.interval.ms": "500",
+                "provide.transaction.metadata": "true",
+                "snapshot.locking.mode": "none",
+                "snapshot.mode": "schema_only",
+                "table.include.list": "outbox_db.outbox",
+                "tasks.max": "1",
+                "tombstones.on.delete": "false",
+                "transforms": "EventRouter,RegexRouter",
+                "transforms.EventRouter.route.by.field": "_route_suffix",
+                "transforms.EventRouter.table.expand.json.payload": "true",
+                "transforms.EventRouter.table.field.event.id": "event_id",
+                "transforms.EventRouter.table.field.event.key": "aggregate_id",
+                "transforms.EventRouter.table.field.event.payload": "payload",
+                "transforms.EventRouter.table.field.event.type": "event_type",
+                "transforms.EventRouter.table.fields.additional.placement": "event_timestamp:header,event_version:header,aggregate_type:header",
+                "transforms.EventRouter.type": "io.debezium.transforms.outbox.EventRouter",
+                "transforms.RegexRouter.regex": "outbox.event.(.*)",
+                "transforms.RegexRouter.replacement": "app.events.$1",
+                "transforms.RegexRouter.type": "io.confluent.connect.cloud.transforms.TopicRegexRouter",
+            },
+            "tasks": [{"connector": "outbox-source-connector", "task": 0}],
+        },
+        "id": None,
+        "extensions": {},
+    },
 }
 
-TOPICS_DATA = {
+TOPICS_DATA: Dict[str, Any] = {
+    "kind": "KafkaTopicList",
     "data": [
         {
             "topic_name": "public.customer_profiles",
@@ -201,7 +257,31 @@ TOPICS_DATA = {
             "is_internal": False,
             "cluster_id": "4k0R9d1GTS5tI9f4Y2xZ0Q",
         },
-    ]
+        {
+            "topic_name": "app.events.order_created",
+            "partitions": {
+                "related": "https://api.confluent.cloud/kafka/v3/clusters/4k0R9d1GTS5tI9f4Y2xZ0Q/topics/app.events.order_created/partitions"
+            },
+            "configs": {
+                "related": "https://api.confluent.cloud/kafka/v3/clusters/4k0R9d1GTS5tI9f4Y2xZ0Q/topics/app.events.order_created/configs"
+            },
+            "replication_factor": 3,
+            "is_internal": False,
+            "cluster_id": "4k0R9d1GTS5tI9f4Y2xZ0Q",
+        },
+        {
+            "topic_name": "app.events.order_updated",
+            "partitions": {
+                "related": "https://api.confluent.cloud/kafka/v3/clusters/4k0R9d1GTS5tI9f4Y2xZ0Q/topics/app.events.order_updated/partitions"
+            },
+            "configs": {
+                "related": "https://api.confluent.cloud/kafka/v3/clusters/4k0R9d1GTS5tI9f4Y2xZ0Q/topics/app.events.order_updated/configs"
+            },
+            "replication_factor": 3,
+            "is_internal": False,
+            "cluster_id": "4k0R9d1GTS5tI9f4Y2xZ0Q",
+        },
+    ],
 }
 
 
