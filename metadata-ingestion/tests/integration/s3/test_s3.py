@@ -6,15 +6,6 @@ from unittest.mock import Mock, call, patch
 
 import moto.s3
 import pytest
-
-# Check if profiling dependencies are available
-try:
-    import pydeequ  # noqa: F401
-    import pyspark  # noqa: F401
-
-    _PROFILING_ENABLED = True
-except ImportError:
-    _PROFILING_ENABLED = False
 from boto3.session import Session
 from moto import mock_s3
 from pydantic import ValidationError
@@ -160,39 +151,6 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
     yield
 
 
-@pytest.fixture(autouse=True, scope="function")
-def reset_spark_session():
-    """Reset Spark session before and after each test to ensure clean state with proper jars."""
-    if _PROFILING_ENABLED:
-        try:
-            from pyspark import SparkContext
-            from pyspark.sql import SparkSession
-
-            # Stop any active SparkContext
-            if SparkContext._active_spark_context is not None:
-                SparkContext._active_spark_context.stop()
-
-            # Clear the active SparkSession reference
-            SparkSession._instantiatedSession = None
-        except Exception:
-            pass
-
-    yield
-
-    # Cleanup after test as well
-    if _PROFILING_ENABLED:
-        try:
-            from pyspark import SparkContext
-            from pyspark.sql import SparkSession
-
-            if SparkContext._active_spark_context is not None:
-                SparkContext._active_spark_context.stop()
-
-            SparkSession._instantiatedSession = None
-        except Exception:
-            pass
-
-
 @pytest.fixture(scope="module", autouse=True)
 def touch_local_files(pytestconfig):
     test_resources_dir = (
@@ -318,13 +276,6 @@ def test_data_lake_gcs_ingest(
 def test_data_lake_local_ingest(
     pytestconfig, touch_local_files, source_file_tuple, tmp_path, mock_time
 ):
-    # Skip test if profiling dependencies are not available since this test enables profiling
-    # which requires both PySpark and PyDeequ
-    if not _PROFILING_ENABLED:
-        pytest.skip(
-            "Profiling dependencies (PySpark and PyDeequ) not available - skipping local ingestion test with profiling"
-        )
-
     source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
     f = open(os.path.join(source_dir, source_file))
@@ -342,7 +293,6 @@ def test_data_lake_local_ingest(
             )
         )
 
-    # Enable profiling for local tests to validate profiling functionality
     source["config"]["profiling"]["enabled"] = True
     source["config"].pop("aws_config")
     source["config"].pop("use_s3_bucket_tags", None)

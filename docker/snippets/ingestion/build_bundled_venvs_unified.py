@@ -10,6 +10,8 @@ import subprocess
 import sys
 from typing import List, Tuple
 
+# Adding a new plug-in with a -slim variant has to be defined here
+PLUGINS_WITH_SLIM_VARIANT = ['s3']
 
 def generate_venv_mappings(plugins: List[str]) -> List[Tuple[str, str]]:
     """Generate simple venv name mappings using <plugin-name>-bundled pattern."""
@@ -53,7 +55,7 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
         # Determine which plugin extra to use
         # In slim mode, use -slim suffix for data lake sources to avoid PySpark
         plugin_extra = plugin
-        if slim_mode and plugin in ['s3', 'gcs', 'abs']:
+        if slim_mode and plugin in PLUGINS_WITH_SLIM_VARIANT:
             plugin_extra = f"{plugin}-slim"
             print(f"  → Using {plugin_extra} extra (slim mode, no PySpark)")
 
@@ -119,7 +121,7 @@ def main():
     print("Generated venv mappings:")
     for plugin, venv_name in venv_mappings:
         extra_info = ""
-        if slim_mode and plugin in ['s3', 'gcs', 'abs']:
+        if slim_mode and plugin in PLUGINS_WITH_SLIM_VARIANT:
             extra_info = " (will use -slim extra)"
         print(f"  {plugin} → {venv_name}{extra_info}")
     print()
