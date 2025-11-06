@@ -23,16 +23,19 @@ import io.ebean.Database;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 public class DefaultAspectsUtilTest {
+
+  private Database server;
 
   public DefaultAspectsUtilTest() {}
 
   @Test
   public void testAdditionalChanges() {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    Database server = EbeanTestUtils.createTestServer(DefaultAspectsUtilTest.class.getSimpleName());
+    server = EbeanTestUtils.createTestServer(DefaultAspectsUtilTest.class.getSimpleName());
     EbeanAspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
     aspectDao.setConnectionValidated(true);
     EventProducer mockProducer = mock(EventProducer.class);
@@ -74,5 +77,10 @@ public class DefaultAspectsUtilTest {
             .map(MetadataChangeProposal::getChangeType)
             .collect(Collectors.toList()),
         List.of(ChangeType.CREATE, ChangeType.CREATE, ChangeType.CREATE, ChangeType.CREATE));
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    EbeanTestUtils.shutdownDatabase(server);
   }
 }

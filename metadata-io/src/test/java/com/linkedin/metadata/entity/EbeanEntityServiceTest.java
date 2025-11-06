@@ -58,6 +58,7 @@ import io.ebean.TxScope;
 import jakarta.persistence.EntityNotFoundException;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -71,6 +72,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -87,6 +89,9 @@ import org.testng.annotations.Test;
  */
 public class EbeanEntityServiceTest
     extends EntityServiceTest<EbeanAspectDao, EbeanRetentionService> {
+
+  // Track additional Database instances created in individual tests for cleanup
+  private final List<Database> additionalDatabases = new ArrayList<>();
 
   public EbeanEntityServiceTest() throws EntityRegistryException {}
 
@@ -167,6 +172,7 @@ public class EbeanEntityServiceTest
 
     // Create database and spy on aspectDao
     Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
+    additionalDatabases.add(server); // Track for cleanup
     EbeanAspectDao aspectDao =
         spy(new EbeanAspectDao(server, EbeanConfiguration.testDefault, null));
 
@@ -765,5 +771,14 @@ public class EbeanEntityServiceTest
         throw new RuntimeException(ie);
       }
     }
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown all Database instances to prevent thread pool and connection leaks
+    // This includes the "gma.heartBeat" thread and connection pools
+    EbeanTestUtils.shutdownDatabaseFromAspectDao(_aspectDao);
+    EbeanTestUtils.shutdownDatabases(additionalDatabases);
+    additionalDatabases.clear();
   }
 }
