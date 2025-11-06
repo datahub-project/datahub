@@ -973,7 +973,8 @@ public class GmsGraphQLEngine {
                     "application",
                     (env) -> {
                       final Container container = env.getSource();
-                      if (container.getApplications() != null && !container.getApplications().isEmpty()) {
+                      if (container.getApplications() != null
+                          && !container.getApplications().isEmpty()) {
                         return container.getApplications().get(0);
                       }
                       return null;
@@ -1837,7 +1838,8 @@ public class GmsGraphQLEngine {
                         "application",
                         (env) -> {
                           final Dataset dataset = env.getSource();
-                          if (dataset.getApplications() != null && !dataset.getApplications().isEmpty()) {
+                          if (dataset.getApplications() != null
+                              && !dataset.getApplications().isEmpty()) {
                             return dataset.getApplications().get(0);
                           }
                           return null;
@@ -1951,7 +1953,8 @@ public class GmsGraphQLEngine {
                     "application",
                     (env) -> {
                       final VersionedDataset dataset = env.getSource();
-                      if (dataset.getApplications() != null && !dataset.getApplications().isEmpty()) {
+                      if (dataset.getApplications() != null
+                          && !dataset.getApplications().isEmpty()) {
                         return dataset.getApplications().get(0);
                       }
                       return null;
@@ -2000,7 +2003,8 @@ public class GmsGraphQLEngine {
                     "application",
                     (env) -> {
                       final GlossaryTerm glossaryTerm = env.getSource();
-                      if (glossaryTerm.getApplications() != null && !glossaryTerm.getApplications().isEmpty()) {
+                      if (glossaryTerm.getApplications() != null
+                          && !glossaryTerm.getApplications().isEmpty()) {
                         return glossaryTerm.getApplications().get(0);
                       }
                       return null;
@@ -2237,7 +2241,8 @@ public class GmsGraphQLEngine {
                     "application",
                     (env) -> {
                       final Notebook notebook = env.getSource();
-                      if (notebook.getApplications() != null && !notebook.getApplications().isEmpty()) {
+                      if (notebook.getApplications() != null
+                          && !notebook.getApplications().isEmpty()) {
                         return notebook.getApplications().get(0);
                       }
                       return null;
@@ -2294,7 +2299,8 @@ public class GmsGraphQLEngine {
                     "application",
                     (env) -> {
                       final Dashboard dashboard = env.getSource();
-                      if (dashboard.getApplications() != null && !dashboard.getApplications().isEmpty()) {
+                      if (dashboard.getApplications() != null
+                          && !dashboard.getApplications().isEmpty()) {
                         return dashboard.getApplications().get(0);
                       }
                       return null;
@@ -2667,7 +2673,8 @@ public class GmsGraphQLEngine {
                         "application",
                         (env) -> {
                           final DataJob dataJob = env.getSource();
-                          if (dataJob.getApplications() != null && !dataJob.getApplications().isEmpty()) {
+                          if (dataJob.getApplications() != null
+                              && !dataJob.getApplications().isEmpty()) {
                             return dataJob.getApplications().get(0);
                           }
                           return null;
@@ -2761,7 +2768,8 @@ public class GmsGraphQLEngine {
                     "application",
                     (env) -> {
                       final DataFlow dataFlow = env.getSource();
-                      if (dataFlow.getApplications() != null && !dataFlow.getApplications().isEmpty()) {
+                      if (dataFlow.getApplications() != null
+                          && !dataFlow.getApplications().isEmpty()) {
                         return dataFlow.getApplications().get(0);
                       }
                       return null;
@@ -2811,7 +2819,8 @@ public class GmsGraphQLEngine {
                         "application",
                         (env) -> {
                           final MLFeatureTable mlFeatureTable = env.getSource();
-                          if (mlFeatureTable.getApplications() != null && !mlFeatureTable.getApplications().isEmpty()) {
+                          if (mlFeatureTable.getApplications() != null
+                              && !mlFeatureTable.getApplications().isEmpty()) {
                             return mlFeatureTable.getApplications().get(0);
                           }
                           return null;
@@ -2911,7 +2920,8 @@ public class GmsGraphQLEngine {
                         "application",
                         (env) -> {
                           final MLModel mlModel = env.getSource();
-                          if (mlModel.getApplications() != null && !mlModel.getApplications().isEmpty()) {
+                          if (mlModel.getApplications() != null
+                              && !mlModel.getApplications().isEmpty()) {
                             return mlModel.getApplications().get(0);
                           }
                           return null;
@@ -2969,7 +2979,8 @@ public class GmsGraphQLEngine {
                         "application",
                         (env) -> {
                           final MLModelGroup mlModelGroup = env.getSource();
-                          if (mlModelGroup.getApplications() != null && !mlModelGroup.getApplications().isEmpty()) {
+                          if (mlModelGroup.getApplications() != null
+                              && !mlModelGroup.getApplications().isEmpty()) {
                             return mlModelGroup.getApplications().get(0);
                           }
                           return null;
@@ -3004,7 +3015,8 @@ public class GmsGraphQLEngine {
                         "application",
                         (env) -> {
                           final MLFeature mlFeature = env.getSource();
-                          if (mlFeature.getApplications() != null && !mlFeature.getApplications().isEmpty()) {
+                          if (mlFeature.getApplications() != null
+                              && !mlFeature.getApplications().isEmpty()) {
                             return mlFeature.getApplications().get(0);
                           }
                           return null;
@@ -3039,7 +3051,8 @@ public class GmsGraphQLEngine {
                         "application",
                         (env) -> {
                           final MLPrimaryKey mlPrimaryKey = env.getSource();
-                          if (mlPrimaryKey.getApplications() != null && !mlPrimaryKey.getApplications().isEmpty()) {
+                          if (mlPrimaryKey.getApplications() != null
+                              && !mlPrimaryKey.getApplications().isEmpty()) {
                             return mlPrimaryKey.getApplications().get(0);
                           }
                           return null;
@@ -3152,7 +3165,8 @@ public class GmsGraphQLEngine {
                     "application",
                     (env) -> {
                       final DataProduct dataProduct = env.getSource();
-                      if (dataProduct.getApplications() != null && !dataProduct.getApplications().isEmpty()) {
+                      if (dataProduct.getApplications() != null
+                          && !dataProduct.getApplications().isEmpty()) {
                         return dataProduct.getApplications().get(0);
                       }
                       return null;
