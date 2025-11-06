@@ -42,14 +42,19 @@ describe("glossary", () => {
     nevigateGlossaryPage();
     cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.clickOptionWithText("Create Term Group");
-    // Wait for modal container to appear first
-    cy.get(".ant-modal-content", { timeout: 10000 }).should("be.visible");
-    cy.get('[data-testid="glossary-entity-modal-create-button"]', {
-      timeout: 10000,
-    }).should("be.visible");
-    cy.get('[data-testid="create-glossary-entity-modal-name"]', {
-      timeout: 10000,
-    }).should("be.visible");
+    // Wait for modal container to appear and be fully rendered
+    cy.get(".ant-modal-content", { timeout: 10000 })
+      .should("be.visible")
+      .within(() => {
+        // Wait for input field to be visible and ready
+        cy.get('[data-testid="create-glossary-entity-modal-name"]', {
+          timeout: 10000,
+        }).should("be.visible");
+        // Wait for create button to be visible and ready
+        cy.get('[data-testid="glossary-entity-modal-create-button"]', {
+          timeout: 10000,
+        }).should("be.visible");
+      });
     cy.enterTextInTestId(
       "create-glossary-entity-modal-name",
       glossaryTermGroup,
@@ -60,14 +65,19 @@ describe("glossary", () => {
     nevigateGlossaryPage();
     cy.clickOptionWithText(glossaryTermGroup);
     cy.clickOptionWithTestId("add-term-button");
-    // Wait for modal container to appear first
-    cy.get(".ant-modal-content", { timeout: 10000 }).should("be.visible");
-    cy.get('[data-testid="glossary-entity-modal-create-button"]', {
-      timeout: 10000,
-    }).should("be.visible");
-    cy.get('[data-testid="create-glossary-entity-modal-name"]', {
-      timeout: 10000,
-    }).should("be.visible");
+    // Wait for modal container to appear and be fully rendered
+    cy.get(".ant-modal-content", { timeout: 10000 })
+      .should("be.visible")
+      .within(() => {
+        // Wait for input field to be visible and ready
+        cy.get('[data-testid="create-glossary-entity-modal-name"]', {
+          timeout: 10000,
+        }).should("be.visible");
+        // Wait for create button to be visible and ready
+        cy.get('[data-testid="glossary-entity-modal-create-button"]', {
+          timeout: 10000,
+        }).should("be.visible");
+      });
     cy.enterTextInTestId("create-glossary-entity-modal-name", glossaryTerm);
     cy.clickOptionWithTestId("glossary-entity-modal-create-button");
     cy.contains(glossaryTerm).should("be.visible");
