@@ -76,7 +76,13 @@ class TokenCountEstimator:
             elif isinstance(item, bool):
                 return 5  # "true" or "false"
             elif isinstance(item, str):
-                return len(item)
+                # Account for:
+                # - Quotes around string values: "value" → +6
+                # - Escape characters (\n, \", \\, etc.) → +10% of length
+                # Structural chars weighted heavier as they often tokenize separately
+                base_length = len(item)
+                escape_overhead = int(base_length * 0.1)
+                return base_length + 6 + escape_overhead
             elif isinstance(item, (int, float)):
                 return 6  # Average number length
             elif isinstance(item, list):
@@ -84,9 +90,11 @@ class TokenCountEstimator:
             elif isinstance(item, dict):
                 total = 0
                 for key, value in item.items():
-                    total += len(str(key)) + 2  # Key + quotes/colon
+                    # Account for: "key": value, → 2 quotes + colon + space + comma
+                    # Structural chars weighted heavier (often separate tokens)
+                    total += len(str(key)) + 9
                     total += _count_chars(value, depth + 1)
-                return total + len(item)  # Add commas
+                return total + len(item)  # Additional padding for structure
             else:
                 return 10  # Fallback for other types
 

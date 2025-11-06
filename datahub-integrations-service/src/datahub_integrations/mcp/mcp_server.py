@@ -12,6 +12,7 @@ from typing import (
     Awaitable,
     Callable,
     Dict,
+    Generator,
     Iterator,
     List,
     Literal,
@@ -36,15 +37,94 @@ from loguru import logger
 from pydantic import BaseModel
 
 from datahub_integrations.chat.context_reducer import TokenCountEstimator
+from datahub_integrations.mcp.tool import TOOL_RESPONSE_TOKEN_LIMIT
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
+T = TypeVar("T")
 DESCRIPTION_LENGTH_HARD_LIMIT = 1000
 QUERY_LENGTH_HARD_LIMIT = 5000
 
-# Per-entity token budget for field truncation
+# Per-entity schema token budget for field truncation
 # Assumes ~5 entities per response: 80K total / 5 = 16K per entity
-ENTITY_TOKEN_BUDGET = int(os.getenv("ENTITY_TOKEN_BUDGET", "16000"))
+ENTITY_SCHEMA_TOKEN_BUDGET = int(os.getenv("ENTITY_SCHEMA_TOKEN_BUDGET", "16000"))
+
+
+def _select_results_within_budget(
+    results: Iterator[T],
+    fetch_entity: Callable[[T], dict],
+    max_results: int = 10,
+    token_budget: Optional[int] = None,
+) -> Generator[T, None, None]:
+    """
+    Generator that yields results within token budget.
+
+    Generic helper that works for any result structure. Caller provides a function
+    to extract/clean entity for token counting (can mutate the result).
+
+    Yields results until:
+    - max_results reached, OR
+    - token_budget would be exceeded (and we have at least 1 result)
+
+    Args:
+        results: Iterator of result objects of any type T (memory efficient)
+        fetch_entity: Function that extracts entity dict from result for token counting.
+                   Can mutate the result to clean/update entity in place.
+                   Signature: T -> dict (entity for token counting)
+                   Example: lambda r: (r.__setitem__("entity", clean(r["entity"])), r["entity"])[1]
+        max_results: Maximum number of results to return
+        token_budget: Token budget (defaults to 90% of TOOL_RESPONSE_TOKEN_LIMIT)
+
+    Yields:
+        Original result objects of type T (possibly mutated by fetch_entity)
+    """
+    if token_budget is None:
+        # Use 90% of limit as safety buffer:
+        # - Token estimation is approximate, not exact
+        # - Response wrapper adds overhead
+        # - Better to return fewer results that fit than exceed limit
+        token_budget = int(TOOL_RESPONSE_TOKEN_LIMIT * 0.9)
+
+    total_tokens = 0
+    results_count = 0
+
+    # Consume iterator up to max_results
+    for i, result in enumerate(results):
+        if i >= max_results:
+            break
+        # Extract (and possibly clean) entity using caller's lambda
+        # Note: fetch_entity may mutate result to clean/update entity in place
+        entity = fetch_entity(result)
+
+        # Estimate token cost
+        entity_tokens = TokenCountEstimator.estimate_dict_tokens(entity)
+
+        # Check if adding this entity would exceed budget
+        if total_tokens + entity_tokens > token_budget:
+            if results_count == 0:
+                # Always yield at least 1 result
+                logger.warning(
+                    f"First result ({entity_tokens:,} tokens) exceeds budget ({token_budget:,}), "
+                    "yielding it anyway"
+                )
+                yield result  # Yield original result structure
+                results_count += 1
+                total_tokens += entity_tokens
+            else:
+                # Have at least 1 result, stop here to stay within budget
+                logger.info(
+                    f"Stopping at {results_count} results (next would exceed {token_budget:,} token budget)"
+                )
+                break
+        else:
+            yield result  # Yield original result structure
+            results_count += 1
+            total_tokens += entity_tokens
+
+    logger.info(
+        f"Selected {results_count} results using {total_tokens:,} tokens "
+        f"(budget: {token_budget:,})"
+    )
 
 
 def sanitize_html_content(text: str) -> str:
@@ -144,7 +224,14 @@ def async_background(fn: Callable[_P, _R]) -> Callable[_P, Awaitable[_R]]:
 
     @functools.wraps(fn)
     async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        return await asyncer.asyncify(fn)(*args, **kwargs)
+        try:
+            return await asyncer.asyncify(fn)(*args, **kwargs)
+        except Exception:
+            # Log with full stack trace before FastMCP catches it
+            logger.exception(
+                f"Tool function {fn.__name__} failed with args={args}, kwargs={kwargs}"
+            )
+            raise
 
     return wrapper
 
@@ -300,10 +387,12 @@ def _execute_graphql(
 
     # Process NEWER_GMS tags
     # Check if we've already determined newer GMS fields support for this graph
+    newer_gms_enabled_for_this_query = False
     if graph_id in _newer_gms_fields_support_cache:
         supports_newer_fields = _newer_gms_fields_support_cache[graph_id]
         if supports_newer_fields:
             query = _enable_newer_gms_fields(query)
+            newer_gms_enabled_for_this_query = True
         else:
             query = _disable_newer_gms_fields(query)
     else:
@@ -311,10 +400,16 @@ def _execute_graphql(
         # (Cloud instances typically run newer GMS versions)
         if is_cloud:
             query = _enable_newer_gms_fields(query)
+            newer_gms_enabled_for_this_query = True
         else:
             query = _disable_newer_gms_fields(query)
         # Cache the initial detection result
         _newer_gms_fields_support_cache[graph_id] = is_cloud
+
+    logger.debug(
+        f"Executing GraphQL {operation_name or 'query'}: "
+        f"is_cloud={is_cloud}, newer_gms_enabled={newer_gms_enabled_for_this_query}"
+    )
 
     try:
         # Execute the GraphQL query
@@ -326,15 +421,14 @@ def _execute_graphql(
     except Exception as e:
         error_msg = str(e)
 
-        # Check if this is a field validation error and we haven't tried fallback yet
-        if _is_field_validation_error(
-            error_msg
-        ) and _newer_gms_fields_support_cache.get(graph_id, False):
+        # Check if this is a field validation error and we tried with newer GMS fields enabled
+        # Only retry if we had newer GMS fields enabled in the query that just failed
+        if _is_field_validation_error(error_msg) and newer_gms_enabled_for_this_query:
             logger.warning(
-                f"GraphQL schema validation error detected. "
-                f"Retrying without newer GMS fields as fallback. "
-                f"Error: {error_msg}"
+                f"GraphQL schema validation error detected for {operation_name or 'query'}. "
+                f"Retrying without newer GMS fields as fallback."
             )
+            logger.exception(e)
 
             # Update cache to indicate newer GMS fields are NOT supported
             _newer_gms_fields_support_cache[graph_id] = False
@@ -350,6 +444,11 @@ def _execute_graphql(
                 # Disable newer GMS fields for fallback
                 fallback_query = _disable_newer_gms_fields(fallback_query)
 
+                logger.debug(
+                    f"Retry {operation_name or 'query'} with NEWER_GMS fields disabled: "
+                    f"is_cloud={is_cloud}"
+                )
+
                 result = graph.execute_graphql(
                     query=fallback_query,
                     variables=variables,
@@ -364,6 +463,18 @@ def _execute_graphql(
                     f"Fallback query also failed for {operation_name or 'query'}: {fallback_error}"
                 )
                 raise fallback_error
+        elif (
+            _is_field_validation_error(error_msg)
+            and not newer_gms_enabled_for_this_query
+        ):
+            # Field validation error but NEWER_GMS fields were already disabled
+            logger.error(
+                f"GraphQL schema validation error for {operation_name or 'query'} "
+                f"but NEWER_GMS fields were already disabled (is_cloud={is_cloud}). "
+                f"This may indicate a CLOUD-only field being used on a non-cloud instance, "
+                f"or a field that's unavailable in this GMS version."
+            )
+            logger.exception(e)
 
         # Keep essential error logging for troubleshooting with full stack trace
         logger.exception(
@@ -392,7 +503,7 @@ def inject_urls_for_urns(
 
 
 def maybe_convert_to_schema_field_urn(urn: str, column: Optional[str]) -> str:
-    if column is not None:
+    if column:
         maybe_dataset_urn = Urn.from_string(urn)
         if not isinstance(maybe_dataset_urn, DatasetUrn):
             raise ValueError(
@@ -656,7 +767,8 @@ def _clean_schema_fields(
                 field_dict["tags"] = [
                     t["tag"]["properties"]["name"]
                     for t in tag_list
-                    if t.get("tag", {}).get("properties", {}).get("name")
+                    if t.get("tag", {}).get("properties")
+                    and t["tag"]["properties"].get("name")
                 ]
 
         # Add glossary terms if present (keep minimal info for business context)
@@ -666,7 +778,8 @@ def _clean_schema_fields(
                 field_dict["glossaryTerms"] = [
                     t["term"]["properties"]["name"]
                     for t in terms_list
-                    if t.get("term", {}).get("properties", {}).get("name")
+                    if t.get("term", {}).get("properties")
+                    and t["term"]["properties"].get("name")
                 ]
 
         # Merge editable metadata if available for this field
@@ -685,7 +798,8 @@ def _clean_schema_fields(
                     edited_tag_names = [
                         t["tag"]["properties"]["name"]
                         for t in tag_list
-                        if t.get("tag", {}).get("properties", {}).get("name")
+                        if t.get("tag", {}).get("properties")
+                        and t["tag"]["properties"].get("name")
                     ]
                     if edited_tag_names:
                         system_tags = field_dict.get("tags", [])
@@ -698,7 +812,8 @@ def _clean_schema_fields(
                     edited_term_names = [
                         t["term"]["properties"]["name"]
                         for t in terms_list
-                        if t.get("term", {}).get("properties", {}).get("name")
+                        if t.get("term", {}).get("properties")
+                        and t["term"]["properties"].get("name")
                     ]
                     if edited_term_names:
                         system_terms = field_dict.get("glossaryTerms", [])
@@ -708,7 +823,13 @@ def _clean_schema_fields(
         yield field_dict
 
 
-def clean_get_entities_response(raw_response: dict) -> dict:
+def clean_get_entities_response(
+    raw_response: dict,
+    *,
+    sort_fn: Optional[Callable[[List[dict]], Iterator[dict]]] = None,
+    offset: int = 0,
+    limit: Optional[int] = None,
+) -> dict:
     """
     Clean and optimize entity responses for LLM consumption.
 
@@ -718,11 +839,12 @@ def clean_get_entities_response(raw_response: dict) -> dict:
        (via clean_gql_response)
 
     2. **Schema field processing** (if schemaMetadata.fields exists):
-       - Sorts fields by priority: keys → descriptions → tags → alphabetical
+       - Sorts fields using sort_fn (defaults to _sort_fields_by_priority)
        - Cleans each field to keep only essential properties (fieldPath, type, description, etc.)
        - Merges editableSchemaMetadata into fields with "edited*" prefix (editedDescription,
          editedTags, editedGlossaryTerms) - only included when they differ from system values
-       - Applies token-based truncation (ENTITY_TOKEN_BUDGET, default 16K tokens per entity)
+       - Applies pagination (offset/limit) with token budget constraint
+       - Field selection stops when EITHER limit is reached OR ENTITY_SCHEMA_TOKEN_BUDGET is exceeded
        - Adds schemaFieldsTruncated metadata when fields are cut
 
     3. **Remove duplicates**: Deletes editableSchemaMetadata after merging into schemaMetadata
@@ -734,6 +856,10 @@ def clean_get_entities_response(raw_response: dict) -> dict:
 
     Args:
         raw_response: Raw entity dict from GraphQL query
+        sort_fn: Optional custom function to sort fields. If None, uses _sort_fields_by_priority.
+                 Should take a list of field dicts and return an iterator of sorted fields.
+        offset: Number of fields to skip after sorting (default: 0)
+        limit: Maximum number of fields to include after offset (default: None = unlimited)
 
     Returns:
         Cleaned entity dict optimized for LLM consumption
@@ -761,39 +887,59 @@ def clean_get_entities_response(raw_response: dict) -> dict:
                         if field_path := editable_field.get("fieldPath"):
                             editable_map[field_path] = editable_field
 
-            # Sort fields by priority, then clean them (both are iterators for memory efficiency)
-            sorted_fields = _sort_fields_by_priority(fields)
+            # Sort fields using custom function or default priority sorting
+            sort_function = sort_fn if sort_fn is not None else _sort_fields_by_priority
+            sorted_fields = sort_function(fields)
             cleaned_fields = _clean_schema_fields(sorted_fields, editable_map)
 
-            # Truncate fields to fit within per-entity token budget
+            # Apply offset, limit, and token budget to select fields
             selected_fields: list[dict] = []
             accumulated_tokens = 0
+            fields_remaining = limit  # None means unlimited
 
-            for field in cleaned_fields:
+            for idx, field in enumerate(cleaned_fields):
+                # Skip fields before offset
+                if idx < offset:
+                    continue
+
                 field_tokens = TokenCountEstimator.estimate_dict_tokens(field)
+
+                # Stop if we exceed token budget (keep at least 1 field after offset)
                 if (
-                    accumulated_tokens + field_tokens > ENTITY_TOKEN_BUDGET
+                    accumulated_tokens + field_tokens > ENTITY_SCHEMA_TOKEN_BUDGET
                     and selected_fields
                 ):
-                    # Would exceed budget, stop here (keep at least 1 field)
                     logger.info(
-                        f"Truncating schema fields: {len(selected_fields)}/{total_fields} "
-                        f"fields fit in {ENTITY_TOKEN_BUDGET:,} token budget "
-                        f"(accumulated {accumulated_tokens:,} tokens)"
+                        f"Truncating schema fields: {len(selected_fields)}/{total_fields - offset} "
+                        f"fields fit in {ENTITY_SCHEMA_TOKEN_BUDGET:,} token budget "
+                        f"(accumulated {accumulated_tokens:,} tokens, offset={offset})"
                     )
                     break
+
+                # Stop if we've hit the limit
+                if fields_remaining is not None and fields_remaining <= 0:
+                    logger.info(
+                        f"Reached limit: {len(selected_fields)} fields selected (limit={limit}, offset={offset})"
+                    )
+                    break
+
                 selected_fields.append(field)
                 accumulated_tokens += field_tokens
+                if fields_remaining is not None:
+                    fields_remaining -= 1
 
             # Add truncation metadata if fields were cut
-            if len(selected_fields) < total_fields:
+            # Truncation occurs if we have fewer fields than (total - offset)
+            fields_after_offset = total_fields - offset
+            if len(selected_fields) < fields_after_offset:
                 schema_metadata["schemaFieldsTruncated"] = {
                     "totalFields": total_fields,
                     "includedFields": len(selected_fields),
+                    "offset": offset,
                 }
                 logger.warning(
-                    f"Schema fields truncated: included {len(selected_fields)}/{total_fields} fields "
-                    f"({accumulated_tokens:,} tokens, budget: {ENTITY_TOKEN_BUDGET:,})"
+                    f"Schema fields truncated: included {len(selected_fields)}/{fields_after_offset} fields "
+                    f"(offset={offset}, {accumulated_tokens:,} tokens, budget: {ENTITY_SCHEMA_TOKEN_BUDGET:,})"
                 )
 
             schema_metadata["fields"] = selected_fields
@@ -850,6 +996,13 @@ def get_entities(urns: List[str] | str) -> List[dict] | dict:
                 operation_name="GetEntity",
             )["entity"]
 
+            # Check if entity data was returned
+            if result is None:
+                raise ItemNotFoundError(
+                    f"Entity {urn} exists but no data could be retrieved. "
+                    f"This can happen if the entity has no aspects ingested yet, or if there's a permissions issue."
+                )
+
             inject_urls_for_urns(client._graph, result, [""])
             truncate_descriptions(result)
 
@@ -863,6 +1016,214 @@ def get_entities(urns: List[str] | str) -> List[dict] | dict:
 
     # Return single dict if single URN was passed, array otherwise
     return results[0] if return_single else results
+
+
+def list_schema_fields(
+    urn: str,
+    keywords: Optional[List[str] | str] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> dict:
+    """List schema fields for a dataset, with optional keyword filtering and pagination.
+
+    Useful when schema fields were truncated in search results (schemaFieldsTruncated present)
+    and you need to explore specific columns. Supports pagination for large schemas.
+
+    Args:
+        urn: Dataset URN
+        keywords: Optional keywords to filter schema fields (OR matching).
+                 - Single string: Treated as one keyword (NOT split on whitespace). Use for field names or exact phrases.
+                 - List of strings: Multiple keywords, matches any (OR logic).
+                 - None or empty list: Returns all fields in priority order (same as get_entities).
+                 Matches against fieldPath, description, label, tags, and glossary terms.
+                 Matching fields are returned first, sorted by match count.
+        limit: Maximum number of fields to return (default: 100)
+        offset: Number of fields to skip for pagination (default: 0)
+
+    Returns:
+        Dictionary with:
+        - urn: The dataset URN
+        - fields: List of schema fields (paginated)
+        - totalFields: Total number of fields in the schema
+        - returned: Number of fields actually returned
+        - remainingCount: Number of fields not included after offset (accounts for limit and token budget)
+        - matchingCount: Number of fields that matched keywords (if keywords provided, None otherwise)
+        - offset: The offset used
+
+    Examples:
+        # Single keyword (string) - search for exact field name or phrase
+        list_schema_fields(urn="urn:li:dataset:(...)", keywords="user_email")
+        # Returns fields matching "user_email" (like user_email_address, primary_user_email)
+
+        # Multiple keywords (list) - OR matching
+        list_schema_fields(urn="urn:li:dataset:(...)", keywords=["email", "user"])
+        # Returns fields containing "email" OR "user" (user_email, contact_email, user_id, etc.)
+
+        # Pagination through all fields
+        list_schema_fields(urn="urn:li:dataset:(...)", limit=100, offset=0)   # First 100
+        list_schema_fields(urn="urn:li:dataset:(...)", limit=100, offset=100) # Next 100
+
+        # Combine filtering + pagination
+        list_schema_fields(urn="urn:li:dataset:(...)", keywords=["user"], limit=50, offset=0)
+    """
+    client = get_datahub_client()
+
+    # Normalize keywords to list (None means no filtering)
+    keywords_lower = None
+    if keywords is not None:
+        if isinstance(keywords, str):
+            keywords = [keywords]
+        keywords_lower = [kw.lower() for kw in keywords]
+
+    # Fetch entity
+    if not client._graph.exists(urn):
+        raise ItemNotFoundError(f"Entity {urn} not found")
+
+    # Execute GraphQL query to get full schema
+    variables = {"urn": urn}
+    result = _execute_graphql(
+        client._graph,
+        query=entity_details_fragment_gql,
+        variables=variables,
+        operation_name="GetEntity",
+    )["entity"]
+
+    # Check if entity data was returned
+    if result is None:
+        raise ItemNotFoundError(
+            f"Entity {urn} exists but no data could be retrieved. "
+            f"This can happen if the entity has no aspects ingested yet, or if there's a permissions issue."
+        )
+
+    # Apply same preprocessing as get_entities
+    inject_urls_for_urns(client._graph, result, [""])
+    truncate_descriptions(result)
+
+    # Extract total field count before processing
+    total_fields = len(result.get("schemaMetadata", {}).get("fields", []))
+
+    if total_fields == 0:
+        return {
+            "urn": urn,
+            "fields": [],
+            "totalFields": 0,
+            "returned": 0,
+            "remainingCount": 0,
+            "matchingCount": None,
+            "offset": offset,
+        }
+
+    # Define custom sorting function for keyword matching
+    sort_fn = None
+    matching_count = None
+
+    if keywords_lower:
+        # Helper function to score a field by keyword matches
+        def score_field_by_keywords(field: dict) -> int:
+            """
+            Score a field by counting keyword match coverage across its metadata.
+
+            Scoring logic (OR matching):
+            - Each keyword gets +1 if it appears in ANY searchable text (substring match)
+            - Multiple occurrences of the same keyword in one text still count as +1
+            - Higher score = more aspects of the field match the keywords
+
+            Searchable texts (in order of priority):
+            1. fieldPath (column name)
+            2. description
+            3. label
+            4. tag names
+            5. glossary term names
+
+            Example:
+                keywords = ["email", "user"]
+                field = {
+                    "fieldPath": "user_email",        # matches both
+                    "description": "User's email",    # matches both
+                    "tags": ["PII"]                   # matches neither
+                }
+                Score = 4 (email in fieldPath + email in desc + user in fieldPath + user in desc)
+
+            Returns:
+                Integer score (0 = no matches, higher = more coverage)
+            """
+            searchable_texts = [
+                field.get("fieldPath", ""),
+                field.get("description", ""),
+                field.get("label", ""),
+            ]
+
+            # Add tag names
+            if tags := field.get("tags"):
+                if tag_list := tags.get("tags"):
+                    searchable_texts.extend(
+                        [
+                            (t.get("tag", {}).get("properties") or {}).get("name", "")
+                            for t in tag_list
+                        ]
+                    )
+
+            # Add glossary term names
+            if glossary_terms := field.get("glossaryTerms"):
+                if terms_list := glossary_terms.get("terms"):
+                    searchable_texts.extend(
+                        [
+                            (t.get("term", {}).get("properties") or {}).get("name", "")
+                            for t in terms_list
+                        ]
+                    )
+
+            # Count keyword coverage: +1 for each (keyword, text) pair that matches
+            # Note: Substring matching, case-insensitive
+            return sum(
+                1
+                for kw in keywords_lower
+                for text in searchable_texts
+                if text and kw in text.lower()
+            )
+
+        # Pre-compute matching count (need all fields for this)
+        fields_for_counting = result.get("schemaMetadata", {}).get("fields", [])
+        matching_count = sum(
+            1 for field in fields_for_counting if score_field_by_keywords(field) > 0
+        )
+
+        # Define sort function for clean_get_entities_response
+        def sort_by_keyword_match(fields: List[dict]) -> Iterator[dict]:
+            """Sort fields by keyword match count (descending), then alphabetically."""
+            scored_fields = [
+                (score_field_by_keywords(field), field) for field in fields
+            ]
+            scored_fields.sort(key=lambda x: (-x[0], x[1].get("fieldPath", "")))
+            return iter(field for _, field in scored_fields)
+
+        sort_fn = sort_by_keyword_match
+
+    # Use clean_get_entities_response for consistent processing
+    cleaned_entity = clean_get_entities_response(
+        result,
+        sort_fn=sort_fn,
+        offset=offset,
+        limit=limit,
+    )
+
+    # Extract the cleaned fields and metadata
+    schema_metadata = cleaned_entity.get("schemaMetadata", {})
+    cleaned_fields = schema_metadata.get("fields", [])
+
+    # Calculate how many fields remain after what we returned
+    # This accounts for both pagination and token budget constraints
+    remaining_count = total_fields - offset - len(cleaned_fields)
+
+    return {
+        "urn": urn,
+        "fields": cleaned_fields,
+        "totalFields": total_fields,
+        "returned": len(cleaned_fields),
+        "remainingCount": remaining_count,
+        "matchingCount": matching_count,
+        "offset": offset,
+    }
 
 
 def _convert_custom_filter_format(filters_obj: Any) -> Any:
@@ -1444,12 +1805,13 @@ class AssetLineageAPI:
 # GraphQL SearchAcrossLineageInput supports sortInput parameter.
 def get_lineage(
     urn: str,
-    column: Optional[str],
+    column: Optional[str] = None,
     query: Optional[str] = None,
     filters: Optional[Filter | str] = None,
     upstream: bool = True,
     max_hops: int = 1,
     max_results: int = 30,
+    offset: int = 0,
 ) -> dict:
     """Get upstream or downstream lineage for any entity, including datasets, schemaFields, dashboards, charts, etc.
 
@@ -1457,6 +1819,14 @@ def get_lineage(
     Set `column: null` to get lineage for entire dataset or for entity type other than dataset.
     Setting max_hops to 3 is equivalent to unlimited hops.
     Usage and format of filters is same as that in search tool.
+
+    PAGINATION:
+    Use offset to paginate through large lineage graphs:
+    - offset=0, max_results=30 → first 30 entities
+    - offset=30, max_results=30 → next 30 entities
+
+    Note: Token budget constraints may return fewer entities than max_results.
+    Check the returned metadata (hasMore, returned, etc.) to understand truncation.
 
     QUERY PARAMETER - Search within lineage results:
     You can filter lineage results using the `query` parameter with same /q syntax as search tool:
@@ -1484,7 +1854,7 @@ def get_lineage(
     # Normalize column parameter: Some LLMs pass the string "null" instead of JSON null.
     # Note: This means columns literally named "null" cannot be queried.
     # If this becomes a problem, we could add an escape mechanism (e.g., "column_name:null" prefix).
-    if column == "null":
+    if column == "null" or column == "":
         column = None
 
     client = get_datahub_client()
@@ -1507,6 +1877,56 @@ def get_lineage(
     lineage = lineage_api.get_lineage(asset_lineage_directive, query=query)
     inject_urls_for_urns(client._graph, lineage, ["*.searchResults[].entity"])
     truncate_descriptions(lineage)
+
+    # Apply offset, entity-level truncation, and cleaning to upstreams/downstreams
+    for direction in ["upstreams", "downstreams"]:
+        if direction_results := lineage.get(direction):
+            if search_results := direction_results.get("searchResults"):
+                total_available = len(search_results)
+
+                # Apply offset (skip first N entities)
+                if offset >= total_available:
+                    direction_results["searchResults"] = []
+                    direction_results["offset"] = offset
+                    direction_results["returned"] = 0
+                    direction_results["hasMore"] = False
+                    continue
+
+                # Skip offset and apply token budget using generic helper
+                results_after_offset = search_results[offset:]
+
+                # Lambda to clean entity in place and return it for token counting
+                def get_cleaned_entity(result_item: dict) -> dict:
+                    entity = result_item.get("entity", {})
+                    cleaned = clean_get_entities_response(entity)
+                    result_item["entity"] = cleaned  # Mutate in place
+                    return cleaned  # Return for token counting
+
+                # Get results within budget (entities cleaned in place, degree preserved)
+                selected_results = list(
+                    _select_results_within_budget(
+                        results=iter(results_after_offset),
+                        fetch_entity=get_cleaned_entity,
+                        max_results=max_results,
+                    )
+                )
+
+                # Update results and add metadata
+                direction_results["searchResults"] = selected_results
+                direction_results["offset"] = offset
+                direction_results["returned"] = len(selected_results)
+                direction_results["hasMore"] = (
+                    offset + len(selected_results)
+                ) < total_available
+
+                if len(selected_results) < len(results_after_offset):
+                    direction_results["truncatedDueToTokenBudget"] = True
+
+                logger.info(
+                    f"get_lineage {direction}: Returned {len(selected_results)}/{total_available} entities "
+                    f"(offset={offset}, hasMore={direction_results['hasMore']})"
+                )
+
     return lineage
 
 
@@ -1544,4 +1964,9 @@ mcp.tool(name="get_dataset_queries", description=get_dataset_queries.__doc__)(
 # Register get_entities tool
 mcp.tool(name="get_entities", description=get_entities.__doc__)(
     async_background(get_entities)
+)
+
+# Register list_schema_fields tool
+mcp.tool(name="list_schema_fields", description=list_schema_fields.__doc__)(
+    async_background(list_schema_fields)
 )

@@ -51,10 +51,26 @@ class SmartSearchResponse(BaseModel):
     """Response from smart_search function.
 
     Returns AI-reranked search results with faceted metadata.
+
+    Terminology:
+    - candidates = entities found in keyword search and reviewed by AI
+    - results = entities selected and returned based on quality/budget
     """
 
     results: List[Dict]  # Array of DETAILED, FULL entity objects with all metadata
     facets: List[
         Dict
     ]  # Aggregated metadata (platforms, tags, domains, etc.) across all results
-    total_candidates: int  # Number of candidates found before AI reranking
+    candidates_reviewed: (
+        int  # Number of candidates found in initial keyword search and reviewed by AI
+    )
+    candidates_selected: Optional[int] = (
+        None  # Number selected after quality filtering (before token budget)
+    )
+    returned_count: int  # Number of results actually returned (may be less than candidates_selected due to token budget)
+    has_more_selected_results: Optional[bool] = (
+        None  # True if more quality results exist beyond what was returned
+    )
+    selection_cutoff_reason: Optional[str] = (
+        None  # Why candidate selection was limited (e.g., "score_drop_detected", "score_plateau_detected", "token_budget_exceeded", "max_entities_reached")
+    )

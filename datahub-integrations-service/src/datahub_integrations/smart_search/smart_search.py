@@ -3,96 +3,124 @@ Main semantic search implementation using keyword expansion and reranking.
 """
 
 import re
-from typing import Generator, List, Optional
+from typing import List, Optional, TypeVar
 
 from datahub.sdk.search_filters import Filter
 from loguru import logger
 
-from datahub_integrations.chat.context_reducer import TokenCountEstimator
 from datahub_integrations.mcp.mcp_server import (
     _search_implementation,
+    _select_results_within_budget,
     clean_get_entities_response,
     truncate_descriptions,
 )
-from datahub_integrations.mcp.tool import TOOL_RESPONSE_TOKEN_LIMIT
 from datahub_integrations.smart_search.models import SmartSearchResponse
 from datahub_integrations.smart_search.reranker import (
     RerankResult,
     create_reranker,
 )
 
+T = TypeVar("T")
 
-def _select_results_within_budget(
+
+def _select_entities_by_score_quality(
     rerank_results: List[RerankResult],
-    candidates: List[dict],
-    max_results: int = 10,
-    token_budget: Optional[int] = None,
-) -> Generator[dict, None, None]:
+    initial_k: int = 4,
+    max_entities: int = 30,
+    relative_drop: float = 0.5,
+    plateau_threshold: float = 0.05,
+    plateau_length: int = 3,
+) -> tuple[List[RerankResult], bool, Optional[str]]:
     """
-    Generator that yields top reranked results within token budget.
+    Select entities based on score quality with adaptive cutoff detection.
 
-    Yields entities until:
-    - max_results reached, OR
-    - token_budget would be exceeded (and we have at least 1 result)
+    Returns entities with quality signals to help LLM understand if more candidates exist.
+
+    Strategy:
+    1. Always include first initial_k entities (guaranteed minimum)
+    2. Continue beyond initial_k if:
+       - Haven't reached max_entities AND
+       - No large score drop detected (relative_drop threshold) AND
+       - No score plateau detected (flat tail)
+    3. Signal hasMore=True only when we hit limits (not when we stopped due to poor quality)
 
     Args:
-        rerank_results: Sorted rerank results
-        candidates: Original candidates with entities
-        max_results: Maximum number of results to return
-        token_budget: Token budget (defaults to 90% of TOOL_RESPONSE_TOKEN_LIMIT)
+        rerank_results: Reranked results sorted by score (descending)
+        initial_k: Minimum entities to return unconditionally (default: 4)
+        max_entities: Maximum entities to return (default: 30)
+        relative_drop: Max allowed drop from top score as fraction (0.5 = 50% drop)
+        plateau_threshold: Max score variation to be considered plateau (0.05 = 5%)
+        plateau_length: Consecutive similar scores indicating plateau (default: 3)
 
-    Yields:
-        Cleaned entities that fit within budget
+    Returns:
+        Tuple of:
+        - Selected rerank results
+        - hasMore: True if more quality results exist beyond selection (only for limit-based cutoffs, not quality-based)
+        - cutoffReason: Why we stopped (None if returned all, or reason string if cutoff triggered)
     """
-    if token_budget is None:
-        # Use 90% of limit as safety buffer:
-        # - Token estimation is approximate, not exact
-        # - Response wrapper ({"results": ..., "facets": ..., "total_candidates": N}) adds overhead
-        # - Better to return fewer results that fit than exceed limit
-        token_budget = int(TOOL_RESPONSE_TOKEN_LIMIT * 0.9)
+    if not rerank_results:
+        return [], False, None
 
-    total_tokens = 0
-    results_count = 0
+    total_available = len(rerank_results)
 
-    for rerank_result in rerank_results[:max_results]:
-        candidate = candidates[rerank_result.index]
-        raw_entity = candidate.get("entity", {})
+    # Handle case where we have fewer than initial_k
+    if total_available <= initial_k:
+        return rerank_results, False, None
 
-        # Truncate all descriptions to prevent overly long content
-        # (entity descriptions, tag descriptions, glossary terms, etc.)
-        truncate_descriptions(raw_entity)
+    top_score = rerank_results[0].score
+    selected = []
+    cutoff_reason = None
 
-        entity = clean_get_entities_response(raw_entity)
+    for i, result in enumerate(rerank_results):
+        # Always include first initial_k
+        if i < initial_k:
+            selected.append(result)
+            continue
 
-        # Fast token estimation (no JSON serialization)
-        entity_tokens = TokenCountEstimator.estimate_dict_tokens(entity)
+        # Stop if we've hit max_entities
+        if len(selected) >= max_entities:
+            cutoff_reason = "max_entities_reached"
+            break
 
-        # Check if adding this entity would exceed budget
-        if total_tokens + entity_tokens > token_budget:
-            if results_count == 0:
-                # Always yield at least 1 result
-                logger.warning(
-                    f"First result ({entity_tokens:,} tokens) exceeds budget ({token_budget:,}), "
-                    "yielding it anyway"
-                )
-                yield entity
-                results_count += 1
-                total_tokens += entity_tokens
-            else:
-                # Have at least 1 result, stop here to stay within budget
+        # Check for large score drop (quality cliff)
+        score_drop = top_score - result.score
+        if score_drop > (top_score * relative_drop):
+            cutoff_reason = "score_drop_detected"
+            logger.info(
+                f"Score drop detected at position {i}: "
+                f"score={result.score:.4f}, drop from top={score_drop:.4f} "
+                f"(>{relative_drop * 100:.0f}% of top score {top_score:.4f})"
+            )
+            break
+
+        # Check for plateau (flat tail of low-quality results)
+        if i >= initial_k + plateau_length - 1:
+            # Look at last plateau_length scores including current
+            window_start = i - plateau_length + 1
+            window_scores = [
+                rerank_results[j].score for j in range(window_start, i + 1)
+            ]
+            score_range = max(window_scores) - min(window_scores)
+
+            if score_range <= plateau_threshold:
+                cutoff_reason = "score_plateau_detected"
                 logger.info(
-                    f"Stopping at {results_count} results (next would exceed {token_budget:,} token budget)"
+                    f"Score plateau detected at position {i}: "
+                    f"last {plateau_length} scores vary by only {score_range:.4f}"
                 )
                 break
-        else:
-            yield entity
-            results_count += 1
-            total_tokens += entity_tokens
 
-    logger.info(
-        f"Selected {results_count} results using {total_tokens:,} tokens "
-        f"(budget: {token_budget:,})"
+        # Quality checks passed, include this entity
+        selected.append(result)
+
+    # Determine if more quality results are available
+    # Only signal has_more when we hit limits (not when we stopped due to poor quality)
+    has_more = (
+        cutoff_reason in ("max_entities_reached", None)
+        and len(selected) < total_available
     )
+
+    return selected, has_more, cutoff_reason
 
 
 def _extract_keywords_from_query(keyword_search_query: str) -> List[str]:
@@ -162,8 +190,9 @@ def smart_search(
     """Smart search across DataHub entities with AI-powered relevance ranking.
 
     Performs keyword search (fetching ~100 candidates) and uses AI to identify and return
-    the top 5 most relevant results with DETAILED, FULL entity information. Use this as your
-    primary search tool.
+    the most relevant results (typically 4-30 entities) with DETAILED, FULL entity information.
+    Dynamically adjusts result count based on score quality - more results when quality is high,
+    fewer when there's a clear quality drop. Use this as your primary search tool.
 
     KEYWORD SEARCH QUERY SYNTAX:
     - **Always start queries with /q**
@@ -225,19 +254,23 @@ def smart_search(
         - results: Array of DETAILED, FULL entity objects with all metadata.
             These entities have complete information - you do NOT need to call get_entities.
         - facets: Aggregated metadata (platforms, tags, domains, etc.) across all results
-        - total_candidates: Number of candidates found before AI reranking
+        - candidates_reviewed: Number of candidates found in initial keyword search and reviewed by AI
+        - candidates_selected: Number selected after AI reranking and quality filtering
+        - returned_count: Number of results actually returned (may be less due to token budget)
+        - has_more_selected_results: True if more quality results exist beyond what was returned (only True for limit-based cutoffs like token_budget_exceeded or max_entities_reached, not for quality-based cutoffs like score_drop_detected or score_plateau_detected)
+        - selection_cutoff_reason: Why candidate selection was limited (e.g., "score_drop_detected", "score_plateau_detected", "token_budget_exceeded", "max_entities_reached")
 
     IMPORTANT: This tool returns DETAILED and FULL entity information including schema fields.
     DO NOT call get_entities on these results - all detailed information is already included.
+
+    If has_more_selected_results is True, there are additional quality results worth exploring.
+    The candidates_reviewed field shows how many were initially found and evaluated.
 
     Args:
         semantic_query: User's natural language query (used for AI semantic reranking)
         keyword_search_query: Keyword search query using /q syntax
         filters: Optional entity/platform/domain filters
     """
-    # Internal constants (not exposed to agent)
-    MAX_RESULTS = 5
-
     logger.info(
         f"smart_search called with semantic_query='{semantic_query}', "
         f"keyword_search_query='{keyword_search_query}', filters={filters}"
@@ -260,7 +293,10 @@ def smart_search(
         return SmartSearchResponse(
             results=[],
             facets=facets,
-            total_candidates=0,
+            candidates_reviewed=0,
+            candidates_selected=0,
+            returned_count=0,
+            has_more_selected_results=False,
         )
 
     logger.info(f"Found {len(candidates)} candidates, reranking")
@@ -277,37 +313,62 @@ def smart_search(
         keyword_search_query=keyword_search_query,
     )
 
-    # Sort candidates by rerank scores and take top MAX_RESULTS
-    scored_candidates = []
-    for rerank_result in rerank_results:
-        candidate = candidates[rerank_result.index]
-        scored_candidates.append(
-            {
-                **candidate,
-                "score": rerank_result.score,
-            }
+    # Select entities based on score quality (adaptive cutoff)
+    selected_rerank, has_more, selection_cutoff_reason = (
+        _select_entities_by_score_quality(
+            rerank_results=rerank_results,
+            initial_k=4,  # Minimum entities to return
+            max_entities=30,  # Upper limit
+            relative_drop=0.5,  # 50% drop from top = quality cliff
+            plateau_threshold=0.05,  # 5% variation = plateau
+            plateau_length=3,  # 3 consecutive similar scores
         )
-
-    # Already sorted by reranker, just take top MAX_RESULTS
-    final_results = scored_candidates[:MAX_RESULTS]
-
-    logger.info(
-        f"Returning {len(final_results)} results "
-        f"(from {len(candidates)} candidates, "
-        f"top score: {rerank_results[0].score if rerank_results else 0:.4f})"
     )
 
-    # Use generator to select results within token budget
-    cleaned_results = list(
-        _select_results_within_budget(
-            rerank_results=rerank_results,
-            candidates=candidates,
-            max_results=MAX_RESULTS,
+    logger.info(
+        f"Quality-based selection: {len(selected_rerank)}/{len(rerank_results)} entities "
+        f"(top score: {rerank_results[0].score if rerank_results else 0:.4f}, "
+        f"selection_cutoff_reason: {selection_cutoff_reason}, has_more: {has_more})"
+    )
+
+    # Lambda to clean entity in place and return it for token counting
+    def get_cleaned_entity(rerank_result: RerankResult) -> dict:
+        candidate = candidates[rerank_result.index]
+        raw_entity = candidate.get("entity", {})
+        truncate_descriptions(raw_entity)
+        cleaned_entity = clean_get_entities_response(raw_entity)
+        candidate["entity"] = cleaned_entity  # Store back to candidate
+        return cleaned_entity  # Return for token counting
+
+    # Select results within budget and extract cleaned entities
+    # Entities are cleaned lazily only for results that fit in budget
+    cleaned_results = [
+        candidates[rr.index]["entity"]
+        for rr in _select_results_within_budget(
+            results=iter(selected_rerank),
+            fetch_entity=get_cleaned_entity,
+            max_results=len(selected_rerank),  # Use quality-based selection count
         )
+    ]
+
+    # If token budget caused further reduction, update has_more
+    if len(cleaned_results) < len(selected_rerank):
+        has_more = True
+        if not selection_cutoff_reason:
+            selection_cutoff_reason = "token_budget_exceeded"
+
+    logger.info(
+        f"Returning {len(cleaned_results)} results "
+        f"(reviewed {len(candidates)} candidates, selected {len(selected_rerank)}, "
+        f"has_more: {has_more}, selection_cutoff_reason: {selection_cutoff_reason})"
     )
 
     return SmartSearchResponse(
         results=cleaned_results,
         facets=facets,
-        total_candidates=len(candidates),
+        candidates_reviewed=len(candidates),
+        candidates_selected=len(selected_rerank),
+        returned_count=len(cleaned_results),
+        has_more_selected_results=has_more,
+        selection_cutoff_reason=selection_cutoff_reason,
     )

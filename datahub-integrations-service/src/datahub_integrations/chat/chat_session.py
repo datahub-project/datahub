@@ -944,6 +944,9 @@ class ChatSession:
                 result = tool.run(arguments=tool_request.tool_input)
 
         except Exception as e:
+            logger.exception(
+                f"Tool execution failed for {tool_name} in session {self.session_id}"
+            )
             error = f"{type(e).__name__}: {e}"
             self._add_message(
                 ToolResultError(

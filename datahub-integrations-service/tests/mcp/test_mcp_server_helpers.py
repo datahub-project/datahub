@@ -604,6 +604,63 @@ def test_get_lineage_normalizes_null_string() -> None:
             assert "user_id" in directive.urn
 
 
+def test_get_lineage_cleans_entities_in_results() -> None:
+    """Test that entities in lineage results are cleaned via clean_get_entities_response."""
+    from datahub_integrations.mcp.mcp_server import get_lineage
+
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.raw_schema.users,PROD)"
+
+    # Mock entity with schema fields (should be cleaned)
+    entity_with_schema = {
+        "urn": dataset_urn,
+        "schemaMetadata": {
+            "fields": [
+                {"fieldPath": "user_id", "type": "STRING"},
+                {"fieldPath": "email", "type": "STRING"},
+            ]
+        },
+    }
+
+    mock_lineage_response = {
+        "downstreams": {
+            "searchResults": [
+                {"entity": entity_with_schema},
+            ],
+            "total": 1,
+        }
+    }
+
+    with patch(
+        "datahub_integrations.mcp.mcp_server.get_datahub_client"
+    ) as mock_get_client:
+        mock_client = Mock()
+        mock_graph = Mock()
+        mock_client._graph = mock_graph
+        mock_get_client.return_value = mock_client
+
+        mock_lineage_api = Mock()
+        mock_lineage_api.get_lineage.return_value = mock_lineage_response
+
+        with patch(
+            "datahub_integrations.mcp.mcp_server.AssetLineageAPI",
+            return_value=mock_lineage_api,
+        ):
+            with patch(
+                "datahub_integrations.mcp.mcp_server.clean_get_entities_response"
+            ) as mock_clean:
+                mock_clean.side_effect = lambda x: {**x, "cleaned": True}
+
+                result = get_lineage(urn=dataset_urn, column=None)
+
+                # Verify clean_get_entities_response was called for the entity
+                mock_clean.assert_called_once()
+                # Verify the cleaned entity is in the result (under downstreams)
+                assert (
+                    result["downstreams"]["searchResults"][0]["entity"]["cleaned"]
+                    is True
+                )
+
+
 class TestSortFieldsByPriority:
     """Tests for _sort_fields_by_priority generator function."""
 
@@ -815,6 +872,56 @@ class TestCleanSchemaFields:
 
         assert result[0]["glossaryTerms"] == ["User Identifier", "Primary Key"]
 
+    def test_handles_tags_with_none_properties(self) -> None:
+        """Test that tags with None properties are filtered out (Looker bug)."""
+        fields = [
+            {
+                "fieldPath": "field",
+                "tags": {
+                    "tags": [
+                        {"tag": {"properties": {"name": "Valid Tag"}}},
+                        {
+                            "tag": {
+                                "properties": None,
+                                "urn": "urn:li:tag:looker:group_label:Date",
+                            }
+                        },
+                        {"tag": {"properties": {"name": "Another Valid"}}},
+                    ]
+                },
+            }
+        ]
+
+        result = list(_clean_schema_fields(iter(fields), editable_map={}))
+
+        # Should only include tags with valid properties
+        assert result[0]["tags"] == ["Valid Tag", "Another Valid"]
+
+    def test_handles_glossary_terms_with_none_properties(self) -> None:
+        """Test that glossary terms with None properties are filtered out."""
+        fields = [
+            {
+                "fieldPath": "field",
+                "glossaryTerms": {
+                    "terms": [
+                        {"term": {"properties": {"name": "Valid Term"}}},
+                        {
+                            "term": {
+                                "properties": None,
+                                "urn": "urn:li:glossaryTerm:broken",
+                            }
+                        },
+                        {"term": {"properties": {"name": "Another Valid"}}},
+                    ]
+                },
+            }
+        ]
+
+        result = list(_clean_schema_fields(iter(fields), editable_map={}))
+
+        # Should only include terms with valid properties
+        assert result[0]["glossaryTerms"] == ["Valid Term", "Another Valid"]
+
     def test_handles_deprecation_info(self) -> None:
         """Test that deprecation information is preserved."""
         fields = [
@@ -939,7 +1046,7 @@ class TestCleanGetEntitiesResponseFieldTruncation:
     """Tests for field truncation in clean_get_entities_response."""
 
     @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
-    @patch("datahub_integrations.mcp.mcp_server.ENTITY_TOKEN_BUDGET", 1000)
+    @patch("datahub_integrations.mcp.mcp_server.ENTITY_SCHEMA_TOKEN_BUDGET", 1000)
     def test_truncates_fields_when_exceeds_budget(self, mock_estimator) -> None:
         """Test that fields are truncated when they exceed token budget."""
         # Each field is 300 tokens, budget is 1000, so should fit 3 fields
@@ -962,7 +1069,7 @@ class TestCleanGetEntitiesResponseFieldTruncation:
         assert result["schemaMetadata"]["schemaFieldsTruncated"]["includedFields"] == 3
 
     @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
-    @patch("datahub_integrations.mcp.mcp_server.ENTITY_TOKEN_BUDGET", 10000)
+    @patch("datahub_integrations.mcp.mcp_server.ENTITY_SCHEMA_TOKEN_BUDGET", 10000)
     def test_no_truncation_when_within_budget(self, mock_estimator) -> None:
         """Test that no truncation occurs when fields fit within budget."""
         mock_estimator.estimate_dict_tokens.return_value = 100
@@ -983,7 +1090,7 @@ class TestCleanGetEntitiesResponseFieldTruncation:
         assert "schemaFieldsTruncated" not in result["schemaMetadata"]
 
     @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
-    @patch("datahub_integrations.mcp.mcp_server.ENTITY_TOKEN_BUDGET", 500)
+    @patch("datahub_integrations.mcp.mcp_server.ENTITY_SCHEMA_TOKEN_BUDGET", 500)
     def test_always_includes_at_least_one_field(self, mock_estimator) -> None:
         """Test that at least 1 field is included even if it exceeds budget."""
         # First field exceeds budget (1000 > 500)
@@ -1049,7 +1156,7 @@ class TestCleanGetEntitiesResponseFieldTruncation:
         assert fields1 == fields2
 
     @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
-    @patch("datahub_integrations.mcp.mcp_server.ENTITY_TOKEN_BUDGET", 1000)
+    @patch("datahub_integrations.mcp.mcp_server.ENTITY_SCHEMA_TOKEN_BUDGET", 1000)
     def test_truncation_metadata_accuracy(self, mock_estimator) -> None:
         """Test that truncation metadata accurately reflects field counts."""
         # Each field is 300 tokens, budget is 1000, so 3 fields fit

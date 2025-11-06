@@ -12,6 +12,7 @@ import fastmcp.tools
 import mlflow
 import mlflow.entities
 from fastmcp import FastMCP
+from loguru import logger
 from mcp.types import TextContent
 
 from datahub_integrations.chat.context_reducer import TokenCountEstimator
@@ -48,7 +49,14 @@ def async_background(fn: Callable[_P, _R]) -> Callable[_P, Awaitable[_R]]:
 
     @functools.wraps(fn)
     async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        return await asyncer.asyncify(fn)(*args, **kwargs)
+        try:
+            return await asyncer.asyncify(fn)(*args, **kwargs)
+        except Exception:
+            # Log with full stack trace before FastMCP catches it
+            logger.exception(
+                f"Tool function {fn.__name__} failed with args={args}, kwargs={kwargs}"
+            )
+            raise
 
     return wrapper
 

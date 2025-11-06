@@ -10,16 +10,175 @@ from unittest.mock import MagicMock, patch
 from datahub_integrations.smart_search.models import SmartSearchResponse
 from datahub_integrations.smart_search.reranker import RerankResult
 from datahub_integrations.smart_search.smart_search import (
+    _select_entities_by_score_quality,
     _select_results_within_budget,
     smart_search,
 )
+
+
+class TestSelectEntitiesByScoreQuality:
+    """Tests for _select_entities_by_score_quality function."""
+
+    def test_returns_minimum_initial_k_entities(self):
+        """Test that at least initial_k entities are returned."""
+        # Low quality scores, but should still return initial_k=4
+        results = [RerankResult(index=i, score=0.2) for i in range(10)]
+
+        selected, has_more, reason = _select_entities_by_score_quality(
+            results, initial_k=4, max_entities=30
+        )
+
+        assert len(selected) >= 4
+        # has_more is False because we stopped due to quality (plateau), not a limit
+        assert has_more is False
+
+    def test_detects_score_drop(self):
+        """Test that large score drop triggers cutoff."""
+        # Clear drop after position 3: 0.85 → 0.30
+        results = [
+            RerankResult(index=0, score=0.85),
+            RerankResult(index=1, score=0.78),
+            RerankResult(index=2, score=0.72),
+            RerankResult(index=3, score=0.68),
+            RerankResult(index=4, score=0.30),  # Large drop (>50% of top)
+            RerankResult(index=5, score=0.28),
+        ]
+
+        selected, has_more, reason = _select_entities_by_score_quality(
+            results, initial_k=4, relative_drop=0.5
+        )
+
+        # Should stop at 4 (initial_k), not include position 4 due to drop
+        assert len(selected) == 4
+        # has_more is False because we stopped due to quality drop, not a limit
+        assert has_more is False
+        assert reason == "score_drop_detected"
+
+    def test_detects_score_plateau(self):
+        """Test that score plateau triggers cutoff."""
+        # Plateau starts at position 7 (3 consecutive scores ~0.30)
+        results = [
+            RerankResult(index=0, score=0.60),
+            RerankResult(index=1, score=0.55),
+            RerankResult(index=2, score=0.50),
+            RerankResult(index=3, score=0.45),
+            RerankResult(index=4, score=0.40),
+            RerankResult(index=5, score=0.35),
+            RerankResult(index=6, score=0.32),
+            RerankResult(index=7, score=0.30),  # Plateau starts
+            RerankResult(index=8, score=0.30),
+            RerankResult(index=9, score=0.30),
+        ]
+
+        selected, has_more, reason = _select_entities_by_score_quality(
+            results, initial_k=4, plateau_threshold=0.05, plateau_length=3
+        )
+
+        # Should stop before plateau
+        assert len(selected) < 10
+        # has_more is False because we stopped due to quality plateau, not a limit
+        assert has_more is False
+        assert reason == "score_plateau_detected"
+
+    def test_returns_all_when_high_quality(self):
+        """Test that all entities are returned when quality remains high."""
+        # All scores within 40% of top (no 50% drop trigger)
+        # Enough variation to avoid plateau (>0.05)
+        results = [
+            RerankResult(index=0, score=0.85),
+            RerankResult(index=1, score=0.80),
+            RerankResult(index=2, score=0.76),
+            RerankResult(index=3, score=0.71),
+            RerankResult(index=4, score=0.67),
+            RerankResult(index=5, score=0.62),
+            RerankResult(index=6, score=0.58),
+            RerankResult(index=7, score=0.54),  # Still >50% of top (0.425)
+            RerankResult(index=8, score=0.50),
+            RerankResult(index=9, score=0.46),
+        ]
+
+        selected, has_more, reason = _select_entities_by_score_quality(
+            results, initial_k=4, max_entities=30
+        )
+
+        # Should return all 10 (no cutoff triggered)
+        assert len(selected) == 10
+        assert has_more is False
+        assert reason is None
+
+    def test_respects_max_entities_limit(self):
+        """Test that max_entities limit is enforced."""
+        # 50 results with large zigzag variations (>0.05 to avoid plateau)
+        results = [
+            RerankResult(index=i, score=0.90 - (i * 0.003) + ((i % 3) * 0.08))
+            for i in range(50)
+        ]
+
+        selected, has_more, reason = _select_entities_by_score_quality(
+            results,
+            initial_k=4,
+            max_entities=30,
+            relative_drop=0.9,  # Disable drop detection (90% tolerance)
+            plateau_threshold=0.05,  # Default plateau threshold
+        )
+
+        # Should stop at max_entities=30
+        assert len(selected) == 30
+        assert has_more is True
+        assert reason == "max_entities_reached"
+
+    def test_handles_fewer_than_initial_k(self):
+        """Test handling when total results < initial_k."""
+        results = [RerankResult(index=0, score=0.85), RerankResult(index=1, score=0.75)]
+
+        selected, has_more, reason = _select_entities_by_score_quality(
+            results, initial_k=4
+        )
+
+        # Should return all 2 (can't reach initial_k=4)
+        assert len(selected) == 2
+        assert has_more is False
+        assert reason is None
+
+    def test_handles_empty_results(self):
+        """Test handling of empty result list."""
+        selected, has_more, reason = _select_entities_by_score_quality([], initial_k=4)
+
+        assert selected == []
+        assert has_more is False
+        assert reason is None
+
+    def test_continues_past_initial_k_when_quality_good(self):
+        """Test that selection continues beyond initial_k when quality is good."""
+        # Good quality throughout with enough variation
+        results = [
+            RerankResult(index=0, score=0.70),
+            RerankResult(index=1, score=0.66),
+            RerankResult(index=2, score=0.61),
+            RerankResult(index=3, score=0.57),
+            RerankResult(index=4, score=0.53),
+            RerankResult(index=5, score=0.49),
+            RerankResult(index=6, score=0.46),
+            RerankResult(index=7, score=0.42),
+            RerankResult(index=8, score=0.39),
+            RerankResult(index=9, score=0.36),
+        ]
+
+        selected, has_more, reason = _select_entities_by_score_quality(
+            results, initial_k=4, max_entities=30
+        )
+
+        # Should return more than initial_k (no cutoff triggered)
+        assert len(selected) > 4
+        assert len(selected) == 10  # All of them
+        assert has_more is False
 
 
 class TestSelectResultsWithinBudget:
     """Tests for _select_results_within_budget generator function."""
 
     @patch("datahub_integrations.smart_search.smart_search.clean_get_entities_response")
-    @patch("datahub_integrations.smart_search.smart_search.TokenCountEstimator")
+    @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
     def test_selects_results_up_to_max_results(
         self, mock_estimator, mock_clean_response
     ):
@@ -38,21 +197,28 @@ class TestSelectResultsWithinBudget:
         ]
         candidates = [{"entity": {"urn": f"urn:li:dataset:{i}"}} for i in range(5)]
 
+        # Lambda to extract entity
+        def get_entity(rr):
+            return candidates[rr.index]["entity"]
+
         # Execute with max_results=3
         results = list(
             _select_results_within_budget(
-                rerank_results=rerank_results,
-                candidates=candidates,
+                results=iter(rerank_results),
+                fetch_entity=get_entity,
                 max_results=3,
                 token_budget=10000,
             )
         )
 
-        # Verify only 3 results returned
+        # Should yield exactly 3 RerankResult objects
         assert len(results) == 3
+        assert results[0].index == 0
+        assert results[1].index == 1
+        assert results[2].index == 2
 
     @patch("datahub_integrations.smart_search.smart_search.clean_get_entities_response")
-    @patch("datahub_integrations.smart_search.smart_search.TokenCountEstimator")
+    @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
     def test_stops_at_token_budget(self, mock_estimator, mock_clean_response):
         """Test that generator stops when token budget would be exceeded."""
         # Setup mocks
@@ -67,22 +233,28 @@ class TestSelectResultsWithinBudget:
         ]
         candidates = [{"entity": {"urn": f"urn:li:dataset:{i}"}} for i in range(10)]
 
+        # Lambda to extract entity
+        def get_entity(rr):
+            return candidates[rr.index]["entity"]
+
         # Execute with budget for 2.5 entities
         results = list(
             _select_results_within_budget(
-                rerank_results=rerank_results,
-                candidates=candidates,
+                results=iter(rerank_results),
+                fetch_entity=get_entity,
                 max_results=10,
                 token_budget=2500,  # Should fit 2 entities (2000 tokens), not 3rd (3000 total)
             )
         )
 
-        # Verify stopped at 2 entities
+        # Should stop at 2 results due to budget
         assert len(results) == 2
+        assert results[0].index == 0
+        assert results[1].index == 1
 
     @patch("datahub_integrations.smart_search.smart_search.clean_get_entities_response")
-    @patch("datahub_integrations.smart_search.smart_search.TokenCountEstimator")
-    @patch("datahub_integrations.smart_search.smart_search.logger")
+    @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
+    @patch("datahub_integrations.mcp.mcp_server.logger")
     def test_always_yields_at_least_one_result(
         self, mock_logger, mock_estimator, mock_clean_response
     ):
@@ -95,26 +267,31 @@ class TestSelectResultsWithinBudget:
         rerank_results = [RerankResult(index=0, score=0.9)]
         candidates = [{"entity": {"urn": "urn:li:dataset:1"}}]
 
+        # Lambda to extract entity
+        def get_entity(rr):
+            return candidates[rr.index]["entity"]
+
         # Execute with small budget
         results = list(
             _select_results_within_budget(
-                rerank_results=rerank_results,
-                candidates=candidates,
+                results=iter(rerank_results),
+                fetch_entity=get_entity,
                 max_results=10,
                 token_budget=1000,  # Much smaller than entity size
             )
         )
 
-        # Verify at least 1 result returned
+        # Should still yield 1 result despite exceeding budget
         assert len(results) == 1
+        assert results[0].index == 0
 
-        # Verify warning was logged
+        # Should have logged a warning
         mock_logger.warning.assert_called_once()
         warning_msg = mock_logger.warning.call_args[0][0]
         assert "exceeds budget" in warning_msg
 
     @patch("datahub_integrations.smart_search.smart_search.clean_get_entities_response")
-    @patch("datahub_integrations.smart_search.smart_search.TokenCountEstimator")
+    @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
     def test_uses_default_token_budget(self, mock_estimator, mock_clean_response):
         """Test that default token budget is 90% of limit."""
         mock_estimator.estimate_dict_tokens.return_value = 1000
@@ -123,11 +300,15 @@ class TestSelectResultsWithinBudget:
         rerank_results = [RerankResult(index=0, score=0.9)]
         candidates = [{"entity": {"urn": "urn:li:dataset:1"}}]
 
+        # Lambda to extract entity
+        def get_entity(rr):
+            return candidates[rr.index]["entity"]
+
         # Execute without token_budget parameter
         results = list(
             _select_results_within_budget(
-                rerank_results=rerank_results,
-                candidates=candidates,
+                results=iter(rerank_results),
+                fetch_entity=get_entity,
                 max_results=10,
                 token_budget=None,  # Should use default
             )
@@ -137,7 +318,7 @@ class TestSelectResultsWithinBudget:
 
     @patch("datahub_integrations.smart_search.smart_search.truncate_descriptions")
     @patch("datahub_integrations.smart_search.smart_search.clean_get_entities_response")
-    @patch("datahub_integrations.smart_search.smart_search.TokenCountEstimator")
+    @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
     def test_truncates_and_cleans_entities_before_yielding(
         self, mock_estimator, mock_clean_response, mock_truncate
     ):
@@ -151,24 +332,40 @@ class TestSelectResultsWithinBudget:
         raw_entity = {"urn": "urn:li:dataset:1", "raw": "data"}
         candidates = [{"entity": raw_entity}]
 
+        # Lambda that mimics smart_search's get_cleaned_entity
+        def get_entity(rr):
+            candidate = candidates[rr.index]
+            entity = candidate["entity"]
+            mock_truncate(entity)
+            cleaned = mock_clean_response(entity)
+            candidate["entity"] = cleaned
+            return cleaned
+
         # Execute
         results = list(
             _select_results_within_budget(
-                rerank_results=rerank_results,
-                candidates=candidates,
+                results=iter(rerank_results),
+                fetch_entity=get_entity,
                 max_results=10,
                 token_budget=10000,
             )
         )
 
-        # Verify truncate_descriptions was called first
+        # Verify we got the RerankResult back
+        assert len(results) == 1
+        assert results[0].index == 0
+
+        # Verify entity in candidate was cleaned
+        assert candidates[0]["entity"] == {"cleaned": True}
+
+        # Verify truncate_descriptions was called
         mock_truncate.assert_called_once_with(raw_entity)
-        # Verify clean_get_entities_response was called after
+
+        # Verify clean_get_entities_response was called
         mock_clean_response.assert_called_once_with(raw_entity)
-        assert results[0] == {"cleaned": True}
 
     @patch("datahub_integrations.smart_search.smart_search.clean_get_entities_response")
-    @patch("datahub_integrations.smart_search.smart_search.TokenCountEstimator")
+    @patch("datahub_integrations.mcp.mcp_server.TokenCountEstimator")
     def test_respects_rerank_order(self, mock_estimator, mock_clean_response):
         """Test that results are yielded in rerank score order."""
         mock_estimator.estimate_dict_tokens.return_value = 100
@@ -186,21 +383,25 @@ class TestSelectResultsWithinBudget:
             {"entity": {"urn": "urn:li:dataset:2"}},
         ]
 
+        # Lambda to extract entity
+        def get_entity(rr):
+            return candidates[rr.index]["entity"]
+
         # Execute
         results = list(
             _select_results_within_budget(
-                rerank_results=rerank_results,
-                candidates=candidates,
+                results=iter(rerank_results),
+                fetch_entity=get_entity,
                 max_results=10,
                 token_budget=10000,
             )
         )
 
-        # Verify order matches rerank results
-        # Note: clean_get_entities_response returns just the entity, not wrapped
-        assert results[0]["urn"] == "urn:li:dataset:2"
-        assert results[1]["urn"] == "urn:li:dataset:0"
-        assert results[2]["urn"] == "urn:li:dataset:1"
+        # Should yield RerankResult objects in rerank order (by score)
+        assert len(results) == 3
+        assert results[0].index == 2  # Highest score
+        assert results[1].index == 0  # Second score
+        assert results[2].index == 1  # Lowest score
 
 
 class TestSmartSearch:
@@ -237,7 +438,8 @@ class TestSmartSearch:
 
         # Verify
         assert isinstance(result, SmartSearchResponse)
-        assert result.total_candidates == 2
+        assert result.candidates_reviewed == 2
+        assert result.returned_count == len(result.results)
         assert len(result.facets) == 1
 
         # Verify search was called
@@ -269,7 +471,8 @@ class TestSmartSearch:
 
         # Verify
         assert isinstance(result, SmartSearchResponse)
-        assert result.total_candidates == 0
+        assert result.candidates_reviewed == 0
+        assert result.returned_count == 0
         assert len(result.results) == 0
         assert len(result.facets) == 0
 
@@ -304,10 +507,10 @@ class TestSmartSearch:
 
     @patch("datahub_integrations.smart_search.smart_search.create_reranker")
     @patch("datahub_integrations.smart_search.smart_search._search_implementation")
-    def test_smart_search_limits_to_5_results(
+    def test_smart_search_dynamic_result_count(
         self, mock_search_impl, mock_create_reranker
     ):
-        """Test that smart_search returns maximum 5 results."""
+        """Test that smart_search uses dynamic result count based on scores."""
         # Setup mocks with 10 candidates
         candidates = [{"entity": {"urn": f"urn:li:dataset:{i}"}} for i in range(10)]
         mock_search_impl.return_value = {
@@ -316,8 +519,9 @@ class TestSmartSearch:
         }
 
         mock_reranker = MagicMock()
+        # High scores that gradually decline
         mock_reranker.rerank.return_value = [
-            RerankResult(index=i, score=1.0 - (i * 0.1)) for i in range(10)
+            RerankResult(index=i, score=0.80 - (i * 0.05)) for i in range(10)
         ]
         mock_create_reranker.return_value = mock_reranker
 
@@ -328,9 +532,11 @@ class TestSmartSearch:
             filters=None,
         )
 
-        # Verify max 5 results returned
-        assert len(result.results) <= 5
-        assert result.total_candidates == 10
+        # Should use quality-based selection (not fixed at 5)
+        assert result.candidates_reviewed == 10
+        # has_more_selected_results should be set
+        assert result.has_more_selected_results is not None
+        assert result.returned_count == len(result.results)
 
     @patch("datahub_integrations.smart_search.smart_search.create_reranker")
     @patch("datahub_integrations.smart_search.smart_search._search_implementation")
