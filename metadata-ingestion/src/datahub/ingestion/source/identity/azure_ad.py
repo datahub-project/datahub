@@ -74,7 +74,7 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="The authority (https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-client-application-configuration) is a URL that indicates a directory that MSAL can request tokens from."
     )
     token_url: str = Field(
-        description="The token URL that acquires a token from Azure AD for authorizing requests.  This source will only work with v1.0 endpoint."
+        description="The token URL that acquires a token from Azure AD for authorizing requests."
     )
     # Optional: URLs for redirect and hitting the Graph API
     redirect: str = Field(
@@ -85,6 +85,12 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     graph_url: str = Field(
         "https://graph.microsoft.com/v1.0",
         description="[Microsoft Graph API endpoint](https://docs.microsoft.com/en-us/graph/use-the-api)",
+    )
+
+    # Optional: Specify the version of Azure AD endpoint
+    endpoint_version: str = Field(
+        "v1",
+        description="[Azure AD endpoint version (v1 for Azure AD, v2 for Entra ID)](https://stackoverflow.com/questions/45987516/how-do-i-check-to-see-if-my-azuread-version-is-v1-or-v2)",
     )
 
     # Optional: Customize the mapping to DataHub Username from an attribute in the REST API response
@@ -274,9 +280,11 @@ class AzureADSource(StatefulIngestionSourceBase):
             "client_id": self.config.client_id,
             "tenant_id": self.config.tenant_id,
             "client_secret": self.config.client_secret,
-            "resource": "https://graph.microsoft.com",
-            "scope": "https://graph.microsoft.com/.default",
         }
+        if self.config.endpoint_version == "v2":
+            self.token_data["scope"] = "https://graph.microsoft.com/.default"
+        else:
+            self.token_data["resource"] = "https://graph.microsoft.com"
         self.token = self.get_token()
         self.selected_azure_ad_groups: list = []
         self.azure_ad_groups_users: list = []
