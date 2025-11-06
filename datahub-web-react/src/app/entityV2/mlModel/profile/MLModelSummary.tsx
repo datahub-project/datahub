@@ -107,6 +107,19 @@ export default function MLModelSummary() {
         );
     };
 
+    const renderDefault = (defaultValue: any) => {
+        if (defaultValue === null || defaultValue === undefined) return '-';
+        return String(defaultValue);
+    };
+
+    const renderShape = (shape: any) => {
+        if (shape === null || shape === undefined) return '-';
+        if (Array.isArray(shape)) {
+            return `[${shape.join(', ')}]`;
+        }
+        return String(shape);
+    };
+
     const renderItems = (items: any, record: any, index: number) => {
         if (!items) return '-';
 
@@ -156,6 +169,13 @@ export default function MLModelSummary() {
         },
     ];
 
+    const parametersTableColumns = [
+        { title: 'Name', dataIndex: 'name', width: 200 },
+        { title: 'Type', dataIndex: 'type', width: 200, render: renderTypePill },
+        { title: 'Default', dataIndex: 'default', width: 150, render: renderDefault },
+        { title: 'Shape', dataIndex: 'shape', width: 150, render: renderShape },
+    ];
+
     // Parse signature data and create tabs
     const signatureData = useMemo(() => {
         const customProperties = model?.properties?.customProperties || [];
@@ -179,7 +199,16 @@ export default function MLModelSummary() {
             };
         };
 
-        const getSignatureData = (key: string) => {
+        const transformParameter = (item: any) => {
+            return {
+                name: item.name || '-',
+                type: item.type || '-',
+                default: item.default,
+                shape: item.shape,
+            };
+        };
+
+        const getSignatureData = (key: string, isParameters = false) => {
             const property = customProperties.find((prop) => prop.key === key);
             if (!property?.value) return null;
 
@@ -187,10 +216,21 @@ export default function MLModelSummary() {
                 const parsed = JSON.parse(property.value);
 
                 if (Array.isArray(parsed)) {
-                    return parsed.map(transformItem);
+                    return isParameters ? parsed.map(transformParameter) : parsed.map(transformItem);
                 }
 
                 if (typeof parsed === 'object' && parsed !== null) {
+                    if (isParameters) {
+                        return Object.entries(parsed).map(([name, value]) => {
+                            const valueObj = typeof value === 'object' && value !== null ? value : {};
+                            return {
+                                name,
+                                type: 'type' in valueObj ? String(valueObj.type) : '-',
+                                default: 'default' in valueObj ? valueObj.default : undefined,
+                                shape: 'shape' in valueObj ? valueObj.shape : undefined,
+                            };
+                        });
+                    }
                     return Object.entries(parsed).map(([name, value]) => {
                         const valueObj = typeof value === 'object' && value !== null ? value : {};
                         return {
@@ -202,16 +242,37 @@ export default function MLModelSummary() {
                     });
                 }
 
+                if (isParameters) {
+                    return [{ name: key, type: typeof parsed, default: undefined, shape: undefined }];
+                }
                 return [{ name: key, type: typeof parsed, required: undefined, items: undefined }];
             } catch (e) {
+                if (isParameters) {
+                    return [{ name: key, type: '-', default: undefined, shape: undefined }];
+                }
                 return [{ name: key, type: '-', required: undefined, items: undefined }];
             }
         };
 
         return {
-            inputs: getSignatureData('signature.inputs'),
-            outputs: getSignatureData('signature.outputs'),
-            parameters: getSignatureData('signature.parameters'),
+            inputs: getSignatureData('signature.inputs') as Array<{
+                name: any;
+                type: any;
+                required: any;
+                items: any;
+            }> | null,
+            outputs: getSignatureData('signature.outputs') as Array<{
+                name: any;
+                type: any;
+                required: any;
+                items: any;
+            }> | null,
+            parameters: getSignatureData('signature.parameters', true) as Array<{
+                name: any;
+                type: any;
+                default: any;
+                shape: any;
+            }> | null,
         };
     }, [model?.properties?.customProperties]);
 
@@ -220,26 +281,52 @@ export default function MLModelSummary() {
     }, [signatureData]);
 
     const renderModelSignature = () => {
-        const tabConfigs = [
-            { key: 'inputs', label: 'Inputs', data: signatureData.inputs, rowKeyPrefix: 'input' },
-            { key: 'outputs', label: 'Outputs', data: signatureData.outputs, rowKeyPrefix: 'output' },
-            { key: 'parameters', label: 'Parameters', data: signatureData.parameters, rowKeyPrefix: 'parameter' },
-        ];
+        const tabs: Array<{ key: string; label: string; children: React.ReactNode }> = [];
 
-        const tabs = tabConfigs
-            .filter((config) => config.data && config.data.length > 0)
-            .map((config) => ({
-                key: config.key,
-                label: config.label,
+        if (signatureData.inputs && signatureData.inputs.length > 0) {
+            tabs.push({
+                key: 'inputs',
+                label: 'Inputs',
                 children: (
                     <Table
                         pagination={false}
                         columns={signatureTableColumns}
-                        dataSource={config.data || []}
-                        rowKey={(record, index) => `${config.rowKeyPrefix}-${index}`}
+                        dataSource={signatureData.inputs}
+                        rowKey={(record, index) => `input-${index}`}
                     />
                 ),
-            }));
+            });
+        }
+
+        if (signatureData.outputs && signatureData.outputs.length > 0) {
+            tabs.push({
+                key: 'outputs',
+                label: 'Outputs',
+                children: (
+                    <Table
+                        pagination={false}
+                        columns={signatureTableColumns}
+                        dataSource={signatureData.outputs}
+                        rowKey={(record, index) => `output-${index}`}
+                    />
+                ),
+            });
+        }
+
+        if (signatureData.parameters && signatureData.parameters.length > 0) {
+            tabs.push({
+                key: 'parameters',
+                label: 'Parameters',
+                children: (
+                    <Table
+                        pagination={false}
+                        columns={parametersTableColumns}
+                        dataSource={signatureData.parameters}
+                        rowKey={(record, index) => `parameter-${index}`}
+                    />
+                ),
+            });
+        }
 
         return tabs.length > 0 ? <Tabs items={tabs} /> : null;
     };
