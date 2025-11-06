@@ -499,13 +499,13 @@ public class OpenLineageToDataHub {
         String sqlQuery = job.getFacets().getSql().getQuery();
         if (!sqlQuery.trim().isEmpty()) {
           if (!combinedTransformations.isEmpty()) {
+            // Add the OpenLineage Column Transformations as comments and then add the SQL
             combinedTransformations = "-- " + combinedTransformations + "\n" + sqlQuery;
           } else {
             combinedTransformations = sqlQuery;
           }
         }
       }
-      ;
 
       upstreamFields.sort(Comparator.comparing(Urn::toString));
       fgl.setUpstreams(upstreamFields);
