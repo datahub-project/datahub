@@ -411,7 +411,7 @@ public class OpenLineageToDataHub {
   }
 
   private static UpstreamLineage getFineGrainedLineage(
-      OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
+      OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig, OpenLineage.Job job) {
     FineGrainedLineageArray fgla = new FineGrainedLineageArray();
     UpstreamArray upstreams = new UpstreamArray();
 
@@ -480,6 +480,33 @@ public class OpenLineageToDataHub {
                 }
               });
 
+      String combinedTransformations = "";
+
+      // Capture transformation information from OpenLineage
+      if (!transformationTexts.isEmpty()) {
+        List<String> sortedList =
+            transformationTexts.stream()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .collect(Collectors.toList());
+        combinedTransformations = String.join(",", sortedList);
+      }
+
+      // Extract SQL query from SQLJobFacet if available
+      if (job != null
+          && job.getFacets() != null
+          && job.getFacets().getSql() != null
+          && job.getFacets().getSql().getQuery() != null) {
+        String sqlQuery = job.getFacets().getSql().getQuery();
+        if (!sqlQuery.trim().isEmpty()) {
+          if (!combinedTransformations.isEmpty()) {
+            combinedTransformations = "-- " + combinedTransformations + "\n" + sqlQuery;
+          } else {
+            combinedTransformations = sqlQuery;
+          }
+        }
+      }
+      ;
+
       upstreamFields.sort(Comparator.comparing(Urn::toString));
       fgl.setUpstreams(upstreamFields);
       fgl.setConfidenceScore(0.5f);
@@ -488,16 +515,7 @@ public class OpenLineageToDataHub {
       downstreamsFields.sort(Comparator.comparing(Urn::toString));
       fgl.setDownstreams(downstreamsFields);
       fgl.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
-
-      // Capture transformation information from OpenLineage
-      if (!transformationTexts.isEmpty()) {
-        List<String> sortedList =
-            transformationTexts.stream()
-                .sorted(String::compareToIgnoreCase)
-                .collect(Collectors.toList());
-        fgl.setTransformOperation(String.join(",", sortedList));
-      }
-
+      fgl.setTransformOperation(combinedTransformations);
       fgla.add(fgl);
     }
 
@@ -1119,7 +1137,8 @@ public class OpenLineageToDataHub {
           builder.schemaMetadata(getSchemaMetadata(input, datahubConf));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
-          UpstreamLineage upstreamLineage = getFineGrainedLineage(input, datahubConf);
+          UpstreamLineage upstreamLineage =
+              getFineGrainedLineage(input, datahubConf, event.getJob());
           if (upstreamLineage != null) {
             builder.lineage(upstreamLineage);
           }
@@ -1148,7 +1167,8 @@ public class OpenLineageToDataHub {
           builder.schemaMetadata(getSchemaMetadata(output, datahubConf));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
-          UpstreamLineage upstreamLineage = getFineGrainedLineage(output, datahubConf);
+          UpstreamLineage upstreamLineage =
+              getFineGrainedLineage(output, datahubConf, event.getJob());
           if (upstreamLineage != null) {
             builder.lineage(upstreamLineage);
           }

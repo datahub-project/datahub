@@ -883,6 +883,7 @@ public class OpenLineageEventToDatahubTest {
     builder.materializeDataset(true);
     builder.includeSchemaMetadata(true);
     builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
 
     String olEvent =
         IOUtils.toString(
@@ -909,6 +910,61 @@ public class OpenLineageEventToDatahubTest {
           Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())
               .get(0)
               .getTransformOperation());
+    }
+  }
+
+  @Test
+  public void testCaptureSQLJobFacet() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_with_sql_facet.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    assertEquals(1, datahubJob.getInSet().size());
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/people.parquet,DEV)",
+          dataset.getUrn().toString());
+    }
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/result_test,DEV)",
+          dataset.getUrn().toString());
+
+      // Verify that SQL query is included in transformOperation along with transformations
+      String transformOperation =
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())
+              .get(0)
+              .getTransformOperation();
+      assertNotNull(transformOperation);
+      // The format should be: "-- DIRECT:IDENTITY,INDIRECT:FILTER\nSELECT age, name FROM people
+      // WHERE age > 18"
+      assertTrue(
+          transformOperation.contains("SELECT age, name FROM people WHERE age > 18"),
+          "Transform operation should contain SQL query");
+      assertTrue(
+          transformOperation.contains("DIRECT:IDENTITY")
+              || transformOperation.contains("INDIRECT:FILTER"),
+          "Transform operation should contain transformation types");
+      // Verify the format: transformations should be prefixed with "-- " and followed by newline
+      // before SQL
+      assertTrue(
+          transformOperation.contains("-- ") && transformOperation.contains("\n"),
+          "Transform operation should have transformations prefixed with '-- ' and followed by newline before SQL");
     }
   }
 
