@@ -24,14 +24,12 @@ import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/ti
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
 import { Entity, EntityType, StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
     searchQuery: string;
-    data: GetSearchResultsForMultipleQuery | undefined;
     loading: boolean;
     setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setIsViewDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -44,11 +42,11 @@ interface Props {
     searchResults?: Entity[] | null;
     newProperty?: StructuredPropertyEntity;
     updatedProperty?: StructuredPropertyEntity;
+    isSearchLoading?: boolean;
 }
 
 const StructuredPropsTable = ({
     searchQuery,
-    data,
     loading,
     setIsDrawerOpen,
     setIsViewDrawerOpen,
@@ -61,14 +59,24 @@ const StructuredPropsTable = ({
     searchResults,
     newProperty,
     updatedProperty,
+    isSearchLoading,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
 
-    const structuredProperties = searchQuery
-        ? searchResults || []
-        : data?.searchAcrossEntities?.searchResults.map((res) => res.entity) || [];
+    const structuredProperties = (searchQuery && (searchResults as StructuredPropertyEntity[])) || [];
+
+    // Filter the search results on just displayName based on the search query
+    const filteredProperties = structuredProperties
+        .filter((prop: StructuredPropertyEntity) =>
+            prop.definition?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()),
+        )
+        .sort(
+            (propA, propB) =>
+                ((propB as StructuredPropertyEntity).definition.created?.time || 0) -
+                ((propA as StructuredPropertyEntity).definition.created?.time || 0),
+        );
 
     const [deleteStructuredProperty] = useDeleteStructuredPropertyMutation();
 
@@ -123,7 +131,7 @@ const StructuredPropsTable = ({
         setSelectedProperty(undefined);
     };
 
-    if (!loading && !structuredProperties.length && searchQuery) {
+    if (!loading && !isSearchLoading && !filteredProperties.length && searchQuery) {
         return <EmptyStructuredProperties isEmptySearch />;
     }
 
@@ -316,7 +324,7 @@ const StructuredPropsTable = ({
             {searchQuery ? (
                 <Table
                     columns={columns}
-                    data={structuredProperties}
+                    data={filteredProperties}
                     isLoading={loading}
                     isScrollable
                     data-testid="structured-props-table"

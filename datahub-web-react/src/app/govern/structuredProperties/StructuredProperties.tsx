@@ -1,5 +1,6 @@
 import { Button, PageTitle, SearchBar, Tooltip } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDebounce } from 'react-use';
 
 import StructuredPropsDrawer from '@app/govern/structuredProperties/StructuredPropsDrawer';
 import StructuredPropsTable from '@app/govern/structuredProperties/StructuredPropsTable';
@@ -13,6 +14,7 @@ import {
 } from '@app/govern/structuredProperties/styledComponents';
 import { DISPLAY_NAME_FILTER_NAME } from '@app/search/utils/constants';
 import { CREATED_TIME_FIELD_NAME } from '@app/searchV2/utils/constants';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
@@ -24,6 +26,7 @@ const MAX_PROPERTIES_TO_FETCH = 20;
 const StructuredProperties = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState<string>('');
+    const [debouncedQuery, setDebouncedQuery] = useState<string>('');
     const [searchResults, setSearchResults] = useState<Entity[] | null>(null);
     const [newProperty, setNewProperty] = useState<StructuredPropertyEntity>();
     const [updatedProperty, setUpdatedProperty] = useState<StructuredPropertyEntity>();
@@ -38,7 +41,7 @@ const StructuredProperties = () => {
     const getInputVariables = useCallback(
         (start: number, count: number) => ({
             types: [EntityType.StructuredProperty],
-            query: searchQuery,
+            query: '*',
             start,
             count,
             searchFlags: { skipCache: true },
@@ -46,25 +49,28 @@ const StructuredProperties = () => {
                 sortCriteria: [{ field: CREATED_TIME_FIELD_NAME, sortOrder: SortOrder.Descending }],
             },
         }),
-        [searchQuery],
+        [],
     );
+
+    useDebounce(() => setDebouncedQuery(searchQuery), DEBOUNCE_SEARCH_MS, [searchQuery]);
 
     const inputs = useMemo(() => getInputVariables(0, MAX_PROPERTIES_TO_FETCH), [getInputVariables]);
 
     const { data, loading, refetch } = useGetSearchResultsForMultipleQuery({
         variables: { input: inputs },
-        skip: !!searchQuery,
+        skip: !!debouncedQuery,
         fetchPolicy: 'cache-first',
     });
 
-    const [getAutoComplete, { data: autocompleteData }] = useGetAutoCompleteResultsLazyQuery();
+    const [getAutoComplete, { data: autocompleteData, loading: isSearchLoading }] =
+        useGetAutoCompleteResultsLazyQuery();
 
     const handleSearch = (value) => {
         setSearchQuery(value);
     };
 
     useEffect(() => {
-        if (!searchQuery) {
+        if (!debouncedQuery) {
             setSearchResults(null);
             return;
         }
@@ -72,14 +78,14 @@ const StructuredProperties = () => {
         getAutoComplete({
             variables: {
                 input: {
-                    query: searchQuery,
+                    query: debouncedQuery,
                     field: DISPLAY_NAME_FILTER_NAME,
                     limit: 200,
                     type: EntityType.StructuredProperty,
                 },
             },
         });
-    }, [searchQuery, getAutoComplete]);
+    }, [debouncedQuery, getAutoComplete]);
 
     useEffect(() => {
         if (autocompleteData?.autoComplete?.entities) {
@@ -157,8 +163,7 @@ const StructuredProperties = () => {
             />
             <TableContainer>
                 <StructuredPropsTable
-                    searchQuery={searchQuery}
-                    data={data}
+                    searchQuery={debouncedQuery}
                     loading={loading}
                     setIsDrawerOpen={setIsDrawerOpen}
                     setIsViewDrawerOpen={setIsViewDrawerOpen}
@@ -171,6 +176,7 @@ const StructuredProperties = () => {
                     searchResults={searchResults}
                     newProperty={newProperty}
                     updatedProperty={updatedProperty}
+                    isSearchLoading={isSearchLoading}
                 />
             </TableContainer>
             <StructuredPropsDrawer
