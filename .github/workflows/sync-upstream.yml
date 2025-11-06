@@ -1,9 +1,9 @@
 name: Sync Fork with Upstream
 
 on:
-  schedule:
-    # Run daily at 2 AM UTC
-    - cron: '0 2 * * *'
+  # schedule:
+  #   # Run daily at 2 AM UTC
+  #   - cron: '0 2 * * *'
   workflow_dispatch: # Manual trigger
 
 jobs:
@@ -18,12 +18,11 @@ jobs:
         id: fork-sync
         uses: tgymnich/fork-sync@v2.0.10
         with:
-          token: ${{ secrets.PAT_FOR_NIGHTLY_WORKFLOW }}
-          owner: datahub-project
+          token: ${{ secrets.PAT_FOR_UPSTREAM_SYNC_ACTION }}          
           base: test-sync-upstream
           head: master
           auto_approve: false
-          pr_title: 'chore: [TEST] Sync fork with upstream master'
+          pr_title: 'chore(sync): Sync fork with upstream master'
           pr_message: |
             This PR automatically syncs the test-sync-upstream branch with upstream datahub-project/datahub:master.
             
