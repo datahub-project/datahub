@@ -139,7 +139,7 @@ export const Proposals = ({ onProposalClick }: Props) => {
 
     return (
         <ProposalsContainer>
-            <StyledButtonGroup>
+            <StyledButtonGroup data-testid="proposal-groups">
                 {actionRequestGroups.map((group) => (
                     <StyledTabButton
                         variant="text"

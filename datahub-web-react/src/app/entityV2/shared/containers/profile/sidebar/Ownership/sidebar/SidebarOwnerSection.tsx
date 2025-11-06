@@ -127,7 +127,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                                 event.stopPropagation();
                             }}
                             actionPrivilege={canEditOwners || canProposeOwners}
-                            dataTestId="addOwner"
+                            dataTestId="add-owners-button"
                         />
                     )
                 }

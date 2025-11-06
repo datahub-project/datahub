@@ -33,7 +33,6 @@ const ActionRequestsContainer = styled.div<{ $isShowNavBarRedesign?: boolean; $h
     flex: 1;
     display: flex;
     flex-direction: column;
-    // TODO: Test this in old UI
     ${(props) =>
         `
         height: ${props.$height ? props.$height : '100%'};

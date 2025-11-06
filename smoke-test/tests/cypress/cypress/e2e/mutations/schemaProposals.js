@@ -22,7 +22,9 @@ const createProposalOnModal = (to_type, text) => {
   cy.get(".ant-select-selector").eq(2).type(to_type);
   cy.wait(1000);
   cy.get(".rc-virtual-list").find("div").contains(to_type).click();
-  cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
+  cy.get('[data-testid="propose-tags-terms-on-entity-button"]').click({
+    force: true,
+  });
   cy.waitTextVisible(to_type);
   cy.contains(to_type).should("be.visible");
   cy.wait(2000);

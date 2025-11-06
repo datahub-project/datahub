@@ -1084,7 +1084,7 @@ featureFlags:
   # If turned on, show the tab in the Compliance Form center to get to forms analytics
   requestMinimalSlackPermissions: ${REQUEST_MINIMAL_SLACK_PERMISSIONS:false}
   # If turned on, request minimal required slack permissions
-  showTaskCenterRedesign: ${SHOW_TASK_CENTER_REDESIGN:false}
+  showTaskCenterRedesign: ${SHOW_TASK_CENTER_REDESIGN:true}
   # If turned on, show the re-designed Proposals page in Task Center
   usePropagationsFramework: ${USE_PROPAGATIONS_FRAMEWORK:false}
   # If turned on, use the general Propagations Framework over specialized propagations actions

@@ -23,7 +23,7 @@ const ProposalDescriptionModal = ({ onPropose, onCancel, title }: Props) => {
                     key: 'Propose',
                     variant: 'filled',
                     onClick: () => onPropose(note),
-                    buttonDataTestId: 'add-note-propose-button',
+                    buttonDataTestId: 'add-proposal-note-button',
                 },
             ]}
         >
@@ -33,6 +33,7 @@ const ProposalDescriptionModal = ({ onPropose, onCancel, title }: Props) => {
                     placeholder="Note - optional"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
+                    inputTestId="proposal-note-input"
                 />
             </Form>
         </Modal>

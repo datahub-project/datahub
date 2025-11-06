@@ -121,6 +121,7 @@ interface Props {
     size?: number;
     hydratedEntityMap?: Record<string, Entity>;
     isProposed?: boolean;
+    dataTestId?: string;
     attribution?: MetadataAttribution | null;
 }
 
@@ -133,6 +134,7 @@ export default function StructuredPropertyValue({
     size = 12,
     hydratedEntityMap,
     isProposed,
+    dataTestId,
     attribution,
 }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -180,7 +182,7 @@ export default function StructuredPropertyValue({
 
     return (
         <Tooltip placement="topLeft" title={!value.entity && !!attribution && tooltipContent}>
-            <ValueText size={size} $isProposed={isProposed}>
+            <ValueText size={size} $isProposed={isProposed} data-testid={dataTestId}>
                 {value.entity ? (
                     valueEntityRender
                 ) : (

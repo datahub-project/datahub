@@ -56,7 +56,7 @@ const moveDomaintoParent = () => {
 
 const getDomainList = (domainName) => {
   cy.contains("span.ant-typography-ellipsis", domainName)
-    .parent('[data-testid="domain-list-item"]')
+    .parent('[data-testid="domain-options-list"]')
     .find('[aria-label="right"]')
     .click();
 };
@@ -204,7 +204,7 @@ describe("Verify nested domains test functionalities", () => {
       .click();
 
     // Add an owner
-    cy.clickOptionWithTestId("addOwner");
+    cy.clickOptionWithTestId("add-owners-button");
     cy.enterTextInTestId(
       "edit-owners-modal-find-actors-input",
       Cypress.env("ADMIN_DISPLAYNAME") || "DataHub",

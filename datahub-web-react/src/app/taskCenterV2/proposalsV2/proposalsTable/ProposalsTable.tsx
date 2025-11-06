@@ -46,7 +46,7 @@ const ProposalsTable = ({
     }
 
     return (
-        <TableContainer data-testid="proposals-table">
+        <TableContainer data-testid="proposals-table-container">
             <Table
                 columns={columns}
                 data={actionRequests}
@@ -69,6 +69,7 @@ const ProposalsTable = ({
                 onRowClick={onRowClick}
                 style={{ tableLayout: 'auto' }}
                 isScrollable
+                data-testid="proposals-table"
             />
         </TableContainer>
     );

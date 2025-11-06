@@ -189,7 +189,7 @@ describe("create and manage group", () => {
     cy.contains("Add Owners").click();
     cy.get('[id="owner"]').click();
     cy.focused().type(username);
-    cy.get(`[data-testid="owner-${username}"]`, { timeout: 10000 })
+    cy.get(`[data-testid="owner-option-${username}"]`, { timeout: 10000 })
       .should("be.visible")
       .click();
     cy.focused().blur();

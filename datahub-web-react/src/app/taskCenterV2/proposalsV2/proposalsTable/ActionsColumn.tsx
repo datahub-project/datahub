@@ -266,7 +266,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
         const resultAuthorDisplayName =
             resultAuthor && entityRegistry.getDisplayName(EntityType.CorpUser, resultAuthor);
         actionResultView = (
-            <CompletedContainer>
+            <CompletedContainer data-testid="proposal-completed-by">
                 {actionRequest.resultNote && <ResultNote resultNote={actionRequest.resultNote} author={resultAuthor} />}
                 <HoverEntityTooltip entity={resultAuthor as Entity} showArrow={false}>
                     <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${resultAuthor?.urn}`}>
@@ -337,6 +337,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                                 text: 'Submit',
                                 variant: 'filled',
                                 onClick: modalType === ProposalModalType.Accept ? acceptRequest : rejectRequest,
+                                buttonDataTestId: 'submit-proposal-button',
                             },
                         ]}
                         onCancel={handleCancel}

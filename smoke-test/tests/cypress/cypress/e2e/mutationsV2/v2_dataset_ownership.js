@@ -15,7 +15,7 @@ const loginAndGoToDataset = () => {
 };
 
 const addOwner = (owner, type) => {
-  cy.clickOptionWithTestId("addOwner");
+  cy.clickOptionWithTestId("add-owners-button");
   cy.contains("Search for users or groups...").click({ force: true });
   cy.focused().type(owner);
   cy.get(".ant-select-item").contains(owner).click();

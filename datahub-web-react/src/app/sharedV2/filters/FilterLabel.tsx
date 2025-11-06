@@ -66,6 +66,7 @@ const FilterLabel = ({ numActiveFilters, labelStyle, displayName, filterIcon, on
                         e.stopPropagation();
                         onClear?.();
                     }}
+                    data-testid={`clear-${displayName?.replace(/\s/g, '-')}-filter`}
                 />
             )}
             <CaretDown style={{ fontSize: '14px', height: '14px' }} />

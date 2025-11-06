@@ -212,7 +212,7 @@ export default function EditTagTermsModal({
         const tagOrTermComponent = <TagTermLabel entity={entity} />;
         return (
             <Select.Option data-testid="tag-term-option" value={entity.urn} key={entity.urn} name={displayName}>
-                <SearchResultContainer>
+                <SearchResultContainer data-testid={`tag-term-option-${displayName}`}>
                     <ParentEntities parentEntities={getParentEntities(entity) || []} />
                     {tagOrTermComponent}
                 </SearchResultContainer>
@@ -656,7 +656,7 @@ export default function EditTagTermsModal({
         onClick: handlePropose,
         disabled:
             (type === EntityType.GlossaryTerm ? !canProposeTerm : !canProposeTag) || urns.length === 0 || disableAction,
-        buttonDataTestId: 'create-proposal-btn',
+        buttonDataTestId: 'propose-tags-terms-on-entity-button',
     };
 
     return (

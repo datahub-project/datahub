@@ -1,6 +1,7 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import React, { useState } from 'react';
+import styled from 'styled-components';
 
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
@@ -30,6 +31,11 @@ import {
     StdDataType,
     StructuredPropertyEntity,
 } from '@src/types.generated';
+
+const ProposedValueContainer = styled.span`
+    display: flex;
+    width: max-content;
+`;
 
 interface FieldProperties {
     isSchemaSidebar?: boolean;
@@ -163,6 +169,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                                     value={val}
                                                     isRichText={isRichText}
                                                     hydratedEntityMap={hydratedEntityMap}
+                                                    dataTestId={`property-${propertyName}-value-${val.value}`}
                                                     attribution={propertyRow.attribution}
                                                 />
                                             ))}
@@ -171,7 +178,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                     {proposedValues.length > 0 && (
                                         <>
                                             {proposedValues.map((val) => (
-                                                <span
+                                                <ProposedValueContainer
                                                     // eslint needs keyboard listener for non-interactive elements
                                                     role="button"
                                                     tabIndex={0}
@@ -184,6 +191,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                                             setSelectedActionRequest(val.request);
                                                         }
                                                     }}
+                                                    data-testid={`proposed-property-${propertyName}-value-${val.value.value}`}
                                                 >
                                                     <StructuredPropertyValue
                                                         value={val.value}
@@ -191,7 +199,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                                         hydratedEntityMap={hydratedEntityMap}
                                                         isProposed
                                                     />
-                                                </span>
+                                                </ProposedValueContainer>
                                             ))}
                                         </>
                                     )}

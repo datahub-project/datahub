@@ -1,3 +1,4 @@
+import { Icon } from '@components';
 import { Modal, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
@@ -160,10 +161,18 @@ export default function Tag({
                         $colorHash={tag?.tag?.urn}
                         $color={tag?.tag?.properties?.colorHex}
                         closable={canRemove && !readOnly}
-                        onClose={(e) => {
-                            e.preventDefault();
-                            removeTag(tag);
-                        }}
+                        closeIcon={
+                            <Icon
+                                icon="X"
+                                source="phosphor"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    removeTag(tag);
+                                }}
+                                size="sm"
+                                data-testid="remove-icon"
+                            />
+                        }
                         fontSize={fontSize}
                         $highlightTag={highlightTag}
                         $showOneAndCount={showOneAndCount}

@@ -54,7 +54,7 @@ const ResultNote = ({ resultNote, author }: Props) => {
                         </PopoverContainer>
                     }
                 >
-                    <IconContainer>
+                    <IconContainer data-testid="proposal-result-note">
                         <FileText size={12} />
                     </IconContainer>
                 </Popover>

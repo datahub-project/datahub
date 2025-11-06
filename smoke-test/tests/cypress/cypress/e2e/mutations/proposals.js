@@ -1,3 +1,5 @@
+import { hasOperationName } from "../utils";
+
 const datasetName = "DatasetToProposeOn";
 const addDescription = "Description to propose";
 const updateDescription = "Description to proposes";
@@ -16,9 +18,20 @@ const datasetUrn = {
     "/tasks/urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_dag_abc,PROD),cypress_task_123)",
 };
 
+export const setTaskCenterRedesignFlag = (isOn) => {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.reply((res) => {
+        res.body.data.appConfig.featureFlags.showTaskCenterRedesign = isOn;
+      });
+    }
+  });
+};
+
 describe("proposals", () => {
   beforeEach(() => {
     cy.login();
+    setTaskCenterRedesignFlag(false);
   });
 
   Cypress.on("uncaught:exception", (err, runnable) => false);
@@ -87,7 +100,9 @@ describe("proposals", () => {
       .should("be.visible")
       .within(() => cy.contains(tagNameOrTermName).click({ force: true }));
     // Click the create proposal button
-    cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
+    cy.get('[data-testid="propose-tags-terms-on-entity-button"]').click({
+      force: true,
+    });
     cy.wait(1000);
     // Verify the proposed tag or term is visible
     cy.get(

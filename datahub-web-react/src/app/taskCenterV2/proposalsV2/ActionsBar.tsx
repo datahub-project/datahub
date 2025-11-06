@@ -212,7 +212,7 @@ const ActionsBar = ({
     };
 
     return (
-        <ActionsContainer $hasPagination={hasPagination}>
+        <ActionsContainer $hasPagination={hasPagination} data-testid="proposals-footer-actions">
             <SelectedContainer>
                 <Text color="gray">{`${selectedUrns.length} Selected`}</Text>
                 <StyledIcon source="phosphor" icon="X" size="md" color="gray" onClick={() => setSelectedUrns([])} />

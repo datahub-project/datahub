@@ -110,7 +110,7 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                         <RightActions>
                             {showTaskCenterRedesign && entityHasProposals(entityData) && (
                                 <Tooltip title="Tasks" placement="right">
-                                    <TasksIcon>
+                                    <TasksIcon data-testid="view-tasks-button">
                                         <ListChecks onClick={() => setShowProposalsModal(true)} size={20} />
                                         {/* Always show the PillDot for now */}
                                         <PillDot />

@@ -86,7 +86,6 @@ export const SetDomainModal = ({
     };
 
     const handleSearch = (text: string) => {
-        console.log('Not calling search');
         if (text) {
             domainSearch({
                 variables: {

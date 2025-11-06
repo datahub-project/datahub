@@ -42,7 +42,9 @@ export default function EntitySearchInputResultV2({ entity }: Props) {
         <Wrapper>
             {platformIcon && <IconContainer src={platformIcon} />}
             <TextWrapper>
-                <Text size="md">{entityRegistry.getDisplayName(entity.type, entity)}</Text>
+                <Text size="md" data-testid={`entity-${entity.urn}`}>
+                    {entityRegistry.getDisplayName(entity.type, entity)}
+                </Text>
                 <ContextPath
                     entityType={entity.type}
                     displayedEntityType={displayedEntityType}

@@ -154,6 +154,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                                             onClick={() => {
                                                 setSelectedActionRequest(request);
                                             }}
+                                            data-testid={`proposed-domain-${displayName}`}
                                         >
                                             <DomainContent
                                                 domain={proposedDomain}
