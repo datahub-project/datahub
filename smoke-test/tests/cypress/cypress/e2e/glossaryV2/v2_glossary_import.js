@@ -101,7 +101,8 @@ describe("glossary import", () => {
     cy.waitTextVisible("Business Glossary");
     cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.clickOptionWithText("Create Term Group");
-    // Wait for modal to appear - use the button instead of title text
+    // Wait for modal container to appear first
+    cy.get(".ant-modal-content", { timeout: 10000 }).should("be.visible");
     cy.get('[data-testid="glossary-entity-modal-create-button"]', {
       timeout: 10000,
     }).should("be.visible");
@@ -268,7 +269,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     cy.waitTextVisible("Business Glossary");
     cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.clickOptionWithText("Create Term");
-    // Wait for modal to appear - use the button instead of title text
+    // Wait for modal container to appear first
+    cy.get(".ant-modal-content", { timeout: 10000 }).should("be.visible");
     cy.get('[data-testid="glossary-entity-modal-create-button"]', {
       timeout: 10000,
     }).should("be.visible");
@@ -348,7 +350,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     cy.waitTextVisible("Business Glossary");
     cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.clickOptionWithText("Create Term");
-    // Wait for modal to appear - use the button instead of title text
+    // Wait for modal container to appear first
+    cy.get(".ant-modal-content", { timeout: 10000 }).should("be.visible");
     cy.get('[data-testid="glossary-entity-modal-create-button"]', {
       timeout: 10000,
     }).should("be.visible");
@@ -424,7 +427,8 @@ glossaryTerm,CypressImportTerm3,Term 3 description,INTERNAL`;
     cy.waitTextVisible("Business Glossary");
     cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.clickOptionWithText("Create Term");
-    // Wait for modal to appear - use the button instead of title text
+    // Wait for modal container to appear first
+    cy.get(".ant-modal-content", { timeout: 10000 }).should("be.visible");
     cy.get('[data-testid="glossary-entity-modal-create-button"]', {
       timeout: 10000,
     }).should("be.visible");
