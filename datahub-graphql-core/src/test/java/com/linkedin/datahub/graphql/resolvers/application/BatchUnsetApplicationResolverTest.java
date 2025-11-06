@@ -159,4 +159,22 @@ public class BatchUnsetApplicationResolverTest {
                     UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
             eq(UrnUtils.getUrn(TEST_ACTOR_URN)));
   }
+
+  @Test
+  public void testGetFailureServiceThrowsException() {
+    mockExists(UrnUtils.getUrn(TEST_ENTITY_URN_1), true);
+    mockExists(UrnUtils.getUrn(TEST_APPLICATION_URN), true);
+
+    Mockito.doThrow(new RuntimeException("Service error"))
+        .when(mockApplicationService)
+        .batchUnsetApplication(any(), any(), any(), any());
+
+    BatchUnsetApplicationInput input =
+        new BatchUnsetApplicationInput(TEST_APPLICATION_URN, ImmutableList.of(TEST_ENTITY_URN_1));
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockApplicationService, Mockito.times(1))
+        .batchUnsetApplication(any(), any(), any(), any());
+  }
 }
