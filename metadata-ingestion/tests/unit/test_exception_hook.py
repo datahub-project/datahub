@@ -6,6 +6,7 @@ from datahub.masking.bootstrap import (
     initialize_secret_masking,
     shutdown_secret_masking,
 )
+from datahub.masking.secret_registry import SecretRegistry
 
 
 class TestExceptionHookMasking:
@@ -13,9 +14,12 @@ class TestExceptionHookMasking:
 
     def setup_method(self):
         """Setup before each test."""
-        # Clean environment
         import os
 
+        # Save original environment to restore later
+        self._original_env = dict(os.environ)
+
+        # Set up test environment
         os.environ.clear()
         os.environ["TEST_SECRET_PASSWORD"] = "MySecretPass123!!"
         os.environ["TEST_API_KEY"] = "secret-api-key-xyz"
@@ -23,9 +27,24 @@ class TestExceptionHookMasking:
         # Initialize masking
         initialize_secret_masking(force=True)
 
+        # Register test secrets
+        registry = SecretRegistry.get_instance()
+        registry.register_secret("TEST_SECRET_PASSWORD", "MySecretPass123!!")
+        registry.register_secret("TEST_API_KEY", "secret-api-key-xyz")
+
     def teardown_method(self):
         """Cleanup after each test."""
+        import logging
+        import os
+
         shutdown_secret_masking()
+
+        # Restore original environment
+        os.environ.clear()
+        os.environ.update(self._original_env)
+
+        # Ensure logging state is clean for subsequent tests
+        logging.raiseExceptions = True
 
     def test_exception_hook_installed(self):
         """Verify that custom exception hook is installed."""
@@ -186,7 +205,9 @@ class TestExceptionHookIntegration:
 
     def test_exception_masking_after_initialization(self):
         """Test that exceptions are masked after initialization."""
+        import io
         import os
+        from contextlib import redirect_stderr
 
         # Use a longer password that's more likely to be detected
         test_pwd = "MyLongPassword12345!!"
@@ -195,21 +216,24 @@ class TestExceptionHookIntegration:
         # Initialize masking
         initialize_secret_masking(force=True)
 
+        # Register test secret
+        registry = SecretRegistry.get_instance()
+        registry.register_secret("TEST_PWD", test_pwd)
+
         try:
-            # After initialization, displayed output is masked
-            import io
-            from contextlib import redirect_stdout
+            # Test that exception hook masks secrets
+            captured_stderr = io.StringIO()
 
-            captured = io.StringIO()
-            with redirect_stdout(captured):
-                try:
-                    pwd_var = test_pwd  # Reference env var value
-                    raise ValueError(f"Password: {pwd_var}")
-                except Exception as e:
-                    print(f"Exception: {e}")
+            try:
+                raise ValueError(f"Password: {test_pwd}")
+            except Exception:
+                exc_info = sys.exc_info()
+                with redirect_stderr(captured_stderr):
+                    sys.excepthook(*exc_info)
 
-            output = captured.getvalue()
-            # Displayed output should be masked
+            output = captured_stderr.getvalue()
+            # Exception output should be masked
+            assert "MyLongPassword12345!!" not in output
             assert "***REDACTED:TEST_PWD***" in output
 
         finally:

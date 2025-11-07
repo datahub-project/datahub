@@ -1,27 +1,9 @@
 """
 Tests for secret masking bootstrap functionality.
 
-ARCHITECTURAL NOTE:
-    These tests mock filter installation rather than secret loading because
-    the bootstrap architecture was refactored to decouple infrastructure from
-    secret discovery:
-
-    OLD: Bootstrap loads secrets automatically based on execution context
-         - Mocks targeted _load_secrets_for_context()
-         - Bootstrap was responsible for both setup AND secret discovery
-
-    NEW: Bootstrap only sets up infrastructure (filter + exception hook)
-         - Mocks target install_masking_filter()
-         - Secrets register automatically at point-of-read (config expansion,
-           Pydantic validation)
-         - Bootstrap is NOT responsible for loading secrets
-
-    This change:
-    ✓ Separates concerns (infrastructure vs. discovery)
-    ✓ Makes masking context-independent
-    ✓ Allows components to own their secret registration
-    ✗ Bootstrap no longer catches secret loading errors (intentional -
-      errors now surface at point-of-read)
+Note: These tests mock filter installation because bootstrap only sets up
+infrastructure (logging filter + exception hook). Secret discovery happens
+automatically at point-of-read (config expansion, Pydantic validation).
 """
 
 from unittest.mock import patch
@@ -55,7 +37,7 @@ class TestBootstrapErrorHandling:
 
             # First attempt: simulate failure during filter installation
             with patch(
-                "datahub.ingestion.masking.bootstrap.install_masking_filter"
+                "datahub.masking.bootstrap.install_masking_filter"
             ) as mock_install:
                 test_exception = Exception("Simulated installation failure")
                 mock_install.side_effect = test_exception
@@ -74,7 +56,7 @@ class TestBootstrapErrorHandling:
                 )
 
             # Second attempt: simulate success
-            with patch("datahub.ingestion.masking.bootstrap.install_masking_filter"):
+            with patch("datahub.masking.bootstrap.install_masking_filter"):
                 # This time it succeeds (no side_effect)
                 initialize_secret_masking(force=True)
 
@@ -109,7 +91,7 @@ class TestBootstrapErrorHandling:
 
             # Simulate failure during filter installation
             with patch(
-                "datahub.ingestion.masking.bootstrap.install_masking_filter"
+                "datahub.masking.bootstrap.install_masking_filter"
             ) as mock_install:
                 test_error = ValueError("Test failure during filter installation")
                 mock_install.side_effect = test_error
@@ -165,7 +147,7 @@ class TestBootstrapErrorHandling:
                 time.sleep(0.01)  # Make race condition more likely
 
             with patch(
-                "datahub.ingestion.masking.bootstrap.install_masking_filter",
+                "datahub.masking.bootstrap.install_masking_filter",
                 counting_install,
             ):
                 # Launch 10 threads that all try to initialize simultaneously
@@ -215,7 +197,7 @@ class TestBootstrapErrorHandling:
             shutdown_secret_masking()
 
             # First initialization
-            with patch("datahub.ingestion.masking.bootstrap.install_masking_filter"):
+            with patch("datahub.masking.bootstrap.install_masking_filter"):
                 initialize_secret_masking()
 
             # Track calls with force=True
@@ -228,7 +210,7 @@ class TestBootstrapErrorHandling:
                 time.sleep(0.01)
 
             with patch(
-                "datahub.ingestion.masking.bootstrap.install_masking_filter",
+                "datahub.masking.bootstrap.install_masking_filter",
                 counting_install,
             ):
                 # Launch threads with force=True

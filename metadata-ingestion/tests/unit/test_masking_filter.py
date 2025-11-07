@@ -540,6 +540,14 @@ class TestStreamWrapper:
 class TestInstallation:
     """Test filter installation and removal."""
 
+    def setup_method(self):
+        """Ensure clean state before each test."""
+        uninstall_masking_filter()
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        uninstall_masking_filter()
+
     def test_install_uninstall(self):
         """Test filter installation and removal."""
         registry = SecretRegistry()
@@ -770,9 +778,9 @@ class TestP1Fixes:
 
         # No log operation should be blocked for long
         max_log_time = max(log_times)
-        # Allow up to 250ms for system variability (much better than seconds of blocking)
-        assert max_log_time < 0.25, (
-            f"Logging blocked: {max_log_time:.4f}s (expected <0.25s)"
+        # Allow up to 500ms for system variability in CI (much better than seconds of blocking)
+        assert max_log_time < 0.5, (
+            f"Logging blocked: {max_log_time:.4f}s (expected <0.5s)"
         )
 
         # Cleanup

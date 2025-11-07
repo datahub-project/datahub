@@ -37,33 +37,14 @@ CIRCUIT_OPEN_MESSAGE = "[REDACTED: Masking Circuit Open]"
 
 
 class SecretMaskingFilter(logging.Filter):
-    """
-    Logging filter that masks secrets in log records.
-
-    This filter:
-    1. Masks secrets in log messages
-    2. Masks secrets in log arguments
-    3. Masks secrets in exception information
-    4. Truncates large messages automatically
-    5. Uses copy-on-write pattern for thread safety (no .copy() needed)
-
-    Thread-safety: Uses RLock for pattern access but does NOT hold lock during
-    masking operations or I/O. Pattern and replacements are replaced atomically
-    using copy-on-write pattern.
-    """
+    """Logging filter that masks secrets in log records."""
 
     def __init__(
         self,
         secret_registry: Optional[SecretRegistry] = None,
         max_message_size: int = 5000,
     ):
-        """
-        Initialize the masking filter.
-
-        Args:
-            secret_registry: SecretRegistry instance (uses singleton if None)
-            max_message_size: Maximum log message size before truncation (bytes)
-        """
+        """Initialize the masking filter."""
         super().__init__()
 
         self._registry = secret_registry or SecretRegistry.get_instance()
@@ -83,21 +64,7 @@ class SecretMaskingFilter(logging.Filter):
         self._circuit_open = False
 
     def _check_and_rebuild_pattern(self) -> None:
-        """
-        Check if pattern needs rebuilding and rebuild if necessary.
-
-        Uses loop instead of recursion to prevent stack overflow
-        when secrets are being rapidly modified by concurrent threads.
-
-        Theoretical Limitation (ABA Problem):
-            Version is an incrementing integer. If it wraps around after 2^63
-            modifications (~9 quintillion registrations), version comparison
-            could give false positives. This is astronomically unlikely in
-            practice (would take centuries at 1M registrations/second).
-
-            If this ever becomes a concern, version could be changed to UUID4,
-            but the performance cost is not justified for this edge case.
-        """
+        """Check if pattern needs rebuilding and rebuild if necessary."""
         MAX_REBUILD_ATTEMPTS = 10  # Prevent infinite loops
 
         for attempt in range(MAX_REBUILD_ATTEMPTS):
@@ -192,15 +159,7 @@ class SecretMaskingFilter(logging.Filter):
         # Keep using the old pattern rather than crashing - graceful degradation
 
     def _mask_text(self, text: str) -> str:
-        """
-        Mask secrets in text string, displaying variable names for debugging.
-
-        Args:
-            text: Text to mask
-
-        Returns:
-            Masked text with secrets replaced by ***REDACTED:VARIABLE_NAME***
-        """
+        """Mask secrets in text string."""
         if not isinstance(text, str) or not text:
             return text
 
@@ -294,17 +253,7 @@ class SecretMaskingFilter(logging.Filter):
             return "[REDACTED: Masking Error]"
 
     def _mask_args(self, args: Any) -> Any:
-        """
-        Mask secrets in log arguments.
-
-        Handles both tuple args (for % formatting) and dict args (for {} formatting).
-
-        Args:
-            args: Log record arguments
-
-        Returns:
-            Masked arguments
-        """
+        """Mask secrets in log arguments."""
         if not args:
             return args
 
@@ -327,15 +276,7 @@ class SecretMaskingFilter(logging.Filter):
             return (MASKING_ERROR_MESSAGE,)
 
     def _mask_exception(self, exc_info: Optional[Tuple]) -> Optional[Tuple]:
-        """
-        Mask secrets in exception information.
-
-        Args:
-            exc_info: Exception info tuple (type, value, traceback)
-
-        Returns:
-            Exception info with masked strings
-        """
+        """Mask secrets in exception information."""
         if not exc_info:
             return exc_info
 
@@ -366,18 +307,7 @@ class SecretMaskingFilter(logging.Filter):
             )
 
     def _truncate_message(self, message: str) -> str:
-        """
-        Truncate large messages before masking.
-
-        This prevents performance issues when masking very large strings
-        (e.g., 80KB curl commands).
-
-        Args:
-            message: Log message
-
-        Returns:
-            Truncated message if too large
-        """
+        """Truncate large messages before masking."""
         if not isinstance(message, str):
             return message
 
@@ -392,18 +322,7 @@ class SecretMaskingFilter(logging.Filter):
         )
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """
-        Filter and mask a log record.
-
-        This is called by the logging framework for every log record.
-        We mask secrets and return True to allow the record through.
-
-        Args:
-            record: LogRecord to filter
-
-        Returns:
-            True (always allow record through)
-        """
+        """Filter and mask a log record."""
         # Check if masking is disabled for debugging
         from datahub.masking.secret_registry import is_masking_enabled
 
@@ -454,44 +373,15 @@ class SecretMaskingFilter(logging.Filter):
 
 
 class StreamMaskingWrapper:
-    """
-    Lightweight wrapper for stdout/stderr that masks secrets.
-
-    This is a BACKUP to the logging filter. It catches:
-    - print() statements
-    - Direct sys.stdout.write() calls
-    - Third-party library output
-    - C extension debug output
-
-    Does NOT hold lock during write() operation to prevent deadlock.
-    Uses the same masking logic as SecretMaskingFilter.
-    """
+    """Lightweight wrapper for stdout/stderr that masks secrets."""
 
     def __init__(self, original_stream: TextIO, masking_filter: SecretMaskingFilter):
-        """
-        Initialize stream wrapper.
-
-        Args:
-            original_stream: Original stdout/stderr stream
-            masking_filter: SecretMaskingFilter instance (for masking logic)
-        """
+        """Initialize stream wrapper."""
         self._original = original_stream
         self._filter = masking_filter
 
     def write(self, text: str) -> int:
-        """
-        Write text to stream with secrets masked.
-        No lock held during write to prevent deadlock.
-
-        Args:
-            text: Text to write (must be str, not bytes)
-
-        Returns:
-            Number of characters written (of masked text)
-
-        Raises:
-            TypeError: If text is not a string
-        """
+        """Write text to stream with secrets masked."""
         # Type validation - text streams require strings
         if not isinstance(text, str):
             raise TypeError(f"write() argument must be str, not {type(text).__name__}")
@@ -532,12 +422,7 @@ class StreamMaskingWrapper:
 
 
 def _update_existing_handlers() -> None:
-    """
-    Update all existing logging handlers to use wrapped sys.stdout/sys.stderr.
-
-    This function walks through all loggers and updates StreamHandlers that
-    are using the original stdout/stderr to use the new wrapped versions.
-    """
+    """Update all existing logging handlers to use wrapped streams."""
     updated_count = 0
 
     # Get all loggers (including root and all named loggers)
@@ -581,19 +466,7 @@ def install_masking_filter(
     max_message_size: int = 5000,
     install_stdout_wrapper: bool = True,
 ) -> SecretMaskingFilter:
-    """
-    Install secret masking filter on root logger and optionally wrap stdout/stderr.
-
-    This is the main entry point for enabling secret masking.
-
-    Args:
-        secret_registry: SecretRegistry instance (uses singleton if None)
-        max_message_size: Maximum message size before truncation
-        install_stdout_wrapper: Whether to also install stdout/stderr wrapper
-
-    Returns:
-        The installed SecretMaskingFilter instance
-    """
+    """Install secret masking filter on root logger and optionally wrap stdout/stderr."""
     # Create filter
     masking_filter = SecretMaskingFilter(
         secret_registry=secret_registry, max_message_size=max_message_size
@@ -633,11 +506,7 @@ def install_masking_filter(
 
 
 def uninstall_masking_filter() -> None:
-    """
-    Remove secret masking filter from root logger.
-
-    Used primarily for testing.
-    """
+    """Remove secret masking filter from root logger."""
     root_logger = logging.getLogger()
 
     # Remove filters

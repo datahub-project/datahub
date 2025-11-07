@@ -15,48 +15,17 @@ from datahub.configuration.common import ConfigurationError, ConfigurationMechan
 from datahub.configuration.json_loader import JsonConfigurationMechanism
 from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
-
-# Optional dependency: Secret masking
-try:
-    from datahub.masking.secret_registry import SecretRegistry, should_mask_env_var
-
-    _MASKING_AVAILABLE = True
-except ImportError:
-    _MASKING_AVAILABLE = False
+from datahub.masking.secret_registry import (
+    SecretRegistry,
+    is_masking_enabled,
+    should_mask_env_var,
+)
 
 Environ = Mapping[str, str]
 
 
 def _extract_env_var_names(text: str) -> Set[str]:
-    """
-    Extract environment variable names from a string containing ${VAR} or $VAR patterns.
-
-    Supports bash-style parameter expansion:
-    - ${VAR}          - simple variable
-    - ${VAR:-default} - default value
-    - ${VAR:=default} - assign default
-    - ${VAR:?error}   - error if unset
-    - ${VAR:+value}   - alternate value
-
-    Important Notes:
-        1. This extracts ALL $VAR patterns, including those in string values
-        2. If you have literal $ in your config (e.g., "mongodb://user:$PASSWORD"),
-           escape it as $$ in YAML or quote the entire string
-        3. False positives are harmless - they just won't find a matching env var
-        4. Use ${VAR} syntax explicitly if you want substitution
-
-    Args:
-        text: String that may contain environment variable references
-
-    Returns:
-        Set of variable names found
-
-    Examples:
-        >>> _extract_env_var_names("host: ${DATABASE_HOST}")
-        {'DATABASE_HOST'}
-        >>> _extract_env_var_names("mongodb://user:$$PASSWORD@host")  # Escaped $
-        set()  # No extraction because $$ is literal
-    """
+    """Extract environment variable names from ${VAR} or $VAR patterns."""
     var_names = set()
 
     # Match ${VAR} and bash parameter expansion patterns
@@ -87,12 +56,23 @@ def list_referenced_env_variables(config: dict) -> Set[str]:
 
 
 class EnvResolver:
+    """Resolves environment variable references in configuration dictionaries."""
+
     def __init__(
         self,
         environ: Environ,
         strict_env_syntax: bool = False,
         register_secrets: bool = True,
     ):
+        """
+        Initialize the environment variable resolver.
+
+        Args:
+            environ: Environment variable mapping (os.environ, custom dict, or external secrets)
+            strict_env_syntax: If True, only match ${VAR} syntax (not $VAR)
+            register_secrets: If True, register resolved values with masking registry
+                            (only if masking is globally enabled)
+        """
         self.environ = environ
         self.strict_env_syntax = strict_env_syntax
         self.register_secrets = register_secrets
@@ -128,13 +108,8 @@ class EnvResolver:
         return vars
 
     def _register_env_vars_from_element(self, element: str) -> None:
-        """
-        Register environment variables found in element for secret masking.
-
-        Args:
-            element: String that may contain environment variable references
-        """
-        if not self.register_secrets or not _MASKING_AVAILABLE:
+        """Register environment variables found in element for secret masking."""
+        if not self.register_secrets or not is_masking_enabled():
             return
 
         # Extract variable names from the pattern

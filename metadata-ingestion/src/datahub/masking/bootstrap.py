@@ -1,15 +1,22 @@
 """
 Bootstrap module for secret masking initialization.
 
-This module provides a simple initialization function that sets up the
-logging filter and exception hook for secret masking. It does NOT load
-or discover secrets - that is the responsibility of the components that
-read secrets (config loaders, Pydantic models, etc.).
+Architecture:
+    This module sets up the masking infrastructure (logging filter + exception hook).
+    Secret discovery is separated and happens automatically at point-of-read:
+    - Config loaders register secrets during ${VAR} expansion
+    - Pydantic models register SecretStr fields during validation
+
+    This separation means:
+    - Infrastructure setup is context-independent
+    - Components own their secret registration
+    - Errors surface at point-of-read (not during bootstrap)
 """
 
 import logging
 import sys
 import threading
+import traceback
 from typing import Optional
 
 from datahub.masking.logging_utils import get_masking_safe_logger
@@ -30,35 +37,17 @@ _bootstrap_lock = threading.Lock()  # Thread safety for concurrent initializatio
 
 
 def is_bootstrapped() -> bool:
-    """
-    Check if secret masking bootstrap has completed.
-
-    Returns:
-        True if bootstrap completed successfully
-    """
+    """Check if secret masking bootstrap has completed."""
     return _bootstrap_completed
 
 
 def get_bootstrap_error() -> Optional[Exception]:
-    """
-    Get bootstrap error if bootstrap failed.
-
-    Returns:
-        Exception if bootstrap failed, None otherwise
-    """
+    """Get bootstrap error if bootstrap failed."""
     return _bootstrap_error
 
 
 def _install_exception_hook(registry: SecretRegistry) -> None:
-    """
-    Install custom exception hook to mask secrets in unhandled exceptions.
-
-    This ensures that if an exception with secrets reaches sys.excepthook,
-    it gets masked before being printed to stderr.
-
-    Args:
-        registry: SecretRegistry instance for masking
-    """
+    """Install custom exception hook to mask secrets."""
     global _original_excepthook
 
     # Store original exception hook for later restoration
@@ -70,26 +59,21 @@ def _install_exception_hook(registry: SecretRegistry) -> None:
     masking_filter = SecretMaskingFilter(registry)
 
     def masking_excepthook(exc_type, exc_value, exc_traceback):
-        """
-        Custom exception hook that masks secrets in exception messages.
-        """
+        """Custom exception hook that masks secrets in exception messages."""
         try:
-            # Mask the exception args
-            if exc_value and hasattr(exc_value, "args") and exc_value.args:
-                # Mask each arg
-                masked_args = tuple(
-                    masking_filter._mask_text(arg) if isinstance(arg, str) else arg
-                    for arg in exc_value.args
-                )
+            # Format the exception to a string
+            tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+            tb_text = "".join(tb_lines)
 
-                # Create new exception with masked args
-                exc_value = type(exc_value)(*masked_args)
+            # Mask secrets in the formatted traceback
+            masked_tb_text = masking_filter._mask_text(tb_text)
+
+            # Write masked traceback to stderr
+            sys.stderr.write(masked_tb_text)
         except Exception as e:
-            # If masking fails, log error but continue with original exception
+            # If masking fails, fall back to original exception hook
             logger.error(f"Failed to mask exception: {e}")
-
-        # Call original exception hook with (potentially) masked exception
-        original_excepthook(exc_type, exc_value, exc_traceback)
+            original_excepthook(exc_type, exc_value, exc_traceback)
 
     # Install the custom hook
     sys.excepthook = masking_excepthook
@@ -99,48 +83,20 @@ def _install_exception_hook(registry: SecretRegistry) -> None:
 def initialize_secret_masking(
     max_message_size: int = 5000,
     force: bool = False,
-    debug_mode: bool = False,
 ) -> None:
     """
-    Initialize secret masking infrastructure.
+    Initialize secret masking infrastructure (logging filter + exception hook).
 
-    This function sets up the logging filter and exception hook for secret masking.
-    It does NOT load or discover secrets - that happens automatically when:
-    - Environment variables are expanded in config files (${VAR} syntax)
-    - Pydantic models with SecretStr fields are loaded
-
-    Masking can be disabled by setting DATAHUB_DISABLE_SECRET_MASKING=true
-    environment variable OR by passing debug_mode=True.
-
-    Thread-safe: Uses lock to prevent concurrent initialization.
-
-    Args:
-        max_message_size: Maximum log message size before truncation
-        force: Force re-initialization even if already initialized
-        debug_mode: Skip initialization and log reason (for debugging/testing).
-                   When True, secrets are NOT masked. Use with caution!
-
-    Example:
-        >>> # Normal production use
-        >>> initialize_secret_masking()
-
-        >>> # Debug mode - skip masking
-        >>> initialize_secret_masking(debug_mode=True)
-        [WARNING] Secret masking DISABLED via debug_mode parameter...
+    Secrets register automatically at point-of-read.
     """
     global _bootstrap_completed, _bootstrap_error
 
-    # Check if masking is disabled for debugging (env var OR parameter)
+    # Check if masking is disabled via environment variable
     from datahub.masking.secret_registry import is_masking_enabled
 
-    if debug_mode or not is_masking_enabled():
-        reason = (
-            "debug_mode parameter"
-            if debug_mode
-            else "DATAHUB_DISABLE_SECRET_MASKING environment variable"
-        )
+    if not is_masking_enabled():
         logger.warning(
-            f"Secret masking is DISABLED via {reason}. "
+            "Secret masking is DISABLED via DATAHUB_DISABLE_SECRET_MASKING environment variable. "
             "Sensitive information will be exposed in logs. Only use this for debugging!"
         )
         _bootstrap_completed = True  # Mark as completed to avoid repeated warnings
@@ -206,11 +162,7 @@ def initialize_secret_masking(
 
 
 def shutdown_secret_masking() -> None:
-    """
-    Shutdown secret masking system.
-
-    Used primarily for testing or cleanup.
-    """
+    """Shutdown secret masking system."""
     global _bootstrap_completed, _bootstrap_error, _original_excepthook
 
     try:
@@ -224,6 +176,11 @@ def shutdown_secret_masking() -> None:
         # Clear registry
         registry = SecretRegistry.get_instance()
         registry.clear()
+
+        # Reset masking-safe loggers to restore normal logging
+        from datahub.masking.logging_utils import reset_masking_safe_loggers
+
+        reset_masking_safe_loggers()
 
         _bootstrap_completed = False
         _bootstrap_error = None

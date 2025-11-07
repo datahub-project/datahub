@@ -6,7 +6,9 @@ Tests the full pipeline from secret registration to masked output.
 
 import logging
 import sys
+from contextlib import contextmanager
 from io import StringIO
+from typing import Generator
 
 import pytest
 
@@ -18,23 +20,71 @@ from datahub.masking.masking_filter import (
     SecretMaskingFilter,
 )
 from datahub.masking.secret_registry import SecretRegistry
+from datahub.utilities.perf_timer import PerfTimer
+
+
+@contextmanager
+def capture_masked_logs(
+    logger_name: str, log_format: str = "%(message)s"
+) -> Generator[tuple[logging.Logger, StringIO], None, None]:
+    """
+    Context manager to capture logs with masking filter applied.
+
+    Args:
+        logger_name: Name for the test logger
+        log_format: Log format string (default: message only)
+
+    Yields:
+        Tuple of (logger, output_stream) where output_stream is a StringIO
+        that will contain the masked log output
+
+    Example:
+        with capture_masked_logs("test") as (logger, output):
+            logger.info("Secret: my_secret")
+            assert "my_secret" not in output.getvalue()
+    """
+    # Get masking filter from root logger
+    root_logger = logging.getLogger()
+    masking_filter = None
+    for f in root_logger.filters:
+        if isinstance(f, SecretMaskingFilter):
+            masking_filter = f
+            break
+
+    if masking_filter is None:
+        raise RuntimeError(
+            "Masking filter not installed. Call initialize_secret_masking() first."
+        )
+
+    # Create test logger
+    test_logger = logging.getLogger(logger_name)
+    test_logger.setLevel(logging.DEBUG)
+
+    # Create handler with stream capture
+    log_stream = StringIO()
+    handler = logging.StreamHandler(log_stream)
+    handler.setFormatter(logging.Formatter(log_format))
+
+    # Apply masking filter to handler
+    handler.addFilter(masking_filter)
+    test_logger.addHandler(handler)
+
+    try:
+        yield test_logger, log_stream
+    finally:
+        test_logger.removeHandler(handler)
 
 
 class TestBootstrapIntegration:
-    """Test bootstrap initialization."""
-
     def setup_method(self):
-        """Clean up before each test."""
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
     def teardown_method(self):
-        """Clean up after each test."""
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
     def test_basic_initialization(self):
-        """Test basic initialization."""
         initialize_secret_masking()
 
         # Check that filter is installed
@@ -43,7 +93,6 @@ class TestBootstrapIntegration:
         assert len(filters) > 0
 
     def test_manual_secret_registration(self):
-        """Test manual secret registration."""
         initialize_secret_masking()
 
         # Manually register a secret
@@ -57,156 +106,83 @@ class TestBootstrapIntegration:
 
 
 class TestEndToEndMasking:
-    """Test end-to-end masking in logging."""
-
     def setup_method(self):
-        """Clean up and set up for each test."""
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
     def teardown_method(self):
-        """Clean up after each test."""
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
     def test_end_to_end_logging(self):
         """Test that secrets are masked in actual log output."""
-        # Initialize masking
         initialize_secret_masking()
 
         # Manually register secret
         registry = SecretRegistry.get_instance()
         registry.register_secret("TEST_SECRET", "super_secret_value")
 
-        # Get the masking filter from the root logger
-        root_logger = logging.getLogger()
-        masking_filter = None
-        for f in root_logger.filters:
-            if isinstance(f, SecretMaskingFilter):
-                masking_filter = f
-                break
-
-        assert masking_filter is not None, "Masking filter should be installed"
-
-        # Create a test logger and handler
-        test_logger = logging.getLogger("test_masking")
-        test_logger.setLevel(logging.DEBUG)
-
-        log_stream = StringIO()
-        handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(logging.Formatter("%(message)s"))
-
-        # Apply the masking filter to the handler
-        handler.addFilter(masking_filter)
-        test_logger.addHandler(handler)
-
-        try:
+        with capture_masked_logs("test_masking") as (logger, output):
             # Log a message with the secret
-            test_logger.info("The secret is super_secret_value")
+            logger.info("The secret is super_secret_value")
 
             # Check output
-            output = log_stream.getvalue()
-            assert "super_secret_value" not in output, (
-                f"Secret not masked! Output: {output}"
+            result = output.getvalue()
+            assert "super_secret_value" not in result, (
+                f"Secret not masked! Output: {result}"
             )
-            assert "***REDACTED:TEST_SECRET***" in output
-        finally:
-            # Clean up
-            test_logger.removeHandler(handler)
+            assert "***REDACTED:TEST_SECRET***" in result
 
     def test_debug_level_logging(self):
-        """Test that masking works at DEBUG level."""
         initialize_secret_masking()
 
         # Manually register secret
         registry = SecretRegistry.get_instance()
         registry.register_secret("DEBUG_SECRET", "debug_value_123")
 
-        # Get the masking filter from the root logger
-        root_logger = logging.getLogger()
-        masking_filter = None
-        for f in root_logger.filters:
-            if isinstance(f, SecretMaskingFilter):
-                masking_filter = f
-                break
-
-        assert masking_filter is not None, "Masking filter should be installed"
-
-        # Create logger at DEBUG level
-        test_logger = logging.getLogger("test_debug")
-        test_logger.setLevel(logging.DEBUG)
-
-        log_stream = StringIO()
-        handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-
-        # Apply the masking filter to the handler
-        handler.addFilter(masking_filter)
-        test_logger.addHandler(handler)
-
-        try:
+        with capture_masked_logs("test_debug", "%(levelname)s: %(message)s") as (
+            logger,
+            output,
+        ):
             # Log at various levels
-            test_logger.debug("Debug: debug_value_123")
-            test_logger.info("Info: debug_value_123")
-            test_logger.warning("Warning: debug_value_123")
-            test_logger.error("Error: debug_value_123")
+            logger.debug("Debug: debug_value_123")
+            logger.info("Info: debug_value_123")
+            logger.warning("Warning: debug_value_123")
+            logger.error("Error: debug_value_123")
 
-            output = log_stream.getvalue()
+            result = output.getvalue()
 
             # Secret should be masked at all levels
-            assert "debug_value_123" not in output, (
-                f"Secret not masked! Output: {output}"
+            assert "debug_value_123" not in result, (
+                f"Secret not masked! Output: {result}"
             )
-            assert output.count("***REDACTED:DEBUG_SECRET***") == 4
-        finally:
-            test_logger.removeHandler(handler)
+            assert result.count("***REDACTED:DEBUG_SECRET***") == 4
 
     def test_exception_logging_masked(self):
-        """Test that exceptions with secrets are masked."""
         initialize_secret_masking()
 
         # Manually register secret
         registry = SecretRegistry.get_instance()
         registry.register_secret("ERROR_SECRET", "error_secret_xyz")
 
-        # Get the masking filter from the root logger
-        root_logger = logging.getLogger()
-        masking_filter = None
-        for f in root_logger.filters:
-            if isinstance(f, SecretMaskingFilter):
-                masking_filter = f
-                break
-
-        assert masking_filter is not None, "Masking filter should be installed"
-
-        test_logger = logging.getLogger("test_exception")
-
-        log_stream = StringIO()
-        handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(logging.Formatter("%(message)s"))
-
-        # Apply the masking filter to the handler
-        handler.addFilter(masking_filter)
-        test_logger.addHandler(handler)
-
-        try:
+        with capture_masked_logs("test_exception") as (logger, output):
             # Log an exception containing secret
             try:
                 raise ValueError("Connection failed with error_secret_xyz")
             except ValueError as e:
-                test_logger.exception("Error occurred: %s", str(e))
+                logger.exception("Error occurred: %s", str(e))
 
-            output = log_stream.getvalue()
+            result = output.getvalue()
 
             # Secret should be masked in exception message
             # Note: The traceback may still show source code from the file,
             # but the exception args/message should be masked
-            assert "***REDACTED:ERROR_SECRET***" in output, (
-                f"Secret not masked in exception! Output: {output}"
+            assert "***REDACTED:ERROR_SECRET***" in result, (
+                f"Secret not masked in exception! Output: {result}"
             )
 
             # Check that at least the error message line is masked
-            lines = output.split("\n")
+            lines = result.split("\n")
             error_line = [
                 line
                 for line in lines
@@ -224,11 +200,8 @@ class TestEndToEndMasking:
                     assert "***REDACTED:ERROR_SECRET***" in line, (
                         f"ValueError not masked: {line}"
                     )
-        finally:
-            test_logger.removeHandler(handler)
 
     def test_stdout_wrapper_integration(self):
-        """Test that stdout wrapper catches print statements."""
         # Initialize with stdout wrapper
         initialize_secret_masking()
 
@@ -256,28 +229,21 @@ class TestEndToEndMasking:
 
 
 class TestPerformanceIntegration:
-    """Test performance of masking in realistic scenarios."""
-
     def setup_method(self):
-        """Clean up before each test."""
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
     def teardown_method(self):
-        """Clean up after each test."""
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
     def test_many_secrets_performance(self):
-        """Test performance with many secrets."""
-        import time
-
         # Initialize
-        start = time.time()
-        initialize_secret_masking()
-        init_time = time.time() - start
+        with PerfTimer() as init_timer:
+            initialize_secret_masking()
 
         # Initialization should be fast
+        init_time = init_timer.elapsed_seconds()
         assert init_time < 1.0, f"Initialization took {init_time:.2f}s"
 
         # Register many secrets
@@ -285,101 +251,50 @@ class TestPerformanceIntegration:
         for i in range(100):
             registry.register_secret(f"SECRET_{i}", f"value_{i}")
 
-        # Get the masking filter from the root logger
-        root_logger = logging.getLogger()
-        masking_filter = None
-        for f in root_logger.filters:
-            if isinstance(f, SecretMaskingFilter):
-                masking_filter = f
-                break
-
-        assert masking_filter is not None, "Masking filter should be installed"
-
-        # Create logger
-        test_logger = logging.getLogger("test_perf")
-
-        log_stream = StringIO()
-        handler = logging.StreamHandler(log_stream)
-
-        # Apply the masking filter to the handler
-        handler.addFilter(masking_filter)
-        test_logger.addHandler(handler)
-
-        try:
+        with capture_masked_logs("test_perf") as (logger, _):
             # Log many messages
-            start = time.time()
-            for i in range(1000):
-                test_logger.info(f"Message {i}")
-            logging_time = time.time() - start
+            with PerfTimer() as log_timer:
+                for i in range(1000):
+                    logger.info(f"Message {i}")
 
             # Logging should be fast
+            logging_time = log_timer.elapsed_seconds()
             assert logging_time < 2.0, f"Logging took {logging_time:.2f}s"
-        finally:
-            test_logger.removeHandler(handler)
 
     def test_large_message_performance(self):
-        """Test that large messages are handled efficiently."""
-        import time
-
         initialize_secret_masking()
 
         # Register a secret
         registry = SecretRegistry.get_instance()
         registry.register_secret("LARGE_SECRET", "large_value")
 
-        # Get the masking filter from the root logger
-        root_logger = logging.getLogger()
-        masking_filter = None
-        for f in root_logger.filters:
-            if isinstance(f, SecretMaskingFilter):
-                masking_filter = f
-                break
-
-        assert masking_filter is not None, "Masking filter should be installed"
-
-        test_logger = logging.getLogger("test_large")
-
-        log_stream = StringIO()
-        handler = logging.StreamHandler(log_stream)
-
-        # Apply the masking filter to the handler
-        handler.addFilter(masking_filter)
-        test_logger.addHandler(handler)
-
-        try:
+        with capture_masked_logs("test_large") as (logger, output):
             # Log a very large message
             large_msg = "x" * 100000  # 100KB
 
-            start = time.time()
-            test_logger.info(large_msg)
-            duration = time.time() - start
+            with PerfTimer() as timer:
+                logger.info(large_msg)
 
             # Should complete quickly (truncation should help)
+            duration = timer.elapsed_seconds()
             assert duration < 0.5, f"Large message took {duration:.2f}s"
 
-            output = log_stream.getvalue()
+            result = output.getvalue()
 
             # Message should be truncated
-            assert len(output) < 100000
-        finally:
-            test_logger.removeHandler(handler)
+            assert len(result) < 100000
 
 
-class TestGracefulDegradation:
-    """Test that masking fails gracefully."""
-
+class TestFailGracefully:
     def setup_method(self):
-        """Clean up before each test."""
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
     def teardown_method(self):
-        """Clean up after each test."""
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
     def test_initialization_failure_graceful(self):
-        """Test that initialization failure doesn't crash the application."""
         # This should not raise even if something goes wrong
         # This should complete without raising
         initialize_secret_masking()
@@ -388,53 +303,26 @@ class TestGracefulDegradation:
         # (secrets just won't be masked, but that's better than crashing)
 
     def test_masking_error_doesnt_break_logging(self):
-        """Test that masking errors don't prevent logging."""
         initialize_secret_masking()
 
-        # Get the masking filter from the root logger
-        root_logger = logging.getLogger()
-        masking_filter = None
-        for f in root_logger.filters:
-            if isinstance(f, SecretMaskingFilter):
-                masking_filter = f
-                break
-
-        assert masking_filter is not None, "Masking filter should be installed"
-
-        test_logger = logging.getLogger("test_error")
-
-        log_stream = StringIO()
-        handler = logging.StreamHandler(log_stream)
-
-        # Apply the masking filter to the handler
-        handler.addFilter(masking_filter)
-        test_logger.addHandler(handler)
-
-        try:
+        with capture_masked_logs("test_error") as (logger, output):
             # This should log successfully even if masking has issues
-            test_logger.info("Test message")
+            logger.info("Test message")
 
-            output = log_stream.getvalue()
-            assert "Test message" in output
-        finally:
-            test_logger.removeHandler(handler)
+            result = output.getvalue()
+            assert "Test message" in result
 
 
 class TestDoubleInitialization:
-    """Test that double initialization is handled correctly."""
-
     def setup_method(self):
-        """Clean up before each test."""
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
     def teardown_method(self):
-        """Clean up after each test."""
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
     def test_double_initialization_safe(self):
-        """Test that calling initialize twice is safe."""
         # First initialization
         initialize_secret_masking()
 
@@ -449,7 +337,6 @@ class TestDoubleInitialization:
         assert len(filters) == 1
 
     def test_force_reinitialization(self):
-        """Test that force flag allows reinitialization."""
         # First initialization
         initialize_secret_masking()
 
@@ -468,13 +355,9 @@ class TestDoubleInitialization:
 
 
 class TestFullPipelineIntegration:
-    """Test complete ingestion pipeline with secret masking."""
+    """Complete ingestion pipeline integration tests."""
 
     def test_config_loading_with_secrets(self, tmp_path):
-        """Test that secrets are registered during config loading and masked in logs."""
-        import logging
-        from io import StringIO
-
         from datahub.configuration.config_loader import load_config_file
         from datahub.masking.bootstrap import (
             initialize_secret_masking,
@@ -515,53 +398,28 @@ source:
         # All env vars are now registered (no filtering by name)
         assert registry.has_secret("TEST_HOST")
 
-        # Get the masking filter from the root logger
-        from datahub.masking.masking_filter import SecretMaskingFilter
-
-        root_logger = logging.getLogger()
-        masking_filter = None
-        for f in root_logger.filters:
-            if isinstance(f, SecretMaskingFilter):
-                masking_filter = f
-                break
-
-        assert masking_filter is not None, "Masking filter should be installed"
-
-        # Create logger and capture output
-        test_logger = logging.getLogger("test_pipeline")
-        log_stream = StringIO()
-        handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(logging.Formatter("%(message)s"))
-
-        # Apply the masking filter to the handler
-        handler.addFilter(masking_filter)
-        test_logger.addHandler(handler)
-
-        try:
+        with capture_masked_logs("test_pipeline") as (logger, output):
             # Log message with secrets
-            test_logger.info(
+            logger.info(
                 f"Connecting with password: {config['source']['config']['password']}"
             )
-            test_logger.info(f"Using API key: {config['source']['config']['api_key']}")
+            logger.info(f"Using API key: {config['source']['config']['api_key']}")
 
             # Get log output
-            log_output = log_stream.getvalue()
+            log_output = output.getvalue()
 
             # Verify secrets are masked in logs
             assert "super_secret_password" not in log_output
             assert "sk_test_1234567890" not in log_output
             assert "***REDACTED:TEST_PASSWORD***" in log_output
             assert "***REDACTED:TEST_API_KEY***" in log_output
-        finally:
-            # Cleanup
-            test_logger.removeHandler(handler)
+
         del os.environ["TEST_PASSWORD"]
         del os.environ["TEST_API_KEY"]
         del os.environ["TEST_HOST"]
         shutdown_secret_masking()
 
     def test_pydantic_config_with_nested_secrets(self):
-        """Test ConfigModel with nested secrets."""
         from pydantic import SecretStr
 
         from datahub.configuration.common import ConfigModel
@@ -594,6 +452,78 @@ source:
         assert registry.has_secret("api_key")
         assert registry.get_secret_value("password") == "db_secret"
         assert registry.get_secret_value("api_key") == "api_secret_key"
+
+        shutdown_secret_masking()
+
+    def test_config_with_secret_str_fields(self, tmp_path):
+        """Test that SecretStr fields in config are automatically masked in logs."""
+        from pydantic import Field, SecretStr
+
+        from datahub.configuration.common import ConfigModel
+        from datahub.configuration.config_loader import load_config_file
+        from datahub.masking.bootstrap import (
+            initialize_secret_masking,
+            shutdown_secret_masking,
+        )
+        from datahub.masking.secret_registry import SecretRegistry
+
+        # Clean slate
+        shutdown_secret_masking()
+        initialize_secret_masking()
+
+        # Define config model with SecretStr fields
+        class TestSourceConfig(ConfigModel):
+            password: SecretStr = Field(description="Database password")
+            api_key: SecretStr = Field(description="API key")
+            host: str = Field(description="Host")
+
+        class TestConfig(ConfigModel):
+            config: TestSourceConfig
+
+        # Create config file with plain text secrets (not env vars)
+        config_content = """
+config:
+  password: my-secret-password
+  api_key: my-api-key
+  host: my-host
+"""
+        config_file = tmp_path / "test_config.yml"
+        config_file.write_text(config_content)
+
+        # Load config using the ConfigModel
+        raw_config = load_config_file(config_file, resolve_env_vars=False)
+        parsed_config = TestConfig.model_validate(raw_config)
+
+        # Verify secrets were registered with nested paths
+        registry = SecretRegistry.get_instance()
+        assert registry.has_secret("config.password")
+        assert registry.has_secret("config.api_key")
+        assert registry.get_secret_value("config.password") == "my-secret-password"
+        assert registry.get_secret_value("config.api_key") == "my-api-key"
+
+        # Get the actual secret values to log
+        password_value = parsed_config.config.password.get_secret_value()
+        api_key_value = parsed_config.config.api_key.get_secret_value()
+        host_value = parsed_config.config.host
+
+        with capture_masked_logs("test_secretstr") as (logger, output):
+            # Log messages with secrets
+            logger.info(f"Connecting to {host_value} with password: {password_value}")
+            logger.info(f"Using API key: {api_key_value}")
+
+            # Get log output
+            log_output = output.getvalue()
+
+            # Verify plain text secrets are NOT in logs
+            assert "my-secret-password" not in log_output
+            assert "my-api-key" not in log_output
+
+            # Verify secrets are masked with nested field names
+            assert "***REDACTED:config.password***" in log_output
+            assert "***REDACTED:config.api_key***" in log_output
+
+            # Verify non-secret host is NOT masked
+            assert "my-host" in log_output
 
         shutdown_secret_masking()
 

@@ -137,59 +137,57 @@ SYSTEM_ENV_VARS: Set[str] = {
 }
 
 
+def _parse_skip_list() -> Set[str]:
+    """Parse comma-separated skip list from DATAHUB_MASKING_ENV_VARS_SKIP_LIST."""
+    skip_list_env = os.getenv("DATAHUB_MASKING_ENV_VARS_SKIP_LIST", "")
+    if not skip_list_env:
+        return set()
+    return {v.strip() for v in skip_list_env.split(",") if v.strip()}
+
+
+def _parse_skip_pattern() -> Optional[re.Pattern]:
+    """Parse regex pattern from DATAHUB_MASKING_ENV_VARS_SKIP_PATTERN."""
+    skip_pattern_env = os.getenv("DATAHUB_MASKING_ENV_VARS_SKIP_PATTERN", "")
+    if not skip_pattern_env:
+        return None
+    try:
+        return re.compile(skip_pattern_env)
+    except re.error as e:
+        logger.warning(
+            f"Invalid regex in DATAHUB_MASKING_ENV_VARS_SKIP_PATTERN: {e}. "
+            f"Pattern will be ignored."
+        )
+        return None
+
+
+# Cached at module load for performance
+_USER_SKIP_LIST: Set[str] = _parse_skip_list()
+_USER_SKIP_PATTERN: Optional[re.Pattern] = _parse_skip_pattern()
+
+
+def _refresh_env_var_filters() -> None:
+    """Refresh cached environment variable filters."""
+    global _USER_SKIP_LIST, _USER_SKIP_PATTERN
+    _USER_SKIP_LIST = _parse_skip_list()
+    _USER_SKIP_PATTERN = _parse_skip_pattern()
+
+
 def should_mask_env_var(var_name: str) -> bool:
-    """
-    Determine if an environment variable should be masked.
-
-    Filtering strategy:
-    1. Skip if in SYSTEM_ENV_VARS (hardcoded common variables)
-    2. Skip if in user skip list (DATAHUB_MASKING_ENV_VARS_SKIP_LIST)
-    3. Skip if matches user skip pattern (DATAHUB_MASKING_ENV_VARS_SKIP_PATTERN)
-    4. Mask all other variables
-
-    Args:
-        var_name: Name of the environment variable
-
-    Returns:
-        True if the variable should be masked, False otherwise
-    """
-    # 1. Check hardcoded system variables
+    """Check if environment variable should be masked."""
     if var_name in SYSTEM_ENV_VARS:
         return False
 
-    # 2. Check user-provided skip list
-    skip_list_env = os.getenv("DATAHUB_MASKING_ENV_VARS_SKIP_LIST", "")
-    if skip_list_env:
-        skip_list = [v.strip() for v in skip_list_env.split(",") if v.strip()]
-        if var_name in skip_list:
-            return False
+    if var_name in _USER_SKIP_LIST:
+        return False
 
-    # 3. Check user-provided skip pattern
-    skip_pattern_env = os.getenv("DATAHUB_MASKING_ENV_VARS_SKIP_PATTERN", "")
-    if skip_pattern_env:
-        try:
-            if re.match(skip_pattern_env, var_name):
-                return False
-        except re.error as e:
-            logger.warning(
-                f"Invalid regex in DATAHUB_MASKING_ENV_VARS_SKIP_PATTERN: {e}. "
-                f"Pattern will be ignored."
-            )
+    if _USER_SKIP_PATTERN and _USER_SKIP_PATTERN.match(var_name):
+        return False
 
-    # 4. Mask all other variables (not in system vars or skip lists)
     return True
 
 
 def is_masking_enabled() -> bool:
-    """
-    Check if secret masking is enabled.
-
-    Masking can be disabled via DATAHUB_DISABLE_SECRET_MASKING environment variable
-    for debugging purposes.
-
-    Returns:
-        True if masking is enabled, False if disabled for debugging
-    """
+    """Check if masking is enabled."""
     return os.getenv("DATAHUB_DISABLE_SECRET_MASKING", "").lower() not in (
         "true",
         "1",
@@ -197,18 +195,14 @@ def is_masking_enabled() -> bool:
 
 
 class SecretRegistry:
-    """
-    Thread-safe registry for secrets.
-    """
+    """Thread-safe registry for secrets."""
 
     _instance: Optional["SecretRegistry"] = None
     _lock = threading.RLock()
 
-    # Constants for memory management
-    MAX_SECRETS = 10000  # Maximum number of secrets to store
+    MAX_SECRETS = 10000
 
     def __init__(self):
-        """Initialize registry."""
         self._secrets: Dict[str, str] = {}  # value -> name mapping
         self._name_to_value: Dict[
             str, str
@@ -218,15 +212,7 @@ class SecretRegistry:
 
     @classmethod
     def get_instance(cls) -> "SecretRegistry":
-        """
-        Get singleton instance (thread-safe).
-
-        Uses simple locking pattern. Lock acquisition is fast enough
-        that double-checked locking optimization is unnecessary.
-
-        Returns:
-            Singleton SecretRegistry instance
-        """
+        """Get singleton instance (thread-safe)."""
         with cls._lock:
             if cls._instance is None:
                 cls._instance = cls()
@@ -234,46 +220,28 @@ class SecretRegistry:
 
     @classmethod
     def reset_instance(cls) -> None:
-        """
-        Reset singleton instance.
-
-        Used primarily for testing.
-        """
+        """Reset singleton instance."""
         with cls._lock:
             cls._instance = None
 
     def register_secret(self, variable_name: str, raw_value: str) -> None:
-        """
-        Register a secret for masking.
-
-        Args:
-            variable_name: Name for the secret (e.g., "SNOWFLAKE_PASSWORD")
-            raw_value: The actual secret value to mask
-        """
-        # Validation BEFORE any lock operations
+        """Register a secret for masking."""
         if not raw_value or not isinstance(raw_value, str):
             return
 
-        # Skip very short values (likely not secrets)
         if len(raw_value) < 3:
             return
 
-        # FAST PATH: Check outside lock (no contention!)
-        # Safe because:
-        # 1. Reading dict reference is atomic in Python
-        # 2. COW ensures the dict is immutable
-        # 3. We double-check inside the lock anyway
+        # Fast path: check without lock
         if raw_value in self._secrets:
             return
 
-        # SLOW PATH: Not found outside lock, need to register
         with self._registry_lock:
-            # COPY FIRST (create snapshot)
+            # Copy-on-write
             new_secrets = self._secrets.copy()
             new_name_to_value = self._name_to_value.copy()
 
-            # CHECK SECOND (on copy) - another thread might have added it
-            # while we were waiting for the lock
+            # Double-check after acquiring lock
             if raw_value in new_secrets:
                 return
 
@@ -285,23 +253,15 @@ class SecretRegistry:
                 )
                 return
 
-            # MODIFY - actually add the secret
             new_secrets[raw_value] = variable_name
             new_name_to_value[variable_name] = raw_value
 
-            # Also register Python repr() escaped version for traceback masking
-            # ONLY if secret contains escape sequences (to avoid memory bloat)
-            # Example: "pass\nword" -> "pass\\nword" in tracebacks
-            # We skip this for simple alphanumeric secrets to save memory
+            # Register repr() version if secret contains escape sequences
             if any(c in raw_value for c in ["\n", "\r", "\t", "\\", '"', "'"]):
-                repr_value = repr(raw_value)[1:-1]  # Remove surrounding quotes
+                repr_value = repr(raw_value)[1:-1]
                 if repr_value != raw_value and repr_value not in new_secrets:
                     new_secrets[repr_value] = variable_name
-                    logger.debug(
-                        f"Also registered repr version: {variable_name[:8]}*** (repr)"
-                    )
 
-            # Atomic swaps
             self._secrets = new_secrets
             self._name_to_value = new_name_to_value
             self._version += 1
@@ -311,15 +271,7 @@ class SecretRegistry:
             )
 
     def register_secrets_batch(self, secrets: Dict[str, str]) -> None:
-        """
-        Register multiple secrets in a single atomic operation.
-
-        More efficient than calling register_secret() multiple times
-        because version increments only once.
-
-        Args:
-            secrets: Dict mapping variable names to secret values
-        """
+        """Register multiple secrets atomically."""
         if not secrets:
             return
 
@@ -380,49 +332,21 @@ class SecretRegistry:
                 )
 
     def get_all_secrets(self) -> Dict[str, str]:
-        """
-        Get all registered secrets.
-
-        Returns a copy to prevent external modifications from
-        corrupting the registry.
-
-        Returns:
-            Dict mapping secret values to variable names (copy)
-        """
+        """Get all registered secrets."""
         with self._registry_lock:
             return self._secrets.copy()
 
     def get_version(self) -> int:
-        """
-        Get current version number.
-
-        Version increments whenever secrets are added/removed.
-        Used by filters to detect when pattern needs rebuilding.
-
-        Returns:
-            Current version number
-        """
+        """Get current version."""
         with self._registry_lock:
             return self._version
 
     def get_count(self) -> int:
-        """
-        Get number of registered secrets.
-
-        No lock needed - COW ensures immutable snapshot.
-
-        Returns:
-            Number of secrets in registry
-        """
-        # No lock needed! Dict reference read is atomic
+        """Get number of registered secrets."""
         return len(self._secrets)
 
     def clear(self) -> None:
-        """
-        Clear all secrets.
-
-        Used primarily for testing.
-        """
+        """Clear all secrets."""
         with self._registry_lock:
             self._secrets = {}
             self._name_to_value = {}
@@ -430,32 +354,10 @@ class SecretRegistry:
             logger.debug("Cleared all secrets from registry")
 
     def has_secret(self, variable_name: str) -> bool:
-        """
-        Check if a secret with given name is registered.
-
-        Uses reverse index for O(1) lookup.
-
-        Args:
-            variable_name: Name of the secret to check
-
-        Returns:
-            True if secret is registered
-        """
+        """Check if secret is registered."""
         with self._registry_lock:
             return variable_name in self._name_to_value
 
     def get_secret_value(self, variable_name: str) -> Optional[str]:
-        """
-        Get the actual value of a registered secret by name.
-
-        O(1) lookup using reverse index.
-        No lock needed - COW ensures immutable snapshot.
-
-        Args:
-            variable_name: Name of the secret
-
-        Returns:
-            Secret value if found, None otherwise
-        """
-        # No lock needed! Dict reference read is atomic
+        """Get secret value by name."""
         return self._name_to_value.get(variable_name)
