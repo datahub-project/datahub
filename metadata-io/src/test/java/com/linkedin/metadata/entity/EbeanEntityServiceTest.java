@@ -13,6 +13,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -171,8 +172,11 @@ public class EbeanEntityServiceTest
     CorpUserInfo writeAspect = AspectGenerationUtils.createCorpUserInfo("email@test.com");
     String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect.schema());
 
-    // No database needed since all methods are stubbed
-    EbeanAspectDao aspectDao = mock(EbeanAspectDao.class);
+    // Create database and spy on aspectDao
+    Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
+    additionalDatabases.add(server); // Track for cleanup
+    EbeanAspectDao aspectDao =
+        spy(new EbeanAspectDao(server, EbeanConfiguration.testDefault, null));
 
     // Prevent actual saves
     EntityAspect mockEntityAspect = mock(EntityAspect.class);
