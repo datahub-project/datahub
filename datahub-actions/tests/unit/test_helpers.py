@@ -156,7 +156,7 @@ class TestTransformer(Transformer):
 class TestAction(Action):
     """
     Action used for testing valid flows. This action simply increments counters,
-    and occassionally throws.
+    and occasionally throws.
     """
 
     total_event_count: int = 0

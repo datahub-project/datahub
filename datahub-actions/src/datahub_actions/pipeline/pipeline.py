@@ -305,7 +305,7 @@ class Pipeline:
             ) from e
 
     def _init_failed_events_dir(self) -> None:
-        # create a directory for failed events from this actions pipeine.
+        # create a directory for failed events from this actions pipeline.
         failed_events_dir = os.path.join(
             self._failed_events_dir, normalize_directory_name(self.name)
         )
