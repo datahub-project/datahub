@@ -773,6 +773,7 @@ The following environment variables are used in the codebase but may not be expl
 | `SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT`               | `false` | Skip reindexing data job input/output              | System Update |
 | `SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA` | `false` | Skip generating schema fields from schema metadata | System Update |
 | `SKIP_MIGRATE_SCHEMA_FIELDS_DOC_ID`                | `false` | Skip migrating schema fields doc IDs               | System Update |
+| `SKIP_CREATE_USAGE_EVENT_INDICES_STEP`             | `false` | Skip creating usage event indices/data streams     | System Update |
 | `BACKFILL_BROWSE_PATHS_V2`                         | `false` | Enable backfilling browse paths V2                 | System Update |
 | `READER_POOL_SIZE`                                 | `null`  | Reader pool size for restore operations            | System Update |
 | `WRITER_POOL_SIZE`                                 | `null`  | Writer pool size for restore operations            | System Update |
