@@ -2,11 +2,7 @@ import dataclasses
 import logging
 import os
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
-
-if TYPE_CHECKING:
-    from pyspark.sql import SparkSession
-    from pyspark.sql.dataframe import DataFrame as SparkDataFrame
+from typing import Any, Dict, Iterable, List, Optional
 
 from pandas import DataFrame
 from pydeequ.analyzers import (
@@ -22,6 +18,8 @@ from pydeequ.analyzers import (
     Minimum,
     StandardDeviation,
 )
+from pyspark.sql import SparkSession
+from pyspark.sql.dataframe import DataFrame as SparkDataFrame
 from pyspark.sql.functions import col, count, isnan, when
 from pyspark.sql.types import (
     DataType as SparkDataType,

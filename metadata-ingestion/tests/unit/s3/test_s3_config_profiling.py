@@ -71,8 +71,8 @@ class TestS3ConfigProfilingValidation:
     def test_config_with_profiling_accepts_without_pyspark(self):
         """Test that config accepts profiling even without PySpark (backward compatibility).
 
-        Note: In the default s3/gcs/abs installation, PySpark is included.
-        When using s3-slim/gcs-slim/abs-slim, profiling will be disabled at runtime
+        Note: In the default s3 installation, PySpark is included.
+        When using s3-slim/, profiling will be disabled at runtime
         with appropriate warnings, but config validation does not fail.
         """
         config_dict: dict = {
