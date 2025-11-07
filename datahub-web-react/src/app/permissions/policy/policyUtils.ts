@@ -6,6 +6,7 @@ import {
     PolicyMatchCriterion,
     PolicyMatchCriterionValue,
     PolicyMatchFilter,
+    PolicyMode,
     PolicyState,
     PolicyType,
     Privilege,
@@ -20,6 +21,7 @@ export const EMPTY_POLICY = {
     name: '',
     description: '',
     state: PolicyState.Active,
+    mode: PolicyMode.Allow,
     privileges: new Array<string>(),
     resources: {
         filter: {
@@ -86,10 +88,11 @@ export const mapResourceTypeToPrivileges = (
 const createCriterion = (
     resourceFieldType: string,
     fieldValues: Array<PolicyMatchCriterionValue>,
+    condition: PolicyMatchCondition = PolicyMatchCondition.Equals,
 ): PolicyMatchCriterion => ({
     field: resourceFieldType,
     values: fieldValues,
-    condition: PolicyMatchCondition.Equals,
+    condition,
 });
 
 export const createCriterionValue = (value: string): PolicyMatchCriterionValue => ({ value });
@@ -147,12 +150,13 @@ export const setFieldValues = (
     filter: PolicyMatchFilter,
     resourceFieldType: string,
     fieldValues: Array<PolicyMatchCriterionValue>,
+    condition: PolicyMatchCondition = PolicyMatchCondition.Equals,
 ): PolicyMatchFilter => {
     const restCriteria = filter.criteria?.filter((criterion) => criterion.field !== resourceFieldType) || [];
     if (fieldValues.length === 0) {
         return { ...filter, criteria: restCriteria };
     }
-    return { ...filter, criteria: [...restCriteria, createCriterion(resourceFieldType, fieldValues)] };
+    return { ...filter, criteria: [...restCriteria, createCriterion(resourceFieldType, fieldValues, condition)] };
 };
 
 export const addOrUpdatePoliciesInList = (existingPolicies, newPolicies) => {

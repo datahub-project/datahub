@@ -168,6 +168,10 @@ public class PolicyEngine {
     Map<String, String> reasonsOfDeny = new HashedMap<>();
     PolicyEvaluationContext context = new PolicyEvaluationContext();
     for (DataHubPolicyInfo policy : policies) {
+      // Only consider ALLOW policies for granted privileges (deny policies don't grant access)
+      if (PoliciesConfig.DENY_POLICY_MODE.equals(policy.getMode())) {
+        continue;
+      }
       PolicyEvaluationResult result =
           isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context, subResources);
       if (result.isGranted()) {
@@ -217,6 +221,10 @@ public class PolicyEngine {
       return true;
     }
     if (requestResource.isEmpty()) {
+      // If the policy applies to all resources, it matches even without a specific resource
+      if (policyResourceFilter.isAllResources()) {
+        return true;
+      }
       log.debug("Resource filter present in policy, but no resource spec provided.");
       return false;
     }

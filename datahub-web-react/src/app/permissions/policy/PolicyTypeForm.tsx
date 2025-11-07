@@ -2,11 +2,13 @@ import { Form, Input, Select, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { PolicyType } from '@types';
+import { PolicyMode, PolicyType } from '@types';
 
 type Props = {
     policyType: string;
     setPolicyType: (type: PolicyType) => void;
+    policyMode: PolicyMode;
+    setPolicyMode: (mode: PolicyMode) => void;
     policyName: string;
     setPolicyName: (name: string) => void;
     policyDescription: string;
@@ -28,6 +30,8 @@ const TypeDescriptionParagraph = styled(Typography.Paragraph)`
 export default function PolicyTypeForm({
     policyType,
     setPolicyType,
+    policyMode,
+    setPolicyMode,
     policyName,
     setPolicyName,
     policyDescription,
@@ -70,6 +74,26 @@ export default function PolicyTypeForm({
                     The <b>Metadata</b> policy type allows you to assign metadata privileges to users. These include the
                     ability to manipulate metadata like ownership, tags, documentation associated with Datasets, Charts,
                     Dashboards, & more.
+                </TypeDescriptionParagraph>
+            </Form.Item>
+            <Form.Item name="policyMode" label={<Typography.Text strong>Mode</Typography.Text>}>
+                <Typography.Paragraph>Whether this policy grants or denies access.</Typography.Paragraph>
+                <Select
+                    data-testid="policy-mode"
+                    value={policyMode}
+                    onSelect={(value) => setPolicyMode(value as PolicyMode)}
+                >
+                    <Select.Option data-testid="allow" value={PolicyMode.Allow}>
+                        Allow
+                    </Select.Option>
+                    <Select.Option data-testid="deny" value={PolicyMode.Deny}>
+                        Deny
+                    </Select.Option>
+                </Select>
+                <TypeDescriptionParagraph type="secondary">
+                    <b>Allow</b> policies grant access to resources when matched. <b>Deny</b> policies explicitly deny 
+                    access and take precedence over Allow policies. Use Deny policies to restrict access to specific 
+                    users, groups, or resources even if they would normally be granted access by an Allow policy.
                 </TypeDescriptionParagraph>
             </Form.Item>
             <Form.Item

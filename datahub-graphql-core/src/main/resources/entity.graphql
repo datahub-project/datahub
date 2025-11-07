@@ -9636,6 +9636,11 @@ input PolicyUpdateInput {
   state: PolicyState!
 
   """
+  The Policy mode - whether it grants or denies access (defaults to ALLOW)
+  """
+  mode: PolicyMode
+
+  """
   A Policy description
   """
   description: String
@@ -9753,6 +9758,21 @@ enum PolicyState {
 }
 
 """
+The mode of an Access Policy - determines whether it grants or denies access
+"""
+enum PolicyMode {
+  """
+  A Policy that grants access when matched
+  """
+  ALLOW
+
+  """
+  A Policy that denies access when matched. DENY policies take precedence over ALLOW policies.
+  """
+  DENY
+}
+
+"""
 DEPRECATED
 TODO: Eventually get rid of this in favor of DataHub Policy
 An DataHub Platform Access Policy Access Policies determine who can perform what actions against which resources on the platform
@@ -9777,6 +9797,11 @@ type Policy {
   The present state of the Policy
   """
   state: PolicyState!
+
+  """
+  The mode of the Policy - whether it grants or denies access
+  """
+  mode: PolicyMode!
 
   """
   The description of the Policy
@@ -9837,6 +9862,11 @@ type DataHubPolicy implements Entity {
   The present state of the Policy
   """
   state: PolicyState!
+
+  """
+  The mode of the Policy - whether it grants or denies access
+  """
+  mode: PolicyMode!
 
   """
   The description of the Policy

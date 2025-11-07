@@ -9,6 +9,7 @@ query listPolicies($input: ListPoliciesInput!, $skipSiblingsSearch: Boolean = fa
             name
             description
             state
+            mode
             resources {
                 type
                 allResources

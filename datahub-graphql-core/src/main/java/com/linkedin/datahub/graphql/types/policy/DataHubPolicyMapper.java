@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterion;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.PolicyMatchFilter;
+import com.linkedin.datahub.graphql.generated.PolicyMode;
 import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.datahub.graphql.generated.ResourceFilter;
@@ -58,6 +59,9 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     // Careful - we assume no other Policy types or states have been ingested using a backdoor.
     policy.setPolicyType(PolicyType.valueOf(policyInfo.getType()));
     policy.setState(PolicyState.valueOf(policyInfo.getState()));
+    // Set mode with default value of ALLOW if not set
+    String mode = policyInfo.hasMode() ? policyInfo.getMode() : "ALLOW";
+    policy.setMode(PolicyMode.valueOf(mode));
     policy.setName(policyInfo.getDisplayName()); // Rebrand to 'name'
     policy.setPrivileges(policyInfo.getPrivileges());
     policy.setActors(mapActors(policyInfo.getActors()));

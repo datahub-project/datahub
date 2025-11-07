@@ -5662,6 +5662,15 @@
                       "fieldType" : "KEYWORD"
                     }
                   }, {
+                    "name" : "mode",
+                    "type" : "string",
+                    "doc" : "The mode of the policy, ALLOW or DENY. Defaults to ALLOW for backwards compatibility.\nDENY policies take precedence over ALLOW policies.",
+                    "default" : "ALLOW",
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD"
+                    }
+                  }, {
                     "name" : "resources",
                     "type" : {
                       "type" : "record",

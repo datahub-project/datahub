@@ -122,16 +122,39 @@ public class DataHubAuthorizer implements Authorizer {
     policiesToEvaluate.addAll(
         PoliciesConfig.getDefaultPolicies(UrnUtils.getUrn(request.getActorUrn())));
 
-    // 2. Evaluate each policy.
-    for (DataHubPolicyInfo policy : policiesToEvaluate) {
-      if (isRequestGranted(policy, request, resolvedResourceSpec, resolvedSubResources)) {
+    // 2. Separate policies into DENY and ALLOW groups. DENY policies take precedence.
+    final List<DataHubPolicyInfo> denyPolicies =
+        policiesToEvaluate.stream()
+            .filter(policy -> PoliciesConfig.DENY_POLICY_MODE.equals(policy.getMode()))
+            .collect(Collectors.toList());
+    final List<DataHubPolicyInfo> allowPolicies =
+        policiesToEvaluate.stream()
+            .filter(policy -> !PoliciesConfig.DENY_POLICY_MODE.equals(policy.getMode()))
+            .collect(Collectors.toList());
+
+    // 3. Evaluate DENY policies first - if any deny policy matches, deny immediately.
+    for (DataHubPolicyInfo denyPolicy : denyPolicies) {
+      if (isRequestGranted(denyPolicy, request, resolvedResourceSpec, resolvedSubResources)) {
+        // Short circuit if a deny policy has matched.
+        return new AuthorizationResult(
+            request,
+            AuthorizationResult.Type.DENY,
+            String.format("Denied by policy: %s", denyPolicy.getDisplayName()));
+      }
+    }
+
+    // 4. Evaluate ALLOW policies - if any allow policy matches, grant access.
+    for (DataHubPolicyInfo allowPolicy : allowPolicies) {
+      if (isRequestGranted(allowPolicy, request, resolvedResourceSpec, resolvedSubResources)) {
         // Short circuit if policy has granted privileges to this actor.
         return new AuthorizationResult(
             request,
             AuthorizationResult.Type.ALLOW,
-            String.format("Granted by policy with type: %s", policy.getType()));
+            String.format("Granted by policy with type: %s", allowPolicy.getType()));
       }
     }
+
+    // 5. If no allow policies matched, deny by default.
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
   }
 
@@ -214,7 +237,7 @@ public class DataHubAuthorizer implements Authorizer {
     boolean allUsers = false;
     boolean allGroups = false;
 
-    // Step 1: Find policies granting the privilege.
+    // Step 1: Find policies granting the privilege (only consider ALLOW policies).
     final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(privilege, new ArrayList<>());
 
     Optional<ResolvedEntitySpec> resolvedResourceSpec =
@@ -224,6 +247,11 @@ public class DataHubAuthorizer implements Authorizer {
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
       if (!PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState())) {
         // Policy is not active, skip.
+        continue;
+      }
+
+      // Only consider ALLOW policies for authorized actors (deny policies don't grant access)
+      if (PoliciesConfig.DENY_POLICY_MODE.equals(policy.getMode())) {
         continue;
       }
 

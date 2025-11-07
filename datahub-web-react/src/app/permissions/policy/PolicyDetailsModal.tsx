@@ -14,7 +14,7 @@ import {
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
+import { Maybe, Policy, PolicyMatchCondition, PolicyMode, PolicyState, PolicyType } from '@types';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -72,6 +72,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const entityRegistry = useEntityRegistry();
 
     const isActive = policy?.state === PolicyState.Active;
+    const isDenyPolicy = policy?.mode === PolicyMode.Deny;
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
 
     const resources = convertLegacyResourceFilter(policy?.resources);
@@ -81,7 +82,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const resourceFilterCondition =
         getFieldCondition(resources?.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
+    const domainCondition = getFieldCondition(resources?.filter, 'DOMAIN') || PolicyMatchCondition.Equals;
     const containers = getFieldValues(resources?.filter, 'CONTAINER') || [];
+    const containerCondition = getFieldCondition(resources?.filter, 'CONTAINER') || PolicyMatchCondition.Equals;
+    const tags = getFieldValues(resources?.filter, 'TAG') || [];
+    const tagCondition = getFieldCondition(resources?.filter, 'TAG') || PolicyMatchCondition.Equals;
 
     const {
         config: { policiesConfig },
@@ -92,6 +97,13 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
             <Button onClick={onClose}>Close</Button>
         </ButtonsContainer>
     );
+
+    const getConditionText = (condition: PolicyMatchCondition, fieldName: string) => {
+        if (condition === PolicyMatchCondition.NotEquals) {
+            return `Does not have ${fieldName.toLowerCase()}`;
+        }
+        return null; // Don't show text for default EQUALS condition
+    };
 
     const getDisplayName = (entity) => {
         if (!entity) {
@@ -145,6 +157,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     <Tag color={isActive ? 'green' : 'red'}>{policy?.state}</Tag>
                 </div>
                 <div>
+                    <Typography.Title level={5}>Mode</Typography.Title>
+                    <ThinDivider />
+                    <Tag color={isDenyPolicy ? 'orange' : 'blue'}>{policy?.mode}</Tag>
+                </div>
+                <div>
                     <Typography.Title level={5}>Description</Typography.Title>
                     <ThinDivider />
                     <Typography.Text type="secondary">{policy?.description}</Typography.Text>
@@ -170,7 +187,14 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                 })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
                         <div>
-                            <Typography.Title level={5}>Assets</Typography.Title>
+                            <Typography.Title level={5}>
+                                Assets
+                                {getConditionText(resourceFilterCondition, 'Asset') && (
+                                    <Typography.Text type="secondary" style={{ fontWeight: 'normal', fontSize: '12px', marginLeft: '8px' }}>
+                                        ({getConditionText(resourceFilterCondition, 'Asset')})
+                                    </Typography.Text>
+                                )}
+                            </Typography.Title>
                             <ThinDivider />
                             {(resourceEntities?.length &&
                                 resourceEntities.map((value, key) => {
@@ -200,7 +224,34 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                             </div>
                         )}
                         <div>
-                            <Typography.Title level={5}>Domains</Typography.Title>
+                            <Typography.Title level={5}>
+                                Tags
+                                {getConditionText(tagCondition, 'Tag') && (
+                                    <Typography.Text type="secondary" style={{ fontWeight: 'normal', fontSize: '12px', marginLeft: '8px' }}>
+                                        ({getConditionText(tagCondition, 'Tag')})
+                                    </Typography.Text>
+                                )}
+                            </Typography.Title>
+                            <ThinDivider />
+                            {(tags?.length &&
+                                tags.map((value, key) => {
+                                    return (
+                                        // eslint-disable-next-line react/no-array-index-key
+                                        <PoliciesTag key={`tag-${value.value}-${key}`}>
+                                            {getEntityTag(value)}
+                                        </PoliciesTag>
+                                    );
+                                })) || <PoliciesTag>All</PoliciesTag>}
+                        </div>
+                        <div>
+                            <Typography.Title level={5}>
+                                Domains
+                                {getConditionText(domainCondition, 'Domain') && (
+                                    <Typography.Text type="secondary" style={{ fontWeight: 'normal', fontSize: '12px', marginLeft: '8px' }}>
+                                        ({getConditionText(domainCondition, 'Domain')})
+                                    </Typography.Text>
+                                )}
+                            </Typography.Title>
                             <ThinDivider />
                             {(domains?.length &&
                                 domains.map((value, key) => {
@@ -213,7 +264,14 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                 })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
                         <div>
-                            <Typography.Title level={5}>Containers</Typography.Title>
+                            <Typography.Title level={5}>
+                                Containers
+                                {getConditionText(containerCondition, 'Container') && (
+                                    <Typography.Text type="secondary" style={{ fontWeight: 'normal', fontSize: '12px', marginLeft: '8px' }}>
+                                        ({getConditionText(containerCondition, 'Container')})
+                                    </Typography.Text>
+                                )}
+                            </Typography.Title>
                             <ThinDivider />
                             {(containers?.length &&
                                 containers.map((value, key) => {

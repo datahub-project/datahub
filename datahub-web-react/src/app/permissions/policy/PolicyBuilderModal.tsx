@@ -11,7 +11,7 @@ import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Button, Modal } from '@src/alchemy-components';
 
-import { ActorFilter, Policy, PolicyType, ResourceFilter } from '@types';
+import { ActorFilter, Policy, PolicyMode, PolicyType, ResourceFilter } from '@types';
 
 type Props = {
     policy: Omit<Policy, 'urn'>;
@@ -95,6 +95,8 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 <PolicyTypeForm
                     policyType={policy.type}
                     setPolicyType={(type: PolicyType) => setPolicyType(type)}
+                    policyMode={policy.mode}
+                    setPolicyMode={(mode: PolicyMode) => setPolicy({ ...policy, mode })}
                     policyName={policy.name}
                     setPolicyName={(name: string) => setPolicy({ ...policy, name })}
                     policyDescription={policy.description || ''}
