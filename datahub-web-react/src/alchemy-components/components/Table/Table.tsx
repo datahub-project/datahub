@@ -59,6 +59,7 @@ export const Table = <T,>({
     headerRef,
     rowDataTestId,
     footer,
+    renderScrollObserver,
     ...props
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -300,6 +301,7 @@ export const Table = <T,>({
                             </React.Fragment>
                         );
                     })}
+                    {renderScrollObserver?.()}
                     {footer}
                 </tbody>
             </BaseTable>
