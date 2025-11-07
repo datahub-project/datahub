@@ -3,7 +3,12 @@ import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
+import useFileUpload from '@app/shared/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+
+import { UploadDownloadScenario } from '@types';
 
 const StyledEditor = styled(Editor)`
     border: none;
@@ -41,12 +46,19 @@ export default function EditDescriptionModal({
     closeModal,
 }: Props) {
     const canEditDescription = useDocumentationPermission();
+    const { urn: assetUrn } = useEntityData();
+    const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn,
+    });
+    const { uploadFile } = useFileUpload({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn });
     return (
         <Modal
             title="Edit Description"
             onCancel={closeModal}
             width="80vw"
             style={{ maxWidth: '1200px' }}
+            maskClosable={false}
             buttons={[
                 {
                     text: 'Cancel',
@@ -78,6 +90,10 @@ export default function EditDescriptionModal({
                 onChange={(description) => setUpdatedDescription(description)}
                 toolbarStyles={toolbarStyles}
                 dataTestId="description-editor"
+                uploadFileProps={{
+                    onFileUpload: uploadFile,
+                    ...uploadFileAnalyticsCallbacks,
+                }}
             />
         </Modal>
     );

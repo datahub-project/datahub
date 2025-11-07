@@ -33,7 +33,7 @@ def test_athena_config_query_location_old_plus_new_value_not_allowed():
     from datahub.ingestion.source.sql.athena import AthenaConfig
 
     with pytest.raises(ValueError):
-        AthenaConfig.parse_obj(
+        AthenaConfig.model_validate(
             {
                 "aws_region": "us-west-1",
                 "s3_staging_dir": "s3://sample-staging-dir/",
@@ -46,7 +46,7 @@ def test_athena_config_query_location_old_plus_new_value_not_allowed():
 def test_athena_config_staging_dir_is_set_as_query_result():
     from datahub.ingestion.source.sql.athena import AthenaConfig
 
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "s3_staging_dir": "s3://sample-staging-dir/",
@@ -54,7 +54,7 @@ def test_athena_config_staging_dir_is_set_as_query_result():
         }
     )
 
-    expected_config = AthenaConfig.parse_obj(
+    expected_config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://sample-staging-dir/",
@@ -68,7 +68,7 @@ def test_athena_config_staging_dir_is_set_as_query_result():
 def test_athena_uri():
     from datahub.ingestion.source.sql.athena import AthenaConfig
 
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -91,7 +91,7 @@ def test_athena_get_table_properties():
 
     from datahub.ingestion.source.sql.athena import AthenaConfig, AthenaSource
 
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "s3_staging_dir": "s3://sample-staging-dir/",
@@ -295,7 +295,7 @@ def test_convert_simple_field_paths_to_v1_enabled():
     """Test that emit_schema_fieldpaths_as_v1 correctly converts simple field paths when enabled"""
 
     # Test config with emit_schema_fieldpaths_as_v1 enabled
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -359,7 +359,7 @@ def test_convert_simple_field_paths_to_v1_disabled():
     """Test that emit_schema_fieldpaths_as_v1 keeps v2 field paths when disabled"""
 
     # Test config with emit_schema_fieldpaths_as_v1 disabled (default)
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -397,7 +397,7 @@ def test_convert_simple_field_paths_to_v1_complex_types_ignored():
     """Test that complex types (arrays, maps, structs) are not affected by emit_schema_fieldpaths_as_v1"""
 
     # Test config with emit_schema_fieldpaths_as_v1 enabled
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -457,7 +457,7 @@ def test_convert_simple_field_paths_to_v1_with_partition_keys():
     """Test that emit_schema_fieldpaths_as_v1 works correctly with partition keys"""
 
     # Test config with emit_schema_fieldpaths_as_v1 enabled
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -497,7 +497,7 @@ def test_convert_simple_field_paths_to_v1_default_behavior():
     from datahub.ingestion.source.sql.athena import AthenaConfig
 
     # Test config without specifying emit_schema_fieldpaths_as_v1
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -510,7 +510,7 @@ def test_convert_simple_field_paths_to_v1_default_behavior():
 
 def test_get_partitions_returns_none_when_extract_partitions_disabled():
     """Test that get_partitions returns None when extract_partitions is False"""
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -539,7 +539,7 @@ def test_get_partitions_returns_none_when_extract_partitions_disabled():
 
 def test_get_partitions_attempts_extraction_when_extract_partitions_enabled():
     """Test that get_partitions attempts partition extraction when extract_partitions is True"""
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -581,7 +581,7 @@ def test_get_partitions_attempts_extraction_when_extract_partitions_enabled():
 def test_partition_profiling_sql_generation_single_key():
     """Test that partition profiling generates valid SQL for single partition key and can be parsed by SQLGlot."""
 
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -639,7 +639,7 @@ def test_partition_profiling_sql_generation_single_key():
 def test_partition_profiling_sql_generation_multiple_keys():
     """Test that partition profiling generates valid SQL for multiple partition keys and can be parsed by SQLGlot."""
 
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -706,7 +706,7 @@ def test_partition_profiling_sql_generation_multiple_keys():
 def test_partition_profiling_sql_generation_complex_schema_table_names():
     """Test that partition profiling handles complex schema/table names correctly and generates valid SQL."""
 
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -866,7 +866,7 @@ def test_build_max_partition_query():
 
 def test_partition_profiling_disabled_no_sql_generation():
     """Test that when partition profiling is disabled, no complex SQL is generated."""
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -1062,7 +1062,7 @@ def test_sanitize_identifier_integration_with_build_max_partition_query():
 
 def test_sanitize_identifier_error_handling_in_get_partitions():
     """Test that ValueError from _sanitize_identifier is handled gracefully in get_partitions method."""
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
@@ -1103,7 +1103,7 @@ def test_sanitize_identifier_error_handling_in_generate_partition_profiler_query
     """Test that ValueError from _sanitize_identifier is handled gracefully in generate_partition_profiler_query."""
     import logging
 
-    config = AthenaConfig.parse_obj(
+    config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",

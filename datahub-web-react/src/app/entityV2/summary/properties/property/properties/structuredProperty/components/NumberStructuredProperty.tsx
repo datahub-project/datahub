@@ -11,7 +11,7 @@ export default function NumberStructuredProperty({
     ...props
 }: StructuredPropertyComponentProps) {
     const values = useMemo(
-        () => structuredPropertyEntry?.values.map((value) => (value as NumberValue)?.numberValue) ?? [],
+        () => structuredPropertyEntry?.values?.map((value) => (value as NumberValue)?.numberValue) ?? [],
         [structuredPropertyEntry?.values],
     );
 

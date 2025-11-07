@@ -25,7 +25,12 @@ export const CommandButton = ({ active, children, commandName, ...buttonProps }:
 
     return (
         <Tooltip title={options?.name ? capitalCase(options?.name) : null}>
-            <StyledButton type={active ? 'link' : 'text'} onMouseDown={handleMouseDown} {...buttonProps}>
+            <StyledButton
+                type={active ? 'link' : 'text'}
+                onMouseDown={handleMouseDown}
+                {...buttonProps}
+                data-testid={`command-${commandName}-btn`}
+            >
                 {children}
             </StyledButton>
         </Tooltip>

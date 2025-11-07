@@ -10,6 +10,7 @@ import {
     CodeExtension,
     DropCursorExtension,
     FontSizeExtension,
+    GapCursorExtension,
     HardBreakExtension,
     HeadingExtension,
     HistoryExtension,
@@ -27,6 +28,7 @@ import {
 
 import { EditorContainer, EditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
+import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 import { DataHubMentionsExtension } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
@@ -35,22 +37,10 @@ import { CodeBlockToolbar } from '@components/components/Editor/toolbar/CodeBloc
 import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingToolbar';
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
+import { EditorProps } from '@components/components/Editor/types';
+import { colors } from '@components/theme';
 
 import { notEmpty } from '@app/entityV2/shared/utils';
-
-type EditorProps = {
-    readOnly?: boolean;
-    content?: string;
-    onChange?: (md: string) => void;
-    className?: string;
-    doNotFocus?: boolean;
-    placeholder?: string;
-    hideHighlightToolbar?: boolean;
-    toolbarStyles?: React.CSSProperties;
-    dataTestId?: string;
-    onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
-    hideBorder?: boolean;
-};
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
     const {
@@ -64,6 +54,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         dataTestId,
         onKeyDown,
         hideBorder,
+        uploadFileProps,
     } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
@@ -73,11 +64,18 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new CodeBlockExtension({ syntaxTheme: 'base16_ateliersulphurpool_light' }),
             new CodeExtension(),
             new DataHubMentionsExtension({}),
-            new DropCursorExtension({}),
+            new DropCursorExtension({
+                color: colors.primary[100],
+                width: 2,
+            }),
             new HardBreakExtension(),
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
+            new FileDragDropExtension({
+                uploadFileProps,
+            }),
+            new GapCursorExtension(), // required to allow cursor placement next to non-editable inline elements
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),

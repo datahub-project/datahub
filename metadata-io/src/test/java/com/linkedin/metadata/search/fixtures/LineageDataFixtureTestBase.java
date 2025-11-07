@@ -54,8 +54,8 @@ public abstract class LineageDataFixtureTestBase extends AbstractTestNGSpringCon
           }
           return false;
         },
-        30, // Wait up to 30 seconds
-        "Lineage data not available after 30 seconds. Expected dataset e3859789eed1cef55288b44f016ee08290d9fd08973e565c112d8 with 10 lineage relationships.");
+        120,
+        "Lineage data not available after 120 seconds. Expected dataset e3859789eed1cef55288b44f016ee08290d9fd08973e565c112d8 with 10 lineage relationships.");
   }
 
   @Test

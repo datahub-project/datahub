@@ -168,6 +168,12 @@ class QueryMetadata:
             query_subject_urns.add(upstream)
             if include_fields:
                 for column in sorted(self.column_usage.get(upstream, [])):
+                    # Skip empty column names to avoid creating invalid URNs
+                    if not column or not column.strip():
+                        logger.warning(
+                            f"Skipping empty upstream column name for query {self.query_id} on upstream {upstream}"
+                        )
+                        continue
                     query_subject_urns.add(
                         builder.make_schema_field_urn(upstream, column)
                     )
@@ -175,6 +181,15 @@ class QueryMetadata:
             query_subject_urns.add(downstream_urn)
             if include_fields:
                 for column_lineage in self.column_lineage:
+                    # Skip empty downstream columns to avoid creating invalid URNs
+                    if (
+                        not column_lineage.downstream.column
+                        or not column_lineage.downstream.column.strip()
+                    ):
+                        logger.warning(
+                            f"Skipping empty downstream column name for query {self.query_id} on downstream {downstream_urn}"
+                        )
+                        continue
                     query_subject_urns.add(
                         builder.make_schema_field_urn(
                             downstream_urn, column_lineage.downstream.column
@@ -1340,11 +1355,25 @@ class SqlParsingAggregator(Closeable):
                 upstreams.setdefault(upstream, query.query_id)
 
             for lineage_info in query.column_lineage:
-                for upstream_ref in lineage_info.upstreams:
-                    cll[lineage_info.downstream.column].setdefault(
-                        SchemaFieldUrn(upstream_ref.table, upstream_ref.column),
-                        query.query_id,
+                if (
+                    not lineage_info.downstream.column
+                    or not lineage_info.downstream.column.strip()
+                ):
+                    logger.debug(
+                        f"Skipping lineage entry with empty downstream column in query {query.query_id}"
                     )
+                    continue
+
+                for upstream_ref in lineage_info.upstreams:
+                    if upstream_ref.column and upstream_ref.column.strip():
+                        cll[lineage_info.downstream.column].setdefault(
+                            SchemaFieldUrn(upstream_ref.table, upstream_ref.column),
+                            query.query_id,
+                        )
+                    else:
+                        logger.debug(
+                            f"Skipping empty column reference in lineage for query {query.query_id}"
+                        )
 
         # Finally, we can build our lineage edge.
         required_queries = OrderedSet[QueryId]()

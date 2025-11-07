@@ -1356,6 +1356,11 @@ enum EntityType {
   An DataHub Page Module
   """
   DATAHUB_PAGE_MODULE
+
+  """
+  An DataHub File
+  """
+  DATAHUB_FILE
 }
 
 """
@@ -11654,6 +11659,12 @@ input CreateDomainInput {
   Optional parent domain urn for the domain
   """
   parentDomain: String
+
+  """
+  Optional - Add owners to the domain.
+  If not provided, we'll automatically assign the current actor as the owner.
+  """
+  owners: [OwnerInput!]
 }
 
 """

@@ -163,7 +163,7 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
 
 @platform_name("DynamoDB", id="dynamodb")
 @config_class(DynamoDBConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
     "By default, platform_instance will use the AWS account id",
@@ -200,7 +200,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DynamoDBSource":
-        config = DynamoDBConfig.parse_obj(config_dict)
+        config = DynamoDBConfig.model_validate(config_dict)
         return cls(ctx, config, "dynamodb")
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

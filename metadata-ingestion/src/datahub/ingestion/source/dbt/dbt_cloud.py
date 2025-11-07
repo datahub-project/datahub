@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from datetime import datetime
 from json import JSONDecodeError
 from typing import Dict, List, Literal, Optional, Tuple
@@ -6,7 +7,7 @@ from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
-from pydantic import Field, root_validator
+from pydantic import Field, model_validator
 
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -68,8 +69,13 @@ class DBTCloudConfig(DBTCommonConfig):
         description='Where should the "View in dbt" link point to - either the "Explore" UI or the dbt Cloud IDE',
     )
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def set_metadata_endpoint(cls, values: dict) -> dict:
+        # In-place update of the input dict would cause state contamination.
+        # So a deepcopy is performed first.
+        values = deepcopy(values)
+
         if values.get("access_url") and not values.get("metadata_endpoint"):
             metadata_endpoint = infer_metadata_endpoint(values["access_url"])
             if metadata_endpoint is None:
@@ -271,7 +277,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DBTCloudConfig.parse_obj(config_dict)
+        config = DBTCloudConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
