@@ -1,7 +1,22 @@
 """
-Logging filter for secret masking.
+Logging filter for masking secrets in log messages and streams.
 
-This module provides secret masking at the logging layer.
+This module provides a Python logging.Filter that automatically masks
+registered secrets in all log output. Secrets are replaced with
+***REDACTED:VARIABLE_NAME*** for debugging while preventing leaks.
+
+Key Features:
+- Automatic masking of messages, arguments, and exceptions
+- Deferred pattern rebuild (only during masking, not registration)
+- Circuit breaker for graceful degradation
+- Message truncation (5KB default) for performance
+- Stream wrappers for stdout/stderr coverage
+
+Performance:
+- Pattern rebuilt only when needed during masking operations
+- Lock-free masking with COW snapshots
+- Truncation before masking avoids regex on huge strings
+- Performance warnings at 100/500 secrets
 """
 
 import logging
@@ -10,10 +25,15 @@ import sys
 import threading
 from typing import Any, Dict, Optional, TextIO, Tuple
 
-from datahub.ingestion.masking.logging_utils import get_masking_safe_logger
-from datahub.ingestion.masking.secret_registry import SecretRegistry
+from datahub.masking.logging_utils import get_masking_safe_logger
+from datahub.masking.secret_registry import SecretRegistry
 
 logger = get_masking_safe_logger(__name__)
+
+# Constants
+REDACTED_FORMAT = "***REDACTED:{name}***"
+MASKING_ERROR_MESSAGE = "[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]"
+CIRCUIT_OPEN_MESSAGE = "[REDACTED: Masking Circuit Open]"
 
 
 class SecretMaskingFilter(logging.Filter):
@@ -68,6 +88,15 @@ class SecretMaskingFilter(logging.Filter):
 
         Uses loop instead of recursion to prevent stack overflow
         when secrets are being rapidly modified by concurrent threads.
+
+        Theoretical Limitation (ABA Problem):
+            Version is an incrementing integer. If it wraps around after 2^63
+            modifications (~9 quintillion registrations), version comparison
+            could give false positives. This is astronomically unlikely in
+            practice (would take centuries at 1M registrations/second).
+
+            If this ever becomes a concern, version could be changed to UUID4,
+            but the performance cost is not justified for this edge case.
         """
         MAX_REBUILD_ATTEMPTS = 10  # Prevent infinite loops
 
@@ -95,6 +124,8 @@ class SecretMaskingFilter(logging.Filter):
             )
 
             # Build pattern - NOT under lock
+            # CRITICAL: re.escape() ensures secrets with regex metacharacters
+            # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex
             escaped_values = [re.escape(value) for value, _ in sorted_secrets]
             pattern_str = "|".join(escaped_values)
 
@@ -185,7 +216,7 @@ class SecretMaskingFilter(logging.Filter):
 
         # Circuit breaker - if too many failures, stop trying
         if self._circuit_open:
-            return "[REDACTED: Masking Circuit Open]"
+            return CIRCUIT_OPEN_MESSAGE
 
         # Mask secrets (outside lock - safe because immutable references)
         try:
@@ -196,7 +227,7 @@ class SecretMaskingFilter(logging.Filter):
                 # Look up variable name (O(1) dict access)
                 variable_name = replacements.get(secret_value, "UNKNOWN")
                 # Return formatted mask
-                return f"***REDACTED:{variable_name}***"
+                return REDACTED_FORMAT.format(name=variable_name)
 
             masked = pattern.sub(replace_with_variable_name, text)
 
@@ -293,7 +324,7 @@ class SecretMaskingFilter(logging.Filter):
         except Exception as e:
             # Fail-secure: never return unmasked args on error
             logger.error(f"CRITICAL: Secret masking failed in args: {e}", exc_info=True)
-            return ("[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]",)
+            return (MASKING_ERROR_MESSAGE,)
 
     def _mask_exception(self, exc_info: Optional[Tuple]) -> Optional[Tuple]:
         """
@@ -330,7 +361,7 @@ class SecretMaskingFilter(logging.Filter):
             # Return a sanitized exception
             return (
                 RuntimeError,
-                RuntimeError("[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]"),
+                RuntimeError(MASKING_ERROR_MESSAGE),
                 None,
             )
 
@@ -373,12 +404,21 @@ class SecretMaskingFilter(logging.Filter):
         Returns:
             True (always allow record through)
         """
+        # Check if masking is disabled for debugging
+        from datahub.masking.secret_registry import is_masking_enabled
+
+        if not is_masking_enabled():
+            return True  # Skip all masking and truncation for debugging
+
         try:
-            # 1. Truncate large messages BEFORE masking (performance)
+            # 1. Truncate large messages BEFORE masking (performance optimization)
+            #    This is intentional: truncating first avoids regex on huge strings
+            #    Security: Truncation removes end of message, so secrets at end
+            #    are removed entirely (not just masked), which is acceptable
             if isinstance(record.msg, str):
                 record.msg = self._truncate_message(record.msg)
 
-            # 2. Mask the log message
+            # 2. Mask the log message (after truncation for performance)
             if isinstance(record.msg, str):
                 record.msg = self._mask_text(record.msg)
 

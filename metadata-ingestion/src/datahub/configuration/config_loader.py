@@ -16,7 +16,64 @@ from datahub.configuration.json_loader import JsonConfigurationMechanism
 from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
 
+# Optional dependency: Secret masking
+try:
+    from datahub.masking.secret_registry import SecretRegistry, should_mask_env_var
+
+    _MASKING_AVAILABLE = True
+except ImportError:
+    _MASKING_AVAILABLE = False
+
 Environ = Mapping[str, str]
+
+
+def _extract_env_var_names(text: str) -> Set[str]:
+    """
+    Extract environment variable names from a string containing ${VAR} or $VAR patterns.
+
+    Supports bash-style parameter expansion:
+    - ${VAR}          - simple variable
+    - ${VAR:-default} - default value
+    - ${VAR:=default} - assign default
+    - ${VAR:?error}   - error if unset
+    - ${VAR:+value}   - alternate value
+
+    Important Notes:
+        1. This extracts ALL $VAR patterns, including those in string values
+        2. If you have literal $ in your config (e.g., "mongodb://user:$PASSWORD"),
+           escape it as $$ in YAML or quote the entire string
+        3. False positives are harmless - they just won't find a matching env var
+        4. Use ${VAR} syntax explicitly if you want substitution
+
+    Args:
+        text: String that may contain environment variable references
+
+    Returns:
+        Set of variable names found
+
+    Examples:
+        >>> _extract_env_var_names("host: ${DATABASE_HOST}")
+        {'DATABASE_HOST'}
+        >>> _extract_env_var_names("mongodb://user:$$PASSWORD@host")  # Escaped $
+        set()  # No extraction because $$ is literal
+    """
+    var_names = set()
+
+    # Match ${VAR} and bash parameter expansion patterns
+    # Pattern breakdown:
+    #   ([A-Za-z_][A-Za-z0-9_]*)  - capture variable name
+    #   (?::[+\-=?][^}]*)?        - optional bash operators with content
+    for match in re.finditer(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::[+\-=?][^}]*)?\}", text):
+        var_names.add(match.group(1))
+
+    # Match $VAR patterns (without braces)
+    for match in re.finditer(r"\$([A-Za-z_][A-Za-z0-9_]*)", text):
+        var_name = match.group(1)
+        # Only add if not already captured by ${} pattern
+        if var_name not in var_names:
+            var_names.add(var_name)
+
+    return var_names
 
 
 def resolve_env_variables(config: dict, environ: Environ) -> dict:
@@ -30,9 +87,15 @@ def list_referenced_env_variables(config: dict) -> Set[str]:
 
 
 class EnvResolver:
-    def __init__(self, environ: Environ, strict_env_syntax: bool = False):
+    def __init__(
+        self,
+        environ: Environ,
+        strict_env_syntax: bool = False,
+        register_secrets: bool = True,
+    ):
         self.environ = environ
         self.strict_env_syntax = strict_env_syntax
+        self.register_secrets = register_secrets
 
     def resolve(self, config: dict) -> dict:
         return self._resolve_dict(config)
@@ -57,16 +120,47 @@ class EnvResolver:
         mock = unittest.mock.MagicMock()
         mock.get.side_effect = mock_get_env
 
-        resolver = EnvResolver(environ=mock, strict_env_syntax=strict_env_syntax)
+        resolver = EnvResolver(
+            environ=mock, strict_env_syntax=strict_env_syntax, register_secrets=False
+        )
         resolver._resolve_dict(config)
 
         return vars
 
+    def _register_env_vars_from_element(self, element: str) -> None:
+        """
+        Register environment variables found in element for secret masking.
+
+        Args:
+            element: String that may contain environment variable references
+        """
+        if not self.register_secrets or not _MASKING_AVAILABLE:
+            return
+
+        # Extract variable names from the pattern
+        var_names = _extract_env_var_names(element)
+
+        # Collect secrets for batch registration
+        secrets = {}
+        for var_name in var_names:
+            if should_mask_env_var(var_name):
+                value = self.environ.get(var_name)
+                if value:
+                    secrets[var_name] = value
+
+        # Batch register all secrets from this element
+        if secrets:
+            SecretRegistry.get_instance().register_secrets_batch(secrets)
+
     def _resolve_element(self, element: str) -> str:
         if re.search(r"(\$\{).+(\})", element):
+            # Register secrets before expansion
+            self._register_env_vars_from_element(element)
             return expand(element, nounset=True, environ=self.environ)
         elif not self.strict_env_syntax and element.startswith("$"):
             try:
+                # Register secrets before expansion
+                self._register_env_vars_from_element(element)
                 return expand(element, nounset=True, environ=self.environ)
             except UnboundVariable:
                 # TODO: This fallback is kept around for backwards compatibility, but

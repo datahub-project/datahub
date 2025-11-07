@@ -8,16 +8,22 @@ __all__ = [
     "install_masking_filter",
     "uninstall_masking_filter",
     "SecretRegistry",
+    "should_mask_env_var",
+    "is_masking_enabled",
     "initialize_secret_masking",
     "get_masking_safe_logger",
 ]
 
-from datahub.ingestion.masking.bootstrap import initialize_secret_masking
-from datahub.ingestion.masking.logging_utils import get_masking_safe_logger
-from datahub.ingestion.masking.masking_filter import (
+from datahub.masking.bootstrap import initialize_secret_masking
+from datahub.masking.logging_utils import get_masking_safe_logger
+from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     StreamMaskingWrapper,
     install_masking_filter,
     uninstall_masking_filter,
 )
-from datahub.ingestion.masking.secret_registry import SecretRegistry
+from datahub.masking.secret_registry import (
+    SecretRegistry,
+    is_masking_enabled,
+    should_mask_env_var,
+)

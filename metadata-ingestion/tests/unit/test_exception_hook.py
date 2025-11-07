@@ -2,7 +2,7 @@
 
 import sys
 
-from datahub.ingestion.masking.bootstrap import (
+from datahub.masking.bootstrap import (
     initialize_secret_masking,
     shutdown_secret_masking,
 )
@@ -144,9 +144,9 @@ class TestExceptionHookMasking:
         # exception is still displayed (fail-open for debugging)
 
         # Create an exception with an unusual structure that might cause issues
-        class WeirdException(Exception):
+        class WeirdException(Exception):  # type: ignore[misc]
             @property
-            def args(self):
+            def args(self):  # type: ignore[override]
                 raise RuntimeError("Cannot access args!")
 
         try:

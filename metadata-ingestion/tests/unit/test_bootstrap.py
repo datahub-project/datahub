@@ -1,4 +1,28 @@
-"""Tests for secret masking bootstrap functionality."""
+"""
+Tests for secret masking bootstrap functionality.
+
+ARCHITECTURAL NOTE:
+    These tests mock filter installation rather than secret loading because
+    the bootstrap architecture was refactored to decouple infrastructure from
+    secret discovery:
+
+    OLD: Bootstrap loads secrets automatically based on execution context
+         - Mocks targeted _load_secrets_for_context()
+         - Bootstrap was responsible for both setup AND secret discovery
+
+    NEW: Bootstrap only sets up infrastructure (filter + exception hook)
+         - Mocks target install_masking_filter()
+         - Secrets register automatically at point-of-read (config expansion,
+           Pydantic validation)
+         - Bootstrap is NOT responsible for loading secrets
+
+    This change:
+    ✓ Separates concerns (infrastructure vs. discovery)
+    ✓ Makes masking context-independent
+    ✓ Allows components to own their secret registration
+    ✗ Bootstrap no longer catches secret loading errors (intentional -
+      errors now surface at point-of-read)
+"""
 
 from unittest.mock import patch
 
@@ -18,7 +42,7 @@ class TestBootstrapErrorHandling:
         2. Second initialization succeeds → _bootstrap_error should be None
         3. Without fix: _bootstrap_error still contains old error (misleading)
         """
-        from datahub.ingestion.masking.bootstrap import (
+        from datahub.masking.bootstrap import (
             get_bootstrap_error,
             initialize_secret_masking,
             is_bootstrapped,
@@ -73,7 +97,7 @@ class TestBootstrapErrorHandling:
 
     def test_bootstrap_error_set_on_failure(self):
         """Verify that _bootstrap_error is set when initialization fails."""
-        from datahub.ingestion.masking.bootstrap import (
+        from datahub.masking.bootstrap import (
             get_bootstrap_error,
             initialize_secret_masking,
             is_bootstrapped,
@@ -83,12 +107,12 @@ class TestBootstrapErrorHandling:
         try:
             shutdown_secret_masking()
 
-            # Simulate failure during secret loading
+            # Simulate failure during filter installation
             with patch(
-                "datahub.ingestion.masking.bootstrap._load_secrets_for_context"
-            ) as mock_load:
-                test_error = ValueError("Test failure during secret loading")
-                mock_load.side_effect = test_error
+                "datahub.ingestion.masking.bootstrap.install_masking_filter"
+            ) as mock_install:
+                test_error = ValueError("Test failure during filter installation")
+                mock_install.side_effect = test_error
 
                 # Initialize (should fail gracefully, not raise)
                 initialize_secret_masking()
@@ -101,7 +125,7 @@ class TestBootstrapErrorHandling:
                 assert isinstance(error, ValueError), (
                     "Should be the ValueError we raised"
                 )
-                assert "Test failure during secret loading" in str(error)
+                assert "Test failure during filter installation" in str(error)
 
         finally:
             shutdown_secret_masking()
@@ -121,7 +145,7 @@ class TestBootstrapErrorHandling:
         import threading
         import time
 
-        from datahub.ingestion.masking.bootstrap import (
+        from datahub.masking.bootstrap import (
             initialize_secret_masking,
             shutdown_secret_masking,
         )
@@ -182,7 +206,7 @@ class TestBootstrapErrorHandling:
         import threading
         import time
 
-        from datahub.ingestion.masking.bootstrap import (
+        from datahub.masking.bootstrap import (
             initialize_secret_masking,
             shutdown_secret_masking,
         )
@@ -244,12 +268,12 @@ class TestExceptionHookOptimization:
         Critical: If a new filter is created every time, the circuit breaker
         failure count resets to 0, defeating the circuit breaker mechanism.
         """
-        from datahub.ingestion.masking.bootstrap import (
+        from datahub.masking.bootstrap import (
             _install_exception_hook,
             shutdown_secret_masking,
         )
-        from datahub.ingestion.masking.masking_filter import SecretMaskingFilter
-        from datahub.ingestion.masking.secret_registry import SecretRegistry
+        from datahub.masking.masking_filter import SecretMaskingFilter
+        from datahub.masking.secret_registry import SecretRegistry
 
         try:
             shutdown_secret_masking()
@@ -308,12 +332,12 @@ class TestExceptionHookOptimization:
         """
         import sys
 
-        from datahub.ingestion.masking.bootstrap import (
+        from datahub.masking.bootstrap import (
             _install_exception_hook,
             shutdown_secret_masking,
         )
-        from datahub.ingestion.masking.masking_filter import SecretMaskingFilter
-        from datahub.ingestion.masking.secret_registry import SecretRegistry
+        from datahub.masking.masking_filter import SecretMaskingFilter
+        from datahub.masking.secret_registry import SecretRegistry
 
         try:
             shutdown_secret_masking()
@@ -384,11 +408,11 @@ class TestExceptionHookOptimization:
         """
         import sys
 
-        from datahub.ingestion.masking.bootstrap import (
+        from datahub.masking.bootstrap import (
             _install_exception_hook,
             shutdown_secret_masking,
         )
-        from datahub.ingestion.masking.secret_registry import SecretRegistry
+        from datahub.masking.secret_registry import SecretRegistry
 
         try:
             shutdown_secret_masking()

@@ -36,7 +36,7 @@ def get_masking_safe_logger(name: str) -> logging.Logger:
         Configured logger that's safe to use within masking code
 
     Example:
-        >>> from datahub.ingestion.masking.logging_utils import get_masking_safe_logger
+        >>> from datahub.masking.logging_utils import get_masking_safe_logger
         >>> logger = get_masking_safe_logger(__name__)
         >>> logger.warning("This message bypasses masking")
     """
