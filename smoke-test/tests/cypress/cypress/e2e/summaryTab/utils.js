@@ -289,12 +289,12 @@ export function ensurePropertiesAreVisible(propertyTypes) {
 
 export function ensurePropertyExist(property) {
   cy.getWithTestId(`property-${property.type}`).within(() => {
-    cy.getWithTestId("property-title").contains(property.name);
+    cy.getWithTestId("property-title").should("contain", property.name);
     if (property.value !== undefined) {
-      // RegExp is used to make `contains` case insensitive
-      cy.getWithTestId("property-value").contains(
-        new RegExp(property.value, "i"),
-      );
+      cy.getWithTestId("property-value").should(($el) => {
+        const text = $el.text();
+        expect(text).to.match(new RegExp(property.value, "i"));
+      });
     }
   });
 }
@@ -532,4 +532,40 @@ export function addModule(module) {
     `[data-testid="add-${module.addType ?? module.type}-module"]`,
     module.name,
   ).click();
+}
+
+// Tests
+
+export function testPropertiesSection(properties) {
+  const propertyTypes = properties.map((property) => property.type);
+  ensurePropertiesSectionIsVisible();
+  ensurePropertiesAreVisible(propertyTypes); // default properties
+
+  properties.forEach((property) => ensurePropertyExist(property));
+}
+
+export function testAboutSection() {
+  ensureAboutSectionIsVisible();
+  updateDescription("description");
+  ensureDescriptionContainsText("description");
+  updateDescription("updated description");
+  ensureDescriptionContainsText("updated description");
+  addLink("https://test.com", "testLink");
+  ensureLinkExists("https://test.com", "testLink");
+  updateLink(
+    "https://test.com",
+    "testLink",
+    "https://test-updated.com",
+    "testLinkUpdated",
+  );
+  ensureLinkExists("https://test-updated.com", "testLinkUpdated");
+  removeLink("https://test-updated.com", "testLinkUpdated");
+  ensureLinkDoesNotExist("https://test-updated.com", "testLinkUpdated");
+}
+
+export function testTemplateSection(defaultModules) {
+  ensureTemplateSectionIsVisible();
+
+  // Check default modules
+  defaultModules.forEach((module) => ensureModuleExist(module));
 }

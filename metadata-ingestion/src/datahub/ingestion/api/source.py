@@ -480,7 +480,7 @@ class Extractor(Generic[WorkUnitType, ExtractorConfig], Closeable, metaclass=ABC
         config_class = self.get_config_class()
 
         self.ctx = ctx
-        self.config = config_class.parse_obj(config_dict)
+        self.config = config_class.model_validate(config_dict)
 
     @abstractmethod
     def get_records(self, workunit: WorkUnitType) -> Iterable[RecordEnvelope]:

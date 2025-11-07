@@ -15,7 +15,7 @@ def test_hive_configuration_get_identifier_with_database():
         "database": test_db_name,
         "scheme": "hive+https",
     }
-    hive_config = HiveConfig.parse_obj(config_dict)
+    hive_config = HiveConfig.model_validate(config_dict)
     expected_output = f"{test_db_name}"
     ctx = PipelineContext(run_id="test")
     hive_source = HiveSource(hive_config, ctx)
