@@ -29,7 +29,7 @@ const deleteToastMessage = "deleted";
 const addToastMessage = "added";
 const removeToastMessage = "removed";
 
-const fieldName = "shipment_info";
+const fieldName = "field_foo";
 
 const addStructuredPropertyToEntity = (prop) => {
   cy.goToDataset(datasetUrn, datasetName);
