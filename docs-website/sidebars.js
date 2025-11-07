@@ -45,6 +45,12 @@ module.exports = {
       items: [
         // "docs/how/ui-tabs-guide",
         {
+          label: "Ask DataHub",
+          type: "doc",
+          id: "docs/features/feature-guides/ask-datahub",
+          className: "saasOnly",
+        },
+        {
           label: "Assertions (Data Quality)",
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
@@ -136,12 +142,6 @@ module.exports = {
           type: "category",
           collapsed: true,
           items: [
-            {
-              label: "Ask DataHub",
-              type: "doc",
-              id: "docs/features/feature-guides/ask-datahub",
-              className: "saasOnly",
-            },
             {
               label: "Documentation Propagation",
               type: "doc",
