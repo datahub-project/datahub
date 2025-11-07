@@ -1094,8 +1094,6 @@ featureFlags:
   # If turned on, display executor pools across the UI
   onlineSmartAssertionsEnabled: ${ONLINE_SMART_ASSERTIONS_ENABLED:true}
   # If turned on, allow on-demand creation of smart assertions in the UI, and they will run online.
-  showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true}
-  # If turned on, show the default external links on the entity page
   showCreatedAtFilter: ${SHOW_CREATED_AT_FILTER:false}
   # If turned on, show the re-designed Ingestion page
   # If turned on, show the expand more button (>>) in the lineage graph
