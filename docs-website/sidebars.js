@@ -45,6 +45,12 @@ module.exports = {
       items: [
         // "docs/how/ui-tabs-guide",
         {
+          label: "Ask DataHub",
+          type: "doc",
+          id: "docs/features/feature-guides/ask-datahub",
+          className: "saasOnly",
+        },
+        {
           label: "Assertions (Data Quality)",
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
@@ -136,12 +142,6 @@ module.exports = {
           type: "category",
           collapsed: true,
           items: [
-            {
-              label: "Ask DataHub",
-              type: "doc",
-              id: "docs/features/feature-guides/ask-datahub",
-              className: "saasOnly",
-            },
             {
               label: "Documentation Propagation",
               type: "doc",
@@ -247,6 +247,11 @@ module.exports = {
           label: "Domains",
           type: "doc",
           id: "docs/domains",
+        },
+        {
+          label: "File Upload and Download in Documentation",
+          type: "doc",
+          id: "docs/features/feature-guides/file-upload-download",
         },
         {
           label: "Incidents",
@@ -497,6 +502,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_15",
         "docs/managed-datahub/release-notes/v_0_3_14",
         "docs/managed-datahub/release-notes/v_0_3_13",
         "docs/managed-datahub/release-notes/v_0_3_12",
