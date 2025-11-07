@@ -3,6 +3,7 @@ import React from 'react';
 import EntityRegistryProvider from '@app/EntityRegistryProvider';
 import GlobalSettingsProvider from '@app/context/GlobalSettingsProvider';
 import UserContextProvider from '@app/context/UserContextProvider';
+import { DocumentsProvider } from '@app/documentV2/DocumentsContext';
 import { NavBarProvider } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import HomePageProvider from '@app/homeV3/context/HomePageProvider';
 import OnboardingTourProvider from '@app/onboarding/OnboardingTourContextProvider';
@@ -23,21 +24,23 @@ export default function AppProviders({ children }: Props) {
             <GlobalSettingsProvider>
                 <UserContextProvider>
                     <EntityRegistryProvider>
-                        <BrowserTitleProvider>
-                            <EducationStepsProvider>
-                                <OnboardingTourProvider>
-                                    <QuickFiltersProvider>
-                                        <SearchContextProvider>
-                                            <ReloadableProvider>
-                                                <HomePageProvider>
-                                                    <NavBarProvider>{children}</NavBarProvider>
-                                                </HomePageProvider>
-                                            </ReloadableProvider>
-                                        </SearchContextProvider>
-                                    </QuickFiltersProvider>
-                                </OnboardingTourProvider>
-                            </EducationStepsProvider>
-                        </BrowserTitleProvider>
+                        <DocumentsProvider>
+                            <BrowserTitleProvider>
+                                <EducationStepsProvider>
+                                    <OnboardingTourProvider>
+                                        <QuickFiltersProvider>
+                                            <SearchContextProvider>
+                                                <ReloadableProvider>
+                                                    <HomePageProvider>
+                                                        <NavBarProvider>{children}</NavBarProvider>
+                                                    </HomePageProvider>
+                                                </ReloadableProvider>
+                                            </SearchContextProvider>
+                                        </QuickFiltersProvider>
+                                    </OnboardingTourProvider>
+                                </EducationStepsProvider>
+                            </BrowserTitleProvider>
+                        </DocumentsProvider>
                     </EntityRegistryProvider>
                 </UserContextProvider>
             </GlobalSettingsProvider>

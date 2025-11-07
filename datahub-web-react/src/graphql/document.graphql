@@ -1,0 +1,207 @@
+query getDocument($urn: String!) {
+    document(urn: $urn) {
+        urn
+        type
+        subType
+        info {
+            title
+            source {
+                sourceType
+                externalUrl
+                externalId
+            }
+            status {
+                state
+            }
+            contents {
+                text
+            }
+            created {
+                time
+                actor
+            }
+            lastModified {
+                time
+                actor
+            }
+            relatedAssets {
+                asset {
+                    ... on Entity {
+                        urn
+                        type
+                    }
+                }
+            }
+            relatedDocuments {
+                document {
+                    ...documentPreviewFields
+                }
+            }
+            parentDocument {
+                document {
+                    ...documentPreviewFields
+                }
+            }
+            draftOf {
+                document {
+                    ...documentPreviewFields
+                }
+            }
+            customProperties {
+                key
+                value
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        privileges {
+            ...entityPrivileges
+        }
+        exists
+        drafts {
+            ...documentPreviewFields
+        }
+    }
+}
+
+fragment documentPreviewFields on Document {
+    urn
+    type
+    subType
+    info {
+        title
+        status {
+            state
+        }
+        contents {
+            text
+        }
+        created {
+            time
+            actor
+        }
+        lastModified {
+            time
+            actor
+        }
+        parentDocument {
+            document {
+                urn
+            }
+        }
+        draftOf {
+            document {
+                urn
+                type
+                info {
+                    title
+                }
+            }
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+}
+
+fragment documentSidebarFields on Document {
+    urn
+    type
+    subType
+    info {
+        title
+        status {
+            state
+        }
+        created {
+            time
+            actor
+        }
+        lastModified {
+            time
+            actor
+        }
+    }
+}
+
+query searchDocuments($input: SearchDocumentsInput!) {
+    searchDocuments(input: $input) {
+        start
+        count
+        total
+        documents {
+            ...documentSidebarFields
+        }
+        facets {
+            ...facetFields
+        }
+    }
+}
+
+mutation createDocument($input: CreateDocumentInput!) {
+    createDocument(input: $input)
+}
+
+mutation updateDocumentContents($input: UpdateDocumentContentsInput!) {
+    updateDocumentContents(input: $input)
+}
+
+mutation updateDocumentStatus($input: UpdateDocumentStatusInput!) {
+    updateDocumentStatus(input: $input)
+}
+
+mutation updateDocumentRelatedEntities($input: UpdateDocumentRelatedEntitiesInput!) {
+    updateDocumentRelatedEntities(input: $input)
+}
+
+mutation moveDocument($input: MoveDocumentInput!) {
+    moveDocument(input: $input)
+}
+
+mutation deleteDocument($urn: String!) {
+    deleteDocument(urn: $urn)
+}
+
+mutation mergeDraft($input: MergeDraftInput!) {
+    mergeDraft(input: $input)
+}
+
+query getDocumentChangeHistory($urn: String!, $startTimeMillis: Long, $endTimeMillis: Long, $limit: Int) {
+    document(urn: $urn) {
+        urn
+        changeHistory(startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis, limit: $limit) {
+            changeType
+            description
+            actor {
+                urn
+                type
+                username
+                info {
+                    displayName
+                    firstName
+                    lastName
+                }
+            }
+            timestamp
+            details {
+                key
+                value
+            }
+        }
+    }
+}

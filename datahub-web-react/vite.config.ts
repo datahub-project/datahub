@@ -127,7 +127,7 @@ export default defineConfig(async ({ mode }) => {
         },
         server: {
             open: false,
-            host: false,
+            host: "0.0.0.0",
             port: 3000,
             proxy: proxyOptions,
         },
