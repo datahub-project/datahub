@@ -7,6 +7,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.UsageEventIndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.utils.EnvironmentUtils;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.function.Function;
@@ -31,6 +32,17 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
 
   @Override
   public boolean skip(UpgradeContext context) {
+    // Check environment variable to skip independently of analytics flag
+    // Default is false (enabled) - step runs unless explicitly skipped
+    boolean skipViaEnvVar =
+        EnvironmentUtils.getBoolean("SKIP_CREATE_USAGE_EVENT_INDICES_STEP", false);
+    if (skipViaEnvVar) {
+      log.info(
+          "Environment variable SKIP_CREATE_USAGE_EVENT_INDICES_STEP is set to true. Skipping usage event index setup.");
+      return true;
+    }
+
+    // Check analytics enabled flag
     boolean analyticsEnabled = configurationProvider.getPlatformAnalytics().isEnabled();
     if (!analyticsEnabled) {
       log.info("DataHub analytics is disabled, skipping usage event index setup");
@@ -86,6 +98,7 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       throws Exception {
     String prefixedPolicy = prefix + "datahub_usage_event_policy";
     String prefixedTemplate = prefix + "datahub_usage_event_index_template";
+    String prefixedAlias = prefix + "datahub_usage_event";
     String prefixedIndex = prefix + "datahub_usage_event-000001";
 
     // Create ISM policy (both AWS and self-hosted OpenSearch use the same format)
@@ -104,8 +117,9 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
           esComponents, prefixedTemplate, numShards, numReplicas, prefix);
 
       // Create initial numbered index (both AWS and self-hosted OpenSearch use the same approach)
-      log.info("Creating initial index: {}", prefixedIndex);
-      UsageEventIndexUtils.createOpenSearchIndex(esComponents, prefixedIndex, prefix);
+      log.info("Creating initial index: {} with alias: {}", prefixedIndex, prefixedAlias);
+      UsageEventIndexUtils.createOpenSearchUsageEventIndex(
+          esComponents, prefixedIndex, prefixedAlias);
     } else {
       log.warn(
           "ISM policy creation failed or is not supported. Skipping template and index creation to avoid configuration issues.");
