@@ -958,7 +958,7 @@ public class OpenLineageEventToDatahubTest {
           "Transform operation should contain SQL query");
       assertTrue(
           transformOperation.contains("DIRECT:IDENTITY")
-              || transformOperation.contains("INDIRECT:FILTER"),
+              && transformOperation.contains("INDIRECT:FILTER"),
           "Transform operation should contain transformation types");
       // Verify the format: transformations should be prefixed with "-- " and followed by newline
       // before SQL
