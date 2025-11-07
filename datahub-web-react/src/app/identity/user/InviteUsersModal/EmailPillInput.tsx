@@ -101,7 +101,7 @@ export default function EmailPillInput({
     onKeyPress,
     className,
     placeholder = 'email1@address.com, email2@address.com',
-    helperText = 'Add multiple team members by entering comma-separated email addresses',
+    helperText = 'Input emails separated by commas, then press Enter to finish.',
     error,
 }: Props) {
     const [inputValue, setInputValue] = useState('');

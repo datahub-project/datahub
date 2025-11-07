@@ -38,7 +38,6 @@ export default function EmailInviteSection({
                     onEmailsChange={onEmailsChange}
                     onKeyPress={handleEmailInputKeyPress}
                     placeholder="email1@address.com, email2@address.com"
-                    helperText="Add multiple team members by entering comma-separated email addresses"
                     error={emailValidationError}
                 />
                 <SimpleSelectRole
