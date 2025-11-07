@@ -54,7 +54,12 @@ export default function DomainsSidebarHeader() {
                     />
                 </span>
             </Tooltip>
-            {isCreatingDomain && <CreateDomainModal onClose={() => setIsCreatingDomain(false)} />}
+            {isCreatingDomain && (
+                <CreateDomainModal
+                    onClose={() => setIsCreatingDomain(false)}
+                    onCreate={() => setIsCreatingDomain(false)}
+                />
+            )}
         </Wrapper>
     );
 }

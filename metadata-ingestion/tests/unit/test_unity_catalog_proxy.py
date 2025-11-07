@@ -1538,7 +1538,7 @@ mlflow_version: 2.0.1
 signature:
   inputs: '[{"name": "text", "type": "string"}]'
   outputs: '[{"name": "label", "type": "string"}]'
-  parameters: '[{"name": "temperature", "type": "float", "default": 0.7}]'
+  params: '[{"name": "temperature", "type": "float", "default": 0.7}]'
 """
 
         mock_download_response = MagicMock()

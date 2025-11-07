@@ -336,24 +336,18 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                             except (json.JSONDecodeError, TypeError) as e:
                                 logger.debug(f"Failed to parse outputs JSON: {e}")
 
-                        if "parameters" in signature_raw:
+                        if "params" in signature_raw:
                             try:
-                                signature_data["parameters"] = json.loads(
-                                    signature_raw["parameters"]
+                                signature_data["params"] = json.loads(
+                                    signature_raw["params"]
                                 )
                             except (json.JSONDecodeError, TypeError) as e:
-                                logger.debug(f"Failed to parse parameters JSON: {e}")
+                                logger.debug(f"Failed to parse params JSON: {e}")
 
                         return ModelSignature(
-                            inputs=signature_data["inputs"]
-                            if "inputs" in signature_raw
-                            else None,
-                            outputs=signature_data["outputs"]
-                            if "outputs" in signature_raw
-                            else None,
-                            parameters=signature_data["parameters"]
-                            if "parameters" in signature_raw
-                            else None,
+                            inputs=signature_data.get("inputs"),
+                            outputs=signature_data.get("outputs"),
+                            parameters=signature_data.get("params"),
                         )
                     else:
                         logger.debug(
