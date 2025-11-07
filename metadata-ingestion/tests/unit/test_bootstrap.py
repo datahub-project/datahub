@@ -350,15 +350,15 @@ class TestExceptionHookOptimization:
                 )
                 assert not captured_filter._circuit_open, "Circuit should be closed"
 
-                # Simulate a masking failure by making _mask_text raise exception
+                # Simulate a masking failure by making mask_text raise exception
                 def failing_mask(text):
                     captured_filter._failure_count += 1
                     if captured_filter._failure_count >= captured_filter._max_failures:
                         captured_filter._circuit_open = True
                     raise Exception("Simulated masking failure")
 
-                # Patch _mask_text to simulate failures
-                with patch.object(captured_filter, "_mask_text", failing_mask):
+                # Patch mask_text to simulate failures
+                with patch.object(captured_filter, "mask_text", failing_mask):
                     # Get the installed hook
                     current_hook = sys.excepthook
 

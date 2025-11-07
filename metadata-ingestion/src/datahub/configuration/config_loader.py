@@ -15,11 +15,7 @@ from datahub.configuration.common import ConfigurationError, ConfigurationMechan
 from datahub.configuration.json_loader import JsonConfigurationMechanism
 from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
-from datahub.masking.secret_registry import (
-    SecretRegistry,
-    is_masking_enabled,
-    should_mask_env_var,
-)
+from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
 Environ = Mapping[str, str]
 
@@ -116,12 +112,12 @@ class EnvResolver:
         var_names = _extract_env_var_names(element)
 
         # Collect secrets for batch registration
+        # We register all ${VAR} references from recipe as secrets
         secrets = {}
         for var_name in var_names:
-            if should_mask_env_var(var_name):
-                value = self.environ.get(var_name)
-                if value:
-                    secrets[var_name] = value
+            value = self.environ.get(var_name)
+            if value:
+                secrets[var_name] = value
 
         # Batch register all secrets from this element
         if secrets:

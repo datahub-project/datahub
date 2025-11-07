@@ -25,6 +25,7 @@ from datahub.masking.masking_filter import (
     uninstall_masking_filter,
 )
 from datahub.masking.secret_registry import SecretRegistry
+from datahub.utilities.perf_timer import PerfTimer
 
 
 @pytest.fixture
@@ -731,7 +732,6 @@ class TestP1Fixes:
         the lock, preventing blocking with 1000+ secrets.
         """
         import logging
-        import time
 
         registry = SecretRegistry()
         masking_filter = SecretMaskingFilter(registry)
@@ -741,11 +741,11 @@ class TestP1Fixes:
             registry.register_secret(f"SECRET_{i}", f"value_{i}_xxx")
 
         # Measure pattern rebuild time
-        start = time.perf_counter()
-        masking_filter._check_and_rebuild_pattern()
-        rebuild_time = time.perf_counter() - start
+        with PerfTimer() as timer:
+            masking_filter._check_and_rebuild_pattern()
 
         # Should complete in reasonable time
+        rebuild_time = timer.elapsed_seconds()
         assert rebuild_time < 0.1, (
             f"Rebuild too slow: {rebuild_time:.4f}s (expected <0.1s)"
         )
@@ -756,9 +756,9 @@ class TestP1Fixes:
         test_logger.addFilter(masking_filter)
 
         def log_message():
-            start = time.perf_counter()
-            test_logger.info("Test message with value_500_xxx")
-            log_times.append(time.perf_counter() - start)
+            with PerfTimer() as timer:
+                test_logger.info("Test message with value_500_xxx")
+            log_times.append(timer.elapsed_seconds())
 
         # Trigger rebuild in background
         def trigger_rebuild():
@@ -882,7 +882,6 @@ class TestP1Fixes:
 
         With the reverse index, lookups should be O(1) instead of O(n).
         """
-        import time
 
         registry = SecretRegistry()
 
@@ -891,13 +890,13 @@ class TestP1Fixes:
             registry.register_secret(f"SECRET_{i}", f"value_{i}")
 
         # Lookup should be fast (O(1))
-        start = time.perf_counter()
-        for i in range(1000):
-            value = registry.get_secret_value(f"SECRET_{i}")
-            assert value == f"value_{i}", f"Expected value_{i}, got {value}"
-        elapsed = time.perf_counter() - start
+        with PerfTimer() as timer:
+            for i in range(1000):
+                value = registry.get_secret_value(f"SECRET_{i}")
+                assert value == f"value_{i}", f"Expected value_{i}, got {value}"
 
         # Should complete in < 10ms (O(1) lookups)
+        elapsed = timer.elapsed_seconds()
         assert elapsed < 0.01, (
             f"Lookups too slow: {elapsed:.4f}s (expected <0.01s for 1000 O(1) lookups)"
         )
@@ -992,13 +991,13 @@ class TestRegexSecurityFixes:
             registry.register_secret(name, secret)
 
             # Should mask literal string
-            masked = masking_filter._mask_text(match_text)
+            masked = masking_filter.mask_text(match_text)
             assert masked == expected_masked, (
                 f"{name}: Failed to mask literal. Expected '{expected_masked}', got '{masked}'"
             )
 
             # Should NOT over-match similar strings
-            not_masked = masking_filter._mask_text(no_match_text)
+            not_masked = masking_filter.mask_text(no_match_text)
             assert not_masked == expected_not_masked, (
                 f"{name}: Over-matched similar string. Expected '{expected_not_masked}', got '{not_masked}'"
             )
@@ -1016,7 +1015,7 @@ class TestRegexSecurityFixes:
 
         # Should only mask literal strings, not act as wildcards
         test_text = "Processing request 12345 with secrets and keys"
-        masked = masking_filter._mask_text(test_text)
+        masked = masking_filter.mask_text(test_text)
 
         # Should NOT mask everything (wildcards should not act as regex)
         assert masked == test_text, (
@@ -1025,21 +1024,20 @@ class TestRegexSecurityFixes:
 
         # Should only mask literal "secret.*"
         literal_text = "Password is secret.*"
-        masked = masking_filter._mask_text(literal_text)
+        masked = masking_filter.mask_text(literal_text)
         assert masked == "Password is ***REDACTED:WILDCARD***", (
             f"Failed to mask literal 'secret.*': {masked}"
         )
 
         # Should NOT match "secretABC" (wildcard should not work as regex)
         not_matching = "Password is secretABC"
-        masked2 = masking_filter._mask_text(not_matching)
+        masked2 = masking_filter.mask_text(not_matching)
         assert masked2 == not_matching, (
             f"Wildcard acted as regex (should not match 'secretABC'): {masked2}"
         )
 
     def test_catastrophic_backtracking_prevention(self):
         """Verify complex patterns don't cause DoS via catastrophic backtracking."""
-        import time
 
         registry = SecretRegistry.get_instance()
         registry.clear()
@@ -1063,11 +1061,11 @@ class TestRegexSecurityFixes:
         # This should complete quickly (not hang)
         test_text = "a" * 30 + "b"
 
-        start = time.perf_counter()
-        masked = masking_filter._mask_text(test_text)
-        elapsed = time.perf_counter() - start
+        with PerfTimer() as timer:
+            masked = masking_filter.mask_text(test_text)
 
         # Should complete in milliseconds, not seconds
+        elapsed = timer.elapsed_seconds()
         assert elapsed < 0.01, (
             f"Pattern matching too slow: {elapsed:.4f}s (possible backtracking)"
         )
@@ -1100,7 +1098,7 @@ class TestRegexSecurityFixes:
         ]
 
         for input_text, expected in test_cases:
-            masked = masking_filter._mask_text(input_text)
+            masked = masking_filter.mask_text(input_text)
             assert masked == expected, (
                 f"Failed for '{input_text}'. Expected '{expected}', got '{masked}'"
             )
@@ -1118,21 +1116,21 @@ class TestRegexSecurityFixes:
 
         # Should mask exact strings only
         assert (
-            masking_filter._mask_text("Path: C:\\Users\\admin\\secret.txt")
+            masking_filter.mask_text("Path: C:\\Users\\admin\\secret.txt")
             == "Path: ***REDACTED:WINDOWS_PATH***"
         )
         assert (
-            masking_filter._mask_text("Pattern: \\d+")
+            masking_filter.mask_text("Pattern: \\d+")
             == "Pattern: ***REDACTED:REGEX_ESCAPE***"
         )
         assert (
-            masking_filter._mask_text("Value: test\\\\value")
+            masking_filter.mask_text("Value: test\\\\value")
             == "Value: ***REDACTED:DOUBLE_BACKSLASH***"
         )
 
         # Should NOT match as regex
-        assert masking_filter._mask_text("Pattern: 123") == "Pattern: 123"
-        assert masking_filter._mask_text("Value: testvalue") == "Value: testvalue"
+        assert masking_filter.mask_text("Pattern: 123") == "Pattern: 123"
+        assert masking_filter.mask_text("Value: testvalue") == "Value: testvalue"
 
 
 class TestNestedConfigHandling:
@@ -1216,7 +1214,7 @@ class TestThreadSafetyConcurrent:
             try:
                 for _ in range(100):
                     # Mask existing secret
-                    masked = masking_filter._mask_text("existing_value")
+                    masked = masking_filter.mask_text("existing_value")
                     results.append(masked)
                     time.sleep(0.001)
             except Exception as e:

@@ -66,7 +66,7 @@ def _install_exception_hook(registry: SecretRegistry) -> None:
             tb_text = "".join(tb_lines)
 
             # Mask secrets in the formatted traceback
-            masked_tb_text = masking_filter._mask_text(tb_text)
+            masked_tb_text = masking_filter.mask_text(tb_text)
 
             # Write masked traceback to stderr
             sys.stderr.write(masked_tb_text)

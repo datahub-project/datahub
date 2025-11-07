@@ -158,8 +158,18 @@ class SecretMaskingFilter(logging.Filter):
         )
         # Keep using the old pattern rather than crashing - graceful degradation
 
-    def _mask_text(self, text: str) -> str:
-        """Mask secrets in text string."""
+    def mask_text(self, text: str) -> str:
+        """Mask secrets in text string.
+
+        Public API for masking arbitrary text content. Thread-safe and includes
+        automatic pattern rebuilding, circuit breaker protection, and error handling.
+
+        Args:
+            text: Text content to mask
+
+        Returns:
+            Text with secrets replaced by ***REDACTED:VARIABLE_NAME***
+        """
         if not isinstance(text, str) or not text:
             return text
 
@@ -260,13 +270,12 @@ class SecretMaskingFilter(logging.Filter):
         try:
             if isinstance(args, dict):
                 return {
-                    k: self._mask_text(v) if isinstance(v, str) else v
+                    k: self.mask_text(v) if isinstance(v, str) else v
                     for k, v in args.items()
                 }
             elif isinstance(args, tuple):
                 return tuple(
-                    self._mask_text(arg) if isinstance(arg, str) else arg
-                    for arg in args
+                    self.mask_text(arg) if isinstance(arg, str) else arg for arg in args
                 )
             else:
                 return args
@@ -286,7 +295,7 @@ class SecretMaskingFilter(logging.Filter):
             # Mask exception message/args
             if exc_value and hasattr(exc_value, "args") and exc_value.args:
                 masked_args = tuple(
-                    self._mask_text(arg) if isinstance(arg, str) else arg
+                    self.mask_text(arg) if isinstance(arg, str) else arg
                     for arg in exc_value.args
                 )
                 # Create new exception instance with masked args
@@ -339,7 +348,7 @@ class SecretMaskingFilter(logging.Filter):
 
             # 2. Mask the log message (after truncation for performance)
             if isinstance(record.msg, str):
-                record.msg = self._mask_text(record.msg)
+                record.msg = self.mask_text(record.msg)
 
             # 3. Mask arguments (for formatting)
             if record.args:
@@ -347,7 +356,7 @@ class SecretMaskingFilter(logging.Filter):
 
             # 4. Mask pre-formatted message if it exists
             if hasattr(record, "message") and record.message:
-                record.message = self._mask_text(record.message)
+                record.message = self.mask_text(record.message)
 
             # 5. Mask exception information
             if record.exc_info:
@@ -355,11 +364,11 @@ class SecretMaskingFilter(logging.Filter):
 
             # 6. Mask formatted exception text if it exists
             if record.exc_text:
-                record.exc_text = self._mask_text(record.exc_text)
+                record.exc_text = self.mask_text(record.exc_text)
 
             # 7. Mask stack_info if present (Python 3.2+)
             if hasattr(record, "stack_info") and record.stack_info:
-                record.stack_info = self._mask_text(record.stack_info)
+                record.stack_info = self.mask_text(record.stack_info)
 
         except Exception as e:
             # NEVER let masking break logging
@@ -388,7 +397,7 @@ class StreamMaskingWrapper:
 
         try:
             # Mask text (filter handles locking internally)
-            masked = self._filter._mask_text(text)
+            masked = self._filter.mask_text(text)
 
             # Write WITHOUT holding any locks (prevents deadlock)
             self._original.write(masked)

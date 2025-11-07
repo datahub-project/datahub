@@ -14,11 +14,34 @@ from datahub.masking.bootstrap import (
 )
 from datahub.masking.logging_utils import get_masking_safe_logger
 from datahub.masking.masking_filter import SecretMaskingFilter
-from datahub.masking.secret_registry import (
-    SecretRegistry,
-    is_masking_enabled,
-    should_mask_env_var,
-)
+from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
+
+
+def test_masking_module_imports():
+    """Test that all public exports from __init__.py are importable."""
+    # Import from masking module to cover __init__.py
+    import datahub.masking
+
+    # Test that all exports are available
+    assert hasattr(datahub.masking, "SecretMaskingFilter")
+    assert hasattr(datahub.masking, "StreamMaskingWrapper")
+    assert hasattr(datahub.masking, "install_masking_filter")
+    assert hasattr(datahub.masking, "uninstall_masking_filter")
+    assert hasattr(datahub.masking, "SecretRegistry")
+    assert hasattr(datahub.masking, "is_masking_enabled")
+    assert hasattr(datahub.masking, "initialize_secret_masking")
+    assert hasattr(datahub.masking, "get_masking_safe_logger")
+
+    # Verify imports work
+    from datahub.masking import (
+        SecretMaskingFilter,
+        SecretRegistry,
+        StreamMaskingWrapper,
+    )
+
+    assert SecretMaskingFilter is not None
+    assert SecretRegistry is not None
+    assert StreamMaskingWrapper is not None
 
 
 class TestSecretRegistryEdgeCases:
@@ -89,58 +112,7 @@ class TestSecretRegistryEdgeCases:
         assert not registry.has_secret("NONEXISTENT")
 
 
-class TestEnvVarFiltering:
-    def test_system_vars_not_masked(self):
-        assert not should_mask_env_var("PATH")
-        assert not should_mask_env_var("HOME")
-        assert not should_mask_env_var("USER")
-        assert not should_mask_env_var("PYTHONPATH")
-
-    def test_custom_vars_masked(self):
-        assert should_mask_env_var("MY_CUSTOM_VAR")
-        assert should_mask_env_var("APP_SECRET")
-        assert should_mask_env_var("DATABASE_PASSWORD")
-
-    def test_skip_list(self):
-        """DATAHUB_MASKING_ENV_VARS_SKIP_LIST is respected."""
-        from datahub.masking.secret_registry import _refresh_env_var_filters
-
-        os.environ["DATAHUB_MASKING_ENV_VARS_SKIP_LIST"] = "MY_VAR,OTHER_VAR"
-        _refresh_env_var_filters()  # Reload cached values after env var change
-
-        assert not should_mask_env_var("MY_VAR")
-        assert not should_mask_env_var("OTHER_VAR")
-        assert should_mask_env_var("THIRD_VAR")
-
-        del os.environ["DATAHUB_MASKING_ENV_VARS_SKIP_LIST"]
-        _refresh_env_var_filters()  # Reload after cleanup
-
-    def test_skip_pattern(self):
-        """DATAHUB_MASKING_ENV_VARS_SKIP_PATTERN is respected."""
-        from datahub.masking.secret_registry import _refresh_env_var_filters
-
-        os.environ["DATAHUB_MASKING_ENV_VARS_SKIP_PATTERN"] = "^TEST_.*"
-        _refresh_env_var_filters()  # Reload cached values after env var change
-
-        assert not should_mask_env_var("TEST_VAR")
-        assert not should_mask_env_var("TEST_ANOTHER")
-        assert should_mask_env_var("PROD_VAR")
-
-        del os.environ["DATAHUB_MASKING_ENV_VARS_SKIP_PATTERN"]
-        _refresh_env_var_filters()  # Reload after cleanup
-
-    def test_skip_pattern_invalid_regex(self):
-        from datahub.masking.secret_registry import _refresh_env_var_filters
-
-        os.environ["DATAHUB_MASKING_ENV_VARS_SKIP_PATTERN"] = "[invalid"
-        _refresh_env_var_filters()  # Reload cached values after env var change
-
-        # Should still mask variables despite invalid pattern
-        assert should_mask_env_var("MY_VAR")
-
-        del os.environ["DATAHUB_MASKING_ENV_VARS_SKIP_PATTERN"]
-        _refresh_env_var_filters()  # Reload after cleanup
-
+class TestMaskingEnabled:
     def test_is_masking_enabled(self):
         # Default is enabled
         assert is_masking_enabled()
@@ -251,6 +223,39 @@ class TestBootstrapEdgeCases:
         root_logger = logging.getLogger()
         filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
         assert len(filters) == 0
+
+    def test_is_bootstrapped(self):
+        from datahub.masking.bootstrap import is_bootstrapped
+
+        shutdown_secret_masking()
+        assert not is_bootstrapped()
+
+        initialize_secret_masking()
+        assert is_bootstrapped()
+
+        shutdown_secret_masking()
+        assert not is_bootstrapped()
+
+    def test_get_bootstrap_error(self):
+        from datahub.masking.bootstrap import get_bootstrap_error
+
+        shutdown_secret_masking()
+        assert get_bootstrap_error() is None
+
+    def test_initialize_with_disabled_masking(self):
+        """Test initialization when masking is disabled."""
+        from datahub.masking.bootstrap import is_bootstrapped
+
+        os.environ["DATAHUB_DISABLE_SECRET_MASKING"] = "true"
+        try:
+            shutdown_secret_masking()
+            initialize_secret_masking()
+            # Should complete but not actually initialize
+            assert is_bootstrapped()
+        finally:
+            if "DATAHUB_DISABLE_SECRET_MASKING" in os.environ:
+                del os.environ["DATAHUB_DISABLE_SECRET_MASKING"]
+            shutdown_secret_masking()
 
 
 if __name__ == "__main__":

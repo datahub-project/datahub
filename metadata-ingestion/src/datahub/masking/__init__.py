@@ -8,7 +8,6 @@ __all__ = [
     "install_masking_filter",
     "uninstall_masking_filter",
     "SecretRegistry",
-    "should_mask_env_var",
     "is_masking_enabled",
     "initialize_secret_masking",
     "get_masking_safe_logger",
@@ -22,8 +21,4 @@ from datahub.masking.masking_filter import (
     install_masking_filter,
     uninstall_masking_filter,
 )
-from datahub.masking.secret_registry import (
-    SecretRegistry,
-    is_masking_enabled,
-    should_mask_env_var,
-)
+from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled

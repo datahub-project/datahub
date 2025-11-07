@@ -251,5 +251,141 @@ class TestNestedSecretRegistration:
         )
 
 
+class TestConfigLoggingMasking:
+    """Test that SecretStr fields are masked when configs are logged."""
+
+    def setup_method(self):
+        from datahub.masking.bootstrap import (
+            initialize_secret_masking,
+            shutdown_secret_masking,
+        )
+
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+        initialize_secret_masking(force=True)
+
+    def teardown_method(self):
+        from datahub.masking.bootstrap import shutdown_secret_masking
+
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+
+    def test_config_secrets_masked_in_logs(self):
+        """Test that SecretStr fields are masked when config is logged."""
+        import logging
+
+        from datahub.masking.masking_filter import SecretMaskingFilter
+
+        class TestSourceConfig(ConfigModel):
+            password: SecretStr = Field(description="Database password")
+            api_key: SecretStr = Field(description="API key")
+            host: str = Field(description="Database host")
+
+        # Create config with secrets
+        config = TestSourceConfig(
+            password="my-secret-password", api_key="my-api-key", host="my-host"
+        )
+
+        # Verify secrets are registered
+        registry = SecretRegistry.get_instance()
+        assert registry.has_secret("password")
+        assert registry.has_secret("api_key")
+
+        # Get the masking filter
+        masking_filter = SecretMaskingFilter(registry)
+
+        # Create log records with secrets and verify they're masked
+        test_cases = [
+            (f"Password is: {config.password.get_secret_value()}", "password"),
+            (f"API key is: {config.api_key.get_secret_value()}", "api_key"),
+            (f"Host is: {config.host}", None),  # Should not be masked
+        ]
+
+        for message, secret_name in test_cases:
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname="",
+                lineno=0,
+                msg=message,
+                args=(),
+                exc_info=None,
+            )
+
+            # Apply filter
+            masking_filter.filter(record)
+
+            # Check result
+            masked_message = record.getMessage()
+
+            if secret_name:
+                # Secret should be masked
+                assert "my-secret-password" not in masked_message, (
+                    f"Password not masked: {masked_message}"
+                )
+                assert "my-api-key" not in masked_message, (
+                    f"API key not masked: {masked_message}"
+                )
+                assert f"***REDACTED:{secret_name}***" in masked_message, (
+                    f"Redaction marker not found: {masked_message}"
+                )
+            else:
+                # Host should not be masked
+                assert "my-host" in masked_message
+
+    def test_config_secrets_masked_at_all_log_levels(self):
+        """Test that SecretStr fields are masked at all log levels (DEBUG, INFO, WARNING, ERROR)."""
+        import logging
+
+        from datahub.masking.masking_filter import SecretMaskingFilter
+
+        class TestSourceConfig(ConfigModel):
+            password: SecretStr = Field(description="Database password")
+
+        config = TestSourceConfig(password="debug-secret-password")
+
+        # Verify secret is registered
+        registry = SecretRegistry.get_instance()
+        assert registry.has_secret("password")
+
+        # Get the masking filter
+        masking_filter = SecretMaskingFilter(registry)
+
+        # Test all log levels
+        log_levels = [
+            (logging.DEBUG, "DEBUG"),
+            (logging.INFO, "INFO"),
+            (logging.WARNING, "WARNING"),
+            (logging.ERROR, "ERROR"),
+            (logging.CRITICAL, "CRITICAL"),
+        ]
+
+        for level, level_name in log_levels:
+            record = logging.LogRecord(
+                name="test",
+                level=level,
+                pathname="",
+                lineno=0,
+                msg=f"[{level_name}] Password: {config.password.get_secret_value()}",
+                args=(),
+                exc_info=None,
+            )
+
+            # Apply filter
+            masking_filter.filter(record)
+
+            # Check result
+            masked_message = record.getMessage()
+
+            # Secret should be masked at ALL log levels
+            assert "debug-secret-password" not in masked_message, (
+                f"Password not masked at {level_name} level: {masked_message}"
+            )
+            assert "***REDACTED:password***" in masked_message, (
+                f"Redaction marker not found at {level_name} level: {masked_message}"
+            )
+            assert level_name in masked_message  # Level name should still be there
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
