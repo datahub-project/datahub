@@ -28,6 +28,8 @@ else
   uv pip install -r requirements.txt
 fi
 
+echo "test"
+
 (cd ..; ./gradlew :smoke-test:yarnInstall)
 
 source ./set-cypress-creds.sh
