@@ -29,7 +29,7 @@ const deleteToastMessage = "deleted";
 const addToastMessage = "added";
 const removeToastMessage = "removed";
 
-const fieldName = "field_foo";
+const fieldName = "shipment_info";
 
 const addStructuredPropertyToEntity = (prop) => {
   cy.goToDataset(datasetUrn, datasetName);
@@ -103,7 +103,7 @@ const addStructuredPropertyToField = (prop) => {
 describe("Verify manage structured properties functionalities", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
+    cy.login();
     cy.goToStructuredProperties();
   });
 
