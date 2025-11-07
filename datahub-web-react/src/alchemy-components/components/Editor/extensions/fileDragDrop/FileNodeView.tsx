@@ -9,6 +9,7 @@ import {
     FILE_ATTRS,
     FILE_TYPES_TO_PREVIEW,
     FileNodeAttributes,
+    TEXT_FILE_TYPES_TO_PREVIEW,
     getExtensionFromFileName,
     getFileIconFromExtension,
     getFileTypeFromFilename,
@@ -143,24 +144,45 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
     };
 
     const [fileContent, setFileContent] = useState<string | null>(null);
+    const [hasError, setHasError] = useState(false);
     const [pdfError, setPdfError] = useState(false);
     const [videoError, setVideoError] = useState(false);
     const [isResizingPdf, setIsResizingPdf] = useState(false);
+    const [hasLoaded, setHasLoaded] = useState(false); // Track initial loading
+
+    // Text-based files for which preview should be shown
+    const shouldShowPreview = FILE_TYPES_TO_PREVIEW.some((t) => fileType?.startsWith(t));
+    const isTextFile = TEXT_FILE_TYPES_TO_PREVIEW.some((t) => fileType?.startsWith(t));
 
     useEffect(() => {
         if (!url) return;
 
-        const shouldShowPreview = FILE_TYPES_TO_PREVIEW.some((t) => fileType?.startsWith(t));
+        setHasLoaded(false);
 
         if (shouldShowPreview) {
             fetch(url)
-                .then((res) => res.text())
-                .then(setFileContent)
-                .catch(() => setFileContent('Could not load file.'));
-        } else {
-            setFileContent(null);
+                .then((res) => {
+                    if (!res.ok) {
+                        setHasError(true);
+                        return null;
+                    }
+                    if (isTextFile) {
+                        return res.text();
+                    }
+                    return null;
+                })
+                .then((text) => {
+                    if (text) setFileContent(text);
+                })
+                .catch(() => {
+                    setHasError(true);
+                    setFileContent(null);
+                })
+                .finally(() => {
+                    setHasLoaded(true);
+                });
         }
-    }, [url, fileType]);
+    }, [url, hasError, shouldShowPreview, isTextFile]);
 
     // Show loading state if no URL yet (file is being uploaded)
     if (!url) {
@@ -188,18 +210,22 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
         </FileDetails>
     );
 
+    const fileNodeWithButton = (
+        <FileNameButtonWrapper>
+            {fileNode}
+            <Button
+                icon={{ source: 'phosphor', icon: isPreviewVisible ? 'CaretDown' : 'CaretRight' }}
+                variant="text"
+                onClick={() => setIsPreviewVisible(!isPreviewVisible)}
+            />
+        </FileNameButtonWrapper>
+    );
+
     // Preview pdf files
-    if (isPdf && !pdfError) {
+    if (isPdf && !hasError && !pdfError && hasLoaded) {
         return (
             <FileContainer {...containerProps}>
-                <FileNameButtonWrapper>
-                    {fileNode}
-                    <Button
-                        icon={{ source: 'phosphor', icon: isPreviewVisible ? 'CaretDown' : 'CaretUp' }}
-                        variant="text"
-                        onClick={() => setIsPreviewVisible(!isPreviewVisible)}
-                    />
-                </FileNameButtonWrapper>
+                {fileNodeWithButton}
                 {isPreviewVisible && (
                     <PdfWrapper
                         onMouseDown={() => setIsResizingPdf(true)}
@@ -219,17 +245,10 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
     }
 
     // Preview video files
-    if (isVideo && !videoError) {
+    if (isVideo && !hasError && !videoError && hasLoaded) {
         return (
             <FileContainer {...containerProps}>
-                <FileNameButtonWrapper>
-                    {fileNode}
-                    <Button
-                        icon={{ source: 'phosphor', icon: isPreviewVisible ? 'CaretDown' : 'CaretUp' }}
-                        variant="text"
-                        onClick={() => setIsPreviewVisible(!isPreviewVisible)}
-                    />
-                </FileNameButtonWrapper>
+                {fileNodeWithButton}
                 {isPreviewVisible && (
                     <VideoContainer>
                         <VideoPlayer controls preload="metadata" onError={() => setVideoError(true)}>
@@ -245,14 +264,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
     if (fileContent !== null) {
         return (
             <FileContainer {...containerProps}>
-                <FileNameButtonWrapper>
-                    {fileNode}
-                    <Button
-                        icon={{ source: 'phosphor', icon: isPreviewVisible ? 'CaretDown' : 'CaretUp' }}
-                        variant="text"
-                        onClick={() => setIsPreviewVisible(!isPreviewVisible)}
-                    />
-                </FileNameButtonWrapper>
+                {fileNodeWithButton}
                 {isPreviewVisible && (
                     <StyledSyntaxHighlighter
                         language={extension || 'text'}

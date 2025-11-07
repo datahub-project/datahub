@@ -605,6 +605,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.graph.impact.keepAlive",
           "elasticsearch.search.graph.impact.maxHops",
           "elasticsearch.search.graph.impact.maxRelations",
+          "elasticsearch.search.graph.impact.partialResults",
+          "elasticsearch.search.graph.impact.searchQueryTimeReservation",
           "elasticsearch.search.graph.impact.slices",
           "elasticsearch.search.graph.lineageMaxHops",
           "elasticsearch.search.graph.maxThreads",
