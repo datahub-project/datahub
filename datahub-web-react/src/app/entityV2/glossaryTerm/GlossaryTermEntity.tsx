@@ -37,6 +37,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.CLONE,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
 ]);
