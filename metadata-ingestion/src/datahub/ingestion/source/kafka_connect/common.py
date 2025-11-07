@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Final, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Final, List, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -18,6 +18,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.lossy_collections import LossyList
+
+if TYPE_CHECKING:
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
 
@@ -230,6 +233,30 @@ class KafkaConnectSourceConfig(
         "This is the recommended approach for Confluent Cloud instead of manually constructing the full URI.",
     )
 
+    # Schema resolver configuration for enhanced lineage
+    use_schema_resolver: bool = Field(
+        default=False,
+        description="Use DataHub's schema metadata to enhance CDC connector lineage. "
+        "When enabled (requires DataHub graph connection): "
+        "1) Expands table patterns (e.g., 'database.*') to actual tables using DataHub metadata "
+        "2) Generates fine-grained column-level lineage for CDC sources/sinks. "
+        "Disabled by default to maintain backward compatibility.",
+    )
+
+    schema_resolver_expand_patterns: bool = Field(
+        default=True,
+        description="Enable table pattern expansion using DataHub schema metadata. "
+        "When use_schema_resolver=True, this controls whether to expand patterns like 'database.*' "
+        "to actual table names by querying DataHub. Only applies when use_schema_resolver is enabled.",
+    )
+
+    schema_resolver_finegrained_lineage: bool = Field(
+        default=True,
+        description="Enable fine-grained (column-level) lineage extraction using DataHub schema metadata. "
+        "When use_schema_resolver=True, this controls whether to generate column-level lineage "
+        "by matching schemas between source tables and Kafka topics. Only applies when use_schema_resolver is enabled.",
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @model_validator(mode="before")
@@ -332,6 +359,7 @@ class KafkaConnectLineage:
     target_platform: str
     job_property_bag: Optional[Dict[str, str]] = None
     source_dataset: Optional[str] = None
+    fine_grained_lineages: Optional[List[Dict[str, Any]]] = None
 
 
 @dataclass
@@ -605,6 +633,7 @@ class BaseConnector:
     connector_manifest: ConnectorManifest
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
+    schema_resolver: Optional["SchemaResolver"] = None
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         """Extract lineage mappings for this connector. Override in subclasses."""

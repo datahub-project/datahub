@@ -175,7 +175,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         # Try to get a connector handler from the registry
         connector = ConnectorRegistry.get_connector_for_manifest(
-            connector_manifest, self.config, self.report
+            connector_manifest, self.config, self.report, self.ctx
         )
 
         if not connector:

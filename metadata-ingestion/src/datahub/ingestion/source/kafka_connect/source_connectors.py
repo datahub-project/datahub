@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass
-from typing import Dict, Final, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Final, Iterable, List, Optional, Tuple
 
 from sqlalchemy.engine.url import make_url
 
@@ -1664,7 +1664,8 @@ class DebeziumSourceConnector(BaseConnector):
             # postgres, oracle, db2 use database.dbname
             return config.get("database.dbname")
 
-    def _get_platform_from_connector_class(self, connector_class: str) -> str:
+    @staticmethod
+    def _get_platform_from_connector_class(connector_class: str) -> str:
         """Map Debezium connector class to platform name."""
         # Map based on well-known Debezium connector classes
         if "mysql" in connector_class.lower():
@@ -1743,11 +1744,17 @@ class DebeziumSourceConnector(BaseConnector):
                     table_name = get_dataset_name(database_name, table_part)
                     logger.debug(f"Final table name: '{table_name}'")
 
+                    # Extract fine-grained lineage if enabled
+                    fine_grained = self._extract_fine_grained_lineage(
+                        table_name, source_platform, topic, KAFKA
+                    )
+
                     lineage = KafkaConnectLineage(
                         source_dataset=table_name,
                         source_platform=source_platform,
                         target_dataset=topic,
                         target_platform=KAFKA,
+                        fine_grained_lineages=fine_grained,
                     )
                     lineages.append(lineage)
             return lineages
@@ -1890,6 +1897,257 @@ class DebeziumSourceConnector(BaseConnector):
             f"EventRouter connector {self.connector_manifest.name} has no RegexRouter - cannot filter topics accurately"
         )
         return list(self.connector_manifest.topic_names)
+
+    def _expand_table_patterns(
+        self,
+        table_config: str,
+        source_platform: str,
+        database_name: Optional[str],
+    ) -> List[str]:
+        """
+        Expand table patterns using DataHub schema metadata.
+
+        Examples:
+        - "mydb.*" → ["mydb.table1", "mydb.table2", ...]
+        - "public.*" → ["public.table1", "public.table2", ...]
+        - "schema1.table1" → ["schema1.table1"] (no expansion)
+
+        Args:
+            table_config: Comma-separated table patterns from connector config
+            source_platform: Source platform (e.g., 'postgres', 'mysql')
+            database_name: Database name for context (optional)
+
+        Returns:
+            List of fully expanded table names
+        """
+        # Check if feature is enabled
+        if (
+            not self.config.use_schema_resolver
+            or not self.config.schema_resolver_expand_patterns
+        ):
+            # Fall back to original behavior - parse as-is
+            return parse_comma_separated_list(table_config)
+
+        if not self.schema_resolver:
+            logger.debug(
+                f"SchemaResolver not available for connector {self.connector_manifest.name} - skipping pattern expansion"
+            )
+            return parse_comma_separated_list(table_config)
+
+        patterns = parse_comma_separated_list(table_config)
+        expanded_tables = []
+
+        for pattern in patterns:
+            # Check if pattern needs expansion (contains wildcard or is database-only)
+            if "*" in pattern or self._is_database_only_pattern(pattern):
+                logger.info(
+                    f"Expanding pattern '{pattern}' using DataHub schema metadata"
+                )
+                tables = self._query_tables_from_datahub(
+                    pattern, source_platform, database_name
+                )
+                if tables:
+                    logger.info(f"Expanded pattern '{pattern}' to {len(tables)} tables")
+                    expanded_tables.extend(tables)
+                else:
+                    logger.warning(
+                        f"Pattern '{pattern}' did not match any tables in DataHub - keeping as-is"
+                    )
+                    expanded_tables.append(pattern)
+            else:
+                # Already explicit table name - no expansion needed
+                expanded_tables.append(pattern)
+
+        return expanded_tables
+
+    def _is_database_only_pattern(self, pattern: str) -> bool:
+        """
+        Check if pattern represents a database-only specification (no schema/table).
+
+        Examples: "mydb", "production" (without schema.table parts)
+        """
+        # Simple heuristic: no dots and no wildcards means it might be database-only
+        # This is conservative - we only expand if there's a wildcard
+        return False  # Only expand when explicit wildcard is present
+
+    def _query_tables_from_datahub(
+        self,
+        pattern: str,
+        platform: str,
+        database: Optional[str],
+    ) -> List[str]:
+        """
+        Query DataHub for tables matching the given pattern.
+
+        Args:
+            pattern: Table pattern (e.g., "schema.*", "mydb.*")
+            platform: Source platform
+            database: Database name for context
+
+        Returns:
+            List of matching table names
+        """
+        if not self.schema_resolver:
+            return []
+
+        try:
+            import fnmatch
+
+
+            # Get all URNs from schema resolver cache
+            all_urns = self.schema_resolver.get_urns()
+
+            if not all_urns:
+                logger.debug(
+                    "No cached schemas available in SchemaResolver for pattern expansion"
+                )
+                return []
+
+            matched_tables = []
+
+            # Parse pattern to understand what we're looking for
+            # Pattern formats:
+            # - "schema.*" → match all tables in schema (matches "database.schema.table")
+            # - "database.schema.*" → match all tables in database.schema
+            # - "*.*" → match all tables (risky)
+
+            if "*" in pattern:
+                # For patterns like "schema.*", we need to match against table names
+                # that may have database prefix like "database.schema.table"
+                for urn in all_urns:
+                    # Extract table name from URN
+                    # URN format: urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)
+                    table_name = self._extract_table_name_from_urn(urn)
+                    if not table_name:
+                        continue
+
+                    # Try matching the full table name
+                    if fnmatch.fnmatch(table_name, pattern):
+                        matched_tables.append(table_name)
+                        continue
+
+                    # Also try matching without the database prefix
+                    # For "public.*" to match "testdb.public.users"
+                    # Extract schema.table from database.schema.table
+                    table_parts = table_name.split(".", 1)  # Split at first dot
+                    if len(table_parts) == 2:
+                        schema_table = table_parts[1]  # "public.users"
+                        if fnmatch.fnmatch(schema_table, pattern):
+                            matched_tables.append(table_name)
+
+            logger.debug(
+                f"Pattern '{pattern}' matched {len(matched_tables)} tables from DataHub"
+            )
+            return matched_tables
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to query tables from DataHub for pattern '{pattern}': {e}"
+            )
+            return []
+
+    def _extract_table_name_from_urn(self, urn: str) -> Optional[str]:
+        """
+        Extract table name from DataHub URN.
+
+        URN format: urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)
+        Returns: database.schema.table
+        """
+        try:
+            # Simple parsing - extract between second comma and third comma
+            parts = urn.split(",")
+            if len(parts) >= 2:
+                # Second part contains the table name
+                table_name = parts[1]
+                return table_name
+        except Exception as e:
+            logger.debug(f"Failed to extract table name from URN {urn}: {e}")
+
+        return None
+
+    def _extract_fine_grained_lineage(
+        self,
+        source_dataset: str,
+        source_platform: str,
+        target_dataset: str,
+        target_platform: str,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Extract column-level lineage using schema metadata from DataHub.
+
+        For CDC connectors, we assume 1:1 column mapping - all source columns
+        flow to the target with the same names (Kafka messages preserve column names).
+
+        Args:
+            source_dataset: Source table name (e.g., "database.schema.table")
+            source_platform: Source platform (e.g., "postgres")
+            target_dataset: Target Kafka topic name
+            target_platform: Target platform (should be "kafka")
+
+        Returns:
+            List of fine-grained lineage dictionaries or None if not available
+        """
+        # Check if feature is enabled
+        if (
+            not self.config.use_schema_resolver
+            or not self.config.schema_resolver_finegrained_lineage
+        ):
+            return None
+
+        if not self.schema_resolver:
+            return None
+
+        try:
+            from datahub.emitter.mce_builder import make_schema_field_urn
+            from datahub.sql_parsing._models import _TableName
+
+            # Build URNs for source and target
+            source_table = _TableName(
+                database=None, db_schema=None, table=source_dataset
+            )
+            source_urn, source_schema = self.schema_resolver.resolve_table(source_table)
+
+            if not source_schema:
+                logger.debug(
+                    f"No schema metadata found in DataHub for source table {source_dataset}"
+                )
+                return None
+
+            # For Kafka topics, we need to check if schema metadata exists
+            # Note: Kafka schema might not always be available in DataHub
+            target_table = _TableName(
+                database=None, db_schema=None, table=target_dataset
+            )
+            # Use kafka schema resolver if available, otherwise skip target schema check
+            # For CDC, columns map 1:1, so we can create lineage even without target schema
+            target_urn = self.schema_resolver.get_urn_for_table(target_table)
+
+            # Create fine-grained lineage for each source column
+            # Assume 1:1 mapping for CDC (column names are preserved)
+            fine_grained_lineages = []
+
+            for source_col in source_schema:
+                # CDC preserves column names, so source and target column names match
+                fine_grained_lineage = {
+                    "upstreamType": "FIELD_SET",
+                    "downstreamType": "FIELD",
+                    "upstreams": [make_schema_field_urn(source_urn, source_col)],
+                    "downstreams": [make_schema_field_urn(target_urn, source_col)],
+                }
+                fine_grained_lineages.append(fine_grained_lineage)
+
+            if fine_grained_lineages:
+                logger.info(
+                    f"Generated {len(fine_grained_lineages)} fine-grained lineages for {source_dataset} → {target_dataset}"
+                )
+                return fine_grained_lineages
+
+        except Exception as e:
+            logger.debug(
+                f"Failed to extract fine-grained lineage for {source_dataset} → {target_dataset}: {e}"
+            )
+
+        return None
 
 
 @dataclass
