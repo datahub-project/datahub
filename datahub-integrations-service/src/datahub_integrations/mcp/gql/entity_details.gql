@@ -1595,6 +1595,19 @@ query GetEntityLineage($input: SearchAcrossLineageInput!) {
         type
         ...entityPreview
       }
+      paths {
+        path {
+          urn
+          type
+          ... on SchemaFieldEntity {
+            fieldPath
+            parent {
+              urn
+              type
+            }
+          }
+        }
+      }
       degree
     }
   }

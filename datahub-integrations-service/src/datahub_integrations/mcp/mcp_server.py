@@ -1801,6 +1801,116 @@ class AssetLineageAPI:
         return result
 
 
+def _extract_lineage_columns_from_paths(search_results: List[dict]) -> List[dict]:
+    """
+    Extract column information from paths field for column-level lineage results.
+
+    When querying column-level lineage (e.g., get_lineage(urn, column="user_id")),
+    the GraphQL response returns DATASET entities (not individual columns) with a
+    'paths' field containing the column-level lineage chains.
+
+    Each path shows the column flow, e.g.:
+      source_table.user_id -> intermediate_table.uid -> target_table.customer_id
+
+    The LAST entity in each path is a SchemaFieldEntity representing a column in the
+    target dataset. This function extracts those column names into a 'lineageColumns' field.
+
+    Args:
+        search_results: List of lineage search results where entities are DATASET
+
+    Returns:
+        Same list with 'lineageColumns' field added to each result:
+        - entity: Dataset entity (unchanged)
+        - lineageColumns: List of unique column names (fieldPath) from path endpoints
+        - degree: Degree value (unchanged)
+        - paths: Removed to reduce response size (column info extracted to lineageColumns)
+
+    Example transformation:
+        Input: [
+            {
+                entity: {type: "DATASET", name: "target_table"},
+                paths: [
+                    {path: [
+                        {type: "SCHEMA_FIELD", fieldPath: "user_id"},
+                        {type: "SCHEMA_FIELD", fieldPath: "customer_id"}  # <- target column
+                    ]},
+                    {path: [
+                        {type: "SCHEMA_FIELD", fieldPath: "user_id"},
+                        {type: "SCHEMA_FIELD", fieldPath: "uid"}  # <- another target column
+                    ]}
+                ],
+                degree: 1
+            }
+        ]
+        Output: [
+            {
+                entity: {type: "DATASET", name: "target_table"},
+                lineageColumns: ["customer_id", "uid"],
+                degree: 1
+            }
+        ]
+    """
+    if not search_results:
+        return search_results
+
+    # Check if this is column-level lineage by looking for paths
+    # (Dataset-level lineage may have empty/missing paths)
+    has_column_paths = any(
+        result.get("paths") and len(result.get("paths", [])) > 0
+        for result in search_results
+    )
+
+    if not has_column_paths:
+        # Not column-level lineage (or no paths available), return as-is
+        return search_results
+
+    processed_results = []
+    for result in search_results:
+        paths = result.get("paths", [])
+
+        if not paths:
+            # No paths for this result, keep as-is
+            processed_results.append(result)
+            continue
+
+        # Extract column names from the LAST entity in each path
+        # (that's the target column in this dataset)
+        lineage_columns = []
+        for path_obj in paths:
+            path = path_obj.get("path", [])
+            if not path:
+                continue
+
+            # Get the last entity in the path (target column)
+            last_entity = path[-1]
+            if last_entity.get("type") == "SCHEMA_FIELD":
+                field_path = last_entity.get("fieldPath")
+                if field_path and field_path not in lineage_columns:
+                    lineage_columns.append(field_path)
+
+        # Create new result with lineageColumns
+        new_result = {
+            "entity": result["entity"],
+            "degree": result.get("degree", 0),
+        }
+
+        if lineage_columns:
+            new_result["lineageColumns"] = lineage_columns
+
+        # Keep other fields that might exist (explored, truncatedChildren, etc.)
+        for key in ["explored", "truncatedChildren", "ignoredAsHop"]:
+            if key in result:
+                new_result[key] = result[key]
+
+        processed_results.append(new_result)
+
+    logger.info(
+        f"Extracted lineageColumns from {len(search_results)} column-level lineage results"
+    )
+
+    return processed_results
+
+
 # TODO: Consider adding sorting support (sort_by, sort_order parameters) similar to search() tool.
 # GraphQL SearchAcrossLineageInput supports sortInput parameter.
 def get_lineage(
@@ -1878,10 +1988,17 @@ def get_lineage(
     inject_urls_for_urns(client._graph, lineage, ["*.searchResults[].entity"])
     truncate_descriptions(lineage)
 
+    # Track if this is column-level lineage for metadata
+    is_column_level_lineage = column is not None
+
     # Apply offset, entity-level truncation, and cleaning to upstreams/downstreams
     for direction in ["upstreams", "downstreams"]:
         if direction_results := lineage.get(direction):
             if search_results := direction_results.get("searchResults"):
+                # Extract lineageColumns from paths for column-level lineage
+                search_results = _extract_lineage_columns_from_paths(search_results)
+                direction_results["searchResults"] = search_results
+
                 total_available = len(search_results)
 
                 # Apply offset (skip first N entities)
@@ -1926,6 +2043,22 @@ def get_lineage(
                     f"get_lineage {direction}: Returned {len(selected_results)}/{total_available} entities "
                     f"(offset={offset}, hasMore={direction_results['hasMore']})"
                 )
+
+    # Add metadata for column-level lineage responses
+    if is_column_level_lineage:
+        lineage["metadata"] = {
+            "queryType": "column-level-lineage",
+            "groupedBy": "dataset",
+            "fields": {
+                "lineageColumns": {
+                    "description": "Columns in each dataset that have a lineage relationship with the source column",
+                    "semantics": {
+                        "downstream": "Columns derived from the source column",
+                        "upstream": "Columns that the source column depends on",
+                    },
+                }
+            },
+        }
 
     return lineage
 
