@@ -9,7 +9,7 @@ description = ""
 authors = [
   { name="Acryl Data", email="eng@acryl.io" },
 ]
-requires-python = "==3.10.*"
+requires-python = ">=3.11,<3.12"
 
 dependencies = [
   # 1.3.0: Pydantic v2 was introduced in 1.2.0.10 and later RCs fixed in OSS some missing code from /metadata-ingestion SaaS
@@ -74,10 +74,10 @@ dev = [
 ]
 
 [tool.uv.pip]
-python-version = "3.10"
+python-version = "3.11"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 88
 exclude = [
 	".git",

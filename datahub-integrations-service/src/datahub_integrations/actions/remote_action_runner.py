@@ -18,7 +18,6 @@ from datahub.telemetry.telemetry import telemetry_instance
 from datahub_actions.pipeline.pipeline_config import PipelineConfig
 from tenacity import before_log, retry, stop_after_attempt, wait_exponential
 
-from datahub_integrations import __version__
 from datahub_integrations.actions.constants import (
     MAX_REMOTE_ACTION_REFRESH_INTERVAL_SECONDS,
 )
@@ -165,7 +164,7 @@ class RemoteActionRunner:
                 "extraArgs": [
                     {
                         "key": "extra_pip_requirements",
-                        "value": f'["{self.base_url}/integrations/dist/integrations/acryl_datahub_integrations-{__version__}-py3-none-any.whl"]',
+                        "value": '["/datahub-integrations-service"]',
                     }
                 ],  # Assuming no extra arguments are required,
                 # "version": f"{self.base_url}/integrations/dist/datahub/acryl_datahub-{__version__}-py3-none-any.whl",

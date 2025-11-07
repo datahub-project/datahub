@@ -1,7 +1,7 @@
 # Defining environment
 # APP_ENV can be prod or dev
 ARG APP_ENV=prod
-ARG PYTHON_VERSION=3.10
+ARG PYTHON_VERSION=3.11
 # BASE_IMAGE can be full or slim
 
 ARG BASE_IMAGE=full
@@ -227,6 +227,7 @@ COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestio
 COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
 COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
 COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-service
 RUN chmod a+x /start_datahub_executor.sh
 RUN chmod a+x /health_status
 

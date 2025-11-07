@@ -23,9 +23,12 @@ logger = logging.getLogger(__name__)
 
 class SchemaPickler(pickle._Pickler):
     def save(self, obj: Any, save_persistent_id: bool = True) -> None:
-        getstate = getattr(obj, "__getstate__", None)
+        patched = False
+        original_getstate = None
+
         try:
             if DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE:
+                getstate = getattr(obj, "__getstate__", None)
                 if self._is_pydantic_v2_model(obj) and getstate is not None:
                     # Translate v2 state to v1
                     def __getstate__(self):
@@ -39,11 +42,15 @@ class SchemaPickler(pickle._Pickler):
                         return _state
 
                     # Patch getstate
+                    original_getstate = getstate
                     type(obj).__getstate__ = types.MethodType(__getstate__, obj)
+                    patched = True
+
             return super().save(obj, save_persistent_id=save_persistent_id)  # type: ignore
         finally:
-            if getstate is not None:
-                type(obj).__getstate__ = getstate
+            # Only restore if we actually patched it
+            if patched and original_getstate is not None:
+                type(obj).__getstate__ = original_getstate
 
     def _is_pydantic_v2_model(self, obj) -> bool:
         return (
