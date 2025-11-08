@@ -314,6 +314,7 @@ export default function DropzoneTable({
     return (
         <>
             <DropzoneContainer
+                data-testid="dropzone-table"
                 isDragActive={false} // This would be managed by parent component
                 hasFile={!!file}
                 onDragOver={handleDragOver}

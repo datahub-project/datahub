@@ -85,9 +85,9 @@ export const WizardPage = () => {
     const [uploadError, setUploadError] = useState<string | null>(null);
 
     const handleFileSelect = async (file: File) => {
-        setUploadFile(file);
+        setUploadFile(file); 
         setUploadError(null);
-        setUploadProgress(0);
+        setUploadProgress(10);
 
         try {
             const csvText = await new Promise<string>((resolve, reject) => {
@@ -219,8 +219,12 @@ export const WizardPage = () => {
                 setEntities(updatedEntities);
             } catch (error) {
                 console.error('Failed to fetch existing entities:', error);
+                setEntities([]);
+                setExistingEntities([]);
+                setUploadFile(null);
+                setUploadProgress(0);
                 setUploadError(
-                    `Failed to fetch existing entities: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    `Failed to validate import data. Unable to fetch existing glossary entities. Please ensure the DataHub backend is running and try again. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
                 );
                 return;
             }
@@ -228,6 +232,8 @@ export const WizardPage = () => {
             setUploadProgress(100);
             handleNext();
         } catch (error) {
+            setUploadFile(null);
+            setUploadProgress(0);
             setUploadError(`Failed to parse CSV file: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     };
@@ -269,10 +275,11 @@ export const WizardPage = () => {
                 <HeaderContainer>
                     {currentStep === 0 ? (
                         <DropzoneTable
+                            data-testid="csv-dropzone"
                             onFileSelect={handleFileSelect}
                             onFileRemove={handleFileRemove}
                             file={uploadFile}
-                            isProcessing={isProcessing}
+                            isProcessing={uploadProgress > 0 && uploadProgress < 100}
                             progress={uploadProgress}
                             error={uploadError}
                             acceptedFileTypes={['.csv']}

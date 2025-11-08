@@ -231,6 +231,7 @@ export default function GlossaryImportList({
 
             <TableContainer>
                 <Table
+                    data-testid="glossary-import-list-table"
                     columns={tableColumns as any}
                     data={flattenedData}
                     showHeader
