@@ -23,7 +23,7 @@ An RFC goes through the following stages:
 - _Landed_: when an RFC's proposed changes are shipped in an actual release.
 - _Rejected_: when an RFC PR is closed without being merged.
 
-[Pending RFC List](https://github.com/datahub-project/rfcs/pulls?q=is%3Apr+is%3Aopen)
+[Pending RFC List](https://github.com/datahub-project/datahub/pulls?q=is%3Apr+is%3Aopen+label%3ARFC)
 
 ## When to follow this process
 
@@ -53,24 +53,24 @@ pull request with the specific implementation design. We also highly recommend s
 
 ## The process
 
-In short, to get a major feature added to DataHub, one must first get the RFC merged into the RFC repo as a markdown
+In short, to get a major feature added to DataHub, one must first get the RFC merged into the main DataHub repository as a markdown
 file. At that point the RFC is 'active' and may be implemented with the goal of eventual inclusion into DataHub.
 
-- Fork the [datahub-project/rfc repository](https://github.com/datahub-project/rfcs).
-- Copy the `000-template.md` template file to `rfc/active/000-my-feature.md`, where `my-feature` is more
+- Fork the [datahub-project/datahub repository](https://github.com/datahub-project/datahub).
+- Copy the [template.md](./rfcs/template.md) file to `docs/rfcs/active/000-my-feature.md`, where `my-feature` is more
   descriptive. Don't assign an RFC number yet.
 - Fill in the RFC. Put care into the details. _RFCs that do not present convincing motivation, demonstrate understanding
   of the impact of the design, or are disingenuous about the drawback or alternatives tend to be poorly-received._
-- Submit a pull request. As a pull request the RFC will receive design feedback from the larger community, and the
+- Submit a pull request with the "RFC" label. As a pull request the RFC will receive design feedback from the larger community, and the
   author should be prepared to revise it in response.
 - Update the pull request to add the number of the PR to the filename and add a link to the PR in the header of the RFC.
 - Build consensus and integrate feedback. RFCs that have broad support are much more likely to make progress than those
   that don't receive any comments.
 - Eventually, the DataHub team will decide whether the RFC is a candidate for inclusion.
-- RFCs that are candidates for inclusion will entire a "final comment period" lasting 7 days. The beginning of this
+- RFCs that are candidates for inclusion will enter a "final comment period" lasting 7 days. The beginning of this
   period will be signaled with a comment and tag on the pull request. Furthermore, an announcement will be made in the
   \#rfc Slack channel for further visibility.
-- An RFC acan be modified based upon feedback from the DataHub team and community. Significant modifications may trigger
+- An RFC can be modified based upon feedback from the DataHub team and community. Significant modifications may trigger
   a new final comment period.
 - An RFC may be rejected by the DataHub team after public discussion has settled and comments have been made summarizing
   the rationale for rejection. The RFC will enter a "final comment period to close" lasting 7 days. At the end of the "FCP
@@ -106,9 +106,9 @@ already working on it, feel free to ask (e.g. by leaving a comment on the associ
 
 ## Implemented RFCs
 
-Once an RFC has finally be implemented, first off, congratulations! And thank you for your contribution! Second, to
-help track the status of the RFC, please make one final PR to move the RFC from `rfc/active` to
-`rfc/finished`.
+Once an RFC has finally been implemented, first off, congratulations! And thank you for your contribution! Second, to
+help track the status of the RFC, please make one final PR to move the RFC from `docs/rfcs/active` to
+`docs/rfcs/accepted`.
 
 ## Reviewing RFCs
 
