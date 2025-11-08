@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.entity.ebean.EbeanAspectDao.TX_ISOLATION;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -48,6 +49,7 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.DataGenerator;
@@ -182,7 +184,16 @@ public class EbeanEntityServiceTest
     doReturn(Optional.of(mockEntityAspect)).when(aspectDao).updateAspect(any(), any());
     doReturn(Optional.of(mockEntityAspect)).when(aspectDao).insertAspect(any(), any(), anyLong());
 
-    // Create spied transaction context that throws on commitAndContinue
+    // Stub methods that the transaction block will call
+    // Use mutable maps because the code calls computeIfAbsent() on them
+    when(aspectDao.getLatestAspects(any(), any(), anyBoolean()))
+        .thenReturn(new java.util.HashMap<>());
+    when(aspectDao.getNextVersions(any())).thenReturn(new java.util.HashMap<>());
+    // Stub saveLatestAspect to return a Pair with the mocked entity aspects
+    when(aspectDao.saveLatestAspect(any(), any(), any(), any()))
+        .thenReturn(Pair.of(Optional.of(mockEntityAspect), Optional.of(mockEntityAspect)));
+
+    // Create mocked transaction context that throws on commitAndContinue
     AtomicReference<TransactionContext> capturedTxContext = new AtomicReference<>();
     AtomicReference<TransactionResult<?>> capturedResult = new AtomicReference<>();
 
@@ -191,7 +202,14 @@ public class EbeanEntityServiceTest
               Function<TransactionContext, TransactionResult<?>> block = invocation.getArgument(0);
               Integer maxTransactionRetry = invocation.getArgument(2);
 
-              TransactionContext txContext = spy(TransactionContext.empty(maxTransactionRetry));
+              // Use mock instead of spy to avoid Mockito global interceptor
+              TransactionContext txContext = mock(TransactionContext.class);
+              // Stub other methods that might be called
+              when(txContext.getFailedAttempts()).thenReturn(0);
+              when(txContext.shouldAttemptRetry()).thenReturn(true);
+              when(txContext.lastException()).thenReturn(null);
+              when(txContext.lastExceptionIsDuplicateKey()).thenReturn(false);
+
               capturedTxContext.set(txContext);
 
               doThrow(new EntityNotFoundException("No rows updated"))
@@ -205,7 +223,7 @@ public class EbeanEntityServiceTest
         .when(aspectDao)
         .runInTransactionWithRetry(any(), any(), anyInt());
 
-    // Create the service with our spied dao
+    // Create the service with our mocked dao
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(false);
     EntityServiceImpl entityService =
