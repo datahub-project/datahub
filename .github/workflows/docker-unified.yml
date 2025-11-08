@@ -146,7 +146,7 @@ jobs:
         #    Depot is used here for remote container builds in base_build and also for all runners. Depot runners support unlimited concurrency
         #    and hence short queue times and higher parallelism of smoke tests
         run: |
-          if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && ( "${{ env.IS_FORK }}" == "false" || "${{ env.HAS_DEPOT_LABEL }}" == "true" ) ]]; then
+          if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.IS_FORK }}" == "false" ]]; then
             echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
             echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
             echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
