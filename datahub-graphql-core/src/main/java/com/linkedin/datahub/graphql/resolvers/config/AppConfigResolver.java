@@ -235,6 +235,11 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     }
     appConfig.setHomePageConfig(homePageConfig);
 
+    final DataHubConfig dataHubConfig = new DataHubConfig();
+    dataHubConfig.setServerEnv(_datahubConfiguration.getServerEnv());
+    dataHubConfig.setIsFreeTrialInstance(_datahubConfiguration.isFreeTrialInstance());
+    appConfig.setDataHubConfig(dataHubConfig);
+
     final FeatureFlagsConfig featureFlagsConfig =
         FeatureFlagsConfig.builder()
             .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())

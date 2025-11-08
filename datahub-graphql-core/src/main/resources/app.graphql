@@ -280,6 +280,15 @@ type HomePageConfig {
 }
 
 """
+Configurations related to the Datahub server
+"""
+type DataHubConfig {
+  serverType: String
+  serverEnv: String!
+  isFreeTrialInstance: Boolean!
+}
+
+"""
 Config loaded at application boot time
 This configuration dictates the behavior of the UI, such as which features are enabled or disabled
 """
@@ -368,6 +377,11 @@ type AppConfig {
   Configuration related to the home page
   """
   homePageConfig: HomePageConfig!
+
+  """
+  Configurations related to the Datahub server
+  """
+  dataHubConfig: DataHubConfig!
 }
 
 """

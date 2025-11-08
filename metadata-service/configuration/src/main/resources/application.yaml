@@ -113,6 +113,7 @@ secretService:
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
   serverEnv: ${DATAHUB_SERVER_ENV:core}
+  isFreeTrialInstance: ${IS_FREE_TRIAL_INSTANCE:false}
   # The base path for the URL where DataHub will be deployed
   basePath: ${DATAHUB_BASE_PATH:}
 

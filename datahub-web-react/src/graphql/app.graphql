@@ -78,6 +78,10 @@ query appConfig {
         homePageConfig {
             firstInPersonalSidebar
         }
+        dataHubConfig {
+            serverEnv
+            isFreeTrialInstance
+        }
         featureFlags {
             readOnlyModeEnabled
             showSearchFiltersV2
