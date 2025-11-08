@@ -1,0 +1,5 @@
+entity_type,urn,name,description,term_source,source_ref,source_url,ownership_users,ownership_groups,parent_nodes,related_contains,related_inherits,domain_urn,domain_name,custom_properties,status
+glossaryNode,,CypressImportNode,Updated test node with modified description and ownership,,,,datahub:Technical Owner,bfoo:Technical Owner,,,,,,,
+glossaryTerm,,CypressImportTerm,Updated test term with new description and ownership,INTERNAL,,,datahub:Technical Owner,,CypressImportNode,,,,,,
+glossaryTerm,,CypressStandaloneTerm,Updated standalone test term with enhanced description,INTERNAL,,,datahub:Developer,bfoo:Developer,,,,,,,
+
