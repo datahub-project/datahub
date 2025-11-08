@@ -39,4 +39,4 @@ No RFCs have been accepted in this new structure yet.
 4. Submit a pull request with the "RFC" label
 5. Gather feedback and iterate on the design
 
-For questions or early feedback, post in the #rfc channel on [DataHub Slack](../slack.md).
+For questions or early feedback, post in the #contribute-code channel on [DataHub Slack](../slack.md).
