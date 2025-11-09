@@ -64,7 +64,7 @@ const GlossaryContentProvider = (props: Props) => {
     const dropdownItems: MenuProps['items'] = [
         {
             key: 'create-group',
-            label: 'Create Term Group',
+            label: 'Create Glossary',
             icon: <FolderOutlined />,
             onClick: () => setIsCreateNodeModalVisible(true),
         },
@@ -92,13 +92,14 @@ const GlossaryContentProvider = (props: Props) => {
                 <ButtonContainer>
                     <Dropdown menu={{ items: dropdownItems }} trigger={['click']} placement="bottomRight">
                         <Button
-                            data-testid="add-term-group-button-v2"
-                            id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
+                            id="create-glossary-object-button"
+                            data-testid="create-glossary-object-button"
+                            name="Create"
                             size="md"
                             icon={{ icon: 'Add', source: 'material' }}
                             // can not be disabled on acryl-main due to ability to propose
                         >
-                            Create Term Group
+                            Create Glossary
                         </Button>
                     </Dropdown>
                 </ButtonContainer>

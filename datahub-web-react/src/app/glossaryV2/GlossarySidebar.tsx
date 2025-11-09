@@ -71,7 +71,7 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
     const dropdownItems: MenuProps['items'] = [
         {
             key: 'create-group',
-            label: 'Create Term Group',
+            label: 'Create Glossary',
             icon: <FolderOutlined />,
             onClick: () => setIsCreateNodeModalVisible(true),
         },
@@ -102,6 +102,8 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                     <Tooltip title="Glossary Actions" placement="left" showArrow={false}>
                         <Dropdown menu={{ items: dropdownItems }} trigger={['click']} placement="bottomRight">
                             <StyledButton
+                                id="create-glossary-object-button-sidebar"
+                                data-testid="create-glossary-object-button-sidebar"
                                 variant="text"
                                 color="gray"
                                 icon={{ icon: 'DotsThreeVertical', source: 'phosphor' }}
