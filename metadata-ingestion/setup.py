@@ -561,6 +561,7 @@ plugins: Dict[str, Set[str]] = {
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
+    "s3-slim": {*s3_base, *cachetools_lib},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1"},
     "abs": {*abs_base, *data_lake_profiling},
