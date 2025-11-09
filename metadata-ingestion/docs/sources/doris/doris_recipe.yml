@@ -1,0 +1,26 @@
+source:
+  type: doris
+  config:
+    # Coordinates
+    # Note: Doris uses port 9030 for MySQL protocol (query port)
+    # This is different from MySQL's default 3306
+    host_port: localhost:9030
+    database: dbname
+
+    # Credentials
+    username: root
+    password: example
+
+    # Stored Procedures (disabled by default due to limited Doris support)
+    # include_stored_procedures: false
+
+    # Apache Doris uses MySQL protocol, so SSL configuration works the same way:
+    # options:
+    #   connect_args:
+    #     ssl_ca: "path_to/server-ca.pem"
+    #     ssl_cert: "path_to/client-cert.pem"
+    #     ssl_key: "path_to/client-key.pem"
+
+
+# sink configs
+
