@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, Final, Iterable, List, Optional, Tuple
+from typing import Dict, Final, Iterable, List, Optional, Tuple
 
 from sqlalchemy.engine.url import make_url
 
@@ -9,6 +9,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
     CONNECTOR_CLASS,
     KAFKA,
+    SNOWFLAKE_SOURCE_CLOUD,
     BaseConnector,
     ConnectorManifest,
     KafkaConnectLineage,
@@ -335,11 +336,20 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         """Create a single lineage mapping from source table to topic."""
         dataset_name = get_dataset_name(database_name, source_table)
 
+        # Extract column-level lineage if enabled (uses base class method)
+        fine_grained = self._extract_fine_grained_lineage(
+            source_dataset=dataset_name,
+            source_platform=source_platform,
+            target_dataset=topic,
+            target_platform=KAFKA,
+        )
+
         return KafkaConnectLineage(
             source_dataset=dataset_name if include_dataset else None,
             source_platform=source_platform,
             target_dataset=topic,
             target_platform=KAFKA,
+            fine_grained_lineages=fine_grained,
         )
 
     def get_table_names(self) -> List[TableId]:
@@ -1494,6 +1504,440 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
 
 @dataclass
+class SnowflakeSourceConnector(BaseConnector):
+    """
+    Confluent Cloud Snowflake Source Connector.
+
+    Reference: https://docs.confluent.io/cloud/current/connectors/cc-snowflake-source.html
+
+    This connector uses JDBC-style polling (not CDC) to read from Snowflake tables.
+    Topic naming: <topic.prefix><database.schema.tableName>
+    """
+
+    @dataclass
+    class SnowflakeSourceParser:
+        source_platform: str
+        database_name: Optional[str]
+        topic_prefix: str
+        table_names: List[str]
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> SnowflakeSourceParser:
+        """Parse Snowflake Source connector configuration."""
+        config = connector_manifest.config
+
+        # Extract table names from table.include.list
+        table_config = config.get("table.include.list") or config.get(
+            "table.whitelist", ""
+        )
+        table_names = parse_comma_separated_list(table_config) if table_config else []
+
+        # Extract database name from connection.url or snowflake.database.name
+        database_name = config.get("snowflake.database.name") or config.get(
+            "database.name"
+        )
+
+        # Topic prefix (used in topic naming pattern)
+        topic_prefix = config.get("topic.prefix", "")
+
+        parser = self.SnowflakeSourceParser(
+            source_platform="snowflake",
+            database_name=database_name,
+            topic_prefix=topic_prefix,
+            table_names=table_names,
+        )
+
+        return parser
+
+    def get_topics_from_config(self) -> List[str]:
+        """
+        Extract expected topics from Snowflake Source connector configuration.
+
+        This method performs pattern expansion early so that the manifest's topic_names
+        contains the actual expanded topics rather than patterns. This allows the
+        subsequent lineage extraction to correctly match topics.
+        """
+        try:
+            parser = self.get_parser(self.connector_manifest)
+            topic_prefix = parser.topic_prefix
+            table_names = parser.table_names
+
+            # Check if any table names contain patterns
+            has_patterns = any(self._is_pattern(table) for table in table_names)
+
+            # If patterns exist, expand them using DataHub schema resolver
+            if has_patterns:
+                if self.schema_resolver:
+                    logger.info(
+                        f"Expanding table patterns in get_topics_from_config for connector '{self.connector_manifest.name}'"
+                    )
+                    expanded_tables = self._expand_table_patterns(
+                        table_names, parser.source_platform, parser.database_name
+                    )
+                    if expanded_tables:
+                        # Cache expanded tables for reuse in extract_lineages
+                        self._cached_expanded_tables = expanded_tables
+                        table_names = expanded_tables
+                        logger.info(
+                            f"Expanded patterns to {len(expanded_tables)} tables for topic derivation"
+                        )
+                    else:
+                        logger.warning(
+                            f"No tables found matching patterns for connector '{self.connector_manifest.name}'"
+                        )
+                        # Cache empty list to signal that expansion was attempted but found nothing
+                        self._cached_expanded_tables = []
+                        return []
+                else:
+                    # Patterns detected but no schema resolver - cannot expand
+                    logger.warning(
+                        f"Table patterns detected for connector '{self.connector_manifest.name}' "
+                        f"but schema resolver is not available. Cannot derive topics from patterns."
+                    )
+                    # Don't cache anything - let extract_lineages handle the warning
+                    return []
+            else:
+                # No patterns - just lowercase explicit table names to match DataHub normalization
+                table_names = [table.lower() for table in table_names]
+                # Cache the lowercased explicit tables
+                self._cached_expanded_tables = table_names
+
+            # Snowflake Source topics follow pattern: {topic_prefix}{database.schema.table}
+            topics = []
+            for table_name in table_names:
+                # Topic name is prefix + full table identifier
+                if topic_prefix:
+                    topic_name = f"{topic_prefix}{table_name}"
+                else:
+                    topic_name = table_name
+                topics.append(topic_name)
+
+            return topics
+        except Exception as e:
+            logger.debug(
+                f"Failed to derive topics from Snowflake Source connector config: {e}"
+            )
+            return []
+
+    def _is_pattern(self, table_name: str) -> bool:
+        """
+        Check if table name contains regex pattern characters.
+
+        Snowflake connector may support patterns in table.include.list,
+        but without DataHub schema resolver, we cannot expand them.
+        """
+        # Check for common regex special characters
+        pattern_chars = [
+            "*",
+            "+",
+            "?",
+            "[",
+            "]",
+            "(",
+            ")",
+            "|",
+            "{",
+            "}",
+            "^",
+            "$",
+            "\\",
+        ]
+        return any(char in table_name for char in pattern_chars)
+
+    def _expand_table_patterns(
+        self,
+        table_patterns: List[str],
+        source_platform: str,
+        database_name: Optional[str],
+    ) -> List[str]:
+        """
+        Expand table patterns using DataHub schema metadata.
+
+        Examples:
+        - "ANALYTICS.PUBLIC.*" → ["ANALYTICS.PUBLIC.USERS", "ANALYTICS.PUBLIC.ORDERS", ...]
+        - "*.PUBLIC.TABLE1" → ["DB1.PUBLIC.TABLE1", "DB2.PUBLIC.TABLE1", ...]
+        - "ANALYTICS.PUBLIC.USERS" → ["ANALYTICS.PUBLIC.USERS"] (no expansion)
+
+        Args:
+            table_patterns: List of table patterns from connector config
+            source_platform: Source platform (should be 'snowflake')
+            database_name: Database name for context (optional)
+
+        Returns:
+            List of fully expanded table names
+        """
+        if not self.schema_resolver:
+            logger.warning(
+                f"SchemaResolver not available for connector {self.connector_manifest.name} - cannot expand patterns"
+            )
+            return []
+
+        expanded_tables = []
+
+        for pattern in table_patterns:
+            # Check if pattern needs expansion (contains regex special characters)
+            if self._is_pattern(pattern):
+                logger.info(
+                    f"Expanding pattern '{pattern}' using DataHub schema metadata"
+                )
+                tables = self._query_tables_from_datahub(
+                    pattern, source_platform, database_name
+                )
+                if tables:
+                    logger.info(f"Expanded pattern '{pattern}' to {len(tables)} tables")
+                    expanded_tables.extend(tables)
+                else:
+                    logger.warning(
+                        f"Pattern '{pattern}' did not match any tables in DataHub"
+                    )
+            else:
+                # Already explicit table name - no expansion needed
+                # Lowercase to match DataHub's normalization
+                expanded_tables.append(pattern.lower())
+
+        return expanded_tables
+
+    def _query_tables_from_datahub(
+        self,
+        pattern: str,
+        platform: str,
+        database: Optional[str],
+    ) -> List[str]:
+        """
+        Query DataHub for Snowflake tables matching the given pattern.
+
+        Args:
+            pattern: Pattern (e.g., "ANALYTICS.PUBLIC.*", "*.PUBLIC.USERS")
+            platform: Source platform (should be "snowflake")
+            database: Database name for context
+
+        Returns:
+            List of matching table names
+        """
+        if not self.schema_resolver or not self.schema_resolver.graph:
+            return []
+
+        try:
+            # Query DataHub directly for tables matching the platform
+            # SchemaResolver's cache may be empty, so we use its graph connection directly
+            all_urns = list(
+                self.schema_resolver.graph.get_urns_by_filter(
+                    platform=platform,
+                    env=self.schema_resolver.env,
+                    entity_types=["dataset"],
+                )
+            )
+
+            if not all_urns:
+                logger.debug(
+                    f"No {platform} datasets found in DataHub for pattern expansion"
+                )
+                return []
+
+            matched_tables = []
+
+            # Convert pattern to Python regex
+            # Snowflake patterns are simpler than Debezium (just basic wildcard matching)
+            # Convert SQL-style patterns to Python regex:
+            # - "*" (any characters) → ".*"
+            # - "?" (single character) → "."
+            # Note: DataHub normalizes Snowflake table names to lowercase in URNs,
+            # so we lowercase the pattern to match
+            normalized_pattern = pattern.lower()
+            regex_pattern = (
+                normalized_pattern.replace(".", r"\.")
+                .replace("*", ".*")
+                .replace("?", ".")
+            )
+            regex = re.compile(regex_pattern)
+
+            for urn in all_urns:
+                # URN format: urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)
+                table_name = self._extract_table_name_from_urn(urn)
+                if not table_name:
+                    continue
+
+                # Check if URN is for Snowflake platform
+                if f"dataplatform:{platform.lower()}" not in urn.lower():
+                    continue
+
+                # Try pattern match (table_name from DataHub is already lowercase)
+                if regex.fullmatch(table_name):
+                    matched_tables.append(table_name)
+
+            logger.debug(
+                f"Pattern '{pattern}' matched {len(matched_tables)} tables from DataHub"
+            )
+            return matched_tables
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to query tables from DataHub for pattern '{pattern}': {e}"
+            )
+            return []
+
+    def _extract_table_name_from_urn(self, urn: str) -> Optional[str]:
+        """
+        Extract table name from DataHub URN.
+
+        URN format: urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)
+        Returns: database.schema.table
+        """
+        try:
+            # Simple parsing - extract between second comma and third comma
+            parts = urn.split(",")
+            if len(parts) >= 2:
+                # Second part contains the table name
+                table_name = parts[1]
+                return table_name
+        except Exception as e:
+            logger.debug(f"Failed to extract table name from URN {urn}: {e}")
+
+        return None
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        """
+        Extract lineage mappings from Snowflake tables to Kafka topics.
+
+        This method reuses expanded tables cached by get_topics_from_config() to avoid
+        redundant pattern expansion and ensure consistency between topic derivation
+        and lineage extraction.
+        """
+        parser = self.get_parser(self.connector_manifest)
+        lineages: List[KafkaConnectLineage] = []
+
+        logging.debug(
+            f"Extracting lineages for Snowflake Source connector: "
+            f"platform={parser.source_platform}, database={parser.database_name}"
+        )
+
+        # Early return if no topics
+        if not self.connector_manifest.topic_names:
+            logger.debug("No topics found in manifest for Snowflake Source connector")
+            return []
+
+        # Check if we have cached expanded tables from get_topics_from_config()
+        if hasattr(self, "_cached_expanded_tables"):
+            table_names = self._cached_expanded_tables
+            if not table_names:
+                logger.debug(
+                    f"Pattern expansion found no matching tables for connector '{self.connector_manifest.name}'"
+                )
+                return []
+            logger.debug(
+                f"Reusing {len(table_names)} cached expanded tables from get_topics_from_config()"
+            )
+        else:
+            # Fallback: expand patterns if not already cached (shouldn't happen in normal flow)
+            table_names = parser.table_names
+            if not table_names:
+                logger.debug(
+                    "No table.include.list configuration found for Snowflake Source connector"
+                )
+                return []
+
+            # Check if any table names contain patterns
+            has_patterns = any(self._is_pattern(table) for table in table_names)
+
+            # If patterns exist but schema resolver is not available, skip processing
+            if has_patterns and not self.schema_resolver:
+                self.report.warning(
+                    f"Snowflake Source connector '{self.connector_manifest.name}' has table patterns "
+                    f"in table.include.list but DataHub schema resolver is not available. "
+                    f"Skipping lineage extraction to avoid generating invalid URNs. "
+                    f"Enable 'use_schema_resolver' in config to support pattern expansion."
+                )
+                logger.warning(
+                    f"Skipping lineage extraction for connector '{self.connector_manifest.name}' - "
+                    f"patterns detected but schema resolver unavailable"
+                )
+                return []
+
+            # If patterns exist and schema resolver is available, expand them
+            if has_patterns and self.schema_resolver:
+                logger.info(
+                    f"Expanding table patterns for Snowflake Source connector '{self.connector_manifest.name}' (fallback path)"
+                )
+                table_names = self._expand_table_patterns(
+                    table_names, parser.source_platform, parser.database_name
+                )
+                if not table_names:
+                    logger.warning(
+                        f"No tables found matching patterns for connector '{self.connector_manifest.name}'"
+                    )
+                    return []
+            else:
+                # No patterns - lowercase explicit table names
+                table_names = [table.lower() for table in table_names]
+
+        topic_prefix = parser.topic_prefix
+
+        # Match tables to topics
+        # Snowflake topic naming: {topic_prefix}{database.schema.table}
+        for table_name in table_names:
+            # Build expected topic name
+            if topic_prefix:
+                expected_topic = f"{topic_prefix}{table_name}"
+            else:
+                expected_topic = table_name
+
+            # Check if expected topic exists in actual topics
+            if expected_topic in self.connector_manifest.topic_names:
+                # Extract column-level lineage if enabled (uses base class method)
+                fine_grained = self._extract_fine_grained_lineage(
+                    source_dataset=table_name,
+                    source_platform=parser.source_platform,
+                    target_dataset=expected_topic,
+                    target_platform=KAFKA,
+                )
+
+                # Create lineage mapping
+                lineage = KafkaConnectLineage(
+                    source_dataset=table_name,
+                    source_platform=parser.source_platform,
+                    target_dataset=expected_topic,
+                    target_platform=KAFKA,
+                    fine_grained_lineages=fine_grained,
+                )
+                lineages.append(lineage)
+                logger.debug(f"Created lineage: {table_name} -> {expected_topic}")
+            else:
+                logger.debug(
+                    f"Expected topic '{expected_topic}' not found in manifest topics for table '{table_name}'"
+                )
+
+        return lineages
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        """Extract flow properties, masking sensitive information."""
+        flow_property_bag = {
+            k: v
+            for k, v in self.connector_manifest.config.items()
+            if k
+            not in [
+                "connection.password",
+                "connection.user",
+                "snowflake.private.key",
+                "snowflake.private.key.passphrase",
+            ]
+        }
+
+        return flow_property_bag
+
+    @staticmethod
+    def supports_connector_class(connector_class: str) -> bool:
+        """Check if this connector handles Snowflake Source."""
+        return connector_class == SNOWFLAKE_SOURCE_CLOUD
+
+    @staticmethod
+    def get_platform(connector_class: str) -> str:
+        """Get the platform for Snowflake Source connector."""
+        return "snowflake"
+
+
+@dataclass
 class MongoSourceConnector(BaseConnector):
     # https://www.mongodb.com/docs/kafka-connector/current/source-connector/
 
@@ -1809,7 +2253,10 @@ class DebeziumSourceConnector(BaseConnector):
             )
             return lineages
 
-        table_names = parse_comma_separated_list(table_config)
+        # Expand table patterns if schema resolver is enabled
+        table_names = self._expand_table_patterns(
+            table_config, source_platform, database_name
+        )
 
         # Try to filter topics using RegexRouter replacement pattern (if available)
         filtered_topics = self._filter_topics_for_event_router()
@@ -1921,9 +2368,8 @@ class DebeziumSourceConnector(BaseConnector):
             List of fully expanded table names
         """
         # Check if feature is enabled
-        if (
-            not self.config.use_schema_resolver
-            or not self.config.schema_resolver_expand_patterns
+        if not getattr(self.config, "use_schema_resolver", False) or not getattr(
+            self.config, "schema_resolver_expand_patterns", False
         ):
             # Fall back to original behavior - parse as-is
             return parse_comma_separated_list(table_config)
@@ -1938,8 +2384,8 @@ class DebeziumSourceConnector(BaseConnector):
         expanded_tables = []
 
         for pattern in patterns:
-            # Check if pattern needs expansion (contains wildcard or is database-only)
-            if "*" in pattern or self._is_database_only_pattern(pattern):
+            # Check if pattern needs expansion (contains regex special characters)
+            if self._is_regex_pattern(pattern):
                 logger.info(
                     f"Expanding pattern '{pattern}' using DataHub schema metadata"
                 )
@@ -1960,15 +2406,25 @@ class DebeziumSourceConnector(BaseConnector):
 
         return expanded_tables
 
-    def _is_database_only_pattern(self, pattern: str) -> bool:
+    def _is_regex_pattern(self, pattern: str) -> bool:
         """
-        Check if pattern represents a database-only specification (no schema/table).
+        Check if pattern contains Java regex special characters.
 
-        Examples: "mydb", "production" (without schema.table parts)
+        Debezium uses Java regex for table.include.list, which supports:
+        - Wildcards: * (zero or more), + (one or more), ? (zero or one)
+        - Character classes: [abc], [0-9], [a-z]
+        - Grouping and alternation: (pattern1|pattern2)
+        - Quantifiers: {n}, {n,}, {n,m}
+        - Anchors and boundaries: ^, $, \\b
+        - Escapes: \\ (backslash for escaping special chars like \\.)
+
+        Returns:
+            True if pattern contains regex special characters
         """
-        # Simple heuristic: no dots and no wildcards means it might be database-only
-        # This is conservative - we only expand if there's a wildcard
-        return False  # Only expand when explicit wildcard is present
+        # Common regex special characters that indicate a pattern needs expansion
+        # Note: backslash (\) is included to detect escaped patterns like "public\\.users"
+        regex_chars = ["*", "+", "?", "[", "]", "(", ")", "|", "{", "}", "^", "$", "\\"]
+        return any(char in pattern for char in regex_chars)
 
     def _query_tables_from_datahub(
         self,
@@ -1979,8 +2435,11 @@ class DebeziumSourceConnector(BaseConnector):
         """
         Query DataHub for tables matching the given pattern.
 
+        Debezium uses Java regex for table.include.list patterns. Patterns are anchored,
+        meaning they must match the entire fully-qualified table name.
+
         Args:
-            pattern: Table pattern (e.g., "schema.*", "mydb.*")
+            pattern: Java regex pattern (e.g., "public.*", "mydb\\.(users|orders)")
             platform: Source platform
             database: Database name for context
 
@@ -1991,9 +2450,6 @@ class DebeziumSourceConnector(BaseConnector):
             return []
 
         try:
-            import fnmatch
-
-
             # Get all URNs from schema resolver cache
             all_urns = self.schema_resolver.get_urns()
 
@@ -2005,35 +2461,58 @@ class DebeziumSourceConnector(BaseConnector):
 
             matched_tables = []
 
-            # Parse pattern to understand what we're looking for
-            # Pattern formats:
-            # - "schema.*" → match all tables in schema (matches "database.schema.table")
-            # - "database.schema.*" → match all tables in database.schema
-            # - "*.*" → match all tables (risky)
+            # Try to use Java regex for exact compatibility with Debezium
+            try:
+                from java.util.regex import Pattern as JavaPattern
 
-            if "*" in pattern:
-                # For patterns like "schema.*", we need to match against table names
-                # that may have database prefix like "database.schema.table"
-                for urn in all_urns:
-                    # Extract table name from URN
-                    # URN format: urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)
-                    table_name = self._extract_table_name_from_urn(urn)
-                    if not table_name:
-                        continue
+                regex_pattern = JavaPattern.compile(pattern)
+                use_java_regex = True
+            except (ImportError, RuntimeError):
+                # Fallback to Python re module for testing/environments without JPype
+                logger.debug(
+                    "Java regex not available, falling back to Python re module"
+                )
+                # Convert Java regex to Python regex (mostly compatible)
+                # Main difference: Java regex uses \. for literal dot, Python uses \.
+                # For simple patterns like "public.*" they're identical
+                python_pattern = pattern.replace(r"\\.", r"\.")
+                regex_pattern = re.compile(python_pattern)
+                use_java_regex = False
 
-                    # Try matching the full table name
-                    if fnmatch.fnmatch(table_name, pattern):
+            for urn in all_urns:
+                # URN format: urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)
+                table_name = self._extract_table_name_from_urn(urn)
+                if not table_name:
+                    continue
+
+                # Try direct match first (handles patterns like "mydb.schema.*")
+                if use_java_regex:
+                    matches = regex_pattern.matcher(table_name).matches()
+                else:
+                    matches = regex_pattern.fullmatch(table_name) is not None
+
+                if matches:
+                    matched_tables.append(table_name)
+                    continue
+
+                # For patterns without database prefix (e.g., "schema.*" or "public.*"),
+                # also try matching against the table name without the first component.
+                # This handles Debezium patterns that don't include the database name:
+                # - PostgreSQL: "public.*" matches "testdb.public.users" (3-tier URN)
+                # - MySQL: "mydb.*" matches "mydb.table1" (2-tier URN, already matched above)
+                if "." in table_name:
+                    table_without_first = table_name.split(".", 1)[1]
+                    if use_java_regex:
+                        matches_without_first = regex_pattern.matcher(
+                            table_without_first
+                        ).matches()
+                    else:
+                        matches_without_first = (
+                            regex_pattern.fullmatch(table_without_first) is not None
+                        )
+
+                    if matches_without_first:
                         matched_tables.append(table_name)
-                        continue
-
-                    # Also try matching without the database prefix
-                    # For "public.*" to match "testdb.public.users"
-                    # Extract schema.table from database.schema.table
-                    table_parts = table_name.split(".", 1)  # Split at first dot
-                    if len(table_parts) == 2:
-                        schema_table = table_parts[1]  # "public.users"
-                        if fnmatch.fnmatch(schema_table, pattern):
-                            matched_tables.append(table_name)
 
             logger.debug(
                 f"Pattern '{pattern}' matched {len(matched_tables)} tables from DataHub"
@@ -2062,90 +2541,6 @@ class DebeziumSourceConnector(BaseConnector):
                 return table_name
         except Exception as e:
             logger.debug(f"Failed to extract table name from URN {urn}: {e}")
-
-        return None
-
-    def _extract_fine_grained_lineage(
-        self,
-        source_dataset: str,
-        source_platform: str,
-        target_dataset: str,
-        target_platform: str,
-    ) -> Optional[List[Dict[str, Any]]]:
-        """
-        Extract column-level lineage using schema metadata from DataHub.
-
-        For CDC connectors, we assume 1:1 column mapping - all source columns
-        flow to the target with the same names (Kafka messages preserve column names).
-
-        Args:
-            source_dataset: Source table name (e.g., "database.schema.table")
-            source_platform: Source platform (e.g., "postgres")
-            target_dataset: Target Kafka topic name
-            target_platform: Target platform (should be "kafka")
-
-        Returns:
-            List of fine-grained lineage dictionaries or None if not available
-        """
-        # Check if feature is enabled
-        if (
-            not self.config.use_schema_resolver
-            or not self.config.schema_resolver_finegrained_lineage
-        ):
-            return None
-
-        if not self.schema_resolver:
-            return None
-
-        try:
-            from datahub.emitter.mce_builder import make_schema_field_urn
-            from datahub.sql_parsing._models import _TableName
-
-            # Build URNs for source and target
-            source_table = _TableName(
-                database=None, db_schema=None, table=source_dataset
-            )
-            source_urn, source_schema = self.schema_resolver.resolve_table(source_table)
-
-            if not source_schema:
-                logger.debug(
-                    f"No schema metadata found in DataHub for source table {source_dataset}"
-                )
-                return None
-
-            # For Kafka topics, we need to check if schema metadata exists
-            # Note: Kafka schema might not always be available in DataHub
-            target_table = _TableName(
-                database=None, db_schema=None, table=target_dataset
-            )
-            # Use kafka schema resolver if available, otherwise skip target schema check
-            # For CDC, columns map 1:1, so we can create lineage even without target schema
-            target_urn = self.schema_resolver.get_urn_for_table(target_table)
-
-            # Create fine-grained lineage for each source column
-            # Assume 1:1 mapping for CDC (column names are preserved)
-            fine_grained_lineages = []
-
-            for source_col in source_schema:
-                # CDC preserves column names, so source and target column names match
-                fine_grained_lineage = {
-                    "upstreamType": "FIELD_SET",
-                    "downstreamType": "FIELD",
-                    "upstreams": [make_schema_field_urn(source_urn, source_col)],
-                    "downstreams": [make_schema_field_urn(target_urn, source_col)],
-                }
-                fine_grained_lineages.append(fine_grained_lineage)
-
-            if fine_grained_lineages:
-                logger.info(
-                    f"Generated {len(fine_grained_lineages)} fine-grained lineages for {source_dataset} → {target_dataset}"
-                )
-                return fine_grained_lineages
-
-        except Exception as e:
-            logger.debug(
-                f"Failed to extract fine-grained lineage for {source_dataset} → {target_dataset}: {e}"
-            )
 
         return None
 

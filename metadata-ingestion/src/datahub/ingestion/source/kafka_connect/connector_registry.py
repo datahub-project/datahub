@@ -13,6 +13,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     POSTGRES_SINK_CLOUD,
     SINK,
     SNOWFLAKE_SINK_CLOUD,
+    SNOWFLAKE_SOURCE_CLOUD,
     SOURCE,
     BaseConnector,
     ConnectorManifest,
@@ -120,6 +121,8 @@ class ConnectorRegistry:
             return "oracle"
         elif "mongodb" in connector_lower or "mongo" in connector_lower:
             return "mongodb"
+        elif "snowflake" in connector_lower:
+            return "snowflake"
         else:
             return "unknown"
 
@@ -182,11 +185,15 @@ class ConnectorRegistry:
             ConfluentJDBCSourceConnector,
             DebeziumSourceConnector,
             MongoSourceConnector,
+            SnowflakeSourceConnector,
         )
 
         # Traditional JDBC source connector
         if connector_class_value == JDBC_SOURCE_CONNECTOR_CLASS:
             return ConfluentJDBCSourceConnector(manifest, config, report)
+        # Snowflake Source connector (Confluent Cloud managed)
+        elif connector_class_value == SNOWFLAKE_SOURCE_CLOUD:
+            return SnowflakeSourceConnector(manifest, config, report)
         # Cloud CDC connectors (use Debezium-style naming)
         elif (
             connector_class_value in CLOUD_JDBC_SOURCE_CLASSES
@@ -278,10 +285,11 @@ class ConnectorRegistry:
         manifest: ConnectorManifest,
         config: KafkaConnectSourceConfig,
         report: KafkaConnectSourceReport,
+        ctx: Optional["PipelineContext"] = None,
     ) -> List[str]:
         """Extract topics from config using the appropriate connector."""
         connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report
+            manifest, config, report, ctx
         )
         if connector:
             return connector.get_topics_from_config()

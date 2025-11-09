@@ -105,10 +105,12 @@ class ConnectorConfigKeys:
 # - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source-v2.html
 # - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-sink.html
 # - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-sink.html
+# - https://docs.confluent.io/cloud/curreDont/connectors/cc-snowflake-source.html
 POSTGRES_CDC_SOURCE_CLOUD: Final[str] = "PostgresCdcSource"
 POSTGRES_CDC_SOURCE_V2_CLOUD: Final[str] = "PostgresCdcSourceV2"
 POSTGRES_SINK_CLOUD: Final[str] = "PostgresSink"
 SNOWFLAKE_SINK_CLOUD: Final[str] = "SnowflakeSink"
+SNOWFLAKE_SOURCE_CLOUD: Final[str] = "SnowflakeSource"
 MYSQL_SOURCE_CLOUD: Final[str] = "MySqlSource"
 MYSQL_CDC_SOURCE_CLOUD: Final[str] = "MySqlCdcSource"
 MYSQL_SINK_CLOUD: Final[str] = "MySqlSink"
@@ -656,6 +658,93 @@ class BaseConnector:
     def get_platform(connector_class: str) -> str:
         """Get the platform for this connector type. Override in subclasses."""
         return "unknown"
+
+    def _extract_fine_grained_lineage(
+        self,
+        source_dataset: str,
+        source_platform: str,
+        target_dataset: str,
+        target_platform: str = "kafka",
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Extract column-level lineage using schema metadata from DataHub.
+
+        This unified implementation works for all source connectors that preserve
+        column names in a 1:1 mapping (e.g., CDC connectors, JDBC polling connectors).
+
+        Args:
+            source_dataset: Source table name (e.g., "database.schema.table")
+            source_platform: Source platform (e.g., "postgres", "snowflake", "mysql")
+            target_dataset: Target Kafka topic name
+            target_platform: Target platform (default: "kafka")
+
+        Returns:
+            List of fine-grained lineage dictionaries or None if not available
+        """
+        # Check if feature is enabled
+        if not getattr(self.config, "use_schema_resolver", False):
+            return None
+        if not getattr(self.config, "schema_resolver_finegrained_lineage", False):
+            return None
+        if not self.schema_resolver:
+            return None
+
+        try:
+            from datahub.emitter.mce_builder import (
+                make_dataset_urn,
+                make_schema_field_urn,
+            )
+            from datahub.sql_parsing._models import _TableName
+
+            # Build source table reference
+            source_table = _TableName(
+                database=None, db_schema=None, table=source_dataset
+            )
+
+            # Resolve source table schema from DataHub
+            source_urn, source_schema = self.schema_resolver.resolve_table(source_table)
+
+            if not source_schema:
+                logger.debug(
+                    f"No schema metadata found in DataHub for {source_platform} table {source_dataset}"
+                )
+                return None
+
+            # Build target URN using the correct target platform
+            # (not using schema_resolver.get_urn_for_table which uses source platform)
+            target_urn = make_dataset_urn(
+                platform=target_platform,
+                name=target_dataset,
+                env=self.config.env,
+            )
+
+            # Create fine-grained lineage for each source column
+            # Assume 1:1 mapping (column names are preserved)
+            fine_grained_lineages = []
+
+            for source_col in source_schema:
+                fine_grained_lineage = {
+                    "upstreamType": "FIELD_SET",
+                    "downstreamType": "FIELD",
+                    "upstreams": [make_schema_field_urn(source_urn, source_col)],
+                    "downstreams": [make_schema_field_urn(target_urn, source_col)],
+                }
+                fine_grained_lineages.append(fine_grained_lineage)
+
+            if fine_grained_lineages:
+                logger.info(
+                    f"Generated {len(fine_grained_lineages)} fine-grained lineages "
+                    f"for {source_platform} table {source_dataset} → {target_dataset}"
+                )
+                return fine_grained_lineages
+
+        except Exception as e:
+            logger.debug(
+                f"Failed to extract fine-grained lineage for "
+                f"{source_dataset} → {target_dataset}: {e}"
+            )
+
+        return None
 
 
 # Removed: TopicResolver and ConnectorTopicHandlerRegistry - logic moved directly to BaseConnector subclasses

@@ -729,7 +729,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         )
 
         return ConnectorRegistry.get_topics_from_config(
-            connector_manifest, self.config, self.report
+            connector_manifest, self.config, self.report, self.ctx
         )
 
     # Note: _get_topic_fields_for_connector and get_platform_from_connector_class removed
@@ -857,11 +857,25 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     ),
                 ).as_workunit()
 
+                # Convert fine-grained lineage dictionaries to proper class instances
+                fine_grained_lineages_typed = None
+                if lineage.fine_grained_lineages:
+                    fine_grained_lineages_typed = [
+                        models.FineGrainedLineageClass(
+                            upstreamType=fg["upstreamType"],
+                            downstreamType=fg["downstreamType"],
+                            upstreams=fg.get("upstreams"),
+                            downstreams=fg.get("downstreams"),
+                        )
+                        for fg in lineage.fine_grained_lineages
+                    ]
+
                 yield MetadataChangeProposalWrapper(
                     entityUrn=job_urn,
                     aspect=models.DataJobInputOutputClass(
                         inputDatasets=inlets,
                         outputDatasets=outlets,
+                        fineGrainedLineages=fine_grained_lineages_typed,
                     ),
                 ).as_workunit()
 
