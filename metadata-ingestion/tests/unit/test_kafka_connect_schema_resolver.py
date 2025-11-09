@@ -11,19 +11,32 @@ from datahub.ingestion.source.kafka_connect.common import (
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     DebeziumSourceConnector,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
 
 logger = logging.getLogger(__name__)
 
 
-class MockSchemaResolver:
+class MockSchemaResolver(SchemaResolverInterface):
     """Mock SchemaResolver for testing."""
 
     def __init__(self, platform: str, mock_urns: Optional[List[str]] = None):
-        self.platform = platform
-        self._mock_urns = mock_urns or []
+        self._platform = platform
+        self._mock_urns = set(mock_urns or [])
         self._schemas: Dict[str, Dict[str, str]] = {}
+        # Additional attributes that production code may access
+        self.graph = None
+        self.env = "PROD"
 
-    def get_urns(self) -> List[str]:
+    @property
+    def platform(self) -> str:
+        """Return the platform."""
+        return self._platform
+
+    def includes_temp_tables(self) -> bool:
+        """Return whether temp tables are included."""
+        return False
+
+    def get_urns(self):
         """Return mock URNs."""
         return self._mock_urns
 
@@ -116,7 +129,7 @@ class TestSchemaResolverTableExpansion:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         # Pattern should be expanded
@@ -163,7 +176,7 @@ class TestSchemaResolverTableExpansion:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         # Pattern should not match anything, return as-is
@@ -208,7 +221,7 @@ class TestSchemaResolverTableExpansion:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         # Mixed pattern and explicit should work
@@ -255,7 +268,7 @@ class TestSchemaResolverTableExpansion:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         # Pattern should not be expanded even though schema resolver is available
@@ -342,7 +355,7 @@ class TestSchemaResolverFineGrainedLineage:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         # Should generate fine-grained lineage
@@ -406,7 +419,7 @@ class TestSchemaResolverFineGrainedLineage:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         # Should return None when schema metadata is unavailable
@@ -451,7 +464,7 @@ class TestSchemaResolverFineGrainedLineage:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         # Should return None even though schema metadata is available
@@ -502,7 +515,7 @@ class TestSchemaResolverIntegration:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         # Extract lineages
@@ -642,7 +655,7 @@ class TestSchemaResolverEdgeCases:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         # Should return pattern as-is when no URNs available
@@ -690,7 +703,7 @@ class TestJavaRegexPatternMatching:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         result = connector._expand_table_patterns(
@@ -740,7 +753,7 @@ class TestJavaRegexPatternMatching:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         result = connector._expand_table_patterns(
@@ -792,7 +805,7 @@ class TestJavaRegexPatternMatching:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         result = connector._expand_table_patterns(
@@ -845,7 +858,7 @@ class TestJavaRegexPatternMatching:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         result = connector._expand_table_patterns("mydb\\.user.*", "mysql", "mydb")
@@ -892,7 +905,7 @@ class TestJavaRegexPatternMatching:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         result = connector._expand_table_patterns("public\\.user", "postgres", "testdb")
@@ -937,7 +950,7 @@ class TestJavaRegexPatternMatching:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         result = connector._expand_table_patterns("public\\..*", "postgres", "testdb")
@@ -985,7 +998,7 @@ class TestJavaRegexPatternMatching:
             connector_manifest=connector_manifest,
             config=config,
             report=report,
-            schema_resolver=mock_resolver,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
         )
 
         result = connector._expand_table_patterns(

@@ -105,7 +105,7 @@ class ConnectorConfigKeys:
 # - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source-v2.html
 # - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-sink.html
 # - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-sink.html
-# - https://docs.confluent.io/cloud/curreDont/connectors/cc-snowflake-source.html
+# - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-source.html
 POSTGRES_CDC_SOURCE_CLOUD: Final[str] = "PostgresCdcSource"
 POSTGRES_CDC_SOURCE_V2_CLOUD: Final[str] = "PostgresCdcSourceV2"
 POSTGRES_SINK_CLOUD: Final[str] = "PostgresSink"
@@ -690,11 +690,9 @@ class BaseConnector:
             return None
 
         try:
-            from datahub.emitter.mce_builder import (
-                make_dataset_urn,
-                make_schema_field_urn,
-            )
+            from datahub.emitter.mce_builder import make_schema_field_urn
             from datahub.sql_parsing._models import _TableName
+            from datahub.utilities.urns.dataset_urn import DatasetUrn
 
             # Build source table reference
             source_table = _TableName(
@@ -702,7 +700,9 @@ class BaseConnector:
             )
 
             # Resolve source table schema from DataHub
-            source_urn, source_schema = self.schema_resolver.resolve_table(source_table)
+            source_urn_str, source_schema = self.schema_resolver.resolve_table(
+                source_table
+            )
 
             if not source_schema:
                 logger.debug(
@@ -710,11 +710,10 @@ class BaseConnector:
                 )
                 return None
 
-            # Build target URN using the correct target platform
-            # (not using schema_resolver.get_urn_for_table which uses source platform)
-            target_urn = make_dataset_urn(
-                platform=target_platform,
-                name=target_dataset,
+            # Build target URN using DatasetUrn helper with correct target platform
+            target_urn = DatasetUrn.create_from_ids(
+                platform_id=target_platform,
+                table_name=target_dataset,
                 env=self.config.env,
             )
 
@@ -726,8 +725,8 @@ class BaseConnector:
                 fine_grained_lineage = {
                     "upstreamType": "FIELD_SET",
                     "downstreamType": "FIELD",
-                    "upstreams": [make_schema_field_urn(source_urn, source_col)],
-                    "downstreams": [make_schema_field_urn(target_urn, source_col)],
+                    "upstreams": [make_schema_field_urn(source_urn_str, source_col)],
+                    "downstreams": [make_schema_field_urn(str(target_urn), source_col)],
                 }
                 fine_grained_lineages.append(fine_grained_lineage)
 
