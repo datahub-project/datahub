@@ -57,7 +57,7 @@ In short, to get a major feature added to DataHub, one must first get the RFC me
 file. At that point the RFC is 'active' and may be implemented with the goal of eventual inclusion into DataHub.
 
 - Fork the [datahub-project/datahub repository](https://github.com/datahub-project/datahub).
-- Copy the [template.md](./rfcs/template.md) file to `docs/rfcs/active/000-my-feature.md`, where `my-feature` is more
+- Copy the `template.md` file from `docs/rfcs/` to `docs/rfcs/active/000-my-feature.md`, where `my-feature` is more
   descriptive. Don't assign an RFC number yet.
 - Fill in the RFC. Put care into the details. _RFCs that do not present convincing motivation, demonstrate understanding
   of the impact of the design, or are disingenuous about the drawback or alternatives tend to be poorly-received._

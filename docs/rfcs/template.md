@@ -3,7 +3,7 @@
 - Discussion Issue: (GitHub issue this was discussed in before the RFC, if any)
 - Implementation PR(s): (leave this empty)
 
-# <RFC title>
+# \<RFC title\>
 
 ## Summary
 

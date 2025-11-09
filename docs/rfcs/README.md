@@ -34,7 +34,7 @@ No RFCs have been accepted in this new structure yet.
 ## Contributing an RFC
 
 1. Read the [RFC process documentation](../rfc.md)
-2. Copy [template.md](./template.md) to `active/000-my-feature.md`
+2. Copy `template.md` to `active/000-my-feature.md`
 3. Fill in the template with your proposal
 4. Submit a pull request with the "RFC" label
 5. Gather feedback and iterate on the design
