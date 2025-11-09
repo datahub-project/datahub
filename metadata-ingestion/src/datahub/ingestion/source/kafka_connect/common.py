@@ -654,9 +654,8 @@ class BaseConnector:
         """Check if this connector handles the given class. Override in subclasses."""
         return False
 
-    @staticmethod
-    def get_platform(connector_class: str) -> str:
-        """Get the platform for this connector type. Override in subclasses."""
+    def get_platform(self) -> str:
+        """Get the platform for this connector instance. Override in subclasses."""
         return "unknown"
 
     def _extract_fine_grained_lineage(

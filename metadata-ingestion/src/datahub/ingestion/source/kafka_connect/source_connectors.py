@@ -1502,6 +1502,23 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
         return matching_topics
 
+    def get_platform(self) -> str:
+        """
+        Get platform for JDBC connector.
+
+        JDBC connectors can connect to multiple databases, so platform is inferred from
+        the connection URL in the connector configuration.
+        """
+        try:
+            parser = self.get_parser(self.connector_manifest)
+            return parser.source_platform
+        except Exception:
+            # If parser fails, try to infer from JDBC URL directly
+            jdbc_url = self.connector_manifest.config.get("connection.url", "")
+            if jdbc_url:
+                return self._extract_platform_from_jdbc_url(jdbc_url)
+            return "unknown"
+
 
 @dataclass
 class SnowflakeSourceConnector(BaseConnector):
@@ -1931,8 +1948,7 @@ class SnowflakeSourceConnector(BaseConnector):
         """Check if this connector handles Snowflake Source."""
         return connector_class == SNOWFLAKE_SOURCE_CLOUD
 
-    @staticmethod
-    def get_platform(connector_class: str) -> str:
+    def get_platform(self) -> str:
         """Get the platform for Snowflake Source connector."""
         return "snowflake"
 
@@ -1998,6 +2014,10 @@ class MongoSourceConnector(BaseConnector):
                 lineages.append(lineage)
         return lineages
 
+    def get_platform(self) -> str:
+        """Get the platform for Mongo Source connector."""
+        return "mongodb"
+
 
 @dataclass
 class DebeziumSourceConnector(BaseConnector):
@@ -2036,10 +2056,8 @@ class DebeziumSourceConnector(BaseConnector):
         self,
         connector_manifest: ConnectorManifest,
     ) -> DebeziumParser:
-        connector_class = connector_manifest.config.get(CONNECTOR_CLASS, "")
-
         # Map connector class to platform
-        platform = self._get_platform_from_connector_class(connector_class)
+        platform = self.get_platform()
 
         # Map handler platform to parser platform (handler uses "sqlserver", parser expects "mssql")
         parser_platform = "mssql" if platform == "sqlserver" else platform
@@ -2108,9 +2126,9 @@ class DebeziumSourceConnector(BaseConnector):
             # postgres, oracle, db2 use database.dbname
             return config.get("database.dbname")
 
-    @staticmethod
-    def _get_platform_from_connector_class(connector_class: str) -> str:
+    def get_platform(self) -> str:
         """Map Debezium connector class to platform name."""
+        connector_class = self.connector_manifest.config.get(CONNECTOR_CLASS, "")
         # Map based on well-known Debezium connector classes
         if "mysql" in connector_class.lower():
             return "mysql"

@@ -43,7 +43,7 @@ class ConnectorRegistry:
     def create_schema_resolver(
         ctx: Optional["PipelineContext"],
         config: KafkaConnectSourceConfig,
-        connector_manifest: ConnectorManifest,
+        connector: BaseConnector,
     ) -> Optional["SchemaResolver"]:
         """
         Create SchemaResolver for enhanced lineage extraction if enabled.
@@ -51,7 +51,7 @@ class ConnectorRegistry:
         Args:
             ctx: Pipeline context (contains graph connection)
             config: Kafka Connect source configuration
-            connector_manifest: Connector manifest to determine platform
+            connector: Connector instance to get platform from
 
         Returns:
             SchemaResolver instance if feature is enabled and graph is available, None otherwise
@@ -62,19 +62,16 @@ class ConnectorRegistry:
         try:
             from datahub.sql_parsing.schema_resolver import SchemaResolver
 
-            # Determine platform from connector class
-            connector_class = connector_manifest.config.get("connector.class", "")
-            platform = ConnectorRegistry._infer_platform_from_connector(
-                connector_class, connector_manifest
-            )
+            # Get platform from connector instance (single source of truth)
+            platform = connector.get_platform()
 
             # Get platform instance if configured
             platform_instance = get_platform_instance(
-                config, connector_manifest.name, platform
+                config, connector.connector_manifest.name, platform
             )
 
             logger.info(
-                f"Creating SchemaResolver for connector {connector_manifest.name} "
+                f"Creating SchemaResolver for connector {connector.connector_manifest.name} "
                 f"with platform={platform}, instance={platform_instance}"
             )
 
@@ -86,45 +83,10 @@ class ConnectorRegistry:
             )
         except Exception as e:
             logger.warning(
-                f"Failed to create SchemaResolver for connector {connector_manifest.name}: {e}. "
+                f"Failed to create SchemaResolver for connector {connector.connector_manifest.name}: {e}. "
                 "Falling back to standard lineage extraction."
             )
             return None
-
-    @staticmethod
-    def _infer_platform_from_connector(
-        connector_class: str, manifest: ConnectorManifest
-    ) -> str:
-        """Infer the source platform from connector class."""
-        from datahub.ingestion.source.kafka_connect.source_connectors import (
-            DebeziumSourceConnector,
-        )
-
-        # Try to get platform from Debezium source connector
-        if (
-            "debezium" in connector_class.lower()
-            or connector_class in CLOUD_JDBC_SOURCE_CLASSES
-        ):
-            return DebeziumSourceConnector._get_platform_from_connector_class(
-                connector_class
-            )
-
-        # Default platform inference
-        connector_lower = connector_class.lower()
-        if "postgres" in connector_lower:
-            return "postgres"
-        elif "mysql" in connector_lower:
-            return "mysql"
-        elif "sqlserver" in connector_lower or "mssql" in connector_lower:
-            return "mssql"
-        elif "oracle" in connector_lower:
-            return "oracle"
-        elif "mongodb" in connector_lower or "mongo" in connector_lower:
-            return "mongodb"
-        elif "snowflake" in connector_lower:
-            return "snowflake"
-        else:
-            return "unknown"
 
     @staticmethod
     def get_connector_for_manifest(
@@ -147,12 +109,7 @@ class ConnectorRegistry:
         """
         connector_class_value = manifest.config.get("connector.class", "")
 
-        # Create schema resolver if enabled
-        schema_resolver = ConnectorRegistry.create_schema_resolver(
-            ctx, config, manifest
-        )
-
-        # Determine connector type based on manifest type
+        # Create connector instance first
         if manifest.type == SOURCE:
             connector = ConnectorRegistry._get_source_connector(
                 connector_class_value, manifest, config, report
@@ -164,9 +121,13 @@ class ConnectorRegistry:
         else:
             return None
 
-        # Attach schema resolver to connector if created
-        if connector and schema_resolver:
-            connector.schema_resolver = schema_resolver
+        # Create and attach schema resolver using connector's platform
+        if connector:
+            schema_resolver = ConnectorRegistry.create_schema_resolver(
+                ctx, config, connector
+            )
+            if schema_resolver:
+                connector.schema_resolver = schema_resolver
 
         return connector
 
@@ -347,7 +308,6 @@ class _GenericConnector(BaseConnector):
         """Generic connector supports any unknown class."""
         return True
 
-    @staticmethod
-    def get_platform(connector_class: str) -> str:
+    def get_platform(self) -> str:
         """Generic connectors have configurable platforms."""
         return "unknown"
