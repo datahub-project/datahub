@@ -75,9 +75,7 @@ class TestSchemaResolverTableExpansion:
         )
 
         # Pattern should not be expanded
-        result = connector._expand_table_patterns(
-            "public.*", "postgres", "testdb"
-        )
+        result = connector._expand_table_patterns("public.*", "postgres", "testdb")
 
         # Should return the pattern as-is (not expanded)
         assert result == ["public.*"]
@@ -122,9 +120,7 @@ class TestSchemaResolverTableExpansion:
         )
 
         # Pattern should be expanded
-        result = connector._expand_table_patterns(
-            "public.*", "postgres", "testdb"
-        )
+        result = connector._expand_table_patterns("public.*", "postgres", "testdb")
 
         # Should match only public schema tables
         assert len(result) == 2
@@ -171,9 +167,7 @@ class TestSchemaResolverTableExpansion:
         )
 
         # Pattern should not match anything, return as-is
-        result = connector._expand_table_patterns(
-            "nonexistent.*", "postgres", "testdb"
-        )
+        result = connector._expand_table_patterns("nonexistent.*", "postgres", "testdb")
 
         # Should keep the pattern as-is since no matches found
         assert result == ["nonexistent.*"]
@@ -265,9 +259,7 @@ class TestSchemaResolverTableExpansion:
         )
 
         # Pattern should not be expanded even though schema resolver is available
-        result = connector._expand_table_patterns(
-            "public.*", "postgres", "testdb"
-        )
+        result = connector._expand_table_patterns("public.*", "postgres", "testdb")
 
         assert result == ["public.*"]
 
@@ -654,9 +646,7 @@ class TestSchemaResolverEdgeCases:
         )
 
         # Should return pattern as-is when no URNs available
-        result = connector._expand_table_patterns(
-            "public.*", "postgres", "testdb"
-        )
+        result = connector._expand_table_patterns("public.*", "postgres", "testdb")
 
         assert result == ["public.*"]
 
