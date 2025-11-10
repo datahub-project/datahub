@@ -70,7 +70,11 @@ public class LineageSearchServiceTest {
     ElasticSearchConfiguration elasticSearchConfig = ElasticSearchConfiguration.builder().build();
     SearchConfiguration searchConfig = SearchConfiguration.builder().build();
     GraphQueryConfiguration graphConfig = GraphQueryConfiguration.builder().build();
-    ImpactConfiguration impactConfig = ImpactConfiguration.builder().keepAlive("5m").build();
+    ImpactConfiguration impactConfig =
+        ImpactConfiguration.builder()
+            .keepAlive("5m")
+            .searchQueryTimeReservation(0.2) // Default 20% reservation
+            .build();
 
     // Create cache configuration
     CacheConfiguration cacheConfig =

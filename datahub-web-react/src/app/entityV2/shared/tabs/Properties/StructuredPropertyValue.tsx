@@ -118,6 +118,7 @@ interface Props {
     isFieldColumn?: boolean;
     size?: number;
     hydratedEntityMap?: Record<string, Entity>;
+    dataTestId?: string;
     attribution?: MetadataAttribution | null;
 }
 
@@ -129,6 +130,7 @@ export default function StructuredPropertyValue({
     isFieldColumn,
     size = 12,
     hydratedEntityMap,
+    dataTestId,
     attribution,
 }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -163,7 +165,7 @@ export default function StructuredPropertyValue({
 
     return (
         <Tooltip title={attribution && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}>
-            <ValueText size={size}>
+            <ValueText size={size} data-testid={dataTestId}>
                 {value.entity ? (
                     valueEntityRender
                 ) : (

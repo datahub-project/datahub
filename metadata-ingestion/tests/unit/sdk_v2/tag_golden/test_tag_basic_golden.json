@@ -1,0 +1,13 @@
+[
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:test-tag",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "test-tag"
+        }
+    }
+}
+]
