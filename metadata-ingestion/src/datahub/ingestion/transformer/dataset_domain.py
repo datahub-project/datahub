@@ -177,16 +177,28 @@ class AddDatasetDomain(DatasetDomainTransformer):
         domain_aspect.domains.extend(domain_to_add.domains)
 
         final_aspect: Optional[DomainsClass] = domain_aspect
-        if domain_aspect.domains:
+
+        if self.config.semantics == TransformerSemantics.PATCH:
+            if not domain_aspect.domains:
+                assert self.ctx.graph
+                server_domain = self.ctx.graph.get_domain(entity_urn)
+                return cast(Optional[Aspect], server_domain)
+            else:
+                if self.config.on_conflict == TransformerOnConflict.DO_NOTHING:
+                    assert self.ctx.graph
+                    server_domain = self.ctx.graph.get_domain(entity_urn)
+                    if server_domain and server_domain.domains:
+                        return None
+                final_aspect = AddDatasetDomain._merge_with_server_domains(
+                    self.ctx.graph, entity_urn, domain_aspect
+                )
+        elif domain_aspect.domains:
             if self.config.on_conflict == TransformerOnConflict.DO_NOTHING:
                 assert self.ctx.graph
                 server_domain = self.ctx.graph.get_domain(entity_urn)
                 if server_domain and server_domain.domains:
                     return None
-            if self.config.semantics == TransformerSemantics.PATCH:
-                final_aspect = AddDatasetDomain._merge_with_server_domains(
-                    self.ctx.graph, entity_urn, domain_aspect
-                )
+
         return cast(Optional[Aspect], final_aspect)
 
 
