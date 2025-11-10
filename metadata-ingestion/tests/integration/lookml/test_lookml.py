@@ -185,7 +185,7 @@ def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
         looker_model=looker_model,
         looker_viewfile_loader=None,  # type: ignore
         reporter=None,  # type: ignore
-        source_config=LookMLSourceConfig.parse_obj(
+        source_config=LookMLSourceConfig.model_validate(
             {
                 "process_refinements": "True",
                 "base_folder": ".",
@@ -769,7 +769,7 @@ def test_lookml_base_folder():
         "client_secret": "this-is-also-fake",
     }
 
-    LookMLSourceConfig.parse_obj(
+    LookMLSourceConfig.model_validate(
         {
             "git_info": {
                 "repo": "acryldata/long-tail-companions-looker",
@@ -782,7 +782,7 @@ def test_lookml_base_folder():
     with pytest.raises(
         pydantic.ValidationError, match=r"base_folder.+nor.+git_info.+provided"
     ):
-        LookMLSourceConfig.parse_obj({"api": fake_api})
+        LookMLSourceConfig.model_validate({"api": fake_api})
 
 
 @freeze_time(FROZEN_TIME)
@@ -1263,7 +1263,7 @@ def test_unreachable_views(pytestconfig):
     }
 
     source = LookMLSource(
-        LookMLSourceConfig.parse_obj(config),
+        LookMLSourceConfig.model_validate(config),
         ctx=PipelineContext(run_id="lookml-source-test"),
     )
     workunits: List[Union[MetadataWorkUnit, Entity]] = [

@@ -103,7 +103,7 @@ const addStructuredPropertyToField = (prop) => {
 describe("Verify manage structured properties functionalities", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
+    cy.login();
     cy.goToStructuredProperties();
   });
 

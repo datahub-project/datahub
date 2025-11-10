@@ -51,6 +51,9 @@ public class FeatureFlags {
   private boolean logicalModelsEnabled = false;
   private boolean showHomepageUserRole = false;
   private boolean viewIngestionSourcePrivilegesEnabled = false;
+  private boolean assetSummaryPageV1 = false;
+  private boolean datasetSummaryPageV1 = false;
+  private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
 
   /* SaaS Only */
@@ -79,13 +82,11 @@ public class FeatureFlags {
   private boolean usePropagationsFramework = false;
   private boolean displayExecutorPools = false;
   private boolean onlineSmartAssertionsEnabled = false;
-  private boolean showDefaultExternalLinks = true;
   private boolean showCreatedAtFilter = false;
   private boolean formsNotificationsEnabled = false;
   private boolean actionWorkflowsEnabled = false;
   private boolean tagPropagationV2Enabled = false;
   private boolean termPropagationV2Enabled = false;
-  private boolean assetSummaryPageV1 = false;
   private boolean inviteUsersEnabled = false;
   private boolean showAskDataHub = false;
   private boolean supportTicketsEnabled = false;

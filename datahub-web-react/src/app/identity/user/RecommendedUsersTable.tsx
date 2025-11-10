@@ -8,6 +8,7 @@ import {
     EmptyStateContainer,
     EmptyStateWrapper,
     FiltersHeader,
+    LoadingOverlay,
     PaginationContainer,
     PlatformPills,
     RecommendedNoteContainer,
@@ -362,14 +363,7 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
         },
     ];
 
-    if (loading) {
-        return (
-            <RecommendedUsersContainer>
-                <Text size="sm">Loading recommended users...</Text>
-            </RecommendedUsersContainer>
-        );
-    }
-
+    // Show error state if there's an error
     if (error) {
         return (
             <RecommendedUsersContainer>
@@ -420,6 +414,13 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                 </div>
             </FiltersHeader>
             <RecommendedTableContainer $hasSsoBanner={hasSsoBanner}>
+                {loading && (
+                    <LoadingOverlay>
+                        <Text size="sm" color="gray">
+                            Loading...
+                        </Text>
+                    </LoadingOverlay>
+                )}
                 {recommendedUsers.length === 0 && !loading ? (
                     <EmptyStateWrapper>
                         <EmptyStateContainer>

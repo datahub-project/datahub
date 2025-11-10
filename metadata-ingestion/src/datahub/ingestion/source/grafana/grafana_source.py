@@ -171,7 +171,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GrafanaSource":
-        config = GrafanaSourceConfig.parse_obj(config_dict)
+        config = GrafanaSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

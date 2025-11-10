@@ -316,7 +316,7 @@ def test_allow_deny(config: str, input: str, pattern_key: str) -> None:
             click.secho(f"{pattern_key} is not defined in the config", fg="red")
             exit(1)
 
-        allow_deny_pattern = AllowDenyPattern.parse_obj(pattern_dict)
+        allow_deny_pattern = AllowDenyPattern.model_validate(pattern_dict)
         if allow_deny_pattern.allowed(input):
             click.secho(f"✅ {input} is allowed by {pattern_key}", fg="green")
             exit(0)
@@ -372,7 +372,7 @@ def test_path_spec(config: str, input: str, path_spec_key: str) -> None:
             pattern_dicts = [pattern_dicts]
 
         for pattern_dict in pattern_dicts:
-            path_spec_pattern = PathSpec.parse_obj(pattern_dict)
+            path_spec_pattern = PathSpec.model_validate(pattern_dict)
             if path_spec_pattern.allowed(input):
                 click.echo(f"{input} is allowed by {path_spec_pattern}")
             else:

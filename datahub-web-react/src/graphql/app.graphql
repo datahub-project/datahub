@@ -169,6 +169,7 @@ query appConfig {
             inviteUsersEnabled
             showAskDataHub
             teamsNotificationsEnabled
+            datasetSummaryPageV1
             documentationFileUploadV1
         }
         chromeExtensionConfig {
