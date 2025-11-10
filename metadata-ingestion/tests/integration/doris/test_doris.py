@@ -1,4 +1,6 @@
+import os
 import subprocess
+import time
 
 import pytest
 from freezegun import freeze_time
@@ -38,18 +40,20 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         test_resources_dir / "docker-compose.yml", "doris"
     ) as docker_services:
         # Wait for Doris FE to be ready
+        # Increased timeout for CI where image pulls + startup can take 3-5 minutes
         wait_for_port(
             docker_services,
             "testdoris-fe",
             DORIS_PORT,
-            timeout=360,
+            timeout=600,  # 10 minutes to account for image download + startup
             checker=lambda: is_doris_up("testdoris", DORIS_PORT),
         )
 
-        # Give BE time to register with FE
-        import time
-
-        time.sleep(30)
+        # Give BE time to register with FE (longer in CI environments)
+        # BE must connect to FE after FE is healthy
+        be_wait = 60 if os.getenv("CI") == "true" else 30
+        print(f"Waiting {be_wait}s for BE to register with FE...")
+        time.sleep(be_wait)
 
         # Run the setup script
         setup_sql = test_resources_dir / "setup" / "setup.sql"

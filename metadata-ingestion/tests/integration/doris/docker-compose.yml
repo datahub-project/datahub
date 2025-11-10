@@ -17,12 +17,18 @@ services:
       - ./setup:/setup
     networks:
       - doris-net
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
     healthcheck:
       test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/127.0.0.1/9030' || exit 1"]
       interval: 15s
       timeout: 10s
-      retries: 120
-      start_period: 300s
+      retries: 240
+      start_period: 600s
 
   doris-be:
     image: apache/doris:be-3.0.8
@@ -39,10 +45,16 @@ services:
         condition: service_healthy
     networks:
       - doris-net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
     healthcheck:
       test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/127.0.0.1/8040' || exit 1"]
       interval: 15s
       timeout: 10s
-      retries: 60
-      start_period: 240s
+      retries: 120
+      start_period: 480s
 
