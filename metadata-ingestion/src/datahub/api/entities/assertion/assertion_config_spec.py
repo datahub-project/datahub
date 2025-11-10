@@ -1,13 +1,13 @@
 from typing import List, Optional
 
+from pydantic import BaseModel, Field
 from ruamel.yaml import YAML
 from typing_extensions import Literal
 
 from datahub.api.entities.assertion.datahub_assertion import DataHubAssertion
-from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel, v1_Field
 
 
-class AssertionsConfigSpec(v1_ConfigModel):
+class AssertionsConfigSpec(BaseModel):
     """
     Declarative configuration specification for datahub assertions.
 
@@ -18,9 +18,11 @@ class AssertionsConfigSpec(v1_ConfigModel):
     In future, this would invoke datahub GraphQL API to upsert assertions.
     """
 
+    model_config = {"extra": "forbid"}
+
     version: Literal[1]
 
-    id: Optional[str] = v1_Field(
+    id: Optional[str] = Field(
         default=None,
         alias="namespace",
         description="Unique identifier of assertions configuration file",
@@ -34,8 +36,7 @@ class AssertionsConfigSpec(v1_ConfigModel):
         file: str,
     ) -> "AssertionsConfigSpec":
         with open(file) as fp:
-            yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
+            yaml = YAML(typ="rt")
             orig_dictionary = yaml.load(fp)
-            parsed_spec = AssertionsConfigSpec.parse_obj(orig_dictionary)
-            # parsed_spec._original_yaml_dict = orig_dictionary
+            parsed_spec = AssertionsConfigSpec.model_validate(orig_dictionary)
             return parsed_spec

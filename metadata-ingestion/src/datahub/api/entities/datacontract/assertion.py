@@ -1,7 +1,9 @@
 from typing import Optional
 
-from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel
+from pydantic import BaseModel
 
 
-class BaseAssertion(v1_ConfigModel):
+class BaseAssertion(BaseModel):
+    model_config = {"extra": "forbid"}
+
     description: Optional[str] = None

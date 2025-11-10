@@ -1,9 +1,9 @@
 import json
 from typing import List, Optional, Union
 
+from pydantic import BaseModel
 from typing_extensions import Literal, Protocol
 
-from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel
 from datahub.metadata.schema_classes import (
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -61,7 +61,9 @@ def _generate_assertion_std_parameters(
     )
 
 
-class EqualToOperator(v1_ConfigModel):
+class EqualToOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["equal_to"]
     value: Union[str, int, float]
 
@@ -74,7 +76,8 @@ class EqualToOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class NotEqualToOperator(v1_ConfigModel):
+class NotEqualToOperator(BaseModel):
+    model_config = {"extra": "forbid"}
     type: Literal["not_equal_to"]
     value: Union[str, int, float]
 
@@ -87,7 +90,9 @@ class NotEqualToOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class BetweenOperator(v1_ConfigModel):
+class BetweenOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["between"]
     min: Union[int, float]
     max: Union[int, float]
@@ -103,7 +108,9 @@ class BetweenOperator(v1_ConfigModel):
         )
 
 
-class LessThanOperator(v1_ConfigModel):
+class LessThanOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["less_than"]
     value: Union[int, float]
 
@@ -116,7 +123,9 @@ class LessThanOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class GreaterThanOperator(v1_ConfigModel):
+class GreaterThanOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["greater_than"]
     value: Union[int, float]
 
@@ -129,7 +138,9 @@ class GreaterThanOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class LessThanOrEqualToOperator(v1_ConfigModel):
+class LessThanOrEqualToOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["less_than_or_equal_to"]
     value: Union[int, float]
 
@@ -142,7 +153,9 @@ class LessThanOrEqualToOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class GreaterThanOrEqualToOperator(v1_ConfigModel):
+class GreaterThanOrEqualToOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["greater_than_or_equal_to"]
     value: Union[int, float]
 
@@ -155,7 +168,9 @@ class GreaterThanOrEqualToOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class InOperator(v1_ConfigModel):
+class InOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["in"]
     value: List[Union[str, float, int]]
 
@@ -168,7 +183,9 @@ class InOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class NotInOperator(v1_ConfigModel):
+class NotInOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["not_in"]
     value: List[Union[str, float, int]]
 
@@ -181,7 +198,9 @@ class NotInOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class IsNullOperator(v1_ConfigModel):
+class IsNullOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["is_null"]
 
     operator: str = AssertionStdOperatorClass.NULL
@@ -193,7 +212,9 @@ class IsNullOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters()
 
 
-class NotNullOperator(v1_ConfigModel):
+class NotNullOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["is_not_null"]
 
     operator: str = AssertionStdOperatorClass.NOT_NULL
@@ -205,7 +226,9 @@ class NotNullOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters()
 
 
-class IsTrueOperator(v1_ConfigModel):
+class IsTrueOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["is_true"]
 
     operator: str = AssertionStdOperatorClass.IS_TRUE
@@ -217,7 +240,9 @@ class IsTrueOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters()
 
 
-class IsFalseOperator(v1_ConfigModel):
+class IsFalseOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["is_false"]
 
     operator: str = AssertionStdOperatorClass.IS_FALSE
@@ -229,7 +254,9 @@ class IsFalseOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters()
 
 
-class ContainsOperator(v1_ConfigModel):
+class ContainsOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["contains"]
     value: str
 
@@ -242,7 +269,9 @@ class ContainsOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class EndsWithOperator(v1_ConfigModel):
+class EndsWithOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["ends_with"]
     value: str
 
@@ -255,7 +284,9 @@ class EndsWithOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class StartsWithOperator(v1_ConfigModel):
+class StartsWithOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["starts_with"]
     value: str
 
@@ -268,7 +299,9 @@ class StartsWithOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class MatchesRegexOperator(v1_ConfigModel):
+class MatchesRegexOperator(BaseModel):
+    model_config = {"extra": "forbid"}
+
     type: Literal["matches_regex"]
     value: str
 

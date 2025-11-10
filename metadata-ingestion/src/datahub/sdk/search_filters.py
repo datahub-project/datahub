@@ -19,10 +19,6 @@ import pydantic
 from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.pydantic_migration_helpers import (
-    PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
-    PYDANTIC_VERSION_2,
-)
 from datahub.ingestion.graph.client import flexible_entity_type_to_graphql
 from datahub.ingestion.graph.filters import (
     FilterOperator,
@@ -59,10 +55,7 @@ class _BaseFilter(ConfigModel):
     def _field_discriminator(cls) -> str:
         if cls is _BaseFilter:
             raise ValueError("Cannot get discriminator for _BaseFilter")
-        if PYDANTIC_VERSION_2:
-            fields: dict = cls.model_fields  # type: ignore
-        else:
-            fields = cls.__fields__  # type: ignore
+        fields: dict = cls.model_fields  # type: ignore
 
         # Assumes that there's only one field name per filter.
         # If that's not the case, this method should be overridden.
@@ -516,9 +509,8 @@ def _parse_and_like_filter(value: Any) -> Any:
     return value
 
 
-if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
-    # The `not TYPE_CHECKING` bit is required to make the linter happy,
-    # since we currently only run mypy with pydantic v1.
+if TYPE_CHECKING:
+    # Simple union for type checking (mypy)
     Filter = Union[
         _And,
         _Or,
@@ -535,12 +527,11 @@ if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
         _TagFilter,
         _CustomCondition,
     ]
-
-    _And.update_forward_refs()
-    _Or.update_forward_refs()
-    _Not.update_forward_refs()
 else:
-    from pydantic import Discriminator, Tag
+    # Runtime union with validators
+    # Pydantic v2's "smart union" matching will automatically discriminate based on unique fields.
+    # Note: We could use explicit Discriminator/Tag (available in Pydantic 2.4+) for slightly
+    # better performance, but the simple union approach works well across all Pydantic v2 versions.
 
     def _parse_json_from_string(value: Any) -> Any:
         if isinstance(value, str):
@@ -551,39 +542,22 @@ else:
         else:
             return value
 
-    # TODO: Once we're fully on pydantic 2, we can use a RootModel here.
-    # That way we'd be able to attach methods to the Filter type.
-    # e.g. replace load_filters(...) with Filter.load(...)
     Filter = Annotated[
-        Annotated[
-            Union[
-                Annotated[_And, Tag(_And._field_discriminator())],
-                Annotated[_Or, Tag(_Or._field_discriminator())],
-                Annotated[_Not, Tag(_Not._field_discriminator())],
-                Annotated[
-                    _EntityTypeFilter, Tag(_EntityTypeFilter._field_discriminator())
-                ],
-                Annotated[
-                    _EntitySubtypeFilter,
-                    Tag(_EntitySubtypeFilter._field_discriminator()),
-                ],
-                Annotated[_StatusFilter, Tag(_StatusFilter._field_discriminator())],
-                Annotated[_PlatformFilter, Tag(_PlatformFilter._field_discriminator())],
-                Annotated[_DomainFilter, Tag(_DomainFilter._field_discriminator())],
-                Annotated[
-                    _ContainerFilter, Tag(_ContainerFilter._field_discriminator())
-                ],
-                Annotated[_EnvFilter, Tag(_EnvFilter._field_discriminator())],
-                Annotated[_OwnerFilter, Tag(_OwnerFilter._field_discriminator())],
-                Annotated[
-                    _GlossaryTermFilter, Tag(_GlossaryTermFilter._field_discriminator())
-                ],
-                Annotated[_TagFilter, Tag(_TagFilter._field_discriminator())],
-                Annotated[
-                    _CustomCondition, Tag(_CustomCondition._field_discriminator())
-                ],
-            ],
-            Discriminator(_filter_discriminator),
+        Union[
+            _And,
+            _Or,
+            _Not,
+            _EntityTypeFilter,
+            _EntitySubtypeFilter,
+            _StatusFilter,
+            _PlatformFilter,
+            _DomainFilter,
+            _ContainerFilter,
+            _EnvFilter,
+            _OwnerFilter,
+            _GlossaryTermFilter,
+            _TagFilter,
+            _CustomCondition,
         ],
         pydantic.BeforeValidator(_parse_and_like_filter),
         pydantic.BeforeValidator(_parse_json_from_string),
@@ -596,10 +570,7 @@ else:
 
 
 def load_filters(obj: Any) -> Filter:
-    if PYDANTIC_VERSION_2:
-        return pydantic.TypeAdapter(Filter).validate_python(obj)  # type: ignore
-    else:
-        return pydantic.TypeAdapter(Filter).validate_python(obj)  # type: ignore
+    return pydantic.TypeAdapter(Filter).validate_python(obj)  # type: ignore
 
 
 # We need FilterDsl for two reasons:

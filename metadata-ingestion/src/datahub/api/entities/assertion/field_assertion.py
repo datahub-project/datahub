@@ -1,17 +1,16 @@
 from enum import Enum
 from typing import Optional, Union
 
+from pydantic import BaseModel, Field
 from typing_extensions import Literal
 
 from datahub.api.entities.assertion.assertion import (
-    BaseAssertionProtocol,
     BaseEntityAssertion,
 )
 from datahub.api.entities.assertion.assertion_operator import Operators
 from datahub.api.entities.assertion.assertion_trigger import AssertionTrigger
 from datahub.api.entities.assertion.field_metric import FieldMetric
 from datahub.api.entities.assertion.filter import DatasetFilter
-from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel, v1_Field
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionInfo,
@@ -30,9 +29,11 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class FieldValuesFailThreshold(v1_ConfigModel):
-    type: Literal["count", "percentage"] = v1_Field(default="count")
-    value: int = v1_Field(default=0)
+class FieldValuesFailThreshold(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    type: Literal["count", "percentage"] = Field(default="count")
+    value: int = Field(default=0)
 
     def to_field_values_failure_threshold(self) -> FieldValuesFailThresholdClass:
         return FieldValuesFailThresholdClass(
@@ -52,13 +53,13 @@ class FieldTransform(Enum):
 class FieldValuesAssertion(BaseEntityAssertion):
     type: Literal["field"]
     field: str
-    field_transform: Optional[FieldTransform] = v1_Field(default=None)
-    operator: Operators = v1_Field(discriminator="type", alias="condition")
-    filters: Optional[DatasetFilter] = v1_Field(default=None)
-    failure_threshold: FieldValuesFailThreshold = v1_Field(
+    field_transform: Optional[FieldTransform] = Field(default=None)
+    operator: Operators = Field(discriminator="type", alias="condition")
+    filters: Optional[DatasetFilter] = Field(default=None)
+    failure_threshold: FieldValuesFailThreshold = Field(
         default=FieldValuesFailThreshold()
     )
-    exclude_nulls: bool = v1_Field(default=True)
+    exclude_nulls: bool = Field(default=True)
 
     def get_assertion_info(
         self,
@@ -98,13 +99,19 @@ class FieldValuesAssertion(BaseEntityAssertion):
         }
         return self.id or datahub_guid(guid_dict)
 
+    def get_assertion_info_aspect(self) -> AssertionInfo:
+        return self.get_assertion_info()
+
+    def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
+        return self.trigger
+
 
 class FieldMetricAssertion(BaseEntityAssertion):
     type: Literal["field"]
     field: str
-    operator: Operators = v1_Field(discriminator="type", alias="condition")
+    operator: Operators = Field(discriminator="type", alias="condition")
     metric: FieldMetric
-    filters: Optional[DatasetFilter] = v1_Field(default=None)
+    filters: Optional[DatasetFilter] = Field(default=None)
 
     def get_assertion_info(
         self,
@@ -138,21 +145,13 @@ class FieldMetricAssertion(BaseEntityAssertion):
         }
         return self.id or datahub_guid(guid_dict)
 
-
-class FieldAssertion(BaseAssertionProtocol):
-    __root__: Union[FieldMetricAssertion, FieldValuesAssertion]
-
-    @property
-    def assertion(self):
-        return self.__root__
-
-    def get_id(self) -> str:
-        return self.__root__.get_id()
-
-    def get_assertion_info_aspect(
-        self,
-    ) -> AssertionInfo:
-        return self.__root__.get_assertion_info()
+    def get_assertion_info_aspect(self) -> AssertionInfo:
+        return self.get_assertion_info()
 
     def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
-        return self.__root__.trigger
+        return self.trigger
+
+
+# Pydantic v2 smart union: automatically discriminates based on presence of
+# unique fields (eg metric field vs operator+failure_threshold combination)
+FieldAssertion = Union[FieldMetricAssertion, FieldValuesAssertion]

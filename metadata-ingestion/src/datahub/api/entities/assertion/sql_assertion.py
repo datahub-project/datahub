@@ -1,14 +1,13 @@
 from typing import Optional, Union
 
+from pydantic import Field
 from typing_extensions import Literal
 
 from datahub.api.entities.assertion.assertion import (
-    BaseAssertionProtocol,
     BaseEntityAssertion,
 )
 from datahub.api.entities.assertion.assertion_operator import Operators
 from datahub.api.entities.assertion.assertion_trigger import AssertionTrigger
-from datahub.configuration.pydantic_migration_helpers import v1_Field
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionInfo,
@@ -22,7 +21,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
 class SqlMetricAssertion(BaseEntityAssertion):
     type: Literal["sql"]
     statement: str
-    operator: Operators = v1_Field(discriminator="type", alias="condition")
+    operator: Operators = Field(discriminator="type", alias="condition")
 
     def get_assertion_info(
         self,
@@ -39,12 +38,26 @@ class SqlMetricAssertion(BaseEntityAssertion):
             ),
         )
 
+    def get_id(self) -> str:
+        guid_dict = {
+            "entity": self.entity,
+            "type": self.type,
+            "id_raw": self.id_raw,
+        }
+        return self.id or datahub_guid(guid_dict)
+
+    def get_assertion_info_aspect(self) -> AssertionInfo:
+        return self.get_assertion_info()
+
+    def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
+        return self.trigger
+
 
 class SqlMetricChangeAssertion(BaseEntityAssertion):
     type: Literal["sql"]
     statement: str
     change_type: Literal["absolute", "percentage"]
-    operator: Operators = v1_Field(discriminator="type", alias="condition")
+    operator: Operators = Field(discriminator="type", alias="condition")
 
     def get_assertion_info(
         self,
@@ -66,26 +79,21 @@ class SqlMetricChangeAssertion(BaseEntityAssertion):
             ),
         )
 
-
-class SQLAssertion(BaseAssertionProtocol):
-    __root__: Union[SqlMetricAssertion, SqlMetricChangeAssertion] = v1_Field()
-
-    @property
-    def assertion(self):
-        return self.__root__
-
     def get_id(self) -> str:
         guid_dict = {
-            "entity": self.__root__.entity,
-            "type": self.__root__.type,
-            "id_raw": self.__root__.id_raw,
+            "entity": self.entity,
+            "type": self.type,
+            "id_raw": self.id_raw,
         }
-        return self.__root__.id or datahub_guid(guid_dict)
+        return self.id or datahub_guid(guid_dict)
 
-    def get_assertion_info_aspect(
-        self,
-    ) -> AssertionInfo:
-        return self.__root__.get_assertion_info()
+    def get_assertion_info_aspect(self) -> AssertionInfo:
+        return self.get_assertion_info()
 
     def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
-        return self.__root__.trigger
+        return self.trigger
+
+
+# Pydantic v2 smart union: automatically discriminates based on presence of
+# unique fields (eg absence vs presence of change_type)
+SQLAssertion = Union[SqlMetricAssertion, SqlMetricChangeAssertion]
