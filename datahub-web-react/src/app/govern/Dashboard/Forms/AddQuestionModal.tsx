@@ -251,7 +251,7 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                         <WarningWrapper>
                             <StyledExclamationOutlined color={WARNING_COLOR_HEX} />
                             <span>
-                                <strong>Are you sure?</strong> All columns will need an anwer to this question
+                                <strong>Are you sure?</strong> All columns will need an answer to this question
                                 individually to complete the form.
                             </span>
                         </WarningWrapper>
