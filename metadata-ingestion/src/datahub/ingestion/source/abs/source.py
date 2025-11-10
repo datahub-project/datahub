@@ -149,7 +149,7 @@ class ABSSource(StatefulIngestionSourceBase):
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
         config_report = {
-            config_option: config.dict().get(config_option)
+            config_option: config.model_dump().get(config_option)
             for config_option in config_options_to_report
         }
         config_report = {
@@ -164,7 +164,7 @@ class ABSSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DataLakeSourceConfig.parse_obj(config_dict)
+        config = DataLakeSourceConfig.model_validate(config_dict)
 
         return cls(config, ctx)
 

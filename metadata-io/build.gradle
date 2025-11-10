@@ -7,6 +7,98 @@ plugins {
 
 apply from: '../gradle/coverage/java-coverage.gradle'
 
+// Memory profile configuration - supports environment variable GRADLE_MEMORY_PROFILE or system property
+// Values: "low" (8GB systems), "default" (16GB+ systems), "high" (32GB+ systems)
+// Auto-detects system memory if not explicitly set
+def detectMemoryProfile() {
+  // Check if explicitly set via environment variable or system property
+  def explicitProfile = System.getenv("GRADLE_MEMORY_PROFILE") ?: System.getProperty("gradle.memory.profile")
+  if (explicitProfile) {
+    return explicitProfile
+  }
+
+  // Auto-detect based on actual system memory (total RAM) using OperatingSystemMXBean
+  try {
+    def osBean = java.lang.management.ManagementFactory.getOperatingSystemMXBean()
+    def sunOsBean = Class.forName("com.sun.management.OperatingSystemMXBean")
+    if (!sunOsBean.isInstance(osBean)) {
+      throw new Exception("OperatingSystemMXBean does not support getTotalPhysicalMemorySize()")
+    }
+
+    def method = sunOsBean.getMethod("getTotalPhysicalMemorySize")
+    def totalMemoryBytes = method.invoke(osBean) as Long
+    def totalMemoryGB = totalMemoryBytes / (1024.0 * 1024.0 * 1024.0)
+
+    def detectedProfile
+    if (totalMemoryGB < 12) {
+      detectedProfile = "low"  // < 12GB: use low profile (8GB systems)
+    } else if (totalMemoryGB < 24) {
+      detectedProfile = "default"  // 12-24GB: use default profile (16GB+ systems)
+    } else {
+      detectedProfile = "high"  // >= 24GB: use high profile (32GB+ systems)
+    }
+
+    println "Auto-detected memory profile: ${detectedProfile} (System RAM: ${String.format("%.1f", totalMemoryGB)}GB)"
+    return detectedProfile
+  } catch (Exception e) {
+    // Fallback to default if detection fails
+    println "Warning: Could not detect system memory (${e.message}), using 'default' profile"
+    return "default"
+  }
+}
+
+def memoryProfile = detectMemoryProfile()
+
+// Define memory configurations per profile
+// since it's read before build.gradle runs
+def memoryConfigs = [
+  "low": [
+    testHeap: "1g",
+    testMinHeap: "256m",
+    testMetaspace: "384m",
+    // Docker container memory settings (for ES/OS/Cassandra/Neo4j) - applied via system properties
+    elasticsearchHeap: "256m",
+    opensearchHeap: "512m",
+    cassandraHeap: "128m",
+    neo4jHeap: "256m"
+  ],
+  "default": [
+    testHeap: "2g",
+    testMinHeap: "512m",
+    testMetaspace: "512m",
+    elasticsearchHeap: "512m",
+    opensearchHeap: "1024m",
+    cassandraHeap: "128m",
+    neo4jHeap: "512m"
+  ],
+  "high": [
+    testHeap: "3g",
+    testMinHeap: "1g",
+    testMetaspace: "768m",
+    elasticsearchHeap: "768m",
+    opensearchHeap: "1536m",
+    cassandraHeap: "256m",
+    neo4jHeap: "768m"
+  ]
+]
+
+def memoryConfig = memoryConfigs[memoryProfile] ?: memoryConfigs["low"]
+println "Using memory profile: ${memoryProfile}"
+println "  Test processes: ${memoryConfig.testHeap} heap (min ${memoryConfig.testMinHeap}), ${memoryConfig.testMetaspace} metaspace"
+println "  Docker containers:"
+println "    - Elasticsearch: ${memoryConfig.elasticsearchHeap}"
+println "    - OpenSearch: ${memoryConfig.opensearchHeap}"
+println "    - Cassandra: ${memoryConfig.cassandraHeap}"
+println "    - Neo4j: ${memoryConfig.neo4jHeap}"
+println "  Note: Gradle daemon memory is set in gradle.properties (see file for details)"
+println "  Override: Set GRADLE_MEMORY_PROFILE environment variable or -Dgradle.memory.profile system property"
+
+// Set system properties for container memory configuration (containers read these at runtime)
+System.setProperty("testcontainers.elasticsearch.heap", memoryConfig.elasticsearchHeap)
+System.setProperty("testcontainers.opensearch.heap", memoryConfig.opensearchHeap)
+System.setProperty("testcontainers.cassandra.heap", memoryConfig.cassandraHeap)
+System.setProperty("testcontainers.neo4j.heap", memoryConfig.neo4jHeap)
+
 configurations {
   enhance
 }
@@ -151,12 +243,84 @@ test {
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
 }
 
+task testEs7CassandraNeo4j(type: Test) {
+  doFirst {
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng-es7-cassandra-neo4j.xml'
+  }
+  testLogging {
+    events "failed", "skipped", "passed"
+    exceptionFormat "full"
+    showStandardStreams = true
+  }
+
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+  
+  group = 'verification'
+  description = 'Runs only the testng-es7-cassandra-neo4j.xml test suite'
+}
+
+task testOpenSearch(type: Test) {
+  doFirst {
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng-opensearch.xml'
+  }
+  testLogging {
+    events "failed", "skipped", "passed"
+    exceptionFormat "full"
+    showStandardStreams = true
+  }
+
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+  
+  group = 'verification'
+  description = 'Runs only the testng-opensearch.xml test suite'
+}
+
+task testOther(type: Test) {
+  doFirst {
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng-other.xml'
+  }
+  testLogging {
+    events "failed", "skipped", "passed", "started"
+    exceptionFormat "full"
+    showStandardStreams = true
+  }
+
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+  
+  group = 'verification'
+  description = 'Runs only other test suite to debug the failing tests'
+}
+
 ebean {
   debugLevel = 1 // 0 - 9
 }
 
 tasks.withType(Test) {
   enableAssertions = false
+  // Set heap size for test JVM processes based on memory profile
+  // This is separate from gradle.properties which only sets memory for the Gradle daemon
+  maxHeapSize = memoryConfig.testHeap
+  minHeapSize = memoryConfig.testMinHeap
+
+  // Add JVM args for memory efficiency and to prevent OOM kills
+  // -XX:MaxMetaspaceSize: Limit metaspace to prevent unbounded growth
+  // -XX:+UseG1GC: Use G1 garbage collector for better memory efficiency
+  // -XX:MaxGCPauseMillis: Target pause time for GC (higher for low-memory systems)
+  def gcPauseMillis = memoryProfile == "low" ? "1000" : "500"
+  jvmArgs = [
+          "-XX:MaxMetaspaceSize=${memoryConfig.testMetaspace}",
+          "-XX:+UseG1GC",
+          "-XX:MaxGCPauseMillis=${gcPauseMillis}"
+  ]
 }
 
 clean {

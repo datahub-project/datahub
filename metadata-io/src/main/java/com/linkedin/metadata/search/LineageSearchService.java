@@ -261,6 +261,9 @@ public class LineageSearchService {
         }
         numEntities = lineageSearchResult.getNumEntities();
         lineageSearchResult.setLineageSearchPath(LineageSearchPath.LIGHTNING);
+        if (lineageResult.hasPartial()) {
+          lineageSearchResult.setIsPartial(lineageResult.isPartial());
+        }
         return lineageSearchResult;
       } else {
         codePath = "tortoise";
@@ -281,6 +284,9 @@ public class LineageSearchService {
         }
         numEntities = lineageSearchResult.getNumEntities();
         lineageSearchResult.setLineageSearchPath(LineageSearchPath.TORTOISE);
+        if (lineageResult.hasPartial()) {
+          lineageSearchResult.setIsPartial(lineageResult.isPartial());
+        }
         return lineageSearchResult;
       }
     } finally {
@@ -796,15 +802,20 @@ public class LineageSearchService {
     Filter reducedFilters =
         SearchUtils.removeCriteria(
             inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
-    return getScrollResultInBatches(
-        opContext,
-        lineageRelationships,
-        input != null ? input : "*",
-        reducedFilters,
-        sortCriteria,
-        scrollId,
-        keepAlive,
-        ConfigUtils.applyLimit(appConfig.getGraphService(), size));
+    LineageScrollResult scrollResult =
+        getScrollResultInBatches(
+            opContext,
+            lineageRelationships,
+            input != null ? input : "*",
+            reducedFilters,
+            sortCriteria,
+            scrollId,
+            keepAlive,
+            ConfigUtils.applyLimit(appConfig.getGraphService(), size));
+    if (lineageResult.hasPartial()) {
+      scrollResult.setIsPartial(lineageResult.isPartial());
+    }
+    return scrollResult;
   }
 
   // Search service can only take up to 50K term filter, so query search service in batches

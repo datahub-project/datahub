@@ -7,6 +7,20 @@ export enum FileUploadFailureType {
     UNKNOWN = 'unknown',
 }
 
+export interface FileUploadProps {
+    onFileUpload?: (file: File) => Promise<string>;
+    onFileUploadAttempt?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
+    onFileUploadFailed?: (
+        fileType: string,
+        fileSize: number,
+        source: FileUploadSource,
+        failureType: FileUploadFailureType,
+        comment?: string,
+    ) => void;
+    onFileUploadSucceeded?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
+    onFileDownloadView?: (fileType: string, fileSize: number) => void;
+}
+
 export type EditorProps = {
     readOnly?: boolean;
     content?: string;
@@ -19,15 +33,5 @@ export type EditorProps = {
     dataTestId?: string;
     onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
     hideBorder?: boolean;
-    uploadFile?: (file: File) => Promise<string>;
-    onFileUploadAttempt?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
-    onFileUploadFailed?: (
-        fileType: string,
-        fileSize: number,
-        source: FileUploadSource,
-        failureType: FileUploadFailureType,
-        comment?: string,
-    ) => void;
-    onFileUploadSucceeded?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
-    onFileDownloadView?: (fileType: string, fileSize: number) => void;
+    uploadFileProps?: FileUploadProps;
 };
