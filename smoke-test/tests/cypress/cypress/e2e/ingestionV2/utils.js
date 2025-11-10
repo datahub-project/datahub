@@ -109,8 +109,8 @@ export const updateIngestionSource = (
   }
   cy.clickOptionWithTestId("ingestion-schedule-next-button");
   cy.get('[data-testid="source-name-input"]')
-    .focus()
-    .type(`{selectall}{backspace}${updatedSourceName}`);
+    .invoke("val", updatedSourceName)
+    .trigger("input");
   cy.clickOptionWithTestId("ingestion-source-save-button");
   cy.waitTextVisible("Successfully updated ingestion source!");
 };
