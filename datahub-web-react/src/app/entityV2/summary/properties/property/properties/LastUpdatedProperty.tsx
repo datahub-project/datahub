@@ -19,7 +19,8 @@ export default function LastUpdatedProperty(props: PropertyComponentProps) {
         lastModified = document?.info?.lastModified?.time;
     } else {
         // For other entities, check common locations
-        lastModified = entityData?.properties?.lastModified?.time;
+        // Using type assertion as different entities may have different property structures
+        lastModified = (entityData as any)?.properties?.lastModified?.time;
     }
 
     const renderLastModified = (timestamp: number) => {
