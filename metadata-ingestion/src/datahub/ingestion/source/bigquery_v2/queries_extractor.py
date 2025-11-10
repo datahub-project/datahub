@@ -245,6 +245,21 @@ class BigQueryQueriesExtractor(Closeable):
             #   1. this name would be allowed by the dataset patterns, and
             #   2. we have a list of discovered tables, and
             #   3. it's not in the discovered tables list
+
+            # Debug the individual conditions
+            is_allowed = self.filters.is_allowed(table)
+            has_discovered_tables = bool(self.discovered_tables)
+            table_ref_str = str(BigQueryTableRef(table))
+            not_in_discovered = (
+                table_ref_str not in self.discovered_tables
+                if self.discovered_tables
+                else False
+            )
+
+            logger.debug(
+                f"Temp table check for {name}: is_allowed={is_allowed}, has_discovered_tables={has_discovered_tables}, not_in_discovered={not_in_discovered}, table_ref={table_ref_str}"
+            )
+
             if (
                 self.filters.is_allowed(table)
                 and self.discovered_tables
