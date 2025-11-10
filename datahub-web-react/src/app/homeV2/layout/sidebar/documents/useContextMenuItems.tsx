@@ -21,7 +21,7 @@ export function useContextMenuItems(): NavBarMenuGroup | null {
     const { isCollapsed } = useNavBarContext();
     const [pageSize, setPageSize] = useState(ROOT_PAGE_SIZE);
     const { createDocument, loading: creating } = useCreateDocument();
-    const { deletedDocument, updatedDocument, setUpdatedDocument } = useDocumentsContext();
+    const { deletedDocument, updatedDocument } = useDocumentsContext();
 
     const {
         documents: fetchedDocuments,
@@ -55,14 +55,16 @@ export function useContextMenuItems(): NavBarMenuGroup | null {
     const documents = useMemo(() => {
         // Filter out documents that were moved away from root (optimistic update)
         const filteredDisplayDocuments =
-            updatedDocument?.urn && updatedDocument.parentDocument !== undefined && updatedDocument.parentDocument !== null
+            updatedDocument?.urn &&
+            updatedDocument.parentDocument !== undefined &&
+            updatedDocument.parentDocument !== null
                 ? displayDocuments.filter((doc) => doc.urn !== updatedDocument.urn)
                 : displayDocuments;
 
         // Filter out optimistic documents if real document already exists in fetched results
         // Also only include root-level optimistic documents here (children will be handled by the tree)
         const activeOptimisticDocs = optimisticDocuments.filter(
-            (opt) => !filteredDisplayDocuments.some((doc) => doc.urn === opt.urn) && !opt.parentDocument
+            (opt) => !filteredDisplayDocuments.some((doc) => doc.urn === opt.urn) && !opt.parentDocument,
         );
 
         // Convert optimistic documents to Document-like objects
@@ -81,7 +83,7 @@ export function useContextMenuItems(): NavBarMenuGroup | null {
         return [...optimisticDocs, ...filteredDisplayDocuments] as any[];
     }, [optimisticDocuments, displayDocuments, updatedDocument]);
 
-    // Refetch when documents are deleted or moved
+    // Refetch when documents are deleted
     useEffect(() => {
         if (deletedDocument) {
             refetch();
@@ -97,9 +99,12 @@ export function useContextMenuItems(): NavBarMenuGroup | null {
             const timeoutId = setTimeout(() => {
                 refetch();
             }, 5000);
-            
-            return () => clearTimeout(timeoutId);
+
+            return () => {
+                clearTimeout(timeoutId);
+            };
         }
+        return undefined;
     }, [updatedDocument?.urn, updatedDocument?.parentDocument, refetch]);
 
     const handleCreateDocument = useCallback(

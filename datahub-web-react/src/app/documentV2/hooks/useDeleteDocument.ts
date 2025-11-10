@@ -3,8 +3,9 @@ import { useCallback } from 'react';
 import { useHistory } from 'react-router-dom';
 
 import { useDocumentsContext } from '@app/documentV2/DocumentsContext';
-import { useDeleteDocumentMutation } from '@graphql/document.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useDeleteDocumentMutation } from '@graphql/document.generated';
 import { EntityType } from '@types';
 
 export interface DeleteDocumentInput {
@@ -63,4 +64,3 @@ export function useDeleteDocument() {
         loading,
     };
 }
-

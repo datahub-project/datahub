@@ -2,13 +2,13 @@ import { CaretDown, CaretRight, FileText, Folder } from '@phosphor-icons/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { useSearchDocuments } from '@app/documentV2/hooks/useSearchDocuments';
+import { DocumentChild, useDocumentChildren } from '@app/documentV2/hooks/useDocumentChildren';
 import { useMoveDocument } from '@app/documentV2/hooks/useMoveDocument';
-import { useDocumentChildren, DocumentChild } from '@app/documentV2/hooks/useDocumentChildren';
+import { useSearchDocuments } from '@app/documentV2/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
+import Loading from '@app/shared/Loading';
 import { Button, Input } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
-import Loading from '@app/shared/Loading';
 
 import { Document, DocumentState } from '@types';
 
@@ -62,7 +62,7 @@ const RootOption = styled.div<{ $isSelected: boolean }>`
     margin-bottom: 0px;
     transition: background-color 0.15s ease;
     font-size: 14px;
-    
+
     ${(props) =>
         props.$isSelected
             ? `
@@ -103,7 +103,7 @@ const SearchResultItem = styled.div<{ $isSelected: boolean; $level: number }>`
     display: flex;
     align-items: center;
     gap: 4px;
-    
+
     ${(props) =>
         props.$isSelected
             ? `
@@ -177,17 +177,13 @@ interface MoveDocumentDialogProps {
     onClose: () => void;
 }
 
-export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({
-    documentUrn,
-    currentParentUrn,
-    onClose,
-}) => {
+export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({ documentUrn, currentParentUrn, onClose }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [selectedParentUrn, setSelectedParentUrn] = useState<string | null | undefined>(currentParentUrn);
     const { moveDocument, loading: movingDocument } = useMoveDocument();
     const { checkForChildren, fetchChildren } = useDocumentChildren();
-    
+
     // Track expanded documents in search results
     const [expandedUrns, setExpandedUrns] = useState<Set<string>>(new Set());
     const [hasChildrenMap, setHasChildrenMap] = useState<Record<string, boolean>>({});
@@ -214,14 +210,14 @@ export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({
 
     // Filter out the document being moved and its children
     const filteredDocuments = documents.filter((doc) => doc.urn !== documentUrn);
-    
+
     // Check if we're in search mode
     const isSearching = debouncedSearchQuery.trim().length > 0;
 
     // Create stable key for when filtered documents change
     const filteredDocumentUrnsKey = useMemo(
         () => filteredDocuments.map((doc) => doc.urn).join(','),
-        [filteredDocuments]
+        [filteredDocuments],
     );
 
     // Check for children when documents change (both search and tree view)
@@ -259,16 +255,19 @@ export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({
         setSelectedParentUrn(urn);
     }, []);
 
-    const getParentBreadcrumb = useCallback((doc: Document) => {
-        const parentDoc = doc.info?.parentDocument?.document;
-        if (!parentDoc) {
-            return null; // Don't show breadcrumb for root-level documents
-        }
-        // For now, just show immediate parent title
-        // TODO: Add resolver to fetch full parent chain
-        const parentTitle = documents.find((d) => d.urn === parentDoc.urn)?.info?.title || parentDoc.info?.title;
-        return parentTitle || 'Unknown Parent';
-    }, [documents]);
+    const getParentBreadcrumb = useCallback(
+        (doc: Document) => {
+            const parentDoc = doc.info?.parentDocument?.document;
+            if (!parentDoc) {
+                return null; // Don't show breadcrumb for root-level documents
+            }
+            // For now, just show immediate parent title
+            // TODO: Add resolver to fetch full parent chain
+            const parentTitle = documents.find((d) => d.urn === parentDoc.urn)?.info?.title || parentDoc.info?.title;
+            return parentTitle || 'Unknown Parent';
+        },
+        [documents],
+    );
 
     const handleToggleExpand = useCallback(
         async (urn: string) => {
@@ -313,10 +312,12 @@ export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({
     );
 
     // Component for rendering individual search result items with hover state
-    const SearchResultItemComponent: React.FC<{
+    interface SearchResultItemProps {
         doc: Document | DocumentChild;
         level: number;
-    }> = ({ doc, level }) => {
+    }
+
+    const SearchResultItemComponent: React.FC<SearchResultItemProps> = ({ doc, level }) => {
         const [isHovered, setIsHovered] = useState(false);
         const isSelected = selectedParentUrn === doc.urn;
         const hasChildren = hasChildrenMap[doc.urn] || false;
@@ -347,13 +348,9 @@ export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({
                                 handleToggleExpand(doc.urn);
                             }}
                         >
-                            {isLoading ? (
-                                <Loading height={16} marginTop={0} alignItems="center" />
-                            ) : isExpanded ? (
-                                <CaretDown size={16} weight="bold" />
-                            ) : (
-                                <CaretRight size={16} weight="bold" />
-                            )}
+                            {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
+                            {!isLoading && isExpanded && <CaretDown size={16} weight="bold" />}
+                            {!isLoading && !isExpanded && <CaretRight size={16} weight="bold" />}
                         </ExpandButton>
                     )}
                     {showIcon && (
@@ -387,12 +384,7 @@ export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({
     return (
         <DialogContainer>
             <SearchContainer>
-                <Input
-                    label=""
-                    placeholder="Move document to..."
-                    value={searchQuery}
-                    setValue={setSearchQuery}
-                />
+                <Input label="" placeholder="Move document to..." value={searchQuery} setValue={setSearchQuery} />
             </SearchContainer>
 
             <TreeScrollContainer>
@@ -415,6 +407,7 @@ export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({
                         {isSearching ? (
                             // Tree search results view with expansion support
                             filteredDocuments.map((doc) => (
+                                // eslint-disable-next-line react/prop-types
                                 <SearchResultItemComponent key={doc.urn} doc={doc} level={0} />
                             ))
                         ) : (
@@ -446,4 +439,3 @@ export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({
         </DialogContainer>
     );
 };
-

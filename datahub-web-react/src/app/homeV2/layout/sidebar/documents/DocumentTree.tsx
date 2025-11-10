@@ -29,12 +29,12 @@ interface DocumentTreeProps {
     hideActions?: boolean; // Hide action buttons (e.g., in move dialog)
 }
 
-export const DocumentTree: React.FC<DocumentTreeProps> = ({ 
-    documents, 
-    onCreateChild, 
-    selectedUrn, 
-    onSelectDocument, 
-    hideActions = false 
+export const DocumentTree: React.FC<DocumentTreeProps> = ({
+    documents,
+    onCreateChild,
+    selectedUrn,
+    onSelectDocument,
+    hideActions = false,
 }) => {
     const history = useHistory();
     const location = useLocation();
@@ -93,7 +93,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             // Clear all children caches to force refetch
             // This ensures moved documents disappear from old location and appear in new location
             setChildrenCache({});
-            
+
             // Re-check which documents have children (merge with existing optimistic values)
             const recheckChildren = async () => {
                 const urns = documents.map((doc) => doc.urn);
@@ -101,29 +101,31 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                     const childrenMap = await checkForChildren(urns);
                     setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
                 }
-                
+
                 // Refetch children for any currently expanded nodes
                 const expandedArray = Array.from(expandedUrns);
-                for (const expandedUrn of expandedArray) {
-                    const children = await fetchChildren(expandedUrn);
-                    const childNodes: DocumentNode[] = children.map((c) => ({
-                        urn: c.urn,
-                        title: c.title,
-                        parentUrn: expandedUrn,
-                    }));
-                    
-                    setChildrenCache((prev) => ({
-                        ...prev,
-                        [expandedUrn]: childNodes,
-                    }));
-                    
-                    // Check if these children have children
-                    if (childNodes.length > 0) {
-                        const childUrns = childNodes.map((c) => c.urn);
-                        const childrenMap = await checkForChildren(childUrns);
-                        setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
-                    }
-                }
+                await Promise.all(
+                    expandedArray.map(async (expandedUrn) => {
+                        const children = await fetchChildren(expandedUrn);
+                        const childNodes: DocumentNode[] = children.map((c) => ({
+                            urn: c.urn,
+                            title: c.title,
+                            parentUrn: expandedUrn,
+                        }));
+
+                        setChildrenCache((prev) => ({
+                            ...prev,
+                            [expandedUrn]: childNodes,
+                        }));
+
+                        // Check if these children have children
+                        if (childNodes.length > 0) {
+                            const childUrns = childNodes.map((c) => c.urn);
+                            const childrenMap = await checkForChildren(childUrns);
+                            setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
+                        }
+                    }),
+                );
             };
             recheckChildren();
         }
@@ -157,7 +159,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             // Clear all children caches to force refetch
             // This ensures deleted documents disappear from the tree
             setChildrenCache({});
-            
+
             // Re-check which documents have children (merge with existing optimistic values)
             const recheckChildren = async () => {
                 const urns = documents.map((doc) => doc.urn);
@@ -165,29 +167,31 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                     const childrenMap = await checkForChildren(urns);
                     setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
                 }
-                
+
                 // Refetch children for any currently expanded nodes
                 const expandedArray = Array.from(expandedUrns);
-                for (const expandedUrn of expandedArray) {
-                    const children = await fetchChildren(expandedUrn);
-                    const childNodes: DocumentNode[] = children.map((c) => ({
-                        urn: c.urn,
-                        title: c.title,
-                        parentUrn: expandedUrn,
-                    }));
-                    
-                    setChildrenCache((prev) => ({
-                        ...prev,
-                        [expandedUrn]: childNodes,
-                    }));
-                    
-                    // Check if these children have children
-                    if (childNodes.length > 0) {
-                        const childUrns = childNodes.map((c) => c.urn);
-                        const childrenMap = await checkForChildren(childUrns);
-                        setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
-                    }
-                }
+                await Promise.all(
+                    expandedArray.map(async (expandedUrn) => {
+                        const children = await fetchChildren(expandedUrn);
+                        const childNodes: DocumentNode[] = children.map((c) => ({
+                            urn: c.urn,
+                            title: c.title,
+                            parentUrn: expandedUrn,
+                        }));
+
+                        setChildrenCache((prev) => ({
+                            ...prev,
+                            [expandedUrn]: childNodes,
+                        }));
+
+                        // Check if these children have children
+                        if (childNodes.length > 0) {
+                            const childUrns = childNodes.map((c) => c.urn);
+                            const childrenMap = await checkForChildren(childUrns);
+                            setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
+                        }
+                    }),
+                );
             };
             recheckChildren();
         }

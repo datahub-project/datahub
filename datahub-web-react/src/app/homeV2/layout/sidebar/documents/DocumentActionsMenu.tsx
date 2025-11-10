@@ -1,9 +1,8 @@
-import { DotsThreeVertical } from '@phosphor-icons/react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { MoveDocumentDialog } from '@app/homeV2/layout/sidebar/documents/MoveDocumentDialog';
 import { useDeleteDocument } from '@app/documentV2/hooks/useDeleteDocument';
+import { MoveDocumentDialog } from '@app/homeV2/layout/sidebar/documents/MoveDocumentDialog';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Button, Menu, Popover } from '@src/alchemy-components';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
@@ -20,10 +19,7 @@ interface DocumentActionsMenuProps {
     currentParentUrn?: string | null;
 }
 
-export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
-    documentUrn,
-    currentParentUrn,
-}) => {
+export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({ documentUrn, currentParentUrn }) => {
     const [showMoveDialog, setShowMoveDialog] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const { deleteDocument } = useDeleteDocument();
@@ -78,10 +74,10 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                 }
                 placement="rightTop"
                 overlayStyle={{ padding: 0 }}
-                overlayInnerStyle={{ 
-                    padding: 0, 
+                overlayInnerStyle={{
+                    padding: 0,
                     background: 'transparent',
-                    boxShadow: 'none'
+                    boxShadow: 'none',
                 }}
             >
                 <span style={{ position: 'absolute', pointerEvents: 'none' }} />
@@ -99,4 +95,3 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
         </>
     );
 };
-

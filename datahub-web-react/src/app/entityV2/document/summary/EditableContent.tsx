@@ -59,7 +59,8 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const { canEdit } = useDocumentPermissions(documentUrn);
     const { updateContents, updateRelatedEntities } = useUpdateDocument();
-    const { documentUrns, assetUrns } = useExtractMentions(content);
+    // Extract mentions from content (currently unused, but hook needs to run)
+    useExtractMentions(content);
 
     const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
         scenario: UploadDownloadScenario.AssetDocumentation,

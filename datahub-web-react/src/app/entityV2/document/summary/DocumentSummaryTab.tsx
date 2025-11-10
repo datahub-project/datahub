@@ -1,3 +1,4 @@
+import { colors } from '@components';
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -9,7 +10,6 @@ import PropertiesHeader from '@app/entityV2/summary/properties/PropertiesHeader'
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Document, EntityType } from '@types';
-import { colors } from '@components';
 
 const SummaryWrapper = styled.div`
     padding: 40px 20%;

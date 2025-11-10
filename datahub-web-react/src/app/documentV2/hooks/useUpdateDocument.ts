@@ -1,3 +1,4 @@
+import { message } from 'antd';
 import { useCallback } from 'react';
 
 import {
@@ -7,7 +8,6 @@ import {
     useUpdateDocumentSubTypeMutation,
 } from '@graphql/document.generated';
 import { DocumentState } from '@types';
-import { message } from 'antd';
 
 export interface UpdateDocumentContentsInput {
     urn: string;

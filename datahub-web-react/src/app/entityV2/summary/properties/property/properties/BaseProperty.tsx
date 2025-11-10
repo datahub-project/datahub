@@ -15,8 +15,7 @@ const PropertyWrapper = styled.div`
     height: 52px;
 `;
 
-const Content = styled.div`
-`;
+const Content = styled.div``;
 
 const ValuesWrapper = styled.div`
     display: flex;

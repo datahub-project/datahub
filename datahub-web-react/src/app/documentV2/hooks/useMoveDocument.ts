@@ -2,6 +2,7 @@ import { message } from 'antd';
 import { useCallback } from 'react';
 
 import { useDocumentsContext } from '@app/documentV2/DocumentsContext';
+
 import { useMoveDocumentMutation } from '@graphql/document.generated';
 
 export interface MoveDocumentInput {
@@ -51,4 +52,3 @@ export function useMoveDocument() {
         loading,
     };
 }
-
