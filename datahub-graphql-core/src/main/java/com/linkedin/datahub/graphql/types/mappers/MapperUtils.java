@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.types.mappers;
 import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
-import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -38,36 +37,11 @@ public class MapperUtils {
 
   public static SearchResult mapResult(
       @Nullable final QueryContext context, SearchEntity searchEntity) {
-    SearchResult result =
-        new SearchResult(
-            UrnToEntityMapper.map(context, searchEntity.getEntity()),
-            getInsightsFromFeatures(searchEntity.getFeatures()),
-            getMatchedFieldEntry(context, searchEntity.getMatchedFields()),
-            getExtraProperties(searchEntity.getExtraFields()),
-            null); // Initialize canViewEntityPage as null
-
-    // Check if the user can view the entity page
-    if (context != null) {
-      try {
-        Urn entityUrn = searchEntity.getEntity();
-        EntitySpec entitySpec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
-        // Use the authorize method from OperationContext
-        boolean canView =
-            context.getOperationContext().authorize("VIEW_ENTITY_PAGE", entitySpec).getType()
-                == com.datahub.authorization.AuthorizationResult.Type.ALLOW;
-        result.setCanViewEntityPage(canView);
-      } catch (Exception e) {
-        log.warn(
-            "Failed to check VIEW_ENTITY_PAGE permission for entity {}",
-            searchEntity.getEntity(),
-            e);
-        result.setCanViewEntityPage(true); // Default to true if permission check fails
-      }
-    } else {
-      result.setCanViewEntityPage(true); // Default to true if no context
-    }
-
-    return result;
+    return new SearchResult(
+        UrnToEntityMapper.map(context, searchEntity.getEntity()),
+        getInsightsFromFeatures(searchEntity.getFeatures()),
+        getMatchedFieldEntry(context, searchEntity.getMatchedFields()),
+        getExtraProperties(searchEntity.getExtraFields()));
   }
 
   private static List<ExtraProperty> getExtraProperties(@Nullable StringMap extraFields) {

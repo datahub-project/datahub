@@ -1,9 +1,5 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
@@ -12,14 +8,12 @@ import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.MatchedField;
-import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.snapshot.Snapshot;
-import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.List;
 import org.testng.annotations.BeforeTest;
@@ -64,49 +58,6 @@ public class MapperUtilsTest {
         actualMatched.stream().filter(matchedField -> matchedField.getEntity() != null).count(),
         1,
         "With urn should be 1");
-  }
-
-  @Test
-  public void testMapResultDefaultsCanViewEntityPageWithoutContext() throws URISyntaxException {
-    SearchEntity searchEntity = buildSearchEntity();
-
-    SearchResult result = MapperUtils.mapResult(null, searchEntity);
-
-    assertEquals(result.getCanViewEntityPage(), Boolean.TRUE);
-  }
-
-  @Test
-  public void testMapResultSetsCanViewEntityPageWhenAuthorized() throws URISyntaxException {
-    QueryContext context = TestUtils.getMockAllowContext();
-    SearchEntity searchEntity = buildSearchEntity();
-
-    SearchResult result = MapperUtils.mapResult(context, searchEntity);
-
-    assertEquals(result.getCanViewEntityPage(), Boolean.TRUE);
-  }
-
-  @Test
-  public void testMapResultSetsCanViewEntityPageWhenUnauthorized() throws URISyntaxException {
-    QueryContext context = TestUtils.getMockDenyContext();
-    SearchEntity searchEntity = buildSearchEntity();
-
-    SearchResult result = MapperUtils.mapResult(context, searchEntity);
-
-    assertEquals(result.getCanViewEntityPage(), Boolean.FALSE);
-  }
-
-  @Test
-  public void testMapResultDefaultsCanViewEntityPageOnFailure() throws URISyntaxException {
-    QueryContext context = mock(QueryContext.class);
-    OperationContext operationContext = mock(OperationContext.class);
-    when(context.getOperationContext()).thenReturn(operationContext);
-    when(operationContext.authorize(eq("VIEW_ENTITY_PAGE"), any()))
-        .thenThrow(new RuntimeException("boom"));
-    SearchEntity searchEntity = buildSearchEntity();
-
-    SearchResult result = MapperUtils.mapResult(context, searchEntity);
-
-    assertEquals(result.getCanViewEntityPage(), Boolean.TRUE);
   }
 
   private static com.linkedin.metadata.search.MatchedField buildSearchMatchField(

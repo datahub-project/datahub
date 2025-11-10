@@ -1299,7 +1299,10 @@ fragment searchResults on SearchResults {
             text
             icon
         }
-        canViewEntityPage
+        extraProperties {
+            name
+            value
+        }
     }
     facets {
         ...facetFields
