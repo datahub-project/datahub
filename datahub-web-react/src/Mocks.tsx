@@ -360,6 +360,7 @@ export const dataset1 = {
     structuredProperties: null,
     forms: null,
     activeIncidents: null,
+    settings: null,
 };
 
 export const dataset2 = {
@@ -460,6 +461,7 @@ export const dataset2 = {
     structuredProperties: null,
     forms: null,
     activeIncidents: null,
+    settings: null,
 };
 
 export const dataset3 = {
@@ -725,6 +727,7 @@ export const dataset3 = {
     upstream: null,
     downstream: null,
     versionProperties: null,
+    settings: null,
 } as Dataset;
 
 export const dataset3WithSchema = {
