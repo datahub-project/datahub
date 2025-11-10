@@ -95,7 +95,7 @@ const EDITABLE_COLUMNS: EditableColumnConfig[] = [
         title: 'Custom Properties',
         width: 250,
         minWidth: 200,
-        placeholder: 'Enter custom properties (JSON format)',
+        placeholder: 'Enter custom properties (e.g., key1:value1,key2:value2)',
         sortable: true,
     },
 ];
