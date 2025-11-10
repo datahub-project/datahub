@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-10T07:57:09.661089+00:00",
+  "generated_at": "2025-11-10T12:13:43.145292+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -718,7 +718,7 @@
         }
       ],
       "classname": "datahub.ingestion.source.sql.doris.DorisSource",
-      "platform_id": "apache-doris",
+      "platform_id": "doris",
       "platform_name": "Apache Doris",
       "support_status": "INCUBATING"
     },

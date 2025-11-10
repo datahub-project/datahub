@@ -84,7 +84,7 @@ class DorisConfig(MySQLConfig):
     )
 
 
-@platform_name("Apache Doris")
+@platform_name("Apache Doris", id="doris")
 @config_class(DorisConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
