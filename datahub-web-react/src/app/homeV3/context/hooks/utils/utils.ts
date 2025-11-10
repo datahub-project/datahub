@@ -36,7 +36,6 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             summaryElements = [CREATED, OWNERS];
             break;
         case EntityType.Dataset:
-            rows = [];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         default:
