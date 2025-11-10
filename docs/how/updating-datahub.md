@@ -56,6 +56,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Potential Downtime
 
+- #15226: Requires reindexing the query entity index on upgrade. Depending on the size of this index, upgrade times may vary.
+
 ### Deprecations
 
 ### Other Notable Changes

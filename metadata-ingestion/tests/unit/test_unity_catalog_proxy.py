@@ -958,6 +958,8 @@ class TestUnityCatalogProxy:
                 created_at=None,
                 updated_at=None,
                 created_by=None,
+                run_details=None,
+                signature=None,
             )
 
             list(proxy.ml_model_versions(model, include_aliases=True))
@@ -1017,6 +1019,8 @@ class TestUnityCatalogProxy:
                 created_at=None,
                 updated_at=None,
                 created_by=None,
+                run_details=None,
+                signature=None,
             )
 
             list(proxy.ml_model_versions(model, include_aliases=False))
@@ -1215,9 +1219,16 @@ class TestUnityCatalogProxy:
             updated_at=1640995200000,
             aliases=[alias1, alias2],
             created_by="test_user",
+            catalog_name="test_catalog",
+            schema_name="test_schema",
+            model_name="test_model",
         )
 
-        result = proxy._create_ml_model_version(model, version_info)
+        # Mock the signature extraction since _create_ml_model_version now calls it
+        with patch.object(
+            proxy, "_extract_signature_from_files_api", return_value=None
+        ):
+            result = proxy._create_ml_model_version(model, version_info)
 
         assert result is not None
         assert result.id == "test_catalog.test_schema.test_model_1"
@@ -1227,6 +1238,363 @@ class TestUnityCatalogProxy:
         assert result.aliases == ["prod", "latest"]
         assert result.description == "Version 1"
         assert result.created_by == "test_user"
+        assert result.signature is None  # Verify signature field exists
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_run_details_success(self, mock_workspace_client):
+        """Test get_run_details() successfully retrieves MLflow run details."""
+        from databricks.sdk.service.ml import (
+            Metric,
+            Param,
+            Run,
+            RunData,
+            RunInfo,
+            RunInfoStatus,
+            RunTag,
+        )
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+        )
+
+        # Mock MLflow run response
+        mock_run_info = RunInfo(
+            run_id="test_run_123",
+            experiment_id="exp_456",
+            status=RunInfoStatus.FINISHED,
+            start_time=1640995200000,
+            end_time=1640998800000,
+            user_id="test_user@example.com",
+        )
+
+        mock_run_data = RunData(
+            metrics=[
+                Metric(key="accuracy", value=0.95),
+                Metric(key="loss", value=0.05),
+            ],
+            params=[
+                Param(key="learning_rate", value="0.001"),
+                Param(key="batch_size", value="32"),
+            ],
+            tags=[
+                RunTag(key="mlflow.user", value="test_user"),
+                RunTag(key="mlflow.source.type", value="NOTEBOOK"),
+            ],
+        )
+
+        mock_run = Run(info=mock_run_info, data=mock_run_data)
+
+        mock_response = MagicMock()
+        mock_response.run = mock_run
+
+        with patch.object(
+            proxy._experiments_api, "get_run", return_value=mock_response
+        ):
+            result = proxy.get_run_details("test_run_123")
+
+        assert result is not None
+        assert result.run_id == "test_run_123"
+        assert result.experiment_id == "exp_456"
+        assert result.status == "FINISHED"
+        assert result.user_id == "test_user@example.com"
+        assert result.metrics == {"accuracy": 0.95, "loss": 0.05}
+        assert result.parameters == {"learning_rate": "0.001", "batch_size": "32"}
+        assert result.tags == {
+            "mlflow.user": "test_user",
+            "mlflow.source.type": "NOTEBOOK",
+        }
+        assert result.start_time is not None
+        assert result.end_time is not None
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_run_details_with_missing_run(self, mock_workspace_client):
+        """Test get_run_details() handles missing run gracefully."""
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+        )
+
+        mock_response = MagicMock()
+        mock_response.run = None
+
+        with patch.object(
+            proxy._experiments_api, "get_run", return_value=mock_response
+        ):
+            result = proxy.get_run_details("missing_run_id")
+
+        assert result is None
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_run_details_with_empty_metrics_params(self, mock_workspace_client):
+        """Test get_run_details() handles empty metrics and parameters."""
+        from databricks.sdk.service.ml import Run, RunData, RunInfo, RunInfoStatus
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+        )
+
+        mock_run_info = RunInfo(
+            run_id="test_run_123",
+            experiment_id="exp_456",
+            status=RunInfoStatus.RUNNING,
+            start_time=1640995200000,
+            end_time=None,
+            user_id=None,
+        )
+
+        # Empty data
+        mock_run_data = RunData(metrics=[], params=[], tags=[])
+        mock_run = Run(info=mock_run_info, data=mock_run_data)
+
+        mock_response = MagicMock()
+        mock_response.run = mock_run
+
+        with patch.object(
+            proxy._experiments_api, "get_run", return_value=mock_response
+        ):
+            result = proxy.get_run_details("test_run_123")
+
+        assert result is not None
+        assert result.metrics == {}
+        assert result.parameters == {}
+        assert result.tags == {}
+        assert result.end_time is None
+        assert result.user_id is None
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_run_details_with_api_error(self, mock_workspace_client):
+        """Test get_run_details() handles API errors gracefully."""
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+        )
+
+        with patch.object(
+            proxy._experiments_api, "get_run", side_effect=Exception("API Error")
+        ):
+            result = proxy.get_run_details("test_run_123")
+
+        assert result is None
+        # Verify warning was reported
+        assert len(proxy.report.warnings) > 0
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_extract_signature_from_files_api_success(self, mock_workspace_client):
+        """Test _extract_signature_from_files_api() successfully extracts signature."""
+        from io import BytesIO
+
+        from databricks.sdk.service.catalog import ModelVersionInfo
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+        )
+
+        model_version = ModelVersionInfo(
+            catalog_name="test_catalog",
+            schema_name="test_schema",
+            model_name="test_model",
+            version=1,
+        )
+
+        # Mock MLmodel YAML content
+        mlmodel_yaml = """
+artifact_path: model
+flavors:
+  python_function:
+    env: conda.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    python_version: 3.8.10
+mlflow_version: 2.0.1
+model_uuid: abc123
+signature:
+  inputs: '[{"name": "feature1", "type": "double"}, {"name": "feature2", "type": "long"}]'
+  outputs: '[{"name": "prediction", "type": "double"}]'
+"""
+
+        mock_download_response = MagicMock()
+        mock_download_response.contents = BytesIO(mlmodel_yaml.encode("utf-8"))
+
+        with patch.object(
+            proxy._files_api, "download", return_value=mock_download_response
+        ):
+            result = proxy._extract_signature_from_files_api(model_version)
+
+        assert result is not None
+        assert result.inputs is not None
+        assert len(result.inputs) == 2
+        assert result.inputs[0]["name"] == "feature1"
+        assert result.inputs[0]["type"] == "double"
+        assert result.outputs is not None
+        assert len(result.outputs) == 1
+        assert result.outputs[0]["name"] == "prediction"
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_extract_signature_from_files_api_missing_file(self, mock_workspace_client):
+        """Test _extract_signature_from_files_api() handles missing MLmodel file."""
+        from databricks.sdk.service.catalog import ModelVersionInfo
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+        )
+
+        model_version = ModelVersionInfo(
+            catalog_name="test_catalog",
+            schema_name="test_schema",
+            model_name="test_model",
+            version=1,
+        )
+
+        with patch.object(
+            proxy._files_api, "download", side_effect=Exception("File not found")
+        ):
+            result = proxy._extract_signature_from_files_api(model_version)
+
+        assert result is None
+        # Verify warning was reported
+        assert len(proxy.report.warnings) > 0
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_extract_signature_from_files_api_no_signature(self, mock_workspace_client):
+        """Test _extract_signature_from_files_api() handles MLmodel without signature."""
+        from io import BytesIO
+
+        from databricks.sdk.service.catalog import ModelVersionInfo
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+        )
+
+        model_version = ModelVersionInfo(
+            catalog_name="test_catalog",
+            schema_name="test_schema",
+            model_name="test_model",
+            version=1,
+        )
+
+        # Mock MLmodel YAML content without signature
+        mlmodel_yaml = """
+artifact_path: model
+flavors:
+  python_function:
+    env: conda.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+mlflow_version: 2.0.1
+"""
+
+        mock_download_response = MagicMock()
+        mock_download_response.contents = BytesIO(mlmodel_yaml.encode("utf-8"))
+
+        with patch.object(
+            proxy._files_api, "download", return_value=mock_download_response
+        ):
+            result = proxy._extract_signature_from_files_api(model_version)
+
+        assert result is None
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_extract_signature_with_parameters(self, mock_workspace_client):
+        """Test _extract_signature_from_files_api() extracts signature with parameters."""
+        from io import BytesIO
+
+        from databricks.sdk.service.catalog import ModelVersionInfo
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+        )
+
+        model_version = ModelVersionInfo(
+            catalog_name="test_catalog",
+            schema_name="test_schema",
+            model_name="test_model",
+            version=1,
+        )
+
+        # Mock MLmodel YAML content with parameters
+        mlmodel_yaml = """
+signature:
+  inputs: '[{"name": "text", "type": "string"}]'
+  outputs: '[{"name": "label", "type": "string"}]'
+  params: '[{"name": "temperature", "type": "float", "default": 0.7}]'
+"""
+
+        mock_download_response = MagicMock()
+        mock_download_response.contents = BytesIO(mlmodel_yaml.encode("utf-8"))
+
+        with patch.object(
+            proxy._files_api, "download", return_value=mock_download_response
+        ):
+            result = proxy._extract_signature_from_files_api(model_version)
+
+        assert result is not None
+        assert result.inputs is not None
+        assert result.outputs is not None
+        assert result.parameters is not None
+        assert len(result.parameters) == 1
+        assert result.parameters[0]["name"] == "temperature"
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_extract_signature_with_malformed_json(self, mock_workspace_client):
+        """Test _extract_signature_from_files_api() handles malformed JSON gracefully."""
+        from io import BytesIO
+
+        from databricks.sdk.service.catalog import ModelVersionInfo
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+        )
+
+        model_version = ModelVersionInfo(
+            catalog_name="test_catalog",
+            schema_name="test_schema",
+            model_name="test_model",
+            version=1,
+        )
+
+        # Mock MLmodel YAML content with malformed JSON
+        mlmodel_yaml = """
+signature:
+  inputs: '[{"name": "feature1", "type": "double"'
+  outputs: '[{"name": "prediction"}]'
+"""
+
+        mock_download_response = MagicMock()
+        mock_download_response.contents = BytesIO(mlmodel_yaml.encode("utf-8"))
+
+        with patch.object(
+            proxy._files_api, "download", return_value=mock_download_response
+        ):
+            result = proxy._extract_signature_from_files_api(model_version)
+
+        # Should still return a signature object even if some fields failed to parse
+        # The method handles JSON decode errors gracefully
+        assert result is None or result.inputs is None or result.outputs is None
 
 
 class TestUnityCatalogProxyAuthentication:

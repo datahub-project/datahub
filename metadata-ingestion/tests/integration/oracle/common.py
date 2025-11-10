@@ -159,7 +159,7 @@ class OracleTestCaseBase:
             "source": {
                 "type": "oracle",
                 "config": {
-                    **self.get_default_recipe_config().dict(),
+                    **self.get_default_recipe_config().model_dump(),
                 },
             }
         }
