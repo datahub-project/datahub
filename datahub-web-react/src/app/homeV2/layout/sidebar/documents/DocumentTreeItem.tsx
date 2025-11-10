@@ -2,6 +2,7 @@ import { CaretDown, CaretRight, FileText, Folder } from '@phosphor-icons/react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
 import Loading from '@app/shared/Loading';
 import { Button, Tooltip } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
@@ -130,6 +131,8 @@ interface DocumentTreeItemProps {
     onToggleExpand: () => void;
     onClick: () => void;
     onCreateChild: (parentUrn: string) => void;
+    hideActions?: boolean;
+    parentUrn?: string | null;
 }
 
 export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
@@ -143,6 +146,8 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     onToggleExpand,
     onClick,
     onCreateChild,
+    hideActions = false,
+    parentUrn,
 }) => {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -204,15 +209,18 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                 <Title $isSelected={isSelected}>{title}</Title>
             </LeftContent>
 
-            <Actions className="tree-item-actions">
-                <Tooltip title="New document" placement="top" showArrow={false}>
-                    <ActionButton
-                        icon={{ icon: 'Plus', source: 'phosphor' }}
-                        variant="text"
-                        onClick={handleAddChildClick}
-                    />
-                </Tooltip>
-            </Actions>
+            {!hideActions && (
+                <Actions className="tree-item-actions">
+                    <DocumentActionsMenu documentUrn={urn} currentParentUrn={parentUrn} />
+                    <Tooltip title="New document" placement="top" showArrow={false}>
+                        <ActionButton
+                            icon={{ icon: 'Plus', source: 'phosphor' }}
+                            variant="text"
+                            onClick={handleAddChildClick}
+                        />
+                    </Tooltip>
+                </Actions>
+            )}
         </TreeItemContainer>
     );
 };

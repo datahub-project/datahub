@@ -2,10 +2,11 @@ import { FileText } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import { DocumentSimpleProfile } from '@app/entityV2/document/DocumentSimpleProfile';
+import { DocumentProfile } from '@app/entityV2/document/DocumentProfile';
 import { Preview } from '@app/entityV2/document/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
 import { Document, EntityType, SearchResult } from '@types';
@@ -67,10 +68,11 @@ export class DocumentEntity implements Entity<Document> {
 
     useEntityQuery = useGetDocumentQuery;
 
-    renderProfile = (urn: string) => <DocumentSimpleProfile urn={urn} />;
+    renderProfile = (urn: string) => <DocumentProfile urn={urn} />;
 
     renderPreview = (previewType: PreviewType, data: Document) => {
         const genericProperties = this.getGenericEntityProperties(data);
+        const platform = genericProperties?.platform;
         return (
             <Preview
                 document={data}
@@ -78,6 +80,11 @@ export class DocumentEntity implements Entity<Document> {
                 data={genericProperties}
                 name={this.displayName(data)}
                 description={data.info?.contents?.text}
+                platformName={
+                    platform?.properties?.displayName || (platform?.name && capitalizeFirstLetterOnly(platform.name))
+                }
+                platformLogo={platform?.properties?.logoUrl}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 headerDropdownItems={headerDropdownItems}
@@ -89,6 +96,7 @@ export class DocumentEntity implements Entity<Document> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Document;
         const genericProperties = this.getGenericEntityProperties(data);
+        const platform = genericProperties?.platform;
         return (
             <Preview
                 document={data}
@@ -96,6 +104,11 @@ export class DocumentEntity implements Entity<Document> {
                 data={genericProperties}
                 name={this.displayName(data)}
                 description={data.info?.contents?.text}
+                platformName={
+                    platform?.properties?.displayName || (platform?.name && capitalizeFirstLetterOnly(platform.name))
+                }
+                platformLogo={platform?.properties?.logoUrl}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 headerDropdownItems={headerDropdownItems}

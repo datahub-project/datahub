@@ -15,6 +15,9 @@ export const Preview = ({
     data,
     name,
     description,
+    platformName,
+    platformLogo,
+    platformInstanceId,
     owners,
     insights,
     logoComponent,
@@ -26,6 +29,9 @@ export const Preview = ({
     data: GenericEntityProperties | null;
     name: string;
     description?: string | null;
+    platformName?: string;
+    platformLogo?: string | null;
+    platformInstanceId?: string;
     owners?: Array<Owner> | null;
     insights?: Array<SearchInsight> | null;
     logoComponent?: JSX.Element;
@@ -35,6 +41,9 @@ export const Preview = ({
     const entityRegistry = useEntityRegistry();
     const status = document.info?.status?.state;
     const isPublished = status === DocumentState.Published;
+
+    // Get external URL from source if document is external
+    const externalUrl = document.info?.source?.externalUrl || null;
 
     // Truncate description for preview
     const truncatedDescription =
@@ -48,6 +57,9 @@ export const Preview = ({
             data={data}
             description={truncatedDescription || ''}
             entityType={EntityType.Document}
+            platform={platformName}
+            logoUrl={platformLogo || undefined}
+            platformInstanceId={platformInstanceId}
             typeIcon={<FileText size={14} color="#BFBFBF" weight="duotone" />}
             owners={owners}
             insights={insights}
@@ -56,9 +68,9 @@ export const Preview = ({
                 document.info?.parentDocument?.document ? [document.info.parentDocument.document as any] : undefined
             }
             entityIcon={<FileText size={28} color={isPublished ? '#1890ff' : '#8c8c8c'} weight="duotone" />}
+            externalUrl={externalUrl}
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
         />
     );
 };
-

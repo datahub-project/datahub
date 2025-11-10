@@ -159,9 +159,9 @@ export default defineConfig(async ({ mode }) => {
         resolve: {
             alias: {
                 // Root Directories
-                '@src': path.resolve(__dirname, '/src'),
-                '@app': path.resolve(__dirname, '/src/app'),
-                '@conf': path.resolve(__dirname, '/src/conf'),
+                '@src': path.resolve(__dirname, 'src'),
+                '@app': path.resolve(__dirname, 'src/app'),
+                '@conf': path.resolve(__dirname, 'src/conf'),
                 '@components': path.resolve(__dirname, 'src/alchemy-components'),
                 '@graphql': path.resolve(__dirname, 'src/graphql'),
                 '@graphql-mock': path.resolve(__dirname, 'src/graphql-mock'),

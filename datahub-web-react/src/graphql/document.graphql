@@ -136,6 +136,11 @@ fragment documentSidebarFields on Document {
             time
             actor
         }
+        parentDocument {
+            document {
+                urn
+            }
+        }
     }
 }
 
@@ -163,6 +168,10 @@ mutation updateDocumentContents($input: UpdateDocumentContentsInput!) {
 
 mutation updateDocumentStatus($input: UpdateDocumentStatusInput!) {
     updateDocumentStatus(input: $input)
+}
+
+mutation updateDocumentSubType($input: UpdateDocumentSubTypeInput!) {
+    updateDocumentSubType(input: $input)
 }
 
 mutation updateDocumentRelatedEntities($input: UpdateDocumentRelatedEntitiesInput!) {

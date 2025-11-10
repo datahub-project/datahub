@@ -21,7 +21,7 @@ export function useContextMenuItems(): NavBarMenuGroup | null {
     const { isCollapsed } = useNavBarContext();
     const [pageSize, setPageSize] = useState(ROOT_PAGE_SIZE);
     const { createDocument, loading: creating } = useCreateDocument();
-    const { deletedDocument } = useDocumentsContext();
+    const { deletedDocument, updatedDocument, setUpdatedDocument } = useDocumentsContext();
 
     const {
         documents: fetchedDocuments,
@@ -53,16 +53,17 @@ export function useContextMenuItems(): NavBarMenuGroup | null {
     // Merge optimistic documents with fetched documents
     const { optimisticDocuments } = useDocumentsContext();
     const documents = useMemo(() => {
+        // Filter out documents that were moved away from root (optimistic update)
+        const filteredDisplayDocuments =
+            updatedDocument?.urn && updatedDocument.parentDocument !== undefined && updatedDocument.parentDocument !== null
+                ? displayDocuments.filter((doc) => doc.urn !== updatedDocument.urn)
+                : displayDocuments;
+
         // Filter out optimistic documents if real document already exists in fetched results
         // Also only include root-level optimistic documents here (children will be handled by the tree)
-        const activeOptimisticDocs = optimisticDocuments.filter((opt) => {
-            // Remove if the real document exists
-            const existsInFetched = displayDocuments.some((doc) => doc.urn === opt.urn);
-            // Only include root-level documents (children are handled by tree)
-            const isRootLevel = !opt.parentDocument;
-
-            return !existsInFetched && isRootLevel;
-        });
+        const activeOptimisticDocs = optimisticDocuments.filter(
+            (opt) => !filteredDisplayDocuments.some((doc) => doc.urn === opt.urn) && !opt.parentDocument
+        );
 
         // Convert optimistic documents to Document-like objects
         const optimisticDocs = activeOptimisticDocs.map((opt) => ({
@@ -77,15 +78,29 @@ export function useContextMenuItems(): NavBarMenuGroup | null {
         }));
 
         // Optimistic docs at the top
-        return [...optimisticDocs, ...displayDocuments] as any[];
-    }, [optimisticDocuments, displayDocuments]);
+        return [...optimisticDocs, ...filteredDisplayDocuments] as any[];
+    }, [optimisticDocuments, displayDocuments, updatedDocument]);
 
-    // Refetch when documents are deleted (not on update or new document)
+    // Refetch when documents are deleted or moved
     useEffect(() => {
         if (deletedDocument) {
             refetch();
         }
     }, [deletedDocument, refetch]);
+
+    // Refetch when documents are moved (updatedDocument with parentDocument change)
+    // Keep the optimistic filter active - don't clear updatedDocument
+    useEffect(() => {
+        if (updatedDocument?.urn && updatedDocument?.parentDocument !== undefined) {
+            // Refetch after 5 seconds to allow Elasticsearch to catch up
+            // The optimistic filter will keep showing the correct state in the meantime
+            const timeoutId = setTimeout(() => {
+                refetch();
+            }, 5000);
+            
+            return () => clearTimeout(timeoutId);
+        }
+    }, [updatedDocument?.urn, updatedDocument?.parentDocument, refetch]);
 
     const handleCreateDocument = useCallback(
         async (parentDocumentUrn?: string) => {

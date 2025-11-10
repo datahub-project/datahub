@@ -26,8 +26,6 @@ export function useDocumentChildren() {
             }
 
             try {
-                console.log('Checking', parentUrns.length, 'parents for children in ONE batch query');
-
                 // Initialize all parents as having no children
                 const childrenMap: Record<string, boolean> = {};
                 parentUrns.forEach((urn) => {
@@ -59,11 +57,6 @@ export function useDocumentChildren() {
                     }
                 });
 
-                const parentsWithChildren = Object.values(childrenMap).filter(Boolean).length;
-                console.log(
-                    `Found ${parentsWithChildren} parents with children out of ${parentUrns.length} total (batch query)`,
-                );
-
                 return childrenMap;
             } catch (error) {
                 console.error('Failed to check for children:', error);
@@ -79,8 +72,6 @@ export function useDocumentChildren() {
     const fetchChildren = useCallback(
         async (parentUrn: string): Promise<DocumentChild[]> => {
             try {
-                console.log('Fetching children for parent:', parentUrn);
-
                 const result = await client.query({
                     query: SearchDocumentsDocument,
                     variables: {
@@ -95,8 +86,6 @@ export function useDocumentChildren() {
                     },
                     fetchPolicy: 'network-only', // Always fetch fresh data
                 });
-
-                console.log('Fetch children result:', result);
 
                 if (!result || result.error || result.errors) {
                     console.error('Failed to fetch children:', result?.error || result?.errors);

@@ -4,8 +4,10 @@ import {
     useUpdateDocumentContentsMutation,
     useUpdateDocumentRelatedEntitiesMutation,
     useUpdateDocumentStatusMutation,
+    useUpdateDocumentSubTypeMutation,
 } from '@graphql/document.generated';
 import { DocumentState } from '@types';
+import { message } from 'antd';
 
 export interface UpdateDocumentContentsInput {
     urn: string;
@@ -19,6 +21,11 @@ export interface UpdateDocumentStatusInput {
     state: DocumentState;
 }
 
+export interface UpdateDocumentSubTypeInput {
+    urn: string;
+    subType: string;
+}
+
 export interface UpdateDocumentRelatedEntitiesInput {
     urn: string;
     relatedAssets?: string[];
@@ -28,6 +35,7 @@ export interface UpdateDocumentRelatedEntitiesInput {
 export function useUpdateDocument() {
     const [updateContentsMutation, { loading: updatingContents }] = useUpdateDocumentContentsMutation();
     const [updateStatusMutation, { loading: updatingStatus }] = useUpdateDocumentStatusMutation();
+    const [updateSubTypeMutation, { loading: updatingSubType }] = useUpdateDocumentSubTypeMutation();
     const [updateRelatedEntitiesMutation, { loading: updatingRelatedEntities }] =
         useUpdateDocumentRelatedEntitiesMutation();
 
@@ -57,6 +65,7 @@ export function useUpdateDocument() {
                 throw new Error('Failed to update document');
             } catch (error) {
                 console.error('Failed to update document:', error);
+                message.error('Failed to update document. An unexpected error occurred!');
                 return false;
             }
         },
@@ -82,10 +91,37 @@ export function useUpdateDocument() {
                 throw new Error('Failed to update document status');
             } catch (error) {
                 console.error('Failed to update document status:', error);
+                message.error('Failed to update document status. An unexpected error occurred!');
                 return false;
             }
         },
         [updateStatusMutation],
+    );
+
+    const updateSubType = useCallback(
+        async (input: UpdateDocumentSubTypeInput) => {
+            try {
+                const result = await updateSubTypeMutation({
+                    variables: {
+                        input: {
+                            urn: input.urn,
+                            subType: input.subType,
+                        },
+                    },
+                });
+
+                if (result.data?.updateDocumentSubType) {
+                    return true;
+                }
+
+                throw new Error('Failed to update document sub-type');
+            } catch (error) {
+                console.error('Failed to update document sub-type:', error);
+                message.error('Failed to update document sub-type. An unexpected error occurred!');
+                return false;
+            }
+        },
+        [updateSubTypeMutation],
     );
 
     const updateRelatedEntities = useCallback(
@@ -108,6 +144,7 @@ export function useUpdateDocument() {
                 throw new Error('Failed to update related entities');
             } catch (error) {
                 console.error('Failed to update related entities:', error);
+                message.error('Failed to related assets. An unexpected error occurred!');
                 // Silent fail - don't show error message for this operation
                 return false;
             }
@@ -118,7 +155,8 @@ export function useUpdateDocument() {
     return {
         updateContents,
         updateStatus,
+        updateSubType,
         updateRelatedEntities,
-        loading: updatingContents || updatingStatus || updatingRelatedEntities,
+        loading: updatingContents || updatingStatus || updatingSubType || updatingRelatedEntities,
     };
 }

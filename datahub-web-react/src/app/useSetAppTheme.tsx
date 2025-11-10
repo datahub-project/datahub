@@ -31,12 +31,12 @@ export function useSetAppTheme() {
     useEffect(() => {
         if (customThemeId && customThemeId.endsWith('.json')) {
             if (import.meta.env.DEV) {
-                import(/* @vite-ignore */ `./conf/theme/${customThemeId}`)
+                import(/* @vite-ignore */ `../../conf/theme/${customThemeId}`)
                     .then((theme) => {
                         updateTheme(theme);
                     })
                     .catch((error) => {
-                        console.error(`Failed to load theme from './conf/theme/${customThemeId}':`, error);
+                        console.error(`Failed to load theme from '../../conf/theme/${customThemeId}':`, error);
                     });
             } else {
                 fetch(`assets/conf/theme/${customThemeId}`)

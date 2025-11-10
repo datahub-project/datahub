@@ -23,7 +23,7 @@ export function useCreateDocument() {
 
     const createDocument = useCallback(
         async (input: CreateDocumentInput) => {
-            const title = input.title || 'New Document';
+            const title = input.title !== undefined ? input.title : '';
             const parentDocument = input.parentDocument || undefined;
 
             try {

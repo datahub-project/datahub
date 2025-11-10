@@ -537,6 +537,67 @@ public class DocumentService {
   public void updateDocumentSubType(
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
+      @Nonnull String subType,
+      @Nonnull Urn actorUrn)
+      throws Exception {
+
+    // Verify document exists
+    if (!entityClient.exists(opContext, documentUrn)) {
+      throw new IllegalArgumentException(
+          String.format("Document with URN %s does not exist", documentUrn));
+    }
+
+    // Create SubTypes aspect
+    final com.linkedin.common.SubTypes subTypesAspect = new com.linkedin.common.SubTypes();
+    subTypesAspect.setTypeNames(
+        new com.linkedin.data.template.StringArray(java.util.Collections.singletonList(subType)));
+
+    // Create metadata change proposal for SubTypes
+    final MetadataChangeProposal subTypesMcp = new MetadataChangeProposal();
+    subTypesMcp.setEntityUrn(documentUrn);
+    subTypesMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
+    subTypesMcp.setAspectName(Constants.SUB_TYPES_ASPECT_NAME);
+    subTypesMcp.setChangeType(ChangeType.UPSERT);
+    subTypesMcp.setAspect(GenericRecordUtils.serializeAspect(subTypesAspect));
+
+    // Also update lastModified timestamp in DocumentInfo
+    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    if (info != null) {
+      final AuditStamp lastModified = new AuditStamp();
+      lastModified.setTime(System.currentTimeMillis());
+      lastModified.setActor(actorUrn);
+      info.setLastModified(lastModified);
+
+      final MetadataChangeProposal infoMcp = new MetadataChangeProposal();
+      infoMcp.setEntityUrn(documentUrn);
+      infoMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
+      infoMcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
+      infoMcp.setChangeType(ChangeType.UPSERT);
+      infoMcp.setAspect(GenericRecordUtils.serializeAspect(info));
+
+      // Batch ingest both proposals
+      entityClient.batchIngestProposals(
+          opContext, java.util.Arrays.asList(subTypesMcp, infoMcp), false);
+    } else {
+      // Just ingest subTypes if info doesn't exist (shouldn't happen)
+      entityClient.ingestProposal(opContext, subTypesMcp, false);
+    }
+
+    log.info("Updated sub-type for document {} to {}", documentUrn, subType);
+  }
+
+  /**
+   * Deletes a document.
+   *
+   * @param opContext the operation context
+   * @param documentUrn the document URN
+   * @param subType the new sub-type value
+   * @param actorUrn the actor performing the update
+   * @throws Exception if update fails
+   */
+  public void updateDocumentSubType(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn documentUrn,
       @Nullable String subType,
       @Nonnull Urn actorUrn)
       throws Exception {

@@ -16,7 +16,6 @@ const PropertyWrapper = styled.div`
 `;
 
 const Content = styled.div`
-    padding: 0 4px;
 `;
 
 const ValuesWrapper = styled.div`

@@ -4,6 +4,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 
 export interface UpdatedDocument {
     urn: string;
+    title?: string;
     parentDocument?: string | null;
 }
 
