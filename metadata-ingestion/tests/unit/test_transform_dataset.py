@@ -2678,7 +2678,7 @@ def test_pattern_add_dataset_domain_patch_no_match_with_server_domain(
 ):
     """Test that PATCH semantics preserves manually set server domains when pattern doesn't match.
 
-    This reproduces the bug reported in CUS-6717 where manually set domains are removed
+    This reproduces the bug where manually set domains are removed
     when the pattern doesn't match and no incoming aspect is provided.
     """
     product_domain = builder.make_domain_urn("product")
