@@ -1,12 +1,21 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
-# Dynamically resolve FE and BE hostnames to IPs
-FE_IP=$(getent hosts fe | awk '{ print $1 }')
-BE_IP=$(getent hosts be | awk '{ print $1 }')
+# Wait for network to be ready and resolve hostnames
+echo "Waiting for network to be ready..."
+for i in {1..30}; do
+    FE_IP=$(getent hosts fe 2>/dev/null | awk '{ print $1 }' || echo "")
+    BE_IP=$(getent hosts be 2>/dev/null | awk '{ print $1 }' || echo "")
+    
+    if [ -n "$FE_IP" ] && [ -n "$BE_IP" ]; then
+        break
+    fi
+    echo "Attempt $i: Waiting for hostname resolution..."
+    sleep 1
+done
 
 if [ -z "$FE_IP" ] || [ -z "$BE_IP" ]; then
-    echo "ERROR: Could not resolve hostnames to IPs"
+    echo "ERROR: Could not resolve hostnames to IPs after 30 attempts"
     echo "FE_IP: $FE_IP"
     echo "BE_IP: $BE_IP"
     exit 1

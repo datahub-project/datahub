@@ -1,11 +1,19 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
-# Dynamically resolve FE hostname to IP
-FE_IP=$(getent hosts fe | awk '{ print $1 }')
+# Wait for network to be ready and resolve hostname
+echo "Waiting for network to be ready..."
+for i in {1..30}; do
+    FE_IP=$(getent hosts fe 2>/dev/null | awk '{ print $1 }' || echo "")
+    if [ -n "$FE_IP" ]; then
+        break
+    fi
+    echo "Attempt $i: Waiting for hostname resolution..."
+    sleep 1
+done
 
 if [ -z "$FE_IP" ]; then
-    echo "ERROR: Could not resolve 'fe' hostname to IP"
+    echo "ERROR: Could not resolve 'fe' hostname to IP after 30 attempts"
     exit 1
 fi
 
