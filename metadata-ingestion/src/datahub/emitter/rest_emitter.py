@@ -145,8 +145,7 @@ class EmitMode(ConfigEnum):
     ASYNC_WAIT = auto()
 
 
-_DEFAULT_EMIT_MODE = pydantic.parse_obj_as(
-    EmitMode,
+_DEFAULT_EMIT_MODE = pydantic.TypeAdapter(EmitMode).validate_python(
     get_emit_mode() or EmitMode.SYNC_PRIMARY,
 )
 
@@ -156,8 +155,7 @@ class RestSinkEndpoint(ConfigEnum):
     OPENAPI = auto()
 
 
-DEFAULT_REST_EMITTER_ENDPOINT = pydantic.parse_obj_as(
-    RestSinkEndpoint,
+DEFAULT_REST_EMITTER_ENDPOINT = pydantic.TypeAdapter(RestSinkEndpoint).validate_python(
     get_rest_emitter_default_endpoint() or RestSinkEndpoint.RESTLI,
 )
 

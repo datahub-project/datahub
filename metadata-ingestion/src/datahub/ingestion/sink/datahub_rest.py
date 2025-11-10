@@ -9,6 +9,7 @@ from enum import auto
 from typing import List, Optional, Tuple, Union
 
 import pydantic
+from pydantic import field_validator
 
 from datahub.configuration.common import (
     ConfigEnum,
@@ -63,8 +64,8 @@ class RestSinkMode(ConfigEnum):
     ASYNC_BATCH = auto()
 
 
-_DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
-    RestSinkMode, get_rest_sink_default_mode() or RestSinkMode.ASYNC_BATCH
+_DEFAULT_REST_SINK_MODE = pydantic.TypeAdapter(RestSinkMode).validate_python(
+    get_rest_sink_default_mode() or RestSinkMode.ASYNC_BATCH
 )
 
 
@@ -80,8 +81,9 @@ class DatahubRestSinkConfig(DatahubClientConfig):
     # Only applies in async batch mode.
     max_per_batch: pydantic.PositiveInt = 100
 
-    @pydantic.validator("max_per_batch", always=True)
-    def validate_max_per_batch(cls, v):
+    @field_validator("max_per_batch", mode="before")
+    @classmethod
+    def validate_max_per_batch(cls, v: int) -> int:
         if v > BATCH_INGEST_MAX_PAYLOAD_LENGTH:
             raise ValueError(
                 f"max_per_batch must be less than or equal to {BATCH_INGEST_MAX_PAYLOAD_LENGTH}"

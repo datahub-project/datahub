@@ -825,6 +825,11 @@ type FeatureFlagsConfig {
   assetSummaryPageV1: Boolean!
 
   """
+  Enables displaying the dataset summary page
+  """
+  datasetSummaryPageV1: Boolean!
+
+  """
   If enabled, allows uploading of files for documentation.
   """
   documentationFileUploadV1: Boolean!
