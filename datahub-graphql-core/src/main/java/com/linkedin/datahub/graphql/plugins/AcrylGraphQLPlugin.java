@@ -326,7 +326,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     if (executorRoleArn == null || executorRoleArn.trim().isEmpty()) {
       log.info("Executor role ARN is not set, not creating S3Util");
     } else {
-      this.s3Util = new S3Util(args.getStsClient(), executorRoleArn);
+      try {
+        this.s3Util = new S3Util(args.getStsClient(), executorRoleArn);
+      } catch (Exception e) {
+        log.warn("Failed to create S3Util", e);
+      }
     }
 
     this.initialized = true;
