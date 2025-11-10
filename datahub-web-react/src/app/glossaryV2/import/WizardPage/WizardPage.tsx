@@ -85,7 +85,7 @@ export const WizardPage = () => {
     const [uploadError, setUploadError] = useState<string | null>(null);
 
     const handleFileSelect = async (file: File) => {
-        setUploadFile(file); 
+        setUploadFile(file);
         setUploadError(null);
         setUploadProgress(10);
 
