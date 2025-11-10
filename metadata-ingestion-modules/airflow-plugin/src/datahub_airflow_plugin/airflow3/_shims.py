@@ -13,6 +13,18 @@ from airflow.sdk.bases.operator import BaseOperator
 # Operator type represents any operator (regular or mapped)
 Operator = Union[BaseOperator, MappedOperator]
 
+# ExternalTaskSensor import - uses standard provider in Airflow 3.x
+try:
+    from airflow.providers.standard.sensors.external_task import ExternalTaskSensor
+except ImportError:
+    # Fallback for earlier Airflow 3 versions
+    try:
+        from airflow.sensors.external_task import ExternalTaskSensor  # type: ignore
+    except ImportError:
+        from airflow.sensors.external_task_sensor import (
+            ExternalTaskSensor,  # type: ignore
+        )
+
 # OpenLineage imports for Airflow 3.x (native provider)
 try:
     from airflow.providers.openlineage.plugins.openlineage import (
@@ -59,6 +71,7 @@ __all__ = [
     "BaseOperator",
     "Operator",
     "MappedOperator",
+    "ExternalTaskSensor",
     "TaskHolder",
     "OpenLineagePlugin",
     "get_operator_class",

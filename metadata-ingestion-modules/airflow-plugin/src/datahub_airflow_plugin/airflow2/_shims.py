@@ -11,6 +11,12 @@ from airflow.models.baseoperator import BaseOperator
 from airflow.models.mappedoperator import MappedOperator
 from airflow.models.operator import Operator
 
+# ExternalTaskSensor import
+try:
+    from airflow.sensors.external_task import ExternalTaskSensor
+except ImportError:
+    from airflow.sensors.external_task_sensor import ExternalTaskSensor  # type: ignore
+
 # OpenLineage imports for Airflow 2.x
 from openlineage.airflow.listener import TaskHolder
 from openlineage.airflow.plugin import OpenLineagePlugin
@@ -43,6 +49,7 @@ __all__ = [
     "BaseOperator",
     "Operator",
     "MappedOperator",
+    "ExternalTaskSensor",
     "TaskHolder",
     "OpenLineagePlugin",
     "get_operator_class",

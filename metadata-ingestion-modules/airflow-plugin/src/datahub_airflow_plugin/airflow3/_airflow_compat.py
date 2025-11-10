@@ -11,7 +11,7 @@ assert MARKUPSAFE_PATCHED
 
 # Airflow 3.0+ SQLParser patch
 try:
-    from datahub_airflow_plugin.plugin_v2_airflow3._airflow3_sql_parser_patch import (
+    from datahub_airflow_plugin.airflow3._airflow3_sql_parser_patch import (
         patch_sqlparser,
     )
 
@@ -22,7 +22,7 @@ except ImportError:
 
 # Operator-specific patches (conditional based on operator availability)
 try:
-    from datahub_airflow_plugin.plugin_v2_airflow3._sqlite_openlineage_patch import (
+    from datahub_airflow_plugin.airflow3._sqlite_openlineage_patch import (
         patch_sqlite_hook,
     )
 
@@ -31,7 +31,7 @@ except ImportError:
     pass
 
 try:
-    from datahub_airflow_plugin.plugin_v2_airflow3._athena_openlineage_patch import (
+    from datahub_airflow_plugin.airflow3._athena_openlineage_patch import (
         patch_athena_operator,
     )
 
@@ -40,7 +40,7 @@ except ImportError:
     pass
 
 try:
-    from datahub_airflow_plugin.plugin_v2_airflow3._bigquery_openlineage_patch import (
+    from datahub_airflow_plugin.airflow3._bigquery_openlineage_patch import (
         patch_bigquery_insert_job_operator,
     )
 

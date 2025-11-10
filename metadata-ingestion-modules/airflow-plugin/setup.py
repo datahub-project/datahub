@@ -29,8 +29,8 @@ base_requirements = {
     # We support both Airflow 2.x and 3.x with full backward compatibility.
     "apache-airflow>=2.5.0,<4.0.0",
     # Note: OpenLineage dependencies are version-specific and provided via extras:
-    # - plugin-v2: for Airflow 2.x (uses standalone openlineage-airflow package)
-    # - plugin-v2-airflow3: for Airflow 3.x (uses native apache-airflow-providers-openlineage)
+    # - airflow2: for Airflow 2.x (uses standalone openlineage-airflow package)
+    # - airflow3: for Airflow 3.x (uses native apache-airflow-providers-openlineage)
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -44,22 +44,19 @@ plugins: Dict[str, Set[str]] = {
         f"acryl-datahub[sync-file-emitter]{_self_pin}",
     },
     "plugin-v1": set(),
-    # plugin-v2: For Airflow 2.x, use standalone openlineage-airflow package
-    "plugin-v2": {
+    # New module names (preferred)
+    # airflow2: For Airflow 2.x, use standalone openlineage-airflow package
+    "airflow2": {
         "openlineage-airflow>=1.2.0",
     },
-    # plugin-v2-airflow3: For Airflow 3.x, use native OpenLineage provider
-    "plugin-v2-airflow3": {
+    # airflow3: For Airflow 3.x, use native OpenLineage provider
+    "airflow3": {
         "apache-airflow-providers-openlineage>=1.0.0",
     },
     # Backward compatibility aliases
-    "plugin-v2-airflow2": {
+    "plugin-v2": {
         "openlineage-airflow>=1.2.0",
     },
-    "openlineage-airflow2": {
-        "openlineage-airflow>=1.2.0",
-    },
-    "openlineage-native": set(),
 }
 
 # Require some plugins by default.

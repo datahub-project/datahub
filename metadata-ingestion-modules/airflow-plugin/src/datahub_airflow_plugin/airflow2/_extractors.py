@@ -18,10 +18,9 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
-from datahub_airflow_plugin._airflow_shims import Operator
 from datahub_airflow_plugin._constants import SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
-from datahub_airflow_plugin._openlineage_compat import (
+from datahub_airflow_plugin.airflow2._openlineage_compat import (
     IS_AIRFLOW_3,
     BaseExtractor,
     OLExtractorManager,
@@ -32,6 +31,7 @@ from datahub_airflow_plugin._openlineage_compat import (
     get_operator_class,
     try_import_from_string,
 )
+from datahub_airflow_plugin.airflow2._shims import Operator
 
 if TYPE_CHECKING:
     from airflow.models import DagRun, TaskInstance

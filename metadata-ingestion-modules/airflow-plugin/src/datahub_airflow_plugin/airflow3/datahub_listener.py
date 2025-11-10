@@ -54,6 +54,13 @@ from datahub.telemetry import telemetry
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._version import __package_name__, __version__
+from datahub_airflow_plugin.airflow3._shims import (
+    OpenLineagePlugin,
+    Operator,
+    get_task_inlets,
+    get_task_outlets,
+    redact_with_exclusions,
+)
 from datahub_airflow_plugin.client.airflow_generator import (  # type: ignore[attr-defined]
     AirflowGenerator,
 )
@@ -61,13 +68,6 @@ from datahub_airflow_plugin.entities import (
     _Entity,
     entities_to_datajob_urn_list,
     entities_to_dataset_urn_list,
-)
-from datahub_airflow_plugin.plugin_v2_airflow3._shims import (
-    OpenLineagePlugin,
-    Operator,
-    get_task_inlets,
-    get_task_outlets,
-    redact_with_exclusions,
 )
 
 # Airflow 3.x always has these APIs
@@ -374,7 +374,7 @@ class DataHubListener:
             )
             return None
 
-    def _create_single_emitter_from_connection(self, conn_id: str):
+    def _create_single_emitter_from_connection(self, conn_id: str) -> Optional[Emitter]:
         """
         Create a single emitter from a connection ID.
 

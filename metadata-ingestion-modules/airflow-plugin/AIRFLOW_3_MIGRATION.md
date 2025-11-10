@@ -12,8 +12,8 @@ Apache Airflow 3.0 introduced significant breaking changes. The DataHub Airflow 
 
 | Component               | Airflow 2.x Implementation         | Airflow 3.x Implementation                               |
 | ----------------------- | ---------------------------------- | -------------------------------------------------------- |
-| **Main Module**         | `plugin_v2/datahub_listener.py`    | `plugin_v2_airflow3/datahub_listener.py`                 |
-| **Shims/Imports**       | `plugin_v2/_shims.py`              | `plugin_v2_airflow3/_shims.py`                           |
+| **Main Module**         | `airflow2/datahub_listener.py`     | `airflow3/datahub_listener.py`                           |
+| **Shims/Imports**       | `airflow2/_shims.py`               | `airflow3/_shims.py`                                     |
 | **Lineage Extraction**  | Extractor-based (`_extractors.py`) | OpenLineage native (`_airflow3_sql_parser_patch.py`)     |
 | **OpenLineage Package** | `openlineage-airflow>=1.2.0`       | Native provider (`apache-airflow-providers-openlineage`) |
 | **Type Checking**       | ✅ Clean Airflow 2.x types         | ✅ Clean Airflow 3.x types                               |
@@ -24,12 +24,12 @@ Apache Airflow 3.0 introduced significant breaking changes. The DataHub Airflow 
 from datahub_airflow_plugin._airflow_version_specific import IS_AIRFLOW_3_OR_HIGHER
 
 if IS_AIRFLOW_3_OR_HIGHER:
-    from datahub_airflow_plugin.plugin_v2_airflow3.datahub_listener import (
+    from datahub_airflow_plugin.airflow3.datahub_listener import (
         DataHubListener,
         get_airflow_plugin_listener,
     )
 else:
-    from datahub_airflow_plugin.plugin_v2.datahub_listener import (
+    from datahub_airflow_plugin.airflow2.datahub_listener import (
         DataHubListener,
         get_airflow_plugin_listener,
     )
@@ -46,14 +46,24 @@ else:
 
 ```bash
 # For Airflow 2.x (uses standalone openlineage-airflow package)
-pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
+pip install 'acryl-datahub-airflow-plugin[airflow2]'
 
 # For Airflow 3.x (uses native OpenLineage provider)
-pip install 'acryl-datahub-airflow-plugin[plugin-v2-airflow3]'
+pip install 'acryl-datahub-airflow-plugin[airflow3]'
 
 # For compatibility across versions (installs base package with native provider)
 pip install 'acryl-datahub-airflow-plugin'  # Works with both Airflow 2.7+ and 3.x
 ```
+
+**Backward Compatibility:**
+
+The old extra names are still supported as aliases:
+- `plugin-v2` → `airflow2`
+- `plugin-v2-airflow3` → `airflow3`
+
+**Module Aliases:**
+
+For backward compatibility, `plugin_v2` is aliased to `airflow2` (via symlink), so existing imports continue to work.
 
 ### 🎯 Key Architectural Change: Moved Away from Operator-Specific Overrides
 
@@ -223,9 +233,9 @@ from airflow.sensors.external_task import ExternalTaskSensor
 
 **Files Updated:**
 
-- `src/datahub_airflow_plugin/plugin_v2/_shims.py` - Clean Airflow 2.x imports
-- `src/datahub_airflow_plugin/plugin_v2_airflow3/_shims.py` - Clean Airflow 3.x imports
-- `src/datahub_airflow_plugin/_airflow_shims.py` - Shared compatibility imports (deprecated, use version-specific shims)
+- `src/datahub_airflow_plugin/airflow2/_shims.py` - Clean Airflow 2.x imports
+- `src/datahub_airflow_plugin/airflow3/_shims.py` - Clean Airflow 3.x imports
+- `src/datahub_airflow_plugin/_airflow_shims.py` - Pure dispatcher (no logic, just routes to version-specific shims)
 - `src/datahub_airflow_plugin/client/airflow_generator.py` - Import from shims
 
 ### 1b. OpenLineage Provider Changes
@@ -528,7 +538,7 @@ if Variable.get("datahub_airflow_plugin_disable_listener", "false").lower() == "
 
 The plugin now has separate kill switch implementations for each version:
 
-**Airflow 2.x** (`plugin_v2/datahub_listener.py`):
+**Airflow 2.x** (`airflow2/datahub_listener.py`):
 
 ```python
 def check_kill_switch(self) -> bool:
@@ -542,7 +552,7 @@ def check_kill_switch(self) -> bool:
     return False
 ```
 
-**Airflow 3.x** (`plugin_v2_airflow3/datahub_listener.py`):
+**Airflow 3.x** (`airflow3/datahub_listener.py`):
 
 ```python
 def check_kill_switch(self) -> bool:
@@ -574,8 +584,8 @@ export AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true
 
 **Files Updated:**
 
-- `src/datahub_airflow_plugin/plugin_v2/datahub_listener.py` - Kill switch for Airflow 2.x
-- `src/datahub_airflow_plugin/plugin_v2_airflow3/datahub_listener.py` - Kill switch for Airflow 3.x
+- `src/datahub_airflow_plugin/airflow2/datahub_listener.py` - Kill switch for Airflow 2.x
+- `src/datahub_airflow_plugin/airflow3/datahub_listener.py` - Kill switch for Airflow 3.x
 
 ### 8. Threading Support in Airflow 3.x
 
@@ -640,7 +650,7 @@ task_instance_copy.render_templates()
 
 The plugin now has separate template rendering implementations for each version:
 
-**Airflow 2.x** (`plugin_v2/datahub_listener.py`):
+**Airflow 2.x** (`airflow2/datahub_listener.py`):
 
 ```python
 def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
@@ -654,7 +664,7 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
         return task_instance
 ```
 
-**Airflow 3.x** (`plugin_v2_airflow3/datahub_listener.py`):
+**Airflow 3.x** (`airflow3/datahub_listener.py`):
 
 ```python
 def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
@@ -674,8 +684,8 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
 
 **Files Updated:**
 
-- `src/datahub_airflow_plugin/plugin_v2/datahub_listener.py` - Template rendering for Airflow 2.x
-- `src/datahub_airflow_plugin/plugin_v2_airflow3/datahub_listener.py` - Template rendering for Airflow 3.x
+- `src/datahub_airflow_plugin/airflow2/datahub_listener.py` - Template rendering for Airflow 2.x
+- `src/datahub_airflow_plugin/airflow3/datahub_listener.py` - Template rendering for Airflow 3.x
 
 ### 10. SQL Parser Integration for Airflow 3.x
 
@@ -883,7 +893,7 @@ If not set in `airflow.cfg`, the connection password field is used as a fallback
 
 **Files Updated:**
 
-- `src/datahub_airflow_plugin/plugin_v2_airflow3/datahub_listener.py:297-398` - Emitter initialization using database access
+- `src/datahub_airflow_plugin/airflow3/datahub_listener.py:297-398` - Emitter initialization using SDK Connection API
 
 ### 12. Column-Level Lineage in Airflow 3.x
 

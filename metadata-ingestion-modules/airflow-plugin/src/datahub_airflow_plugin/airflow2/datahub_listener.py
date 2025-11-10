@@ -64,6 +64,15 @@ from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_con
 from datahub_airflow_plugin._constants import SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._version import __package_name__, __version__
+from datahub_airflow_plugin.airflow2._extractors import ExtractorManager
+from datahub_airflow_plugin.airflow2._shims import (
+    OpenLineagePlugin,
+    Operator,
+    TaskHolder,
+    get_task_inlets,
+    get_task_outlets,
+    redact_with_exclusions,
+)
 from datahub_airflow_plugin.client.airflow_generator import (  # type: ignore[attr-defined]
     AirflowGenerator,
 )
@@ -71,15 +80,6 @@ from datahub_airflow_plugin.entities import (
     _Entity,
     entities_to_datajob_urn_list,
     entities_to_dataset_urn_list,
-)
-from datahub_airflow_plugin.plugin_v2._extractors import ExtractorManager
-from datahub_airflow_plugin.plugin_v2._shims import (
-    OpenLineagePlugin,
-    Operator,
-    TaskHolder,
-    get_task_inlets,
-    get_task_outlets,
-    redact_with_exclusions,
 )
 
 # Feature flags for Airflow 2.x

@@ -17,15 +17,17 @@ The installation command varies depending on your Airflow version due to differe
 ### For Airflow 2.x (2.7+)
 
 ```bash
-pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
+pip install 'acryl-datahub-airflow-plugin[airflow2]'
 ```
 
 This installs the plugin with `openlineage-airflow>=1.2.0`, which is required for Airflow 2.x lineage extraction.
 
-### For Airflow 3.x (3.0+)
+**Backward compatibility**: `plugin-v2` is still supported as an alias for `airflow2`.
+
+### For Airflow 3.x (3.1+)
 
 ```bash
-pip install 'acryl-datahub-airflow-plugin[plugin-v2-airflow3]'
+pip install 'acryl-datahub-airflow-plugin[airflow3]'
 ```
 
 This installs the plugin with `apache-airflow-providers-openlineage>=1.0.0`, which is the native OpenLineage provider for Airflow 3.x.
@@ -33,7 +35,7 @@ This installs the plugin with `apache-airflow-providers-openlineage>=1.0.0`, whi
 **Note**: If using Airflow 3.0.x (3.0.6 specifically), you'll need to manually upgrade pydantic:
 
 ```bash
-pip install 'acryl-datahub-airflow-plugin[plugin-v2-airflow3]' 'pydantic>=2.11.8'
+pip install 'acryl-datahub-airflow-plugin[airflow3]' 'pydantic>=2.11.8'
 ```
 
 We recommend using Airflow 3.1.0+ which resolves this issue. See the Version Compatibility section above for details.
@@ -44,16 +46,17 @@ You can combine multiple extras if needed:
 
 ```bash
 # For Airflow 3.x with Kafka emitter support
-pip install 'acryl-datahub-airflow-plugin[plugin-v2-airflow3,datahub-kafka]'
+pip install 'acryl-datahub-airflow-plugin[airflow3,datahub-kafka]'
 
 # For Airflow 2.x with file emitter support
-pip install 'acryl-datahub-airflow-plugin[plugin-v2,datahub-file]'
+pip install 'acryl-datahub-airflow-plugin[airflow2,datahub-file]'
 ```
 
 Available extras:
 
-- `plugin-v2`: OpenLineage support for Airflow 2.x
-- `plugin-v2-airflow3`: OpenLineage support for Airflow 3.x
+- `airflow2`: OpenLineage support for Airflow 2.x (preferred)
+- `airflow3`: OpenLineage support for Airflow 3.x (preferred)
+- `plugin-v2`: Alias for `airflow2` (backward compatibility)
 - `datahub-kafka`: Kafka-based metadata emission
 - `datahub-file`: File-based metadata emission (useful for testing)
 

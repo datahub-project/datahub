@@ -14,11 +14,9 @@ AIRFLOW_VERSION = packaging.version.parse(airflow.__version__)
 IS_AIRFLOW_3_OR_HIGHER = AIRFLOW_VERSION >= packaging.version.parse("3.0.0")
 
 if IS_AIRFLOW_3_OR_HIGHER:
-    from datahub_airflow_plugin.plugin_v2_airflow3._airflow_compat import (
-        AIRFLOW_PATCHED,
-    )
+    from datahub_airflow_plugin.airflow3._airflow_compat import AIRFLOW_PATCHED
 else:
-    from datahub_airflow_plugin.plugin_v2._airflow_compat import AIRFLOW_PATCHED
+    from datahub_airflow_plugin.airflow2._airflow_compat import AIRFLOW_PATCHED
 
 __all__ = [
     "AIRFLOW_PATCHED",
