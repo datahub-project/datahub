@@ -1,6 +1,6 @@
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Final, Iterable, List, Optional, Tuple
 
 from sqlalchemy.engine.url import make_url
@@ -1512,7 +1512,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         try:
             parser = self.get_parser(self.connector_manifest)
             return parser.source_platform
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get platform from parser: {e}")
             # If parser fails, try to infer from JDBC URL directly
             jdbc_url = self.connector_manifest.config.get("connection.url", "")
             if jdbc_url:
@@ -1530,6 +1531,8 @@ class SnowflakeSourceConnector(BaseConnector):
     This connector uses JDBC-style polling (not CDC) to read from Snowflake tables.
     Topic naming: <topic.prefix><database.schema.tableName>
     """
+
+    _cached_expanded_tables: Optional[List[str]] = field(default=None, init=False)
 
     @dataclass
     class SnowflakeSourceParser:
@@ -1770,6 +1773,10 @@ class SnowflakeSourceConnector(BaseConnector):
             )
             regex = re.compile(regex_pattern)
 
+            # TODO: Performance optimization - This loops through ALL datasets in DataHub
+            # for the platform without filtering. For large DataHub instances with thousands
+            # of tables, this could be very slow. Consider using graph.get_urns_by_filter()
+            # with more specific filters or implementing pagination.
             for urn in all_urns:
                 # URN format: urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)
                 table_name = self._extract_table_name_from_urn(urn)
@@ -1789,30 +1796,19 @@ class SnowflakeSourceConnector(BaseConnector):
             )
             return matched_tables
 
+        except (ConnectionError, TimeoutError) as e:
+            logger.error(f"Failed to connect to DataHub for pattern '{pattern}': {e}")
+            if self.report:
+                self.report.report_failure(
+                    f"datahub_connection_{self.connector_manifest.name}", str(e)
+                )
+            return []
         except Exception as e:
             logger.warning(
-                f"Failed to query tables from DataHub for pattern '{pattern}': {e}"
+                f"Failed to query tables from DataHub for pattern '{pattern}': {e}",
+                exc_info=True,
             )
             return []
-
-    def _extract_table_name_from_urn(self, urn: str) -> Optional[str]:
-        """
-        Extract table name from DataHub URN.
-
-        URN format: urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)
-        Returns: database.schema.table
-        """
-        try:
-            # Simple parsing - extract between second comma and third comma
-            parts = urn.split(",")
-            if len(parts) >= 2:
-                # Second part contains the table name
-                table_name = parts[1]
-                return table_name
-        except Exception as e:
-            logger.debug(f"Failed to extract table name from URN {urn}: {e}")
-
-        return None
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         """
@@ -1836,7 +1832,7 @@ class SnowflakeSourceConnector(BaseConnector):
             return []
 
         # Check if we have cached expanded tables from get_topics_from_config()
-        if hasattr(self, "_cached_expanded_tables"):
+        if self._cached_expanded_tables is not None:
             table_names = self._cached_expanded_tables
             if not table_names:
                 logger.debug(
@@ -2386,8 +2382,9 @@ class DebeziumSourceConnector(BaseConnector):
             List of fully expanded table names
         """
         # Check if feature is enabled
-        if not getattr(self.config, "use_schema_resolver", False) or not getattr(
-            self.config, "schema_resolver_expand_patterns", False
+        if (
+            not self.config.use_schema_resolver
+            or not self.config.schema_resolver_expand_patterns
         ):
             # Fall back to original behavior - parse as-is
             return parse_comma_separated_list(table_config)
@@ -2537,30 +2534,19 @@ class DebeziumSourceConnector(BaseConnector):
             )
             return matched_tables
 
+        except (ConnectionError, TimeoutError) as e:
+            logger.error(f"Failed to connect to DataHub for pattern '{pattern}': {e}")
+            if self.report:
+                self.report.report_failure(
+                    f"datahub_connection_{self.connector_manifest.name}", str(e)
+                )
+            return []
         except Exception as e:
             logger.warning(
-                f"Failed to query tables from DataHub for pattern '{pattern}': {e}"
+                f"Failed to query tables from DataHub for pattern '{pattern}': {e}",
+                exc_info=True,
             )
             return []
-
-    def _extract_table_name_from_urn(self, urn: str) -> Optional[str]:
-        """
-        Extract table name from DataHub URN.
-
-        URN format: urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)
-        Returns: database.schema.table
-        """
-        try:
-            # Simple parsing - extract between second comma and third comma
-            parts = urn.split(",")
-            if len(parts) >= 2:
-                # Second part contains the table name
-                table_name = parts[1]
-                return table_name
-        except Exception as e:
-            logger.debug(f"Failed to extract table name from URN {urn}: {e}")
-
-        return None
 
 
 @dataclass

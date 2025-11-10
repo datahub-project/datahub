@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Final, List, Optional
+from typing import TYPE_CHECKING, Dict, Final, List, Optional, TypedDict
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -18,6 +18,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 if TYPE_CHECKING:
     from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -31,6 +32,15 @@ CONNECTOR_CLASS: Final[str] = "connector.class"
 
 # Default connection settings
 DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
+
+
+class FineGrainedLineageDict(TypedDict):
+    """Structure for fine-grained (column-level) lineage mappings."""
+
+    upstreamType: str
+    downstreamType: str
+    upstreams: List[str]
+    downstreams: List[str]
 
 
 class ConnectorConfigKeys:
@@ -361,7 +371,7 @@ class KafkaConnectLineage:
     target_platform: str
     job_property_bag: Optional[Dict[str, str]] = None
     source_dataset: Optional[str] = None
-    fine_grained_lineages: Optional[List[Dict[str, Any]]] = None
+    fine_grained_lineages: Optional[List[FineGrainedLineageDict]] = None
 
 
 @dataclass
@@ -664,7 +674,7 @@ class BaseConnector:
         source_platform: str,
         target_dataset: str,
         target_platform: str = "kafka",
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> Optional[List[FineGrainedLineageDict]]:
         """
         Extract column-level lineage using schema metadata from DataHub.
 
@@ -681,9 +691,9 @@ class BaseConnector:
             List of fine-grained lineage dictionaries or None if not available
         """
         # Check if feature is enabled
-        if not getattr(self.config, "use_schema_resolver", False):
+        if not self.config.use_schema_resolver:
             return None
-        if not getattr(self.config, "schema_resolver_finegrained_lineage", False):
+        if not self.config.schema_resolver_finegrained_lineage:
             return None
         if not self.schema_resolver:
             return None
@@ -718,10 +728,10 @@ class BaseConnector:
 
             # Create fine-grained lineage for each source column
             # Assume 1:1 mapping (column names are preserved)
-            fine_grained_lineages = []
+            fine_grained_lineages: List[FineGrainedLineageDict] = []
 
             for source_col in source_schema:
-                fine_grained_lineage = {
+                fine_grained_lineage: FineGrainedLineageDict = {
                     "upstreamType": "FIELD_SET",
                     "downstreamType": "FIELD",
                     "upstreams": [make_schema_field_urn(source_urn_str, source_col)],
@@ -743,6 +753,24 @@ class BaseConnector:
             )
 
         return None
+
+    def _extract_table_name_from_urn(self, urn: str) -> Optional[str]:
+        """
+        Extract table name from DataHub URN using standard DatasetUrn parser.
+
+        Args:
+            urn: DataHub dataset URN
+                Format: urn:li:dataset:(urn:li:dataPlatform:platform,table_name,ENV)
+                Example: urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)
+
+        Returns:
+            Extracted table name (e.g., "database.schema.table") or None if parsing fails
+        """
+        try:
+            return DatasetUrn.from_string(urn).name
+        except Exception as e:
+            logger.debug(f"Failed to extract table name from URN {urn}: {e}")
+            return None
 
 
 # Removed: TopicResolver and ConnectorTopicHandlerRegistry - logic moved directly to BaseConnector subclasses
