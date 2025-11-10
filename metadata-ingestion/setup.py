@@ -829,6 +829,7 @@ entry_points = {
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
+        "hbase = datahub.ingestion.source.sql.hbase:HBaseSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
