@@ -58,6 +58,7 @@ pip install 'acryl-datahub-airflow-plugin'  # Works with both Airflow 2.7+ and 3
 **Backward Compatibility:**
 
 The old extra names are still supported as aliases:
+
 - `plugin-v2` → `airflow2`
 - `plugin-v2-airflow3` → `airflow3`
 

@@ -39,7 +39,7 @@ jobs:
         include:
           # Note: this should be kept in sync with tox.ini.
           # Airflow 2.x versions use standalone openlineage-airflow package (plugin-v2)
-          # Airflow 3.x versions use native OpenLineage provider (plugin-v2-airflow3)
+          # Airflow 3.x versions use native OpenLineage provider (airflow3)
           - python-version: "3.10"
             extra_pip_requirements: "apache-airflow~=2.7.3"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.7.3/constraints-3.10.txt"
@@ -59,7 +59,7 @@ jobs:
           - python-version: "3.11"
             extra_pip_requirements: "apache-airflow~=3.1.0"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-3.1.0/constraints-3.11.txt"
-            extra_pip_extras: "plugin-v2-airflow3"
+            extra_pip_extras: "airflow3"
       fail-fast: false
     steps:
       - name: Set up JDK 17
