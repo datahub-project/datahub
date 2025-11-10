@@ -1,0 +1,34 @@
+name: PR Comment
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  post-pr-opened-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get and Format Username
+        run: |
+          formatted_username="$(echo "${{ github.event.pull_request.user.login }}" | tr '[:upper:]' '[:lower:]' | sed 's/ /-/g')"
+          echo "FORMATTED_USERNAME=${formatted_username}" >> "$GITHUB_ENV"
+
+      - name: Create Comment
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const prUser = process.env.FORMATTED_USERNAME;
+            const prLogin = context.payload.pull_request.user.login;
+            const url = `https://contributors.datahubproject.io/${prUser}`;
+            const body = `Hello @${prLogin} :smile: \n\n Thank you so much for opening a pull request!\n\n![Image](https://contributors.datahubproject.io/api/og?userId=${prLogin})\nYou can check out your contributor card and see all your past stats [here](${url})!`;
+                         
+            // Create a comment on the PR
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: body
+            });
