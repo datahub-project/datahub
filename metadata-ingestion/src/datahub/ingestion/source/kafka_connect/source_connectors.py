@@ -1067,14 +1067,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         """Extract topics directly from connector configuration - most reliable approach."""
         config = self.connector_manifest.config
 
-        # Use the connector registry for configuration-based topic derivation
-        from datahub.ingestion.source.kafka_connect.connector_registry import (
-            ConnectorRegistry,
-        )
-
-        config_topics = ConnectorRegistry.get_topics_from_config(
-            self.connector_manifest, self.config, self.report
-        )
+        # Call own get_topics_from_config method directly to avoid creating new instance
+        config_topics = self.get_topics_from_config()
 
         if config_topics:
             # Apply predictable transforms to get final topic names

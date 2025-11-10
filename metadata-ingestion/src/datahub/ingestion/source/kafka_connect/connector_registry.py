@@ -5,7 +5,7 @@ This module provides a clean separation between common utilities and connector i
 """
 
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
@@ -211,34 +211,6 @@ class ConnectorRegistry:
         elif connector_class_value == MYSQL_SINK_CLOUD:
             return JdbcSinkConnector(manifest, config, report, platform="mysql")
 
-        return None
-
-    @staticmethod
-    def extract_lineages(
-        manifest: ConnectorManifest,
-        config: KafkaConnectSourceConfig,
-        report: KafkaConnectSourceReport,
-    ) -> List[KafkaConnectLineage]:
-        """Extract lineages using the appropriate connector."""
-        connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report
-        )
-        if connector:
-            return connector.extract_lineages()
-        return []
-
-    @staticmethod
-    def extract_flow_property_bag(
-        manifest: ConnectorManifest,
-        config: KafkaConnectSourceConfig,
-        report: KafkaConnectSourceReport,
-    ) -> Optional[Dict[str, str]]:
-        """Extract flow property bag using the appropriate connector."""
-        connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report
-        )
-        if connector:
-            return connector.extract_flow_property_bag()
         return None
 
     @staticmethod

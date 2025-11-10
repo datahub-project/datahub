@@ -387,26 +387,6 @@ class ConnectorManifest:
     lineages: List[KafkaConnectLineage] = field(default_factory=list)
     topic_names: List[str] = field(default_factory=list)
 
-    def extract_lineages(
-        self, config: "KafkaConnectSourceConfig", report: "KafkaConnectSourceReport"
-    ) -> List[KafkaConnectLineage]:
-        """Extract lineages for this connector using connector registry."""
-        from datahub.ingestion.source.kafka_connect.connector_registry import (
-            ConnectorRegistry,
-        )
-
-        return ConnectorRegistry.extract_lineages(self, config, report)
-
-    def extract_flow_property_bag(
-        self, config: "KafkaConnectSourceConfig", report: "KafkaConnectSourceReport"
-    ) -> Optional[Dict[str, str]]:
-        """Extract flow property bag for this connector using connector registry."""
-        from datahub.ingestion.source.kafka_connect.connector_registry import (
-            ConnectorRegistry,
-        )
-
-        return ConnectorRegistry.extract_flow_property_bag(self, config, report)
-
     def get_topics_from_config(
         self, config: "KafkaConnectSourceConfig", report: "KafkaConnectSourceReport"
     ) -> List[str]:
