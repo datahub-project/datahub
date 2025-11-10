@@ -568,6 +568,10 @@ class DBTNode:
 
     owner: Optional[str]
 
+    project_id: Optional[int] = (
+        None  # dbt Cloud project ID, only available for dbt Cloud sources
+    )
+
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
     upstream_cll: List[DBTColumnLineageInfo] = field(default_factory=list)
