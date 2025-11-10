@@ -1,13 +1,13 @@
 entity_type,urn,name,description,term_source,source_ref,source_url,ownership_users,ownership_groups,parent_nodes,related_contains,related_inherits,domain_urn,domain_name,custom_properties,status
-glossaryNode,,CypressComplexRoot,Root node for complex import test,,,,datahub:Technical Owner,,,,,,,
-glossaryNode,,CypressSubCategory,Sub category under root,,,,datahub:Developer,,CypressComplexRoot,,,,,,
-glossaryTerm,,CypressPatientData,Patient data term with relationships,INTERNAL,DataHub,https://example.com/docs,datahub:Technical Owner,bfoo:Developer,CypressComplexRoot,,,,,,"{""data_type"":""Dataset"",""domain"":""Healthcare""}"
-glossaryTerm,,CypressDemographics,Demographics information,INTERNAL,DataHub,https://example.com/demo,datahub:Developer,,CypressComplexRoot.CypressSubCategory,,,,,,"{""data_type"":""Field"",""pii"":""true""}"
-glossaryTerm,,CypressVitalSigns,Vital signs measurements,INTERNAL,,,datahub:Technical Owner,,CypressComplexRoot,CypressPatientData,,,,,
-glossaryTerm,,CypressLabResults,Laboratory test results,INTERNAL,DataHub,,datahub:Developer,bfoo:Technical Owner,CypressComplexRoot,,CypressPatientData,,,,"{""data_type"":""Report""}"
-glossaryTerm,,CypressStandaloneComplex,Standalone term with custom properties,INTERNAL,,,,,,,,,,,"{""category"":""test"",""priority"":""high""}"
-glossaryNode,,CypressMetadataNode,Metadata and governance node,,,,datahub:Technical Owner,bfoo:Developer,,,,,,,
-glossaryTerm,,CypressDataQuality,Data quality standards,INTERNAL,DataHub,https://example.com/quality,datahub:Developer,,CypressMetadataNode,,,,,,"{""standard"":""ISO9001""}"
-glossaryTerm,,CypressCompliance,Compliance and regulatory term,INTERNAL,,,datahub:Technical Owner,bfoo:Technical Owner,CypressMetadataNode,,CypressDataQuality,,,,
-glossaryTerm,,CypressInheritedTerm,Term with inheritance relationship,INTERNAL,,,,,CypressComplexRoot.CypressSubCategory,,CypressDemographics,,,,
+glossaryNode,,ImportCypressComplexRoot,Root node for complex import test,,,,datahub:Technical Owner,,,,,,,
+glossaryNode,,ImportCypressSubCategory,Sub category under root,,,,datahub:Developer,,ImportCypressComplexRoot,,,,,,
+glossaryTerm,,ImportCypressPatientData,Patient data term with relationships,INTERNAL,DataHub,https://example.com/docs,datahub:Technical Owner,bfoo:Developer,ImportCypressComplexRoot,,,,,,"{""data_type"":""Dataset"",""domain"":""Healthcare""}"
+glossaryTerm,,ImportCypressDemographics,Demographics information,INTERNAL,DataHub,https://example.com/demo,datahub:Developer,,ImportCypressComplexRoot.ImportCypressSubCategory,,,,,,"{""data_type"":""Field"",""pii"":""true""}"
+glossaryTerm,,ImportCypressVitalSigns,Vital signs measurements,INTERNAL,,,datahub:Technical Owner,,ImportCypressComplexRoot,ImportCypressPatientData,,,,,
+glossaryTerm,,ImportCypressLabResults,Laboratory test results,INTERNAL,DataHub,,datahub:Developer,bfoo:Technical Owner,ImportCypressComplexRoot,,ImportCypressPatientData,,,,"{""data_type"":""Report""}"
+glossaryTerm,,ImportCypressStandaloneComplex,Standalone term with custom properties,INTERNAL,,,,,,,,,,,"{""category"":""test"",""priority"":""high""}"
+glossaryNode,,ImportCypressMetadataNode,Metadata and governance node,,,,datahub:Technical Owner,bfoo:Developer,,,,,,,
+glossaryTerm,,ImportCypressDataQuality,Data quality standards,INTERNAL,DataHub,https://example.com/quality,datahub:Developer,,ImportCypressMetadataNode,,,,,,"{""standard"":""ISO9001""}"
+glossaryTerm,,ImportCypressCompliance,Compliance and regulatory term,INTERNAL,,,datahub:Technical Owner,bfoo:Technical Owner,ImportCypressMetadataNode,,ImportCypressDataQuality,,,,
+glossaryTerm,,ImportCypressInheritedTerm,Term with inheritance relationship,INTERNAL,,,,,ImportCypressComplexRoot.ImportCypressSubCategory,,ImportCypressDemographics,,,,
 

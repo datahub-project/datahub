@@ -42,7 +42,9 @@ describe("glossary", () => {
     nevigateGlossaryPage();
     cy.clickOptionWithTestId("create-glossary-object-button");
     cy.waitTextVisible("Create Glossary");
-    cy.get('.ant-dropdown-menu-title-content').contains('Create Glossary').click();
+    cy.get(".ant-dropdown-menu-title-content")
+      .contains("Create Glossary")
+      .click();
     cy.addViaModal(
       glossaryTermGroup,
       "Create Glossary",
