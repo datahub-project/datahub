@@ -648,6 +648,92 @@ class BaseConnector:
         """Get the platform for this connector instance. Override in subclasses."""
         return "unknown"
 
+    def _apply_replace_field_transform(
+        self, source_columns: List[str]
+    ) -> Dict[str, Optional[str]]:
+        """
+        Apply ReplaceField SMT transformations to column mappings.
+
+        ReplaceField transform can filter, rename, or drop fields:
+        - include: Keep only specified fields (all others dropped)
+        - exclude: Drop specified fields (all others kept)
+        - rename: Rename fields using from:to format
+
+        Reference: https://docs.confluent.io/platform/current/connect/transforms/replacefield.html
+
+        Args:
+            source_columns: List of source column names
+
+        Returns:
+            Dictionary mapping source column -> target column name (None if dropped)
+        """
+        # Parse transforms from connector config
+        transforms_config = self.connector_manifest.config.get("transforms", "")
+        if not transforms_config:
+            # No transforms - return 1:1 mapping
+            return {col: col for col in source_columns}
+
+        transform_names = parse_comma_separated_list(transforms_config)
+
+        # Build column mapping (source -> target, None means dropped)
+        column_mapping: Dict[str, Optional[str]] = {col: col for col in source_columns}
+
+        # Apply each ReplaceField transform in order
+        for transform_name in transform_names:
+            transform_type = self.connector_manifest.config.get(
+                f"transforms.{transform_name}.type", ""
+            )
+
+            # Check if this is a ReplaceField$Value transform
+            # We only support Value transforms since those affect the column data
+            if (
+                transform_type
+                != "org.apache.kafka.connect.transforms.ReplaceField$Value"
+            ):
+                continue
+
+            # Get transform configuration
+            include_config = self.connector_manifest.config.get(
+                f"transforms.{transform_name}.include", ""
+            )
+            exclude_config = self.connector_manifest.config.get(
+                f"transforms.{transform_name}.exclude", ""
+            )
+            rename_config = self.connector_manifest.config.get(
+                f"transforms.{transform_name}.renames", ""
+            )
+
+            # Apply include filter (keep only specified fields)
+            if include_config:
+                include_fields = set(parse_comma_separated_list(include_config))
+                for col in list(column_mapping.keys()):
+                    if column_mapping[col] not in include_fields:
+                        column_mapping[col] = None
+
+            # Apply exclude filter (drop specified fields)
+            if exclude_config:
+                exclude_fields = set(parse_comma_separated_list(exclude_config))
+                for col in list(column_mapping.keys()):
+                    if column_mapping[col] in exclude_fields:
+                        column_mapping[col] = None
+
+            # Apply renames (format: "from:to,from2:to2")
+            if rename_config:
+                rename_pairs = parse_comma_separated_list(rename_config)
+                rename_map = {}
+                for pair in rename_pairs:
+                    if ":" in pair:
+                        from_field, to_field = pair.split(":", 1)
+                        rename_map[from_field.strip()] = to_field.strip()
+
+                # Apply renames to the column mapping
+                for col in list(column_mapping.keys()):
+                    current_name = column_mapping[col]
+                    if current_name and current_name in rename_map:
+                        column_mapping[col] = rename_map[current_name]
+
+        return column_mapping
+
     def _extract_fine_grained_lineage(
         self,
         source_dataset: str,
@@ -706,16 +792,30 @@ class BaseConnector:
                 env=self.config.env,
             )
 
+            # Apply ReplaceField transforms to column mappings
+            # source_schema is Dict[str, str] mapping column names to types
+            column_mapping = self._apply_replace_field_transform(
+                list(source_schema.keys())
+            )
+
             # Create fine-grained lineage for each source column
-            # Assume 1:1 mapping (column names are preserved)
             fine_grained_lineages: List[FineGrainedLineageDict] = []
 
             for source_col in source_schema:
+                target_col = column_mapping.get(source_col)
+
+                # Skip if field was dropped by ReplaceField transform
+                if target_col is None:
+                    logger.debug(
+                        f"Skipping column '{source_col}' - dropped by ReplaceField transform"
+                    )
+                    continue
+
                 fine_grained_lineage: FineGrainedLineageDict = {
                     "upstreamType": "FIELD_SET",
                     "downstreamType": "FIELD",
                     "upstreams": [make_schema_field_urn(source_urn_str, source_col)],
-                    "downstreams": [make_schema_field_urn(str(target_urn), source_col)],
+                    "downstreams": [make_schema_field_urn(str(target_urn), target_col)],
                 }
                 fine_grained_lineages.append(fine_grained_lineage)
 
