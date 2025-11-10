@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, Final, List, Optional
 
-from pydantic import root_validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, LaxStr
@@ -232,7 +232,8 @@ class KafkaConnectSourceConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def auto_construct_connect_uri(cls, values: Dict) -> Dict:
         """
         Auto-construct connect_uri from Confluent Cloud environment and cluster IDs.
