@@ -88,15 +88,60 @@ The DataHub OpenLineage integration can be configured using environment variable
 
 ##### Environment Variables
 
-| Environment Variable                                   | Property                                               | Type    | Default | Description                                                     |
-| ------------------------------------------------------ | ------------------------------------------------------ | ------- | ------- | --------------------------------------------------------------- |
-| `DATAHUB_OPENLINEAGE_PLATFORM_INSTANCE`                | `datahub.openlineage.platform-instance`                | String  | `null`  | Specific platform instance identifier                           |
-| `DATAHUB_OPENLINEAGE_COMMON_DATASET_PLATFORM_INSTANCE` | `datahub.openlineage.common-dataset-platform-instance` | String  | `null`  | Common platform instance for datasets                           |
-| `DATAHUB_OPENLINEAGE_MATERIALIZE_DATASET`              | `datahub.openlineage.materialize-dataset`              | Boolean | `true`  | Whether to materialize dataset entities                         |
-| `DATAHUB_OPENLINEAGE_INCLUDE_SCHEMA_METADATA`          | `datahub.openlineage.include-schema-metadata`          | Boolean | `true`  | Whether to include schema metadata in lineage                   |
-| `DATAHUB_OPENLINEAGE_CAPTURE_COLUMN_LEVEL_LINEAGE`     | `datahub.openlineage.capture-column-level-lineage`     | Boolean | `true`  | Whether to capture column-level lineage information             |
-| `DATAHUB_OPENLINEAGE_FILE_PARTITION_REGEXP_PATTERN`    | `datahub.openlineage.file-partition-regexp-pattern`    | String  | `null`  | Regular expression pattern for file partition detection         |
-| `DATAHUB_OPENLINEAGE_USE_PATCH`                        | `datahub.openlineage.use-patch`                        | Boolean | `false` | Whether to use patch operations for lineage/incremental lineage |
+| Environment Variable                                   | Property                                               | Type    | Default | Description                                                                                                           |
+| ------------------------------------------------------ | ------------------------------------------------------ | ------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
+| `DATAHUB_OPENLINEAGE_ENV`                              | `datahub.openlineage.env`                              | String  | `PROD`  | Environment/fabric type for all ingested entities. Valid values: `PROD`, `DEV`, `TEST`, `QA`, `STAGING`, `CORP`, `EI` |
+| `DATAHUB_OPENLINEAGE_ORCHESTRATOR`                     | `datahub.openlineage.orchestrator`                     | String  | `null`  | Orchestrator name for DataFlow entities. When set, takes precedence over processing_engine facet and producer URL     |
+| `DATAHUB_OPENLINEAGE_PLATFORM_INSTANCE`                | `datahub.openlineage.platform-instance`                | String  | `null`  | Platform instance identifier for the orchestrator                                                                     |
+| `DATAHUB_OPENLINEAGE_COMMON_DATASET_PLATFORM_INSTANCE` | `datahub.openlineage.common-dataset-platform-instance` | String  | `null`  | Common platform instance for dataset entities                                                                         |
+| `DATAHUB_OPENLINEAGE_MATERIALIZE_DATASET`              | `datahub.openlineage.materialize-dataset`              | Boolean | `true`  | Whether to materialize dataset entities                                                                               |
+| `DATAHUB_OPENLINEAGE_INCLUDE_SCHEMA_METADATA`          | `datahub.openlineage.include-schema-metadata`          | Boolean | `true`  | Whether to include schema metadata in lineage                                                                         |
+| `DATAHUB_OPENLINEAGE_CAPTURE_COLUMN_LEVEL_LINEAGE`     | `datahub.openlineage.capture-column-level-lineage`     | Boolean | `true`  | Whether to capture column-level lineage information                                                                   |
+| `DATAHUB_OPENLINEAGE_USE_PATCH`                        | `datahub.openlineage.use-patch`                        | Boolean | `false` | Whether to use patch operations for lineage/incremental lineage                                                       |
+| `DATAHUB_OPENLINEAGE_FILE_PARTITION_REGEXP_PATTERN`    | `datahub.openlineage.file-partition-regexp-pattern`    | String  | `null`  | Regular expression pattern for file partition detection                                                               |
+
+##### Usage Examples
+
+**Setting Environment and Orchestrator**
+
+Configure the fabric type and orchestrator for different deployment scenarios:
+
+```bash
+# For a DEV environment
+DATAHUB_OPENLINEAGE_ENV=DEV
+DATAHUB_OPENLINEAGE_ORCHESTRATOR=my-orchestrator
+
+# For a production environment
+DATAHUB_OPENLINEAGE_ENV=PROD
+DATAHUB_OPENLINEAGE_ORCHESTRATOR=dagster
+
+# For staging environment with custom orchestrator
+DATAHUB_OPENLINEAGE_ENV=STAGING
+DATAHUB_OPENLINEAGE_ORCHESTRATOR=custom-pipeline
+```
+
+**Using Application Properties**
+
+Alternatively, configure via `application.yml`:
+
+```yaml
+datahub:
+  openlineage:
+    env: PROD
+    orchestrator: my-custom-orchestrator
+    platform-instance: us-west-2
+    capture-column-level-lineage: true
+```
+
+**Priority Order for Orchestrator Determination**
+
+The orchestrator name is determined in the following priority order:
+
+1. `DATAHUB_OPENLINEAGE_ORCHESTRATOR` environment variable (highest priority)
+2. `processing_engine` facet in the OpenLineage event
+3. Parsing the `producer` URL field with known patterns (Airflow, etc.)
+
+> **Note**: The `env` property matches the naming convention used in Spark configuration (`spark.datahub.metadata.dataset.env`) for consistency across DataHub integrations.
 
 #### Known Limitations
 

@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.openlineage.config;
 
+import com.linkedin.common.FabricType;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,18 @@ public class OpenLineageServletConfig {
 
   @Bean
   public RunEventMapper.MappingConfig mappingConfig() {
+    // Parse FabricType from string property
+    FabricType fabricType = FabricType.PROD; // default
+    if (properties.getEnv() != null && !properties.getEnv().isEmpty()) {
+      try {
+        fabricType = FabricType.valueOf(properties.getEnv().toUpperCase());
+      } catch (IllegalArgumentException e) {
+        log.warn(
+            "Invalid env value '{}'. Using default PROD. Valid values: PROD, DEV, TEST, QA, STAGING, CORP, EI",
+            properties.getEnv());
+      }
+    }
+
     DatahubOpenlineageConfig datahubOpenlineageConfig =
         DatahubOpenlineageConfig.builder()
             .platformInstance(properties.getPlatformInstance())
@@ -28,6 +41,8 @@ public class OpenLineageServletConfig {
             .includeSchemaMetadata(properties.isIncludeSchemaMetadata())
             .captureColumnLevelLineage(properties.isCaptureColumnLevelLineage())
             .usePatch(properties.isUsePatch())
+            .fabricType(fabricType)
+            .orchestrator(properties.getOrchestrator())
             .parentJobUrn(null)
             .build();
     log.info("Starting OpenLineage Endpoint with config: {}", datahubOpenlineageConfig);
