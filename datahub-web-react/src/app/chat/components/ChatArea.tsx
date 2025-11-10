@@ -1,4 +1,4 @@
-import { Button, Loader, Text } from '@components';
+import { Button, Loader, Text, colors } from '@components';
 import { ChatCircle } from '@phosphor-icons/react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
@@ -346,8 +346,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     return (
         <Container>
             <Header>
-                <Text size="lg" weight="bold">
-                    {conversation.title || 'New Conversation'}
+                <Text size="md" weight="bold" style={{ color: colors.gray[600] }}>
+                    {conversation.title || 'New Chat'}
                 </Text>
             </Header>
             <MessagesContainer>
