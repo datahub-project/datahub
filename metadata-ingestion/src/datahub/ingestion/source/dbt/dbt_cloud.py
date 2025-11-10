@@ -65,7 +65,7 @@ class DBTCloudConfig(DBTCommonConfig):
     )
     run_id: Optional[int] = Field(
         None,
-        description="The ID of the run to ingest metadata from. If not specified, we'll default to the latest run, default for auto-discovery mode.",
+        description="The ID of the run to ingest metadata from. If not specified, defaults to the latest run. In auto-discovery mode, always uses the latest run for each job.",
     )
 
     project_id_pattern: AllowDenyPattern = Field(
@@ -406,11 +406,16 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
             logger.info(f"Found {len(jobs)} jobs in dbt Cloud account {account_id}")
             return jobs
-        except Exception as e:
-            logger.debug(f"Unable to fetch jobs from dbt Cloud API: {e}", exc_info=e)
+        except requests.exceptions.RequestException as e:
+            logger.debug(f"Unable to fetch jobs from dbt Cloud API: {e}", exc_info=True)
             raise ValueError(
-                f"Unable to fetch jobs from dbt Cloud API: {e}. Status code: {response.status_code}"
+                f"Failed to fetch jobs from dbt Cloud API. Status code: {response.status_code}"
             ) from e
+        except JSONDecodeError as e:
+            logger.debug(
+                f"Invalid JSON response from dbt Cloud API: {e}", exc_info=True
+            )
+            raise ValueError("Received invalid JSON response from dbt Cloud API") from e
 
     def _filter_jobs(self, jobs: List[Dict]) -> List[int]:
         """Filter jobs based on project_id_pattern and job_id_pattern.
@@ -473,7 +478,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         # as DataProcesses or DataJobs.
 
         jobs_to_ingest: List[int] = []
-        run_id = self.config.run_id  # Only used when ingesting a single job else None to fetch the latest run for auto-discovery mode
+        # In auto-discovery mode, always use the latest run (None means latest)
+        # In single-job mode, use the configured run_id or latest if not specified
+        run_id = self.config.run_id if self.config.job_id is not None else None
         if self.config.job_id is not None:
             # Single job_id provided
             logger.info(f"Ingesting single job: {self.config.job_id}")
