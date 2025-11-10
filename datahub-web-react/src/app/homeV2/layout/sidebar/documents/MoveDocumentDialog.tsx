@@ -1,12 +1,12 @@
-import { CaretDown, CaretRight, FileText, Folder } from '@phosphor-icons/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { DocumentChild, useDocumentChildren } from '@app/documentV2/hooks/useDocumentChildren';
+import { useDocumentTreeExpansion } from '@app/documentV2/hooks/useDocumentTreeExpansion';
 import { useMoveDocument } from '@app/documentV2/hooks/useMoveDocument';
 import { useSearchDocuments } from '@app/documentV2/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
-import Loading from '@app/shared/Loading';
+import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import { Button, Input } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
 
@@ -94,83 +94,6 @@ const ButtonContainer = styled.div`
     gap: 8px;
 `;
 
-const SearchResultItem = styled.div<{ $isSelected: boolean; $level: number }>`
-    padding: 4px 8px 4px ${(props) => 8 + props.$level * 16}px;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-bottom: 2px;
-    transition: background-color 0.15s ease;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-
-    ${(props) =>
-        props.$isSelected
-            ? `
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
-    `
-            : `
-        &:hover {
-            background-color: ${colors.gray[100]};
-        }
-    `}
-`;
-
-const SearchResultContent = styled.div`
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
-    margin-left: 8px; /* Add spacing between icon and text */
-`;
-
-const SearchResultTitle = styled.div`
-    font-size: 14px;
-    line-height: 20px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    /* No explicit color - inherits default text color like DocumentTreeItem */
-`;
-
-const SearchResultBreadcrumb = styled.div`
-    font-size: 12px;
-    color: ${colors.gray[600]};
-    line-height: 16px;
-    margin-top: 2px;
-`;
-
-const IconWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    color: ${colors.gray[600]};
-    flex-shrink: 0;
-`;
-
-const ExpandButton = styled.button`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    color: ${colors.gray[600]};
-    flex-shrink: 0;
-
-    &:hover {
-        opacity: 0.7;
-    }
-`;
-
 interface MoveDocumentDialogProps {
     documentUrn: string;
     currentParentUrn?: string | null;
@@ -182,13 +105,12 @@ export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({ document
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [selectedParentUrn, setSelectedParentUrn] = useState<string | null | undefined>(currentParentUrn);
     const { moveDocument, loading: movingDocument } = useMoveDocument();
-    const { checkForChildren, fetchChildren } = useDocumentChildren();
+    const { checkForChildren } = useDocumentChildren();
 
-    // Track expanded documents in search results
-    const [expandedUrns, setExpandedUrns] = useState<Set<string>>(new Set());
-    const [hasChildrenMap, setHasChildrenMap] = useState<Record<string, boolean>>({});
-    const [childrenCache, setChildrenCache] = useState<Record<string, DocumentChild[]>>({});
-    const [loadingUrns, setLoadingUrns] = useState<Set<string>>(new Set());
+    // Use shared expansion hook to manage tree expansion state
+    // Exclude the document being moved from results
+    const { expandedUrns, hasChildrenMap, childrenCache, loadingUrns, handleToggleExpand, setHasChildrenMap } =
+        useDocumentTreeExpansion({ excludeUrn: documentUrn });
 
     // Debounce search query
     useEffect(() => {
@@ -269,112 +191,35 @@ export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({ document
         [documents],
     );
 
-    const handleToggleExpand = useCallback(
-        async (urn: string) => {
-            const isExpanded = expandedUrns.has(urn);
+    // handleToggleExpand is now provided by useDocumentTreeExpansion hook
 
-            if (isExpanded) {
-                // Collapse
-                setExpandedUrns((prev) => {
-                    const next = new Set(prev);
-                    next.delete(urn);
-                    return next;
-                });
-            } else {
-                // Expand - load children if not already loaded
-                setExpandedUrns((prev) => new Set(prev).add(urn));
-
-                if (!childrenCache[urn] && !loadingUrns.has(urn)) {
-                    setLoadingUrns((prev) => new Set(prev).add(urn));
-                    const children = await fetchChildren(urn);
-                    setLoadingUrns((prev) => {
-                        const next = new Set(prev);
-                        next.delete(urn);
-                        return next;
-                    });
-
-                    setChildrenCache((prev) => ({
-                        ...prev,
-                        [urn]: children,
-                    }));
-
-                    // Check if these children have children and filter out the document being moved
-                    const validChildren = children.filter((c) => c.urn !== documentUrn);
-                    if (validChildren.length > 0) {
-                        const childUrns = validChildren.map((c) => c.urn);
-                        const childrenMap = await checkForChildren(childUrns);
-                        setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
-                    }
-                }
-            }
-        },
-        [expandedUrns, childrenCache, loadingUrns, fetchChildren, checkForChildren, documentUrn],
-    );
-
-    // Component for rendering individual search result items with hover state
-    interface SearchResultItemProps {
-        doc: Document | DocumentChild;
-        level: number;
-    }
-
-    const SearchResultItemComponent: React.FC<SearchResultItemProps> = ({ doc, level }) => {
-        const [isHovered, setIsHovered] = useState(false);
+    /**
+     * Recursive helper to render a document and its children in the search results tree
+     */
+    const renderSearchResultItem = (doc: Document | DocumentChild, level: number): React.ReactNode => {
         const isSelected = selectedParentUrn === doc.urn;
         const hasChildren = hasChildrenMap[doc.urn] || false;
         const isExpanded = expandedUrns.has(doc.urn);
         const isLoading = loadingUrns.has(doc.urn);
         const isDocument = 'info' in doc;
-        const title = isDocument ? doc.info?.title || 'Untitled' : (doc as DocumentChild).title;
         const breadcrumb = isDocument ? getParentBreadcrumb(doc as Document) : '';
         const children = childrenCache[doc.urn]?.filter((c) => c.urn !== documentUrn) || [];
 
-        // Match DocumentTreeItem behavior: show expand button on hover or when expanded
-        const showExpandButton = hasChildren && (isExpanded || isHovered);
-        const showIcon = !showExpandButton;
-
         return (
-            <>
-                <SearchResultItem
-                    $isSelected={isSelected}
-                    $level={level}
-                    onClick={() => handleSelectDocument(doc.urn)}
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
-                >
-                    {showExpandButton && (
-                        <ExpandButton
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleExpand(doc.urn);
-                            }}
-                        >
-                            {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
-                            {!isLoading && isExpanded && <CaretDown size={16} weight="bold" />}
-                            {!isLoading && !isExpanded && <CaretRight size={16} weight="bold" />}
-                        </ExpandButton>
-                    )}
-                    {showIcon && (
-                        <IconWrapper>
-                            {hasChildren ? (
-                                <Folder size={16} weight={isSelected ? 'fill' : 'regular'} />
-                            ) : (
-                                <FileText size={16} weight={isSelected ? 'fill' : 'regular'} />
-                            )}
-                        </IconWrapper>
-                    )}
-                    <SearchResultContent>
-                        <SearchResultTitle>{title}</SearchResultTitle>
-                        {level === 0 && breadcrumb && <SearchResultBreadcrumb>{breadcrumb}</SearchResultBreadcrumb>}
-                    </SearchResultContent>
-                </SearchResultItem>
-                {isExpanded && children.length > 0 && (
-                    <>
-                        {children.map((child) => (
-                            <SearchResultItemComponent key={child.urn} doc={child} level={level + 1} />
-                        ))}
-                    </>
-                )}
-            </>
+            <SearchResultItem
+                key={doc.urn}
+                doc={doc}
+                level={level}
+                isSelected={isSelected}
+                hasChildren={hasChildren}
+                isExpanded={isExpanded}
+                isLoading={isLoading}
+                breadcrumb={breadcrumb}
+                onSelect={() => handleSelectDocument(doc.urn)}
+                onToggleExpand={() => handleToggleExpand(doc.urn)}
+            >
+                {children.length > 0 && <>{children.map((child) => renderSearchResultItem(child, level + 1))}</>}
+            </SearchResultItem>
         );
     };
 
@@ -406,10 +251,7 @@ export const MoveDocumentDialog: React.FC<MoveDocumentDialogProps> = ({ document
                     <>
                         {isSearching ? (
                             // Tree search results view with expansion support
-                            filteredDocuments.map((doc) => (
-                                // eslint-disable-next-line react/prop-types
-                                <SearchResultItemComponent key={doc.urn} doc={doc} level={0} />
-                            ))
+                            filteredDocuments.map((doc) => renderSearchResultItem(doc, 0))
                         ) : (
                             // Tree view when not searching
                             <DocumentTree

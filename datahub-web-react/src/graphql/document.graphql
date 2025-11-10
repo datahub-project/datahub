@@ -139,6 +139,9 @@ fragment documentSidebarFields on Document {
         parentDocument {
             document {
                 urn
+                info {
+                    title
+                }
             }
         }
     }

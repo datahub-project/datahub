@@ -4,6 +4,8 @@ import styled from 'styled-components';
 
 import { useDocumentsContext } from '@app/documentV2/DocumentsContext';
 import { useDocumentChildren } from '@app/documentV2/hooks/useDocumentChildren';
+import { useDocumentTreeExpansion } from '@app/documentV2/hooks/useDocumentTreeExpansion';
+import { refetchExpandedChildren } from '@app/documentV2/utils/refetchDocumentChildren';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -42,14 +44,18 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     const { checkForChildren, fetchChildren } = useDocumentChildren();
     const { newDocument, optimisticDocuments, updatedDocument, deletedDocument } = useDocumentsContext();
 
-    // Track which documents are expanded
-    const [expandedUrns, setExpandedUrns] = useState<Set<string>>(new Set());
-    // Track which documents have children
-    const [hasChildrenMap, setHasChildrenMap] = useState<Record<string, boolean>>({});
-    // Track loaded children for each parent
-    const [childrenCache, setChildrenCache] = useState<Record<string, DocumentNode[]>>({});
-    // Track which documents are currently loading children
-    const [loadingUrns, setLoadingUrns] = useState<Set<string>>(new Set());
+    // Use shared expansion hook to manage tree expansion state
+    const {
+        expandedUrns,
+        hasChildrenMap,
+        childrenCache,
+        loadingUrns,
+        handleToggleExpand,
+        setExpandedUrns,
+        setHasChildrenMap,
+        setChildrenCache,
+    } = useDocumentTreeExpansion();
+
     // Track optimistic title updates (urn -> title)
     const [titleOverrides, setTitleOverrides] = useState<Record<string, string>>({});
 
@@ -94,47 +100,29 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             // This ensures moved documents disappear from old location and appear in new location
             setChildrenCache({});
 
-            // Re-check which documents have children (merge with existing optimistic values)
-            const recheckChildren = async () => {
-                const urns = documents.map((doc) => doc.urn);
-                if (urns.length > 0) {
-                    const childrenMap = await checkForChildren(urns);
+            // Refetch children data for expanded nodes
+            refetchExpandedChildren({
+                documentUrns: documents.map((doc) => doc.urn),
+                expandedUrns,
+                checkForChildren,
+                fetchChildren,
+                onHasChildrenUpdate: (childrenMap) => {
                     setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
-                }
-
-                // Refetch children for any currently expanded nodes
-                const expandedArray = Array.from(expandedUrns);
-                await Promise.all(
-                    expandedArray.map(async (expandedUrn) => {
-                        const children = await fetchChildren(expandedUrn);
-                        const childNodes: DocumentNode[] = children.map((c) => ({
-                            urn: c.urn,
-                            title: c.title,
-                            parentUrn: expandedUrn,
-                        }));
-
-                        setChildrenCache((prev) => ({
-                            ...prev,
-                            [expandedUrn]: childNodes,
-                        }));
-
-                        // Check if these children have children
-                        if (childNodes.length > 0) {
-                            const childUrns = childNodes.map((c) => c.urn);
-                            const childrenMap = await checkForChildren(childUrns);
-                            setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
-                        }
-                    }),
-                );
-            };
-            recheckChildren();
+                },
+                onChildrenCacheUpdate: (urn, children) => {
+                    setChildrenCache((prev) => ({
+                        ...prev,
+                        [urn]: children,
+                    }));
+                },
+            });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [updatedDocument?.urn, updatedDocument?.parentDocument]);
 
-    // Refetch children when a new document is created
+    // Optimistically add new document when created
     useEffect(() => {
-        if (newDocument?.parentDocument) {
+        if (newDocument?.parentDocument && newDocument?.urn && newDocument?.title) {
             // Mark parent as having children
             setHasChildrenMap((prev) => ({
                 ...prev,
@@ -144,13 +132,28 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             // Auto-expand the parent
             setExpandedUrns((prev) => new Set(prev).add(newDocument.parentDocument!));
 
-            // Invalidate cache for the parent so it refetches
+            // Optimistically add the new document to the parent's children cache
             setChildrenCache((prev) => {
-                const updated = { ...prev };
-                delete updated[newDocument.parentDocument!];
-                return updated;
+                const parentChildren = prev[newDocument.parentDocument!] || [];
+                const newChild: DocumentNode = {
+                    urn: newDocument.urn,
+                    title: newDocument.title!,
+                    parentUrn: newDocument.parentDocument!,
+                };
+
+                // Check if the document already exists (to avoid duplicates)
+                const childExists = parentChildren.some((child) => child.urn === newDocument.urn);
+                if (childExists) {
+                    return prev;
+                }
+
+                return {
+                    ...prev,
+                    [newDocument.parentDocument!]: [...parentChildren, newChild],
+                };
             });
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [newDocument]);
 
     // Handle document deletion - clear children cache to refetch
@@ -160,90 +163,27 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             // This ensures deleted documents disappear from the tree
             setChildrenCache({});
 
-            // Re-check which documents have children (merge with existing optimistic values)
-            const recheckChildren = async () => {
-                const urns = documents.map((doc) => doc.urn);
-                if (urns.length > 0) {
-                    const childrenMap = await checkForChildren(urns);
+            // Refetch children data for expanded nodes
+            refetchExpandedChildren({
+                documentUrns: documents.map((doc) => doc.urn),
+                expandedUrns,
+                checkForChildren,
+                fetchChildren,
+                onHasChildrenUpdate: (childrenMap) => {
                     setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
-                }
-
-                // Refetch children for any currently expanded nodes
-                const expandedArray = Array.from(expandedUrns);
-                await Promise.all(
-                    expandedArray.map(async (expandedUrn) => {
-                        const children = await fetchChildren(expandedUrn);
-                        const childNodes: DocumentNode[] = children.map((c) => ({
-                            urn: c.urn,
-                            title: c.title,
-                            parentUrn: expandedUrn,
-                        }));
-
-                        setChildrenCache((prev) => ({
-                            ...prev,
-                            [expandedUrn]: childNodes,
-                        }));
-
-                        // Check if these children have children
-                        if (childNodes.length > 0) {
-                            const childUrns = childNodes.map((c) => c.urn);
-                            const childrenMap = await checkForChildren(childUrns);
-                            setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
-                        }
-                    }),
-                );
-            };
-            recheckChildren();
+                },
+                onChildrenCacheUpdate: (urn, children) => {
+                    setChildrenCache((prev) => ({
+                        ...prev,
+                        [urn]: children,
+                    }));
+                },
+            });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [deletedDocument?.urn]);
 
-    const handleToggleExpand = useCallback(
-        async (urn: string) => {
-            const isExpanded = expandedUrns.has(urn);
-
-            if (isExpanded) {
-                // Collapse
-                setExpandedUrns((prev) => {
-                    const next = new Set(prev);
-                    next.delete(urn);
-                    return next;
-                });
-            } else {
-                // Expand - load children if not already loaded
-                setExpandedUrns((prev) => new Set(prev).add(urn));
-
-                if (!childrenCache[urn] && !loadingUrns.has(urn)) {
-                    setLoadingUrns((prev) => new Set(prev).add(urn));
-                    const children = await fetchChildren(urn);
-                    setLoadingUrns((prev) => {
-                        const next = new Set(prev);
-                        next.delete(urn);
-                        return next;
-                    });
-
-                    const childNodes: DocumentNode[] = children.map((c) => ({
-                        urn: c.urn,
-                        title: c.title,
-                        parentUrn: urn,
-                    }));
-
-                    setChildrenCache((prev) => ({
-                        ...prev,
-                        [urn]: childNodes,
-                    }));
-
-                    // Check if these children have children
-                    if (childNodes.length > 0) {
-                        const childUrns = childNodes.map((c) => c.urn);
-                        const childrenMap = await checkForChildren(childUrns);
-                        setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
-                    }
-                }
-            }
-        },
-        [expandedUrns, childrenCache, loadingUrns, fetchChildren, checkForChildren],
-    );
+    // handleToggleExpand is now provided by useDocumentTreeExpansion hook
 
     const handleDocumentClick = useCallback(
         (urn: string) => {
