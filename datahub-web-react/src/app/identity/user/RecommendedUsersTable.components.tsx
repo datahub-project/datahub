@@ -41,6 +41,21 @@ export const RecommendedTableContainer = styled.div<{ $hasSsoBanner?: boolean }>
     flex-direction: column;
     min-height: 0;
     overflow: auto;
+    position: relative;
+`;
+
+export const LoadingOverlay = styled.div`
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    pointer-events: all;
 `;
 
 export const ActionsContainer = styled.div`
