@@ -79,18 +79,29 @@ class Dashboard(_GrafanaBaseModel):
         for panel_data in panels_data:
             if panel_data.get("type") == "row" and "panels" in panel_data:
                 panels.extend(
-                    Panel.parse_obj(p)
+                    Panel.model_validate(p)
                     for p in panel_data["panels"]
                     if p.get("type") != "row"
                 )
             elif panel_data.get("type") != "row":
-                panels.append(Panel.parse_obj(panel_data))
+                panels.append(Panel.model_validate(panel_data))
         return panels
 
     @classmethod
-    def parse_obj(cls, data: Dict[str, Any]) -> "Dashboard":
+    def model_validate(
+        cls,
+        obj: Any,
+        *,
+        strict: Optional[bool] = None,
+        from_attributes: Optional[bool] = None,
+        context: Optional[Any] = None,
+        by_alias: Optional[bool] = None,
+        by_name: Optional[bool] = None,
+    ) -> "Dashboard":
         """Custom parsing to handle nested panel extraction."""
-        dashboard_data = data.get("dashboard", {})
+        # Handle both direct dashboard data and nested structure with 'dashboard' key
+        dashboard_data = obj.get("dashboard", obj)
+
         _panel_data = dashboard_data.get("panels", [])
         panels = []
         try:
@@ -113,7 +124,14 @@ class Dashboard(_GrafanaBaseModel):
         if "refresh" in dashboard_dict and isinstance(dashboard_dict["refresh"], bool):
             dashboard_dict["refresh"] = str(dashboard_dict["refresh"])
 
-        return super().parse_obj(dashboard_dict)
+        return super().model_validate(
+            dashboard_dict,
+            strict=strict,
+            from_attributes=from_attributes,
+            context=context,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
 
 
 class Folder(_GrafanaBaseModel):

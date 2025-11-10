@@ -101,7 +101,7 @@ def get_default_instances(
 ]:
     if override_config is None:
         override_config = {}
-    config: PowerBiDashboardSourceConfig = PowerBiDashboardSourceConfig.parse_obj(
+    config: PowerBiDashboardSourceConfig = PowerBiDashboardSourceConfig.model_validate(
         {
             "tenant_id": "fake",
             "client_id": "foo",

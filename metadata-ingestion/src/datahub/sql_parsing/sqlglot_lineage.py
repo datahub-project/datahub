@@ -28,6 +28,7 @@ import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 import sqlglot.optimizer.unnest_subqueries
+from pydantic import field_validator
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
@@ -141,7 +142,8 @@ class DownstreamColumnRef(_ParserBaseModel):
     column_type: Optional[SchemaFieldDataTypeClass] = None
     native_column_type: Optional[str] = None
 
-    @pydantic.validator("column_type", pre=True)
+    @field_validator("column_type", mode="before")
+    @classmethod
     def _load_column_type(
         cls, v: Optional[Union[dict, SchemaFieldDataTypeClass]]
     ) -> Optional[SchemaFieldDataTypeClass]:
@@ -215,7 +217,8 @@ class SqlParsingDebugInfo(_ParserBaseModel):
     def error(self) -> Optional[Exception]:
         return self.table_error or self.column_error
 
-    @pydantic.validator("table_error", "column_error")
+    @field_validator("table_error", "column_error", mode="before")
+    @classmethod
     def remove_variables_from_error(cls, v: Optional[Exception]) -> Optional[Exception]:
         if v and v.__traceback__:
             # Remove local variables from the traceback to avoid memory leaks.

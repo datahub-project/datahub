@@ -53,6 +53,7 @@ export const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
 export const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
 export const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
 export const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
+export const CREATED_TIME_FIELD_NAME = 'createdTime';
 
 export const ASSERTEE_DOMAINS_FILTER_NAME = 'asserteeDomains';
 export const ASSERTEE_DATA_PRODUCTS_FILTER_NAME = 'asserteeDataProducts';

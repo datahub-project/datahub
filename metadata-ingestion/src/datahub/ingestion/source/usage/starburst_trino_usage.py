@@ -133,7 +133,7 @@ class TrinoUsageSource(Source):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = TrinoUsageConfig.parse_obj(config_dict)
+        config = TrinoUsageConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

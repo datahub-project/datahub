@@ -36,5 +36,5 @@ class HanaSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "HanaSource":
-        config = HanaConfig.parse_obj(config_dict)
+        config = HanaConfig.model_validate(config_dict)
         return cls(config, ctx)

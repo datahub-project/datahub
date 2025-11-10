@@ -39,5 +39,5 @@ class CockroachDBSource(PostgresSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = CockroachDBConfig.parse_obj(config_dict)
+        config = CockroachDBConfig.model_validate(config_dict)
         return cls(config, ctx)

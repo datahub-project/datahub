@@ -2,7 +2,7 @@ from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
 
 
 def test_clickhouse_uri_https():
-    config = ClickHouseConfig.parse_obj(
+    config = ClickHouseConfig.model_validate(
         {
             "username": "user",
             "password": "password",
@@ -18,7 +18,7 @@ def test_clickhouse_uri_https():
 
 
 def test_clickhouse_uri_native():
-    config = ClickHouseConfig.parse_obj(
+    config = ClickHouseConfig.model_validate(
         {
             "username": "user",
             "password": "password",
@@ -30,7 +30,7 @@ def test_clickhouse_uri_native():
 
 
 def test_clickhouse_uri_native_secure():
-    config = ClickHouseConfig.parse_obj(
+    config = ClickHouseConfig.model_validate(
         {
             "username": "user",
             "password": "password",
@@ -47,7 +47,7 @@ def test_clickhouse_uri_native_secure():
 
 
 def test_clickhouse_uri_default_password():
-    config = ClickHouseConfig.parse_obj(
+    config = ClickHouseConfig.model_validate(
         {
             "username": "user",
             "host_port": "host:1111",
@@ -59,7 +59,7 @@ def test_clickhouse_uri_default_password():
 
 
 def test_clickhouse_uri_native_secure_backward_compatibility():
-    config = ClickHouseConfig.parse_obj(
+    config = ClickHouseConfig.model_validate(
         {
             "username": "user",
             "password": "password",
@@ -76,7 +76,7 @@ def test_clickhouse_uri_native_secure_backward_compatibility():
 
 
 def test_clickhouse_uri_https_backward_compatibility():
-    config = ClickHouseConfig.parse_obj(
+    config = ClickHouseConfig.model_validate(
         {
             "username": "user",
             "password": "password",
