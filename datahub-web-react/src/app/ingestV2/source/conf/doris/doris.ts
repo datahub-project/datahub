@@ -33,5 +33,3 @@ const dorisConfig: SourceConfig = {
 };
 
 export default dorisConfig;
-
-

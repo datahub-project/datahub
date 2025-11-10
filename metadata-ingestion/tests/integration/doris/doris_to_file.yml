@@ -1,0 +1,15 @@
+run_id: doris-test
+
+source:
+  type: doris
+  config:
+    username: root
+    password: ""
+    host_port: localhost:59030
+    database: dorisdb
+
+sink:
+  type: file
+  config:
+    filename: "./doris_mces.json"
+

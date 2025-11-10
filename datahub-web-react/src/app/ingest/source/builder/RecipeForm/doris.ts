@@ -46,5 +46,3 @@ export const DORIS_PASSWORD: RecipeField = {
     required: true,
     rules: null,
 };
-
-

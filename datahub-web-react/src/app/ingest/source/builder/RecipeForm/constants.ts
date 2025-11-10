@@ -74,6 +74,13 @@ import {
     TARGET_PLATFORM_INSTANCE,
 } from '@app/ingest/source/builder/RecipeForm/dbt_cloud';
 import {
+    DORIS,
+    DORIS_DATABASE,
+    DORIS_HOST_PORT,
+    DORIS_PASSWORD,
+    DORIS_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/doris';
+import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
     HIVE_PASSWORD,
@@ -117,13 +124,6 @@ import {
     MARIADB_PASSWORD,
     MARIADB_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/mariadb';
-import {
-    DORIS,
-    DORIS_DATABASE,
-    DORIS_HOST_PORT,
-    DORIS_PASSWORD,
-    DORIS_USERNAME,
-} from '@app/ingest/source/builder/RecipeForm/doris';
 import {
     MSSQL,
     MSSQL_DATABASE,
