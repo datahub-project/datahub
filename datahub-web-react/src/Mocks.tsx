@@ -4537,9 +4537,7 @@ export const mockFineGrainedLineages1: GenericEntityProperties = {
             {
                 entity: { type: EntityType.Dataset, urn: 'test_urn' },
                 matchedFields: [],
-                extraProperties: [
-                    { name: 'canViewEntityPage', value: 'true', __typename: 'ExtraProperty' },
-                ],
+                extraProperties: [{ name: 'canViewEntityPage', value: 'true', __typename: 'ExtraProperty' }],
             },
         ],
     },
