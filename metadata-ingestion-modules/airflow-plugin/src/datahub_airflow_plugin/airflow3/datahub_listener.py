@@ -54,6 +54,9 @@ from datahub.telemetry import telemetry
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._version import __package_name__, __version__
+
+# Import Airflow 3.x compatibility and patches before any Airflow imports
+from datahub_airflow_plugin.airflow3 import _airflow_compat  # noqa: F401
 from datahub_airflow_plugin.airflow3._shims import (
     OpenLineagePlugin,
     Operator,
