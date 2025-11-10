@@ -2,56 +2,47 @@ version: "3"
 networks:
   doris-net:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.88.0/24
 
 services:
   doris-fe:
     image: apache/doris:fe-3.0.8
     container_name: "testdoris-fe"
     hostname: fe
+    entrypoint: ["/setup/fe-entrypoint.sh"]
     ports:
       - 58030:8030  # FE web UI
       - 59030:9030  # MySQL protocol port
       - 59010:9010  # FE edit log port
-    environment:
-      - FE_SERVERS=fe1:172.28.88.2:9010
-      - FE_ID=1
     volumes:
       - ./setup:/setup
     networks:
-      doris-net:
-        ipv4_address: 172.28.88.2
+      - doris-net
     healthcheck:
       test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/127.0.0.1/9030' || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 60
-      start_period: 180s
+      interval: 15s
+      timeout: 10s
+      retries: 120
+      start_period: 300s
 
   doris-be:
     image: apache/doris:be-3.0.8
     container_name: "testdoris-be"
     hostname: be
+    entrypoint: ["/setup/be-entrypoint.sh"]
     ports:
       - 58040:8040  # BE web UI
       - 59050:9050  # BE heartbeat port
-    environment:
-      - FE_SERVERS=fe1:172.28.88.2:9010
-      - BE_ADDR=172.28.88.3:9050
     volumes:
       - ./setup:/setup
     depends_on:
       doris-fe:
         condition: service_healthy
     networks:
-      doris-net:
-        ipv4_address: 172.28.88.3
+      - doris-net
     healthcheck:
       test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/127.0.0.1/8040' || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 120s
+      interval: 15s
+      timeout: 10s
+      retries: 60
+      start_period: 240s
 

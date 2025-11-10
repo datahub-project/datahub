@@ -9,6 +9,8 @@ from tests.test_helpers import test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
+pytestmark = pytest.mark.integration_batch_4
+
 FROZEN_TIME = "2020-04-14 07:00:00"
 DORIS_PORT = 9030  # Doris MySQL protocol port
 
@@ -40,7 +42,7 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             docker_services,
             "testdoris-fe",
             DORIS_PORT,
-            timeout=240,
+            timeout=360,
             checker=lambda: is_doris_up("testdoris", DORIS_PORT),
         )
 
