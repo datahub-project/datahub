@@ -39,6 +39,7 @@ export const useGetSelectionColumn = <T,>(
         },
         width: '48px',
         maxWidth: '60px',
+        dataTestId: 'table-selection-column',
     };
 
     return rowSelection ? [selectionColumn] : [];

@@ -15,10 +15,10 @@ import {
 import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
 import { PropValueField, StructuredProp, valueTypes } from '@app/govern/structuredProperties/utils';
 import { Icon, Input, SimpleSelect, TextArea } from '@src/alchemy-components';
-import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
-    selectedProperty: SearchResult | undefined;
+    selectedProperty: StructuredPropertyEntity | undefined;
     form: FormInstance;
     formValues: StructuredProp | undefined;
     setFormValues: React.Dispatch<React.SetStateAction<StructuredProp | undefined>>;
