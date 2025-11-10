@@ -175,10 +175,7 @@ class AddDatasetDomain(DatasetDomainTransformer):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-        in_domain_aspect: Optional[DomainsClass] = None
-        if aspect is not None:
-            assert isinstance(aspect, DomainsClass)
-            in_domain_aspect = aspect
+        in_domain_aspect = cast(Optional[DomainsClass], aspect)
 
         domain_aspect: DomainsClass = DomainsClass(domains=[])
 
@@ -189,29 +186,25 @@ class AddDatasetDomain(DatasetDomainTransformer):
         domain_to_add = self.config.get_domains_to_add(entity_urn)
         domain_aspect.domains.extend(domain_to_add.domains)
 
-        # Early exit if on_conflict is DO_NOTHING and server already has domains
-        if domain_aspect.domains and self._should_skip_on_conflict(entity_urn):
-            return None
-
         # Handle PATCH semantics
         result: Optional[DomainsClass]
         if self.config.semantics == TransformerSemantics.PATCH:
             if not domain_aspect.domains:
                 assert self.ctx.graph
-                server_domain = self.ctx.graph.get_domain(entity_urn)
-                assert server_domain is None or isinstance(server_domain, DomainsClass)
-                result = server_domain
+                result = self.ctx.graph.get_domain(entity_urn)
             else:
-                merged_aspect = AddDatasetDomain._merge_with_server_domains(
+                # Check on_conflict before merging
+                if self._should_skip_on_conflict(entity_urn):
+                    return None
+                result = AddDatasetDomain._merge_with_server_domains(
                     self.ctx.graph, entity_urn, domain_aspect
                 )
-                assert merged_aspect is None or isinstance(merged_aspect, DomainsClass)
-                result = merged_aspect
         else:
+            # OVERWRITE semantics: check on_conflict setting
+            if domain_aspect.domains and self._should_skip_on_conflict(entity_urn):
+                return None
             result = domain_aspect
 
-        # DomainsClass extends AspectAbstract, verified by isinstance above
-        assert result is None or isinstance(result, DomainsClass)
         # Cast needed to convert concrete DomainsClass to TypeVar Aspect for mypy
         return cast(Optional[Aspect], result)
 
