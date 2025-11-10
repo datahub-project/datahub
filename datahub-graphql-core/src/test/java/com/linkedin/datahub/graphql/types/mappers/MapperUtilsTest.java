@@ -11,8 +11,6 @@ import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.MatchedFieldArray;
-import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -67,13 +65,5 @@ public class MapperUtilsTest {
     field.setName("testField");
     field.setValue(highlightValue);
     return field;
-  }
-
-  private static SearchEntity buildSearchEntity() throws URISyntaxException {
-    SearchEntity searchEntity = new SearchEntity();
-    searchEntity.setEntity(
-        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:s3,testDataset,PROD)"));
-    searchEntity.setMatchedFields(new MatchedFieldArray());
-    return searchEntity;
   }
 }
