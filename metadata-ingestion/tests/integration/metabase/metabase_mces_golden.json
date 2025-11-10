@@ -240,6 +240,29 @@
                             }
                         ],
                         "datasets": [],
+                        "datasetEdges": [
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            }
+                        ],
                         "dashboards": [],
                         "lastModified": {
                             "created": {
@@ -314,6 +337,29 @@
                             }
                         ],
                         "datasets": [],
+                        "datasetEdges": [
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            }
+                        ],
                         "dashboards": [],
                         "lastModified": {
                             "created": {
@@ -388,6 +434,29 @@
                             }
                         ],
                         "datasets": [],
+                        "datasetEdges": [
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            }
+                        ],
                         "dashboards": [],
                         "lastModified": {
                             "created": {
@@ -462,6 +531,29 @@
                             }
                         ],
                         "datasets": [],
+                        "datasetEdges": [
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            }
+                        ],
                         "dashboards": [],
                         "lastModified": {
                             "created": {
