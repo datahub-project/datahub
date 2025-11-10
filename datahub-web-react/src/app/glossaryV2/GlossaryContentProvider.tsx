@@ -7,7 +7,6 @@ import styled from 'styled-components/macro';
 
 import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
 import GlossaryEntitiesList from '@app/glossaryV2/GlossaryEntitiesList';
-import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
 import { PageRoutes } from '@conf/Global';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 
