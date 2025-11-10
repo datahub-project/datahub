@@ -190,11 +190,6 @@ class TestProgressTracker:
     def _build_test_results_message(self, add_datahub_stats: bool = True) -> str:
         """Build the test results message body."""
         message = ""
-        if add_datahub_stats:
-            for key, val in self.datahub_stats.items():
-                if key.startswith("num-"):
-                    entity_type = key.replace("num-", "")
-                    message += f"Num {entity_type} is {val}\n"
 
         # Use the test desc if available, else the test name.
         # Some formatting, indent the test desc under failed tests.
