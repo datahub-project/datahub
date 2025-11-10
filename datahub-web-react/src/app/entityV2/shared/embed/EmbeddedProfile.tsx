@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { useIsDeveloperViewEnabledForUser } from '@app/useIsDeveloperViewEnabled';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGetDataForProfile';
 import { getFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/utils';
@@ -52,15 +53,19 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, refetch } =
         useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
 
+    const [isDeveloperViewEnabled] = useIsDeveloperViewEnabledForUser();
+
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;
     }
 
     if (!entityData?.type) return null;
-
     const sidebarTabs = entityRegistry.getSidebarTabs(entityData.type);
     const sidebarSections = entityRegistry.getSidebarSections(entityData.type);
-    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections);
+    const allFinalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections);
+    const finalTabs = isDeveloperViewEnabled
+        ? allFinalTabs
+        : allFinalTabs.filter((tab) => tab.name !== 'Developer View');
 
     return (
         <EntityContext.Provider

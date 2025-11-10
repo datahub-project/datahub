@@ -145,6 +145,7 @@ public class CorpUserMapper {
       appearanceResult.setShowSimplifiedHomepage(
           corpUserSettings.getAppearance().isShowSimplifiedHomepage());
       appearanceResult.setShowThemeV2(corpUserSettings.getAppearance().isShowThemeV2());
+      appearanceResult.setShowDeveloperView(corpUserSettings.getAppearance().isShowDeveloperView());
     }
     return appearanceResult;
   }

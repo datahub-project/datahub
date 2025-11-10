@@ -47,6 +47,7 @@ import { EntityHead } from '@app/shared/EntityHead';
 import TabFullsizeContext from '@app/shared/TabFullsizedContext';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { useIsDeveloperViewEnabledForUser } from '@app/useIsDeveloperViewEnabled';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 import useEntityState from '@src/app/entity/shared/useEntityState';
@@ -293,11 +294,15 @@ export const EntityProfile = <T, U>({
         }
     }, [routedTab?.supportsFullsize, setTabFullsize]);
 
+    const [isDeveloperViewEnabled] = useIsDeveloperViewEnabledForUser();
+
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;
     }
-
-    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections || []);
+    const allFinalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections || []);
+    const finalTabs = isDeveloperViewEnabled
+        ? allFinalTabs
+        : allFinalTabs.filter((tab) => tab.name !== 'Developer View');
 
     if (isCompact) {
         return (

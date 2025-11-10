@@ -14,4 +14,9 @@ record CorpUserAppearanceSettings {
    * Flag controlling whether the V2 UI for DataHub is shown.
    */
   showThemeV2: optional boolean
+
+  /**
+   * Flag controlling whether the Developer View tab is shown on entity profiles.
+   */
+  showDeveloperView: optional boolean
 }

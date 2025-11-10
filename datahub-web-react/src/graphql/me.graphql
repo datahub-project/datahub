@@ -30,6 +30,7 @@ query getMe {
                 appearance {
                     showSimplifiedHomepage
                     showThemeV2
+                    showDeveloperView
                 }
                 views {
                     defaultView {
