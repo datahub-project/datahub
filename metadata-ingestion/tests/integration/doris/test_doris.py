@@ -11,10 +11,10 @@ from tests.test_helpers import test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
-pytestmark = pytest.mark.integration_batch_4
-
 FROZEN_TIME = "2020-04-14 07:00:00"
 DORIS_PORT = 9030  # Doris MySQL protocol port
+
+pytestmark = pytest.mark.integration_batch_4
 
 
 @pytest.fixture(scope="module")
@@ -22,11 +22,9 @@ def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/doris"
 
 
-def is_doris_up(container_name: str, port: int) -> bool:
-    """Check if Doris FE is responsive via MySQL protocol"""
-
-    # Try to connect via MySQL protocol to Doris FE
-    cmd = f"docker exec {container_name}-fe mysql -h 127.0.0.1 -P {port} -u root -e 'SELECT 1' 2>/dev/null"
+def is_doris_up(container_name: str) -> bool:
+    """Check if Doris FE is responsive by checking logs"""
+    cmd = f"docker logs {container_name}-fe 2>&1 | grep 'thrift server started' || docker logs {container_name}-fe 2>&1 | grep 'QeService' | grep 'listening on port'"
     ret = subprocess.run(
         cmd,
         shell=True,
@@ -39,29 +37,37 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "doris"
     ) as docker_services:
-        # Wait for Doris FE to be ready
-        # Increased timeout for CI where image pulls + startup can take 3-5 minutes
+        # Wait for Doris FE to be ready (similar to Dremio's approach)
         wait_for_port(
             docker_services,
             "testdoris-fe",
             DORIS_PORT,
-            timeout=600,  # 10 minutes to account for image download + startup
-            checker=lambda: is_doris_up("testdoris", DORIS_PORT),
+            timeout=300,  # 5 minutes for image download + startup
+            checker=lambda: is_doris_up("testdoris"),
         )
 
-        # Give BE time to register with FE (longer in CI environments)
-        # BE must connect to FE after FE is healthy
-        be_wait = 60 if os.getenv("CI") == "true" else 30
-        print(f"Waiting {be_wait}s for BE to register with FE...")
+        # Give BE extra time to register with FE and be fully ready
+        be_wait = 90 if os.getenv("CI") == "true" else 45
+        print(
+            f"Waiting {be_wait}s for BE to register with FE and cluster to stabilize..."
+        )
         time.sleep(be_wait)
 
         # Run the setup script
         setup_sql = test_resources_dir / "setup" / "setup.sql"
         setup_cmd = f"docker exec -i testdoris-fe mysql -h 127.0.0.1 -P {DORIS_PORT} -u root < {setup_sql}"
-        result = subprocess.run(setup_cmd, shell=True, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"Setup script failed: {result.stderr}")
-            # Don't fail the test if setup fails, let it proceed
+
+        # Retry setup a few times as BE might still be registering
+        for attempt in range(3):
+            result = subprocess.run(
+                setup_cmd, shell=True, capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                print("Setup script executed successfully")
+                break
+            print(f"Setup attempt {attempt + 1} failed: {result.stderr}")
+            if attempt < 2:
+                time.sleep(10)
 
         yield docker_services
 

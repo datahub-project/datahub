@@ -1,13 +1,11 @@
 networks:
   doris-net:
-    driver: bridge
 
 services:
   doris-fe:
     image: apache/doris:fe-3.0.8
     container_name: "testdoris-fe"
     hostname: fe
-    entrypoint: ["/setup/fe-entrypoint.sh"]
     ports:
       - 58030:8030  # FE web UI
       - 59030:9030  # MySQL protocol port
@@ -16,44 +14,19 @@ services:
       - ./setup:/setup
     networks:
       - doris-net
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-        reservations:
-          memory: 2G
-    healthcheck:
-      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/127.0.0.1/9030' || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 240
-      start_period: 600s
+    entrypoint: ["/setup/fe-entrypoint.sh"]
 
   doris-be:
     image: apache/doris:be-3.0.8
     container_name: "testdoris-be"
     hostname: be
-    entrypoint: ["/setup/be-entrypoint.sh"]
     ports:
       - 58040:8040  # BE web UI
       - 59050:9050  # BE heartbeat port
     volumes:
       - ./setup:/setup
     depends_on:
-      doris-fe:
-        condition: service_healthy
+      - doris-fe
     networks:
       - doris-net
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-        reservations:
-          memory: 1G
-    healthcheck:
-      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/127.0.0.1/8040' || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 120
-      start_period: 480s
-
+    entrypoint: ["/setup/be-entrypoint.sh"]

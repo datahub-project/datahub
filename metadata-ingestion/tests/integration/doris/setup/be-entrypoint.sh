@@ -1,32 +1,27 @@
 #!/bin/bash
 set -e
 
-# Wait for network to be ready and resolve hostnames
-echo "Waiting for network to be ready..."
-FE_IP=""
-BE_IP=""
-for i in {1..30}; do
-    FE_IP=$(getent hosts fe 2>/dev/null | awk '{ print $1 }' || true)
-    BE_IP=$(getent hosts be 2>/dev/null | awk '{ print $1 }' || true)
-    
-    if [ -n "$FE_IP" ] && [ -n "$BE_IP" ]; then
-        echo "Resolved FE hostname to IP: $FE_IP"
-        echo "Resolved BE hostname to IP: $BE_IP"
-        break
-    fi
-    echo "Attempt $i: Waiting for hostname resolution..."
-    sleep 1
-done
+echo "Doris BE entrypoint starting..."
 
-# If we couldn't resolve, just use the hostnames (Docker DNS will handle it)
+# Wait for FE to be somewhat ready
+sleep 5
+
+# Try to resolve hostnames to IPs, fallback if needed
+FE_IP=$(getent hosts fe 2>/dev/null | awk '{ print $1 }' || echo "")
+BE_IP=$(getent hosts be 2>/dev/null | awk '{ print $1 }' || hostname -i || echo "")
+
 if [ -z "$FE_IP" ]; then
-    echo "Could not resolve 'fe' hostname to IP, using hostname directly"
-    FE_IP="fe"
+    echo "WARNING: Could not resolve FE IP via DNS, trying ping"
+    FE_IP=$(ping -c 1 fe 2>/dev/null | grep -oP '\(\K[0-9.]+' || echo "fe")
 fi
+
 if [ -z "$BE_IP" ]; then
-    echo "Could not resolve 'be' hostname to IP, using hostname directly"
-    BE_IP="be"
+    echo "WARNING: Could not resolve BE IP, using Docker internal IP"
+    BE_IP=$(hostname -i)
 fi
+
+echo "Using FE IP: $FE_IP"
+echo "Using BE IP: $BE_IP"
 
 # Set environment variables with resolved IPs
 export FE_SERVERS="fe1:${FE_IP}:9010"
@@ -36,3 +31,4 @@ echo "Starting Doris BE with FE_SERVERS=${FE_SERVERS} BE_ADDR=${BE_ADDR}"
 
 # Call the original Doris entrypoint
 exec bash entry_point.sh
+
