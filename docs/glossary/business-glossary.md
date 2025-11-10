@@ -111,6 +111,7 @@ In the modal that pops up you can select the Term you care about in one of two w
 ## Importing Glossary Terms via CSV
 
 You can bulk import glossary terms and term groups using a CSV file. This is useful for:
+
 - Migrating glossaries from other systems
 - Bulk creating terms and term groups
 - Managing glossary structure in spreadsheets
@@ -128,23 +129,23 @@ You can bulk import glossary terms and term groups using a CSV file. This is use
 
 The CSV file must include the following columns. All columns except `entity_type` and `name` are optional:
 
-| Column | Required | Description | Example |
-|--------|----------|-------------|---------|
-| `entity_type` | Yes | Either `glossaryTerm` or `glossaryNode` | `glossaryTerm` |
-| `urn` | No | Entity URN. If provided, used to identify/update existing entities. If omitted, auto-generated | `urn:li:glossaryTerm:abc123` |
-| `name` | Yes | Name of the term or term group | `Customer ID` |
-| `description` | No | Description/definition | `Unique identifier for each customer` |
-| `term_source` | No | `INTERNAL` or `EXTERNAL` (for terms only) | `INTERNAL` |
-| `source_ref` | No | Reference to external source | `DataHub` |
-| `source_url` | No | URL to external definition | `https://example.com` |
-| `ownership_users` | No | Format: `user:type\|user:type` | `admin:DEVELOPER` |
-| `ownership_groups` | No | Format: `group:type\|group:type` | `datahub:Technical Owner` |
-| `parent_nodes` | No | Comma-separated parent names | `Business Terms` |
-| `related_contains` | No | Comma-separated related terms | `Term1,Term2` |
-| `related_inherits` | No | Comma-separated inherited terms | `Term1,Term2` |
-| `domain_urn` | No | Domain URN | `urn:li:domain:Engineering` |
-| `domain_name` | No | Domain name | `Engineering` |
-| `custom_properties` | No | Format: `key1:value1,key2:value2` | `data_type:Report,domain:Clinical` |
+| Column              | Required | Description                                                                                    | Example                               |
+| ------------------- | -------- | ---------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `entity_type`       | Yes      | Either `glossaryTerm` or `glossaryNode`                                                        | `glossaryTerm`                        |
+| `urn`               | No       | Entity URN. If provided, used to identify/update existing entities. If omitted, auto-generated | `urn:li:glossaryTerm:abc123`          |
+| `name`              | Yes      | Name of the term or term group                                                                 | `Customer ID`                         |
+| `description`       | No       | Description/definition                                                                         | `Unique identifier for each customer` |
+| `term_source`       | No       | `INTERNAL` or `EXTERNAL` (for terms only)                                                      | `INTERNAL`                            |
+| `source_ref`        | No       | Reference to external source                                                                   | `DataHub`                             |
+| `source_url`        | No       | URL to external definition                                                                     | `https://example.com`                 |
+| `ownership_users`   | No       | Format: `user:type\|user:type`                                                                 | `admin:DEVELOPER`                     |
+| `ownership_groups`  | No       | Format: `group:type\|group:type`                                                               | `datahub:Technical Owner`             |
+| `parent_nodes`      | No       | Comma-separated parent names                                                                   | `Business Terms`                      |
+| `related_contains`  | No       | Comma-separated related terms                                                                  | `Term1,Term2`                         |
+| `related_inherits`  | No       | Comma-separated inherited terms                                                                | `Term1,Term2`                         |
+| `domain_urn`        | No       | Domain URN                                                                                     | `urn:li:domain:Engineering`           |
+| `domain_name`       | No       | Domain name                                                                                    | `Engineering`                         |
+| `custom_properties` | No       | Format: `key1:value1,key2:value2`                                                              | `data_type:Report,domain:Clinical`    |
 
 ### Custom Properties Format
 
@@ -155,6 +156,7 @@ key1:value1,key2:value2
 ```
 
 **Example:**
+
 ```
 data_type:Report,domain:Clinical
 ```
@@ -167,6 +169,7 @@ Ownership fields use the format `owner:ownershipType`. Multiple owners are separ
 - **Groups**: `groupname:ownershipType|groupname2:ownershipType`
 
 **Example:**
+
 ```
 admin:DEVELOPER|jdoe:BUSINESS_OWNER
 ```
@@ -182,10 +185,12 @@ The `urn` column is optional but useful in several scenarios:
 - **Auto-Generation**: If you omit the `urn` column or leave it empty, DataHub will automatically generate a GUID-based URN (e.g., `urn:li:glossaryTerm:550e8400-e29b-41d4-a716-446655440000`).
 
 **URN Format:**
+
 - Terms: `urn:li:glossaryTerm:<identifier>`
 - Nodes: `urn:li:glossaryNode:<identifier>`
 
 **When to Use URNs:**
+
 - **Include URNs** when updating existing entities or maintaining stable references
 - **Omit URNs** when creating new entities (they will be auto-generated)
 
