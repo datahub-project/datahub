@@ -1,4 +1,4 @@
-import { Button, Loader, Text } from '@components';
+import { Loader, Text, colors } from '@components';
 import { ChatCircle } from '@phosphor-icons/react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
@@ -31,28 +31,77 @@ const Container = styled.div`
 
 const Header = styled.div`
     padding: 16px 24px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid ${colors.gray[100]};
     display: flex;
     justify-content: space-between;
     align-items: center;
+`;
+
+const ContentWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
 `;
 
 const MessagesContainer = styled.div`
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 24px;
+    display: flex;
+    justify-content: center;
+`;
+
+const MessagesContent = styled.div`
+    width: 100%;
+    max-width: 60%;
+    padding: 24px 0;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+
+    @media (max-width: 1400px) {
+        max-width: 70%;
+    }
+
+    @media (max-width: 1200px) {
+        max-width: 80%;
+    }
+
+    @media (max-width: 1000px) {
+        max-width: 90%;
+    }
+
+    @media (max-width: 800px) {
+        max-width: 100%;
+    }
 `;
 
 const InputContainer = styled.div`
+    display: flex;
+    justify-content: center;
     padding: 16px 24px;
-    border-top: 1px solid #e0e0e0;
 `;
 
-const InputWrapper = styled.div`
-    display: flex;
-    gap: 12px;
-    align-items: center;
+const InputContent = styled.div`
+    width: 100%;
+    max-width: 60%;
+
+    @media (max-width: 1400px) {
+        max-width: 70%;
+    }
+
+    @media (max-width: 1200px) {
+        max-width: 80%;
+    }
+
+    @media (max-width: 1000px) {
+        max-width: 90%;
+    }
+
+    @media (max-width: 800px) {
+        max-width: 100%;
+    }
 `;
 
 const LoadingContainer = styled.div`
@@ -350,101 +399,91 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     {conversation.title || 'New Conversation'}
                 </Text>
             </Header>
-            <MessagesContainer>
-                {messages.length === 0 ? (
-                    <EmptyState>
-                        <LogoContainer>
-                            {appConfig.config?.visualConfig?.logoUrl || themeConfig?.assets?.logoUrl ? (
-                                <img
-                                    src={appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl}
-                                    alt="DataHub"
-                                    style={{ width: '40px', height: '40px', objectFit: 'contain' }}
-                                />
-                            ) : (
-                                <ChatCircle size={64} weight="duotone" color="#1890ff" />
-                            )}
-                        </LogoContainer>
-                        <WelcomeTitle>What can we help with today?</WelcomeTitle>
-                        <EmptyStateInputWrapper>
+            <ContentWrapper>
+                <MessagesContainer>
+                    <MessagesContent>
+                        {messages.length === 0 ? (
+                            <EmptyState>
+                                <LogoContainer>
+                                    {appConfig.config?.visualConfig?.logoUrl || themeConfig?.assets?.logoUrl ? (
+                                        <img
+                                            src={appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl}
+                                            alt="DataHub"
+                                            style={{ width: '40px', height: '40px', objectFit: 'contain' }}
+                                        />
+                                    ) : (
+                                        <ChatCircle size={64} weight="duotone" color="#1890ff" />
+                                    )}
+                                </LogoContainer>
+                                <WelcomeTitle>What can we help with today?</WelcomeTitle>
+                                <EmptyStateInputWrapper>
+                                    <ChatInput
+                                        value={inputValue}
+                                        onChange={setInputValue}
+                                        onSubmit={handleSend}
+                                        onStop={() => {
+                                            // Emit analytics event for stopping chat response
+                                            analytics.event({
+                                                type: EventType.StopDataHubChatResponseEvent,
+                                                conversationUrn,
+                                            });
+                                            stopStreaming();
+                                        }}
+                                        placeholder="Ask anything about your data..."
+                                        disabled={false}
+                                        isStreaming={isStreaming}
+                                    />
+                                    <SuggestedQuestions onQuestionSelect={handleQuestionSelect} />
+                                </EmptyStateInputWrapper>
+                            </EmptyState>
+                        ) : (
+                            <>
+                                {messageGroups.map((group, index) => {
+                                    if (group.type === 'thinking') {
+                                        const firstMessageTime = group.messages[0]?.time || index;
+                                        // Thinking group is complete if there's a next group (non-thinking) or if we're not streaming
+                                        const isComplete = index < messageGroups.length - 1 || !isStreaming;
+                                        return (
+                                            <ThinkingGroup
+                                                key={`thinking-group-${firstMessageTime}`}
+                                                messages={group.messages}
+                                                verboseMode={featureFlags.verboseMode}
+                                                isComplete={isComplete}
+                                            />
+                                        );
+                                    }
+                                    return (
+                                        <ChatMessage
+                                            key={`${group.message.time}-${group.message.content.text.substring(0, 20)}`}
+                                            message={group.message}
+                                            selectedEntityUrn={selectedEntityUrn}
+                                            onEntitySelect={onEntitySelect}
+                                        />
+                                    );
+                                })}
+                                {isStreaming &&
+                                    (messageGroups.length === 0 ||
+                                        messageGroups[messageGroups.length - 1].type !== 'thinking') && (
+                                        <ThinkingGroup
+                                            key="streaming-thinking"
+                                            messages={[]}
+                                            verboseMode={featureFlags.verboseMode}
+                                            isComplete={false}
+                                        />
+                                    )}
+                                <div ref={messagesEndRef} />
+                            </>
+                        )}
+                    </MessagesContent>
+                </MessagesContainer>
+                {messages.length > 0 && (
+                    <InputContainer>
+                        <InputContent>
                             <ChatInput
                                 value={inputValue}
                                 onChange={setInputValue}
                                 onSubmit={handleSend}
-                                placeholder="Ask anything about your data..."
-                                disabled={isStreaming}
-                            />
-                            <SuggestedQuestions onQuestionSelect={handleQuestionSelect} />
-                        </EmptyStateInputWrapper>
-                    </EmptyState>
-                ) : (
-                    <>
-                        {messageGroups.map((group, index) => {
-                            if (group.type === 'thinking') {
-                                const firstMessageTime = group.messages[0]?.time || index;
-                                // Thinking group is complete if there's a next group (non-thinking) or if we're not streaming
-                                const isComplete = index < messageGroups.length - 1 || !isStreaming;
-                                return (
-                                    <ThinkingGroup
-                                        key={`thinking-group-${firstMessageTime}`}
-                                        messages={group.messages}
-                                        verboseMode={featureFlags.verboseMode}
-                                        isComplete={isComplete}
-                                    />
-                                );
-                            }
-                            return (
-                                <ChatMessage
-                                    key={`${group.message.time}-${group.message.content.text.substring(0, 20)}`}
-                                    message={group.message}
-                                    selectedEntityUrn={selectedEntityUrn}
-                                    onEntitySelect={onEntitySelect}
-                                />
-                            );
-                        })}
-                        {isStreaming &&
-                            (messageGroups.length === 0 ||
-                                messageGroups[messageGroups.length - 1].type !== 'thinking') && (
-                                <ThinkingGroup
-                                    key="streaming-thinking"
-                                    messages={[]}
-                                    verboseMode={featureFlags.verboseMode}
-                                    isComplete={false}
-                                />
-                            )}
-                        <div ref={messagesEndRef} />
-                    </>
-                )}
-            </MessagesContainer>
-            {messages.length > 0 && (
-                <InputContainer>
-                    <InputWrapper>
-                        <ChatInput
-                            value={inputValue}
-                            onChange={setInputValue}
-                            onSubmit={handleSend}
-                            placeholder="Ask about your data... (use @ to mention assets)"
-                            disabled={isStreaming}
-                        />
-                        {!isStreaming ? (
-                            <Button
-                                icon={{
-                                    icon: 'PaperPlaneRight',
-                                    source: 'phosphor',
-                                    weight: 'fill',
-                                }}
-                                onClick={handleSend}
-                                isDisabled={!inputValue.trim() || isStreaming}
-                            >
-                                Send
-                            </Button>
-                        ) : (
-                            <Button
-                                icon={{
-                                    icon: 'Stop',
-                                    source: 'phosphor',
-                                    weight: 'fill',
-                                }}
-                                onClick={() => {
+                                onStop={() => {
                                     // Emit analytics event for stopping chat response
                                     analytics.event({
                                         type: EventType.StopDataHubChatResponseEvent,
@@ -452,13 +491,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                     });
                                     stopStreaming();
                                 }}
-                            >
-                                Stop
-                            </Button>
-                        )}
-                    </InputWrapper>
-                </InputContainer>
-            )}
+                                placeholder="Ask about your data... (use @ to mention assets)"
+                                disabled={false}
+                                isStreaming={isStreaming}
+                            />
+                        </InputContent>
+                    </InputContainer>
+                )}
+            </ContentWrapper>
         </Container>
     );
 };

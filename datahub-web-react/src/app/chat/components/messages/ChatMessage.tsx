@@ -106,7 +106,7 @@ const MarkdownContent = styled.div<{ isUser: boolean }>`
     }
 
     & blockquote {
-        border-left: 4px solid ${(props) => (props.isUser ? 'rgba(255, 255, 255, 0.5)' : '#d9d9d9')};
+        border-left: 4px solid ${(props) => (props.isUser ? 'rgba(255, 255, 255, 0.5)' : colors.gray[100])};
         padding-left: 16px;
         margin: 8px 0;
         color: ${(props) => (props.isUser ? 'rgba(255, 255, 255, 0.9)' : '#595959')};

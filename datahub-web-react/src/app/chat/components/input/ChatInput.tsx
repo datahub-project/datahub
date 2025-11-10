@@ -1,4 +1,4 @@
-import { colors } from '@components';
+import { Button, colors } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -16,15 +16,16 @@ const InputContainer = styled.div`
 
 const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $disabled?: boolean }>`
     width: 100%;
-    min-height: 40px;
-    max-height: 84px; /* 3 lines: (3 * 20px line-height) + (12px * 2 padding) = 84px */
-    padding: 12px 16px;
+    min-height: 120px; /* 3x larger: 40px * 3 = 120px */
+    max-height: 252px; /* 3x larger: 84px * 3 = 252px */
+    padding: 16px 56px 16px 16px; /* Extra right padding for send button */
     border: 1px solid
         ${(props) => {
             if (props.$isFocused) return colors.violet[200];
             return colors.gray[100];
         }};
-    border-radius: 8px;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     font-size: 14px;
     font-family: inherit;
     line-height: 20px;
@@ -77,20 +78,31 @@ const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $disabled?: boolea
     }
 `;
 
+const SendButtonWrapper = styled.div`
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    cursor: pointer;
+`;
+
 interface Props {
     value: string;
     onChange: (value: string) => void;
     onSubmit: () => void;
+    onStop?: () => void;
     placeholder?: string;
     disabled?: boolean;
+    isStreaming?: boolean;
 }
 
 export const ChatInput: React.FC<Props> = ({
     value,
     onChange,
     onSubmit,
+    onStop,
     placeholder = 'Type a message...',
     disabled = false,
+    isStreaming = false,
 }) => {
     const [isFocused, setIsFocused] = useState(false);
     const userContext = useUserContext();
@@ -138,11 +150,21 @@ export const ChatInput: React.FC<Props> = ({
     const suggestions = autocompleteData?.autoCompleteForMultiple?.suggestions || [];
     const entities = flattenAutocompleteSuggestions(suggestions);
 
+    const isSubmitDisabled = !isStreaming && (disabled || !value.trim());
+
+    const handleButtonClick = useCallback(() => {
+        if (isStreaming && onStop) {
+            onStop();
+        } else if (!isSubmitDisabled) {
+            onSubmit();
+        }
+    }, [isStreaming, onStop, isSubmitDisabled, onSubmit]);
+
     return (
         <InputContainer>
             <ContentEditableDiv
                 ref={contentEditableRef}
-                contentEditable={!disabled}
+                contentEditable={!disabled && !isStreaming}
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
                 onFocus={() => setIsFocused(true)}
@@ -155,6 +177,22 @@ export const ChatInput: React.FC<Props> = ({
                 $disabled={disabled}
                 suppressContentEditableWarning
             />
+            <SendButtonWrapper>
+                <Button
+                    onClick={handleButtonClick}
+                    isDisabled={isSubmitDisabled}
+                    isCircle
+                    icon={{
+                        icon: isStreaming ? 'Stop' : 'PaperPlaneRight',
+                        source: 'phosphor',
+                        weight: 'fill',
+                    }}
+                    size="md"
+                    variant="filled"
+                    color="violet"
+                    aria-label={isStreaming ? 'Stop generating' : 'Send message'}
+                />
+            </SendButtonWrapper>
             {mentionState.isActive && (
                 <ChatMentionsDropdown
                     query={mentionState.query}
