@@ -38,7 +38,7 @@ if IS_AIRFLOW_3_OR_HIGHER:
     )
 else:
     # Airflow 2.x - use airflow2 shims
-    from datahub_airflow_plugin.airflow2._shims import (
+    from datahub_airflow_plugin.airflow2._shims import (  # type: ignore[assignment]
         BaseOperator,
         ExternalTaskSensor,
         MappedOperator,

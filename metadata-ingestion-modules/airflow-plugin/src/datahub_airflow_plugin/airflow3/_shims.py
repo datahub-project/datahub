@@ -19,10 +19,10 @@ try:
 except ImportError:
     # Fallback for earlier Airflow 3 versions
     try:
-        from airflow.sensors.external_task import ExternalTaskSensor  # type: ignore
+        from airflow.sensors.external_task import ExternalTaskSensor  # type: ignore[no-redef]  # noqa: I001
     except ImportError:
-        from airflow.sensors.external_task_sensor import (
-            ExternalTaskSensor,  # type: ignore
+        from airflow.sensors.external_task_sensor import (  # type: ignore[no-redef]
+            ExternalTaskSensor,
         )
 
 # OpenLineage imports for Airflow 3.x (native provider)

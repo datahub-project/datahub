@@ -116,7 +116,7 @@ class AirflowGenerator:
                 )
 
                 # if the task triggers the subdag, link it to this node in the subdag
-                if subdag_task_id in sorted(_task_downstream_task_ids(upstream_task)):
+                if subdag_task_id in sorted(_task_downstream_task_ids(upstream_task)):  # type: ignore[arg-type]
                     upstream_subdag_triggers.append(upstream_task_urn)
 
         # If the operator is an ExternalTaskSensor then we set the remote task as upstream.

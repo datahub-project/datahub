@@ -163,7 +163,7 @@ class ExtractorManager(OLExtractorManager):
         # By adding this, we can use the generic extractor as a fallback for
         # any operator that inherits from SQLExecuteQueryOperator.
         if not IS_AIRFLOW_3:
-            clazz = get_operator_class(task)
+            clazz = get_operator_class(task)  # type: ignore[arg-type]
             SQLExecuteQueryOperator = try_import_from_string(
                 "airflow.providers.common.sql.operators.sql.SQLExecuteQueryOperator"
             )
