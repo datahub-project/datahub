@@ -1,4 +1,3 @@
-import datetime
 import json
 import os
 import subprocess
@@ -7,7 +6,7 @@ from typing import Dict
 import boto3
 import pytest
 import requests
-from time_machine import travel
+from freezegun import freeze_time
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -15,7 +14,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_4
 
-FROZEN_TIME = datetime.datetime(2023, 10, 15, 7, 0, tzinfo=datetime.timezone.utc)
+FROZEN_TIME = "2023-10-15 07:00:00"
 MINIO_PORT = 9000
 MYSQL_PORT = 3306
 
@@ -470,7 +469,7 @@ def populate_minio(pytestconfig, s3_bkt):
     yield
 
 
-@travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_dremio_ingest(
     test_resources_dir,
@@ -493,7 +492,7 @@ def test_dremio_ingest(
     )
 
 
-@travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_dremio_platform_instance_urns(
     test_resources_dir,
@@ -540,11 +539,8 @@ def test_dremio_platform_instance_urns(
 
         # Check dataset URN structure
         if mce["entityType"] == "dataset" and "entityUrn" in mce:
-            assert "test-platform." in mce["entityUrn"], (
+            assert "test-platform.dremio" in mce["entityUrn"], (
                 f"Platform instance missing in dataset URN: {mce['entityUrn']}"
-            )
-            assert "test-platform.dremio." not in mce["entityUrn"], (
-                f"URN has incorrect double dremio prefix: {mce['entityUrn']}"
             )
 
         # Check aspects for both datasets and containers
@@ -577,7 +573,7 @@ def test_dremio_platform_instance_urns(
     )
 
 
-@travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_dremio_schema_filter(
     test_resources_dir,

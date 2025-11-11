@@ -124,7 +124,7 @@ describe('getDefaultSummaryPageTemplate', () => {
     });
 
     it('should return template with empty arrays for unsupported entity types', () => {
-        const result = getDefaultSummaryPageTemplate(EntityType.Dataset);
+        const result = getDefaultSummaryPageTemplate(EntityType.Chart);
 
         expect(result).toEqual({
             urn: 'urn:li:dataHubPageTemplate:asset_summary_default',
