@@ -284,7 +284,14 @@ class S3Source(StatefulIngestionSourceBase):
             # This is needed because pydeequ imports require this to be set
             os.environ.setdefault("SPARK_VERSION", "3.5")
 
-            from datahub.ingestion.source.s3.profiling import SparkProfiler
+            try:
+                from datahub.ingestion.source.s3.profiling import SparkProfiler
+            except (ImportError, ModuleNotFoundError) as e:
+                raise RuntimeError(
+                    "PySpark is not installed but is required for S3 profiling. "
+                    "Please install with profiling support: "
+                    "pip install 'acryl-datahub[data-lake-profiling]' or 'acryl-datahub[s3]'"
+                ) from e
 
             self.profiler = SparkProfiler(
                 aws_config=config.aws_config,

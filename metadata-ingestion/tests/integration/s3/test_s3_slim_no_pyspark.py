@@ -72,13 +72,10 @@ class TestS3SlimNoPySpark:
     @requires_no_pyspark
     def test_s3_source_loads_as_plugin(self):
         """Verify that S3 source is registered and loadable as a plugin."""
-        from datahub.ingestion.api.registry import PluginRegistry
+        from datahub.ingestion.api.source import Source
 
-        # Get the source registry
-        registry = PluginRegistry[type]()
-
-        # The s3 source should be available
-        s3_class = registry.get("s3")
+        # Get the source registry (the actual global registry, not an empty one)
+        s3_class = Source.get_class_from_name("s3")
         assert s3_class is not None
 
         # Verify it's the right class
@@ -179,6 +176,69 @@ class TestS3SlimNoPySpark:
         assert source is not None
 
         # Get workunits - should not raise any PySpark-related errors
+        workunits = list(source.get_workunits())
+        assert len(workunits) > 0
+
+
+@pytest.mark.integration
+class TestS3WithoutProfiling:
+    """Tests that verify S3 source works without profiling enabled.
+
+    These tests work regardless of whether PySpark is installed, since they
+    test the non-profiling code path which doesn't require PySpark.
+    """
+
+    def test_s3_config_accepts_profiling_enabled(self):
+        """Test that config accepts profiling=True for backward compatibility.
+
+        This test works regardless of PySpark installation since it only validates config.
+        The actual error occurs during source initialization, not config validation.
+        """
+        from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+
+        config_dict = {
+            "path_specs": [
+                {
+                    "include": "s3://test-bucket/data/*.csv",
+                }
+            ],
+            "profiling": {"enabled": True},
+        }
+
+        # Config validation should succeed regardless of PySpark availability
+        config = DataLakeSourceConfig.parse_obj(config_dict)
+        assert config is not None
+        assert config.profiling.enabled is True
+
+    def test_s3_source_works_without_profiling(self, tmp_path):
+        """Test that S3 source works correctly when profiling is disabled.
+
+        This test verifies that s3-slim functionality (no profiling) works
+        regardless of whether PySpark is installed.
+        """
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.source.s3.source import S3Source
+
+        # Create test CSV file
+        test_file = tmp_path / "test.csv"
+        test_file.write_text("id,name\n1,test\n2,sample\n")
+
+        config_dict = {
+            "path_specs": [
+                {
+                    "include": f"{tmp_path}/*.csv",
+                }
+            ],
+            "profiling": {"enabled": False},
+        }
+
+        ctx = PipelineContext(run_id="test-no-profiling")
+
+        # Should work without PySpark when profiling is disabled
+        source = S3Source.create(config_dict, ctx)
+        assert source is not None
+
+        # Should be able to generate workunits
         workunits = list(source.get_workunits())
         assert len(workunits) > 0
 
