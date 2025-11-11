@@ -1650,3 +1650,45 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **8dd6b6b8f9** - Move Ask DataHub doc into "Features"  (#15228)
   *by John Joyce on 2025-11-06*
 
+
+## Upstream Merge Session - 2025-11-11 00:00:08
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-11-11-000007`
+- **Merge Base**: `8dd6b6b8f917d636285a3949f827f51e3653a7e9`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 9
+- **Strategy**: stacked
+- **Started**: Tue Nov 11 00:00:08 UTC 2025
+
+### Commits Included in This Merge
+- **2885c6bf8e** - fix(system-update): fix opensearch event template index creation (#15231)
+  *by david-leifker on 2025-11-06*
+
+- **4e07bfa885** - feat(ui): add model signature table for mlmodel summary tab (#15205)
+  *by Hyejin Yoon on 2025-11-07*
+
+- **d9f151e3e1** - feat(spark): Add SQLJobFacet to column-level lineage transformations (#15232)
+  *by Anush Kumar on 2025-11-07*
+
+- **3728e0cc81** - Revert "fix(ingest/dremio): Fix platform_instance URN generation" (#15236)
+  *by Tamas Nemeth on 2025-11-07*
+
+- **e85f87679f** - security: Update GPG Key (#15239)
+  *by Esteban Gutierrez on 2025-11-07*
+
+- **e67f02c4e3** - fix(irc): add endpoints field in /v1/config response (#15245)
+  *by Chakru on 2025-11-08*
+
+- **860d758a78** - feat(ci): allow PRs from repo forks to use depot (#15243)
+  *by Chakru on 2025-11-08*
+
+- **390f0d834c** - Improve datahub-web-react build caching (#15256)
+  *by Chakru on 2025-11-10*
+
+- **84fe389fc8** - feat(dataset-summary): add summary tab on dataset entities (#15238)
+  *by Purnima Garg on 2025-11-10*
+
