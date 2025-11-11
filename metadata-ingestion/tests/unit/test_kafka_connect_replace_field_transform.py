@@ -453,7 +453,12 @@ def test_integration_with_fine_grained_lineage():
     mock_resolver = Mock()
     mock_resolver.resolve_table.return_value = (
         "urn:li:dataset:(urn:li:dataPlatform:postgres,public.users,PROD)",
-        ["user_id", "name", "email", "password"],  # Source columns
+        {  # SchemaInfo is Dict[str, str] mapping column names to types
+            "user_id": "INT",
+            "name": "VARCHAR",
+            "email": "VARCHAR",
+            "password": "VARCHAR",
+        },
     )
     connector.schema_resolver = mock_resolver
 
