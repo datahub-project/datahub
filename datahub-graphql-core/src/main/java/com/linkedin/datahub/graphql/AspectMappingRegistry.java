@@ -71,6 +71,10 @@ public class AspectMappingRegistry {
   /**
    * Get required aspects for the given fields on a type. Returns null if any field is unmapped
    * (fallback to all aspects).
+   *
+   * <p>This method filters the selection set to only include fields that directly belong to the
+   * specified type, regardless of where that type appears in the query tree. This allows it to work
+   * correctly for both top-level queries and nested entities (e.g., Dataset inside SearchResult).
    */
   @Nullable
   public Set<String> getRequiredAspects(
@@ -78,15 +82,17 @@ public class AspectMappingRegistry {
     Set<String> aspects = new HashSet<>();
 
     for (graphql.schema.SelectedField field : requestedFields) {
-      // Skip introspection and nested fields (with level > 2 since top level fields are level 2 ie.
-      // Dataset.urn)
-      // okay this doesn't actually work with nested fields we need for other resolvers.. will need
-      // to come back to this.
-      // for example a query with ownership on a dataset with user fields will look like this for
-      // the requestedFields:
-      // Dataset.ownership/Ownership.owners/Owner.owner/CorpUser.properties/CorpUserProperties.displayName
       String fieldName = field.getName();
-      if (fieldName.startsWith("__") || field.getLevel() > 2) {
+
+      // Skip introspection fields
+      if (fieldName.startsWith("__")) {
+        continue;
+      }
+
+      // Only process fields that belong to the target type
+      // getObjectTypeNames() returns the set of types this field belongs to (accounting for
+      // interfaces/unions)
+      if (!field.getObjectTypeNames().contains(typeName)) {
         continue;
       }
 
@@ -95,14 +101,16 @@ public class AspectMappingRegistry {
 
       if (fieldAspects != null) {
         aspects.addAll(fieldAspects);
+        log.debug("Field {} mapped to aspects: {}", key, fieldAspects);
       } else {
-        // Unmapped field - fallback to all aspects
+        // Unmapped field - fallback to all aspects to be conservative
         log.debug(
             "Field {} has no @aspectMapping or @noAspects directives, will fetch all aspects", key);
         return null;
       }
     }
 
+    log.debug("Computed required aspects for {}: {}", typeName, aspects);
     return aspects.isEmpty() ? Collections.emptySet() : aspects;
   }
 }

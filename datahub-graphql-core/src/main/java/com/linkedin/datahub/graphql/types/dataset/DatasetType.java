@@ -49,6 +49,7 @@ import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,7 +57,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class DatasetType
     implements SearchableEntityType<Dataset, String>,
         BrowsableEntityType<Dataset, String>,
@@ -138,18 +141,23 @@ public class DatasetType
       Set<String> aspectsToResolve = ASPECTS_TO_RESOLVE;
 
       if (context.getDataFetchingEnvironment() != null) {
-        // I can move this out of DatasetType at least into GmsGraphQLEngine and populate it the
-        // first time we get a query instead of on every query
+        // TODO: Optimize by creating AspectMappingRegistry once and reusing it
         AspectMappingRegistry aspectMappingRegistry =
             new AspectMappingRegistry(context.getDataFetchingEnvironment().getGraphQLSchema());
-        aspectsToResolve =
+        Set<String> requiredAspects =
             aspectMappingRegistry.getRequiredAspects(
                 "Dataset", context.getDataFetchingEnvironment().getSelectionSet().getFields());
-      }
 
-      if (aspectsToResolve != null) {
-        // always include the key aspect if we are selecting specific assets
-        aspectsToResolve.add(KEY_ASPECT);
+        if (requiredAspects != null) {
+          // Successfully determined required aspects - only fetch what's needed
+          aspectsToResolve = new HashSet<>(requiredAspects);
+          // Always include the key aspect
+          aspectsToResolve.add(KEY_ASPECT);
+        } else {
+          // Could not determine required aspects (unmapped field) - fetch all aspects to be safe
+          log.debug(
+              "Could not determine required aspects for Dataset, falling back to fetching all aspects");
+        }
       }
 
       final Map<Urn, EntityResponse> datasetMap =
