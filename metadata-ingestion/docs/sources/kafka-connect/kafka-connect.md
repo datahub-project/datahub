@@ -62,15 +62,19 @@ source:
     kafka_rest_endpoint: "https://pkc-xxxxx.region.provider.confluent.cloud"
 ```
 
-**Enhanced Transform Pipeline Support:**
-DataHub now provides comprehensive transform pipeline support for Confluent Cloud by:
+**How Lineage Inference Works with Transform Pipelines:**
 
-1. **Extracting source tables** from Cloud connector configuration (`table.include.list`, `query` modes)
-2. **Applying forward transforms** to predict expected topic names (RegexRouter, etc.)
-3. **Validating against cluster topics** using Kafka REST API v3 for accuracy
-4. **Auto-deriving REST endpoint** from connector configs when needed
-5. **Reusing Connect credentials** for Kafka API authentication (same API key/secret)
-6. **Graceful fallback** to config-based derivation if transforms fail
+Kafka Connect connectors can apply transforms (like RegexRouter) that modify topic names before data reaches Kafka. DataHub's lineage inference analyzes these transform configurations to determine how topics are produced:
+
+1. **Configuration Analysis** - Extracts source tables from connector configuration (`table.include.list`, `database.include.list`)
+2. **Transform Application** - Applies configured transforms (RegexRouter, EventRouter, etc.) to predict final topic names
+3. **Topic Validation** - Validates predicted topics against actual cluster topics using Kafka REST API v3
+4. **Lineage Construction** - Maps source tables to validated topics, preserving schema information
+
+This approach works for both self-hosted and Confluent Cloud environments:
+
+- **Self-hosted**: Uses runtime `/connectors/{name}/topics` API for actual topics produced by each connector
+- **Confluent Cloud**: Uses Kafka REST API v3 to get all cluster topics, then applies transform pipeline to match with connector config
 
 **Key Benefits**:
 

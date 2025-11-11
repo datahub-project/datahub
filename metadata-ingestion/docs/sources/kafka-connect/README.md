@@ -6,6 +6,18 @@ This plugin extracts the following:
 - For Source connectors - Data Jobs to represent lineage information between source dataset to Kafka topic per `{connector_name}:{source_dataset}` combination
 - For Sink connectors - Data Jobs to represent lineage information between Kafka topic to destination dataset per `{connector_name}:{topic}` combination
 
+### Requirements
+
+**Java Runtime Dependency:**
+
+This source requires Java to be installed and available on the system for transform pipeline support (RegexRouter, etc.). The Java runtime is accessed via JPype to enable Java regex pattern matching that's compatible with Kafka Connect transforms.
+
+- **Python installations**: Install Java separately (e.g., `apt-get install openjdk-11-jre-headless` on Debian/Ubuntu)
+- **Docker deployments**: Ensure your DataHub ingestion Docker image includes a Java runtime. The official DataHub images include Java by default.
+- **Impact**: Without Java, transform pipeline features will be disabled and lineage accuracy may be reduced for connectors using transforms
+
+**Note for Docker users**: If you're building custom Docker images for DataHub ingestion, ensure a Java Runtime Environment (JRE) is included in your image to support full transform pipeline functionality.
+
 ### Environment Support
 
 DataHub's Kafka Connect source supports both **self-hosted** and **Confluent Cloud** environments with automatic detection and environment-specific topic retrieval strategies:
@@ -56,8 +68,8 @@ DataHub supports different connector types with varying levels of lineage extrac
 | **Debezium DB2**<br/>`io.debezium.connector.db2.Db2Connector`                    | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Database → Topic CDC mapping   |
 | **Debezium MongoDB**<br/>`io.debezium.connector.mongodb.MongoDbConnector`        | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Collection → Topic CDC mapping |
 | **Debezium Vitess**<br/>`io.debezium.connector.vitess.VitessConnector`           | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Table → Topic CDC mapping      |
-| **MongoDB Source**<br/>`com.mongodb.kafka.connect.MongoSourceConnector`          | ✅ Full             | ❌ Manual               | Runtime API / Manual config | Collection → Topic mapping     |
-| **Generic Connectors**                                                           | ✅ Manual           | ✅ Manual               | User-defined mapping        | Custom lineage mapping         |
+| **MongoDB Source**<br/>`com.mongodb.kafka.connect.MongoSourceConnector`          | ✅ Full             | 🔧 Config Required      | Runtime API / Manual config | Collection → Topic mapping     |
+| **Generic Connectors**                                                           | 🔧 Config Required  | 🔧 Config Required      | User-defined mapping        | Custom lineage mapping         |
 
 ### Sink Connectors
 
@@ -74,7 +86,7 @@ DataHub supports different connector types with varying levels of lineage extrac
 
 - ✅ **Full**: Complete lineage extraction with accurate topic discovery
 - ✅ **Partial**: Lineage extraction supported but topic discovery may be limited (config-based only)
-- ❌ **Manual**: Requires `generic_connectors` configuration for lineage mapping
+- 🔧 **Config Required**: Requires `generic_connectors` configuration for lineage mapping
 
 ### Supported Transforms
 
