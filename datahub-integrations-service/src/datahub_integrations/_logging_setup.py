@@ -5,6 +5,8 @@ import sys
 from datahub.utilities.logging_manager import DATAHUB_PACKAGES
 from loguru import logger
 
+from datahub_integrations import is_dev_mode
+
 
 class InterceptHandler(logging.Handler):
     # Copied from the loguru documentation:
@@ -31,13 +33,14 @@ class InterceptHandler(logging.Handler):
 
 # Configure loguru for structured logging to prevent stack trace splitting
 logger.remove()  # Remove default handler
+dev_mode = is_dev_mode()
 logger.add(
     sink=sys.stderr,
-    serialize=True,  # JSON serialization keeps multi-line exceptions together
+    serialize=False if dev_mode else True,
     format="{time} {level} {name}:{function}:{line} - {message}",
     backtrace=True,
     diagnose=True,
-    level="DEBUG",  # Match loguru's default level
+    level="DEBUG",
 )
 
 logging.basicConfig(handlers=[InterceptHandler()], level=logging.INFO, force=True)
@@ -46,6 +49,5 @@ for package in [*DATAHUB_PACKAGES, "datahub_integrations"]:
 
 # When in asyncio debug mode, we do want to see warnings related to blocking the main thread.
 logging.getLogger("asyncio").setLevel(logging.WARNING)
-
 
 LOGGING_SETUP_COMPLETE = True
