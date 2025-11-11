@@ -474,6 +474,42 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.MLFEATURE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.STRUCTURED_PROPERTIES_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.STRUCTURED_PROPERTY;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DATA_PROCESS_INSTANCE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.DATA_PROCESS_INSTANCE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.NOTEBOOK_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.NOTEBOOK;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DATA_PRODUCT_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.DATA_PRODUCT;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.VERSION_SET_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.VERSION_SET;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.INGESTION_SOURCE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.INGESTION_SOURCE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.EXECUTION_REQUEST_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.EXECUTION_REQUEST;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.APPLICATION_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.APPLICATION;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.FORMS_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.FORM;
     } else {
       return null;
     }
