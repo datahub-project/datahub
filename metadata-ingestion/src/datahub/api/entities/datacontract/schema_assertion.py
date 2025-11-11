@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import List, Union
 
-from pydantic import Field, RootModel
+from pydantic import ConfigDict, Field, RootModel
 from typing_extensions import Literal
 
 from datahub.api.entities.datacontract.assertion import BaseAssertion
@@ -36,8 +36,7 @@ class JsonSchemaContract(BaseAssertion):
 
 
 class FieldListSchemaContract(BaseAssertion):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     type: Literal["field-list"]
 

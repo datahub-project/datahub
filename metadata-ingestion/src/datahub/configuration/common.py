@@ -155,15 +155,13 @@ class PermissiveConfigModel(ConfigModel):
     # but still allow the user to pass in arbitrary fields that we don't care about.
     # It is usually used for argument bags that are passed through to third-party libraries.
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class ConnectionModel(BaseModel):
     """Represents the config associated with a connection"""
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class TransformerSemantics(ConfigEnum):

@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from datahub_classify.helper_classes import ColumnInfo
 from datahub_classify.infotype_predictor import predict_infotypes
 from datahub_classify.reference_input import input1 as default_config
-from pydantic import field_validator
+from pydantic import ConfigDict, field_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
@@ -49,8 +49,7 @@ class ValuesFactorConfig(ConfigModel):
 
 
 class PredictionFactorsAndWeights(ConfigModel):
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     Name: float = Field(alias="name")
     Description: float = Field(alias="description")
@@ -59,8 +58,7 @@ class PredictionFactorsAndWeights(ConfigModel):
 
 
 class InfoTypeConfig(ConfigModel):
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     Prediction_Factors_and_Weights: PredictionFactorsAndWeights = Field(
         description="Factors and their weights to consider when predicting info types",
