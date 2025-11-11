@@ -64,8 +64,12 @@ describe("glossary sidebar navigation test", () => {
 
   it("create term and term parent group, move and delete term group", () => {
     nevigateGlossaryPage();
-    cy.clickOptionWithTestId("add-term-group-button-v2");
+    cy.get("#create-glossary-object-button").click();
+    // cy.clickOptionWithTestId("add-term-group-button-v2");
     cy.waitTextVisible("Create Glossary");
+    cy.get(".ant-dropdown-menu-title-content")
+      .contains("Create Glossary")
+      .click();
     cy.enterTextInTestId(
       "create-glossary-entity-modal-name",
       glossaryTermGroup,
@@ -144,6 +148,7 @@ describe("glossary sidebar navigation test", () => {
     cy.clickOptionWithText(glossaryParentGroup);
     cy.clickOptionWithText(glossaryTermGroup);
     deleteGlossary("Deleted Term Group!");
+    nevigateGlossaryPage();
 
     // Ensure it is no longer in the sidebar navigator
     nevigateGlossaryPage();

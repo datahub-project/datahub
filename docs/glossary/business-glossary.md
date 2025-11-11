@@ -108,6 +108,113 @@ In the modal that pops up you can select the Term you care about in one of two w
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/add-term-modal.png"/>
 </p>
 
+## Importing Glossary Terms via CSV
+
+You can bulk import glossary terms and term groups using a CSV file. This is useful for:
+
+- Migrating glossaries from other systems
+- Bulk creating terms and term groups
+- Managing glossary structure in spreadsheets
+
+### Accessing the Import Feature
+
+1. Navigate to **Govern** > **Glossary**
+2. Click the menu dots (⋮) in the top right
+3. Select **Import CSV**
+4. Upload your CSV file
+5. Review the imported entities
+6. Click **Import** to complete the process
+
+### CSV Format
+
+The CSV file must include the following columns. All columns except `entity_type` and `name` are optional:
+
+| Column              | Required | Description                                                                                    | Example                               |
+| ------------------- | -------- | ---------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `entity_type`       | Yes      | Either `glossaryTerm` or `glossaryNode`                                                        | `glossaryTerm`                        |
+| `urn`               | No       | Entity URN. If provided, used to identify/update existing entities. If omitted, auto-generated | `urn:li:glossaryTerm:abc123`          |
+| `name`              | Yes      | Name of the term or term group                                                                 | `Customer ID`                         |
+| `description`       | No       | Description/definition                                                                         | `Unique identifier for each customer` |
+| `term_source`       | No       | `INTERNAL` or `EXTERNAL` (for terms only)                                                      | `INTERNAL`                            |
+| `source_ref`        | No       | Reference to external source                                                                   | `DataHub`                             |
+| `source_url`        | No       | URL to external definition                                                                     | `https://example.com`                 |
+| `ownership_users`   | No       | Format: `user:type\|user:type`                                                                 | `admin:DEVELOPER`                     |
+| `ownership_groups`  | No       | Format: `group:type\|group:type`                                                               | `datahub:Technical Owner`             |
+| `parent_nodes`      | No       | Comma-separated parent names                                                                   | `Business Terms`                      |
+| `related_contains`  | No       | Comma-separated related terms                                                                  | `Term1,Term2`                         |
+| `related_inherits`  | No       | Comma-separated inherited terms                                                                | `Term1,Term2`                         |
+| `domain_urn`        | No       | Domain URN                                                                                     | `urn:li:domain:Engineering`           |
+| `domain_name`       | No       | Domain name                                                                                    | `Engineering`                         |
+| `custom_properties` | No       | Format: `key1:value1,key2:value2`                                                              | `data_type:Report,domain:Clinical`    |
+
+### Custom Properties Format
+
+Custom properties should use the simple key-value format for easier editing in spreadsheet applications:
+
+```
+key1:value1,key2:value2
+```
+
+**Example:**
+
+```
+data_type:Report,domain:Clinical
+```
+
+### Ownership Format
+
+Ownership fields use the format `owner:ownershipType`. Multiple owners are separated by pipe (`|`):
+
+- **Users**: `username:ownershipType|username2:ownershipType`
+- **Groups**: `groupname:ownershipType|groupname2:ownershipType`
+
+**Example:**
+
+```
+admin:DEVELOPER|jdoe:BUSINESS_OWNER
+```
+
+Common ownership types include: `DEVELOPER`, `BUSINESS_OWNER`, `DATAOWNER`, `TECHNICAL_OWNER`, `CUSTOM`, etc.
+
+### URNs (Uniform Resource Names)
+
+The `urn` column is optional but useful in several scenarios:
+
+- **Updating Existing Entities**: If you provide the URN of an existing term or node, the import will update that entity instead of creating a new one.
+- **Maintaining Stable Identifiers**: When migrating from other systems, you can preserve URNs to maintain references.
+- **Auto-Generation**: If you omit the `urn` column or leave it empty, DataHub will automatically generate a GUID-based URN (e.g., `urn:li:glossaryTerm:550e8400-e29b-41d4-a716-446655440000`).
+
+**URN Format:**
+
+- Terms: `urn:li:glossaryTerm:<identifier>`
+- Nodes: `urn:li:glossaryNode:<identifier>`
+
+**When to Use URNs:**
+
+- **Include URNs** when updating existing entities or maintaining stable references
+- **Omit URNs** when creating new entities (they will be auto-generated)
+
+### Example CSV
+
+```csv
+entity_type,urn,name,description,term_source,ownership_users,parent_nodes,custom_properties
+glossaryNode,,Business Terms,,,datahub:Technical Owner,,
+glossaryTerm,,Customer ID,Unique identifier for each customer,INTERNAL,admin:DEVELOPER,Business Terms,data_type:Identifier
+glossaryTerm,,Customer Name,Full name of the customer,INTERNAL,admin:DEVELOPER,Business Terms,data_type:Text
+glossaryTerm,,Imaging Reports,Results and interpretations from medical imaging studies,INTERNAL,admin:DEVELOPER,,data_type:Report,domain:Clinical
+```
+
+**Note**: The `urn` column is shown empty in this example, which means URNs will be auto-generated. To update existing entities, include their URNs in this column.
+
+### Tips for CSV Import
+
+1. **URNs**: Include the `urn` column when updating existing entities. Omit it (or leave empty) for new entities to get auto-generated URNs.
+2. **Parent Nodes**: Reference parent nodes by their name (not URN). The system will resolve the hierarchy automatically.
+3. **Empty Fields**: Leave fields empty if you don't need to set them. Only `entity_type` and `name` are required.
+4. **Hierarchy**: Create parent nodes before creating terms that reference them, or include both in the same CSV file.
+5. **Validation**: The import page will show validation errors and warnings before you commit the import.
+6. **Updates**: If a term or node with the same name already exists (or you provide a URN), you'll see a comparison view to review changes before importing.
+
 ## Privileges
 
 Glossary Terms and Term Groups abide by metadata policies like other entities. However, there are two special privileges provided for configuring privileges within your Business Glossary.

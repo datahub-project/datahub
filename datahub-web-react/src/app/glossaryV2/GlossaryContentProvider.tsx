@@ -1,10 +1,13 @@
-import { Button } from '@components';
+import { FileTextOutlined, FolderOutlined, UploadOutlined } from '@ant-design/icons';
+import { Button, Dropdown } from '@components';
+import { MenuProps } from 'antd';
 import React from 'react';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
 import GlossaryEntitiesList from '@app/glossaryV2/GlossaryEntitiesList';
-import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
+import { PageRoutes } from '@conf/Global';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 
 import { GlossaryNodeFragment } from '@graphql/fragments.generated';
@@ -55,6 +58,29 @@ const GlossaryContentProvider = (props: Props) => {
         nodesLoading,
     } = props;
 
+    const history = useHistory();
+
+    const dropdownItems: MenuProps['items'] = [
+        {
+            key: 'create-group',
+            label: 'Create Glossary',
+            icon: <FolderOutlined />,
+            onClick: () => setIsCreateNodeModalVisible(true),
+        },
+        {
+            key: 'create-term',
+            label: 'Create Term',
+            icon: <FileTextOutlined />,
+            onClick: () => setIsCreateTermModalVisible(true),
+        },
+        {
+            key: 'import',
+            label: 'Import CSV',
+            icon: <UploadOutlined />,
+            onClick: () => history.push(PageRoutes.GLOSSARY_IMPORT),
+        },
+    ];
+
     return (
         <MainContentWrapper data-testid="glossary-entities-list">
             <HeaderWrapper data-testid="glossaryPageV2">
@@ -63,16 +89,18 @@ const GlossaryContentProvider = (props: Props) => {
                     subTitle="Classify your data assets and columns using data dictionaries"
                 />
                 <ButtonContainer>
-                    <Button
-                        data-testid="add-term-group-button-v2"
-                        id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
-                        size="md"
-                        icon={{ icon: 'Add', source: 'material' }}
-                        // can not be disabled on acryl-main due to ability to propose
-                        onClick={() => setIsCreateNodeModalVisible(true)}
-                    >
-                        Create Glossary
-                    </Button>
+                    <Dropdown menu={{ items: dropdownItems }} trigger={['click']} placement="bottomRight">
+                        <Button
+                            id="create-glossary-object-button"
+                            data-testid="create-glossary-object-button"
+                            name="Create"
+                            size="md"
+                            icon={{ icon: 'Add', source: 'material' }}
+                            // can not be disabled on acryl-main due to ability to propose
+                        >
+                            Create Glossary
+                        </Button>
+                    </Dropdown>
                 </ButtonContainer>
             </HeaderWrapper>
             <ListWrapper>
