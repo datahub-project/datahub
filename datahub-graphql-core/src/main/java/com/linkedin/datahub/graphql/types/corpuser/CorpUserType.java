@@ -86,22 +86,6 @@ public class CorpUserType
       final List<Urn> corpUserUrns =
           urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
-      Set<String> aspectsToResolve = null;
-      if (context.getDataFetchingEnvironment() != null) {
-        // I can move this out of DatasetType at least into GmsGraphQLEngine and populate it the
-        // first time we get a query instead of on every query
-        AspectMappingRegistry aspectMappingRegistry =
-            new AspectMappingRegistry(context.getDataFetchingEnvironment().getGraphQLSchema());
-        aspectsToResolve =
-            aspectMappingRegistry.getRequiredAspects(
-                "CorpUser", context.getDataFetchingEnvironment().getSelectionSet().getFields());
-      }
-
-      System.out.println("~~~~~~~~~~~~~~~~~~~~aspectsToResolve - corpuser~~~~~~~~~~~~~~~~~~~~");
-      System.out.println(context.getDataFetchingEnvironment().getSelectionSet().getFields());
-      System.out.println(aspectsToResolve);
-      System.out.println("~~~~~~~~~~~~~~~~~~~~aspectsToResolve - corpuser~~~~~~~~~~~~~~~~~~~~");
-
       final Map<Urn, EntityResponse> corpUserMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

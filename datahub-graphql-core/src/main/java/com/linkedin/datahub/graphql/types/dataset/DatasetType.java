@@ -102,6 +102,9 @@ public class DatasetType
   private static final String ENTITY_NAME = "dataset";
   private static final String KEY_ASPECT = "datasetKey";
 
+  // Cache the AspectMappingRegistry to avoid recreating it on every request
+  private static volatile AspectMappingRegistry cachedAspectMappingRegistry = null;
+
   private final EntityClient entityClient;
 
   public DatasetType(final EntityClient entityClient) {
@@ -141,11 +144,20 @@ public class DatasetType
       Set<String> aspectsToResolve = ASPECTS_TO_RESOLVE;
 
       if (context.getDataFetchingEnvironment() != null) {
-        // TODO: Optimize by creating AspectMappingRegistry once and reusing it
-        AspectMappingRegistry aspectMappingRegistry =
-            new AspectMappingRegistry(context.getDataFetchingEnvironment().getGraphQLSchema());
+        // Lazily initialize and cache the AspectMappingRegistry
+        if (cachedAspectMappingRegistry == null) {
+          synchronized (DatasetType.class) {
+            if (cachedAspectMappingRegistry == null) {
+              cachedAspectMappingRegistry =
+                  new AspectMappingRegistry(
+                      context.getDataFetchingEnvironment().getGraphQLSchema());
+              log.info("Initialized AspectMappingRegistry for Dataset aspect optimization");
+            }
+          }
+        }
+
         Set<String> requiredAspects =
-            aspectMappingRegistry.getRequiredAspects(
+            cachedAspectMappingRegistry.getRequiredAspects(
                 "Dataset", context.getDataFetchingEnvironment().getSelectionSet().getFields());
 
         if (requiredAspects != null) {
@@ -153,10 +165,7 @@ public class DatasetType
           aspectsToResolve = new HashSet<>(requiredAspects);
           // Always include the key aspect
           aspectsToResolve.add(KEY_ASPECT);
-        } else {
-          // Could not determine required aspects (unmapped field) - fetch all aspects to be safe
-          log.debug(
-              "Could not determine required aspects for Dataset, falling back to fetching all aspects");
+          log.info("Fetching optimized aspect set for Dataset: {}", aspectsToResolve);
         }
       }
 
