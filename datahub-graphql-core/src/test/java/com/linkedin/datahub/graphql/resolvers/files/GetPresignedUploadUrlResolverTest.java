@@ -768,4 +768,179 @@ public class GetPresignedUploadUrlResolverTest {
     assertEquals(result.getFileId(), extractedFileId);
     assertTrue(result.getFileId().contains(testFileName));
   }
+
+  @Test
+  public void testGetPresignedUploadUrlWithAssetDocumentationLinksScenario() throws Exception {
+    String testFileName = "my_test_file.pdf";
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS,
+            TEST_ASSET_URN,
+            null,
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME),
+            s3KeyCaptor.capture(),
+            eq(TEST_EXPIRATION_SECONDS),
+            eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
+
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+    assertNotNull(result.getFileId());
+
+    // Verify that asset documentation authorization is called for ASSET_DOCUMENTATION_LINKS
+    // scenario
+    descriptionUtilsMockedStatic.verify(
+        () ->
+            DescriptionUtils.isAuthorizedToUpdateDescription(
+                any(QueryContext.class), any(Urn.class)));
+
+    String capturedS3Key = s3KeyCaptor.getValue();
+    assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
+
+    // Extract fileId from s3Key
+    String expectedFileIdPrefix = TEST_ASSET_PATH_PREFIX + "/";
+    String extractedFileId = capturedS3Key.substring(expectedFileIdPrefix.length());
+
+    assertEquals(result.getFileId(), extractedFileId);
+    assertTrue(result.getFileId().contains(testFileName));
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithAssetDocumentationLinksScenarioAndSchemaField()
+      throws Exception {
+    String testFileName = "my_test_file.pdf";
+    String schemaFieldUrn =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my-dataset,PROD),myField)";
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS,
+            TEST_ASSET_URN,
+            schemaFieldUrn,
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME),
+            s3KeyCaptor.capture(),
+            eq(TEST_EXPIRATION_SECONDS),
+            eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
+
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+    assertNotNull(result.getFileId());
+
+    // Verify that schema field documentation authorization is called for ASSET_DOCUMENTATION_LINKS
+    // scenario
+    // when schema field URN is provided
+    descriptionUtilsMockedStatic.verify(
+        () ->
+            DescriptionUtils.isAuthorizedToUpdateFieldDescription(
+                any(QueryContext.class), any(Urn.class)));
+
+    String capturedS3Key = s3KeyCaptor.getValue();
+    assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
+
+    // Extract fileId from s3Key
+    String expectedFileIdPrefix = TEST_ASSET_PATH_PREFIX + "/";
+    String extractedFileId = capturedS3Key.substring(expectedFileIdPrefix.length());
+
+    assertEquals(result.getFileId(), extractedFileId);
+    assertTrue(result.getFileId().contains(testFileName));
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithNullAssetUrnForAssetDocumentationLinks()
+      throws Exception {
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS,
+            null,
+            null,
+            TEST_CONTENT_TYPE,
+            "test.png");
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+    assertThrows(
+        "assetUrn is required for ASSET_DOCUMENTATION scenario",
+        IllegalArgumentException.class,
+        () -> resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithAssetDocumentationLinksScenarioAuthorizationFailure()
+      throws Exception {
+    String testFileName = "my_test_file.pdf";
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS,
+            TEST_ASSET_URN,
+            null,
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    // Mock asset description authorization to return false
+    descriptionUtilsMockedStatic
+        .when(
+            () ->
+                DescriptionUtils.isAuthorizedToUpdateDescription(
+                    any(QueryContext.class), any(Urn.class)))
+        .thenReturn(false);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+    assertThrows(
+        "Unauthorized to edit documentation for asset: " + TEST_ASSET_URN,
+        AuthorizationException.class,
+        () -> resolver.get(mockEnv).get());
+  }
 }

@@ -81,6 +81,10 @@ public class GetPresignedUploadUrlResolver
     if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION) {
       validateInputForAssetDocumentationScenario(context, input);
     }
+
+    if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS) {
+      validateInputForAssetDocumentationScenario(context, input);
+    }
   }
 
   private void validateInputForAssetDocumentationScenario(
@@ -119,8 +123,12 @@ public class GetPresignedUploadUrlResolver
 
     if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION) {
       return String.format("%s/%s", s3Configuration.getAssetPathPrefix(), fileId);
-    } else {
-      throw new IllegalArgumentException("Unsupported upload scenario: " + scenario);
     }
+
+    if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS) {
+      return String.format("%s/%s", s3Configuration.getAssetPathPrefix(), fileId);
+    }
+
+    throw new IllegalArgumentException("Unsupported upload scenario: " + scenario);
   }
 }
