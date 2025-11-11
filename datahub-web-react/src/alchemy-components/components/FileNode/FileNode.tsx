@@ -3,10 +3,7 @@ import { Typography } from 'antd';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
-import {
-    getExtensionFromFileName,
-    getFileNameFromUrl,
-} from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
+import { getExtensionFromFileName } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileIcon } from '@components/components/FileNode/FileIcon';
 import { FileNodeProps } from '@components/components/FileNode/types';
 import { getFontSize } from '@components/theme/utils';
@@ -94,7 +91,7 @@ export function FileNode({
             <Container $border={border} className={className} $fontSize={fontSize}>
                 <FileDetails>
                     <Loading height={18} width={20} marginTop={0} />
-                    <FileName ellipsis={{ tooltip: name }}>Uploading {name}...</FileName>
+                    <FileName ellipsis={{ tooltip: fileName }}>Uploading {fileName}...</FileName>
                 </FileDetails>
             </Container>
         );

@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { FileNode } from './FileNode';
+import { FileNode } from '@components/components/FileNode/FileNode';
 
 const meta = {
     title: 'Components / FileNode',
@@ -14,7 +14,8 @@ const meta = {
         layout: 'centered',
         badges: [BADGE.STABLE],
         docs: {
-            subtitle: 'FileNode displays a file with its icon, name, and optional actions like closing or custom right content.',
+            subtitle:
+                'FileNode displays a file with its icon, name, and optional actions like closing or custom right content.',
         },
     },
 
@@ -100,53 +101,35 @@ export const withFileName = () => (
 
 export const loadingState = () => (
     <GridList>
-        <FileNode fileName="document.pdf" loading={true} />
+        <FileNode fileName="document.pdf" loading />
     </GridList>
 );
 
 export const withBorder = () => (
     <GridList>
-        <FileNode fileName="document.pdf" border={true} />
-        <FileNode fileName="presentation.pptx" border={true} />
+        <FileNode fileName="document.pdf" border />
+        <FileNode fileName="presentation.pptx" border />
     </GridList>
 );
 
 export const withCloseButton = () => (
     <GridList>
-        <FileNode 
-            fileName="document.pdf" 
-            onClose={() => console.log('Document closed')} 
-        />
-        <FileNode 
-            fileName="presentation.pptx" 
-            onClose={() => console.log('Presentation closed')} 
-        />
+        <FileNode fileName="document.pdf" onClose={() => console.log('Document closed')} />
+        <FileNode fileName="presentation.pptx" onClose={() => console.log('Presentation closed')} />
     </GridList>
 );
 
 export const withOnClick = () => (
     <GridList>
-        <FileNode 
-            fileName="document.pdf" 
-            onClick={() => console.log('Document clicked')} 
-        />
-        <FileNode 
-            fileName="presentation.pptx" 
-            onClick={() => console.log('Presentation clicked')} 
-        />
+        <FileNode fileName="document.pdf" onClick={() => console.log('Document clicked')} />
+        <FileNode fileName="presentation.pptx" onClick={() => console.log('Presentation clicked')} />
     </GridList>
 );
 
 export const withExtraRightContent = () => (
     <GridList>
-        <FileNode 
-            fileName="document.pdf" 
-            extraRightContent={<span style={{ color: 'green' }}>✓</span>}
-        />
-        <FileNode 
-            fileName="presentation.pptx" 
-            extraRightContent={<span style={{ color: 'blue' }}>!</span>}
-        />
+        <FileNode fileName="document.pdf" extraRightContent={<span style={{ color: 'green' }}>✓</span>} />
+        <FileNode fileName="presentation.pptx" extraRightContent={<span style={{ color: 'blue' }}>!</span>} />
     </GridList>
 );
 

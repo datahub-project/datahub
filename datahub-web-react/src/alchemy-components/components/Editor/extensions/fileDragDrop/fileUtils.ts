@@ -243,7 +243,6 @@ export const handleFileDownload = (url: string, name: string): void => {
  * @returns true if the URL is a file URL
  */
 export const isFileUrl = (url: string): boolean => {
-    return true;
     return url.includes('/openapi/v1/'); // Our internal file API
 };
 

@@ -4,11 +4,11 @@ import styled from 'styled-components';
 
 import { getFileNameFromUrl } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileNode } from '@components/components/FileNode/FileNode';
-
-import { FileDragAndDropArea } from '@app/entityV2/shared/components/styled/LinkFormModal/FileDragAndDropArea';
-import { LinkFormData, LinkFormVariant } from '@app/entityV2/summary/links/types';
 import { FontSizeOptions } from '@components/theme/config';
-import { useUploadFileHandler } from './useUploadFileHandler';
+
+import { FileDragAndDropArea } from '@app/entityV2/summary/links/FileDragAndDropArea';
+import { LinkFormData, LinkFormVariant } from '@app/entityV2/summary/links/types';
+import { useUploadFileHandler } from '@app/entityV2/summary/links/useUploadFileHandler';
 
 const StyledFileDragAndDropArea = styled(FileDragAndDropArea)``;
 
@@ -90,13 +90,7 @@ export function UploadFileForm({ initialValues, fontSize: _fontSize }: Props) {
             >
                 {shouldShowDragAndDropArea && <StyledFileDragAndDropArea onFilesUpload={onFilesUpload} />}
                 {!shouldShowDragAndDropArea && (
-                    <FileNode
-                        fileName={fileName}
-                        onClose={onFileRemove}
-                        loading={isFileUploading}
-                        size="md"
-                        border
-                    />
+                    <FileNode fileName={fileName} onClose={onFileRemove} loading={isFileUploading} size="md" border />
                 )}
                 <input type="text" hidden />
             </Form.Item>

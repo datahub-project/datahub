@@ -5,7 +5,7 @@ import { GeneralizedLinkFormData, LinkFormData, LinkFormVariant } from '@app/ent
 import { InstitutionalMemoryMetadata } from '@types';
 
 export function getInitialLinkFormDataFromInstitutionMemory(
-    institutionalMemoryMetadata: InstitutionalMemoryMetadata | null | undefined,
+    institutionalMemoryMetadata: Partial<InstitutionalMemoryMetadata> | null | undefined,
     isDocumentationFileUploadV1Enabled?: boolean,
 ): Partial<LinkFormData> {
     const url = institutionalMemoryMetadata?.url;

@@ -5,6 +5,7 @@ import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { LinkFormVariant } from '@app/entityV2/summary/links/types';
 import { useLinkUtils } from '@app/entityV2/summary/links/useLinkUtils';
 
 import { EntityType } from '@types';
@@ -29,19 +30,35 @@ vi.mock('@graphql/mutations.generated', () => ({
     useUpdateLinkMutation: () => [updateLinkMutationMock],
 }));
 
-vi.mock('antd', () => ({
-    message: {
-        success: vi.fn(),
-        error: vi.fn(),
-        destroy: vi.fn(),
-    },
-}));
+vi.mock('antd', async (importOriginal) => {
+    const original = await importOriginal<any>();
+    return {
+        ...original,
+        message: {
+            success: vi.fn(),
+            error: vi.fn(),
+            destroy: vi.fn(),
+        },
+        Form: {
+            ...original.Form,
+            useForm: vi.fn(),
+        },
+    };
+});
 
 vi.mock('@app/analytics', () => ({
     __esModule: true,
     default: { event: vi.fn() },
     EventType: { EntityActionEvent: 'EntityActionEvent' },
     EntityActionType: { UpdateLinks: 'UpdateLinks' },
+}));
+
+vi.mock('@app/entityV2/summary/links/utils', () => ({
+    getGeneralizedLinkFormDataFromFormData: vi.fn((data) => ({
+        url: data.variant === 'uploadFile' ? data.fileUrl : data.url,
+        label: data.label,
+        showInAssetPreview: data.showInAssetPreview,
+    })),
 }));
 
 // Helpers
@@ -130,7 +147,13 @@ describe('useLinkUtils', () => {
             addLinkMutationMock.mockResolvedValueOnce({});
             const { result } = renderHook(() => useLinkUtils());
             await act(async () => {
-                await result.current.handleAddLink({ url: 'http://test-add.com', label: 'Added Link' });
+                await result.current.handleAddLink({
+                    url: 'http://test-add.com',
+                    label: 'Added Link',
+                    variant: LinkFormVariant.URL,
+                    fileUrl: '',
+                    showInAssetPreview: false,
+                });
             });
             expect(addLinkMutationMock).toHaveBeenCalledWith({
                 variables: {
@@ -160,7 +183,13 @@ describe('useLinkUtils', () => {
             addLinkMutationMock.mockRejectedValueOnce(new Error('Create error'));
             const { result } = renderHook(() => useLinkUtils());
             await act(async () => {
-                await result.current.handleAddLink({ url: 'bad-add-url', label: 'Bad' });
+                await result.current.handleAddLink({
+                    url: 'bad-add-url',
+                    label: 'Bad',
+                    variant: LinkFormVariant.URL,
+                    fileUrl: '',
+                    showInAssetPreview: false,
+                });
             });
             expect(message.destroy).toHaveBeenCalled();
             expect(message.error).toHaveBeenCalledWith({
@@ -175,7 +204,13 @@ describe('useLinkUtils', () => {
             const { refetch } = mockEntityContext();
             updateLinkMutationMock.mockResolvedValueOnce({});
             const selectedLink = { ...baseLink };
-            const newData = { url: 'http://new.com', label: 'New Label' };
+            const newData = {
+                url: 'http://new.com',
+                label: 'New Label',
+                variant: LinkFormVariant.URL,
+                fileUrl: '',
+                showInAssetPreview: false,
+            };
             const { result } = renderHook(() => useLinkUtils(selectedLink));
             await act(async () => {
                 await result.current.handleUpdateLink(newData);
@@ -204,7 +239,13 @@ describe('useLinkUtils', () => {
             const selectedLink = { ...baseLink };
             const { result } = renderHook(() => useLinkUtils(selectedLink));
             await act(async () => {
-                await result.current.handleUpdateLink({ url: 'fail-url', label: 'fail-label' });
+                await result.current.handleUpdateLink({
+                    url: 'fail-url',
+                    label: 'fail-label',
+                    variant: LinkFormVariant.URL,
+                    fileUrl: '',
+                    showInAssetPreview: false,
+                });
             });
             expect(message.destroy).toHaveBeenCalled();
             expect(message.error).toHaveBeenCalledWith({
@@ -218,7 +259,13 @@ describe('useLinkUtils', () => {
             mockEntityContext();
             const { result } = renderHook(() => useLinkUtils(null));
             await act(async () => {
-                await result.current.handleUpdateLink({ url: 'some-url', label: 'some-label' });
+                await result.current.handleUpdateLink({
+                    url: 'some-url',
+                    label: 'some-label',
+                    variant: LinkFormVariant.URL,
+                    fileUrl: '',
+                    showInAssetPreview: false,
+                });
             });
             expect(updateLinkMutationMock).not.toHaveBeenCalled();
             expect(message.success).not.toHaveBeenCalled();

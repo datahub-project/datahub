@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
+import { getFileIconFromExtension } from '@components/components/FileNode/utils';
 import { Icon } from '@components/components/Icon';
-
-import { getFileIconFromExtension } from './utils';
 
 const StyledIcon = styled(Icon)`
     flex-shrink: 0;
