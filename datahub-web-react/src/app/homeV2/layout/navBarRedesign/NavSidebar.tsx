@@ -37,8 +37,6 @@ import {
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
-import { hasSeenRecommendedUsers } from '@app/identity/user/recommendedUsersLocalStorage';
-import { useRecommendedUsersCount } from '@app/identity/user/useRecommendedUsersCount';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ZendeskWidget } from '@app/shared/ZendeskWidget';
@@ -51,6 +49,7 @@ import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/Global
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
 import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateEducationStepsAllowList';
+import { NAV_SIDEBAR_ID, NAV_SIDEBAR_WIDTH_COLLAPSED, NAV_SIDEBAR_WIDTH_EXPANDED } from '@src/app/shared/constants';
 import { useIsHomePage } from '@src/app/shared/useIsHomePage';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
@@ -73,7 +72,7 @@ const Content = styled.div<{ isCollapsed: boolean }>`
     flex-direction: column;
     padding: 17px 8px 17px 16px;
     height: 100%;
-    width: ${(props) => (props.isCollapsed ? '60px' : '264px')};
+    width: ${(props) => (props.isCollapsed ? `${NAV_SIDEBAR_WIDTH_COLLAPSED}px` : `${NAV_SIDEBAR_WIDTH_EXPANDED}px`)};
     transition: width 250ms ease-in-out;
     overflow-x: hidden;
 `;
@@ -161,13 +160,6 @@ export const NavSidebar = () => {
     const {
         state: { unfinishedTaskCount },
     } = userContext;
-
-    // Check for recommended users to show "New" badge on Settings
-    // Only query if user has identity management permissions
-    const canManageIdentities = me?.platformPrivileges?.manageIdentities || false;
-    const { recommendedUsersCount } = useRecommendedUsersCount({ skip: !canManageIdentities });
-    const hasSeenRecommendations = hasSeenRecommendedUsers();
-    const showSettingsBadge = recommendedUsersCount > 0 && !hasSeenRecommendations;
 
     const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
         title: value.label,
@@ -372,11 +364,6 @@ export const NavSidebar = () => {
                 selectedIcon: <Gear weight="fill" />,
                 key: 'settings',
                 link: '/settings',
-                badge: {
-                    label: 'New',
-                    show: showSettingsBadge,
-                    showDot: true, // Show blue dot in left nav
-                },
             },
             {
                 type: NavBarMenuItemTypes.Dropdown,
@@ -498,7 +485,7 @@ export const NavSidebar = () => {
         <SidebarWidthProvider isCollapsed={isCollapsed}>
             <Container>
                 {renderSvgSelectedGradientForReusingInIcons()}
-                <Content isCollapsed={isCollapsed}>
+                <Content id={NAV_SIDEBAR_ID} data-collapsed={isCollapsed} isCollapsed={isCollapsed}>
                     {showSkeleton ? (
                         <NavSkeleton isCollapsed={isCollapsed} />
                     ) : (
