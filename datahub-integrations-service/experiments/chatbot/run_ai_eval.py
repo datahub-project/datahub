@@ -1,5 +1,8 @@
 from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 
+import os
+import platform
+import socket
 from typing import List, Optional
 
 import asyncer
@@ -195,6 +198,14 @@ def run_ai_evaluation(run_name: str, run_description: Optional[str] = None) -> N
         # Log current file as artifact
         mlflow.log_artifact(__file__)
         mlflow.set_tag("evaluation_type", "ai_judge")
+
+        # Tag run with machine/environment metadata for debugging and tracking
+        mlflow.set_tags({
+            "machine.hostname": socket.gethostname(),
+            "machine.user": os.getenv("USER") or os.getenv("USERNAME") or "unknown",
+            "machine.os": f"{platform.system()} {platform.release()}",
+            "machine.python_version": platform.python_version(),
+        })
 
         # Log parameters including AI judge model and original run parameters
         mlflow.log_params(

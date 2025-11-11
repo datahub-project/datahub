@@ -1,15 +1,46 @@
-import mlflow
-import pandas as pd
 import json
+import os
 from pathlib import Path
 
-mlflow.set_tracking_uri('http://localhost:9090')
+import mlflow
+import pandas as pd
+from dotenv import load_dotenv
+
+# Load .env configuration
+env_path = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
+# Set up MLflow tracking URI from environment
+tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:9090")
+print(f"Using MLflow tracking URI: {tracking_uri}")
+
+# Import sagemaker plugin if using ARN
+if tracking_uri.startswith("arn:aws:sagemaker"):
+    import sagemaker_mlflow
+    print(f"Using AWS profile: {os.getenv('AWS_PROFILE', 'default')}")
+
+mlflow.set_tracking_uri(tracking_uri)
 client = mlflow.MlflowClient()
+
+# Run names are hardcoded here (intentional - helps remember which baseline we're using)
+# Update these when you want to compare different runs
+current_run_name = 'ai_eval_angry-stork-265'
+baseline_run_name = 'ai_eval_wise-hare-663'  # Baseline copied from local server
+
+print(f"Comparing: {current_run_name} (current) vs {baseline_run_name} (baseline)")
 
 # Get AI eval runs
 all_runs = mlflow.search_runs(experiment_names=['Chatbot'], max_results=500)
-ai_eval_current = all_runs[all_runs['tags.mlflow.runName'] == 'ai_eval_wise-hare-663']
-ai_eval_baseline = all_runs[all_runs['tags.mlflow.runName'] == 'ai_eval_wise-hare-663']
+ai_eval_current = all_runs[all_runs['tags.mlflow.runName'] == current_run_name]
+ai_eval_baseline = all_runs[all_runs['tags.mlflow.runName'] == baseline_run_name]
+
+if len(ai_eval_current) == 0:
+    raise ValueError(f"Current run not found: {current_run_name}")
+if len(ai_eval_baseline) == 0:
+    raise ValueError(f"Baseline run not found: {baseline_run_name}")
+
+print(f"✓ Found current run: {current_run_name}")
+print(f"✓ Found baseline run: {baseline_run_name}")
 
 # Get run metadata for metrics
 current_run = ai_eval_current.iloc[0]
@@ -77,12 +108,13 @@ if len(fixed) > 0:
     print(f"Fixed prompt IDs: {list(fixed.index[:5])}")
 
 # Write markdown report
-output_path = Path('runs/eval_comparison_wise-hare-663_vs_wise-hare-663.md')
+output_path = Path(f'runs/eval_comparison_{current_run_name}_vs_{baseline_run_name}.md')
+output_path.parent.mkdir(exist_ok=True)
 
 with open(output_path, 'w') as f:
-    f.write(f"# Evaluation Comparison: wise-hare-663 vs wise-hare-663\n\n")
-    f.write(f"**Current Run:** wise-hare-663\n")
-    f.write(f"**Baseline Run:** wise-hare-663 (NEW BASELINE)\n\n")
+    f.write(f"# Evaluation Comparison: {current_run_name} vs {baseline_run_name}\n\n")
+    f.write(f"**Current Run:** {current_run_name}\n")
+    f.write(f"**Baseline Run:** {baseline_run_name}\n\n")
     
     f.write(f"## Summary\n\n")
     f.write(f"- **New failures:** {len(new_failures)} prompts (passed in baseline → failed in current)\n")

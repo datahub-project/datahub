@@ -41,8 +41,8 @@ dependencies = [
 	# AI.
 	"tenacity",
 	"boto3",
-	"mlflow-skinny==2.22.0",
-	"sagemaker-mlflow==0.1.0",
+	"mlflow-skinny>=3.0.0,<4.0.0",
+	"sagemaker-mlflow==0.1.1",  # Latest version for improved compatibility
 	"requests-auth-aws-sigv4==0.7",
 	"cryptography==42.0.5",
 	"pyOpenSSL==24.1.0",

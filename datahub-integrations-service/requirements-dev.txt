@@ -631,7 +631,6 @@ jinja2==3.1.3
     #   altair
     #   flask
     #   litellm
-    #   mlflow
     #   nbconvert
     #   pydeck
 jiter==0.10.0
@@ -721,10 +720,6 @@ mako==1.3.10
     # via
     #   -r requirements.txt
     #   alembic
-markdown==3.9
-    # via
-    #   -r requirements.txt
-    #   mlflow
 markdown-it-py==3.0.0
     # via
     #   -r requirements.txt
@@ -766,12 +761,12 @@ mixpanel==4.10.1
     # via
     #   -r requirements.txt
     #   acryl-datahub
-mlflow==2.22.0
+mlflow==3.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   sagemaker-mlflow
-mlflow-skinny==2.22.0
+mlflow-skinny==3.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
@@ -1262,7 +1257,7 @@ s3transfer==0.13.0
     # via
     #   -r requirements.txt
     #   boto3
-sagemaker-mlflow==0.1.0
+sagemaker-mlflow==0.1.1
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
