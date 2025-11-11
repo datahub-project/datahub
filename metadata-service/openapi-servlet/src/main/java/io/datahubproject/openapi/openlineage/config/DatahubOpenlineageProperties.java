@@ -17,6 +17,7 @@ public class DatahubOpenlineageProperties {
   // Platform configuration
   private String platformInstance;
   private String commonDatasetPlatformInstance;
+  private String commonDatasetEnv;
   private String platform;
 
   // Dataset path configuration

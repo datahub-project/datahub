@@ -24,6 +24,7 @@ public class DatahubOpenlineageConfig {
   // Platform configuration
   private final String platformInstance;
   private final String commonDatasetPlatformInstance;
+  private final String commonDatasetEnv;
   private final String platform;
 
   // Spark-specific configuration

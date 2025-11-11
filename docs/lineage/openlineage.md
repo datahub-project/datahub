@@ -90,9 +90,10 @@ The DataHub OpenLineage integration can be configured using environment variable
 
 | Environment Variable                                   | Property                                               | Type    | Default | Description                                                                                                       |
 | ------------------------------------------------------ | ------------------------------------------------------ | ------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
-| `DATAHUB_OPENLINEAGE_ENV`                              | `datahub.openlineage.env`                              | String  | `PROD`  | Environment/fabric type for all ingested entities (see valid values below)                                        |
+| `DATAHUB_OPENLINEAGE_ENV`                              | `datahub.openlineage.env`                              | String  | `PROD`  | Environment for DataFlow cluster and Dataset fabricType (see valid values below)                                  |
 | `DATAHUB_OPENLINEAGE_ORCHESTRATOR`                     | `datahub.openlineage.orchestrator`                     | String  | `null`  | Orchestrator name for DataFlow entities. When set, takes precedence over processing_engine facet and producer URL |
-| `DATAHUB_OPENLINEAGE_PLATFORM_INSTANCE`                | `datahub.openlineage.platform-instance`                | String  | `null`  | Platform instance identifier for the orchestrator                                                                 |
+| `DATAHUB_OPENLINEAGE_PLATFORM_INSTANCE`                | `datahub.openlineage.platform-instance`                | String  | `null`  | Override DataFlow cluster (defaults to env if not specified)                                                      |
+| `DATAHUB_OPENLINEAGE_COMMON_DATASET_ENV`               | `datahub.openlineage.common-dataset-env`               | String  | `null`  | Override Dataset environment independently from DataFlow cluster                                                  |
 | `DATAHUB_OPENLINEAGE_COMMON_DATASET_PLATFORM_INSTANCE` | `datahub.openlineage.common-dataset-platform-instance` | String  | `null`  | Common platform instance for dataset entities                                                                     |
 | `DATAHUB_OPENLINEAGE_MATERIALIZE_DATASET`              | `datahub.openlineage.materialize-dataset`              | Boolean | `true`  | Whether to materialize dataset entities                                                                           |
 | `DATAHUB_OPENLINEAGE_INCLUDE_SCHEMA_METADATA`          | `datahub.openlineage.include-schema-metadata`          | Boolean | `true`  | Whether to include schema metadata in lineage                                                                     |
@@ -102,26 +103,51 @@ The DataHub OpenLineage integration can be configured using environment variable
 
 > **Valid `env` values**: `PROD`, `DEV`, `TEST`, `QA`, `UAT`, `EI`, `PRE`, `STG`, `NON_PROD`, `CORP`, `RVW`, `PRD`, `TST`, `SIT`, `SBX`, `SANDBOX`
 >
-> **Note**: The `env` property matches the naming convention used in Spark configuration (`spark.datahub.metadata.dataset.env`) for consistency across DataHub integrations.
+> **How `env` works**:
+>
+> - **By default**, `env` sets both the DataFlow cluster and Dataset fabricType for simplicity
+> - **For advanced scenarios**, use `platform-instance` to override the DataFlow cluster or `common-dataset-env` to override the Dataset environment independently
+>
+> **Note**: The `env` property naming matches DataHub SDK conventions where `env` is the user-facing parameter that internally maps to the URN `cluster` field.
 
 ##### Usage Examples
 
 **Setting Environment and Orchestrator**
 
-Configure the fabric type and orchestrator for different deployment scenarios:
+_Simple Configuration (Recommended):_
+
+For most use cases, set `env` to configure both DataFlow and Datasets:
 
 ```bash
-# For a DEV environment
+# Development environment - sets DataFlow cluster to "dev" and Dataset fabricType to DEV
 DATAHUB_OPENLINEAGE_ENV=DEV
 DATAHUB_OPENLINEAGE_ORCHESTRATOR=my-orchestrator
 
-# For a production environment
+# Production environment - sets DataFlow cluster to "prod" and Dataset fabricType to PROD
 DATAHUB_OPENLINEAGE_ENV=PROD
 DATAHUB_OPENLINEAGE_ORCHESTRATOR=dagster
 
-# For staging environment with custom orchestrator
+# Staging environment
 DATAHUB_OPENLINEAGE_ENV=STG
 DATAHUB_OPENLINEAGE_ORCHESTRATOR=custom-pipeline
+```
+
+_Advanced Configuration (Multi-Region/Complex Deployments):_
+
+Override DataFlow cluster or Dataset environment independently:
+
+```bash
+# DataFlow in specific regional cluster, but datasets marked as generic PROD
+DATAHUB_OPENLINEAGE_ENV=PROD
+DATAHUB_OPENLINEAGE_PLATFORM_INSTANCE=prod-us-west-2  # DataFlow cluster override
+
+# Test pipeline against DEV data (cross-environment testing)
+DATAHUB_OPENLINEAGE_ENV=PROD                    # DataFlow cluster: prod
+DATAHUB_OPENLINEAGE_COMMON_DATASET_ENV=DEV      # Dataset fabricType: DEV
+
+# Blue-green deployment
+DATAHUB_OPENLINEAGE_ENV=PROD
+DATAHUB_OPENLINEAGE_PLATFORM_INSTANCE=prod-blue  # or prod-green
 ```
 
 **Using Application Properties**

@@ -149,6 +149,82 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
     }
   }
 
+  /** Test that env sets both DataFlow cluster and Dataset fabricType by default */
+  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigEnvSetsCluster.class})
+  @TestPropertySource(properties = {"datahub.openlineage.env=DEV"})
+  public static class EnvSetsClusterTest extends AbstractTestNGSpringContextTests {
+
+    @Autowired private RunEventMapper.MappingConfig mappingConfig;
+
+    @Test
+    public void testEnvSetsCluster() {
+      assertNotNull(mappingConfig);
+      DatahubOpenlineageConfig config = mappingConfig.getDatahubConfig();
+      assertNotNull(config);
+
+      // Env should set Dataset fabricType
+      assertEquals(config.getFabricType(), FabricType.DEV);
+
+      // Env should also set DataFlow cluster (via platformInstance)
+      assertEquals(
+          config.getPlatformInstance(), "dev", "env should default DataFlow cluster to 'dev'");
+    }
+  }
+
+  /** Test that platformInstance overrides env for DataFlow cluster */
+  @SpringBootTest(
+      classes = {OpenLineageServletConfig.class, TestConfigPlatformInstanceOverride.class})
+  @TestPropertySource(
+      properties = {
+        "datahub.openlineage.env=PROD",
+        "datahub.openlineage.platform-instance=prod-us-west-2"
+      })
+  public static class PlatformInstanceOverrideTest extends AbstractTestNGSpringContextTests {
+
+    @Autowired private RunEventMapper.MappingConfig mappingConfig;
+
+    @Test
+    public void testPlatformInstanceOverride() {
+      assertNotNull(mappingConfig);
+      DatahubOpenlineageConfig config = mappingConfig.getDatahubConfig();
+      assertNotNull(config);
+
+      // Dataset should use PROD
+      assertEquals(config.getFabricType(), FabricType.PROD);
+
+      // DataFlow cluster should use the override
+      assertEquals(
+          config.getPlatformInstance(),
+          "prod-us-west-2",
+          "platformInstance should override env for DataFlow cluster");
+    }
+  }
+
+  /** Test that commonDatasetEnv overrides env for Dataset fabricType */
+  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigCommonDatasetEnv.class})
+  @TestPropertySource(
+      properties = {"datahub.openlineage.env=PROD", "datahub.openlineage.common-dataset-env=DEV"})
+  public static class CommonDatasetEnvTest extends AbstractTestNGSpringContextTests {
+
+    @Autowired private RunEventMapper.MappingConfig mappingConfig;
+
+    @Test
+    public void testCommonDatasetEnv() {
+      assertNotNull(mappingConfig);
+      DatahubOpenlineageConfig config = mappingConfig.getDatahubConfig();
+      assertNotNull(config);
+
+      // Dataset should use DEV (override)
+      assertEquals(config.getFabricType(), FabricType.DEV);
+
+      // DataFlow cluster should use prod (from env)
+      assertEquals(config.getPlatformInstance(), "prod", "DataFlow cluster should use env");
+
+      // Config should have commonDatasetEnv set
+      assertEquals(config.getCommonDatasetEnv(), "DEV");
+    }
+  }
+
   // Test configuration classes - each needs to provide DatahubOpenlineageProperties bean
   @Configuration
   static class TestConfigDev {
@@ -220,6 +296,38 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
     public DatahubOpenlineageProperties datahubOpenlineageProperties() {
       DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
       props.setEnv("stg"); // lowercase
+      return props;
+    }
+  }
+
+  @Configuration
+  static class TestConfigEnvSetsCluster {
+    @Bean
+    public DatahubOpenlineageProperties datahubOpenlineageProperties() {
+      DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
+      props.setEnv("DEV");
+      return props;
+    }
+  }
+
+  @Configuration
+  static class TestConfigPlatformInstanceOverride {
+    @Bean
+    public DatahubOpenlineageProperties datahubOpenlineageProperties() {
+      DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
+      props.setEnv("PROD");
+      props.setPlatformInstance("prod-us-west-2");
+      return props;
+    }
+  }
+
+  @Configuration
+  static class TestConfigCommonDatasetEnv {
+    @Bean
+    public DatahubOpenlineageProperties datahubOpenlineageProperties() {
+      DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
+      props.setEnv("PROD");
+      props.setCommonDatasetEnv("DEV");
       return props;
     }
   }
