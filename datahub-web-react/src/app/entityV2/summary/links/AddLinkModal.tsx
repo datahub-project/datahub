@@ -2,6 +2,7 @@ import { useForm } from 'antd/lib/form/Form';
 import React from 'react';
 
 import AddEditLinkModal from '@app/entityV2/summary/links/AddEditLinkModal';
+import { LinkFormData } from '@app/entityV2/summary/links/types';
 import { useLinkUtils } from '@app/entityV2/summary/links/useLinkUtils';
 
 type Props = {
@@ -9,7 +10,7 @@ type Props = {
 };
 
 export default function AddLinkModal({ setShowAddLinkModal }: Props) {
-    const [form] = useForm();
+    const [form] = useForm<LinkFormData>();
     const { handleAddLink, showInAssetPreview, setShowInAssetPreview } = useLinkUtils();
 
     const handleClose = () => {

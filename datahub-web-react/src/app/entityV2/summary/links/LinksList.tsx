@@ -5,7 +5,10 @@ import styled from 'styled-components';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import AddEditLinkModal from '@app/entityV2/summary/links/AddEditLinkModal';
 import LinkItem from '@app/entityV2/summary/links/LinkItem';
+import { LinkFormData } from '@app/entityV2/summary/links/types';
 import { useLinkUtils } from '@app/entityV2/summary/links/useLinkUtils';
+import { getInitialLinkFormDataFromInstitutionMemory } from '@app/entityV2/summary/links/utils';
+import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -18,6 +21,7 @@ const ListContainer = styled.div`
 `;
 
 export default function LinksList() {
+    const isDocumentationFileUploadV1Enabled = useIsDocumentationFileUploadV1Enabled();
     const { entityData } = useEntityData();
     const links = entityData?.institutionalMemory?.elements || [];
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
@@ -26,7 +30,7 @@ export default function LinksList() {
 
     const { handleDeleteLink, handleUpdateLink, showInAssetPreview, setShowInAssetPreview } =
         useLinkUtils(selectedLink);
-    const [form] = useForm();
+    const [form] = useForm<LinkFormData>();
 
     useEffect(() => {
         if (showEditLinkModal) {
@@ -95,11 +99,10 @@ export default function LinksList() {
                 <AddEditLinkModal
                     variant="update"
                     form={form}
-                    initialValues={{
-                        url: selectedLink?.url,
-                        label: selectedLink?.label || selectedLink?.description,
-                        showInAssetPreview: selectedLink?.settings?.showInAssetPreview,
-                    }}
+                    initialValues={getInitialLinkFormDataFromInstitutionMemory(
+                        selectedLink,
+                        isDocumentationFileUploadV1Enabled,
+                    )}
                     onClose={handleCloseUpdate}
                     onSubmit={handleUpdate}
                     showInAssetPreview={showInAssetPreview}
