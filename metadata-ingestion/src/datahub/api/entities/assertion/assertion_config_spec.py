@@ -1,13 +1,14 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 from ruamel.yaml import YAML
 from typing_extensions import Literal
 
 from datahub.api.entities.assertion.datahub_assertion import DataHubAssertion
+from datahub.configuration.common import ConfigModel
 
 
-class AssertionsConfigSpec(BaseModel):
+class AssertionsConfigSpec(ConfigModel):
     """
     Declarative configuration specification for datahub assertions.
 
@@ -17,8 +18,6 @@ class AssertionsConfigSpec(BaseModel):
     Currently, this is converted into series of assertion MCPs that can be emitted to DataHub.
     In future, this would invoke datahub GraphQL API to upsert assertions.
     """
-
-    model_config = {"extra": "forbid"}
 
     version: Literal[1]
 

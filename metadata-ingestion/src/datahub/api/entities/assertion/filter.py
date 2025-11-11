@@ -1,10 +1,9 @@
-from pydantic import BaseModel
 from typing_extensions import Literal
 
+from datahub.configuration.common import ConfigModel
 
-class SqlFilter(BaseModel):
-    model_config = {"extra": "forbid"}
 
+class SqlFilter(ConfigModel):
     type: Literal["sql"]
     sql: str
 

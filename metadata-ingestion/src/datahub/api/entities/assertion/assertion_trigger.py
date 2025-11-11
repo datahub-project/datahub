@@ -2,13 +2,13 @@ from datetime import timedelta
 from typing import Union
 
 import humanfriendly
-from pydantic import BaseModel, Field, RootModel, field_validator
+from pydantic import Field, RootModel, field_validator
 from typing_extensions import Literal
 
+from datahub.configuration.common import ConfigModel
 
-class CronTrigger(BaseModel):
-    model_config = {"extra": "forbid"}
 
+class CronTrigger(ConfigModel):
     type: Literal["cron"]
     cron: str = Field(
         description="The cron expression to use. See https://crontab.guru/ for help."
@@ -19,9 +19,7 @@ class CronTrigger(BaseModel):
     )
 
 
-class IntervalTrigger(BaseModel):
-    model_config = {"extra": "forbid"}
-
+class IntervalTrigger(ConfigModel):
     type: Literal["interval"]
     interval: timedelta
 
@@ -34,15 +32,11 @@ class IntervalTrigger(BaseModel):
         raise ValueError("Invalid value.")
 
 
-class EntityChangeTrigger(BaseModel):
-    model_config = {"extra": "forbid"}
-
+class EntityChangeTrigger(ConfigModel):
     type: Literal["on_table_change"]
 
 
-class ManualTrigger(BaseModel):
-    model_config = {"extra": "forbid"}
-
+class ManualTrigger(ConfigModel):
     type: Literal["manual"]
 
 

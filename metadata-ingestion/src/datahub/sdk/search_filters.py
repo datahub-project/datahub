@@ -3,7 +3,6 @@ from __future__ import annotations
 import abc
 import json
 from typing import (
-    TYPE_CHECKING,
     Annotated,
     Any,
     ClassVar,
@@ -509,9 +508,23 @@ def _parse_and_like_filter(value: Any) -> Any:
     return value
 
 
-if TYPE_CHECKING:
-    # Simple union for type checking (mypy)
-    Filter = Union[
+# Pydantic v2's "smart union" matching will automatically discriminate based on unique fields.
+# Note: We could use explicit Discriminator/Tag (available in Pydantic 2.4+) for slightly
+# better performance, but the simple union approach works well across all Pydantic v2 versions.
+
+
+def _parse_json_from_string(value: Any) -> Any:
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    else:
+        return value
+
+
+Filter = Annotated[
+    Union[
         _And,
         _Or,
         _Not,
@@ -526,47 +539,15 @@ if TYPE_CHECKING:
         _GlossaryTermFilter,
         _TagFilter,
         _CustomCondition,
-    ]
-else:
-    # Runtime union with validators
-    # Pydantic v2's "smart union" matching will automatically discriminate based on unique fields.
-    # Note: We could use explicit Discriminator/Tag (available in Pydantic 2.4+) for slightly
-    # better performance, but the simple union approach works well across all Pydantic v2 versions.
+    ],
+    pydantic.BeforeValidator(_parse_and_like_filter),
+    pydantic.BeforeValidator(_parse_json_from_string),
+]
 
-    def _parse_json_from_string(value: Any) -> Any:
-        if isinstance(value, str):
-            try:
-                return json.loads(value)
-            except json.JSONDecodeError:
-                return value
-        else:
-            return value
-
-    Filter = Annotated[
-        Union[
-            _And,
-            _Or,
-            _Not,
-            _EntityTypeFilter,
-            _EntitySubtypeFilter,
-            _StatusFilter,
-            _PlatformFilter,
-            _DomainFilter,
-            _ContainerFilter,
-            _EnvFilter,
-            _OwnerFilter,
-            _GlossaryTermFilter,
-            _TagFilter,
-            _CustomCondition,
-        ],
-        pydantic.BeforeValidator(_parse_and_like_filter),
-        pydantic.BeforeValidator(_parse_json_from_string),
-    ]
-
-    # Required to resolve forward references to "Filter"
-    _And.model_rebuild()  # type: ignore
-    _Or.model_rebuild()  # type: ignore
-    _Not.model_rebuild()  # type: ignore
+# Required to resolve forward references to "Filter"
+_And.model_rebuild()  # type: ignore
+_Or.model_rebuild()  # type: ignore
+_Not.model_rebuild()  # type: ignore
 
 
 def load_filters(obj: Any) -> Filter:

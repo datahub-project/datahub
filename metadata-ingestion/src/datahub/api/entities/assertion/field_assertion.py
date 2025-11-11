@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 from typing_extensions import Literal
 
 from datahub.api.entities.assertion.assertion import (
@@ -11,6 +11,7 @@ from datahub.api.entities.assertion.assertion_operator import Operators
 from datahub.api.entities.assertion.assertion_trigger import AssertionTrigger
 from datahub.api.entities.assertion.field_metric import FieldMetric
 from datahub.api.entities.assertion.filter import DatasetFilter
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionInfo,
@@ -29,9 +30,7 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class FieldValuesFailThreshold(BaseModel):
-    model_config = {"extra": "forbid"}
-
+class FieldValuesFailThreshold(ConfigModel):
     type: Literal["count", "percentage"] = Field(default="count")
     value: int = Field(default=0)
 

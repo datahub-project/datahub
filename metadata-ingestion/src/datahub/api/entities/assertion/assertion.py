@@ -1,15 +1,14 @@
 from abc import abstractmethod
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from datahub.api.entities.assertion.assertion_trigger import AssertionTrigger
+from datahub.configuration.common import ConfigModel
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionInfo
 
 
-class BaseAssertionProtocol(BaseModel):
-    model_config = {"extra": "forbid"}
-
+class BaseAssertionProtocol(ConfigModel):
     @abstractmethod
     def get_id(self) -> str:
         pass
@@ -27,9 +26,7 @@ class BaseAssertionProtocol(BaseModel):
         pass
 
 
-class BaseAssertion(BaseModel):
-    model_config = {"extra": "forbid"}
-
+class BaseAssertion(ConfigModel):
     id_raw: Optional[str] = Field(
         default=None,
         description="The raw id of the assertion."

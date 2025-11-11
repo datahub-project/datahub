@@ -1,7 +1,7 @@
 import collections
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 from ruamel.yaml import YAML
 from typing_extensions import Literal
 
@@ -11,6 +11,7 @@ from datahub.api.entities.datacontract.data_quality_assertion import (
 )
 from datahub.api.entities.datacontract.freshness_assertion import FreshnessAssertion
 from datahub.api.entities.datacontract.schema_assertion import SchemaAssertion
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import datahub_guid, make_assertion_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -27,15 +28,13 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.urn import guess_entity_type
 
 
-class DataContract(BaseModel):
+class DataContract(ConfigModel):
     """A yml representation of a Data Contract.
 
     This model is used as a simpler, Python-native representation of a DataHub data contract.
     It can be easily parsed from a YAML file, and can be easily converted into series of MCPs
     that can be emitted to DataHub.
     """
-
-    model_config = {"extra": "forbid"}
 
     version: Literal[1]
 
