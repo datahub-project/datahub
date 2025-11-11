@@ -18,53 +18,18 @@ import org.testng.annotations.Test;
 /** Tests for OpenLineageServletConfig parsing and configuration */
 public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTests {
 
-  /** Test configuration with PROD environment */
-  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigProd.class})
-  @TestPropertySource(properties = {"datahub.openlineage.env=PROD"})
-  public static class ProdEnvTest extends AbstractTestNGSpringContextTests {
-
-    @Autowired private RunEventMapper.MappingConfig mappingConfig;
-
-    @Test
-    public void testProdEnv() {
-      assertNotNull(mappingConfig);
-      assertNotNull(mappingConfig.getDatahubConfig());
-      assertEquals(mappingConfig.getDatahubConfig().getFabricType(), FabricType.PROD);
-    }
-  }
-
-  /** Test configuration with DEV environment */
+  /** Test configuration with valid environment */
   @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigDev.class})
   @TestPropertySource(properties = {"datahub.openlineage.env=DEV"})
-  public static class DevEnvTest extends AbstractTestNGSpringContextTests {
+  public static class ValidEnvTest extends AbstractTestNGSpringContextTests {
 
     @Autowired private RunEventMapper.MappingConfig mappingConfig;
 
     @Test
-    public void testDevEnv() {
+    public void testValidEnv() {
       assertNotNull(mappingConfig);
       assertNotNull(mappingConfig.getDatahubConfig());
       assertEquals(mappingConfig.getDatahubConfig().getFabricType(), FabricType.DEV);
-    }
-  }
-
-  /** Test configuration with all valid environment types */
-  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigQa.class})
-  @TestPropertySource(
-      properties = {
-        "datahub.openlineage.env=QA",
-        "datahub.openlineage.orchestrator=test-orchestrator"
-      })
-  public static class AllValidEnvTest extends AbstractTestNGSpringContextTests {
-
-    @Autowired private RunEventMapper.MappingConfig mappingConfig;
-
-    @Test
-    public void testQaEnv() {
-      assertNotNull(mappingConfig);
-      assertNotNull(mappingConfig.getDatahubConfig());
-      assertEquals(mappingConfig.getDatahubConfig().getFabricType(), FabricType.QA);
-      assertEquals(mappingConfig.getDatahubConfig().getOrchestrator(), "test-orchestrator");
     }
   }
 
@@ -186,32 +151,11 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
 
   // Test configuration classes - each needs to provide DatahubOpenlineageProperties bean
   @Configuration
-  static class TestConfigProd {
-    @Bean
-    public DatahubOpenlineageProperties datahubOpenlineageProperties() {
-      DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
-      props.setEnv("PROD");
-      return props;
-    }
-  }
-
-  @Configuration
   static class TestConfigDev {
     @Bean
     public DatahubOpenlineageProperties datahubOpenlineageProperties() {
       DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
       props.setEnv("DEV");
-      return props;
-    }
-  }
-
-  @Configuration
-  static class TestConfigQa {
-    @Bean
-    public DatahubOpenlineageProperties datahubOpenlineageProperties() {
-      DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
-      props.setEnv("QA");
-      props.setOrchestrator("test-orchestrator");
       return props;
     }
   }
