@@ -42,7 +42,7 @@ const CloseButton = styled(Button)`
 `;
 
 const FileName = styled(Typography.Text)`
-    color: ${({ theme }) => theme.styles['primary-color']};
+    color: ${({ theme }) => theme?.styles?.['primary-color'] ?? colors.violet[500]};
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
