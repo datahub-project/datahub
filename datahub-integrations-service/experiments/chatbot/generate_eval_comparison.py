@@ -8,8 +8,8 @@ client = mlflow.MlflowClient()
 
 # Get AI eval runs
 all_runs = mlflow.search_runs(experiment_names=['Chatbot'], max_results=500)
-ai_eval_current = all_runs[all_runs['tags.mlflow.runName'] == 'ai_eval_victorious-loon-783']
-ai_eval_baseline = all_runs[all_runs['tags.mlflow.runName'] == 'ai_eval_secretive-bug-772']
+ai_eval_current = all_runs[all_runs['tags.mlflow.runName'] == 'ai_eval_wise-hare-663']
+ai_eval_baseline = all_runs[all_runs['tags.mlflow.runName'] == 'ai_eval_wise-hare-663']
 
 # Get run metadata for metrics
 current_run = ai_eval_current.iloc[0]
@@ -77,12 +77,12 @@ if len(fixed) > 0:
     print(f"Fixed prompt IDs: {list(fixed.index[:5])}")
 
 # Write markdown report
-output_path = Path('runs/eval_comparison_victorious-loon-783_vs_secretive-bug-772.md')
+output_path = Path('runs/eval_comparison_wise-hare-663_vs_wise-hare-663.md')
 
 with open(output_path, 'w') as f:
-    f.write(f"# Evaluation Comparison: victorious-loon-783 vs secretive-bug-772\n\n")
-    f.write(f"**Current Run:** victorious-loon-783\n")
-    f.write(f"**Baseline Run:** secretive-bug-772\n\n")
+    f.write(f"# Evaluation Comparison: wise-hare-663 vs wise-hare-663\n\n")
+    f.write(f"**Current Run:** wise-hare-663\n")
+    f.write(f"**Baseline Run:** wise-hare-663 (NEW BASELINE)\n\n")
     
     f.write(f"## Summary\n\n")
     f.write(f"- **New failures:** {len(new_failures)} prompts (passed in baseline → failed in current)\n")
