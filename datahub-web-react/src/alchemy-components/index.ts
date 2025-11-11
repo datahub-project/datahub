@@ -16,6 +16,7 @@ export * from './components/ColorPicker';
 export * from './components/DatePicker';
 export * from './components/Drawer';
 export * from './components/Dropdown';
+export * from './components/FileNode';
 export * from './components/GraphCard';
 export * from './components/Heading';
 export * from './components/Icon';
