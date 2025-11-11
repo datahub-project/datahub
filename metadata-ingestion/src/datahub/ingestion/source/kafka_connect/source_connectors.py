@@ -8,8 +8,11 @@ from sqlalchemy.engine.url import make_url
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
     CONNECTOR_CLASS,
+    DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER,
     KAFKA,
     SNOWFLAKE_SOURCE_CLOUD,
+    KNOWN_TOPIC_ROUTING_TRANSFORMS,
+    REGEXROUTER_TRANSFORM,
     BaseConnector,
     ConnectorManifest,
     KafkaConnectLineage,
@@ -19,11 +22,6 @@ from datahub.ingestion.source.kafka_connect.common import (
     remove_prefix,
     unquote,
     validate_jdbc_url,
-)
-from datahub.ingestion.source.kafka_connect.connector_constants import (
-    DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER,
-    KNOWN_TOPIC_ROUTING_TRANSFORMS,
-    REGEXROUTER_TRANSFORM,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
