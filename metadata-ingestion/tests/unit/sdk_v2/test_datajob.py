@@ -117,7 +117,10 @@ def test_datajob_complex() -> None:
     assert job.platform == DataPlatformUrn("airflow")
     assert job.platform_instance == flow.platform_instance
     assert job.platform_instance == DataPlatformInstanceUrn("airflow", "my_instance")
-    assert job.browse_path == [flow.urn]
+    assert job.browse_path == [
+        DataPlatformInstanceUrn("airflow", "my_instance"),
+        flow.urn,
+    ]
 
     # Validate golden file
     assert_entity_golden(job, GOLDEN_DIR / "test_datajob_complex_golden.json")
