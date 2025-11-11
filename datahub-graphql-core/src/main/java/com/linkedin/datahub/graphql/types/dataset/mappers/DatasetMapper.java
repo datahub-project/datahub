@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.AssetSettingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
@@ -65,6 +66,7 @@ import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.settings.asset.AssetSettings;
 import com.linkedin.structured.StructuredProperties;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -209,6 +211,10 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
                         logicalParent ->
                             UrnToEntityMapper.map(context, logicalParent.getDestinationUrn()))
                     .orElse(null)));
+    mappingHelper.mapToResult(
+        ASSET_SETTINGS_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);
