@@ -11,9 +11,9 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput;
@@ -138,31 +138,10 @@ public class DatasetType
       @Nonnull final List<String> urnStrs, @Nonnull final QueryContext context) {
     try {
       final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-      Set<String> aspectsToResolve = ASPECTS_TO_RESOLVE;
 
-      // Use the AspectMappingRegistry from the context to determine required aspects
-      if (context.getDataFetchingEnvironment() != null
-          && context.getAspectMappingRegistry() != null) {
-        Set<String> requiredAspects =
-            context
-                .getAspectMappingRegistry()
-                .getRequiredAspects(
-                    "Dataset", context.getDataFetchingEnvironment().getSelectionSet().getFields());
-
-        if (requiredAspects != null) {
-          // Successfully determined required aspects - only fetch what's needed
-          aspectsToResolve = new HashSet<>(requiredAspects);
-          // Always include the key aspect
-          aspectsToResolve.add(KEY_ASPECT);
-          log.info("Fetching optimized aspect set for Dataset: {}", aspectsToResolve);
-        } else {
-          log.debug(
-              "Could not determine required aspects for Dataset, falling back to fetching all aspects");
-        }
-      } else {
-        log.debug(
-            "DataFetchingEnvironment or AspectMappingRegistry not available, fetching all aspects for Dataset");
-      }
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(context, "Dataset", ASPECTS_TO_RESOLVE, KEY_ASPECT);
 
       final Map<Urn, EntityResponse> datasetMap =
           entityClient.batchGetV2(
