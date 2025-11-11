@@ -53,4 +53,21 @@ public interface QueryContext {
    * @param environment the DataFetchingEnvironment to associate with this context
    */
   void setDataFetchingEnvironment(@Nullable DataFetchingEnvironment environment);
+
+  /**
+   * Returns the {@link AspectMappingRegistry} for optimizing aspect fetching based on GraphQL
+   * field selections.
+   *
+   * @return the AspectMappingRegistry, or null if not available
+   */
+  @Nullable
+  AspectMappingRegistry getAspectMappingRegistry();
+
+  /**
+   * Sets the {@link AspectMappingRegistry} for this context. This is typically called during
+   * context initialization.
+   *
+   * @param aspectMappingRegistry the AspectMappingRegistry to use
+   */
+  void setAspectMappingRegistry(@Nullable AspectMappingRegistry aspectMappingRegistry);
 }

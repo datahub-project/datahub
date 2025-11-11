@@ -102,9 +102,6 @@ public class DatasetType
   private static final String ENTITY_NAME = "dataset";
   private static final String KEY_ASPECT = "datasetKey";
 
-  // Cache the AspectMappingRegistry to avoid recreating it on every request
-  private static volatile AspectMappingRegistry cachedAspectMappingRegistry = null;
-
   private final EntityClient entityClient;
 
   public DatasetType(final EntityClient entityClient) {
@@ -143,22 +140,14 @@ public class DatasetType
       final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
       Set<String> aspectsToResolve = ASPECTS_TO_RESOLVE;
 
-      if (context.getDataFetchingEnvironment() != null) {
-        // Lazily initialize and cache the AspectMappingRegistry
-        if (cachedAspectMappingRegistry == null) {
-          synchronized (DatasetType.class) {
-            if (cachedAspectMappingRegistry == null) {
-              cachedAspectMappingRegistry =
-                  new AspectMappingRegistry(
-                      context.getDataFetchingEnvironment().getGraphQLSchema());
-              log.info("Initialized AspectMappingRegistry for Dataset aspect optimization");
-            }
-          }
-        }
-
+      // Use the AspectMappingRegistry from the context to determine required aspects
+      if (context.getDataFetchingEnvironment() != null
+          && context.getAspectMappingRegistry() != null) {
         Set<String> requiredAspects =
-            cachedAspectMappingRegistry.getRequiredAspects(
-                "Dataset", context.getDataFetchingEnvironment().getSelectionSet().getFields());
+            context
+                .getAspectMappingRegistry()
+                .getRequiredAspects(
+                    "Dataset", context.getDataFetchingEnvironment().getSelectionSet().getFields());
 
         if (requiredAspects != null) {
           // Successfully determined required aspects - only fetch what's needed
@@ -166,7 +155,13 @@ public class DatasetType
           // Always include the key aspect
           aspectsToResolve.add(KEY_ASPECT);
           log.info("Fetching optimized aspect set for Dataset: {}", aspectsToResolve);
+        } else {
+          log.debug(
+              "Could not determine required aspects for Dataset, falling back to fetching all aspects");
         }
+      } else {
+        log.debug(
+            "DataFetchingEnvironment or AspectMappingRegistry not available, fetching all aspects for Dataset");
       }
 
       final Map<Urn, EntityResponse> datasetMap =
