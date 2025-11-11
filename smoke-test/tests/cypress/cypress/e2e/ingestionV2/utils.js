@@ -110,7 +110,9 @@ export const updateIngestionSource = (
     changeSchedule(options?.schedule);
   }
   cy.clickOptionWithTestId("ingestion-schedule-next-button");
-  cy.get('[data-testid="source-name-input"]').invoke("val", updatedSourceName);
+  cy.get('[data-testid="source-name-input"]')
+    .focus()
+    .type(`{selectall}{backspace}${updatedSourceName}`);
   cy.clickOptionWithTestId("ingestion-source-save-button");
   cy.waitTextVisible("Successfully updated ingestion source!");
 };
