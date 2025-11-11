@@ -96,11 +96,13 @@ export const updateIngestionSource = (
   updatedSourceName,
   options = undefined,
 ) => {
+  cy.interceptGraphQLOperation("getIngestionSource");
   cy.contains("td", sourceName)
     .siblings("td")
     .find('[data-testid="ingestion-more-options"]')
     .click();
   cy.get("body .ant-dropdown-menu").contains("Edit").click();
+  cy.waitForGraphQLOperation("getIngestionSource");
   cy.waitTextVisible("Edit Data Source");
   cy.get('[data-testid="recipe-builder-next-button"]').scrollIntoView().click();
   cy.waitTextVisible("Configure an Ingestion Schedule");
@@ -108,9 +110,7 @@ export const updateIngestionSource = (
     changeSchedule(options?.schedule);
   }
   cy.clickOptionWithTestId("ingestion-schedule-next-button");
-  cy.get('[data-testid="source-name-input"]')
-    .invoke("val", updatedSourceName)
-    .trigger("input");
+  cy.get('[data-testid="source-name-input"]').invoke("val", updatedSourceName);
   cy.clickOptionWithTestId("ingestion-source-save-button");
   cy.waitTextVisible("Successfully updated ingestion source!");
 };
