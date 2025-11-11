@@ -185,6 +185,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
    * @param entitySpec entity spec to get mappings for
    * @return mappings for the entity spec
    */
+  @Override
   public Map<String, Object> getIndexMappings(
       @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
     Map<String, Object> mappings = new HashMap<>();

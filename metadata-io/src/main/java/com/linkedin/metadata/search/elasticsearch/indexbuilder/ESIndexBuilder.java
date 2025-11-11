@@ -314,8 +314,9 @@ public class ESIndexBuilder {
     baseSettings.put(NUMBER_OF_REPLICAS, indexConfig.getNumReplicas());
     baseSettings.put(
         REFRESH_INTERVAL, String.format("%ss", indexConfig.getRefreshIntervalSeconds()));
-    // use zstd in OS only, in ES we can use it in the future with best_compression
-    if (isOpenSearch29OrHigher()) {
+    // Use zstd in OS only and only if KNN is not enabled (code settings conflict with KNN)
+    // In ES we can use it in the future with best_compression
+    if (isOpenSearch29OrHigher() && !isKnnEnabled(baseSettings)) {
       baseSettings.put("codec", "zstd_no_dict");
     }
     baseSettings.putAll(indexSettingOverrides.getOrDefault(indexName, Map.of()));
@@ -359,6 +360,10 @@ public class ESIndexBuilder {
 
     builder.targetMappings(mappings);
     return builder.build();
+  }
+
+  private static boolean isKnnEnabled(Map<String, Object> baseSettings) {
+    return baseSettings.get("knn") == Boolean.TRUE;
   }
 
   @SuppressWarnings("unchecked")

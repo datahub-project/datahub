@@ -216,8 +216,6 @@ public class SampleDataFixtureConfiguration {
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
-    V2LegacySettingsBuilder settingsBuilder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             _searchClient,

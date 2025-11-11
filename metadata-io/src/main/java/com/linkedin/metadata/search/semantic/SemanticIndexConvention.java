@@ -63,6 +63,12 @@ public class SemanticIndexConvention implements IndexConvention {
     return appendSemanticSuffix(delegate.getEntityIndexName(entityName));
   }
 
+  @Nonnull
+  @Override
+  public String getEntityIndexNameSemantic(String entityName) {
+    return delegate.getEntityIndexNameSemantic(entityName);
+  }
+
   @Override
   @Nonnull
   public String getTimeseriesAspectIndexName(String entityName, String aspectName) {
@@ -105,6 +111,11 @@ public class SemanticIndexConvention implements IndexConvention {
   }
 
   @Override
+  public boolean isSemanticEntityIndex(@NotNull String indexName) {
+    return delegate.isSemanticEntityIndex(indexName);
+  }
+
+  @Override
   @Nonnull
   public String getAllTimeseriesAspectIndicesPattern() {
     return delegate.getAllTimeseriesAspectIndicesPattern();
@@ -113,6 +124,11 @@ public class SemanticIndexConvention implements IndexConvention {
   @Override
   public Optional<String> getEntityName(String indexName) {
     return delegate.getEntityName(indexName);
+  }
+
+  @Override
+  public Optional<String> getEntityNameSemantic(String semanticIndexName) {
+    return delegate.getEntityNameSemantic(semanticIndexName);
   }
 
   @Override

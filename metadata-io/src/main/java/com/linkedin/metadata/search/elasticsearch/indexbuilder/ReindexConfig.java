@@ -170,6 +170,43 @@ public class ReindexConfig {
       } else if (item instanceof List) {
         return sortList((List<?>) item);
       } else {
+        return item;
+      }
+    }
+
+    /**
+     * Normalize a map for comparison by recursively converting all primitive values to strings.
+     * This ensures consistent comparison between mappings from different sources (code vs
+     * Elasticsearch).
+     */
+    static TreeMap<String, Object> normalizeMapForComparison(Map<String, Object> input) {
+      if (input == null) {
+        return new TreeMap<>();
+      }
+      return input.entrySet().stream()
+          .collect(
+              Collectors.toMap(
+                  Map.Entry::getKey,
+                  e -> normalizeObjectForComparison(e.getValue()),
+                  (oldValue, newValue) -> newValue,
+                  TreeMap::new));
+    }
+
+    private static List<Object> normalizeListForComparison(List<?> input) {
+      if (input == null) {
+        return new ArrayList<>();
+      }
+      return input.stream()
+          .map(ReindexConfigBuilder::normalizeObjectForComparison)
+          .collect(Collectors.toList());
+    }
+
+    private static Object normalizeObjectForComparison(Object item) {
+      if (item instanceof Map) {
+        return normalizeMapForComparison((Map<String, Object>) item);
+      } else if (item instanceof List) {
+        return normalizeListForComparison((List<?>) item);
+      } else {
         return String.valueOf(item);
       }
     }
@@ -191,8 +228,8 @@ public class ReindexConfig {
         /* Consider mapping changes */
         MapDifference<String, Object> mappingsDiff =
             calculateMapDifference(
-                getOrDefault(super.currentMappings, List.of(PROPERTIES)),
-                getOrDefault(super.targetMappings, List.of(PROPERTIES)));
+                normalizeMapForComparison(getOrDefault(super.currentMappings, List.of(PROPERTIES))),
+                normalizeMapForComparison(getOrDefault(super.targetMappings, List.of(PROPERTIES))));
 
         super.requiresApplyMappings =
             !mappingsDiff.entriesDiffering().isEmpty()

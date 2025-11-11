@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class EntityIndexConfiguration {
   private EntityIndexVersionConfiguration v2;
   private EntityIndexVersionConfiguration v3;
+  private SemanticSearchConfiguration semanticSearch;
 }

@@ -1043,4 +1043,152 @@ public class ReindexConfigTest {
     // Assert - Structured properties differences should be ignored (since they're dynamic)
     Assert.assertFalse(config.requiresApplyMappings());
   }
+
+  @Test
+  void testSortObjectPreservesIntegerTypes() {
+    // This test verifies the fix for the bug where sortObject() was converting all primitive
+    // values to strings using String.valueOf(). This caused OpenSearch k-NN parameter validation
+    // to fail because it expects integer types for parameters like ef_construction and m.
+    //
+    // The fix changed sortObject() to return items directly instead of converting to strings,
+    // preserving their original types (Integer, Boolean, String, etc.).
+
+    // Arrange - Create mappings with Integer values mimicking k-NN parameters
+    Map<String, Object> mappingsWithIntegers =
+        ImmutableMap.of(
+            PROPERTIES_KEY,
+            ImmutableMap.of(
+                "embeddings",
+                ImmutableMap.of(
+                    TYPE_KEY,
+                    "nested",
+                    PROPERTIES_KEY,
+                    ImmutableMap.of(
+                        "chunk",
+                        ImmutableMap.of(
+                            TYPE_KEY,
+                            "knn_vector",
+                            "dimension",
+                            1024, // Integer - must be preserved
+                            "method",
+                            ImmutableMap.of(
+                                "name",
+                                "hnsw",
+                                "engine",
+                                "faiss",
+                                "space_type",
+                                "cosinesimil",
+                                "parameters",
+                                ImmutableMap.of(
+                                    "ef_construction", 128, // Integer - must be preserved
+                                    "m", 16 // Integer - must be preserved
+                                    )))))));
+
+    // Act - Build config (which calls sortObject internally via targetMappings())
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(false)
+            .targetMappings(mappingsWithIntegers)
+            .targetSettings(new HashMap<>())
+            .currentSettings(Settings.EMPTY)
+            .currentMappings(new HashMap<>())
+            .build();
+
+    // Assert - Verify integers remain as Integer type, not strings
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties =
+        (Map<String, Object>) config.targetMappings().get(PROPERTIES_KEY);
+    @SuppressWarnings("unchecked")
+    Map<String, Object> embeddings = (Map<String, Object>) properties.get("embeddings");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> embeddingsProps = (Map<String, Object>) embeddings.get(PROPERTIES_KEY);
+    @SuppressWarnings("unchecked")
+    Map<String, Object> chunk = (Map<String, Object>) embeddingsProps.get("chunk");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> method = (Map<String, Object>) chunk.get("method");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> params = (Map<String, Object>) method.get("parameters");
+
+    // Critical assertions - these would fail with the old code that used String.valueOf()
+    Assert.assertTrue(
+        params.get("ef_construction") instanceof Integer,
+        "ef_construction should be Integer, not String. Got: "
+            + params.get("ef_construction").getClass().getName());
+    Assert.assertEquals(params.get("ef_construction"), 128, "ef_construction value should be 128");
+
+    Assert.assertTrue(
+        params.get("m") instanceof Integer,
+        "m should be Integer, not String. Got: " + params.get("m").getClass().getName());
+    Assert.assertEquals(params.get("m"), 16, "m value should be 16");
+
+    Assert.assertTrue(
+        chunk.get("dimension") instanceof Integer,
+        "dimension should be Integer, not String. Got: "
+            + chunk.get("dimension").getClass().getName());
+    Assert.assertEquals(chunk.get("dimension"), 1024, "dimension value should be 1024");
+
+    // Verify string values are still strings (not converted)
+    Assert.assertTrue(method.get("name") instanceof String, "name should remain String type");
+    Assert.assertEquals(method.get("name"), "hnsw");
+  }
+
+  @Test
+  void testSortObjectPreservesMixedTypes() {
+    // Verify that sortObject preserves all primitive types correctly, not just integers
+
+    // Arrange - Create mappings with various primitive types
+    Map<String, Object> mixedTypes =
+        ImmutableMap.of(
+            PROPERTIES_KEY,
+            ImmutableMap.of(
+                "string_field",
+                "text_value",
+                "int_field",
+                42,
+                "bool_field",
+                true,
+                "long_field",
+                999999999L,
+                "nested",
+                ImmutableMap.of("inner_string", "value", "inner_int", 100)));
+
+    // Act
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(false)
+            .targetMappings(mixedTypes)
+            .targetSettings(new HashMap<>())
+            .currentSettings(Settings.EMPTY)
+            .currentMappings(new HashMap<>())
+            .build();
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties =
+        (Map<String, Object>) config.targetMappings().get(PROPERTIES_KEY);
+
+    // Assert - Each type is preserved
+    Assert.assertEquals(
+        properties.get("string_field").getClass(), String.class, "String type should be preserved");
+    Assert.assertEquals(properties.get("string_field"), "text_value");
+
+    Assert.assertEquals(
+        properties.get("int_field").getClass(), Integer.class, "Integer type should be preserved");
+    Assert.assertEquals(properties.get("int_field"), 42);
+
+    Assert.assertEquals(
+        properties.get("bool_field").getClass(), Boolean.class, "Boolean type should be preserved");
+    Assert.assertEquals(properties.get("bool_field"), true);
+
+    Assert.assertEquals(
+        properties.get("long_field").getClass(), Long.class, "Long type should be preserved");
+    Assert.assertEquals(properties.get("long_field"), 999999999L);
+
+    // Verify nested objects still work
+    @SuppressWarnings("unchecked")
+    Map<String, Object> nested = (Map<String, Object>) properties.get("nested");
+    Assert.assertTrue(nested.get("inner_string") instanceof String);
+    Assert.assertTrue(nested.get("inner_int") instanceof Integer);
+  }
 }

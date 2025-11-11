@@ -42,6 +42,7 @@ public class IndexConventionImpl implements IndexConvention {
   private static final String ENTITY_INDEX_VERSION = "v2";
   private static final String ENTITY_INDEX_VERSION_V3 = "v3";
   private static final String ENTITY_INDEX_SUFFIX = "index";
+  private static final String SEMANTIC_INDEX_SUFFIX = "semantic";
   private static final String TIMESERIES_INDEX_VERSION = "v1";
   private static final String TIMESERIES_ENTITY_INDEX_SUFFIX = "aspect";
 
@@ -122,6 +123,12 @@ public class IndexConventionImpl implements IndexConvention {
     return extractIndexBase(indexName, ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION);
   }
 
+  private Optional<String> extractEntityNameSemantic(String semanticIndexName) {
+    return extractIndexBase(
+        semanticIndexName,
+        ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION + "_" + SEMANTIC_INDEX_SUFFIX);
+  }
+
   @Override
   public Optional<String> getPrefix() {
     return _prefix;
@@ -149,6 +156,18 @@ public class IndexConventionImpl implements IndexConvention {
   @Override
   public String getEntityIndexName(String entityName) {
     return this.getIndexName(entityName + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION);
+  }
+
+  @Nonnull
+  @Override
+  public String getEntityIndexNameSemantic(String entityName) {
+    return this.getIndexName(
+        entityName
+            + ENTITY_INDEX_SUFFIX
+            + "_"
+            + ENTITY_INDEX_VERSION
+            + "_"
+            + SEMANTIC_INDEX_SUFFIX);
   }
 
   @Nonnull
@@ -209,6 +228,11 @@ public class IndexConventionImpl implements IndexConvention {
   }
 
   @Override
+  public Optional<String> getEntityNameSemantic(String semanticIndexName) {
+    return extractEntityNameSemantic(semanticIndexName);
+  }
+
+  @Override
   public Optional<Pair<String, String>> getEntityAndAspectName(String timeseriesAspectIndexName) {
     Optional<String> entityAndAspect =
         extractIndexBase(
@@ -257,16 +281,19 @@ public class IndexConventionImpl implements IndexConvention {
     return entityIndexConfiguration.getV3() != null && entityIndexConfiguration.getV3().isCleanup();
   }
 
-  @Override
-  public boolean isV2EntityIndex(@Nonnull String indexName) {
-    // Pattern: [prefix]_[entityName]index_v2
-    // The index name should end with exactly "index_v2" and have at least one character before it
-    String expectedSuffix = ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION;
-    if (!indexName.endsWith(expectedSuffix)) {
+  /**
+   * Helper method to check if an index name matches the entity index pattern with a given suffix.
+   *
+   * @param indexName the index name to check
+   * @param suffix the expected suffix (e.g., "index_v2", "index_v3", "index_v2_semantic")
+   * @return true if the index name matches the pattern
+   */
+  private boolean isEntityIndexWithSuffix(@Nonnull String indexName, String suffix) {
+    if (!indexName.endsWith(suffix)) {
       return false;
     }
-    // Check that there's at least one character before "index_v2"
-    int suffixStart = indexName.length() - expectedSuffix.length();
+    // Check that there's at least one character before the suffix
+    int suffixStart = indexName.length() - suffix.length();
     if (suffixStart <= 0) {
       return false;
     }
@@ -281,26 +308,22 @@ public class IndexConventionImpl implements IndexConvention {
   }
 
   @Override
+  public boolean isV2EntityIndex(@Nonnull String indexName) {
+    // Pattern: [prefix]_[entityName]index_v2
+    return isEntityIndexWithSuffix(indexName, ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION);
+  }
+
+  @Override
   public boolean isV3EntityIndex(@Nonnull String indexName) {
     // Pattern: [prefix]_[entityName]index_v3
-    // The index name should end with exactly "index_v3" and have at least one character before it
-    String expectedSuffix = ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION_V3;
-    if (!indexName.endsWith(expectedSuffix)) {
-      return false;
-    }
-    // Check that there's at least one character before "index_v3"
-    int suffixStart = indexName.length() - expectedSuffix.length();
-    if (suffixStart <= 0) {
-      return false;
-    }
+    return isEntityIndexWithSuffix(indexName, ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION_V3);
+  }
 
-    // If we have a prefix configured, check that the index name starts with it
-    if (_prefix.isPresent()) {
-      String expectedPrefix = _prefix.get() + "_";
-      return indexName.startsWith(expectedPrefix);
-    }
-
-    return true;
+  @Override
+  public boolean isSemanticEntityIndex(@Nonnull String indexName) {
+    // Pattern: [prefix]_[entityName]index_v2_semantic
+    return isEntityIndexWithSuffix(
+        indexName, ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION + "_" + SEMANTIC_INDEX_SUFFIX);
   }
 
   /** Since this is used outside of Spring */
