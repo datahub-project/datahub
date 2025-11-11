@@ -57,6 +57,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
 }) => {
     const [content, setContent] = useState(initialContent || '');
     const [isSaving, setIsSaving] = useState(false);
+    const [editorKey, setEditorKey] = useState(Date.now());
     const { canEdit } = useDocumentPermissions(documentUrn);
     const { updateContents, updateRelatedEntities } = useUpdateDocument();
     // Extract mentions from content (currently unused, but hook needs to run)
@@ -74,28 +75,17 @@ export const EditableContent: React.FC<EditableContentProps> = ({
 
     useEffect(() => {
         setContent(initialContent || '');
+        // Force editor to remount with new content by updating the key
+        setEditorKey(Date.now());
     }, [initialContent]);
 
     // Save function that can be reused
     const saveDocument = useCallback(
         async (contentToSave: string) => {
-            console.log('[EditableContent] saveDocument called', {
-                contentToSave: contentToSave.substring(0, 50),
-                initialContent: initialContent.substring(0, 50),
-                isSaving,
-                canEdit,
-            });
-
             if (isSaving || contentToSave === initialContent || !canEdit) {
-                console.log('[EditableContent] Skipping save:', {
-                    isSaving,
-                    sameContent: contentToSave === initialContent,
-                    canEdit,
-                });
                 return;
             }
 
-            console.log('[EditableContent] Starting save...');
             setIsSaving(true);
             try {
                 // Extract mentions from the content to save
@@ -116,21 +106,17 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                 });
 
                 // Save content
-                console.log('[EditableContent] Calling updateContents mutation...');
                 await updateContents({
                     urn: documentUrn,
                     contents: { text: contentToSave },
                 });
 
-                console.log('[EditableContent] Content saved successfully, updating related entities...');
                 // Update related entities based on @ mentions
                 await updateRelatedEntities({
                     urn: documentUrn,
                     relatedAssets: assetUrnsToSave,
                     relatedDocuments: documentUrnsToSave,
                 });
-
-                console.log('[EditableContent] Save complete!');
             } catch (error) {
                 console.error('[EditableContent] Failed to save document:', error);
             } finally {
@@ -142,23 +128,12 @@ export const EditableContent: React.FC<EditableContentProps> = ({
 
     // Auto-save after 2 seconds of no typing
     useEffect(() => {
-        console.log('[EditableContent] Auto-save effect triggered', {
-            contentChanged: content !== initialContent,
-            canEdit,
-            isSaving,
-        });
-
         if (content !== initialContent && canEdit && !isSaving) {
-            console.log('[EditableContent] Setting 2-second timer for auto-save...');
             const timer = setTimeout(() => {
-                console.log('[EditableContent] Timer fired, calling saveDocument...');
                 saveDocument(content);
             }, 2000);
 
-            return () => {
-                console.log('[EditableContent] Clearing timer');
-                clearTimeout(timer);
-            };
+            return () => clearTimeout(timer);
         }
         return undefined;
     }, [content, initialContent, canEdit, isSaving, saveDocument]);
@@ -192,6 +167,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
             <EditorSection onBlur={handleBlur}>
                 {canEdit ? (
                     <StyledEditor
+                        key={`editor-${editorKey}`}
                         content={content}
                         onChange={setContent}
                         placeholder="Write about anything..."
@@ -201,7 +177,13 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         {...uploadFileAnalyticsCallbacks}
                     />
                 ) : (
-                    <StyledEditor content={content} readOnly placeholder="No content" hideBorder />
+                    <StyledEditor
+                        key={`editor-readonly-${editorKey}`}
+                        content={content}
+                        readOnly
+                        placeholder="No content"
+                        hideBorder
+                    />
                 )}
             </EditorSection>
 

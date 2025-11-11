@@ -71,6 +71,7 @@ export function useDocumentChildren() {
      */
     const fetchChildren = useCallback(
         async (parentUrn: string): Promise<DocumentChild[]> => {
+            console.log('🔍 fetchChildren called for:', parentUrn);
             try {
                 const result = await client.query({
                     query: SearchDocumentsDocument,
@@ -84,7 +85,17 @@ export function useDocumentChildren() {
                             count: CHILD_PAGE_SIZE, // Limit children per level
                         },
                     },
-                    fetchPolicy: 'network-only', // Always fetch fresh data
+                    // Use cache-first to return cached data if available (instant!), otherwise fetch from network
+                    // This makes folder expansion feel instant when we've updated the cache (e.g., after moves/creates)
+                    fetchPolicy: 'cache-first',
+                });
+
+                console.log('📦 fetchChildren raw result:', {
+                    parentUrn,
+                    dataSource: result.data ? 'CACHE or NETWORK' : 'NONE',
+                    error: result.error,
+                    errors: result.errors,
+                    documentsCount: result.data?.searchDocuments?.documents?.length,
                 });
 
                 if (!result || result.error || result.errors) {
@@ -95,6 +106,11 @@ export function useDocumentChildren() {
                 const { data } = result;
 
                 const documents = data?.searchDocuments?.documents || [];
+                console.log('✅ fetchChildren returning:', {
+                    parentUrn,
+                    documentsCount: documents.length,
+                    documents: documents.map((d) => ({ urn: d.urn, title: d.info?.title })),
+                });
                 return documents.map((doc) => ({
                     urn: doc.urn,
                     title: doc.info?.title || 'New Document',

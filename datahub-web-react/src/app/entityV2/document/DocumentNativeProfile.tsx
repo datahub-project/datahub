@@ -119,20 +119,9 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
         },
     ];
 
-    console.log('[DocumentNativeProfile] Rendering', {
-        urn,
-        entityType: EntityType.Document,
-        entityData: !!document,
-        loading,
-        hasRefetch: !!refetch,
-    });
-
-    // Wrap refetch with logging
+    // Wrap refetch for EntityContext
     const wrappedRefetch = async () => {
-        console.log('[DocumentNativeProfile] refetch called!');
-        const result = await refetch();
-        console.log('[DocumentNativeProfile] refetch completed!', result);
-        return result;
+        return refetch();
     };
 
     return (

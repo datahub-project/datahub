@@ -45,7 +45,7 @@ interface UseDocumentTreeExpansionReturn {
  * - Tracking which nodes have children
  * - Loading states
  *
- * Used by DocumentTree and MoveDocumentDialog to provide consistent expansion behavior.
+ * Used by DocumentTree and MoveDocumentPopover to provide consistent expansion behavior.
  */
 export function useDocumentTreeExpansion(params: UseDocumentTreeExpansionParams = {}): UseDocumentTreeExpansionReturn {
     const { excludeUrn } = params;
@@ -62,10 +62,19 @@ export function useDocumentTreeExpansion(params: UseDocumentTreeExpansionParams 
 
     const handleToggleExpand = useCallback(
         async (urn: string) => {
+            const hasCachedChildren = childrenCache[urn] && childrenCache[urn].length > 0;
+            console.log('🔄 handleToggleExpand called:', {
+                urn,
+                isExpanded: expandedUrns.has(urn),
+                hasCachedChildren,
+                cachedCount: childrenCache[urn]?.length || 0,
+                isLoading: loadingUrns.has(urn),
+            });
             const isExpanded = expandedUrns.has(urn);
 
             if (isExpanded) {
                 // Collapse
+                console.log('📁 Collapsing:', urn);
                 setExpandedUrns((prev) => {
                     const next = new Set(prev);
                     next.delete(urn);
@@ -73,11 +82,24 @@ export function useDocumentTreeExpansion(params: UseDocumentTreeExpansionParams 
                 });
             } else {
                 // Expand - load children if not already loaded
+                console.log('📂 Expanding:', urn);
                 setExpandedUrns((prev) => new Set(prev).add(urn));
 
-                if (!childrenCache[urn] && !loadingUrns.has(urn)) {
+                // Check if we need to fetch children - only skip if we have cached children with length > 0
+                const needsFetch = !childrenCache[urn] || childrenCache[urn].length === 0;
+                console.log('🤔 Should fetch children?', {
+                    urn,
+                    needsFetch,
+                    hasCachedChildren: !!childrenCache[urn],
+                    cachedCount: childrenCache[urn]?.length,
+                    isAlreadyLoading: loadingUrns.has(urn),
+                });
+
+                if (needsFetch && !loadingUrns.has(urn)) {
+                    console.log('🔍 Starting fetchChildren for:', urn);
                     setLoadingUrns((prev) => new Set(prev).add(urn));
                     const children = await fetchChildren(urn);
+                    console.log('✅ fetchChildren completed:', { urn, count: children.length, children });
                     setLoadingUrns((prev) => {
                         const next = new Set(prev);
                         next.delete(urn);

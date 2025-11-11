@@ -4,8 +4,8 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 
 export interface UpdatedDocument {
     urn: string;
-    title?: string;
     parentDocument?: string | null;
+    oldParentDocument?: string | null; // Track old parent for cache invalidation
 }
 
 export interface OptimisticDocument {
@@ -18,8 +18,6 @@ export interface OptimisticDocument {
 interface DocumentsContextType {
     entityData: GenericEntityProperties | null;
     setEntityData: (data: GenericEntityProperties | null) => void;
-    newDocument: UpdatedDocument | null;
-    setNewDocument: (document: UpdatedDocument | null) => void;
     deletedDocument: UpdatedDocument | null;
     setDeletedDocument: (document: UpdatedDocument | null) => void;
     updatedDocument: UpdatedDocument | null;
@@ -32,8 +30,6 @@ interface DocumentsContextType {
 export const DocumentsContext = React.createContext<DocumentsContextType>({
     entityData: null,
     setEntityData: () => {},
-    newDocument: null,
-    setNewDocument: () => {},
     deletedDocument: null,
     setDeletedDocument: () => {},
     updatedDocument: null,
@@ -49,7 +45,6 @@ export const useDocumentsContext = () => {
 
 export const DocumentsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
-    const [newDocument, setNewDocument] = useState<UpdatedDocument | null>(null);
     const [deletedDocument, setDeletedDocument] = useState<UpdatedDocument | null>(null);
     const [updatedDocument, setUpdatedDocument] = useState<UpdatedDocument | null>(null);
     const [optimisticDocuments, setOptimisticDocuments] = useState<OptimisticDocument[]>([]);
@@ -66,8 +61,6 @@ export const DocumentsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         () => ({
             entityData,
             setEntityData,
-            newDocument,
-            setNewDocument,
             deletedDocument,
             setDeletedDocument,
             updatedDocument,
@@ -76,7 +69,7 @@ export const DocumentsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             addOptimisticDocument,
             removeOptimisticDocument,
         }),
-        [entityData, newDocument, deletedDocument, updatedDocument, optimisticDocuments],
+        [entityData, deletedDocument, updatedDocument, optimisticDocuments],
     );
 
     return <DocumentsContext.Provider value={value}>{children}</DocumentsContext.Provider>;

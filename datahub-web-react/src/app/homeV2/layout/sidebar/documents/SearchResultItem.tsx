@@ -55,7 +55,7 @@ const SearchResultTitle = styled.div`
 
 const SearchResultBreadcrumb = styled.div`
     font-size: 12px;
-    color: ${colors.gray[600]};
+    color: ${colors.gray[500]};
     line-height: 16px;
     margin-top: 2px;
 `;
@@ -109,7 +109,7 @@ interface SearchResultItemProps {
 }
 
 /**
- * Component for rendering a single search result item in the move document dialog.
+ * Component for rendering a single search result item in the move document popover.
  * Supports:
  * - Nested display with indentation
  * - Expand/collapse for documents with children
@@ -117,7 +117,7 @@ interface SearchResultItemProps {
  * - Icon display (folder for parents, file for children)
  * - Breadcrumb display for context
  *
- * Extracted from MoveDocumentDialog to improve reusability and performance.
+ * Extracted from MoveDocumentPopover to improve reusability and performance.
  */
 export const SearchResultItem: React.FC<SearchResultItemProps> = ({
     doc,

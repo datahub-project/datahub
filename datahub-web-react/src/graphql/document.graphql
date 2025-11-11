@@ -85,12 +85,6 @@ fragment documentPreviewFields on Document {
     subType
     info {
         title
-        status {
-            state
-        }
-        contents {
-            text
-        }
         created {
             time
             actor
@@ -104,18 +98,6 @@ fragment documentPreviewFields on Document {
                 urn
             }
         }
-        draftOf {
-            document {
-                urn
-                type
-                info {
-                    title
-                }
-            }
-        }
-    }
-    ownership {
-        ...ownershipFields
     }
 }
 
@@ -202,11 +184,13 @@ query getDocumentChangeHistory($urn: String!, $startTimeMillis: Long, $endTimeMi
             actor {
                 urn
                 type
-                username
                 info {
                     displayName
                     firstName
                     lastName
+                }
+                editableProperties {
+                    pictureLink
                 }
             }
             timestamp

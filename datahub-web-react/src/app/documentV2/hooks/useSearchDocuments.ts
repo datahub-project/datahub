@@ -12,6 +12,7 @@ export interface SearchDocumentsInput {
     includeDrafts?: boolean;
     start?: number;
     count?: number;
+    fetchPolicy?: 'cache-first' | 'cache-and-network' | 'network-only';
 }
 
 export function useSearchDocuments(input: SearchDocumentsInput) {
@@ -28,7 +29,9 @@ export function useSearchDocuments(input: SearchDocumentsInput) {
                 includeDrafts: input.includeDrafts || false,
             },
         },
-        fetchPolicy: 'cache-and-network',
+        // Default to cache-first to respect Apollo cache updates from moves/creates
+        // Use cache-and-network only when you want to ensure fresh data from backend
+        fetchPolicy: input.fetchPolicy || 'cache-first',
     });
 
     const documents = useMemo(() => {

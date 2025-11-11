@@ -1,7 +1,9 @@
+import { useApolloClient } from '@apollo/client';
 import { useCallback } from 'react';
 import { useHistory } from 'react-router-dom';
 
 import { useDocumentsContext } from '@app/documentV2/DocumentsContext';
+import { addDocumentToSearchCache } from '@app/documentV2/cacheUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateDocumentMutation } from '@graphql/document.generated';
@@ -16,9 +18,10 @@ export interface CreateDocumentInput {
 }
 
 export function useCreateDocument() {
+    const apolloClient = useApolloClient();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const { setNewDocument, addOptimisticDocument, removeOptimisticDocument } = useDocumentsContext();
+    const { addOptimisticDocument } = useDocumentsContext();
     const [createDocumentMutation, { loading }] = useCreateDocumentMutation();
 
     const createDocument = useCallback(
@@ -44,7 +47,51 @@ export function useCreateDocument() {
                 if (result.data?.createDocument) {
                     const documentUrn = result.data.createDocument;
 
+                    // Construct a minimal document object for the cache
+                    const newDocument = {
+                        __typename: 'Document',
+                        urn: documentUrn,
+                        type: EntityType.Document,
+                        subType: input.subType,
+                        info: {
+                            __typename: 'DocumentInfo',
+                            title,
+                            status: {
+                                __typename: 'DocumentStatus',
+                                state: input.state || DocumentState.Unpublished,
+                            },
+                            created: {
+                                __typename: 'AuditStamp',
+                                time: Date.now(),
+                                actor: null,
+                            },
+                            lastModified: {
+                                __typename: 'AuditStamp',
+                                time: Date.now(),
+                                actor: null,
+                            },
+                            parentDocument: parentDocument
+                                ? {
+                                      __typename: 'ParentDocument',
+                                      document: {
+                                          __typename: 'Document',
+                                          urn: parentDocument,
+                                          info: {
+                                              __typename: 'DocumentInfo',
+                                              title: null,
+                                          },
+                                      },
+                                  }
+                                : null,
+                        },
+                    };
+
+                    // Update Apollo cache: Add to parent's children
+                    addDocumentToSearchCache(apolloClient, newDocument, parentDocument);
+
                     // Add optimistic document with the REAL URN so it matches the URL
+                    // This provides immediate visual feedback and will be deduplicated with real data
+                    // No need to manually remove it - the merge logic in DocumentTree handles duplicates
                     addOptimisticDocument({
                         urn: documentUrn,
                         title,
@@ -56,18 +103,6 @@ export function useCreateDocument() {
                     const url = entityRegistry.getEntityUrl(EntityType.Document, documentUrn);
                     history.push(url);
 
-                    // Notify context that a new document was created
-                    setNewDocument({
-                        urn: documentUrn,
-                        parentDocument,
-                    });
-
-                    // Remove optimistic document after the refetch completes
-                    // The refetch happens 5 seconds after newDocument is set
-                    setTimeout(() => {
-                        removeOptimisticDocument(documentUrn);
-                    }, 6000);
-
                     return documentUrn;
                 }
 
@@ -77,14 +112,7 @@ export function useCreateDocument() {
                 return null;
             }
         },
-        [
-            createDocumentMutation,
-            history,
-            entityRegistry,
-            setNewDocument,
-            addOptimisticDocument,
-            removeOptimisticDocument,
-        ],
+        [apolloClient, createDocumentMutation, history, entityRegistry, addOptimisticDocument],
     );
 
     return {

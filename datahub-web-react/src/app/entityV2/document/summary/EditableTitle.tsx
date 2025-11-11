@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { useDocumentsContext } from '@app/documentV2/DocumentsContext';
 import { useDocumentPermissions } from '@app/documentV2/hooks/useDocumentPermissions';
-import { useUpdateDocument } from '@app/documentV2/hooks/useUpdateDocument';
+import { useUpdateDocumentTitleMutation } from '@app/documentV2/hooks/useDocumentTreeMutations';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const TitleContainer = styled.div`
@@ -14,7 +13,7 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     font-size: 32px;
     font-weight: 700;
     line-height: 1.4;
-    color: ${colors.gray[1700]};
+    color: ${colors.gray[600]};
     border: none;
     outline: none;
     background: transparent;
@@ -52,8 +51,7 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     const [title, setTitle] = useState(initialTitle || '');
     const [isSaving, setIsSaving] = useState(false);
     const { canEdit } = useDocumentPermissions(documentUrn);
-    const { updateContents } = useUpdateDocument();
-    const { setUpdatedDocument } = useDocumentsContext();
+    const { updateTitle } = useUpdateDocumentTitleMutation();
 
     useEffect(() => {
         setTitle(initialTitle || '');
@@ -67,34 +65,13 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     };
 
     const handleBlur = async () => {
-        console.log('[EditableTitle] handleBlur called', {
-            title,
-            initialTitle,
-            titleChanged: title !== initialTitle,
-            isSaving,
-        });
-
         if (title !== initialTitle && !isSaving) {
-            console.log('[EditableTitle] Saving title...');
             setIsSaving(true);
 
-            // Optimistically update the sidebar immediately
-            setUpdatedDocument({ urn: documentUrn, title });
+            // Tree mutation handles optimistic update + backend call + rollback on error!
+            await updateTitle(documentUrn, title);
 
-            try {
-                await updateContents({
-                    urn: documentUrn,
-                    title,
-                });
-
-                console.log('[EditableTitle] Title saved successfully');
-            } catch (error) {
-                console.error('[EditableTitle] Failed to save title:', error);
-                // Revert optimistic update on error
-                setUpdatedDocument({ urn: documentUrn, title: initialTitle });
-            } finally {
-                setIsSaving(false);
-            }
+            setIsSaving(false);
         }
     };
 
