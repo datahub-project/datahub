@@ -1,7 +1,7 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useAssetSummaryOperations } from '@app/homeV3/context/hooks/useAssetSummaryOperations';
+import useIsTemplateEditable from '@app/homeV3/context/hooks/useIsTemplateEditable';
 import { useModuleModalState } from '@app/homeV3/context/hooks/useModuleModalState';
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
@@ -18,12 +18,7 @@ interface Props {
 }
 
 export const PageTemplateProvider = ({ children, templateType }: Props) => {
-    const { entityData } = useEntityData();
-    const editable = !!entityData?.privileges?.canManageAssetSummary;
-    const isTemplateEditable = useMemo(
-        () => (templateType === PageTemplateSurfaceType.AssetSummary ? editable : false),
-        [editable, templateType],
-    );
+    const isTemplateEditable = useIsTemplateEditable(templateType);
     // Template state management
     const {
         personalTemplate,

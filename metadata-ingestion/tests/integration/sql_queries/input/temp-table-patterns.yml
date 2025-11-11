@@ -1,0 +1,15 @@
+source:
+  type: sql-queries
+  config:
+    query_file: ./input/temp-table-patterns.jsonl
+    platform: snowflake
+    temp_table_patterns: ["^temp_.*", "^tmp_.*", ".*_temp$"]
+    use_schema_resolver: false
+
+sink:
+  type: file
+  config:
+    filename: ./output.json
+
+datahub_api:
+  server: http://localhost:8080

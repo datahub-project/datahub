@@ -89,8 +89,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
-    PROFILING,
     USAGE_EXTRACTION_INGESTION,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes, TimeStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -236,7 +236,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             RedshiftConfig.Config.extra = (
                 pydantic.Extra.allow
             )  # we are okay with extra fields during this stage
-            config = RedshiftConfig.parse_obj(config_dict)
+            config = RedshiftConfig.model_validate(config_dict)
             # source = RedshiftSource(config, report)
             connection: redshift_connector.Connection = (
                 RedshiftSource.get_redshift_connection(config)
@@ -316,7 +316,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = RedshiftConfig.parse_obj(config_dict)
+        config = RedshiftConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -446,7 +446,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if self.config.is_profiling_enabled():
-            with self.report.new_stage(PROFILING):
+            with self.report.new_high_stage(IngestionHighStage.PROFILING):
                 profiler = RedshiftProfiler(
                     config=self.config,
                     report=self.report,

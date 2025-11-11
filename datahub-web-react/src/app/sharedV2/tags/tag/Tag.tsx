@@ -1,3 +1,4 @@
+import { Icon } from '@components';
 import { Modal, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
@@ -9,6 +10,7 @@ import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext
 import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useRemoveTagMutation } from '@graphql/mutations.generated';
 import { EntityType, SubResourceType, TagAssociation } from '@types';
@@ -147,7 +149,10 @@ export default function Tag({
                     <StyledTag
                         onClick={() => {
                             if (isEmbeddedProfile) {
-                                window.open(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn), '_blank');
+                                window.open(
+                                    resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)),
+                                    '_blank',
+                                );
                             } else if (!options?.shouldNotOpenDrawerOnClick) {
                                 showTagProfileDrawer(tag?.tag?.urn);
                             }
@@ -156,10 +161,18 @@ export default function Tag({
                         $colorHash={tag?.tag?.urn}
                         $color={tag?.tag?.properties?.colorHex}
                         closable={canRemove && !readOnly}
-                        onClose={(e) => {
-                            e.preventDefault();
-                            removeTag(tag);
-                        }}
+                        closeIcon={
+                            <Icon
+                                icon="X"
+                                source="phosphor"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    removeTag(tag);
+                                }}
+                                size="sm"
+                                data-testid="remove-icon"
+                            />
+                        }
                         fontSize={fontSize}
                         $highlightTag={highlightTag}
                         $showOneAndCount={showOneAndCount}

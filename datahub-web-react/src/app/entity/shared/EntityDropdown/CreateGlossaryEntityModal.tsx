@@ -12,8 +12,10 @@ import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionMo
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { validateCustomUrnId } from '@app/shared/textUtil';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
@@ -52,7 +54,7 @@ function CreateGlossaryEntityModal(props: Props) {
     const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
     const refetch = useRefetch();
     const history = useHistory();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
     const [createGlossaryNodeMutation] = useCreateGlossaryNodeMutation();
@@ -133,7 +135,9 @@ function CreateGlossaryEntityModal(props: Props) {
                     }
                     // Reload modules
                     // ChildHierarchy - to update contents module as new term/node could change it
-                    reloadModules([DataHubPageModuleType.ChildHierarchy]);
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.ChildHierarchy),
+                    ]);
                 }, 2000);
             })
             .catch((e) => {

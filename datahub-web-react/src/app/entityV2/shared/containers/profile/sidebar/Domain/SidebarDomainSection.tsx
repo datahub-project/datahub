@@ -10,8 +10,10 @@ import { SetDomainModal } from '@app/entityV2/shared/containers/profile/sidebar/
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { ENTITY_PROFILE_DOMAINS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 
 import { useUnsetDomainMutation } from '@graphql/mutations.generated';
@@ -49,7 +51,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     const [showModal, setShowModal] = useState(false);
     const domain = entityData?.domain?.domain;
 
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     const canEditDomains = !!entityData?.privileges?.canEditDomains;
 
@@ -60,10 +62,16 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                 refetch?.();
                 // Reload modules
                 // Assets - as assets module in domain summary tab could be updated
-                reloadModules([DataHubPageModuleType.Assets], 3000);
+                reloadByKeyType(
+                    [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                    3000,
+                );
                 // DataProduct - as data products module in domain summary tab could be updated
                 if (entityType === EntityType.DataProduct) {
-                    reloadModules([DataHubPageModuleType.DataProducts], 3000);
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.DataProducts)],
+                        3000,
+                    );
                 }
             })
             .catch((e: unknown) => {
@@ -121,6 +129,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                             event.stopPropagation();
                         }}
                         actionPrivilege={canEditDomains}
+                        dataTestId="set-domain-button"
                     />
                 }
             />

@@ -30,7 +30,7 @@ export default function ViewMoreDropdown<T extends LinkItem>({ linkItems }: Prop
             trigger={['click']}
             menu={{
                 items: linkItems.map((item) => ({
-                    label: <OptionLabel text={item.description} />,
+                    label: <OptionLabel text={item.description} dataTestId={item.key} />,
                     key: item.key,
                     onClick: () => onLinkItemClick(item),
                 })),
@@ -38,7 +38,7 @@ export default function ViewMoreDropdown<T extends LinkItem>({ linkItems }: Prop
             // FYI: zIndex 1200 to handle the case when dropdown shown in tooltip `HoverEntityTooltip`
             overlayStyle={{ zIndex: 1200 }}
         >
-            <DropdownBase>
+            <DropdownBase data-testid="view-more-dropdown">
                 <Text size="sm" color="gray" colorLevel={1700}>
                     View more
                 </Text>

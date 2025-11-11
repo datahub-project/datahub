@@ -2,9 +2,9 @@ import logging
 import math
 import time
 from concurrent.futures import Future
+from datetime import timedelta
 
 import pytest
-from pydantic.schema import timedelta
 
 from datahub.utilities.partition_executor import (
     BatchPartitionExecutor,

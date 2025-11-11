@@ -106,6 +106,22 @@ datahub version  # should print "DataHub CLI version: unavailable (installed in 
 Common issues (click to expand):
 
 <details>
+  <summary>Virtual environment creation fails with symlink errors (Nix, immutable filesystems, Windows)</summary>
+
+If you're using Nix, an immutable Python installation, Windows with certain filesystem configurations, or working in container environments where symlinks don't work correctly, you may encounter errors during virtual environment creation.
+
+You can enable the `--copies` flag for Python's venv by setting an environment variable before running the gradle commands:
+
+```shell
+export DATAHUB_VENV_USE_COPIES=true
+../gradlew :metadata-ingestion:installDev
+```
+
+This copies the Python binary instead of creating a symlink. Note that this increases disk usage and setup time, so only enable it if you're experiencing issues with the default symlink-based approach.
+
+</details>
+
+<details>
   <summary>datahub command not found with PyPI install</summary>
 
 If you've already run the pip install, but running `datahub` in your command line doesn't work, then there is likely an issue with your PATH setup and Python.

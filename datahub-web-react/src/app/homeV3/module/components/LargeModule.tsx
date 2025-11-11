@@ -102,7 +102,7 @@ function LargeModule({
     }, [onClickViewAll, module.properties.type, templateType]);
 
     return (
-        <ModuleContainer $height="316px" ref={setNodeRef} data-testId={dataTestId}>
+        <ModuleContainer $height="316px" ref={setNodeRef} data-testid={dataTestId}>
             <ModuleHeader>
                 <DragHandle
                     {...(isTemplateEditable ? listeners : {})}
@@ -131,7 +131,7 @@ function LargeModule({
                     </FloatingRightHeaderSection>
                 )}
             </ModuleHeader>
-            <Content $hasViewAll={hasViewAll}>
+            <Content $hasViewAll={hasViewAll} data-testid="module-content">
                 {loading ? (
                     <LoaderContainer>
                         <Loader />

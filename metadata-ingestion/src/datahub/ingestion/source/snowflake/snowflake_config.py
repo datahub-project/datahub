@@ -5,9 +5,9 @@ from enum import Enum
 from typing import Dict, List, Optional, Set
 
 import pydantic
-from pydantic import Field, root_validator, validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -31,6 +31,7 @@ from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterCo
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
+    StatefulTimeWindowConfigMixin,
     StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
@@ -67,13 +68,10 @@ class TagOption(StrEnum):
 
 @dataclass(frozen=True)
 class DatabaseId:
-    database: str = Field(
-        description="Database created from share in consumer account."
-    )
-    platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance of consumer snowflake account.",
-    )
+    # Database created from share in consumer account
+    database: str
+    # Platform instance of consumer snowflake account
+    platform_instance: Optional[str] = None
 
 
 class SnowflakeShareConfig(ConfigModel):
@@ -124,10 +122,10 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def validate_legacy_schema_pattern(cls, values: Dict) -> Dict:
-        schema_pattern: Optional[AllowDenyPattern] = values.get("schema_pattern")
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
+    @model_validator(mode="after")
+    def validate_legacy_schema_pattern(self) -> "SnowflakeFilterConfig":
+        schema_pattern: Optional[AllowDenyPattern] = self.schema_pattern
+        match_fully_qualified_names = self.match_fully_qualified_names
 
         if (
             schema_pattern is not None
@@ -147,7 +145,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             assert isinstance(schema_pattern, AllowDenyPattern)
             schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
 
-        return values
+        return self
 
 
 class SnowflakeIdentifierConfig(
@@ -202,6 +200,7 @@ class SnowflakeV2Config(
     SnowflakeUsageConfig,
     StatefulLineageConfigMixin,
     StatefulUsageConfigMixin,
+    StatefulTimeWindowConfigMixin,
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
     IncrementalPropertiesConfigMixin,
@@ -282,10 +281,11 @@ class SnowflakeV2Config(
         description="If enabled along with `extract_tags`, extracts snowflake's key-value tags as DataHub structured properties instead of DataHub tags.",
     )
 
-    structured_properties_template_cache_invalidation_interval: int = Field(
-        hidden_from_docs=True,
-        default=60,
-        description="Interval in seconds to invalidate the structured properties template cache.",
+    structured_properties_template_cache_invalidation_interval: HiddenFromDocs[int] = (
+        Field(
+            default=60,
+            description="Interval in seconds to invalidate the structured properties template cache.",
+        )
     )
 
     include_external_url: bool = Field(
@@ -334,7 +334,7 @@ class SnowflakeV2Config(
         "to ignore the temporary staging tables created by known ETL tools.",
     )
 
-    rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
+    rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(  # type: ignore[pydantic-field]
         "upstreams_deny_pattern", "temporary_tables_pattern"
     )
 
@@ -352,8 +352,7 @@ class SnowflakeV2Config(
     )
 
     # Allows empty containers to be ingested before datasets are added, avoiding permission errors
-    warn_no_datasets: bool = Field(
-        hidden_from_docs=True,
+    warn_no_datasets: HiddenFromDocs[bool] = Field(
         default=False,
         description="If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found.",
     )
@@ -392,7 +391,8 @@ class SnowflakeV2Config(
         "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
     )
 
-    @validator("convert_urns_to_lowercase")
+    @field_validator("convert_urns_to_lowercase", mode="after")
+    @classmethod
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:
             add_global_warning(
@@ -401,30 +401,31 @@ class SnowflakeV2Config(
 
         return v
 
-    @validator("include_column_lineage")
-    def validate_include_column_lineage(cls, v, values):
-        if not values.get("include_table_lineage") and v:
+    @field_validator("include_column_lineage", mode="after")
+    @classmethod
+    def validate_include_column_lineage(cls, v, info):
+        if not info.data.get("include_table_lineage") and v:
             raise ValueError(
                 "include_table_lineage must be True for include_column_lineage to be set."
             )
         return v
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def validate_unsupported_configs(cls, values: Dict) -> Dict:
-        value = values.get("include_read_operational_stats")
-        if value is not None and value:
+    @model_validator(mode="after")
+    def validate_unsupported_configs(self) -> "SnowflakeV2Config":
+        if (
+            hasattr(self, "include_read_operational_stats")
+            and self.include_read_operational_stats
+        ):
             raise ValueError(
                 "include_read_operational_stats is not supported. Set `include_read_operational_stats` to False.",
             )
 
-        include_technical_schema = values.get("include_technical_schema")
-        include_profiles = (
-            values.get("profiling") is not None and values["profiling"].enabled
-        )
+        include_technical_schema = self.include_technical_schema
+        include_profiles = self.profiling is not None and self.profiling.enabled
         delete_detection_enabled = (
-            values.get("stateful_ingestion") is not None
-            and values["stateful_ingestion"].enabled
-            and values["stateful_ingestion"].remove_stale_metadata
+            self.stateful_ingestion is not None
+            and self.stateful_ingestion.enabled
+            and self.stateful_ingestion.remove_stale_metadata
         )
 
         # TODO: Allow profiling irrespective of basic schema extraction,
@@ -436,13 +437,14 @@ class SnowflakeV2Config(
                 "Cannot perform Deletion Detection or Profiling without extracting snowflake technical schema. Set `include_technical_schema` to True or disable Deletion Detection and Profiling."
             )
 
-        return values
+        return self
 
-    @validator("shares")
+    @field_validator("shares", mode="after")
+    @classmethod
     def validate_shares(
-        cls, shares: Optional[Dict[str, SnowflakeShareConfig]], values: Dict
+        cls, shares: Optional[Dict[str, SnowflakeShareConfig]], info: ValidationInfo
     ) -> Optional[Dict[str, SnowflakeShareConfig]]:
-        current_platform_instance = values.get("platform_instance")
+        current_platform_instance = info.data.get("platform_instance")
 
         if shares:
             # Check: platform_instance should be present
@@ -479,6 +481,21 @@ class SnowflakeV2Config(
                 )
 
         return shares
+
+    @model_validator(mode="after")
+    def validate_queries_v2_stateful_ingestion(self) -> "SnowflakeV2Config":
+        if self.use_queries_v2:
+            if (
+                self.enable_stateful_lineage_ingestion
+                or self.enable_stateful_usage_ingestion
+            ):
+                logger.warning(
+                    "enable_stateful_lineage_ingestion and enable_stateful_usage_ingestion are deprecated "
+                    "when using use_queries_v2=True. These configs only work with the legacy (non-queries v2) extraction path. "
+                    "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
+                    "for the unified time window extraction (lineage + usage + operations + queries)."
+                )
+        return self
 
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:
         """

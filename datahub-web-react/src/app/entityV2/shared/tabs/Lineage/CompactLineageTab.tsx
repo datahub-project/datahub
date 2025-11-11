@@ -14,8 +14,6 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { LineageDirection, LineageSearchPath } from '@types';
 
-// Unfortunately, we have to artificially bound the height.
-// Accounts for search bar, controls header, and padding.
 const Container = styled.div`
     flex: 1;
     overflow: hidden;
@@ -97,10 +95,14 @@ const StyledArrowUpOutlined = styled(ArrowUpOutlined)`
 
 const Results = styled.div`
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
     display: flex;
+    min-height: 0;
     & > div {
         width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
 `;
 

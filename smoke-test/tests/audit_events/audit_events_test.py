@@ -125,15 +125,24 @@ def access_token_setup(auth_session, auth_exclude_filter):
     res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
+
+    if res_data["data"]["listAccessTokens"]["tokens"]:
+        for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
+            revokeAccessToken(admin_session, metadata["id"])
+        wait_for_writes_to_sync()
+
+    # Verify clean state after cleanup
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data["data"]["listAccessTokens"]["total"] == 0
     assert not res_data["data"]["listAccessTokens"]["tokens"]
 
     yield
 
-    # Clean up
+    # Clean up after the test
     res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
         revokeAccessToken(admin_session, metadata["id"])
+    wait_for_writes_to_sync()
 
 
 def test_audit_token_events(auth_exclude_filter):

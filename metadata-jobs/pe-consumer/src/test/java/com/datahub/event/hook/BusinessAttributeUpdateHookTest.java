@@ -37,7 +37,6 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
@@ -137,7 +136,7 @@ public class BusinessAttributeUpdateHookTest {
 
     // 2 pages = 2 ingest proposals
     Mockito.verify(mockUpdateIndicesService, Mockito.times(2))
-        .handleChangeEvent(any(OperationContext.class), any(MetadataChangeLog.class));
+        .handleChangeEvents(any(OperationContext.class), any(List.class));
   }
 
   @Test
