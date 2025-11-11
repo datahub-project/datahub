@@ -312,9 +312,7 @@ public class GraphQLEngineFactory {
   // Store the AspectMappingRegistry to expose it as a bean
   private AspectMappingRegistry aspectMappingRegistry;
 
-  /**
-   * Provides the AspectMappingRegistry bean for use in resolvers and entity types.
-   */
+  /** Provides the AspectMappingRegistry bean for use in resolvers and entity types. */
   @Bean(name = "aspectMappingRegistry")
   protected AspectMappingRegistry aspectMappingRegistry() {
     return this.aspectMappingRegistry;

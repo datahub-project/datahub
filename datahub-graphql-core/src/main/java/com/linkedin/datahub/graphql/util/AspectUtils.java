@@ -20,8 +20,8 @@ public class AspectUtils {
    * Determines optimal aspects to fetch based on GraphQL field selections. Falls back to
    * defaultAspects if optimization isn't possible (missing registry, unmapped fields, etc).
    *
-   * Usage in entity type batchLoad:
-   *   Set<String> aspects = AspectUtils.getOptimizedAspects(context, "Dataset", ALL_ASPECTS, "datasetKey");
+   * <p>Usage in entity type batchLoad: Set<String> aspects =
+   * AspectUtils.getOptimizedAspects(context, "Dataset", ALL_ASPECTS, "datasetKey");
    *
    * @param context the QueryContext containing AspectMappingRegistry and DataFetchingEnvironment
    * @param entityTypeName the GraphQL type name (e.g., "Dataset", "CorpUser")

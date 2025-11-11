@@ -55,8 +55,8 @@ public interface QueryContext {
   void setDataFetchingEnvironment(@Nullable DataFetchingEnvironment environment);
 
   /**
-   * Returns the {@link AspectMappingRegistry} for optimizing aspect fetching based on GraphQL
-   * field selections.
+   * Returns the {@link AspectMappingRegistry} for optimizing aspect fetching based on GraphQL field
+   * selections.
    *
    * @return the AspectMappingRegistry, or null if not available
    */

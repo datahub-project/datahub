@@ -15,15 +15,15 @@ import lombok.extern.slf4j.Slf4j;
  * Maps GraphQL field selections to the minimum set of aspects needed to resolve them, enabling
  * performance optimization by fetching only required aspects instead of all aspects.
  *
- * This class scans the GraphQL schema for two directives:
- * - @aspectMapping(aspects: ["aspectName"]) - declares which aspects a field needs
- * - @noAspects - indicates a field needs no aspects (computed fields, custom resolvers)
+ * <p>This class scans the GraphQL schema for two directives: - @aspectMapping(aspects:
+ * ["aspectName"]) - declares which aspects a field needs - @noAspects - indicates a field needs no
+ * aspects (computed fields, custom resolvers)
  *
- * To use in entity types, add one line to batchLoad:
- *   Set<String> aspects = AspectUtils.getOptimizedAspects(context, "Dataset", ALL_ASPECTS, "datasetKey");
+ * <p>To use in entity types, add one line to batchLoad: Set<String> aspects =
+ * AspectUtils.getOptimizedAspects(context, "Dataset", ALL_ASPECTS, "datasetKey");
  *
- * If any field lacks a mapping directive, getRequiredAspects returns null and the entity type falls
- * back to fetching all aspects for safety.
+ * <p>If any field lacks a mapping directive, getRequiredAspects returns null and the entity type
+ * falls back to fetching all aspects for safety.
  */
 @Slf4j
 public class AspectMappingRegistry {
