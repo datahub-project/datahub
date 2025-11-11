@@ -1284,9 +1284,13 @@ def _search_implementation(
     search_strategy: Optional[Literal["semantic", "keyword", "ersatz_semantic"]] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[Literal["asc", "desc"]] = "desc",
+    offset: int = 0,
 ) -> dict:
     """Core search implementation that can use semantic, keyword, or ersatz_semantic search."""
     client = get_datahub_client()
+
+    # Cap num_results at 50 to prevent excessive requests
+    num_results = min(num_results, 50)
 
     # As of 2025-07-25: Our Filter type is a tagged/discriminated union.
     #
@@ -1324,6 +1328,7 @@ def _search_implementation(
         "types": types,
         "orFilters": compiled_filters,
         "count": max(num_results, 1),  # 0 is not a valid value for count.
+        "start": offset,
         "viewUrn": view_urn,  # Will be None if disabled or not set
     }
 
@@ -1343,15 +1348,12 @@ def _search_implementation(
         # Smart search: keyword search with rich entity details for reranking
         gql_query = smart_search_gql
         operation_name = "smartSearch"
-        response_key = "scrollAcrossEntities"
-        variables["scrollId"] = None
+        response_key = "searchAcrossEntities"
     else:
         # Default: keyword search
         gql_query = search_gql
         operation_name = "search"
-        response_key = "scrollAcrossEntities"
-        # Add scrollId for keyword search (maintaining compatibility)
-        variables["scrollId"] = None
+        response_key = "searchAcrossEntities"
 
     response = _execute_graphql(
         client._graph,
@@ -1375,6 +1377,7 @@ def enhanced_search(
     search_strategy: Optional[Literal["semantic", "keyword"]] = None,
     filters: Optional[Filter | str] = None,
     num_results: int = 10,
+    offset: int = 0,
 ) -> dict:
     """Enhanced search across DataHub entities with semantic and keyword capabilities.
     Results are ordered by relevance and importance - examine top results first.
@@ -1405,6 +1408,14 @@ def enhanced_search(
     - Use semantic when: user asks conceptual questions ("show me sales data", "find customer information")
     - Use keyword when: user provides specific names (/q user_events, /q revenue_jan_2024)
     - Use keyword when: searching for technical terms, boolean logic, or exact identifiers
+
+    PAGINATION:
+    - num_results: Number of results to return per page (max: 50)
+    - offset: Starting position in results (default: 0)
+    - Examples:
+      • First page: offset=0, num_results=10
+      • Second page: offset=10, num_results=10
+      • Third page: offset=20, num_results=10
 
     FACET EXPLORATION - Discover metadata without returning results:
     - Set num_results=0 to get ONLY facets (no search results)
@@ -1460,7 +1471,9 @@ def enhanced_search(
     high-usage entities appear first. For "most important tables", search by
     importance tags/terms or use the top-ranked results from a broad search.
     """
-    return _search_implementation(query, filters, num_results, search_strategy)
+    return _search_implementation(
+        query, filters, num_results, search_strategy, offset=offset
+    )
 
 
 # Define original search tool for backward compatibility
@@ -1470,6 +1483,7 @@ def search(
     num_results: int = 10,
     sort_by: Optional[str] = None,
     sort_order: Optional[Literal["asc", "desc"]] = "desc",
+    offset: int = 0,
 ) -> dict:
     """Search across DataHub entities using structured full-text search.
     Results are ordered by relevance and importance - examine top results first.
@@ -1488,6 +1502,14 @@ def search(
       • /q (sales OR revenue) AND quarterly → complex boolean combinations
     - Fast and precise for exact matching, technical terms, and complex queries
     - Best for: entity names, identifiers, column names, or any search needing boolean logic
+
+    PAGINATION:
+    - num_results: Number of results to return per page (max: 50)
+    - offset: Starting position in results (default: 0)
+    - Examples:
+      • First page: offset=0, num_results=10
+      • Second page: offset=10, num_results=10
+      • Third page: offset=20, num_results=10
 
     FACET EXPLORATION - Discover metadata without returning results:
     - Set num_results=0 to get ONLY facets (no search results)
@@ -1573,7 +1595,7 @@ def search(
     importance. When using sort_by, results are strictly ordered by that field.
     """
     return _search_implementation(
-        query, filters, num_results, "keyword", sort_by, sort_order
+        query, filters, num_results, "keyword", sort_by, sort_order, offset
     )
 
 
