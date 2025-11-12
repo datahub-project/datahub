@@ -396,7 +396,6 @@ class AwsConnectionConfig(ConfigModel):
                         "SessionToken": current_credentials.token,
                     }
 
-                    # Assume all roles in chain
                     for role in target_roles:
                         credentials = assume_role(
                             role=role,
@@ -404,7 +403,6 @@ class AwsConnectionConfig(ConfigModel):
                             credentials=credentials,
                         )
 
-                    # Cache the assumed role credentials
                     if isinstance(credentials["Expiration"], datetime):
                         self._credentials_expiration = credentials["Expiration"]
                     self._cached_credentials = credentials
@@ -425,6 +423,9 @@ class AwsConnectionConfig(ConfigModel):
     def _should_refresh_credentials(self) -> bool:
         if self._credentials_expiration is None:
             return True
+        # Refresh credentials when less than 5 minutes remain before expiration.
+        # This buffer helps avoid race conditions where credentials expire between
+        # the cache check and actual AWS API usage.
         remaining_time = self._credentials_expiration - datetime.now(timezone.utc)
         return remaining_time < timedelta(minutes=5)
 
