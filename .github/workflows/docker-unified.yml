@@ -22,7 +22,9 @@ concurrency:
   # Using `github.run_id` (unique val) instead of `github.ref` here
   # because we don't want to cancel this workflow on master only for PRs
   #   as that makes reproducing issues easier
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  # Adding github.event.action == labeled as a means to differentiate the trigger due to adding a label -- most labels are
+  # no-ops except for `depot`
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}-${{ github.event.action == 'labeled' }}
   cancel-in-progress: true
 
 env:
@@ -442,7 +444,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
-    if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
+    if: ${{ needs.smoke_test_matrix.outputs.matrix != '[]' }}
     env:
       # TODO Chakru: Review if required
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
