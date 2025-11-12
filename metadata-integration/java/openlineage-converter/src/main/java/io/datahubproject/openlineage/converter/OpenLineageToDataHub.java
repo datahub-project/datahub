@@ -1244,7 +1244,8 @@ public class OpenLineageToDataHub {
       producerName = producer.toString();
     }
 
-    String orchestrator = getOrchestrator(processingEngine, producerName);
+    String orchestrator =
+        getOrchestrator(processingEngine, producerName, datahubOpenlineageConfig.getOrchestrator());
     String flowName = datahubOpenlineageConfig.getPipelineName();
     if (datahubOpenlineageConfig.getPlatformInstance() != null) {
       namespace = datahubOpenlineageConfig.getPlatformInstance();
@@ -1259,7 +1260,13 @@ public class OpenLineageToDataHub {
     return dataFlowInfo;
   }
 
-  private static String getOrchestrator(String processingEngine, String producer) {
+  private static String getOrchestrator(
+      String processingEngine, String producer, String orchestratorConfig) {
+    // If orchestrator is configured, use it with highest priority
+    if (orchestratorConfig != null && !orchestratorConfig.isEmpty()) {
+      return orchestratorConfig;
+    }
+
     String regex = "https://github.com/OpenLineage/OpenLineage/.*/(.*)$";
     Pattern pattern = Pattern.compile(regex, Pattern.MULTILINE);
     String orchestrator = null;
