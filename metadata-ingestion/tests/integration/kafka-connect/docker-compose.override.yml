@@ -203,7 +203,7 @@ services:
     image: adobe/s3mock:2.13.0
     environment:
       - initialBuckets=test-bucket
-      - server.port=9090
+      - SERVER_PORT=9090
     ports:
       - "9090:9090"
     healthcheck:
