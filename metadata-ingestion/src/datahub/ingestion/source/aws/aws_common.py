@@ -269,6 +269,7 @@ class AwsConnectionConfig(ConfigModel):
     """
 
     _credentials_expiration: Optional[datetime] = None
+    _cached_credentials: Optional[dict] = None
 
     aws_access_key_id: Optional[str] = Field(
         default=None,
@@ -353,10 +354,25 @@ class AwsConnectionConfig(ConfigModel):
             )
         else:
             # Use boto3's credential autodetection
-            session = Session(region_name=self.aws_region)
-
             target_roles = self._normalized_aws_roles()
             if target_roles:
+                # If we have cached credentials that are still valid, use them
+                if (
+                    self._cached_credentials is not None
+                    and not self._should_refresh_credentials()
+                ):
+                    logger.debug("Using cached assumed role credentials")
+                    return Session(
+                        aws_access_key_id=self._cached_credentials["AccessKeyId"],
+                        aws_secret_access_key=self._cached_credentials[
+                            "SecretAccessKey"
+                        ],
+                        aws_session_token=self._cached_credentials["SessionToken"],
+                        region_name=self.aws_region,
+                    )
+
+                # Need to assume role (either first time or credentials expired)
+                session = Session(region_name=self.aws_region)
                 current_role_arn, credential_source = get_current_identity()
 
                 # Only assume role if:
@@ -380,15 +396,18 @@ class AwsConnectionConfig(ConfigModel):
                         "SessionToken": current_credentials.token,
                     }
 
+                    # Assume all roles in chain
                     for role in target_roles:
-                        if self._should_refresh_credentials():
-                            credentials = assume_role(
-                                role=role,
-                                aws_region=self.aws_region,
-                                credentials=credentials,
-                            )
-                            if isinstance(credentials["Expiration"], datetime):
-                                self._credentials_expiration = credentials["Expiration"]
+                        credentials = assume_role(
+                            role=role,
+                            aws_region=self.aws_region,
+                            credentials=credentials,
+                        )
+
+                    # Cache the assumed role credentials
+                    if isinstance(credentials["Expiration"], datetime):
+                        self._credentials_expiration = credentials["Expiration"]
+                    self._cached_credentials = credentials
 
                     session = Session(
                         aws_access_key_id=credentials["AccessKeyId"],
@@ -398,6 +417,8 @@ class AwsConnectionConfig(ConfigModel):
                     )
                 else:
                     logger.debug(f"Using existing role from {credential_source}")
+            else:
+                session = Session(region_name=self.aws_region)
 
         return session
 
