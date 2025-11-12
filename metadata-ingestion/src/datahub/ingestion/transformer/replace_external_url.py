@@ -47,7 +47,7 @@ class ReplaceExternalUrlDataset(DatasetPropertiesTransformer, ReplaceUrl):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "ReplaceExternalUrlDataset":
-        config = ReplaceExternalUrlConfig.parse_obj(config_dict)
+        config = ReplaceExternalUrlConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(
@@ -97,7 +97,7 @@ class ReplaceExternalUrlContainer(ContainerPropertiesTransformer, ReplaceUrl):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "ReplaceExternalUrlContainer":
-        config = ReplaceExternalUrlConfig.parse_obj(config_dict)
+        config = ReplaceExternalUrlConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(

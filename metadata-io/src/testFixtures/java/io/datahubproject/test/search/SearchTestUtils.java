@@ -93,6 +93,7 @@ public class SearchTestUtils {
                                   .maxRelations(100)
                                   .slices(2)
                                   .keepAlive("5m")
+                                  .searchQueryTimeReservation(0.2) // Default 20% reservation
                                   .build())
                           .lineageMaxHops(20)
                           .maxThreads(1)

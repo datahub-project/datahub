@@ -104,7 +104,7 @@ class SerializedResourceValue(BaseModel):
             assert self.schema_ref
             assert self.schema_ref == model_type.__name__
         object_dict = self.as_raw_json()
-        return model_type.parse_obj(object_dict)
+        return model_type.model_validate(object_dict)
 
     @classmethod
     def from_resource_value(
@@ -131,7 +131,7 @@ class SerializedResourceValue(BaseModel):
         elif isinstance(object, BaseModel):
             return SerializedResourceValue(
                 content_type=models.SerializedValueContentTypeClass.JSON,
-                blob=json.dumps(object.dict(), sort_keys=True).encode("utf-8"),
+                blob=json.dumps(object.model_dump(), sort_keys=True).encode("utf-8"),
                 schema_type=models.SerializedValueSchemaTypeClass.JSON,
                 schema_ref=object.__class__.__name__,
             )

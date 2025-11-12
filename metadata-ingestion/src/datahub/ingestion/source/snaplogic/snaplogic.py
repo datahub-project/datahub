@@ -351,5 +351,5 @@ class SnaplogicSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SnaplogicSource":
-        config = SnaplogicConfig.parse_obj(config_dict)
+        config = SnaplogicConfig.model_validate(config_dict)
         return cls(config, ctx)
