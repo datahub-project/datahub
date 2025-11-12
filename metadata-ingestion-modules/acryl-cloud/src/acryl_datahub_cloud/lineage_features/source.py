@@ -268,7 +268,7 @@ class DataHubLineageFeaturesSource(Source):
 
         server = self._create_opensearch_client_with_retry()
 
-        query: Dict[str, Any] = {
+        query = {
             "query": {
                 "bool": {
                     "should": [
@@ -296,6 +296,7 @@ class DataHubLineageFeaturesSource(Source):
                     ],
                 },
             },
+            "sort": ["_id"],
         }
 
         index = f"{self.config.search_index.index_prefix}graph_service_v1"
