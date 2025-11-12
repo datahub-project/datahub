@@ -35,7 +35,7 @@ public class DocumentType
     implements SearchableEntityType<Document, String>,
         com.linkedin.datahub.graphql.types.EntityType<Document, String> {
 
-  static final Set<String> ASPECTS_TO_FETCH =
+  public static final Set<String> ASPECTS_TO_FETCH =
       ImmutableSet.of(
           Constants.DOCUMENT_KEY_ASPECT_NAME,
           Constants.DOCUMENT_INFO_ASPECT_NAME,

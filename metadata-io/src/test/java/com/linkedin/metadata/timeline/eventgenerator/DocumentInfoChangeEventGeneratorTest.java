@@ -111,6 +111,10 @@ public class DocumentInfoChangeEventGeneratorTest {
     ChangeEvent event = transaction.getChangeEvents().get(0);
     assertEquals(event.getCategory(), ChangeCategory.DOCUMENTATION);
     assertTrue(event.getDescription().contains("content was modified"));
+    // Verify parameters are set
+    assertNotNull(event.getParameters());
+    assertEquals(event.getParameters().get("oldContent"), "Old Content");
+    assertEquals(event.getParameters().get("newContent"), "New Content");
   }
 
   @Test
@@ -134,7 +138,8 @@ public class DocumentInfoChangeEventGeneratorTest {
 
     // Execute
     ChangeTransaction transaction =
-        generator.getSemanticDiff(previousAspect, currentAspect, ChangeCategory.TAG, null, false);
+        generator.getSemanticDiff(
+            previousAspect, currentAspect, ChangeCategory.PARENT, null, false);
 
     // Verify
     assertNotNull(transaction);
@@ -142,11 +147,15 @@ public class DocumentInfoChangeEventGeneratorTest {
     assertEquals(transaction.getChangeEvents().size(), 1);
 
     ChangeEvent event = transaction.getChangeEvents().get(0);
-    assertEquals(event.getCategory(), ChangeCategory.TAG);
+    assertEquals(event.getCategory(), ChangeCategory.PARENT);
     assertEquals(event.getOperation(), ChangeOperation.MODIFY);
     assertTrue(event.getDescription().contains("moved"));
     assertTrue(event.getDescription().contains(oldParentUrn.toString()));
     assertTrue(event.getDescription().contains(newParentUrn.toString()));
+    // Verify parameters are set
+    assertNotNull(event.getParameters());
+    assertEquals(event.getParameters().get("oldParent"), oldParentUrn.toString());
+    assertEquals(event.getParameters().get("newParent"), newParentUrn.toString());
   }
 
   @Test
@@ -167,7 +176,8 @@ public class DocumentInfoChangeEventGeneratorTest {
 
     // Execute
     ChangeTransaction transaction =
-        generator.getSemanticDiff(previousAspect, currentAspect, ChangeCategory.TAG, null, false);
+        generator.getSemanticDiff(
+            previousAspect, currentAspect, ChangeCategory.PARENT, null, false);
 
     // Verify
     assertNotNull(transaction);
@@ -175,8 +185,12 @@ public class DocumentInfoChangeEventGeneratorTest {
     assertEquals(transaction.getChangeEvents().size(), 1);
 
     ChangeEvent event = transaction.getChangeEvents().get(0);
+    assertEquals(event.getCategory(), ChangeCategory.PARENT);
     assertTrue(event.getDescription().contains("moved to parent"));
     assertTrue(event.getDescription().contains(parentUrn.toString()));
+    // Verify parameters are set
+    assertNotNull(event.getParameters());
+    assertEquals(event.getParameters().get("newParent"), parentUrn.toString());
   }
 
   @Test
@@ -198,7 +212,8 @@ public class DocumentInfoChangeEventGeneratorTest {
 
     // Execute
     ChangeTransaction transaction =
-        generator.getSemanticDiff(previousAspect, currentAspect, ChangeCategory.TAG, null, false);
+        generator.getSemanticDiff(
+            previousAspect, currentAspect, ChangeCategory.RELATED_ENTITIES, null, false);
 
     // Verify
     assertNotNull(transaction);
@@ -206,6 +221,7 @@ public class DocumentInfoChangeEventGeneratorTest {
     assertEquals(transaction.getChangeEvents().size(), 1);
 
     ChangeEvent event = transaction.getChangeEvents().get(0);
+    assertEquals(event.getCategory(), ChangeCategory.RELATED_ENTITIES);
     assertEquals(event.getOperation(), ChangeOperation.ADD);
     assertTrue(event.getDescription().contains("Related asset"));
     assertTrue(event.getDescription().contains("added"));
@@ -232,7 +248,8 @@ public class DocumentInfoChangeEventGeneratorTest {
 
     // Execute
     ChangeTransaction transaction =
-        generator.getSemanticDiff(previousAspect, currentAspect, ChangeCategory.TAG, null, false);
+        generator.getSemanticDiff(
+            previousAspect, currentAspect, ChangeCategory.RELATED_ENTITIES, null, false);
 
     // Verify
     assertNotNull(transaction);
@@ -240,6 +257,7 @@ public class DocumentInfoChangeEventGeneratorTest {
     assertEquals(transaction.getChangeEvents().size(), 1);
 
     ChangeEvent event = transaction.getChangeEvents().get(0);
+    assertEquals(event.getCategory(), ChangeCategory.RELATED_ENTITIES);
     assertEquals(event.getOperation(), ChangeOperation.REMOVE);
     assertTrue(event.getDescription().contains("Related document"));
     assertTrue(event.getDescription().contains("removed"));

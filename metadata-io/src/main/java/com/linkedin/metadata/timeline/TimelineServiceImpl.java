@@ -224,7 +224,8 @@ public class TimelineServiceImpl implements TimelineService {
       switch (elementName) {
         case LIFECYCLE:
         case DOCUMENTATION:
-        case TAG:
+        case PARENT:
+        case RELATED_ENTITIES:
           {
             // DocumentInfo handles all these categories
             aspects.add(DOCUMENT_INFO_ASPECT_NAME);

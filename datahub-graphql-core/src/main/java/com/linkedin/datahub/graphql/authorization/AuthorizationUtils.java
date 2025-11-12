@@ -398,8 +398,6 @@ public class AuthorizationUtils {
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
                 new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType())),
-                new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())),
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
@@ -447,6 +445,12 @@ public class AuthorizationUtils {
 
     return isAuthorized(
         context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
+  }
+
+  /** Returns true if the current user has the platform-level 'Manage Documents' privilege. */
+  public static boolean canManageDocuments(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE);
   }
 
   public static boolean isAuthorized(

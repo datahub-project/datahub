@@ -59,7 +59,7 @@ public class DocumentResolvers {
                 .dataFetcher(
                     "searchDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.SearchDocumentsResolver(
-                        documentService)));
+                        documentService, entityClient)));
 
     // Mutation resolvers
     builder.type(
@@ -91,6 +91,10 @@ public class DocumentResolvers {
                     new com.linkedin.datahub.graphql.resolvers.knowledge
                         .UpdateDocumentStatusResolver(documentService))
                 .dataFetcher(
+                    "updateDocumentSubType",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge
+                        .UpdateDocumentSubTypeResolver(documentService))
+                .dataFetcher(
                     "mergeDraft",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.MergeDraftResolver(
                         documentService, entityService)));
@@ -106,13 +110,21 @@ public class DocumentResolvers {
                     new com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver(
                         entityClient, entityRegistry))
                 .dataFetcher(
+                    "privileges",
+                    new com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver(
+                        entityClient))
+                .dataFetcher(
                     "drafts",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.DocumentDraftsResolver(
                         documentService))
                 .dataFetcher(
                     "changeHistory",
                     new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .DocumentChangeHistoryResolver(timelineService)));
+                        .DocumentChangeHistoryResolver(timelineService))
+                .dataFetcher(
+                    "parentDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.ParentDocumentsResolver(
+                        entityClient)));
 
     // Resolve DocumentInfo.relatedAssets[].asset -> Entity (resolved)
     builder.type(
@@ -167,5 +179,17 @@ public class DocumentResolvers {
                         ((com.linkedin.datahub.graphql.generated.DocumentDraftOf) env.getSource())
                             .getDocument()
                             .getUrn())));
+
+    // Resolve DocumentChange.actor -> CorpUser (resolved)
+    builder.type(
+        "DocumentChange",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "actor",
+                new EntityTypeResolver(
+                    entityTypes,
+                    (env) ->
+                        ((com.linkedin.datahub.graphql.generated.DocumentChange) env.getSource())
+                            .getActor())));
   }
 }

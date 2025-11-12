@@ -6,11 +6,14 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Document;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.knowledge.DocumentMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -22,7 +25,9 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +47,7 @@ public class SearchDocumentsResolver
   private static final String DEFAULT_QUERY = "*";
 
   private final DocumentService _documentService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<SearchDocumentsResult> get(final DataFetchingEnvironment environment)
@@ -61,10 +67,7 @@ public class SearchDocumentsResolver
             // Build filter combining all the ANDed conditions
             Filter filter = buildCombinedFilter(input);
 
-            // No need to manipulate context - search method accepts OperationContext with search
-            // flags
-
-            // Search using service
+            // Step 1: Search using service to get URNs
             final SearchResult gmsResult;
             try {
               gmsResult =
@@ -74,16 +77,39 @@ public class SearchDocumentsResolver
               throw new RuntimeException("Failed to search documents", e);
             }
 
-            // Build the result
+            // Step 2: Extract URNs from search results
+            final List<Urn> documentUrns =
+                gmsResult.getEntities().stream()
+                    .map(SearchEntity::getEntity)
+                    .collect(Collectors.toList());
+
+            // Step 3: Batch hydrate/resolve the Document entities
+            final Map<Urn, EntityResponse> entities =
+                _entityClient.batchGetV2(
+                    context.getOperationContext(),
+                    Constants.DOCUMENT_ENTITY_NAME,
+                    new HashSet<>(documentUrns),
+                    com.linkedin.datahub.graphql.types.knowledge.DocumentType.ASPECTS_TO_FETCH);
+
+            // Step 4: Map entities in the same order as search results
+            final List<EntityResponse> orderedEntityResponses = new ArrayList<>();
+            for (Urn urn : documentUrns) {
+              orderedEntityResponses.add(entities.getOrDefault(urn, null));
+            }
+
+            // Step 5: Convert to GraphQL Document objects
+            final List<Document> documents =
+                orderedEntityResponses.stream()
+                    .filter(entityResponse -> entityResponse != null)
+                    .map(entityResponse -> DocumentMapper.map(context, entityResponse))
+                    .collect(Collectors.toList());
+
+            // Step 6: Build the result
             final SearchDocumentsResult result = new SearchDocumentsResult();
             result.setStart(gmsResult.getFrom());
             result.setCount(gmsResult.getPageSize());
             result.setTotal(gmsResult.getNumEntities());
-            result.setDocuments(
-                mapUnresolvedArticles(
-                    gmsResult.getEntities().stream()
-                        .map(SearchEntity::getEntity)
-                        .collect(Collectors.toList())));
+            result.setDocuments(documents);
 
             // Map facets
             if (gmsResult.getMetadata() != null
@@ -111,10 +137,21 @@ public class SearchDocumentsResolver
     List<Criterion> criteria = new ArrayList<>();
 
     // Add parent document filter if provided
-    if (input.getParentDocument() != null) {
+    // If parentDocuments (plural) is provided, use it; otherwise fall back to single parentDocument
+    if (input.getParentDocuments() != null && !input.getParentDocuments().isEmpty()) {
       criteria.add(
           CriterionUtils.buildCriterion(
-              "parentArticle", Condition.EQUAL, input.getParentDocument()));
+              "parentDocument", Condition.EQUAL, input.getParentDocuments()));
+    } else if (input.getParentDocument() != null) {
+      criteria.add(
+          CriterionUtils.buildCriterion(
+              "parentDocument", Condition.EQUAL, input.getParentDocument()));
+    } else if (input.getRootOnly() != null && input.getRootOnly()) {
+      // Filter for root-level documents only (no parent)
+      Criterion noParentCriterion = new Criterion();
+      noParentCriterion.setField("parentDocument");
+      noParentCriterion.setCondition(Condition.IS_NULL);
+      criteria.add(noParentCriterion);
     }
 
     // Add types filter if provided (now using subTypes aspect)
@@ -178,17 +215,5 @@ public class SearchDocumentsResolver
             new com.linkedin.metadata.query.filter.ConjunctiveCriterionArray(
                 new com.linkedin.metadata.query.filter.ConjunctiveCriterion()
                     .setAnd(new com.linkedin.metadata.query.filter.CriterionArray(criteria))));
-  }
-
-  /** Maps URNs to unresolved Document objects for batch loading. */
-  private List<Document> mapUnresolvedArticles(final List<Urn> entityUrns) {
-    final List<Document> results = new ArrayList<>();
-    for (final Urn urn : entityUrns) {
-      final Document unresolvedArticle = new Document();
-      unresolvedArticle.setUrn(urn.toString());
-      unresolvedArticle.setType(EntityType.DOCUMENT);
-      results.add(unresolvedArticle);
-    }
-    return results;
   }
 }

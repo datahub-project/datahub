@@ -11,7 +11,7 @@ record RelatedAsset {
      */
     @Relationship = {
         "name": "RelatedAsset",
-        "entityTypes": ["container", "dataset", "dataJob", "dataFlow", "dashboard", "chart", "application", "dataPlatform", "mlModel", "mlModelGroup", "mlPrimaryKey", "mlFeatureTable"]
+        "entityTypes": ["container", "dataset", "dataJob", "dataFlow", "dashboard", "chart", "application", "dataPlatform", "mlModel", "mlModelGroup", "mlPrimaryKey", "mlFeatureTable", "corpuser", "corpGroup", "dataProduct", "domain", "glossaryTerm", "glossaryNode", "tag", "structuredProperty"]
     }
     @Searchable = {
         "fieldName": "relatedAssets"

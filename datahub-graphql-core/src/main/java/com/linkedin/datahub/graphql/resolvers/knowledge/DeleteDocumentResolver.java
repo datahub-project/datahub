@@ -14,8 +14,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Resolver responsible for hard deleting a particular Document. Requires the GET_ENTITY metadata
- * privilege on the document or the MANAGE_DOCUMENTS platform privilege.
+ * Resolver responsible for soft deleting a particular Document by setting the Status aspect removed
+ * field to true. Requires the GET_ENTITY metadata privilege on the document or the MANAGE_DOCUMENTS
+ * platform privilege.
  */
 @Slf4j
 @RequiredArgsConstructor

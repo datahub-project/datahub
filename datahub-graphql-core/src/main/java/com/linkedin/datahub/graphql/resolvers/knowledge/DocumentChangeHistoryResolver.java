@@ -77,12 +77,24 @@ public class DocumentChangeHistoryResolver
 
             // Convert to document-native format and flatten
             List<DocumentChange> changes = new ArrayList<>();
+            Set<String> seenChanges = new HashSet<>(); // For deduplication
+
             for (ChangeTransaction transaction : transactions) {
               if (transaction.getChangeEvents() != null) {
                 for (ChangeEvent event : transaction.getChangeEvents()) {
                   DocumentChange change = convertToDocumentChange(event);
                   if (change != null) {
-                    changes.add(change);
+                    // Create a unique key for deduplication: timestamp + changeType + description
+                    String changeKey =
+                        String.format(
+                            "%s_%s_%s",
+                            change.getTimestamp(), change.getChangeType(), change.getDescription());
+
+                    // Only add if we haven't seen this exact change before
+                    if (!seenChanges.contains(changeKey)) {
+                      seenChanges.add(changeKey);
+                      changes.add(change);
+                    }
                   }
                 }
               }
@@ -116,13 +128,14 @@ public class DocumentChangeHistoryResolver
 
   /**
    * Get all change categories relevant to documents. This includes documentation changes, lifecycle
-   * events, and relationship changes (using TAG as a proxy).
+   * events, parent changes, and related entity changes.
    */
   private Set<ChangeCategory> getAllDocumentChangeCategories() {
     Set<ChangeCategory> categories = new HashSet<>();
     categories.add(ChangeCategory.DOCUMENTATION); // content/title changes
     categories.add(ChangeCategory.LIFECYCLE); // creation, state changes
-    categories.add(ChangeCategory.TAG); // parent & related entity changes (using TAG as proxy)
+    categories.add(ChangeCategory.PARENT); // parent document changes
+    categories.add(ChangeCategory.RELATED_ENTITIES); // related assets/documents
     return categories;
   }
 
@@ -200,11 +213,23 @@ public class DocumentChangeHistoryResolver
     // Map based on category and description patterns
     switch (category) {
       case DOCUMENTATION:
-        // Content or title changes
-        if (event.getDescription() != null && event.getDescription().contains("title")) {
-          return DocumentChangeType.CONTENT_MODIFIED;
+        // Differentiate between title and text content changes using parameters
+        if (event.getParameters() != null) {
+          if (event.getParameters().containsKey("oldTitle")
+              || event.getParameters().containsKey("newTitle")) {
+            return DocumentChangeType.TITLE_CHANGED;
+          }
+          if (event.getParameters().containsKey("oldContent")
+              || event.getParameters().containsKey("newContent")) {
+            return DocumentChangeType.TEXT_CHANGED;
+          }
         }
-        return DocumentChangeType.CONTENT_MODIFIED;
+        // Fallback: check description for backward compatibility
+        if (event.getDescription() != null
+            && event.getDescription().toLowerCase().contains("title")) {
+          return DocumentChangeType.TITLE_CHANGED;
+        }
+        return DocumentChangeType.TEXT_CHANGED;
 
       case LIFECYCLE:
         // State changes or deletion
@@ -216,19 +241,22 @@ public class DocumentChangeHistoryResolver
         }
         return DocumentChangeType.CREATED;
 
-      case TAG:
-        // Using TAG as proxy for parent and related entity changes
+      case PARENT:
+        // Parent relationship changes
+        return DocumentChangeType.PARENT_CHANGED;
+
+      case RELATED_ENTITIES:
+        // Related entity changes - differentiate between assets and documents
         if (event.getDescription() != null) {
           String desc = event.getDescription().toLowerCase();
-          if (desc.contains("parent")) {
-            return DocumentChangeType.PARENT_CHANGED;
-          } else if (desc.contains("asset")) {
+          if (desc.contains("asset")) {
             return DocumentChangeType.RELATED_ASSETS_CHANGED;
           } else if (desc.contains("document")) {
             return DocumentChangeType.RELATED_DOCUMENTS_CHANGED;
           }
         }
-        return null; // Skip unmapped TAG events
+        // Default to related documents if description is unclear
+        return DocumentChangeType.RELATED_DOCUMENTS_CHANGED;
 
       default:
         return null;

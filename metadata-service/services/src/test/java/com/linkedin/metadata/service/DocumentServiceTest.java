@@ -284,15 +284,12 @@ public class DocumentServiceTest {
 
     final DocumentService service = new DocumentService(mockClient);
 
-    // Test deleting an document
+    // Test soft deleting a document
     service.deleteDocument(opContext, TEST_DOCUMENT_URN);
 
-    // Verify deleteEntity was called
-    verify(mockClient, times(1)).deleteEntity(any(OperationContext.class), eq(TEST_DOCUMENT_URN));
-
-    // Verify deleteEntityReferences was called
+    // Verify ingestProposal was called to set Status aspect with removed=true
     verify(mockClient, times(1))
-        .deleteEntityReferences(any(OperationContext.class), eq(TEST_DOCUMENT_URN));
+        .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class), eq(false));
   }
 
   @Test
