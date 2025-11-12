@@ -1,0 +1,25 @@
+namespace com.linkedin.knowledge
+
+import com.linkedin.common.Urn
+
+/**
+ * Indicates this document is a draft of another document.
+ * Used to separate draft/versioning relationships from hierarchical parent/child relationships.
+ */
+record DraftOf {
+    /**
+     * The document that this document is a draft of.
+     * When set, this document is a draft/proposed version of the referenced document.
+     * Draft documents should have UNPUBLISHED status and not appear in normal knowledge base browsing.
+     */
+    @Relationship = {
+        "name": "IsDraftOf",
+        "entityTypes": ["document"]
+    }
+    @Searchable = {
+        "fieldName": "draftOf",
+        "fieldType": "URN"
+    }
+    document: Urn
+}
+

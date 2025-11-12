@@ -373,6 +373,82 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
   }
 
+  /**
+   * Returns true if the current user is able to create Knowledge Articles. This is true if the user
+   * has the 'Create Entity' privilege for Knowledge Articles or 'Manage Knowledge Articles'
+   * platform privilege.
+   */
+  public static boolean canCreateDocument(@Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
+
+    return AuthUtil.isAuthorized(context.getOperationContext(), orPrivilegeGroups, null);
+  }
+
+  /**
+   * Returns true if the current user is able to edit a specific Document. This is true if the user
+   * has the 'Edit Entity Docs' or 'Edit Entity' metadata privilege on the document, or the 'Manage
+   * Documents' platform privilege.
+   */
+  public static boolean canEditDocument(@Nonnull Urn documentUrn, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType())),
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())),
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
+
+    return isAuthorized(
+        context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
+  }
+
+  /**
+   * Returns true if the current user is able to read a specific Document. This is true if the user
+   * has the 'Get Entity' metadata privilege on the document or the 'Manage Documents' platform
+   * privilege.
+   */
+  public static boolean canGetDocument(@Nonnull Urn documentUrn, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType())),
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
+
+    return isAuthorized(
+        context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
+  }
+
+  /**
+   * Returns true if the current user is able to delete a specific Document. This is true if the
+   * user has the delete entity authorization on the document or the 'Manage Documents' platform
+   * privilege.
+   */
+  public static boolean canDeleteDocument(@Nonnull Urn documentUrn, @Nonnull QueryContext context) {
+    // Check if user can delete entity using standard delete authorization
+    if (AuthUtil.isAuthorizedEntityUrns(
+        context.getOperationContext(), DELETE, List.of(documentUrn))) {
+      return true;
+    }
+
+    // Fallback to document-specific management privilege
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
+
+    return isAuthorized(
+        context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
+  }
+
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
       @Nonnull String resourceType,

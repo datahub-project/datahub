@@ -1,0 +1,20 @@
+namespace com.linkedin.knowledge
+
+import com.linkedin.common.Urn
+
+/**
+ * A data asset referenced by a document.
+ */
+record RelatedAsset {
+    /**
+     * The asset referenced by or related to the document. 
+     */
+    @Relationship = {
+        "name": "RelatedAsset",
+        "entityTypes": ["container", "dataset", "dataJob", "dataFlow", "dashboard", "chart", "application", "dataPlatform", "mlModel", "mlModelGroup", "mlPrimaryKey", "mlFeatureTable"]
+    }
+    @Searchable = {
+        "fieldName": "relatedAssets"
+    }
+    asset: Urn
+}
