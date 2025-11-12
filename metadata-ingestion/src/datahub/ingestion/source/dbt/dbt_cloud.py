@@ -117,17 +117,12 @@ class DBTCloudConfig(DBTCommonConfig):
 
     @model_validator(mode="after")
     def validate_config(self) -> "DBTCloudConfig":
-        # Determine which mode we're in
-        is_auto_discovery = (
-            self.auto_discovery is not None and self.auto_discovery.enabled
-        )
-        # Explicit mode: require job_id
-        if self.job_id is None and not is_auto_discovery:
+        is_auto_discovery = self.auto_discovery and self.auto_discovery.enabled
+        if not is_auto_discovery and self.job_id is None:
             raise ValueError(
                 "job_id is required in explicit mode. "
                 "Either provide job_id or enable auto_discovery mode."
             )
-
         return self
 
 
@@ -324,36 +319,34 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         config = DBTCloudConfig.model_validate(config_dict)
         return cls(config, ctx)
 
+    def _is_auto_discovery_enabled(self) -> bool:
+        """Check if auto-discovery mode is enabled."""
+        return bool(self.config.auto_discovery and self.config.auto_discovery.enabled)
+
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
             source_config = DBTCloudConfig.parse_obj_allow_extras(config_dict)
-
             is_auto_discovery = (
-                source_config.auto_discovery is not None
-                and source_config.auto_discovery.enabled
+                source_config.auto_discovery and source_config.auto_discovery.enabled
             )
 
             if is_auto_discovery:
-                # Test auto-discovery mode: fetch environments for the project
+                # Test auto-discovery: verify we can fetch environments
                 DBTCloudSource._get_environments_for_project(
-                    access_url=source_config.access_url,
-                    token=source_config.token,
-                    account_id=source_config.account_id,
-                    project_id=source_config.project_id,
+                    source_config.access_url,
+                    source_config.token,
+                    source_config.account_id,
+                    source_config.project_id,
                 )
-
-            elif source_config.job_id is not None:
-                # Explicit mode: test with single job_id
+            else:
+                # Test explicit mode: verify we can query the job
                 DBTCloudSource._send_graphql_query(
-                    metadata_endpoint=source_config.metadata_endpoint,
-                    token=source_config.token,
-                    query=_DBT_GRAPHQL_QUERY.format(type="tests", fields="jobId"),
-                    variables={
-                        "jobId": source_config.job_id,
-                        "runId": source_config.run_id,
-                    },
+                    source_config.metadata_endpoint,
+                    source_config.token,
+                    _DBT_GRAPHQL_QUERY.format(type="tests", fields="jobId"),
+                    {"jobId": source_config.job_id, "runId": source_config.run_id},
                 )
 
             test_report.basic_connectivity = CapabilityReport(capable=True)
@@ -526,16 +519,14 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         Returns:
             List of job IDs to ingest.
         """
-        if not self.config.auto_discovery or not self.config.auto_discovery.enabled:
+        if not self._is_auto_discovery_enabled():
             return []
-
-        auto_discovery_config = self.config.auto_discovery
-
+        assert self.config.auto_discovery is not None
         logger.info(
             f"Starting auto-discovery for project {self.config.project_id} in account {self.config.account_id}"
         )
 
-        # Fetch environments for this project
+        # Fetch and find production environment
         try:
             environments: List[DBTCloudEnvironment] = (
                 self._get_environments_for_project(
@@ -551,30 +542,31 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             )
             raise
 
-        # Find production environment
-        production_environment = None
-        for env in environments:
-            if env.deployment_type == DBTCloudDeploymentType.PRODUCTION:
-                production_environment = env
-                break
-
-        if not production_environment:
+        production_env = next(
+            (
+                env
+                for env in environments
+                if env.deployment_type == DBTCloudDeploymentType.PRODUCTION
+            ),
+            None,
+        )
+        if not production_env:
             raise ValueError(
                 f"Could not find production environment for project {self.config.project_id}"
             )
 
         logger.info(
-            f"Found production environment {production_environment.id} for project {self.config.project_id}"
+            f"Found production environment {production_env.id} for project {self.config.project_id}"
         )
 
-        # Fetch jobs for production environment
+        # Fetch and filter jobs
         try:
             all_jobs: List[DBTCloudJob] = self._get_jobs_for_project(
                 self.config.access_url,
                 self.config.token,
                 self.config.account_id,
                 self.config.project_id,
-                production_environment.id,
+                production_env.id,
             )
         except Exception as e:
             logger.error(
@@ -585,14 +577,14 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         # Filter jobs by generate_docs=True and job_id_pattern
         filtered_job_ids: List[int] = []
         for job in all_jobs:
-            if job.generate_docs and auto_discovery_config.job_id_pattern.allowed(
+            if job.generate_docs and self.config.auto_discovery.job_id_pattern.allowed(
                 str(job.id)
             ):
                 filtered_job_ids.append(job.id)
             else:
                 logger.debug(
                     f"Skipping job {job.id}: generate_docs={job.generate_docs}, "
-                    f"matches_pattern={auto_discovery_config.job_id_pattern.allowed(str(job.id))}"
+                    f"matches_pattern={self.config.auto_discovery.job_id_pattern.allowed(str(job.id))}"
                 )
 
         logger.info(
@@ -610,40 +602,23 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         # Additionally, we'd like to model dbt Cloud jobs/runs in DataHub
         # as DataProcesses or DataJobs.
 
-        # Determine which mode we're in
-        is_auto_discovery = (
-            self.config.auto_discovery is not None
-            and self.config.auto_discovery.enabled
-        )
-
-        nodes = []
         job_ids_to_ingest: List[int] = []
         run_id: Optional[int] = self.config.run_id
-
-        if is_auto_discovery:
-            # Auto-discovery mode
+        if self._is_auto_discovery_enabled():
             logger.info("Auto-discovery mode: discovering jobs for configured project")
-
-            # Discover jobs
             job_ids_to_ingest = self._auto_discover_projects_and_jobs()
-            # Resetting the run_id to None to get the latest run
-            run_id = None
-
             if not job_ids_to_ingest:
                 logger.warning("No jobs discovered in auto-discovery mode")
                 return [], {}
+            run_id = None  # Always use latest run in auto-discovery
         else:
-            # Explicit mode
             assert self.config.job_id is not None
             logger.info(f"Explicit mode: ingesting single job {self.config.job_id}")
             job_ids_to_ingest = [self.config.job_id]
 
-        # Ingest each job
+        # Fetch nodes from all jobs
         raw_nodes = []
         for job_id in job_ids_to_ingest:
-            # Use latest run unless run_id is specified
-
-            # Fetch nodes for each node type for this job
             for node_type, fields in _DBT_FIELDS_BY_TYPE.items():
                 try:
                     logger.info(
