@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/documentV2/hooks/useDocumentPermissions';
@@ -6,7 +6,7 @@ import { useUpdateDocument } from '@app/documentV2/hooks/useUpdateDocument';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import BaseProperty from '@app/entityV2/summary/properties/property/properties/BaseProperty';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
-import { Button, Input, SimpleSelect } from '@src/alchemy-components';
+import { SimpleSelect } from '@src/alchemy-components';
 
 import { Document } from '@types';
 
@@ -14,129 +14,68 @@ const TypeSelectWrapper = styled.div`
     overflow: hidden;
 `;
 
-const CustomInputWrapper = styled.div`
-    display: flex;
-    gap: 8px;
-    align-items: center;
-`;
+const NONE_VALUE = '';
 
-const CUSTOM_VALUE = '__CUSTOM__';
-
-const predefinedTypes = [
+const typeOptions = [
+    { label: 'None', value: NONE_VALUE },
     { label: 'Runbook', value: 'Runbook' },
     { label: 'FAQ', value: 'FAQ' },
     { label: 'Insight', value: 'Insight' },
     { label: 'Definition', value: 'Definition' },
     { label: 'Decision', value: 'Decision' },
-    { label: 'Custom', value: CUSTOM_VALUE },
 ];
 
 export default function DocumentTypeProperty(props: PropertyComponentProps) {
     const { urn, entityData } = useEntityData();
     const document = entityData as Document;
     const refetch = useRefetch();
-    const { canEdit } = useDocumentPermissions(urn);
+    const { canEditType } = useDocumentPermissions(urn);
     const { updateSubType } = useUpdateDocument();
 
-    const currentType = document?.subType || '';
-    const [isCustomMode, setIsCustomMode] = useState(false);
-    const [customValue, setCustomValue] = useState('');
+    const serverType = document?.subType?.trim() || NONE_VALUE;
+    const [optimisticType, setOptimisticType] = useState(serverType);
 
-    const isPredefinedType = predefinedTypes.some((type) => type.value === currentType);
+    // Sync optimistic state with server state when it changes
+    useEffect(() => {
+        setOptimisticType(serverType);
+    }, [serverType]);
 
     const handleTypeChange = async (values: string[]) => {
-        const selectedValue = values[0];
+        const selectedValue = values[0] || NONE_VALUE;
+        const previousType = optimisticType;
 
-        if (selectedValue === CUSTOM_VALUE) {
-            // Switch to custom input mode
-            setIsCustomMode(true);
-            setCustomValue(currentType);
-        } else {
-            // Update with predefined type using dedicated mutation
-            console.log('[DocumentTypeProperty] Updating type to:', selectedValue);
+        // Optimistically update the UI immediately
+        setOptimisticType(selectedValue);
+
+        try {
+            // Send empty string or null for "None", otherwise send the selected value
+            const typeToSend = selectedValue === NONE_VALUE ? null : selectedValue;
             await updateSubType({
                 urn,
-                subType: selectedValue,
+                subType: typeToSend,
             });
-            console.log('[DocumentTypeProperty] Type updated, calling refetch...');
             await refetch();
-            console.log('[DocumentTypeProperty] Refetch complete!');
+        } catch (error) {
+            // Revert to previous type if the mutation fails
+            console.error('[DocumentTypeProperty] Update failed, reverting to:', previousType);
+            setOptimisticType(previousType);
         }
-    };
-
-    const handleCustomSubmit = async () => {
-        if (customValue.trim()) {
-            console.log('[DocumentTypeProperty] Updating custom type to:', customValue.trim());
-            await updateSubType({
-                urn,
-                subType: customValue.trim(),
-            });
-            setIsCustomMode(false);
-            console.log('[DocumentTypeProperty] Type updated, calling refetch...');
-            await refetch();
-            console.log('[DocumentTypeProperty] Refetch complete!');
-        }
-    };
-
-    const handleCustomCancel = () => {
-        setIsCustomMode(false);
-        setCustomValue('');
     };
 
     const renderValue = () => {
-        if (!currentType) {
-            return (
-                <TypeSelectWrapper>
-                    <SimpleSelect
-                        values={[]}
-                        onUpdate={handleTypeChange}
-                        isDisabled={!canEdit}
-                        options={predefinedTypes}
-                        size="sm"
-                        placeholder="Select type..."
-                        width="fit-content"
-                        showClear={false}
-                    />
-                </TypeSelectWrapper>
-            );
+        if (!canEditType) {
+            // Show read-only value
+            const displayValue = optimisticType === NONE_VALUE ? 'None' : optimisticType;
+            return <span>{displayValue}</span>;
         }
 
-        if (isCustomMode) {
-            return (
-                <CustomInputWrapper>
-                    <Input
-                        value={customValue}
-                        setValue={setCustomValue}
-                        label=""
-                        placeholder="Enter custom type"
-                        autoFocus
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                handleCustomSubmit();
-                            } else if (e.key === 'Escape') {
-                                handleCustomCancel();
-                            }
-                        }}
-                    />
-                    <Button onClick={handleCustomSubmit} size="sm">
-                        Save
-                    </Button>
-                    <Button onClick={handleCustomCancel} size="sm" variant="text">
-                        Cancel
-                    </Button>
-                </CustomInputWrapper>
-            );
-        }
-
-        // Show current type with Select dropdown
-        const currentValue = isPredefinedType ? currentType : CUSTOM_VALUE;
         return (
             <TypeSelectWrapper>
                 <SimpleSelect
-                    values={[currentValue]}
+                    values={[optimisticType]}
                     onUpdate={handleTypeChange}
-                    isDisabled={!canEdit}
-                    options={predefinedTypes}
+                    isDisabled={!canEditType}
+                    options={typeOptions}
                     size="sm"
                     width="fit-content"
                     showClear={false}
@@ -146,6 +85,11 @@ export default function DocumentTypeProperty(props: PropertyComponentProps) {
     };
 
     return (
-        <BaseProperty {...props} values={currentType ? [currentType] : []} renderValue={renderValue} maxValues={1} />
+        <BaseProperty
+            {...props}
+            values={optimisticType === NONE_VALUE ? [] : [optimisticType]}
+            renderValue={renderValue}
+            maxValues={1}
+        />
     );
 }

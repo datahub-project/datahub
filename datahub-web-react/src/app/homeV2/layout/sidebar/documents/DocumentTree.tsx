@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { useDocumentTree } from '@app/documentV2/DocumentTreeContext';
 import { useLoadDocumentTree } from '@app/documentV2/hooks/useLoadDocumentTree';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
+import Loading from '@app/shared/Loading';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -153,7 +154,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     );
 
     if (loading) {
-        return <TreeContainer>Loading documents...</TreeContainer>;
+        return <Loading height={16} />;
     }
 
     return <TreeContainer>{rootNodes.map((node) => renderTreeNode(node.urn, 0))}</TreeContainer>;

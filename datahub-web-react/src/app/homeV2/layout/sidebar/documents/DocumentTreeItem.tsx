@@ -94,6 +94,7 @@ const Title = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     font-size: 14px;
     line-height: 20px;
+    color: ${colors.gray[1700]};
 
     ${(props) =>
         props.$isSelected &&

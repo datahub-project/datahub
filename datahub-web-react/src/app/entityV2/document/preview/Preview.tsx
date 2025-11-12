@@ -65,7 +65,7 @@ export const Preview = ({
             insights={insights}
             logoComponent={logoComponent}
             parentEntities={
-                document.info?.parentDocument?.document ? [document.info.parentDocument.document as any] : undefined
+                document.parentDocuments?.documents ? (document.parentDocuments.documents as any[]) : undefined
             }
             entityIcon={<FileText size={28} color={isPublished ? '#1890ff' : '#8c8c8c'} weight="duotone" />}
             externalUrl={externalUrl}

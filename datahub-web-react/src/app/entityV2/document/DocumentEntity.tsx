@@ -6,6 +6,7 @@ import { DocumentProfile } from '@app/entityV2/document/DocumentProfile';
 import { Preview } from '@app/entityV2/document/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
@@ -144,4 +145,13 @@ export class DocumentEntity implements Entity<Document> {
             EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
+
+    renderEmbeddedProfile = (urn: string) => (
+        <EmbeddedProfile
+            urn={urn}
+            entityType={EntityType.Document}
+            useEntityQuery={useGetDocumentQuery}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
+        />
+    );
 }

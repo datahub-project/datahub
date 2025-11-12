@@ -4068,6 +4068,7 @@ export const platformPrivileges: PlatformPrivileges = {
     viewTests: false,
     manageTests: true,
     manageGlossaries: true,
+    manageDocuments: true,
     manageUserCredentials: true,
     manageTags: true,
     viewManageTags: true,

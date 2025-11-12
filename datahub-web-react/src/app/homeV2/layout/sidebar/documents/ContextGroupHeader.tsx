@@ -6,15 +6,13 @@ import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const HeaderContainer = styled.div<{ $isCollapsed: boolean }>`
     position: relative;
-    margin-top: 8px;
-    padding: 8px 0;
+    padding: 0px 0px 0px 0px;
     color: #8088a3;
     font-family: Mulish;
     font-size: 14px;
     font-style: normal;
     font-weight: 700;
     line-height: normal;
-    min-height: 38px;
     display: flex;
     align-items: center;
     justify-content: space-between;

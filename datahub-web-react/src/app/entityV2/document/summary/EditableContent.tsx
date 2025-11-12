@@ -1,10 +1,11 @@
 import { Editor } from '@components';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/documentV2/hooks/useDocumentPermissions';
 import { useExtractMentions } from '@app/documentV2/hooks/useExtractMentions';
 import { useUpdateDocument } from '@app/documentV2/hooks/useUpdateDocument';
+import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedAssetsSection } from '@app/entityV2/document/summary/RelatedAssetsSection';
 import { RelatedDocumentsSection } from '@app/entityV2/document/summary/RelatedDocumentsSection';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
@@ -22,9 +23,10 @@ const ContentWrapper = styled.div`
 
 const EditorSection = styled.div`
     width: 100%;
+    position: relative;
 `;
 
-const StyledEditor = styled(Editor)`
+const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean }>`
     border: none;
     &&& {
         .remirror-editor {
@@ -38,6 +40,36 @@ const StyledEditor = styled(Editor)`
         }
         p:last-of-type {
             margin-bottom: 0;
+        }
+    }
+
+    /* Hide toolbar completely when not focused - must come before animations */
+    ${(props) =>
+        props.$hideToolbar &&
+        `
+        .remirror-theme > div:first-child,
+        .remirror-editor-wrapper > div:first-child:not(.remirror-editor) {
+            display: none !important;
+        }
+        padding-bottom: 0 !important;
+    `}
+
+    /* Animate toolbar appearance - only on show, not hide */
+    ${(props) =>
+        !props.$hideToolbar &&
+        `
+        .remirror-theme > div:first-child,
+        .remirror-editor-wrapper > div:first-child:not(.remirror-editor) {
+            animation: fadeIn 0.3s ease-out;
+        }
+    `}
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
         }
     }
 `;
@@ -58,8 +90,11 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     const [content, setContent] = useState(initialContent || '');
     const [isSaving, setIsSaving] = useState(false);
     const [editorKey, setEditorKey] = useState(Date.now());
-    const { canEdit } = useDocumentPermissions(documentUrn);
+    const [isEditorFocused, setIsEditorFocused] = useState(false);
+    const justSavedRef = useRef(false);
+    const { canEditContents } = useDocumentPermissions(documentUrn);
     const { updateContents, updateRelatedEntities } = useUpdateDocument();
+    const refetch = useRefetch();
     // Extract mentions from content (currently unused, but hook needs to run)
     useExtractMentions(content);
 
@@ -74,6 +109,12 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     });
 
     useEffect(() => {
+        // Skip remounting if we just saved (prevents scroll jump during auto-save)
+        if (justSavedRef.current) {
+            justSavedRef.current = false;
+            return;
+        }
+        
         setContent(initialContent || '');
         // Force editor to remount with new content by updating the key
         setEditorKey(Date.now());
@@ -82,20 +123,21 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     // Save function that can be reused
     const saveDocument = useCallback(
         async (contentToSave: string) => {
-            if (isSaving || contentToSave === initialContent || !canEdit) {
+            if (isSaving || contentToSave === initialContent || !canEditContents) {
                 return;
             }
 
             setIsSaving(true);
             try {
                 // Extract mentions from the content to save
-                const urnPattern = /@(urn:li:[a-zA-Z]+:[^\s)}\]]+)/g;
+                // Pattern matches markdown link syntax: [text](urn:li:entityType:id)
+                const urnPattern = /\[([^\]]+)\]\((urn:li:[a-zA-Z]+:[^\s)]+)\)/g;
                 const matches = Array.from(contentToSave.matchAll(urnPattern));
                 const documentUrnsToSave: string[] = [];
                 const assetUrnsToSave: string[] = [];
 
                 matches.forEach((match) => {
-                    const urn = match[1];
+                    const urn = match[2]; // URN is in the second capture group
                     if (urn.includes(':document:')) {
                         if (!documentUrnsToSave.includes(urn)) {
                             documentUrnsToSave.push(urn);
@@ -117,26 +159,32 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                     relatedAssets: assetUrnsToSave,
                     relatedDocuments: documentUrnsToSave,
                 });
+
+                // Mark that we just saved to prevent editor remount
+                justSavedRef.current = true;
+                
+                // Refetch the document to get the updated related assets/documents
+                await refetch();
             } catch (error) {
                 console.error('[EditableContent] Failed to save document:', error);
             } finally {
                 setIsSaving(false);
             }
         },
-        [isSaving, initialContent, canEdit, updateContents, updateRelatedEntities, documentUrn],
+        [isSaving, initialContent, canEditContents, updateContents, updateRelatedEntities, documentUrn, refetch],
     );
 
     // Auto-save after 2 seconds of no typing
     useEffect(() => {
-        if (content !== initialContent && canEdit && !isSaving) {
+        if (content !== initialContent && canEditContents && !isSaving) {
             const timer = setTimeout(() => {
                 saveDocument(content);
-            }, 2000);
+            }, 3000);
 
             return () => clearTimeout(timer);
         }
         return undefined;
-    }, [content, initialContent, canEdit, isSaving, saveDocument]);
+    }, [content, initialContent, canEditContents, isSaving, saveDocument]);
 
     // Save on blur (clicking away from the editor)
     const handleBlur = useCallback(() => {
@@ -148,7 +196,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     // Save before navigating away
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (content !== initialContent && canEdit && !isSaving) {
+            if (content !== initialContent && canEditContents && !isSaving) {
                 // Attempt to save synchronously
                 saveDocument(content);
 
@@ -160,19 +208,30 @@ export const EditableContent: React.FC<EditableContentProps> = ({
 
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [content, initialContent, canEdit, isSaving, saveDocument]);
+    }, [content, initialContent, canEditContents, isSaving, saveDocument]);
 
     return (
         <ContentWrapper>
-            <EditorSection onBlur={handleBlur}>
-                {canEdit ? (
+            <EditorSection
+                onFocus={() => setIsEditorFocused(true)}
+                onBlur={(e) => {
+                    // Only blur if we're actually leaving the editor section
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        setIsEditorFocused(false);
+                        handleBlur();
+                    }
+                }}
+            >
+                {canEditContents ? (
                     <StyledEditor
                         key={`editor-${editorKey}`}
                         content={content}
                         onChange={setContent}
                         placeholder="Write about anything..."
                         hideBorder
-                        fixedBottomToolbar
+                        doNotFocus
+                        $hideToolbar={!isEditorFocused}
+                        fixedBottomToolbar={isEditorFocused}
                         uploadFile={uploadFile}
                         {...uploadFileAnalyticsCallbacks}
                     />

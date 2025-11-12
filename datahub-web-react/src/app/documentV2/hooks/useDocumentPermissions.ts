@@ -1,48 +1,54 @@
 import { useMemo } from 'react';
 
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+
+import { Document } from '@types';
+
 export interface DocumentPermissions {
-    canEdit: boolean;
+    canCreate: boolean;
+    canEditContents: boolean;
+    canEditTitle: boolean;
+    canEditState: boolean;
+    canEditType: boolean;
     canDelete: boolean;
-    canChangeStatus: boolean;
     canMove: boolean;
 }
 
 /**
  * Hook to determine user permissions for a document.
- * Currently mocked - will be replaced with actual privilege checks from the Document entity.
  *
- * TODO: Replace mock logic with actual checks:
- * - Check document.privileges.canEditDocument (or similar field)
- * - Check document.ownership to see if current user is owner
- * - Check platform privileges (MANAGE_DOCUMENTS)
+ * Permission Rules:
+ * - Document Contents, Title, State, Type: Requires EDIT_ENTITY_DOCS privilege for asset
+ * - Owners, Tags, Terms, Domain, Data Product: Requires the respective EDIT_X privilege
+ * - Create/Delete/Move: Requires EDIT_ENTITY or MANAGE_DOCUMENTS privilege.
  */
 export function useDocumentPermissions(_documentUrn?: string): DocumentPermissions {
+    const { entityData } = useEntityData();
+    const { platformPrivileges } = useUserContext();
+    const document = entityData as Document;
+
     return useMemo(() => {
-        // MOCK: For now, allow all operations
-        // In production, check document.privileges, ownership, and platform privileges
-        const mockHasPermissions = true;
+        // Platform-level privilege check
+        const hasManageDocuments = platformPrivileges?.manageDocuments || false;
+
+        // Entity-level privilege checks from document.privileges
+        const canEditDescription = document?.privileges?.canEditDescription || false;
+        const canManageEntity = document?.privileges?.canManageEntity || false;
+
+        // Delete and move require either permissions for the entity or management at the platform level.
+        const canDelete = canManageEntity || hasManageDocuments;
+        const canMove = canManageEntity || hasManageDocuments;
 
         return {
-            canEdit: mockHasPermissions,
-            canDelete: mockHasPermissions,
-            canChangeStatus: mockHasPermissions,
-            canMove: mockHasPermissions,
+            canCreate: hasManageDocuments,
+            // All the same here.
+            canEditContents: canEditDescription,
+            canEditTitle: canEditDescription,
+            canEditState: canEditDescription,
+            canEditType: canEditDescription,
+            canDelete,
+            canMove,
         };
-
-        // TODO: Replace with actual logic like:
-        // const { entityData } = useEntityData();
-        // const document = entityData as Document;
-        // const isOwner = document?.ownership?.owners?.some(
-        //     owner => owner.owner.urn === currentUserUrn
-        // );
-        // const hasEditPrivilege = document?.privileges?.canEditDocument;
-        // const hasPlatformPrivilege = userHasPlatformPrivilege('MANAGE_DOCUMENTS');
-        //
-        // return {
-        //     canEdit: isOwner || hasEditPrivilege || hasPlatformPrivilege,
-        //     canDelete: hasEditPrivilege || hasPlatformPrivilege,
-        //     canChangeStatus: hasEditPrivilege || hasPlatformPrivilege,
-        //     canMove: hasEditPrivilege || hasPlatformPrivilege,
-        // };
-    }, []);
+    }, [document, platformPrivileges]);
 }

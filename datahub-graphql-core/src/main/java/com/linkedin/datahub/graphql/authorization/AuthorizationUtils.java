@@ -447,7 +447,9 @@ public class AuthorizationUtils {
         context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
   }
 
-  /** Returns true if the current user has the platform-level 'Manage Documents' privilege. */
+  /**
+   * Returns true if the current user has the platform-level 'Manage Documents' privilege.
+   */
   public static boolean canManageDocuments(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE);

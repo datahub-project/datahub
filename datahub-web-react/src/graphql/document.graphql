@@ -1,4 +1,6 @@
-query getDocument($urn: String!) {
+#import "./preview.graphql"
+
+query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
     document(urn: $urn) {
         urn
         type
@@ -26,10 +28,7 @@ query getDocument($urn: String!) {
             }
             relatedAssets {
                 asset {
-                    ... on Entity {
-                        urn
-                        type
-                    }
+                    ...entityPreview
                 }
             }
             relatedDocuments {
@@ -75,6 +74,16 @@ query getDocument($urn: String!) {
         exists
         drafts {
             ...documentPreviewFields
+        }
+        parentDocuments @include(if: $includeParentDocuments) {
+            count
+            documents {
+                urn
+                type
+                info {
+                    title
+                }
+            }
         }
     }
 }
@@ -129,13 +138,23 @@ fragment documentSidebarFields on Document {
     }
 }
 
-query searchDocuments($input: SearchDocumentsInput!) {
+query searchDocuments($input: SearchDocumentsInput!, $includeParentDocuments: Boolean = false) {
     searchDocuments(input: $input) {
         start
         count
         total
         documents {
             ...documentSidebarFields
+            parentDocuments @include(if: $includeParentDocuments) {
+                count
+                documents {
+                    urn
+                    type
+                    info {
+                        title
+                    }
+                }
+            }
         }
         facets {
             ...facetFields

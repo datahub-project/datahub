@@ -13,6 +13,7 @@ export interface SearchDocumentsInput {
     start?: number;
     count?: number;
     fetchPolicy?: 'cache-first' | 'cache-and-network' | 'network-only';
+    includeParentDocuments?: boolean;
 }
 
 export function useSearchDocuments(input: SearchDocumentsInput) {
@@ -28,6 +29,7 @@ export function useSearchDocuments(input: SearchDocumentsInput) {
                 states: input.states || [DocumentState.Published, DocumentState.Unpublished],
                 includeDrafts: input.includeDrafts || false,
             },
+            includeParentDocuments: input.includeParentDocuments || false,
         },
         // Default to cache-first to respect Apollo cache updates from moves/creates
         // Use cache-and-network only when you want to ensure fresh data from backend

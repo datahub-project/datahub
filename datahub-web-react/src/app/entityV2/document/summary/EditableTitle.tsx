@@ -50,7 +50,7 @@ interface Props {
 export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) => {
     const [title, setTitle] = useState(initialTitle || '');
     const [isSaving, setIsSaving] = useState(false);
-    const { canEdit } = useDocumentPermissions(documentUrn);
+    const { canEditTitle } = useDocumentPermissions(documentUrn);
     const { updateTitle } = useUpdateDocumentTitleMutation();
 
     useEffect(() => {
@@ -90,8 +90,8 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
                 onInput={handleInput}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                $editable={canEdit}
-                disabled={!canEdit}
+                $editable={canEditTitle}
+                disabled={!canEditTitle}
                 placeholder="New Document"
                 rows={1}
             />

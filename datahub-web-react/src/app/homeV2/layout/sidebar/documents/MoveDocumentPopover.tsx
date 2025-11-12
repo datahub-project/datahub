@@ -120,6 +120,7 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
         includeDrafts: false,
         count: 50,
         fetchPolicy: 'network-only', // Always fetch fresh for search
+        includeParentDocuments: true, // Fetch parent documents for breadcrumb display
     });
 
     const isSearching = debouncedSearchQuery.trim().length > 0;
@@ -167,8 +168,16 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
                         {!searchLoading &&
                             filteredSearchResults.map((doc) => {
                                 const isSelected = selectedParentUrn === doc.urn;
-                                const parentTitle = doc.info?.parentDocument?.document?.info?.title;
-                                const breadcrumb = parentTitle || 'Root';
+
+                                // Build breadcrumb from parentDocuments array
+                                // parentDocuments is ordered: [direct parent, parent's parent, ...]
+                                // We want to show: Root > grandparent > parent
+                                let breadcrumb = 'Root';
+                                if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
+                                    const parents = [...doc.parentDocuments.documents].reverse(); // Reverse to get root first
+                                    breadcrumb = parents.map((parent) => parent.info?.title || 'Untitled').join(' > ');
+                                }
+
                                 return (
                                     <SearchResultItem
                                         key={doc.urn}

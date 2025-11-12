@@ -1,5 +1,5 @@
 import { Tooltip } from '@components';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/documentV2/hooks/useDocumentPermissions';
@@ -28,25 +28,39 @@ export default function DocumentStatusProperty(props: PropertyComponentProps) {
     const { urn, entityData } = useEntityData();
     const document = entityData as Document;
     const refetch = useRefetch();
-    const { canChangeStatus } = useDocumentPermissions(urn);
+    const { canEditState } = useDocumentPermissions(urn);
     const { updateStatus } = useUpdateDocument();
 
-    const status = document?.info?.status?.state;
+    const serverStatus = document?.info?.status?.state;
+    const [optimisticStatus, setOptimisticStatus] = useState<DocumentState | undefined>(serverStatus);
+
+    // Sync optimistic state with server state when it changes
+    useEffect(() => {
+        setOptimisticStatus(serverStatus);
+    }, [serverStatus]);
 
     const handleStatusChange = async (values: string[]) => {
         const newStatus = values[0] as DocumentState;
-        console.log('[DocumentStatusProperty] Updating status to:', newStatus);
-        await updateStatus({
-            urn,
-            state: newStatus,
-        });
-        console.log('[DocumentStatusProperty] Status updated, calling refetch...');
-        await refetch();
-        console.log('[DocumentStatusProperty] Refetch complete!');
+        const previousStatus = optimisticStatus;
+
+        // Optimistically update the UI immediately
+        setOptimisticStatus(newStatus);
+
+        try {
+            await updateStatus({
+                urn,
+                state: newStatus,
+            });
+            await refetch();
+        } catch (error) {
+            // Revert to previous status if the mutation fails
+            console.error('[DocumentStatusProperty] Update failed, reverting to:', previousStatus);
+            setOptimisticStatus(previousStatus);
+        }
     };
 
     const renderValue = () => {
-        if (!status) return <span>-</span>;
+        if (!optimisticStatus) return <span>-</span>;
 
         return (
             <StatusSelectWrapper>
@@ -60,9 +74,9 @@ export default function DocumentStatusProperty(props: PropertyComponentProps) {
                 >
                     <div>
                         <SimpleSelect
-                            values={[status]}
+                            values={[optimisticStatus]}
                             onUpdate={handleStatusChange}
-                            isDisabled={!canChangeStatus}
+                            isDisabled={!canEditState}
                             options={statusOptions}
                             size="sm"
                             width="fit-content"
@@ -74,5 +88,12 @@ export default function DocumentStatusProperty(props: PropertyComponentProps) {
         );
     };
 
-    return <BaseProperty {...props} values={status ? [status] : []} renderValue={renderValue} maxValues={1} />;
+    return (
+        <BaseProperty
+            {...props}
+            values={optimisticStatus ? [optimisticStatus] : []}
+            renderValue={renderValue}
+            maxValues={1}
+        />
+    );
 }

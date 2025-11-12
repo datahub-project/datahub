@@ -158,8 +158,8 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({ docume
                 isOpen={showDeleteConfirm}
                 handleClose={() => setShowDeleteConfirm(false)}
                 handleConfirm={handleDelete}
-                modalTitle="Delete Document"
-                modalText="Are you sure you want to delete this document? This action cannot be undone."
+                modalTitle="Delete Document(s)"
+                modalText="Are you sure you want to delete this document? This will also delete all child documents."
                 confirmButtonText="Delete"
                 isDeleteModal
             />

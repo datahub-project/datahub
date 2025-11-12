@@ -45,12 +45,9 @@ export function useShowIntroducePage() {
 }
 
 /**
- * Hook to check if Context Base (documents) feature is enabled.
- * TODO: Replace with actual feature flag once backend support is added.
+ * Hook to check if Context Documents feature is enabled.
  */
-export function useIsContextBaseEnabled(): boolean {
-    // Mock feature flag - always return true for now
-    // In the future, this will check the app config or a feature flag service
-    // Example: return appConfig.config.featureFlags.contextBaseEnabled ?? false;
-    return true;
+export function useIsContextDocumentsEnabled(): boolean {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.contextDocumentsEnabled;
 }

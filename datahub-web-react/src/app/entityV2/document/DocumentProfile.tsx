@@ -31,7 +31,7 @@ const LoadingWrapper = styled.div`
  */
 export const DocumentProfile = ({ urn }: { urn: string }): JSX.Element => {
     const { data, loading, refetch } = useGetDocumentQuery({
-        variables: { urn },
+        variables: { urn, includeParentDocuments: true },
     });
 
     const document = data?.document;

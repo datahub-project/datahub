@@ -50,7 +50,7 @@ const SearchResultTitle = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    /* No explicit color - inherits default text color like DocumentTreeItem */
+    color: ${colors.gray[1700]};
 `;
 
 const SearchResultBreadcrumb = styled.div`

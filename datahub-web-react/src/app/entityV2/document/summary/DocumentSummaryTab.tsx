@@ -32,6 +32,7 @@ const HistoryIconButton = styled(Button)`
     display: flex;
     align-items: center;
     justify-content: center;
+    color: ${colors.gray[400]};
 `;
 
 const Breadcrumb = styled.div`
@@ -39,18 +40,23 @@ const Breadcrumb = styled.div`
     align-items: center;
     gap: 8px;
     font-size: 14px;
-    color: #8c8c8c;
+    color: ${colors.gray[1700]};
     margin-bottom: 0px;
 `;
 
 const BreadcrumbLink = styled.a`
-    color: ${colors.gray[500]};
+    color: ${colors.gray[1700]};
     text-decoration: none;
     cursor: pointer;
 
     &:hover {
         text-decoration: underline;
     }
+`;
+
+const BreadcrumbSeparator = styled.span`
+    color: ${colors.gray[1700]};
+    margin: 0 4px;
 `;
 
 export const DocumentSummaryTab = () => {
@@ -60,15 +66,13 @@ export const DocumentSummaryTab = () => {
     const entityRegistry = useEntityRegistry();
     const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
 
-    const parentDocument = document?.info?.parentDocument?.document;
-    const parentTitle = parentDocument?.info?.title || 'Parent Document';
-    const parentUrn = parentDocument?.urn;
     const documentContent = document?.info?.contents?.text || '';
 
-    const handleParentClick = () => {
-        if (parentUrn) {
-            history.push(entityRegistry.getEntityUrl(EntityType.Document, parentUrn));
-        }
+    // Get parent documents hierarchy (ordered: direct parent, parent's parent, ...)
+    const parentDocuments = document?.parentDocuments?.documents || [];
+
+    const handleParentClick = (parentUrn: string) => {
+        history.push(entityRegistry.getEntityUrl(EntityType.Document, parentUrn));
     };
 
     return (
@@ -80,14 +84,21 @@ export const DocumentSummaryTab = () => {
                         variant="text"
                         onClick={() => setIsHistoryDrawerOpen(true)}
                         aria-label="View change history"
-                        icon={{ icon: 'Clock', source: 'phosphor', size: 'lg', color: 'gray' }}
+                        icon={{ icon: 'Clock', source: 'phosphor', size: '2xl' }}
                     />
                 </Tooltip>
 
-                {/* Parent document breadcrumb */}
-                {parentDocument && (
+                {/* Parent documents breadcrumb - show full hierarchy */}
+                {parentDocuments.length > 0 && (
                     <Breadcrumb>
-                        <BreadcrumbLink onClick={handleParentClick}>{parentTitle}</BreadcrumbLink>
+                        {[...parentDocuments].reverse().map((parent, index) => (
+                            <React.Fragment key={parent.urn}>
+                                <BreadcrumbLink onClick={() => handleParentClick(parent.urn)}>
+                                    {parent.info?.title || 'Untitled'}
+                                </BreadcrumbLink>
+                                {index < parentDocuments.length - 1 && <BreadcrumbSeparator>/</BreadcrumbSeparator>}
+                            </React.Fragment>
+                        ))}
                     </Breadcrumb>
                 )}
 

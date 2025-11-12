@@ -11,7 +11,7 @@ import { DocumentState, EntityType } from '@types';
 
 export interface CreateDocumentInput {
     title?: string;
-    subType: string;
+    subType?: string;
     state?: DocumentState;
     contents?: string;
     parentDocument?: string;
@@ -52,7 +52,7 @@ export function useCreateDocument() {
                         __typename: 'Document',
                         urn: documentUrn,
                         type: EntityType.Document,
-                        subType: input.subType,
+                        subType: input.subType || null,
                         info: {
                             __typename: 'DocumentInfo',
                             title,

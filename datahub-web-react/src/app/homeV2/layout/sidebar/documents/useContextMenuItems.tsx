@@ -6,13 +6,13 @@ import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContex
 import { NavBarMenuGroup, NavBarMenuItemTypes } from '@app/homeV2/layout/navBarRedesign/types';
 import { ContextGroupHeader } from '@app/homeV2/layout/sidebar/documents/ContextGroupHeader';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
-import { useIsContextBaseEnabled } from '@app/useAppConfig';
+import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
 
 export function useContextMenuItems(): NavBarMenuGroup | null {
-    const isContextBaseEnabled = useIsContextBaseEnabled();
+    const isContextBaseEnabled = useIsContextDocumentsEnabled();
     const { isCollapsed } = useNavBarContext();
     const [creating, setCreating] = useState(false);
     const { createDocument } = useCreateDocumentTreeMutation();
@@ -26,7 +26,7 @@ export function useContextMenuItems(): NavBarMenuGroup | null {
                 const newUrn = await createDocument({
                     title: 'New Document',
                     parentDocument: parentDocumentUrn || null,
-                    subType: 'DOCUMENTATION',
+                    // No subType - let users choose after creation
                 });
 
                 // Navigate to the new document

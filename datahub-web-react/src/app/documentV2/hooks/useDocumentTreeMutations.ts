@@ -49,7 +49,7 @@ export function useCreateDocumentTreeMutation() {
                         input: {
                             title: input.title,
                             parentDocument: input.parentDocument,
-                            subType: input.subType || 'DOCUMENTATION', // Default subType
+                            subType: input.subType, // No default subType - let users choose
                             contents: { text: '' }, // Empty initial content
                         },
                     },
