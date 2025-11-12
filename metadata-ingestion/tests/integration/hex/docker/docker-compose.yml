@@ -11,9 +11,9 @@ services:
     command: ["python", "/app/mock_hex_server.py"]
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
+      interval: 10s
+      timeout: 10s
+      retries: 10
   datahub-mock-api:
     image: python:3.9-alpine
     container_name: datahub-mock-api
@@ -28,6 +28,6 @@ services:
     command: ["python", "/app/mock_datahub_server.py"]
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8010/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
+      interval: 10s
+      timeout: 10s
+      retries: 10
