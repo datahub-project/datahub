@@ -8,6 +8,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.knowledge.DocumentContents;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.knowledge.ParentDocument;
@@ -190,29 +191,23 @@ public class DocumentService {
       documentInfo.setRelatedDocuments(documentsArray, SetMode.IGNORE_NULL);
     }
 
-    // Create MCP for document info with all relationships embedded
-    final MetadataChangeProposal infoMcp = new MetadataChangeProposal();
-    infoMcp.setEntityUrn(documentUrn);
-    infoMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    infoMcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    infoMcp.setChangeType(ChangeType.UPSERT);
-    infoMcp.setAspect(GenericRecordUtils.serializeAspect(documentInfo));
+    // Create synchronous MCP for document info with all relationships embedded
+    final MetadataChangeProposal infoMcp =
+        AspectUtils.buildSynchronousMetadataChangeProposal(
+            documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, documentInfo);
 
     // Prepare list of MCPs to ingest
     final List<MetadataChangeProposal> mcps = new java.util.ArrayList<>();
     mcps.add(infoMcp);
 
-    // Create MCP for subTypes if provided
+    // Create synchronous MCP for subTypes if provided
     if (subTypes != null && !subTypes.isEmpty()) {
       final com.linkedin.common.SubTypes subTypesAspect = new com.linkedin.common.SubTypes();
       subTypesAspect.setTypeNames(new com.linkedin.data.template.StringArray(subTypes));
 
-      final MetadataChangeProposal subTypesMcp = new MetadataChangeProposal();
-      subTypesMcp.setEntityUrn(documentUrn);
-      subTypesMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-      subTypesMcp.setAspectName(Constants.SUB_TYPES_ASPECT_NAME);
-      subTypesMcp.setChangeType(ChangeType.UPSERT);
-      subTypesMcp.setAspect(GenericRecordUtils.serializeAspect(subTypesAspect));
+      final MetadataChangeProposal subTypesMcp =
+          AspectUtils.buildSynchronousMetadataChangeProposal(
+              documentUrn, Constants.SUB_TYPES_ASPECT_NAME, subTypesAspect);
       mcps.add(subTypesMcp);
     }
 
@@ -466,13 +461,10 @@ public class DocumentService {
     lastModified.setActor(actorUrn);
     info.setLastModified(lastModified);
 
-    // Ingest updated info
-    final MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(documentUrn);
-    mcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    mcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    mcp.setChangeType(ChangeType.UPSERT);
-    mcp.setAspect(GenericRecordUtils.serializeAspect(info));
+    // Ingest updated info with synchronous MCP
+    final MetadataChangeProposal mcp =
+        AspectUtils.buildSynchronousMetadataChangeProposal(
+            documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info);
 
     entityClient.ingestProposal(opContext, mcp, false);
 
@@ -615,16 +607,13 @@ public class DocumentService {
           String.format("Document with URN %s does not exist", documentUrn));
     }
 
-    // Soft delete by setting Status aspect removed = true
+    // Soft delete by setting Status aspect removed = true with synchronous MCP
     final com.linkedin.common.Status status = new com.linkedin.common.Status();
     status.setRemoved(true);
 
-    final MetadataChangeProposal statusProposal = new MetadataChangeProposal();
-    statusProposal.setEntityUrn(documentUrn);
-    statusProposal.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    statusProposal.setAspectName(Constants.STATUS_ASPECT_NAME);
-    statusProposal.setChangeType(ChangeType.UPSERT);
-    statusProposal.setAspect(GenericRecordUtils.serializeAspect(status));
+    final MetadataChangeProposal statusProposal =
+        AspectUtils.buildSynchronousMetadataChangeProposal(
+            documentUrn, Constants.STATUS_ASPECT_NAME, status);
 
     entityClient.ingestProposal(opContext, statusProposal, false);
     log.debug("Soft deleted document {}", documentUrn);

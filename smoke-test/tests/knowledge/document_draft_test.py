@@ -64,8 +64,6 @@ def test_create_document_draft(auth_session):
     published_res = execute_graphql(auth_session, create_mutation, published_vars)
     published_urn = published_res["data"]["createDocument"]
 
-    wait_for_writes_to_sync()
-
     # Create draft document
     draft_vars = {
         "input": {
@@ -78,8 +76,6 @@ def test_create_document_draft(auth_session):
     }
     draft_res = execute_graphql(auth_session, create_mutation, draft_vars)
     draft_urn = draft_res["data"]["createDocument"]
-
-    wait_for_writes_to_sync()
 
     # Verify draft is linked to published document
     get_query = """
@@ -167,8 +163,6 @@ def test_merge_draft(auth_session):
     published_res = execute_graphql(auth_session, create_mutation, published_vars)
     published_urn = published_res["data"]["createDocument"]
 
-    wait_for_writes_to_sync()
-
     # Create draft document
     draft_vars = {
         "input": {
@@ -182,8 +176,6 @@ def test_merge_draft(auth_session):
     draft_res = execute_graphql(auth_session, create_mutation, draft_vars)
     draft_urn = draft_res["data"]["createDocument"]
 
-    wait_for_writes_to_sync()
-
     # Merge draft into published document
     merge_mutation = """
         mutation MergeDraft($input: MergeDraftInput!) {
@@ -193,8 +185,6 @@ def test_merge_draft(auth_session):
     merge_vars = {"input": {"draftUrn": draft_urn, "deleteDraft": True}}
     merge_res = execute_graphql(auth_session, merge_mutation, merge_vars)
     assert merge_res["data"]["mergeDraft"] is True
-
-    wait_for_writes_to_sync()
 
     # Verify published document has the draft's content
     get_query = """
@@ -215,13 +205,20 @@ def test_merge_draft(auth_session):
     assert published_doc["info"]["contents"]["text"] == "Updated draft content"
     assert published_doc["info"]["status"]["state"] == "PUBLISHED"
 
-    # Verify draft was deleted (entity URN may still exist, but info should be None)
-    draft_get_res = execute_graphql(auth_session, get_query, {"urn": draft_urn})
-    # After deletion, the document either doesn't exist or has no info aspect
-    assert (
-        draft_get_res["data"]["document"] is None
-        or draft_get_res["data"]["document"]["info"] is None
-    )
+    # Verify draft was deleted (with soft deletion, check status.removed)
+    draft_check_query = """
+        query GetKA($urn: String!) {
+          document(urn: $urn) {
+            urn
+            status { removed }
+          }
+        }
+    """
+    draft_get_res = execute_graphql(auth_session, draft_check_query, {"urn": draft_urn})
+    # After soft deletion, the document should have status.removed = true
+    draft_doc = draft_get_res["data"]["document"]
+    assert draft_doc is not None, "Document should still exist after soft delete"
+    assert draft_doc["status"]["removed"] is True, "Draft should be marked as removed"
 
     # Cleanup published document
     delete_mutation = """
@@ -261,8 +258,6 @@ def test_search_excludes_drafts_by_default(auth_session):
     published_res = execute_graphql(auth_session, create_mutation, published_vars)
     published_urn = published_res["data"]["createDocument"]
 
-    wait_for_writes_to_sync()
-
     # Create draft document
     draft_vars = {
         "input": {
@@ -275,9 +270,6 @@ def test_search_excludes_drafts_by_default(auth_session):
     }
     draft_res = execute_graphql(auth_session, create_mutation, draft_vars)
     draft_urn = draft_res["data"]["createDocument"]
-
-    wait_for_writes_to_sync()
-    time.sleep(5)
 
     # Search without includeDrafts - should exclude drafts
     search_query = """
