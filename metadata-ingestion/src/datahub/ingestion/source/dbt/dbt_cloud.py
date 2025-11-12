@@ -483,10 +483,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             response.raise_for_status()
             data = response.json()
             environments = []
+            logger.debug(
+                f"Found {len(data.get('data', []))} environments for project {project_id}"
+            )
             for environment in data.get("data", []):
-                logger.debug(
-                    f"Found {len(data.get('data', []))} environments for project {project_id}"
-                )
                 deployment_type = environment.get("deployment_type")
                 if deployment_type is None:
                     logger.debug(
