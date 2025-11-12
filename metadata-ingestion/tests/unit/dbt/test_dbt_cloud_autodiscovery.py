@@ -8,6 +8,7 @@ Tests focus on:
 - Auto-discovery orchestration
 """
 
+from typing import Optional
 from unittest import mock
 
 import pytest
@@ -283,7 +284,7 @@ class TestAutoDiscoverProjectsAndJobs:
     """Tests for _auto_discover_projects_and_jobs orchestration."""
 
     def _create_source_with_autodiscovery(
-        self, job_id_pattern: AllowDenyPattern | None = None
+        self, job_id_pattern: Optional[AllowDenyPattern] = None
     ) -> DBTCloudSource:
         """Helper to create a DBTCloudSource with auto-discovery enabled."""
         pattern = job_id_pattern or AllowDenyPattern.allow_all()
