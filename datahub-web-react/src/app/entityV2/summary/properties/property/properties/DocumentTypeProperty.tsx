@@ -84,12 +84,5 @@ export default function DocumentTypeProperty(props: PropertyComponentProps) {
         );
     };
 
-    return (
-        <BaseProperty
-            {...props}
-            values={optimisticType === NONE_VALUE ? [] : [optimisticType]}
-            renderValue={renderValue}
-            maxValues={1}
-        />
-    );
+    return <BaseProperty {...props} values={[optimisticType]} renderValue={renderValue} maxValues={1} />;
 }

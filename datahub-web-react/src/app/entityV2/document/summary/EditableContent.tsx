@@ -1,5 +1,5 @@
 import { Editor } from '@components';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/documentV2/hooks/useDocumentPermissions';
@@ -89,9 +89,9 @@ export const EditableContent: React.FC<EditableContentProps> = ({
 }) => {
     const [content, setContent] = useState(initialContent || '');
     const [isSaving, setIsSaving] = useState(false);
-    const [editorKey, setEditorKey] = useState(Date.now());
     const [isEditorFocused, setIsEditorFocused] = useState(false);
-    const justSavedRef = useRef(false);
+    const [editorVersion, setEditorVersion] = useState(0);
+    const lastSavedContentRef = React.useRef<string>(initialContent || '');
     const { canEditContents } = useDocumentPermissions(documentUrn);
     const { updateContents, updateRelatedEntities } = useUpdateDocument();
     const refetch = useRefetch();
@@ -108,17 +108,19 @@ export const EditableContent: React.FC<EditableContentProps> = ({
         assetUrn: documentUrn,
     });
 
+    // Detect when initialContent changes externally (e.g., version restore, not from our save)
     useEffect(() => {
-        // Skip remounting if we just saved (prevents scroll jump during auto-save)
-        if (justSavedRef.current) {
-            justSavedRef.current = false;
-            return;
+        const newContent = initialContent || '';
+
+        // If content changed and it's NOT from our own save, increment version to remount editor
+        if (newContent !== lastSavedContentRef.current && newContent !== content) {
+            setContent(newContent);
+            setEditorVersion((v) => v + 1);
         }
-        
-        setContent(initialContent || '');
-        // Force editor to remount with new content by updating the key
-        setEditorKey(Date.now());
-    }, [initialContent]);
+
+        // Update the ref to track the latest server content
+        lastSavedContentRef.current = newContent;
+    }, [initialContent, content]);
 
     // Save function that can be reused
     const saveDocument = useCallback(
@@ -160,9 +162,9 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                     relatedDocuments: documentUrnsToSave,
                 });
 
-                // Mark that we just saved to prevent editor remount
-                justSavedRef.current = true;
-                
+                // Track that we just saved this content to prevent remount on refetch
+                lastSavedContentRef.current = contentToSave;
+
                 // Refetch the document to get the updated related assets/documents
                 await refetch();
             } catch (error) {
@@ -224,7 +226,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
             >
                 {canEditContents ? (
                     <StyledEditor
-                        key={`editor-${editorKey}`}
+                        key={`editor-${documentUrn}-${editorVersion}`}
                         content={content}
                         onChange={setContent}
                         placeholder="Write about anything..."
@@ -237,7 +239,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                     />
                 ) : (
                     <StyledEditor
-                        key={`editor-readonly-${editorKey}`}
+                        key={`editor-readonly-${documentUrn}-${editorVersion}`}
                         content={content}
                         readOnly
                         placeholder="No content"

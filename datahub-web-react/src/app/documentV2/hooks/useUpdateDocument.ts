@@ -23,7 +23,7 @@ export interface UpdateDocumentStatusInput {
 
 export interface UpdateDocumentSubTypeInput {
     urn: string;
-    subType: string;
+    subType: string | null;
 }
 
 export interface UpdateDocumentRelatedEntitiesInput {
