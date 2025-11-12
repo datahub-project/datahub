@@ -1,4 +1,8 @@
-"""Tests for semantic search functionality in the MCP server."""
+"""Tests for semantic search functionality in the MCP server.
+
+NOTE: Semantic search is a DataHub Cloud-only feature and not available in open source.
+These tests are kept in mcp_integration since they test cloud-specific functionality.
+"""
 
 import json
 from contextlib import contextmanager

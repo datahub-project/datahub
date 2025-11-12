@@ -37,13 +37,16 @@ from loguru import logger
 from pydantic import BaseModel
 
 from datahub_integrations.chat.context_reducer import TokenCountEstimator
-from datahub_integrations.mcp.tool import TOOL_RESPONSE_TOKEN_LIMIT
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
 T = TypeVar("T")
 DESCRIPTION_LENGTH_HARD_LIMIT = 1000
 QUERY_LENGTH_HARD_LIMIT = 5000
+
+# Maximum token count for tool responses to prevent context window issues
+# As per telemetry tool result length goes upto
+TOOL_RESPONSE_TOKEN_LIMIT = int(os.getenv("TOOL_RESPONSE_TOKEN_LIMIT", 80000))
 
 # Per-entity schema token budget for field truncation
 # Assumes ~5 entities per response: 80K total / 5 = 16K per entity

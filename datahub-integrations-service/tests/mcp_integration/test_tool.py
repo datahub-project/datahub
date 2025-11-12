@@ -8,8 +8,8 @@ from datahub.sdk.search_filters import Filter
 from fastmcp import FastMCP
 from pydantic import BaseModel
 
-from datahub_integrations.mcp.tool import (
-    TOOL_RESPONSE_TOKEN_LIMIT,
+from datahub_integrations.mcp.mcp_server import TOOL_RESPONSE_TOKEN_LIMIT
+from datahub_integrations.mcp_integration.tool import (
     ToolRunError,
     ToolWrapper,
     tools_from_fastmcp,
