@@ -360,6 +360,7 @@ Configurations related to the Datahub server
 type DataHubConfig {
   serverType: String
   serverEnv: String!
+  isFreeTrialInstance: Boolean!
 }
 
 """
