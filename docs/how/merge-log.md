@@ -1692,3 +1692,54 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **84fe389fc8** - feat(dataset-summary): add summary tab on dataset entities (#15238)
   *by Purnima Garg on 2025-11-10*
 
+
+## Upstream Merge Session - 2025-11-12 00:00:07
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-11-12-000005`
+- **Merge Base**: `84fe389fc8ce1ff889e13b818695cc9702de0f97`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 12
+- **Strategy**: stacked
+- **Started**: Wed Nov 12 00:00:07 UTC 2025
+
+### Commits Included in This Merge
+- **ba63450f5e** - fix(cypress): fix summary tab tests (#15267)
+  *by v-tarasevich-blitz-brain on 2025-11-11*
+
+- **522d8e79b4** - fix(kafka-setup): skip schema registry config setup when kafka setup is disabled (#15268)
+  *by Chakru on 2025-11-11*
+
+- **bbe3909f0a** - fix(cypresS): fix cypress flakiness in ingestionV2/sources.js (#15260)
+  *by Purnima Garg on 2025-11-11*
+
+- **c21af0e29a** - fix(upgrade): add missed configs for lineage reprocessing (#15266)
+  *by Aseem Bansal on 2025-11-11*
+
+- **0553f28e2a** - fix(python): correct Literal type comparison bugs in assertion classes (#15269)
+  *by Sergio Gómez Villamor on 2025-11-11*
+
+- **2557aa5296** - fix(ingest/bigquery): Fix bigquery user agent string (#15214)
+  *by Tamas Nemeth on 2025-11-11*
+
+- **c4f63f9909** - fix(ingest/vertex): Vertex null start date fix (#15258)
+  *by Tamas Nemeth on 2025-11-11*
+
+- **0d95bf299a** - fix(ingest/transformer): Preserve manually set domains in PatternAddDatasetDomain with PATCH semantics (#15259)
+  *by Tamas Nemeth on 2025-11-11*
+
+- **b25fdf5abf** - Modify announcement bar for context webinar removing UTMs (#15265)
+  *by Gray Ayer on 2025-11-11*
+
+- **db65ea5fd5** - feat(metadata-integration/openlineage): support env and orchestrator in openlineage event emission (#15251)
+  *by Jonny Dixon on 2025-11-11*
+
+- **a526b877fa** - feat(ingest/snowflake): add Streamlit apps ingestion support (#15272)
+  *by kyungsoo-datahub on 2025-11-11*
+
+- **c911621ede** - fix(ui) Add followup tweaks to updated analytics page (#15142)
+  *by Chris Collins on 2025-11-11*
+
