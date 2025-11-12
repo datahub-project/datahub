@@ -922,6 +922,32 @@ type GlobalHomePageSettings {
 }
 
 """
+Feature information for a product update
+"""
+type ProductUpdateFeature {
+  """
+  Title of the feature (subheader)
+  """
+  title: String!
+
+  """
+  Description text for the feature (bullet text)
+  """
+  description: String!
+
+  """
+  Phosphor icon name (PascalCase, e.g., "Lightning", "Sparkle", "Settings", "Domain")
+  Optional - if not provided, a default bullet will be shown
+  """
+  icon: String
+
+  """
+  Optional availability text (e.g., "Available in DataHub Cloud")
+  """
+  availability: String
+}
+
+"""
 Product update information fetched from remote JSON source
 """
 type ProductUpdate {
@@ -942,6 +968,16 @@ type ProductUpdate {
   title: String!
 
   """
+  Optional header text (displayed instead of title if provided)
+  """
+  header: String
+
+  """
+  Optional minimum required version for this update
+  """
+  requiredVersion: String
+
+  """
   Optional URL to an image to display with the update
   """
   image: String
@@ -952,12 +988,40 @@ type ProductUpdate {
   description: String
 
   """
-  Call-to-action button text (e.g., "Read updates")
+  Primary call-to-action button text (required if primaryCtaLink is provided)
   """
-  ctaText: String!
+  primaryCtaText: String
 
   """
-  Call-to-action link URL, with telemetry client ID appended
+  Primary call-to-action link URL, with telemetry client ID appended (required if primaryCtaText is provided)
+  Relative URLs will be prefixed with baseUrl
   """
-  ctaLink: String!
+  primaryCtaLink: String
+
+  """
+  Secondary call-to-action button text (optional)
+  """
+  secondaryCtaText: String
+
+  """
+  Secondary call-to-action link URL, with telemetry client ID appended (optional)
+  """
+  secondaryCtaLink: String
+
+  """
+  Call-to-action button text (deprecated, use primaryCtaText instead)
+  Kept for backward compatibility
+  """
+  ctaText: String
+
+  """
+  Call-to-action link URL, with telemetry client ID appended (deprecated, use primaryCtaLink instead)
+  Kept for backward compatibility
+  """
+  ctaLink: String
+
+  """
+  Optional list of features (up to 3) to display with icons and descriptions
+  """
+  features: [ProductUpdateFeature!]
 }
