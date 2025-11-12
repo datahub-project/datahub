@@ -1,6 +1,6 @@
 package com.linkedin.metadata.search.update;
 
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -18,6 +18,8 @@ import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -33,16 +35,12 @@ import org.mockito.MockitoAnnotations;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
-import org.opensearch.client.TasksClient;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
 import org.opensearch.client.indices.GetIndexRequest;
-import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.client.tasks.TaskId;
-import org.opensearch.client.tasks.TaskSubmissionResponse;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -66,11 +64,8 @@ public class ESWriteDAOTest {
   private static final int NUM_RETRIES = 3;
   private static final String TEST_PATTERN = "*index_v2";
 
-  @Mock private RestHighLevelClient mockSearchClient;
+  @Mock private SearchClientShim<?> mockSearchClient;
   @Mock private ESBulkProcessor mockBulkProcessor;
-  @Mock private TasksClient mockTasksClient;
-  @Mock private org.opensearch.client.IndicesClient mockIndicesClient;
-
   private final OperationContext opContext = TestOperationContexts.systemContextNoValidate();
 
   private ESWriteDAO esWriteDAO;
@@ -79,15 +74,9 @@ public class ESWriteDAOTest {
   public void setup() {
     MockitoAnnotations.openMocks(this);
 
-    // Setup mock indices client
-    when(mockSearchClient.indices()).thenReturn(mockIndicesClient);
-
-    // Setup mock tasks client
-    when(mockSearchClient.tasks()).thenReturn(mockTasksClient);
-
     esWriteDAO =
         new ESWriteDAO(
-            TEST_ES_SEARCH_CONFIG.toBuilder()
+            TEST_OS_SEARCH_CONFIG.toBuilder()
                 .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(NUM_RETRIES).build())
                 .build(),
             mockSearchClient,
@@ -164,7 +153,7 @@ public class ESWriteDAOTest {
     String[] indices = new String[] {"index1", "index2"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
-    when(mockSearchClient.indices().get(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
     esWriteDAO.clear(opContext);
@@ -172,8 +161,7 @@ public class ESWriteDAOTest {
     // Verify the GetIndexRequest
     ArgumentCaptor<GetIndexRequest> indexRequestCaptor =
         ArgumentCaptor.forClass(GetIndexRequest.class);
-    verify(mockSearchClient.indices())
-        .get(indexRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    verify(mockSearchClient).getIndex(indexRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
     assertEquals(indexRequestCaptor.getValue().indices()[0], TEST_PATTERN);
 
     // Verify the deletion query
@@ -184,7 +172,7 @@ public class ESWriteDAOTest {
 
   @Test
   public void testClearWithIOException() throws IOException {
-    when(mockSearchClient.indices().get(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Test exception"));
 
     esWriteDAO.clear(opContext);
@@ -213,19 +201,17 @@ public class ESWriteDAOTest {
   public void testDeleteByQueryAsyncSuccess()
       throws IOException, ExecutionException, InterruptedException {
     QueryBuilder query = QueryBuilders.termQuery("status", "deleted");
-    TaskSubmissionResponse mockResponse = mock(TaskSubmissionResponse.class);
-    when(mockResponse.getTask()).thenReturn(TEST_TASK_STRING);
 
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockResponse);
+        .thenReturn(TEST_TASK_STRING);
 
-    CompletableFuture<TaskSubmissionResponse> future =
+    CompletableFuture<String> future =
         esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, null);
-    TaskSubmissionResponse result = future.get();
+    String result = future.get();
 
     assertNotNull(result);
-    assertEquals(result.getTask(), TEST_TASK_STRING);
+    assertEquals(result, TEST_TASK_STRING);
 
     // Verify the request
     ArgumentCaptor<DeleteByQueryRequest> requestCaptor =
@@ -251,16 +237,13 @@ public class ESWriteDAOTest {
             .timeoutUnit("HOURS")
             .build();
 
-    TaskSubmissionResponse mockResponse = mock(TaskSubmissionResponse.class);
-    when(mockResponse.getTask()).thenReturn(TEST_TASK_STRING);
-
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockResponse);
+        .thenReturn(TEST_TASK_STRING);
 
-    CompletableFuture<TaskSubmissionResponse> future =
+    CompletableFuture<String> future =
         esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, customConfig);
-    TaskSubmissionResponse result = future.get();
+    String result = future.get();
 
     assertNotNull(result);
 
@@ -283,7 +266,7 @@ public class ESWriteDAOTest {
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Network error"));
 
-    CompletableFuture<TaskSubmissionResponse> future =
+    CompletableFuture<String> future =
         esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, null);
 
     try {
@@ -332,11 +315,9 @@ public class ESWriteDAOTest {
         .thenReturn(afterDeleteCount);
 
     // Mock task submission
-    TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-    when(mockSubmission.getTask()).thenReturn(TEST_TASK_STRING);
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockSubmission);
+        .thenReturn(TEST_TASK_STRING);
 
     // Mock task monitoring
     GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
@@ -344,7 +325,7 @@ public class ESWriteDAOTest {
     TaskInfo mockTaskInfo = mock(TaskInfo.class);
     when(mockTaskResponse.getTaskInfo()).thenReturn(mockTaskInfo);
 
-    when(mockTasksClient.get(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -375,11 +356,9 @@ public class ESWriteDAOTest {
         .thenReturn(count0); // After second delete
 
     // Mock task submissions
-    TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-    when(mockSubmission.getTask()).thenReturn(TEST_TASK_STRING);
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockSubmission);
+        .thenReturn(TEST_TASK_STRING);
 
     // Mock task monitoring
     GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
@@ -387,7 +366,7 @@ public class ESWriteDAOTest {
     TaskInfo mockTaskInfo = mock(TaskInfo.class);
     when(mockTaskResponse.getTaskInfo()).thenReturn(mockTaskInfo);
 
-    when(mockTasksClient.get(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -415,11 +394,9 @@ public class ESWriteDAOTest {
         .thenReturn(count100); // Always returns 100
 
     // Mock task submission
-    TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-    when(mockSubmission.getTask()).thenReturn(TEST_TASK_STRING);
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockSubmission);
+        .thenReturn(TEST_TASK_STRING);
 
     // Mock task monitoring with no deletions
     GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
@@ -427,7 +404,7 @@ public class ESWriteDAOTest {
     TaskInfo mockTaskInfo = mock(TaskInfo.class);
     when(mockTaskResponse.getTaskInfo()).thenReturn(mockTaskInfo);
 
-    when(mockTasksClient.get(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -473,15 +450,13 @@ public class ESWriteDAOTest {
       when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
           .thenReturn(mockCount);
 
-      TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-      when(mockSubmission.getTask()).thenReturn("node123:456789");
       when(mockSearchClient.submitDeleteByQueryTask(
               any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-          .thenReturn(mockSubmission);
+          .thenReturn("node123:456789");
 
       GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
       when(mockTaskResponse.isCompleted()).thenReturn(true);
-      when(mockTasksClient.get(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+      when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
           .thenReturn(Optional.of(mockTaskResponse));
 
       ESWriteDAO.DeleteByQueryResult result =
@@ -506,17 +481,14 @@ public class ESWriteDAOTest {
             .timeoutUnit("MINUTES")
             .build();
 
-    TaskSubmissionResponse mockResponse = mock(TaskSubmissionResponse.class);
-    when(mockResponse.getTask()).thenReturn(TEST_TASK_STRING);
-
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockResponse);
+        .thenReturn(TEST_TASK_STRING);
 
     // Should handle invalid slices gracefully and default to auto
-    CompletableFuture<TaskSubmissionResponse> future =
+    CompletableFuture<String> future =
         esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, customConfig);
-    TaskSubmissionResponse result = future.get();
+    String result = future.get();
 
     assertNotNull(result);
     verify(mockSearchClient)
@@ -535,16 +507,13 @@ public class ESWriteDAOTest {
             .timeoutUnit("MINUTES")
             .build();
 
-    TaskSubmissionResponse mockResponse = mock(TaskSubmissionResponse.class);
-    when(mockResponse.getTask()).thenReturn(TEST_TASK_STRING);
-
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockResponse);
+        .thenReturn(TEST_TASK_STRING);
 
-    CompletableFuture<TaskSubmissionResponse> future =
+    CompletableFuture<String> future =
         esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, customConfig);
-    TaskSubmissionResponse result = future.get();
+    String result = future.get();
 
     assertNotNull(result);
 
@@ -575,17 +544,15 @@ public class ESWriteDAOTest {
         .thenReturn(afterFailureCount);
 
     // Mock task submission
-    TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-    when(mockSubmission.getTask()).thenReturn(TEST_TASK_STRING);
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockSubmission);
+        .thenReturn(TEST_TASK_STRING);
 
     // Mock task monitoring with incomplete/failed task
     GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
     when(mockTaskResponse.isCompleted()).thenReturn(false); // Task didn't complete
 
-    when(mockTasksClient.get(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -621,17 +588,15 @@ public class ESWriteDAOTest {
         .thenReturn(count40); // After 3rd delete (max retries)
 
     // Mock task submissions
-    TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-    when(mockSubmission.getTask()).thenReturn(TEST_TASK_STRING);
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockSubmission);
+        .thenReturn(TEST_TASK_STRING);
 
     // Mock successful task completions
     GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
     when(mockTaskResponse.isCompleted()).thenReturn(true);
 
-    when(mockTasksClient.get(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -652,7 +617,7 @@ public class ESWriteDAOTest {
     TaskId taskId = new TaskId(TEST_NODE_ID, TEST_TASK_ID);
 
     // Mock task API throwing exception
-    when(mockTasksClient.get(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Task API error"));
 
     // Also make count fail when trying to get remaining documents
@@ -671,11 +636,9 @@ public class ESWriteDAOTest {
         .thenReturn(initialCount)
         .thenThrow(new IOException("Count API error"));
 
-    TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-    when(mockSubmission.getTask()).thenReturn(TEST_TASK_STRING);
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockSubmission);
+        .thenReturn(TEST_TASK_STRING);
 
     ESWriteDAO.DeleteByQueryResult result =
         esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
@@ -696,11 +659,9 @@ public class ESWriteDAOTest {
       when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
           .thenReturn(mockCount);
 
-      TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-      when(mockSubmission.getTask()).thenReturn(null); // Null task string
       when(mockSearchClient.submitDeleteByQueryTask(
               any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-          .thenReturn(mockSubmission);
+          .thenReturn(null);
 
       ESWriteDAO.DeleteByQueryResult result =
           esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
@@ -718,11 +679,9 @@ public class ESWriteDAOTest {
       when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
           .thenReturn(mockCount);
 
-      TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-      when(mockSubmission.getTask()).thenReturn("invalidformat"); // No colon
       when(mockSearchClient.submitDeleteByQueryTask(
               any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-          .thenReturn(mockSubmission);
+          .thenReturn("invalidformat");
 
       ESWriteDAO.DeleteByQueryResult result =
           esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
@@ -746,18 +705,16 @@ public class ESWriteDAOTest {
         .thenReturn(count100);
 
     // Mock task submission
-    TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-    when(mockSubmission.getTask()).thenReturn(TEST_TASK_STRING);
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockSubmission);
+        .thenReturn(TEST_TASK_STRING);
 
     // Mock task monitoring that takes time
     GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
     when(mockTaskResponse.isCompleted()).thenReturn(true);
 
     // Simulate interruption during task monitoring
-    when(mockTasksClient.get(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               Thread.currentThread().interrupt();
@@ -791,14 +748,12 @@ public class ESWriteDAOTest {
         .thenReturn(afterCount);
 
     // Mock task submission
-    TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-    when(mockSubmission.getTask()).thenReturn(TEST_TASK_STRING);
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockSubmission);
+        .thenReturn(TEST_TASK_STRING);
 
     // Return empty Optional for task response
-    when(mockTasksClient.get(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.empty());
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -836,16 +791,14 @@ public class ESWriteDAOTest {
         .thenReturn(afterCount);
 
     // Mock task submission
-    TaskSubmissionResponse mockSubmission = mock(TaskSubmissionResponse.class);
-    when(mockSubmission.getTask()).thenReturn(TEST_TASK_STRING);
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockSubmission);
+        .thenReturn(TEST_TASK_STRING);
 
     // Mock task response
     GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
     when(mockTaskResponse.isCompleted()).thenReturn(true);
-    when(mockTasksClient.get(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, customConfig);
@@ -853,7 +806,7 @@ public class ESWriteDAOTest {
     // Verify GetTaskRequest parameters
     ArgumentCaptor<GetTaskRequest> taskRequestCaptor =
         ArgumentCaptor.forClass(GetTaskRequest.class);
-    verify(mockTasksClient).get(taskRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    verify(mockSearchClient).getTask(taskRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     GetTaskRequest capturedRequest = taskRequestCaptor.getValue();
     assertEquals(capturedRequest.getNodeId(), TEST_NODE_ID);
@@ -867,14 +820,11 @@ public class ESWriteDAOTest {
       throws IOException, ExecutionException, InterruptedException {
     QueryBuilder query = QueryBuilders.matchAllQuery();
 
-    TaskSubmissionResponse mockResponse = mock(TaskSubmissionResponse.class);
-    when(mockResponse.getTask()).thenReturn(TEST_TASK_STRING);
-
     when(mockSearchClient.submitDeleteByQueryTask(
             any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockResponse);
+        .thenReturn(TEST_TASK_STRING);
 
-    CompletableFuture<TaskSubmissionResponse> future =
+    CompletableFuture<String> future =
         esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, null);
     future.get();
 

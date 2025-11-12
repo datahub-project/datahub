@@ -3,6 +3,13 @@ plugins {
   id 'com.github.node-gradle.node'
 }
 
+ext {
+  python_executable = 'python3'
+  venv_name = 'venv'
+}
+
+ext.venv_activate_command = "set +x && source ${venv_name}/bin/activate && set -x && "
+
 node {
 
   // If true, it will download node using above parameters.
@@ -36,6 +43,29 @@ node {
   nodeProjectDir = file("${project.projectDir}")
 
 }
+
+task environmentSetup(type: Exec) {
+  def sentinel_file = "${venv_name}/.venv_environment_sentinel"
+  inputs.file file('requirements.txt')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+    "if [ ! -d ${venv_name} ] || [ ! -f ${venv_name}/bin/python ]; then ${python_executable} -m venv ${venv_name}; fi && " +
+    "set -x && " +
+    // If we already have uv available, use it to upgrade uv. Otherwise, install it with pip.
+    "if [ ! -f ${venv_name}/bin/uv ]; then ${venv_name}/bin/python -m pip install --upgrade uv; else ${venv_name}/bin/python -m uv pip install --upgrade uv; fi && " +
+    "touch ${sentinel_file}"
+}
+
+task installPythonDeps(type: Exec, dependsOn: environmentSetup) {
+  def sentinel_file = "${venv_name}/.python_deps_sentinel"
+  inputs.file file('requirements.txt')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "uv pip install -r requirements.txt && " +
+    "touch ${sentinel_file}"
+}
+
 /*
   Re-trigger build if any markdown files change anywhere in the project
 */
@@ -89,9 +119,10 @@ task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
   args = ['run', 'generate']
 }
 
-task downloadHistoricalVersions(type: Exec) {
+task downloadHistoricalVersions(type: Exec, dependsOn: installPythonDeps) {
     workingDir '.'
-    commandLine 'python3', 'download_historical_versions.py'
+    commandLine 'bash', '-c', 
+        venv_activate_command + 'python download_historical_versions.py'
 }
 
 task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, downloadHistoricalVersions]) {
@@ -148,6 +179,7 @@ clean {
   delete 'sphinx/venv'
   delete 'sphinx/_build'
   delete 'versioned_docs'
+  delete venv_name
   delete fileTree(dir: 'genDocs', exclude: '.gitignore')
   delete fileTree(dir: 'docs', exclude: '.gitignore')
   delete fileTree(dir: 'genStatic', exclude: '.gitignore')

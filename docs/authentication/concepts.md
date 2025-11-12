@@ -5,9 +5,10 @@ We introduced a few important concepts to the Metadata Service to make authentic
 1. Actor
 2. Authenticator
 3. AuthenticatorChain
-4. AuthenticationFilter
-5. DataHub Access Token
-6. DataHub Token Service
+4. Two-Tier Authentication System
+5. AuthenticationContext
+6. DataHub Access Token
+7. DataHub Token Service
 
 In following sections, we'll take a closer look at each individually.
 
@@ -91,12 +92,59 @@ authentication:
     ....
 ```
 
-## What is the AuthenticationFilter?
+## What is the Two-Tier Authentication System?
 
-The **AuthenticationFilter** is a [servlet filter](http://tutorials.jenkov.com/java-servlets/servlet-filters.html) that authenticates each and requests to the Metadata Service.
-It does so by constructing and invoking an **AuthenticatorChain**, described above.
+DataHub uses a **two-tier authentication system** that decouples authentication extraction from enforcement:
 
-If an Actor is unable to be resolved by the AuthenticatorChain, then a 401 unauthorized exception will be returned by the filter.
+### Tier 1: Authentication Extraction
+
+The **AuthenticationExtractionFilter** is the foundation [servlet filter](http://tutorials.jenkov.com/java-servlets/servlet-filters.html) that runs for **every request** to the Metadata Service. Its single responsibility:
+
+- **Extract Authentication Information**: Constructs and invokes an **AuthenticatorChain** to process credentials
+- **Set Universal Context**: Always establishes an **AuthenticationContext** (see below) for every request
+- **Never Enforce**: Never blocks requests - if authentication fails, it sets an anonymous context and continues
+
+### Tier 2: Authentication Enforcement
+
+The second tier consists of **enforcement mechanisms** that can be implemented in multiple ways:
+
+#### AuthenticationEnforcementFilter
+
+The default enforcement filter that:
+
+- **Selective Processing**: Only processes endpoints requiring authentication (excludes paths like `/health`, `/config`)
+- **Context-Based Decisions**: Reads the **AuthenticationContext** set by the extraction tier
+- **Request Blocking**: Returns 401 unauthorized when authentication is required but not present
+
+#### Additional Enforcement Options
+
+The decoupled design enables flexible enforcement strategies:
+
+- **Multiple Enforcement Filters**: Different areas can have specialized filters (e.g., admin area filter with additional privilege checks)
+- **Controller-Level Enforcement**: Individual controllers can examine the **AuthenticationContext** and enforce their own rules
+- **Custom Authorization Logic**: Business logic can make authentication decisions based on the established context
+
+### Benefits of Two-Tier Architecture
+
+This separation of concerns provides several advantages:
+
+1. **Decoupled Responsibilities**: Authentication extraction is separate from enforcement decisions
+2. **Performance**: Authentication processing happens once per request, regardless of enforcement complexity
+3. **Flexibility**: Multiple enforcement strategies can coexist (filters, controllers, custom logic)
+4. **Extensibility**: New enforcement mechanisms can be added without changing authentication extraction
+5. **Consistency**: All parts of the system have access to the same authentication context
+6. **Progressive Disclosure**: As a side benefit, endpoints can provide different responses based on user authentication status
+
+## What is AuthenticationContext?
+
+The **AuthenticationContext** is a thread-local storage mechanism that bridges the extraction and enforcement tiers. It serves as the **universal authentication state** for the entire request lifecycle:
+
+- **Authentication Object**: Contains the result of the authentication extraction process (Actor + credentials)
+- **Anonymous Support**: Set to anonymous actor when authentication extraction yields no valid credentials
+- **Request Lifecycle**: Automatically established by the extraction tier and cleaned up after each request
+- **Universal Access**: Available to all enforcement mechanisms - filters, controllers, or custom business logic
+
+This context enables **consistent authentication decisions** across all parts of the system. Whether enforcement happens in a servlet filter, a controller method, or custom business logic, they all work with the same authentication information established during the extraction phase.
 
 ## What is a DataHub Token Service? What are Access Tokens?
 

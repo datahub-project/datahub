@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { Tooltip, colors } from '@components';
 import { Divider, Image, Tag } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
@@ -8,9 +8,10 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 
-const EntityTag = styled(Tag)`
-    margin: 4px;
+const EntityTag = styled(Tag)<{ $showMargin?: boolean }>`
+    ${(props) => (props.$showMargin ? `margin: 4px;` : `margin: 0px;`)}
     max-width: inherit;
+    border-color: ${colors.gray[100]} !important;
 `;
 
 const TitleContainer = styled.div`
@@ -71,6 +72,7 @@ type Props = {
     columnName?: string;
     dataTestId?: string;
     showNameTooltip?: boolean;
+    showMargin?: boolean;
 };
 
 const constructExternalUrl = (url) => {
@@ -92,13 +94,14 @@ export const EntityPreviewTag = ({
     columnName,
     dataTestId,
     showNameTooltip = true,
+    showMargin = true,
 }: Props) => {
     const externalUrl = constructExternalUrl(url);
     const linkProps = useEmbeddedProfileLinkProps();
 
     return (
         <StyledLink to={externalUrl} {...linkProps} onClick={onClick} data-testid={dataTestId}>
-            <EntityTag>
+            <EntityTag $showMargin={showMargin}>
                 <TitleContainer>
                     <IconContainer>
                         {(!!platformLogoUrl && !platformLogoUrls && (

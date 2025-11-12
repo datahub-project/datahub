@@ -1,6 +1,6 @@
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useHistory } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
@@ -8,7 +8,6 @@ import { Tab } from '@components/components/Tabs/Tabs';
 import { useUserContext } from '@app/context/useUserContext';
 import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
-import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -17,6 +16,7 @@ import {
     INGESTION_REFRESH_SOURCES_ID,
 } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { NoPageFound } from '@app/shared/NoPageFound';
+import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
@@ -71,6 +71,7 @@ export const ManageIngestionPage = () => {
      */
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
+    const location = useLocation();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     const canManageIngestion = platformPrivileges?.manageIngestion;
     const showIngestionTab = isIngestionEnabled && canManageIngestion;
@@ -82,27 +83,18 @@ export const ManageIngestionPage = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
-    const [hideSystemSources, setHideSystemSources] = useState(true);
-
-    const {
-        isLoading: isCapabilitySummaryLoading,
-        error: isCapabilitySummaryError,
-        isProfilingSupported,
-    } = useCapabilitySummary();
     const history = useHistory();
     const shouldPreserveParams = useRef(false);
 
-    if (!isCapabilitySummaryLoading && !isCapabilitySummaryError) {
-        console.log(
-            'Example to be removed when is actually used for something is profiling support for bigquery',
-            isProfilingSupported('bigquery'),
-        );
-    }
+    // Use URL query param hooks for state management
+    const { value: hideSystemSources, setValue: setHideSystemSources } = useUrlQueryParam('hideSystem', 'true');
+    const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
+    const { value: searchQuery, setValue: setSearchQuery } = useUrlQueryParam('query');
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
         if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
-            const currentPath = window.location.pathname;
+            const currentPath = location.pathname;
 
             // Check if current URL matches any tab URL
             const currentTab = Object.entries(tabUrlMap).find(([, url]) => url === currentPath)?.[0] as TabType;
@@ -127,7 +119,15 @@ export const ManageIngestionPage = () => {
                 history.replace(tabUrlMap[defaultTabType]);
             }
         }
-    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab, history]);
+    }, [
+        loadedAppConfig,
+        loadedPlatformPrivileges,
+        showIngestionTab,
+        showSecretsTab,
+        selectedTab,
+        history,
+        location.pathname,
+    ]);
 
     const tabs: Tab[] = [
         showIngestionTab && {
@@ -136,10 +136,14 @@ export const ManageIngestionPage = () => {
                     showCreateModal={showCreateSourceModal}
                     setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
-                    hideSystemSources={hideSystemSources}
-                    setHideSystemSources={setHideSystemSources}
+                    hideSystemSources={hideSystemSources === 'true'}
+                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
+                    sourceFilter={sourceFilter ? Number(sourceFilter) : undefined}
+                    setSourceFilter={(value: number | undefined) => setSourceFilter(value?.toString() || '')}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
                 />
             ),
             key: TabType.Sources as string,
@@ -149,8 +153,8 @@ export const ManageIngestionPage = () => {
             component: (
                 <ExecutionsTab
                     shouldPreserveParams={shouldPreserveParams}
-                    hideSystemSources={hideSystemSources}
-                    setHideSystemSources={setHideSystemSources}
+                    hideSystemSources={hideSystemSources === 'true'}
+                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
                 />
@@ -174,7 +178,7 @@ export const ManageIngestionPage = () => {
         [history],
     );
 
-    const getCurrentUrl = useCallback(() => window.location.pathname, []);
+    const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
     const handleCreateSource = () => {
         setShowCreateSourceModal(true);

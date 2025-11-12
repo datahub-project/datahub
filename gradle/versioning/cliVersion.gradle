@@ -1,0 +1,8 @@
+ext {
+    // Important: The default version of the CLI used for GMS + bundled into docker images.
+    // This must be changed prior to release to bundle the latest CLI version.
+    //
+    // To automatically update this to the latest CLI version prior to release, run the following command:
+    // ./gradlew resolveDefaultCliVersion
+    cliVersion = "1.2.0.5"
+}

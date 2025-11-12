@@ -1,7 +1,11 @@
 package com.linkedin.metadata.search.indexbuilder;
 
+import static org.mockito.ArgumentMatchers.any;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.OpenSearchJvmInfo;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -9,9 +13,6 @@ import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
 import org.mockito.*;
 import org.opensearch.client.Request;
-import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
-import org.opensearch.client.RestHighLevelClient;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -19,11 +20,9 @@ import org.testng.annotations.Test;
 
 public class OpenSearchJvmInfoTest {
 
-  @Mock private RestHighLevelClient highLevelClient;
+  @Mock private SearchClientShim<?> highLevelClient;
 
-  @Mock private RestClient lowLevelClient;
-
-  @Mock private Response response;
+  @Mock private RawResponse response;
 
   @Mock private HttpEntity httpEntity;
 
@@ -33,9 +32,9 @@ public class OpenSearchJvmInfoTest {
   private ObjectMapper objectMapper;
 
   @BeforeMethod
-  void setUp() {
+  void setUp() throws IOException {
     MockitoAnnotations.openMocks(this);
-    Mockito.when(highLevelClient.getLowLevelClient()).thenReturn(lowLevelClient);
+    Mockito.when(highLevelClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
     openSearchJvmInfo = new OpenSearchJvmInfo(highLevelClient);
     objectMapper = new ObjectMapper();
   }
@@ -43,7 +42,6 @@ public class OpenSearchJvmInfoTest {
   @Test
   void testConstructor() {
     Assert.assertNotNull(openSearchJvmInfo);
-    Mockito.verify(highLevelClient).getLowLevelClient();
   }
 
   @Test
@@ -69,7 +67,7 @@ public class OpenSearchJvmInfoTest {
 
     // Verify the request was made correctly
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    Mockito.verify(lowLevelClient).performRequest(requestCaptor.capture());
+    Mockito.verify(highLevelClient).performLowLevelRequest(requestCaptor.capture());
     Request capturedRequest = requestCaptor.getValue();
     Assert.assertEquals(capturedRequest.getMethod(), "GET");
     Assert.assertEquals(capturedRequest.getEndpoint(), "/_nodes/stats");
@@ -106,7 +104,7 @@ public class OpenSearchJvmInfoTest {
   @Test(expectedExceptions = IOException.class)
   void testGetDataNodeJvmHeap_IOExceptionThrown() throws IOException {
     // Arrange
-    Mockito.when(lowLevelClient.performRequest(ArgumentMatchers.any(Request.class)))
+    Mockito.when(highLevelClient.performLowLevelRequest(any(Request.class)))
         .thenThrow(new IOException("Connection failed"));
 
     // Act & Assert
@@ -492,8 +490,7 @@ public class OpenSearchJvmInfoTest {
   }
 
   private void setupMockResponse(String responseBody) throws IOException {
-    Mockito.when(lowLevelClient.performRequest(ArgumentMatchers.any(Request.class)))
-        .thenReturn(response);
+    Mockito.when(highLevelClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
     Mockito.when(response.getEntity()).thenReturn(httpEntity);
     Mockito.when(httpEntity.getContent())
         .thenReturn(new java.io.ByteArrayInputStream(responseBody.getBytes()));

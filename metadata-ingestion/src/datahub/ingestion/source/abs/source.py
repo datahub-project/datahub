@@ -44,6 +44,7 @@ from datahub.ingestion.source.azure.abs_utils import (
     get_key_prefix,
     strip_abs_prefix,
 )
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.data_lake_common.data_lake_utils import (
     ContainerWUCreator,
     add_partition_columns_to_schema,
@@ -128,6 +129,14 @@ class TableData:
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.TAGS, "Can extract ABS object/container tags if enabled")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Extract ABS containers and folders",
+    subtype_modifier=[
+        SourceCapabilityModifier.FOLDER,
+        SourceCapabilityModifier.ABS_CONTAINER,
+    ],
+)
 class ABSSource(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
@@ -140,7 +149,7 @@ class ABSSource(StatefulIngestionSourceBase):
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
         config_report = {
-            config_option: config.dict().get(config_option)
+            config_option: config.model_dump().get(config_option)
             for config_option in config_options_to_report
         }
         config_report = {
@@ -155,7 +164,7 @@ class ABSSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DataLakeSourceConfig.parse_obj(config_dict)
+        config = DataLakeSourceConfig.model_validate(config_dict)
 
         return cls(config, ctx)
 

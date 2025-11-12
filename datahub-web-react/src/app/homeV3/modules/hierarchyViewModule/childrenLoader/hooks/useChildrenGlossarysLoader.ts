@@ -11,6 +11,7 @@ export default function useChildrenGlossaryLoader({
     parentValue,
     metadata,
     maxNumberToLoad,
+    forceHasAsyncChildren,
 }: ChildrenLoaderInputType): ChildrenLoaderResultType {
     const totalNumberOfChildren = metadata?.totalNumberOfChildren ?? maxNumberToLoad;
     const numberOfAlreadyLoadedChildren = metadata?.numberOfLoadedChildren ?? 0;
@@ -27,7 +28,11 @@ export default function useChildrenGlossaryLoader({
         count: numberOfChildrenToLoad,
         skip: numberOfChildrenToLoad === 0,
     });
-    const { treeNodes: nodes } = useTreeNodesFromGlossaryNodesAndTerms(glossaryNodes, glossaryTerms, true);
+    const { treeNodes: nodes } = useTreeNodesFromGlossaryNodesAndTerms(
+        glossaryNodes,
+        glossaryTerms,
+        forceHasAsyncChildren,
+    );
 
     const isLoading = useMemo(() => {
         if (!shouldLoad) return false;

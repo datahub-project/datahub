@@ -37,6 +37,8 @@ dependencies {
     testImplementation externalDependency.testng
     testImplementation externalDependency.mockito
     testImplementation externalDependency.logbackClassic
+    testImplementation externalDependency.lombok
+    testAnnotationProcessor externalDependency.lombok
     testImplementation externalDependency.jacksonCore
     testImplementation externalDependency.jacksonDataBind
     testImplementation externalDependency.springBootStarterWeb

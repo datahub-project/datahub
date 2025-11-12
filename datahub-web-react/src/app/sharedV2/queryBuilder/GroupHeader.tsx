@@ -1,6 +1,6 @@
 import { Tooltip } from '@components';
 import { Button } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { LogicalOperatorType } from '@app/sharedV2/queryBuilder/builder/types';
 import {
@@ -18,6 +18,7 @@ interface Props {
     onChangeOperator: (operator: LogicalOperatorType) => void;
     index: number;
     operator?: LogicalOperatorType;
+    showDeleteButton?: boolean;
 }
 
 const GroupHeader = ({
@@ -27,6 +28,7 @@ const GroupHeader = ({
     onChangeOperator,
     index,
     operator,
+    showDeleteButton,
 }: Props) => {
     const [selectedOperation, setSelectedOperation] = useState<LogicalOperatorType>(
         operator ?? LogicalOperatorType.AND,
@@ -37,13 +39,34 @@ const GroupHeader = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedOperation]);
 
+    const handleAddPropertyPredicate = useCallback(
+        (event: React.MouseEvent) => {
+            onAddPropertyPredicate();
+            event.preventDefault();
+        },
+        [onAddPropertyPredicate],
+    );
+
+    const handleAddLogicalPredicate = useCallback(
+        (event: React.MouseEvent) => {
+            onAddLogicalPredicate();
+            event.preventDefault();
+        },
+        [onAddLogicalPredicate],
+    );
+
+    const selectOperator = useCallback((event: React.MouseEvent, operatorToSelect: LogicalOperatorType) => {
+        setSelectedOperation(operatorToSelect);
+        event.preventDefault();
+    }, []);
+
     return (
         <ToolbarContainer>
             <Button.Group>
                 <Tooltip showArrow={false} title="Match assets that satisfy all of the following conditions (AND)">
                     <OperationButton
                         variant="text"
-                        onClick={() => setSelectedOperation(LogicalOperatorType.AND)}
+                        onClick={(e) => selectOperator(e, LogicalOperatorType.AND)}
                         isSelected={selectedOperation === LogicalOperatorType.AND}
                     >
                         All
@@ -52,7 +75,7 @@ const GroupHeader = ({
                 <Tooltip showArrow={false} title="Match assets that satisfy all of the following conditions (OR)">
                     <OperationButton
                         variant="text"
-                        onClick={() => setSelectedOperation(LogicalOperatorType.OR)}
+                        onClick={(e) => selectOperator(e, LogicalOperatorType.OR)}
                         isSelected={selectedOperation === LogicalOperatorType.OR}
                     >
                         Any
@@ -61,7 +84,7 @@ const GroupHeader = ({
                 <Tooltip showArrow={false} title="Match assets that do not match any of the following conditions (NOT)">
                     <OperationButton
                         variant="text"
-                        onClick={() => setSelectedOperation(LogicalOperatorType.NOT)}
+                        onClick={(e) => selectOperator(e, LogicalOperatorType.NOT)}
                         isSelected={selectedOperation === LogicalOperatorType.NOT}
                     >
                         None
@@ -71,25 +94,27 @@ const GroupHeader = ({
             <ActionsContainer>
                 <ButtonComponent
                     variant="text"
-                    onClick={onAddPropertyPredicate}
+                    onClick={handleAddPropertyPredicate}
                     data-testid="query-builder-add-condition-button"
                 >
                     Add Condition
                 </ButtonComponent>
                 <ButtonComponent
                     variant="text"
-                    onClick={onAddLogicalPredicate}
+                    onClick={handleAddLogicalPredicate}
                     data-testid="query-builder-add-group-button"
                 >
                     Add Group
                 </ButtonComponent>
                 <CardIcons>
-                    <Icon
-                        icon="Delete"
-                        size="md"
-                        onClick={() => onDeletePredicate(index)}
-                        data-testid="query-builder-delete-button"
-                    />
+                    {showDeleteButton && (
+                        <Icon
+                            icon="Delete"
+                            size="md"
+                            onClick={() => onDeletePredicate(index)}
+                            data-testid="query-builder-delete-button"
+                        />
+                    )}
                 </CardIcons>
             </ActionsContainer>
         </ToolbarContainer>

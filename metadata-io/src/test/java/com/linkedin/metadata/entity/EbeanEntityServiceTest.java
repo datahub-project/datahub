@@ -58,6 +58,7 @@ import io.ebean.TxScope;
 import jakarta.persistence.EntityNotFoundException;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -71,8 +72,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 /**
@@ -86,7 +90,18 @@ import org.testng.annotations.Test;
 public class EbeanEntityServiceTest
     extends EntityServiceTest<EbeanAspectDao, EbeanRetentionService> {
 
+  // Track additional Database instances created in individual tests for cleanup
+  private final List<Database> additionalDatabases = new ArrayList<>();
+
   public EbeanEntityServiceTest() throws EntityRegistryException {}
+
+  @DataProvider(name = "cdcModeVariants")
+  public Object[][] cdcModeVariants() {
+    return new Object[][] {
+      {false}, // Non-CDC mode
+      {true} // CDC mode
+    };
+  }
 
   @BeforeClass
   public void beforeClass() {
@@ -94,19 +109,29 @@ public class EbeanEntityServiceTest
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
   }
 
+  @Parameters({"cdcMode"})
   @BeforeMethod
-  public void setupTest() {
+  public void setupTestWithParameter(
+      @org.testng.annotations.Optional("false") String cdcModeParam) {
+    boolean cdcMode = Boolean.parseBoolean(cdcModeParam);
+    setupTestWithCdcMode(cdcMode);
+  }
+
+  private void setupTestWithCdcMode(boolean cdcMode) {
+    this.cdcModeChangeLog = cdcMode;
     reset(_mockProducer);
     reset(_mockUpdateIndicesService);
 
-    Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
+    Database server =
+        EbeanTestUtils.createTestServer(
+            EbeanEntityServiceTest.class.getSimpleName() + "_" + (cdcMode ? "CDC" : "NonCDC"));
 
     _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(_aspectDao, _mockProducer, false, preProcessHooks, true);
+        new EntityServiceImpl(_aspectDao, _mockProducer, false, cdcMode, preProcessHooks, true);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
@@ -147,6 +172,7 @@ public class EbeanEntityServiceTest
 
     // Create database and spy on aspectDao
     Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
+    additionalDatabases.add(server); // Track for cleanup
     EbeanAspectDao aspectDao =
         spy(new EbeanAspectDao(server, EbeanConfiguration.testDefault, null));
 
@@ -745,5 +771,14 @@ public class EbeanEntityServiceTest
         throw new RuntimeException(ie);
       }
     }
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown all Database instances to prevent thread pool and connection leaks
+    // This includes the "gma.heartBeat" thread and connection pools
+    EbeanTestUtils.shutdownDatabaseFromAspectDao(_aspectDao);
+    EbeanTestUtils.shutdownDatabases(additionalDatabases);
+    additionalDatabases.clear();
   }
 }

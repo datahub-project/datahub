@@ -6,6 +6,7 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
+import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
@@ -22,95 +23,33 @@ public class GraphIndexUtils {
   private GraphIndexUtils() {}
 
   @Nullable
-  private static List<Urn> getActorList(
+  private static <T> List<T> getList(
       @Nullable final String path, @Nonnull final RecordTemplate aspect) {
     if (path == null) {
       return null;
     }
-    final PathSpec actorPathSpec = new PathSpec(path.split("/"));
-    final Object value = RecordUtils.getNullableFieldValue(aspect, actorPathSpec);
-    return (List<Urn>) value;
-  }
-
-  @Nullable
-  private static List<Long> getTimestampList(
-      @Nullable final String path, @Nonnull final RecordTemplate aspect) {
-    if (path == null) {
-      return null;
+    final PathSpec pathSpec = new PathSpec(path.split("/"));
+    final Object value = RecordUtils.getNullableFieldValue(aspect, pathSpec);
+    if (FieldExtractor.getNumArrayWildcards(pathSpec) > 0) {
+      return (List<T>) value;
+    } else {
+      return value != null ? List.of((T) value) : null;
     }
-    final PathSpec timestampPathSpec = new PathSpec(path.split("/"));
-    final Object value = RecordUtils.getNullableFieldValue(aspect, timestampPathSpec);
-    return (List<Long>) value;
   }
 
-  @Nullable
-  private static List<Map<String, Object>> getPropertiesList(
-      @Nullable final String path, @Nonnull final RecordTemplate aspect) {
-    if (path == null) {
-      return null;
-    }
-    final PathSpec propertiesPathSpec = new PathSpec(path.split("/"));
-    final Object value = RecordUtils.getNullableFieldValue(aspect, propertiesPathSpec);
-    return (List<Map<String, Object>>) value;
-  }
-
-  @Nullable
-  private static List<Urn> getViaList(
-      @Nullable final String path, @Nonnull final RecordTemplate aspect) {
-    if (path == null) {
-      return null;
-    }
-    final PathSpec viaPathSpec = new PathSpec(path.split("/"));
-    final Object value = RecordUtils.getNullableFieldValue(aspect, viaPathSpec);
-    return (List<Urn>) value;
-  }
-
-  @Nullable
   private static boolean isValueListValid(
       @Nullable final List<?> entryList, final int valueListSize) {
     if (entryList == null) {
       return false;
     }
-    if (valueListSize != entryList.size()) {
-      return false;
-    }
-    return true;
+    return valueListSize == entryList.size();
   }
 
   @Nullable
-  private static Long getTimestamp(
-      @Nullable final List<Long> timestampList, final int index, final int valueListSize) {
-    if (isValueListValid(timestampList, valueListSize)) {
-      return timestampList.get(index);
-    }
-    return null;
-  }
-
-  @Nullable
-  private static Urn getActor(
-      @Nullable final List<Urn> actorList, final int index, final int valueListSize) {
-    if (isValueListValid(actorList, valueListSize)) {
-      return actorList.get(index);
-    }
-    return null;
-  }
-
-  @Nullable
-  private static Map<String, Object> getProperties(
-      @Nullable final List<Map<String, Object>> propertiesList,
-      final int index,
-      final int valueListSize) {
-    if (isValueListValid(propertiesList, valueListSize)) {
-      return propertiesList.get(index);
-    }
-    return null;
-  }
-
-  @Nullable
-  private static Urn getVia(
-      @Nullable final List<Urn> viaList, final int index, final int valueListSize) {
-    if (isValueListValid(viaList, valueListSize)) {
-      return viaList.get(index);
+  private static <T> T getValue(
+      @Nullable final List<T> list, final int index, final int valueListSize) {
+    if (isValueListValid(list, valueListSize)) {
+      return list.get(index);
     }
     return null;
   }
@@ -139,39 +78,39 @@ public class GraphIndexUtils {
         extractedFieldsEntry.getKey().getRelationshipAnnotation().getProperties();
     final String viaNodePath = extractedFieldsEntry.getKey().getRelationshipAnnotation().getVia();
 
-    final List<Long> createdOnList = getTimestampList(createdOnPath, aspect);
-    final List<Urn> createdActorList = getActorList(createdActorPath, aspect);
-    final List<Long> updatedOnList = getTimestampList(updatedOnPath, aspect);
-    final List<Urn> updatedActorList = getActorList(updatedActorPath, aspect);
-    final List<Map<String, Object>> propertiesList = getPropertiesList(propertiesPath, aspect);
-    final List<Urn> viaList = getViaList(viaNodePath, aspect);
+    final List<Long> createdOnList = getList(createdOnPath, aspect);
+    final List<Urn> createdActorList = getList(createdActorPath, aspect);
+    final List<Long> updatedOnList = getList(updatedOnPath, aspect);
+    final List<Urn> updatedActorList = getList(updatedActorPath, aspect);
+    final List<Map<String, Object>> propertiesList = getList(propertiesPath, aspect);
+    final List<Urn> viaList = getList(viaNodePath, aspect);
 
     int index = 0;
     for (Object fieldValue : extractedFieldsEntry.getValue()) {
       Long createdOn =
           createdOnList != null
-              ? getTimestamp(createdOnList, index, extractedFieldsEntry.getValue().size())
+              ? getValue(createdOnList, index, extractedFieldsEntry.getValue().size())
               : null;
       Urn createdActor =
           createdActorList != null
-              ? getActor(createdActorList, index, extractedFieldsEntry.getValue().size())
+              ? getValue(createdActorList, index, extractedFieldsEntry.getValue().size())
               : null;
       Long updatedOn =
           updatedOnList != null
-              ? getTimestamp(updatedOnList, index, extractedFieldsEntry.getValue().size())
+              ? getValue(updatedOnList, index, extractedFieldsEntry.getValue().size())
               : null;
       Urn updatedActor =
           updatedActorList != null
-              ? getActor(updatedActorList, index, extractedFieldsEntry.getValue().size())
+              ? getValue(updatedActorList, index, extractedFieldsEntry.getValue().size())
               : null;
       final Map<String, Object> properties =
           propertiesList != null
-              ? getProperties(propertiesList, index, extractedFieldsEntry.getValue().size())
+              ? getValue(propertiesList, index, extractedFieldsEntry.getValue().size())
               : null;
 
       Urn viaNode =
           viaNodePath != null
-              ? getVia(viaList, index, extractedFieldsEntry.getValue().size())
+              ? getValue(viaList, index, extractedFieldsEntry.getValue().size())
               : null;
 
       SystemMetadata systemMetadata;

@@ -73,6 +73,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
+    RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -171,7 +172,11 @@ class SnowflakeV2Source(
         )
 
         # For database, schema, tables, views, etc
-        self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
+        self.data_dictionary = SnowflakeDataDictionary(
+            connection=self.connection,
+            report=self.report,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
+        )
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
 
         self.discovered_datasets: Optional[List[str]] = None
@@ -195,6 +200,7 @@ class SnowflakeV2Source(
                 ),
                 generate_usage_statistics=False,
                 generate_operations=False,
+                generate_queries=self.config.include_queries,
                 format_queries=self.config.format_sql_queries,
                 is_temp_table=self._is_temp_table,
                 is_allowed_table=self._is_allowed_table,
@@ -202,7 +208,7 @@ class SnowflakeV2Source(
         )
         self.report.sql_aggregator = self.aggregator.report
 
-        if self.config.include_table_lineage:
+        if self.config.include_table_lineage and not self.config.use_queries_v2:
             redundant_lineage_run_skip_handler: Optional[
                 RedundantLineageRunSkipHandler
             ] = None
@@ -526,6 +532,7 @@ class SnowflakeV2Source(
             snowsight_url_builder=snowsight_url_builder,
             filters=self.filters,
             identifiers=self.identifiers,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
         )
 
         with self.report.new_stage(f"*: {METADATA_EXTRACTION}"):
@@ -583,6 +590,17 @@ class SnowflakeV2Source(
             with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
                 schema_resolver = self.aggregator._schema_resolver
 
+                redundant_queries_run_skip_handler: Optional[
+                    RedundantQueriesRunSkipHandler
+                ] = None
+                if self.config.enable_stateful_time_window:
+                    redundant_queries_run_skip_handler = RedundantQueriesRunSkipHandler(
+                        source=self,
+                        config=self.config,
+                        pipeline_name=self.ctx.pipeline_name,
+                        run_id=self.ctx.run_id,
+                    )
+
                 queries_extractor = SnowflakeQueriesExtractor(
                     connection=self.connection,
                     # TODO: this should be its own section in main recipe
@@ -600,6 +618,7 @@ class SnowflakeV2Source(
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         user_email_pattern=self.config.user_email_pattern,
                         pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                        pushdown_allow_usernames=self.config.pushdown_allow_usernames,
                         query_dedup_strategy=self.config.query_dedup_strategy,
                         push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
                         additional_database_names_allowlist=self.config.additional_database_names_allowlist,
@@ -607,6 +626,7 @@ class SnowflakeV2Source(
                     structured_report=self.report,
                     filters=self.filters,
                     identifiers=self.identifiers,
+                    redundant_run_skip_handler=redundant_queries_run_skip_handler,
                     schema_resolver=schema_resolver,
                     discovered_tables=self.discovered_datasets,
                     graph=self.ctx.graph,
@@ -744,6 +764,7 @@ class SnowflakeV2Source(
                 # For privatelink, account identifier ends with .privatelink
                 # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
+                snowflake_domain=self.config.snowflake_domain,
             )
 
         except Exception as e:

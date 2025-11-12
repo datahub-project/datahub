@@ -10,6 +10,7 @@ import com.linkedin.common.Deprecation;
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -23,11 +24,7 @@ import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLModelGroupEditableProperties;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -122,6 +119,12 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
     mappingHelper.mapToResult(
         APPLICATION_MEMBERSHIP_ASPECT_NAME,
         (mlModelGroup, dataMap) -> mapApplicationAssociation(context, mlModelGroup, dataMap));
+    mappingHelper.mapToResult(
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        (mlModelGroup, dataMap) ->
+            mlModelGroup.setInstitutionalMemory(
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLModelGroup.class);

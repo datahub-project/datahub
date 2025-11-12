@@ -153,9 +153,9 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
       com.linkedin.metadata.config.kafka.KafkaConfiguration config =
           new com.linkedin.metadata.config.kafka.KafkaConfiguration();
       com.linkedin.metadata.config.kafka.TopicsConfiguration topicsConfig =
-          new com.linkedin.metadata.config.kafka.TopicsConfiguration();
+          new com.linkedin.metadata.config.kafka.TopicsConfiguration(null, null);
       topicsConfig.setDataHubUsage("DataHubUsageEvent_v1");
-      config.setTopics(topicsConfig);
+      config.setTopicsConfiguration(topicsConfig);
       return config;
     }
 
@@ -223,9 +223,9 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
       com.linkedin.metadata.config.kafka.KafkaConfiguration config =
           new com.linkedin.metadata.config.kafka.KafkaConfiguration();
       com.linkedin.metadata.config.kafka.TopicsConfiguration topicsConfig =
-          new com.linkedin.metadata.config.kafka.TopicsConfiguration();
+          new com.linkedin.metadata.config.kafka.TopicsConfiguration(null, null);
       topicsConfig.setDataHubUsage("DataHubUsageEvent_v1");
-      config.setTopics(topicsConfig);
+      config.setTopicsConfiguration(topicsConfig);
       return config;
     }
 

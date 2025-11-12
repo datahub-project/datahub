@@ -41,7 +41,7 @@ docker {
 
     variants = [
         "slim": [suffix: "", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "slim"]],
-        "full": [suffix: "full", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "full"]]
+        "full": [suffix: "-full", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "full"]]
         ]
     // This task is intended to build the slim image
     //target 'ingestion-base-slim' //Review if this needs to be handled by bake

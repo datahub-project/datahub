@@ -27,6 +27,13 @@ vi.mock('@components', () => ({
     )),
     Tooltip: (props: any) => <span {...props} />,
     Text: (props: any) => <p {...props} />,
+    Button: (props: any) => <button type="button" data-testid="confirm" {...props} />,
+    Heading: (props: any) => <p {...props} />,
+    typography: {
+        fonts: {
+            body: '#eeeeee',
+        },
+    },
     colors: {
         gray: {
             600: '#4B5563',
@@ -81,6 +88,9 @@ describe('ModuleMenu', () => {
         // Click the remove option
         const removeButton = screen.getByText('Remove');
         fireEvent.click(removeButton);
+        // Confirm removing
+        const confirm = screen.getByTestId('modal-confirm-button');
+        fireEvent.click(confirm);
 
         // Verify that removeModule was called with correct parameters
         expect(mockRemoveModule).toHaveBeenCalledWith({
@@ -115,6 +125,9 @@ describe('ModuleMenu', () => {
         // Click the remove option
         const removeButton = screen.getByText('Remove');
         fireEvent.click(removeButton);
+        // Confirm removing
+        const confirm = screen.getByTestId('modal-confirm-button');
+        fireEvent.click(confirm);
 
         // Verify that removeModule was called with correct parameters
         expect(mockRemoveModule).toHaveBeenCalledWith({
@@ -152,6 +165,9 @@ describe('ModuleMenu', () => {
         // Click the remove option
         const removeButton = screen.getByText('Remove');
         fireEvent.click(removeButton);
+        // Confirm removing
+        const confirm = screen.getByTestId('modal-confirm-button');
+        fireEvent.click(confirm);
 
         // Verify that removeModule was called with moduleIndex
         expect(mockRemoveModule).toHaveBeenCalledWith({
@@ -181,6 +197,9 @@ describe('ModuleMenu', () => {
         // Click the remove option
         const removeButton = screen.getByText('Remove');
         fireEvent.click(removeButton);
+        // Confirm removing
+        const confirm = screen.getByTestId('modal-confirm-button');
+        fireEvent.click(confirm);
 
         // Verify that removeModule was called with correct URN
         expect(mockRemoveModule).toHaveBeenCalledWith({
@@ -204,6 +223,9 @@ describe('ModuleMenu', () => {
         // Click the remove option
         const removeButton = screen.getByText('Remove');
         fireEvent.click(removeButton);
+        // Confirm removing
+        const confirm = screen.getByTestId('modal-confirm-button');
+        fireEvent.click(confirm);
 
         // Verify that removeModule was called with minimal position
         expect(mockRemoveModule).toHaveBeenCalledWith({
@@ -233,6 +255,9 @@ describe('ModuleMenu', () => {
         // Click the remove option
         const removeButton = screen.getByText('Remove');
         fireEvent.click(removeButton);
+        // Confirm removing
+        const confirm = screen.getByTestId('modal-confirm-button');
+        fireEvent.click(confirm);
 
         // Verify that removeModule was called with special character URN
         expect(mockRemoveModule).toHaveBeenCalledWith({
@@ -270,11 +295,14 @@ describe('ModuleMenu', () => {
         const menuButton = screen.getByTestId('icon');
         fireEvent.click(menuButton);
 
-        // Click the remove option multiple times rapidly
+        // Click the remove option
         const removeButton = screen.getByText('Remove');
         fireEvent.click(removeButton);
-        fireEvent.click(removeButton);
-        fireEvent.click(removeButton);
+        // Click confirm multiple times rapidly
+        const confirm = screen.getByTestId('modal-confirm-button');
+        fireEvent.click(confirm);
+        fireEvent.click(confirm);
+        fireEvent.click(confirm);
 
         // Verify that removeModule was called multiple times (as expected)
         expect(mockRemoveModule).toHaveBeenCalledTimes(3);

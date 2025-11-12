@@ -12,11 +12,8 @@ export default function useTreeNodesFromGlossaryNodesAndTerms(
     forceHasAsyncChildren?: boolean,
 ) {
     const glossaryNodesTreeNodes = useMemo(
-        () =>
-            glossaryNodes?.map((glossaryNode) =>
-                convertGlossaryNodeToTreeNode(glossaryNode, !!forceHasAsyncChildren),
-            ) ?? [],
-        [glossaryNodes, forceHasAsyncChildren],
+        () => glossaryNodes?.map((glossaryNode) => convertGlossaryNodeToTreeNode(glossaryNode)) ?? [],
+        [glossaryNodes],
     );
     const glossaryTermsTreeNodes = useMemo(
         () =>

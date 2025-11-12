@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import ChildrenLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/ChildrenLoader';
 import { ChildrenLoaderProvider } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/context/ChildrenLoaderProvider';
@@ -26,6 +27,7 @@ interface Props {
 export default function DomainsTreeView({ assetUrns, shouldShowRelatedEntities, relatedEntitiesOrFilters }: Props) {
     const { tree, loading } = useDomainsTree(assetUrns ?? [], shouldShowRelatedEntities);
     const { parentValues, addParentValue, removeParentValue } = useParentValuesToLoadChildren();
+    const { templateType } = usePageTemplateContext();
 
     const onLoadFinished = useCallback(
         (newNodes: TreeNode[], metadata: ChildrenLoaderMetadata, parentDomainUrn: string) => {
@@ -47,13 +49,17 @@ export default function DomainsTreeView({ assetUrns, shouldShowRelatedEntities, 
         [tree, addParentValue],
     );
 
-    const onExpand = useCallback((node: TreeNode) => {
-        analytics.event({
-            type: EventType.HomePageTemplateModuleExpandClick,
-            assetUrn: node.entity.urn,
-            moduleType: DataHubPageModuleType.Hierarchy,
-        });
-    }, []);
+    const onExpand = useCallback(
+        (node: TreeNode) => {
+            analytics.event({
+                type: EventType.HomePageTemplateModuleExpandClick,
+                assetUrn: node.entity.urn,
+                moduleType: DataHubPageModuleType.Hierarchy,
+                location: templateType,
+            });
+        },
+        [templateType],
+    );
 
     return (
         <Wrapper>
@@ -70,6 +76,7 @@ export default function DomainsTreeView({ assetUrns, shouldShowRelatedEntities, 
                     nodes={tree.nodes}
                     loadChildren={startLoadingOfChildren}
                     onExpand={onExpand}
+                    shouldExpandSingleRootNode
                     renderNodeLabel={(nodeProps) => (
                         <EntityItem
                             entity={nodeProps.node.entity}

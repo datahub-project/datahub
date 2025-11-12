@@ -1,6 +1,7 @@
 package io.datahubproject.test.fixtures.search;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -10,7 +11,6 @@ import lombok.Builder;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 
@@ -18,7 +18,7 @@ import org.opensearch.search.SearchHits;
 @Builder
 public class FixtureWriter {
 
-  private RestHighLevelClient client;
+  private SearchClientShim<?> client;
 
   @Builder.Default private String outputBase = SearchFixtureUtils.FIXTURE_BASE;
 

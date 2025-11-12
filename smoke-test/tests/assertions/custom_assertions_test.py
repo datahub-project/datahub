@@ -10,10 +10,6 @@ from datahub.metadata.schema_classes import StatusClass
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import delete_urn
 
-restli_default_headers = {
-    "X-RestLi-Protocol-Version": "2.0.0",
-}
-
 TEST_DATASET_URN = make_dataset_urn(platform="postgres", name="foo_custom")
 
 

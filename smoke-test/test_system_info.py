@@ -209,12 +209,13 @@ def extract_api_token_from_session(session):
     return token_data["accessToken"], token_data["metadata"]["id"]
 
 
-def test_system_info_authenticated_non_admin_user_returns_403():
+def test_system_info_authenticated_non_admin_user_returns_403(auth_session):
     """Test that system info endpoints return HTTP 403 for authenticated users without MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.
     
     This test creates a limited-privilege user, extracts their API token, and verifies they get HTTP 403,
     proving that our authorization logic correctly checks for the specific privilege.
     """
+
     # Get admin session to create test user
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)

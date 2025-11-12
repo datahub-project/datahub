@@ -134,7 +134,9 @@ class StoredProcedure:
 
     @property
     def escape_full_name(self) -> str:
-        return f"[{self.db}].[{self.schema}].[{self.formatted_name}]"
+        return f"[{self.db}].[{self.schema}].[{self.formatted_name}]".replace(
+            "'", r"''"
+        )
 
     def to_base_procedure(self) -> BaseProcedure:
         return BaseProcedure(

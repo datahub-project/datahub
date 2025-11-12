@@ -90,7 +90,7 @@ export const NameSourceStep = ({
     };
 
     const retrieveExtraEnvs = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -99,7 +99,7 @@ export const NameSourceStep = ({
     };
 
     const setExtraEnvs = (envs: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfEnvVars: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
         const value = { key: ExtraEnvKey, value: envs };
         if (indxOfEnvVars > -1) {
@@ -118,7 +118,7 @@ export const NameSourceStep = ({
     };
 
     const retrieveExtraDataHubPlugins = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -127,7 +127,7 @@ export const NameSourceStep = ({
     };
 
     const setExtraDataHubPlugins = (plugins: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfPlugins: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
         const value = { key: ExtraPluginKey, value: plugins };
         if (indxOfPlugins > -1) {
@@ -146,7 +146,7 @@ export const NameSourceStep = ({
     };
 
     const retrieveExtraReqs = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -155,7 +155,7 @@ export const NameSourceStep = ({
     };
 
     const setExtraReqs = (reqs: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfReqs: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
         const value = { key: ExtraReqKey, value: reqs };
         if (indxOfReqs > -1) {

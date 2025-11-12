@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.AssetSettingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
@@ -42,6 +43,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.SiblingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UpstreamLineagesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -60,10 +62,13 @@ import com.linkedin.dataset.ViewProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.settings.asset.AssetSettings;
 import com.linkedin.structured.StructuredProperties;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -197,6 +202,19 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         (entity, dataMap) ->
             entity.setVersionProperties(
                 VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
+    mappingHelper.mapToResult(
+        LOGICAL_PARENT_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLogicalParent(
+                Optional.ofNullable(new LogicalParent(dataMap).getParent())
+                    .map(
+                        logicalParent ->
+                            UrnToEntityMapper.map(context, logicalParent.getDestinationUrn()))
+                    .orElse(null)));
+    mappingHelper.mapToResult(
+        ASSET_SETTINGS_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);

@@ -27,6 +27,17 @@ const injectMeticulous = () => {
     };
 };
 
+// since we have base: './' for relative paths, vite will set static assets at "./assets/..."
+// with a base path configured we can't find them. We want simple "assets/..."
+export function stripDotSlashFromAssets() {
+    return {
+        name: 'strip-dot-slash',
+        transformIndexHtml(html) {
+            return html.replace(/src="\.\//g, 'src="').replace(/href="\.\//g, 'href="');
+        },
+    };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
     const { viteStaticCopy } = await import('vite-plugin-static-copy');
@@ -35,9 +46,12 @@ export default defineConfig(async ({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
     process.env = { ...process.env, ...env };
 
-    const themeConfigFile = `./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`;
-    // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
-    const themeConfig = require(themeConfigFile);
+    let antThemeConfig: any;
+    if (process.env.ANT_THEME_CONFIG) {
+        const themeConfigFile = `./src/conf/theme/${process.env.ANT_THEME_CONFIG}`;
+        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
+        antThemeConfig = require(themeConfigFile);
+    }
 
     // Setup proxy to the datahub-frontend service.
     const frontendProxy = {
@@ -49,12 +63,14 @@ export default defineConfig(async ({ mode }) => {
         '/authenticate': frontendProxy,
         '/api/v2/graphql': frontendProxy,
         '/openapi/v1/tracking/track': frontendProxy,
+        '/openapi/v1/files': frontendProxy,
     };
 
     const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
 
     return {
         appType: 'spa',
+        base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
             ...devPlugins,
             react(),
@@ -95,6 +111,7 @@ export default defineConfig(async ({ mode }) => {
                 uploadToken: process.env.CODECOV_TOKEN,
                 gitService: 'github',
             }),
+            stripDotSlashFromAssets(),
         ],
         // optimizeDeps: {
         //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
@@ -120,7 +137,7 @@ export default defineConfig(async ({ mode }) => {
                     javascriptEnabled: true,
                     // Override antd theme variables.
                     // https://4x.ant.design/docs/react/customize-theme#Ant-Design-Less-variables
-                    modifyVars: themeConfig.styles,
+                    modifyVars: antThemeConfig,
                 },
             },
         },
@@ -134,7 +151,7 @@ export default defineConfig(async ({ mode }) => {
                 enabled: true,
                 provider: 'v8',
                 reporter: ['text', 'json', 'html'],
-                include: ['src/**/*'],
+                include: ['src/**/*.ts'],
                 reportsDirectory: '../build/coverage-reports/datahub-web-react/',
                 exclude: [],
             },

@@ -101,7 +101,7 @@ logger = logging.getLogger(__name__)
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Disabled by default. ",
+    "Disabled by default.",
 )
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
@@ -148,7 +148,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = QlikSourceConfig.parse_obj(config_dict)
+        config = QlikSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def _gen_space_key(self, space_id: str) -> SpaceKey:

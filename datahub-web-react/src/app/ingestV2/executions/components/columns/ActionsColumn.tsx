@@ -53,7 +53,12 @@ export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback, ha
             dropdownItems={items}
             extraActions={
                 record.status === EXECUTION_REQUEST_STATUS_SUCCESS && record.showRollback ? (
-                    <Icon icon="ArrowUUpLeft" source="phosphor" onClick={() => handleRollback(record.id)} />
+                    <Icon
+                        icon="ArrowUUpLeft"
+                        source="phosphor"
+                        onClick={() => handleRollback(record.id)}
+                        tooltipText="Rollback"
+                    />
                 ) : null
             }
         />

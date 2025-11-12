@@ -62,6 +62,7 @@ export const updateListDomainsCache = (
     addToListDomainsCache(
         client,
         {
+            __typename: 'Domain',
             urn,
             id: id || null,
             type: EntityType.Domain,
@@ -75,6 +76,8 @@ export const updateListDomainsCache = (
             dataProducts: null,
             parentDomains: null,
             displayProperties: null,
+            institutionalMemory: null,
+            applications: null,
         },
         1000,
         parentDomain,

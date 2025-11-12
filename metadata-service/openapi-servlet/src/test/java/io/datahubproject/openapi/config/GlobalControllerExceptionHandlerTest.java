@@ -8,6 +8,7 @@ import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollec
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
@@ -317,5 +318,19 @@ public class GlobalControllerExceptionHandlerTest {
     assertNotNull(response.getBody());
     assertEquals(response.getBody().get("error"), "Invalid JSON format");
     assertEquals(response.getBody().get("message"), "Jakarta JSON parsing failed");
+  }
+
+  @Test
+  public void testHandleInvalidSyntaxException() {
+    InvalidSyntaxException ex = mock(InvalidSyntaxException.class);
+    when(ex.getMessage()).thenReturn("Invalid GraphQL query syntax");
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleInvalidSyntaxException(ex);
+
+    assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
+    assertNotNull(response.getBody());
+    assertEquals(response.getBody().get("error"), "Invalid GraphQL syntax");
+    assertEquals(response.getBody().get("message"), "Invalid GraphQL query syntax");
   }
 }

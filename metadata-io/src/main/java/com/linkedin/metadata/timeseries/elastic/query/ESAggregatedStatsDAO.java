@@ -14,6 +14,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
@@ -21,6 +22,8 @@ import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,7 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -61,11 +63,11 @@ public class ESAggregatedStatsDAO {
   private static final String ES_AGG_MAX_TIMESTAMP =
       ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
   private static final int MAX_TERM_BUCKETS = 24 * 60; // minutes in a day.
-  private final RestHighLevelClient searchClient;
+  private final SearchClientShim<?> searchClient;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
 
   public ESAggregatedStatsDAO(
-      @Nonnull RestHighLevelClient searchClient,
+      @Nonnull SearchClientShim<?> searchClient,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     this.searchClient = searchClient;
     this.queryFilterRewriteChain = queryFilterRewriteChain;
@@ -480,12 +482,10 @@ public class ESAggregatedStatsDAO {
         AggregationBuilder curAggregationBuilder = null;
         if (curGroupingBucket.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
           // Process the date grouping bucket using 'date-histogram' aggregation.
-          if (!curGroupingBucket.getKey().equals(ES_FIELD_TIMESTAMP)) {
-            throw new IllegalArgumentException("Date Grouping bucket is not:" + ES_FIELD_TIMESTAMP);
-          }
           curAggregationBuilder =
-              AggregationBuilders.dateHistogram(ES_AGG_TIMESTAMP)
-                  .field(ES_FIELD_TIMESTAMP)
+              AggregationBuilders.dateHistogram(ES_AGGREGATION_PREFIX + curGroupingBucket.getKey())
+                  .field(curGroupingBucket.getKey())
+                  .timeZone(getZoneId(curGroupingBucket))
                   .calendarInterval(getHistogramInterval(curGroupingBucket.getTimeWindowSize()));
         } else if (curGroupingBucket.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
           // Process the string grouping bucket using the 'terms' aggregation.
@@ -510,6 +510,20 @@ public class ESAggregatedStatsDAO {
     }
 
     return Pair.of(firstAggregationBuilder, lastAggregationBuilder);
+  }
+
+  @Nonnull
+  private ZoneId getZoneId(GroupingBucket groupingBucket) {
+    // default to GMT time
+    ZoneId zoneId = ZoneId.of("GMT");
+    if (groupingBucket.getTimeZone() != null) {
+      try {
+        zoneId = ZoneId.of(groupingBucket.getTimeZone());
+      } catch (DateTimeException exception) {
+        log.error("Error converting time zone into ZoneId", exception);
+      }
+    }
+    return zoneId;
   }
 
   private GenericTable generateResponseFromElastic(

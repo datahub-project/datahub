@@ -16,18 +16,31 @@ import lombok.ToString;
 @Getter
 @ToString
 public class DatahubOpenlineageConfig {
-  @Builder.Default private final boolean isSpark = false;
-  @Builder.Default private final boolean isStreaming = false;
+  // Pipeline/Flow configuration
   @Builder.Default private final String pipelineName = null;
+  private final String orchestrator;
+  @Builder.Default private final FabricType fabricType = FabricType.PROD;
+
+  // Platform configuration
   private final String platformInstance;
   private final String commonDatasetPlatformInstance;
+  private final String commonDatasetEnv;
   private final String platform;
+
+  // Spark-specific configuration
+  @Builder.Default private final boolean isSpark = false;
+  @Builder.Default private final boolean isStreaming = false;
+
+  // Dataset path configuration
   @Builder.Default private final Map<String, List<PathSpec>> pathSpecs = new HashMap<>();
   private final String filePartitionRegexpPattern;
-  @Builder.Default private final FabricType fabricType = FabricType.PROD;
+
+  // Metadata ingestion configuration
   private final boolean materializeDataset;
   private final boolean includeSchemaMetadata;
   @Builder.Default private final boolean captureColumnLevelLineage = true;
+
+  // Advanced configuration
   @Builder.Default private final DataJobUrn parentJobUrn = null;
   // This is disabled until column level patch support won't be fixed in GMS
   @Builder.Default private final boolean usePatch = true;
@@ -36,6 +49,7 @@ public class DatahubOpenlineageConfig {
   @Builder.Default private final boolean disableSymlinkResolution = false;
   @Builder.Default private final boolean lowerCaseDatasetUrns = false;
   @Builder.Default private final boolean removeLegacyLineage = false;
+  @Builder.Default private final boolean enhancedMergeIntoExtraction = false;
 
   public List<PathSpec> getPathSpecsForPlatform(String platform) {
     if ((pathSpecs == null) || (pathSpecs.isEmpty())) {

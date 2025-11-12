@@ -1,10 +1,13 @@
 package com.linkedin.datahub.upgrade.config;
 
+import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
+import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
+import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
@@ -16,10 +19,12 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
-import org.opensearch.client.RestHighLevelClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
@@ -56,11 +61,22 @@ public class NonBlockingConfigs {
   }
 
   @Bean
+  public NonBlockingSystemUpgrade backfillIcebergBrowsePathsV2(
+      final OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      @Value("${systemUpdate.browsePathsV2Iceberg.enabled}") final boolean enabled,
+      @Value("${systemUpdate.browsePathsV2Iceberg.batchSize}") final Integer batchSize) {
+    return new BackfillIcebergBrowsePathsV2(
+        opContext, entityService, searchService, enabled, batchSize);
+  }
+
+  @Bean
   public NonBlockingSystemUpgrade backfillProcessInstancesHasRunEvents(
       final OperationContext opContext,
       EntityService<?> entityService,
       ElasticSearchService elasticSearchService,
-      RestHighLevelClient restHighLevelClient,
+      SearchClientShim<?> restHighLevelClient,
       @Value("${systemUpdate.processInstanceHasRunEvents.enabled}") final boolean enabled,
       @Value("${systemUpdate.processInstanceHasRunEvents.reprocess.enabled}")
           boolean reprocessEnabled,
@@ -141,5 +157,13 @@ public class NonBlockingConfigs {
       @Value("${systemUpdate.schemaFieldsDocIds.limit}") final Integer limit) {
     return new MigrateSchemaFieldDocIds(
         opContext, components, entityService, enabled && hashEnabled, batchSize, delayMs, limit);
+  }
+
+  @Autowired private OperationContext opContext;
+
+  @Bean
+  public NonBlockingSystemUpgrade kafkaSetupNonBlocking(
+      final ConfigurationProvider configurationProvider, KafkaProperties properties) {
+    return new KafkaNonBlockingSetup(opContext, configurationProvider.getKafka(), properties);
   }
 }

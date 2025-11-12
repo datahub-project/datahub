@@ -2,7 +2,6 @@ import json
 import urllib
 
 import pytest
-import tenacity
 
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -23,12 +22,11 @@ from datahub.metadata.schema_classes import (
     PartitionSpecClass,
     PartitionTypeClass,
 )
-from tests.utils import delete_urns_from_file, get_sleep_info, ingest_file_via_rest
+from tests.utils import delete_urns_from_file, ingest_file_via_rest, with_test_retry
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
-sleep_sec, sleep_times = get_sleep_info()
 
 
 def create_test_data(test_file):
@@ -235,9 +233,7 @@ def test_run_ingestion(auth_session, generate_test_data):
     ingest_file_via_rest(auth_session, generate_test_data)
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _gms_get_latest_assertions_results_by_partition(auth_session):
     urn = make_dataset_urn("postgres", "foo")
 

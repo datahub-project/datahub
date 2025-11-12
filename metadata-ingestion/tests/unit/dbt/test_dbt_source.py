@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Dict, List, TypedDict, Union
+from typing import Any, Dict, List, TypedDict, Union
 from unittest import mock
 
 import pytest
@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt import dbt_cloud
-from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
+from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceReport,
@@ -198,7 +198,7 @@ def test_dbt_entity_emission_configuration():
         ValidationError,
         match="Cannot have more than 1 type of entity emission set to ONLY",
     ):
-        DBTCoreConfig.parse_obj(config_dict)
+        DBTCoreConfig.model_validate(config_dict)
 
     # valid config
     config_dict = {
@@ -207,7 +207,7 @@ def test_dbt_entity_emission_configuration():
         "target_platform": "dummy_platform",
         "entities_enabled": {"models": "Yes", "seeds": "Only"},
     }
-    DBTCoreConfig.parse_obj(config_dict)
+    DBTCoreConfig.model_validate(config_dict)
 
 
 def test_dbt_config_skip_sources_in_lineage():
@@ -221,7 +221,7 @@ def test_dbt_config_skip_sources_in_lineage():
             "target_platform": "dummy_platform",
             "skip_sources_in_lineage": True,
         }
-        config = DBTCoreConfig.parse_obj(config_dict)
+        config = DBTCoreConfig.model_validate(config_dict)
 
     config_dict = {
         "manifest_path": "dummy_path",
@@ -230,7 +230,7 @@ def test_dbt_config_skip_sources_in_lineage():
         "skip_sources_in_lineage": True,
         "entities_enabled": {"sources": "NO"},
     }
-    config = DBTCoreConfig.parse_obj(config_dict)
+    config = DBTCoreConfig.model_validate(config_dict)
     assert config.skip_sources_in_lineage is True
 
 
@@ -245,7 +245,7 @@ def test_dbt_config_prefer_sql_parser_lineage():
             "target_platform": "dummy_platform",
             "prefer_sql_parser_lineage": True,
         }
-        config = DBTCoreConfig.parse_obj(config_dict)
+        config = DBTCoreConfig.model_validate(config_dict)
 
     config_dict = {
         "manifest_path": "dummy_path",
@@ -254,14 +254,14 @@ def test_dbt_config_prefer_sql_parser_lineage():
         "skip_sources_in_lineage": True,
         "prefer_sql_parser_lineage": True,
     }
-    config = DBTCoreConfig.parse_obj(config_dict)
+    config = DBTCoreConfig.model_validate(config_dict)
     assert config.skip_sources_in_lineage is True
     assert config.prefer_sql_parser_lineage is True
 
 
 def test_dbt_prefer_sql_parser_lineage_no_self_reference():
     ctx = PipelineContext(run_id="test-run-id")
-    config = DBTCoreConfig.parse_obj(
+    config = DBTCoreConfig.model_validate(
         {
             **create_base_dbt_config(),
             "skip_sources_in_lineage": True,
@@ -302,7 +302,7 @@ def test_dbt_prefer_sql_parser_lineage_no_self_reference():
 
 def test_dbt_cll_skip_python_model() -> None:
     ctx = PipelineContext(run_id="test-run-id")
-    config = DBTCoreConfig.parse_obj(create_base_dbt_config())
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
     source: DBTCoreSource = DBTCoreSource(config, ctx)
     all_nodes_map = {
         "model1": DBTNode(
@@ -341,7 +341,7 @@ def test_dbt_s3_config():
         "target_platform": "dummy_platform",
     }
     with pytest.raises(ValidationError, match="provide aws_connection"):
-        DBTCoreConfig.parse_obj(config_dict)
+        DBTCoreConfig.model_validate(config_dict)
 
     # valid config
     config_dict = {
@@ -350,7 +350,7 @@ def test_dbt_s3_config():
         "target_platform": "dummy_platform",
         "aws_connection": {},
     }
-    DBTCoreConfig.parse_obj(config_dict)
+    DBTCoreConfig.model_validate(config_dict)
 
 
 def test_default_convert_column_urns_to_lowercase():
@@ -361,14 +361,16 @@ def test_default_convert_column_urns_to_lowercase():
         "entities_enabled": {"models": "Yes", "seeds": "Only"},
     }
 
-    config = DBTCoreConfig.parse_obj({**config_dict})
+    config = DBTCoreConfig.model_validate({**config_dict})
     assert config.convert_column_urns_to_lowercase is False
 
-    config = DBTCoreConfig.parse_obj({**config_dict, "target_platform": "snowflake"})
+    config = DBTCoreConfig.model_validate(
+        {**config_dict, "target_platform": "snowflake"}
+    )
     assert config.convert_column_urns_to_lowercase is True
 
     # Check that we respect the user's setting if provided.
-    config = DBTCoreConfig.parse_obj(
+    config = DBTCoreConfig.model_validate(
         {
             **config_dict,
             "convert_column_urns_to_lowercase": False,
@@ -387,7 +389,7 @@ def test_dbt_entity_emission_configuration_helpers():
             "models": "Only",
         },
     }
-    config = DBTCoreConfig.parse_obj(config_dict)
+    config = DBTCoreConfig.model_validate(config_dict)
     assert config.entities_enabled.can_emit_node_type("model")
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
@@ -400,7 +402,7 @@ def test_dbt_entity_emission_configuration_helpers():
         "catalog_path": "dummy_path",
         "target_platform": "dummy_platform",
     }
-    config = DBTCoreConfig.parse_obj(config_dict)
+    config = DBTCoreConfig.model_validate(config_dict)
     assert config.entities_enabled.can_emit_node_type("model")
     assert config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
@@ -416,7 +418,7 @@ def test_dbt_entity_emission_configuration_helpers():
             "test_results": "Only",
         },
     }
-    config = DBTCoreConfig.parse_obj(config_dict)
+    config = DBTCoreConfig.model_validate(config_dict)
     assert not config.entities_enabled.can_emit_node_type("model")
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
@@ -436,7 +438,7 @@ def test_dbt_entity_emission_configuration_helpers():
             "sources": "No",
         },
     }
-    config = DBTCoreConfig.parse_obj(config_dict)
+    config = DBTCoreConfig.model_validate(config_dict)
     assert not config.entities_enabled.can_emit_node_type("model")
     assert not config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
@@ -455,7 +457,7 @@ def test_dbt_cloud_config_access_url():
         "run_id": "123456789",
         "target_platform": "dummy_platform",
     }
-    config = DBTCloudConfig.parse_obj(config_dict)
+    config = DBTCloudConfig.model_validate(config_dict)
     assert config.access_url == "https://emea.getdbt.com"
     assert config.metadata_endpoint == "https://metadata.emea.getdbt.com/graphql"
 
@@ -471,7 +473,7 @@ def test_dbt_cloud_config_with_defined_metadata_endpoint():
         "target_platform": "dummy_platform",
         "metadata_endpoint": "https://my-metadata-endpoint.my-dbt-cloud.dbt.com/graphql",
     }
-    config = DBTCloudConfig.parse_obj(config_dict)
+    config = DBTCloudConfig.model_validate(config_dict)
     assert config.access_url == "https://my-dbt-cloud.dbt.com"
     assert (
         config.metadata_endpoint
@@ -534,7 +536,7 @@ def test_include_database_name_default():
         "catalog_path": "dummy_path",
         "target_platform": "dummy_platform",
     }
-    config = DBTCoreConfig.parse_obj({**config_dict})
+    config = DBTCoreConfig.model_validate({**config_dict})
     assert config.include_database_name is True
 
 
@@ -548,7 +550,7 @@ def test_include_database_name(include_database_name: str, expected: bool) -> No
         "target_platform": "dummy_platform",
     }
     config_dict.update({"include_database_name": include_database_name})
-    config = DBTCoreConfig.parse_obj({**config_dict})
+    config = DBTCoreConfig.model_validate({**config_dict})
     assert config.include_database_name is expected
 
 
@@ -636,7 +638,7 @@ def test_drop_duplicate_sources() -> None:
 
     # Test the method
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
-    config = DBTCoreConfig.parse_obj(create_base_dbt_config())
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
     source: DBTCoreSource = DBTCoreSource(config, ctx)
 
     result_nodes: List[DBTNode] = source._drop_duplicate_sources(original_nodes)
@@ -658,3 +660,158 @@ def test_drop_duplicate_sources() -> None:
     # Verify report counters
     assert source.report.duplicate_sources_dropped == 1
     assert source.report.duplicate_sources_references_updated == 1
+
+
+def test_dbt_sibling_aspects_creation():
+    """Test that sibling patches are created correctly based on configuration."""
+    ctx = PipelineContext(run_id="test-run-id")
+    base_config = create_base_dbt_config()
+
+    # Create source with dbt as primary (default behavior)
+    config_dbt_primary = DBTCoreConfig(**base_config)
+    source_dbt_primary = DBTCoreSource(config_dbt_primary, ctx)
+
+    # Manually set the config value for testing since the field might not be parsed yet
+    source_dbt_primary.config.dbt_is_primary_sibling = True
+
+    model_node = DBTNode(
+        name="test_model",
+        database="test_db",
+        schema="test_schema",
+        alias=None,
+        comment="",
+        description="Test model",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="model.package.test_model",
+        dbt_file_path=None,
+        dbt_package_name="package",
+        node_type="model",
+        materialization="table",
+        max_loaded_at=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code=None,
+    )
+    # Note: exists_in_target_platform is a property that returns True for non-ephemeral, non-test nodes
+    # Our node_type="model" and materialization="table" will make this property return True
+
+    # For models when dbt is primary - should not create sibling patches
+    should_create_siblings = source_dbt_primary._should_create_sibling_relationships(
+        model_node
+    )
+    assert should_create_siblings is False
+
+    # Test with target platform as primary - should create sibling patches
+    config_target_primary = DBTCoreConfig(**base_config)
+    source_target_primary = DBTCoreSource(config_target_primary, ctx)
+
+    # Manually set the config value for testing
+    source_target_primary.config.dbt_is_primary_sibling = False
+
+    # For models when target platform is primary - should create sibling patches
+    should_create_siblings = source_target_primary._should_create_sibling_relationships(
+        model_node
+    )
+    assert should_create_siblings is True
+
+
+def test_dbt_cloud_source_description_precedence() -> None:
+    """
+    Test that dbt Cloud source prioritizes table-level description over schema-level sourceDescription.
+    """
+
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id="123456",
+        project_id="1234567",
+        job_id="12345678",
+        run_id="123456789",
+        target_platform="snowflake",
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
+    source = DBTCloudSource(config, ctx)
+
+    source_node_data: Dict[str, Any] = {
+        "uniqueId": "source.my_project.my_schema.my_table",
+        "name": "my_table",
+        "description": "This is the table-level description for my_table",
+        "sourceDescription": "This is the schema-level description for my_schema",
+        "resourceType": "source",
+        "identifier": "my_table",
+        "sourceName": "my_schema",
+        "database": "my_database",
+        "schema": "my_schema",
+        "type": None,
+        "owner": None,
+        "comment": "",
+        "columns": [],
+        "meta": {},
+        "tags": [],
+        "maxLoadedAt": None,
+        "snapshottedAt": None,
+        "state": None,
+        "freshnessChecked": None,
+        "loader": None,
+    }
+
+    parsed_node = source._parse_into_dbt_node(source_node_data)
+
+    assert parsed_node.description == "This is the table-level description for my_table"
+    assert (
+        parsed_node.description != "This is the schema-level description for my_schema"
+    )
+    assert parsed_node.name == "my_table"
+    assert parsed_node.node_type == "source"
+
+
+def test_dbt_cloud_source_description_fallback() -> None:
+    """
+    Test that dbt Cloud source falls back to sourceDescription when table description is empty.
+    """
+
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id="123456",
+        project_id="1234567",
+        job_id="12345678",
+        run_id="123456789",
+        target_platform="snowflake",
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
+    source = DBTCloudSource(config, ctx)
+
+    source_node_data: Dict[str, Any] = {
+        "uniqueId": "source.my_project.my_schema.my_table",
+        "name": "my_table",
+        "description": "",  # Empty table description
+        "sourceDescription": "This is the schema-level description for my_schema",
+        "resourceType": "source",
+        "identifier": "my_table",
+        "sourceName": "my_schema",
+        "database": "my_database",
+        "schema": "my_schema",
+        "type": None,
+        "owner": None,
+        "comment": "",
+        "columns": [],
+        "meta": {},
+        "tags": [],
+        "maxLoadedAt": None,
+        "snapshottedAt": None,
+        "state": None,
+        "freshnessChecked": None,
+        "loader": None,
+    }
+
+    parsed_node = source._parse_into_dbt_node(source_node_data)
+
+    assert (
+        parsed_node.description == "This is the schema-level description for my_schema"
+    )

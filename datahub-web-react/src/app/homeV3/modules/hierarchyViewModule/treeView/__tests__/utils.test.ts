@@ -6,6 +6,7 @@ import {
     flattenTreeNodes,
     getAllParentValues,
     getAllValues,
+    getOutOfTreeSelectedValues,
     getTopLevelSelectedValuesFromTree,
     getValueToTreeNodeMapping,
     mergeTrees,
@@ -416,6 +417,58 @@ describe('treeView utils', () => {
             const result = getTopLevelSelectedValuesFromTree(selectedValues, tree);
 
             expect(result).toEqual(['parent1', 'child2']);
+        });
+    });
+
+    describe('getOutOfTreeSelectedValues', () => {
+        const child1 = createTreeNode('child1');
+        const child2 = createTreeNode('child2');
+        const parent1 = createTreeNode('parent1', 'parent1', [child1]);
+        const parent2 = createTreeNode('parent2', 'parent2', [child2]);
+        const tree = [parent1, parent2];
+
+        it('should return only values out of tree', () => {
+            const selectedValues = ['parent1', 'child2', 'parent3'];
+
+            const result = getOutOfTreeSelectedValues(selectedValues, tree);
+
+            expect(result).toEqual(['parent3']);
+        });
+
+        it('should handle empty tree', () => {
+            const selectedValues = ['parent1', 'child2', 'parent3'];
+
+            const result = getOutOfTreeSelectedValues(selectedValues, []);
+
+            expect(result).toEqual(selectedValues);
+        });
+
+        it('should handle empty selected values', () => {
+            const result = getOutOfTreeSelectedValues([], tree);
+
+            expect(result).toEqual([]);
+        });
+
+        it('should handle empty selected values and tree', () => {
+            const result = getOutOfTreeSelectedValues([], []);
+
+            expect(result).toEqual([]);
+        });
+
+        it('should return empty array when all values included in tree', () => {
+            const selectedValues = ['parent1', 'child2'];
+
+            const result = getOutOfTreeSelectedValues(selectedValues, tree);
+
+            expect(result).toEqual([]);
+        });
+
+        it('should return empty array when all values not included in tree', () => {
+            const selectedValues = ['parent3'];
+
+            const result = getOutOfTreeSelectedValues(selectedValues, tree);
+
+            expect(result).toEqual(['parent3']);
         });
     });
 });
