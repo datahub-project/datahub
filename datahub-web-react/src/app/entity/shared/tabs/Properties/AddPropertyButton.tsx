@@ -160,13 +160,14 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                 trigger={['click']}
                 menu={{ items: properties }}
                 dropdownRender={(menuNode) => (
-                    <DropdownContainer>
+                    <DropdownContainer data-testid="add-structured-property-dropdown">
                         <SearchContainer>
                             <InputComponent
                                 label=""
                                 placeholder="Search..."
                                 value={searchQuery}
                                 setValue={setSearchQuery}
+                                inputTestId="search-input"
                             />
                         </SearchContainer>
                         {loading ? (
@@ -186,7 +187,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                                         </Text>
                                     </EmptyContainer>
                                 )}
-                                <OptionsContainer>{menuNode}</OptionsContainer>
+                                <OptionsContainer data-testid="options-container">{menuNode}</OptionsContainer>
                             </>
                         )}
                     </DropdownContainer>

@@ -7,9 +7,6 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from datahub.configuration.pydantic_migration_helpers import (
-    PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
-)
 from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     SearchFilterRule,
@@ -209,6 +206,8 @@ def test_filters_all_types() -> None:
                 },
                 {"env": ["PROD"]},
                 {"status": "NOT_SOFT_DELETED"},
+                {"glossary_term": ["urn:li:glossaryTerm:data-quality"]},
+                {"tag": ["urn:li:tag:data-quality"]},
                 {
                     "field": "custom_field",
                     "condition": "GREATER_THAN_OR_EQUAL_TO",
@@ -231,6 +230,8 @@ def test_filters_all_types() -> None:
         ),
         F.env("PROD"),
         F.soft_deleted(RemovedStatusFilter.NOT_SOFT_DELETED),
+        F.glossary_term("urn:li:glossaryTerm:data-quality"),
+        F.tag("urn:li:tag:data-quality"),
         F.custom_filter("custom_field", "GREATER_THAN_OR_EQUAL_TO", ["5"]),
     )
 
@@ -308,37 +309,28 @@ def test_filter_discriminator() -> None:
     )
 
 
-@pytest.mark.skipif(
-    not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
-    reason="Tagged union w/ callable discriminator is not supported by the current pydantic version",
-)
 def test_tagged_union_error_messages() -> None:
-    # With pydantic v1, we'd get 10+ validation errors and it'd be hard to
-    # understand what went wrong. With v2, we get a single simple error message.
+    # With pydantic v2, we get validation errors for each union member
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.*entity_type\.entity_type.*Input should be a valid list",
+            r"validation error.*entity_type.*Input should be a valid list",
             re.DOTALL,
         ),
     ):
         load_filters({"entity_type": 6})
 
-    # Even when within an "and" clause, we get a single error message.
+    # Without discriminators, we get verbose union errors for unknown fields
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.*Input tag 'unknown_field' found using .+ does not match any of the expected tags:.+union_tag_invalid",
+            r"validation error.*unknown_field.*Extra inputs are not permitted",
             re.DOTALL,
         ),
     ):
         load_filters({"and": [{"unknown_field": 6}]})
 
 
-@pytest.mark.skipif(
-    not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
-    reason="Tagged union w/ callable discriminator is not supported by the current pydantic version",
-)
 def test_filter_before_validators() -> None:
     # Test that we can load a filter from a string.
     # Sometimes we get filters encoded as JSON, and we want to handle those gracefully.
@@ -351,7 +343,7 @@ def test_filter_before_validators() -> None:
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.+Unable to extract tag using discriminator", re.DOTALL
+            r"validation error.*Input should be a valid dictionary", re.DOTALL
         ),
     ):
         load_filters("this is invalid json but should not raise a json error")
@@ -375,11 +367,121 @@ def test_filter_before_validators() -> None:
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.*container\.entity_type.*Extra inputs are not permitted.*",
+            r"validation error.*Extra inputs are not permitted.*",
             re.DOTALL,
         ),
     ):
         load_filters(filter_str)
+
+
+def test_owner_filter() -> None:
+    """Test basic owner filter functionality."""
+    filter_obj: Filter = load_filters({"owner": ["urn:li:corpuser:john"]})
+    assert filter_obj == F.owner("urn:li:corpuser:john")
+
+    assert filter_obj.compile() == [
+        {
+            "and": [
+                SearchFilterRule(
+                    field="owners",
+                    condition="EQUAL",
+                    values=["urn:li:corpuser:john"],
+                )
+            ]
+        }
+    ]
+
+
+def test_glossary_term_filter() -> None:
+    """Test basic glossary term filter functionality."""
+    filter_obj: Filter = load_filters(
+        {"glossary_term": ["urn:li:glossaryTerm:data-quality"]}
+    )
+    assert filter_obj == F.glossary_term("urn:li:glossaryTerm:data-quality")
+
+    assert filter_obj.compile() == [
+        {
+            "and": [
+                SearchFilterRule(
+                    field="glossaryTerms",
+                    condition="EQUAL",
+                    values=["urn:li:glossaryTerm:data-quality"],
+                )
+            ]
+        }
+    ]
+
+
+def test_owner_filter_mixed_types() -> None:
+    """Test owner filter with both user and group URNs."""
+    filter_obj: Filter = load_filters(
+        {"owner": ["urn:li:corpuser:john", "urn:li:corpGroup:engineering"]}
+    )
+    assert filter_obj == F.owner(
+        ["urn:li:corpuser:john", "urn:li:corpGroup:engineering"]
+    )
+
+
+def test_invalid_owner_filter() -> None:
+    """Test validation error for invalid owner URN."""
+    with pytest.raises(
+        ValidationError, match="Owner must be a valid User or Group URN"
+    ):
+        F.owner("invalid-owner")
+
+
+def test_glossary_term_filter_multiple() -> None:
+    """Test glossary term filter with multiple terms."""
+    filter_obj: Filter = load_filters(
+        {
+            "glossary_term": [
+                "urn:li:glossaryTerm:data-quality",
+                "urn:li:glossaryTerm:compliance",
+            ]
+        }
+    )
+    assert filter_obj == F.glossary_term(
+        ["urn:li:glossaryTerm:data-quality", "urn:li:glossaryTerm:compliance"]
+    )
+
+
+def test_invalid_glossary_term_filter() -> None:
+    """Test validation error for invalid glossary term URN."""
+    with pytest.raises(
+        ValidationError, match="Glossary term must be a valid glossary term URN"
+    ):
+        F.glossary_term("urn:li:corpuser:john")
+
+
+def test_tag_filter() -> None:
+    """Test basic tag filter functionality."""
+    filter_obj: Filter = load_filters({"tag": ["urn:li:tag:data-quality"]})
+    assert filter_obj == F.tag("urn:li:tag:data-quality")
+    assert filter_obj.compile() == [
+        {
+            "and": [
+                SearchFilterRule(
+                    field="tags",
+                    condition="EQUAL",
+                    values=["urn:li:tag:data-quality"],
+                )
+            ]
+        }
+    ]
+
+
+def test_tag_filter_multiple() -> None:
+    """Test tag filter with multiple tags."""
+    filter_obj: Filter = load_filters(
+        {"tag": ["urn:li:tag:data-quality", "urn:li:tag:production"]}
+    )
+    assert filter_obj == F.tag(["urn:li:tag:data-quality", "urn:li:tag:production"])
+
+
+def test_invalid_tag_filter() -> None:
+    """Test validation error for invalid tag URN."""
+    with pytest.raises(ValidationError, match="Tag must be a valid tag URN"):
+        F.tag("urn:li:corpuser:john")
 
 
 def test_invalid_filter() -> None:

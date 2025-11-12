@@ -13,6 +13,7 @@ import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/he
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const HeaderWrapper = styled.div`
     display: flex;
@@ -60,7 +61,7 @@ const EntityNameWrapper = styled.div`
 
 export default function EmbeddedHeader() {
     const entityRegistry = useEntityRegistry();
-    const { entityData, entityType } = useEntityData();
+    const { entityData, entityType, urn } = useEntityData();
     const appConfig = useAppConfig();
     const themeConfig = useTheme();
 
@@ -75,7 +76,6 @@ export default function EmbeddedHeader() {
     const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT, ANTD_GRAY[8]);
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const entityName = entityRegistry.getDisplayName(entityType, entityData);
-    const entityTypePathName = entityRegistry.getPathName(entityType);
     const logoUrl =
         appConfig.config !== DEFAULT_APP_CONFIG
             ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
@@ -94,7 +94,7 @@ export default function EmbeddedHeader() {
                         {entityName}
                     </EntityName>
                     <StyledLink
-                        href={`${window.location.origin}/${entityTypePathName}/${entityData?.urn}`}
+                        href={`${window.location.origin}/${resolveRuntimePath(entityRegistry.getEntityUrl(entityType, urn))}`}
                         target="_blank"
                         rel="noreferrer noopener"
                         onClick={trackClickViewInDataHub}

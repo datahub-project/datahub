@@ -23,7 +23,7 @@ class _TestSQLAlchemyConfig(SQLCommonConfig):
 class _TestSQLAlchemySource(SQLAlchemySource):
     @classmethod
     def create(cls, config_dict, ctx):
-        config = _TestSQLAlchemyConfig.parse_obj(config_dict)
+        config = _TestSQLAlchemyConfig.model_validate(config_dict)
         return cls(config, ctx, "TEST")
 
 

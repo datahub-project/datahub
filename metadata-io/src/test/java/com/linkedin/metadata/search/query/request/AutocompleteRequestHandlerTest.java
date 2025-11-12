@@ -164,7 +164,7 @@ public class AutocompleteRequestHandlerTest {
   public void testDefaultAutocompleteRequest() {
     // When field is null
     SearchRequest autocompleteRequest =
-        handler.getSearchRequest(mockOpContext, "input", null, null, 10);
+        handler.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder wrapper =
@@ -217,7 +217,7 @@ public class AutocompleteRequestHandlerTest {
   public void testAutocompleteRequestWithField() {
     // The field must be a valid field in the model. Pick from `keyPart1` or `urn`
     SearchRequest autocompleteRequest =
-        handler.getSearchRequest(mockOpContext, "input", "keyPart1", null, 10);
+        handler.getSearchRequest(mockOpContext, null, "input", "keyPart1", null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder wrapper =
@@ -278,7 +278,7 @@ public class AutocompleteRequestHandlerTest {
             TEST_SEARCH_SERVICE_CONFIG);
 
     SearchRequest autocompleteRequest =
-        withoutDefaultQuery.getSearchRequest(mockOpContext, "input", null, null, 10);
+        withoutDefaultQuery.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     FunctionScoreQueryBuilder wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     assertEquals(((BoolQueryBuilder) wrapper.query()).should().size(), 1);
@@ -306,7 +306,8 @@ public class AutocompleteRequestHandlerTest {
             testQueryConfig,
             TEST_SEARCH_SERVICE_CONFIG);
 
-    autocompleteRequest = withDefaultQuery.getSearchRequest(mockOpContext, "input", null, null, 10);
+    autocompleteRequest =
+        withDefaultQuery.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();
     wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     BoolQueryBuilder query =
@@ -353,7 +354,7 @@ public class AutocompleteRequestHandlerTest {
             TEST_SEARCH_SERVICE_CONFIG);
 
     SearchRequest autocompleteRequest =
-        withInherit.getSearchRequest(mockOpContext, "input", null, null, 10);
+        withInherit.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     FunctionScoreQueryBuilder wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     assertEquals(((BoolQueryBuilder) wrapper.query()).should().size(), 1);
@@ -395,7 +396,7 @@ public class AutocompleteRequestHandlerTest {
             TEST_SEARCH_SERVICE_CONFIG);
 
     autocompleteRequest =
-        noQueryCustomization.getSearchRequest(mockOpContext, "input", null, null, 10);
+        noQueryCustomization.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();
     wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     assertEquals(((BoolQueryBuilder) wrapper.query()).should().size(), 1);
@@ -461,7 +462,7 @@ public class AutocompleteRequestHandlerTest {
             TEST_SEARCH_SERVICE_CONFIG);
 
     SearchRequest autocompleteRequest =
-        explicitNoInherit.getSearchRequest(mockOpContext, "input", null, null, 10);
+        explicitNoInherit.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     FunctionScoreQueryBuilder wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     assertEquals(((BoolQueryBuilder) wrapper.query()).should().size(), 1);
@@ -516,7 +517,7 @@ public class AutocompleteRequestHandlerTest {
             testQueryConfig,
             TEST_SEARCH_SERVICE_CONFIG);
 
-    autocompleteRequest = explicit.getSearchRequest(mockOpContext, "input", null, null, 10);
+    autocompleteRequest = explicit.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();
     wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     BoolQueryBuilder query =
@@ -671,6 +672,7 @@ public class AutocompleteRequestHandlerTest {
                                 flags
                                     .setFulltext(false)
                                     .setFilterNonLatestVersions(filterNonLatest)),
+                        null,
                         "",
                         "platform",
                         filter,
@@ -704,7 +706,7 @@ public class AutocompleteRequestHandlerTest {
     // Test with count below limit
     int requestedCount = 30;
     SearchRequest autocompleteRequest =
-        limitHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+        limitHandler.getSearchRequest(mockOpContext, null, "input", null, null, requestedCount);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
 
     // Verify the requested count was used (not limited)
@@ -713,7 +715,7 @@ public class AutocompleteRequestHandlerTest {
     // Test with count above limit (non-strict)
     requestedCount = 100;
     autocompleteRequest =
-        limitHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+        limitHandler.getSearchRequest(mockOpContext, null, "input", null, null, requestedCount);
     sourceBuilder = autocompleteRequest.source();
 
     // Verify the max limit was applied
@@ -744,7 +746,7 @@ public class AutocompleteRequestHandlerTest {
     // Test with count at the limit
     int requestedCount = 50;
     SearchRequest autocompleteRequest =
-        strictHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+        strictHandler.getSearchRequest(mockOpContext, null, "input", null, null, requestedCount);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
 
     // Verify exact limit was used
@@ -754,7 +756,7 @@ public class AutocompleteRequestHandlerTest {
     // This should throw an IllegalArgumentException
     try {
       requestedCount = 100;
-      strictHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+      strictHandler.getSearchRequest(mockOpContext, null, "input", null, null, requestedCount);
       Assert.fail(
           "Should throw IllegalArgumentException when count exceeds limit with strict config");
     } catch (IllegalArgumentException e) {
@@ -795,10 +797,12 @@ public class AutocompleteRequestHandlerTest {
     when(opContextWithConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
     when(opContextWithConfig.getSearchContext()).thenReturn(searchContext);
     when(opContextWithConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextWithConfig.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContext.getSearchFlags()).thenReturn(searchFlags);
 
     SearchRequest autocompleteRequest =
-        configHandler.getSearchRequest(opContextWithConfig, "input", null, null, 10);
+        configHandler.getSearchRequest(opContextWithConfig, null, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
 
     BoolQueryBuilder wrapper =
@@ -866,12 +870,14 @@ public class AutocompleteRequestHandlerTest {
     when(opContextWithConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
     when(opContextWithConfig.getSearchContext()).thenReturn(searchContext);
     when(opContextWithConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextWithConfig.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContext.getSearchFlags()).thenReturn(searchFlags);
 
     // Note: textFieldOverride is not in the default autocomplete fields, so it won't be added
     // This test verifies that remove works correctly
     SearchRequest autocompleteRequest =
-        configHandler.getSearchRequest(opContextWithConfig, "input", null, null, 10);
+        configHandler.getSearchRequest(opContextWithConfig, null, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
 
     BoolQueryBuilder wrapper =
@@ -933,10 +939,12 @@ public class AutocompleteRequestHandlerTest {
     when(opContextNoHighlight.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
     when(opContextNoHighlight.getSearchContext()).thenReturn(searchContextNoHighlight);
     when(opContextNoHighlight.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextNoHighlight.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContextNoHighlight.getSearchFlags()).thenReturn(searchFlagsNoHighlight);
 
     SearchRequest noHighlightRequest =
-        configHandler.getSearchRequest(opContextNoHighlight, "input", null, null, 10);
+        configHandler.getSearchRequest(opContextNoHighlight, null, "input", null, null, 10);
     assertNull(noHighlightRequest.source().highlighter(), "Highlighting should be disabled");
 
     // Test custom highlighting
@@ -950,10 +958,12 @@ public class AutocompleteRequestHandlerTest {
     when(opContextCustomHighlight.getSearchContext()).thenReturn(searchContextCustom);
     when(opContextCustomHighlight.getAspectRetriever())
         .thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextCustomHighlight.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContextCustom.getSearchFlags()).thenReturn(searchFlagsCustom);
 
     SearchRequest customHighlightRequest =
-        configHandler.getSearchRequest(opContextCustomHighlight, "input", null, null, 10);
+        configHandler.getSearchRequest(opContextCustomHighlight, null, "input", null, null, 10);
     HighlightBuilder highlightBuilder = customHighlightRequest.source().highlighter();
     assertNotNull(highlightBuilder);
 
@@ -996,12 +1006,14 @@ public class AutocompleteRequestHandlerTest {
     when(opContextWithConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
     when(opContextWithConfig.getSearchContext()).thenReturn(searchContext);
     when(opContextWithConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextWithConfig.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContext.getSearchFlags()).thenReturn(searchFlags);
 
     // When a specific field is provided, field configuration should still be applied
     // but only to that specific field if it's in the configuration
     SearchRequest autocompleteRequest =
-        configHandler.getSearchRequest(opContextWithConfig, "input", "keyPart1", null, 10);
+        configHandler.getSearchRequest(opContextWithConfig, null, "input", "keyPart1", null, 10);
 
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     BoolQueryBuilder wrapper =
@@ -1032,17 +1044,19 @@ public class AutocompleteRequestHandlerTest {
     when(opContextNullConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
     when(opContextNullConfig.getSearchContext()).thenReturn(searchContext);
     when(opContextNullConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextNullConfig.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContext.getSearchFlags()).thenReturn(searchFlags);
 
     // Should not throw and should use default behavior
     SearchRequest request =
-        nullConfigHandler.getSearchRequest(opContextNullConfig, "input", null, null, 10);
+        nullConfigHandler.getSearchRequest(opContextNullConfig, null, "input", null, null, 10);
     assertNotNull(request);
 
     // Test with null config
     when(searchFlags.getFieldConfiguration()).thenReturn(null);
     SearchRequest requestNullFlags =
-        nullConfigHandler.getSearchRequest(opContextNullConfig, "input", null, null, 10);
+        nullConfigHandler.getSearchRequest(opContextNullConfig, null, "input", null, null, 10);
     assertNotNull(requestNullFlags);
   }
 
@@ -1125,11 +1139,13 @@ public class AutocompleteRequestHandlerTest {
     when(opContextInvalidConfig.getSearchContext()).thenReturn(searchContext);
     when(opContextInvalidConfig.getAspectRetriever())
         .thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextInvalidConfig.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContext.getSearchFlags()).thenReturn(searchFlags);
 
     // Should use default fields when configuration label doesn't exist
     SearchRequest request =
-        configHandler.getSearchRequest(opContextInvalidConfig, "input", null, null, 10);
+        configHandler.getSearchRequest(opContextInvalidConfig, null, "input", null, null, 10);
 
     SearchSourceBuilder sourceBuilder = request.source();
     BoolQueryBuilder wrapper =

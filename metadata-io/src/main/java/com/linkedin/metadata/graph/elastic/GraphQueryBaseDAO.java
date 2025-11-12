@@ -34,6 +34,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapp
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
@@ -60,7 +61,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -91,7 +91,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     this.metricUtils = metricUtils;
   }
 
-  protected abstract RestHighLevelClient getClient();
+  protected abstract SearchClientShim<?> getClient();
 
   protected abstract List<LineageRelationship> searchWithSlices(
       @Nonnull OperationContext opContext,
@@ -106,7 +106,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       int defaultPageSize,
       int slices,
       long remainingTime,
-      Set<Urn> entityUrns);
+      Set<Urn> entityUrns,
+      boolean allowPartialResults);
 
   private SearchResponse executeLineageSearchQuery(
       @Nonnull OperationContext opContext,
@@ -219,7 +220,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       remainingTime = timeoutTime - currentTime;
     }
     List<LineageRelationship> resultList = new ArrayList<>(result.values());
-    LineageResponse response = new LineageResponse(resultList.size(), resultList);
+    LineageResponse response = new LineageResponse(resultList.size(), resultList, false);
 
     List<LineageRelationship> subList;
     if (offset >= response.getTotal()) {
@@ -231,7 +232,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
               .subList(offset, Math.min(offset + count, response.getTotal()));
     }
 
-    return new LineageResponse(response.getTotal(), subList);
+    return new LineageResponse(response.getTotal(), subList, response.isPartial());
   }
 
   private Stream<Urn> processOneHopLineage(
@@ -641,7 +642,6 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             ? ESUtils.computePointInTime(
                 scrollId,
                 keepAlive,
-                config.getImplementation(),
                 getClient(),
                 opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME))
             : null;
@@ -1285,11 +1285,15 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
    * configuration. This method scrolls through results using scroll+slice until it reaches the
    * limit or exhausts all results.
    *
+   * <p>If maxRelations is set to -1 or 0, it is treated as unlimited and only the time limit
+   * applies.
+   *
    * @param opContext The operation context
    * @param entityUrn The source entity URN
    * @param lineageGraphFilters The lineage graph filters
    * @param maxHops The maximum number of hops to traverse
-   * @return A LineageResponse containing all relationships up to the maxRelations limit
+   * @return A LineageResponse containing all relationships up to the maxRelations limit (or time
+   *     limit if maxRelations is -1 or 0)
    */
   @WithSpan
   public LineageResponse getImpactLineage(
@@ -1307,12 +1311,42 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     }
 
     // Get the maxRelations limit from configuration
+    // -1 or 0 means unlimited (only bound by time limit)
     int maxRelations = config.getSearch().getGraph().getImpact().getMaxRelations();
+    boolean allowPartialResults = config.getSearch().getGraph().getImpact().isPartialResults();
+    boolean isMaxRelationsUnlimited = (maxRelations <= 0);
 
     Map<Urn, LineageRelationship> result = new HashMap<>();
     long currentTime = System.currentTimeMillis();
-    long remainingTime = config.getSearch().getGraph().getTimeoutSeconds() * 1000;
+    long totalTimeoutMs = config.getSearch().getGraph().getTimeoutSeconds() * 1000L;
+
+    // Calculate time reservation for second query phase (search query after graph traversal)
+    // When partialResults is enabled, we reserve time for the subsequent search query.
+    // We don't know in advance whether we'll hit timeout or maxRelations limit first, so we
+    // always reserve time when partialResults is enabled to ensure there's time for the second
+    // query.
+    long reservedTimeForSearchQuery = 0L;
+    if (allowPartialResults) {
+      double searchQueryTimeReservation =
+          config.getSearch().getGraph().getImpact().getSearchQueryTimeReservation();
+      // Default to 20% if not configured (0.0) or invalid (negative or >= 1.0)
+      if (searchQueryTimeReservation <= 0.0 || searchQueryTimeReservation >= 1.0) {
+        searchQueryTimeReservation = 0.2;
+      }
+      reservedTimeForSearchQuery = (long) (totalTimeoutMs * searchQueryTimeReservation);
+      // Ensure minimum reservation of 100ms to avoid rounding down to 0 for very small timeouts
+      // This guarantees there's always some time reserved for the second query phase
+      long minReservationMs = 100L;
+      if (reservedTimeForSearchQuery < minReservationMs && totalTimeoutMs >= minReservationMs) {
+        reservedTimeForSearchQuery = minReservationMs;
+      }
+      log.debug(
+          "Reserving {} ms ({}%) of total timeout {} ms for second query phase when partial results are enabled",
+          reservedTimeForSearchQuery, searchQueryTimeReservation * 100, totalTimeoutMs);
+    }
+    long remainingTime = totalTimeoutMs - reservedTimeForSearchQuery;
     long timeoutTime = currentTime + remainingTime;
+    boolean isPartial = false;
 
     // Do a Level-order BFS
     Set<Urn> visitedEntities = ConcurrentHashMap.newKeySet();
@@ -1327,18 +1361,29 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       }
 
       if (remainingTime < 0) {
-        log.error(
-            "Timed out while fetching lineage for {} with direction {}, maxHops {}. Operation exceeded the configured timeout.",
-            entityUrn,
-            lineageGraphFilters.getLineageDirection(),
-            maxHops);
-        throw new IllegalStateException(
-            String.format(
-                "Lineage operation timed out after %d seconds. Entity: %s, Direction: %s, MaxHops: %d",
-                config.getSearch().getGraph().getTimeoutSeconds(),
-                entityUrn,
-                lineageGraphFilters.getLineageDirection(),
-                maxHops));
+        if (allowPartialResults) {
+          log.warn(
+              "Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning partial results. {} ms reserved for second query phase.",
+              entityUrn,
+              lineageGraphFilters.getLineageDirection(),
+              maxHops,
+              reservedTimeForSearchQuery);
+          isPartial = true;
+          break;
+        } else {
+          log.error(
+              "Timed out while fetching lineage for {} with direction {}, maxHops {}. Operation exceeded the configured timeout.",
+              entityUrn,
+              lineageGraphFilters.getLineageDirection(),
+              maxHops);
+          throw new IllegalStateException(
+              String.format(
+                  "Lineage operation timed out after %d seconds. Entity: %s, Direction: %s, MaxHops: %d. Consider increasing the timeout or set partialResults to true to return partial results.",
+                  config.getSearch().getGraph().getTimeoutSeconds(),
+                  entityUrn,
+                  lineageGraphFilters.getLineageDirection(),
+                  maxHops));
+        }
       }
 
       // About to get lineage for `currentLevel`: annotate with `explored`
@@ -1360,24 +1405,36 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                   existingPaths,
                   result,
                   i,
-                  maxRelations)
+                  maxRelations,
+                  allowPartialResults)
               .collect(Collectors.toList());
 
       currentTime = System.currentTimeMillis();
       remainingTime = timeoutTime - currentTime;
 
-      // Check if we've reached the maxRelations limit
-      if (result.size() >= maxRelations) {
-        log.error(
-            "Reached maxRelations limit {} for {} with direction {}, maxHops {}. This indicates the data exceeds the configured limit.",
-            maxRelations,
-            entityUrn,
-            lineageGraphFilters.getLineageDirection(),
-            maxHops);
-        throw new IllegalStateException(
-            String.format(
-                "Lineage results exceeded the configured maxRelations limit of %d. Entity: %s, Direction: %s, MaxHops: %d. Consider reducing maxHops or increasing the maxRelations limit.",
-                maxRelations, entityUrn, lineageGraphFilters.getLineageDirection(), maxHops));
+      // Check if we've reached the maxRelations limit (skip if unlimited, i.e., -1)
+      if (!isMaxRelationsUnlimited && result.size() >= maxRelations) {
+        if (allowPartialResults) {
+          log.warn(
+              "Reached maxRelations limit {} for {} with direction {}, maxHops {}. Returning partial results.",
+              maxRelations,
+              entityUrn,
+              lineageGraphFilters.getLineageDirection(),
+              maxHops);
+          isPartial = true;
+          break;
+        } else {
+          log.error(
+              "Reached maxRelations limit {} for {} with direction {}, maxHops {}. This indicates the data exceeds the configured limit.",
+              maxRelations,
+              entityUrn,
+              lineageGraphFilters.getLineageDirection(),
+              maxHops);
+          throw new IllegalStateException(
+              String.format(
+                  "Lineage results exceeded the configured maxRelations limit of %d. Entity: %s, Direction: %s, MaxHops: %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+                  maxRelations, entityUrn, lineageGraphFilters.getLineageDirection(), maxHops));
+        }
       }
 
       // Early termination if no new entities to process
@@ -1387,7 +1444,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     }
 
     List<LineageRelationship> resultList = new ArrayList<>(result.values());
-    return new LineageResponse(resultList.size(), resultList);
+    return new LineageResponse(resultList.size(), resultList, isPartial);
   }
 
   private Stream<Urn> processOneHopLineageWithMaxRelations(
@@ -1401,7 +1458,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       ThreadSafePathStore existingPaths,
       Map<Urn, LineageRelationship> result,
       int i,
-      int maxRelations) {
+      int maxRelations,
+      boolean allowPartialResults) {
 
     // Do one hop on the lineage graph
     int numHops = i + 1; // Zero indexed for loop counter, one indexed count
@@ -1410,7 +1468,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     // Calculate remaining capacity and pass it to scroll methods
     // This ensures scroll methods check against the actual remaining capacity, not the original
     // total limit
-    int remainingCapacity = Math.max(0, maxRelations - result.size());
+    // If maxRelations is -1 or 0 (unlimited), pass -1 to indicate no limit
+    int remainingCapacity = (maxRelations <= 0) ? -1 : Math.max(0, maxRelations - result.size());
     List<LineageRelationship> oneHopRelationships =
         getLineageRelationshipsWithMaxRelations(
             opContext,
@@ -1422,7 +1481,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             remainingHops,
             remainingTime,
             existingPaths,
-            remainingCapacity);
+            remainingCapacity,
+            allowPartialResults);
 
     for (LineageRelationship oneHopRelnship : oneHopRelationships) {
       if (result.containsKey(oneHopRelnship.getEntity())) {
@@ -1449,7 +1509,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       int remainingHops,
       long remainingTime,
       ThreadSafePathStore existingPaths,
-      int maxRelations) {
+      int maxRelations,
+      boolean allowPartialResults) {
 
     Map<String, Set<Urn>> urnsPerEntityType =
         entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
@@ -1468,7 +1529,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         existingPaths,
         maxRelations,
         remainingTime,
-        new HashSet<>(entityUrns));
+        new HashSet<>(entityUrns),
+        allowPartialResults);
   }
 
   /**
@@ -1476,6 +1538,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
    * with slicing for parallel processing.
    *
    * @param maxRelations The remaining capacity for relationships (decremented from original limit)
+   * @param allowPartialResults If true, return partial results on timeout or maxRelations instead
+   *     of throwing
    */
   private List<LineageRelationship> scrollLineageSearchWithMaxRelations(
       @Nonnull OperationContext opContext,
@@ -1488,10 +1552,11 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       ThreadSafePathStore existingPaths,
       int maxRelations, // This is the REMAINING capacity, not the original total limit
       long remainingTime,
-      Set<Urn> entityUrns) {
+      Set<Urn> entityUrns,
+      boolean allowPartialResults) {
 
     int defaultPageSize = graphServiceConfig.getLimit().getResults().getApiDefault();
-    int slices = config.getSearch().getGraph().getImpact().getSlices();
+    int slices = Math.max(2, config.getSearch().getGraph().getImpact().getSlices());
 
     return searchWithSlices(
         opContext,
@@ -1506,15 +1571,22 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         defaultPageSize,
         slices,
         remainingTime,
-        entityUrns);
+        entityUrns,
+        allowPartialResults);
   }
 
   /**
    * Process slice futures with common error handling and result collection logic. This method is
    * reused by both PIT and scroll implementations.
+   *
+   * @param sliceFutures The list of futures for each slice
+   * @param remainingTime Remaining time in milliseconds
+   * @param allowPartialResults If true, return partial results on timeout instead of throwing
    */
   protected List<LineageRelationship> processSliceFutures(
-      List<CompletableFuture<List<LineageRelationship>>> sliceFutures, long remainingTime) {
+      List<CompletableFuture<List<LineageRelationship>>> sliceFutures,
+      long remainingTime,
+      boolean allowPartialResults) {
 
     List<LineageRelationship> allRelationships = Collections.synchronizedList(new ArrayList<>());
 
@@ -1539,16 +1611,31 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
           // If we're out of time, break early
           if (remainingTime <= 0) {
-            log.warn("Out of time, stopping slice processing after {} slices", i + 1);
+            if (allowPartialResults) {
+              log.warn(
+                  "Out of time, stopping slice processing after {} slices. Returning partial results.",
+                  i + 1);
+            } else {
+              log.warn("Out of time, stopping slice processing after {} slices", i + 1);
+            }
             break;
           }
 
         } catch (TimeoutException e) {
-          log.error("Slice {} timed out after {} seconds", i, futureTimeout);
+          log.warn("Slice {} timed out after {} seconds", i, futureTimeout);
           // Cancel all futures to prevent resource leaks
           sliceFutures.forEach(f -> f.cancel(true));
-          throw new RuntimeException(
-              "Slice " + i + " timed out after " + futureTimeout + " seconds", e);
+          if (allowPartialResults) {
+            log.warn(
+                "Returning partial results after slice {} timed out. {} relationships collected so far.",
+                i,
+                allRelationships.size());
+            break;
+          } else {
+            log.error("Slice {} timed out after {} seconds", i, futureTimeout);
+            throw new RuntimeException(
+                "Slice " + i + " timed out after " + futureTimeout + " seconds", e);
+          }
         } catch (Exception e) {
           log.error("Slice {} failed with exception", i, e);
           // Cancel other futures to prevent resource leaks
@@ -1562,6 +1649,15 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         }
       }
     } catch (Exception e) {
+      // If we have partial results enabled and collected some results, return them
+      if (allowPartialResults && !allRelationships.isEmpty()) {
+        log.warn(
+            "Error during slice-based search, but returning partial results. {} relationships collected so far.",
+            allRelationships.size(),
+            e);
+        return allRelationships;
+      }
+      // Otherwise, throw the exception
       log.error("Error during slice-based search", e);
       throw new RuntimeException("Failed to execute slice-based search", e);
     }

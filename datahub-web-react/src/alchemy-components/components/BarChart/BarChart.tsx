@@ -11,7 +11,7 @@ import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from '@components/compon
 import { barChartDefault } from '@components/components/BarChart/defaults';
 import useMergedProps from '@components/components/BarChart/hooks/useMergedProps';
 import usePrepareAccessors from '@components/components/BarChart/hooks/usePrepareAccessors';
-import usePrepareScales from '@components/components/BarChart/hooks/usePrepareScales';
+import usePreparedScales from '@components/components/BarChart/hooks/usePreparedScales';
 import {
     AxisProps,
     BarChartProps,
@@ -45,6 +45,8 @@ export function BarChart({
     gridProps = barChartDefault.gridProps,
 
     popoverRenderer,
+
+    dataTestId,
 }: BarChartProps) {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
@@ -64,7 +66,10 @@ export function BarChart({
     const xAccessor: XAccessor = (datum) => datum.x;
     const yAccessor: YAccessor = (datum) => datum.y;
     const accessors = usePrepareAccessors(data, !!horizontal, xAccessor, yAccessor, minYForZeroData);
-    const scales = usePrepareScales(data, !!horizontal, xScale, xAccessor, yScale, yAccessor, maxYDomainForZeroData);
+    const scales = usePreparedScales(data, xScale, xAccessor, yScale, yAccessor, {
+        horizontal,
+        maxDomainValueForZeroData: maxYDomainForZeroData,
+    });
 
     const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps>(
         leftAxisProps,
@@ -143,11 +148,18 @@ export function BarChart({
     // but they don't render at all without any data.
     // To handle this case we will render the same graph with fake data and hide bars
     if (!data.length) {
-        return <BarChart {...getMockedProps()} margin={margin} isEmpty />;
+        return (
+            <BarChart
+                {...getMockedProps()}
+                margin={margin}
+                isEmpty
+                dataTestId={dataTestId ? `${dataTestId}-empty` : undefined}
+            />
+        );
     }
 
     return (
-        <ChartWrapper ref={wrapperRef}>
+        <ChartWrapper ref={wrapperRef} data-testid={dataTestId}>
             <ParentSize>
                 {({ width, height }) => {
                     return (

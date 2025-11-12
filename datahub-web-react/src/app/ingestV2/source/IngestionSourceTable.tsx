@@ -182,6 +182,7 @@ function IngestionSourceTable({
                     />
                 ) : null
             }
+            rowDataTestId={(row) => `row-${row.name}`}
         />
     );
 }

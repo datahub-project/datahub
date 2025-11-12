@@ -56,12 +56,12 @@ from datahub.metadata.schema_classes import (
 )
 
 
-@platform_name("Snaplogic")
+@platform_name("SnapLogic")
 @config_class(SnaplogicConfig)
 @support_status(SupportStatus.TESTING)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
-    "Snaplogic does not support platform instances",
+    "SnapLogic does not support platform instances",
     supported=False,
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
@@ -69,7 +69,7 @@ from datahub.metadata.schema_classes import (
 @capability(SourceCapability.DELETION_DETECTION, "Not supported yet", supported=False)
 class SnaplogicSource(StatefulIngestionSourceBase):
     """
-    A source plugin for ingesting lineage and metadata from Snaplogic.
+    A source plugin for ingesting lineage and metadata from SnapLogic.
     """
 
     def __init__(self, config: SnaplogicConfig, ctx: PipelineContext):
@@ -99,7 +99,7 @@ class SnaplogicSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
             self.report.info(
-                message="Starting lineage ingestion from Snaplogic",
+                message="Starting lineage ingestion from SnapLogic",
                 title="Lineage Ingestion",
             )
 
@@ -351,5 +351,5 @@ class SnaplogicSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SnaplogicSource":
-        config = SnaplogicConfig.parse_obj(config_dict)
+        config = SnaplogicConfig.model_validate(config_dict)
         return cls(config, ctx)

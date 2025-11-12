@@ -7,8 +7,7 @@ import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModa
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import { SectionContainer, SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { Button } from '@src/alchemy-components';
+import { Button, Editor } from '@src/alchemy-components';
 
 const UNEXPANDED_HEIGHT = 2000;
 

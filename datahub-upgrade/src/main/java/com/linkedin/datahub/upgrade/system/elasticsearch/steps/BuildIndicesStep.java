@@ -37,7 +37,7 @@ public class BuildIndicesStep implements UpgradeStep {
     return (context) -> {
       try {
         for (ElasticSearchIndexed service : services) {
-          service.reindexAll(structuredProperties);
+          service.reindexAll(context.opContext(), structuredProperties);
         }
       } catch (Exception e) {
         log.error("BuildIndicesStep failed.", e);

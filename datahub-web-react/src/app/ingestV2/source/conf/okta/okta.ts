@@ -21,12 +21,12 @@ source:
         # profile. Reference: https://developer.okta.com/docs/reference/api/users/
         # okta_profile_to_username_attr: str = "login"
         # okta_profile_to_username_regex: str = "([^@]+)"
-    
+
         # Optional: Customize the mapping to DataHub Group from an attribute appearing in the Okta Group
         # profile. Reference: https://developer.okta.com/docs/reference/api/groups/
         # okta_profile_to_group_name_attr: str = "name"
         # okta_profile_to_group_name_regex: str = "(.*)"
-        
+
         # Optional: Include deprovisioned or suspended Okta users in the ingestion.
         # include_deprovisioned_users = False
         # include_suspended_users = False

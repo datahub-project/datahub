@@ -9,11 +9,11 @@ description = ""
 authors = [
     { name="Acryl Data", email="eng@acryl.io" },
 ]
-requires-python = ">=3.9"
+requires-python = "==3.11.*"
 
 [tool.ruff]
 # Enable ruff format
-target-version = "py310"
+target-version = "py311"
 line-length = 88
 extend-exclude = ["tmp", "venv"]
 
@@ -67,7 +67,7 @@ ban-relative-imports = "all"
 "__init__.py" = ["F401"]
 
 [tool.mypy]
-plugins = ["pydantic.mypy", "pydantic.v1.mypy"]
+plugins = ["pydantic.mypy"]
 exclude = "^(venv/|build/|dist/)"
 ignore_missing_imports = true
 namespace_packages = false

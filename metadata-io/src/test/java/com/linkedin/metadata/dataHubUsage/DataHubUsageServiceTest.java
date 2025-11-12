@@ -17,6 +17,7 @@ import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.datahubusage.event.UpdatePolicyEvent;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -35,7 +36,6 @@ import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.testng.annotations.AfterMethod;
@@ -47,7 +47,7 @@ import org.testng.annotations.Test;
 @Slf4j
 public class DataHubUsageServiceTest {
 
-  @Mock private RestHighLevelClient mockElasticClient;
+  @Mock private SearchClientShim<?> mockElasticClient;
 
   @Mock private IndexConvention mockIndexConvention;
 

@@ -57,11 +57,11 @@ def assert_sql_result_with_resolver(
             f"Missing expected golden file; run with --update-golden-files to create it: {expected_file}"
         )
 
-    expected = SqlParsingResult.parse_raw(expected_file.read_text())
+    expected = SqlParsingResult.model_validate_json(expected_file.read_text())
 
     full_diff = deepdiff.DeepDiff(
-        expected.dict(),
-        res.dict(),
+        expected.model_dump(),
+        res.model_dump(),
         exclude_regex_paths=[
             r"root.column_lineage\[\d+\].logic",
         ],

@@ -1,0 +1,22 @@
+run_id: mssql-test
+
+source:
+  type: mssql-odbc
+  config:
+    username: sa
+    password: test!Password
+    host_port: 127.0.0.1:21433
+    convert_urns_to_lowercase: true
+    database_pattern:
+      deny:
+        - .*DB_WITH@SPEC_SYMB.*
+
+    use_odbc: true
+    uri_args:
+      driver: "ODBC Driver 18 for SQL Server"
+      TrustServerCertificate: "yes"
+
+sink:
+  type: file
+  config:
+    filename: "./mssql_mces.json"

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.elasticsearch.update;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -18,24 +17,28 @@ public class BulkListenerTest {
 
   @Test
   public void testConstructor() {
-    BulkListener test = BulkListener.getInstance(mock(MetricUtils.class));
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    BulkListener test =
+        BulkListener.getInstance(0, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils);
     assertNotNull(test);
-    assertEquals(test, BulkListener.getInstance(mock(MetricUtils.class)));
+    assertEquals(
+        test, BulkListener.getInstance(0, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils));
     assertNotEquals(
-        test,
-        BulkListener.getInstance(WriteRequest.RefreshPolicy.IMMEDIATE, mock(MetricUtils.class)));
+        test, BulkListener.getInstance(1, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils));
   }
 
   @Test
   public void testDefaultPolicy() {
-    BulkListener test = BulkListener.getInstance(mock(MetricUtils.class));
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    BulkListener test =
+        BulkListener.getInstance(0, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils);
 
     BulkRequest mockRequest1 = mock(BulkRequest.class);
     test.beforeBulk(0L, mockRequest1);
-    verify(mockRequest1, times(0)).setRefreshPolicy(any(WriteRequest.RefreshPolicy.class));
+    verify(mockRequest1, times(1)).setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
     BulkRequest mockRequest2 = mock(BulkRequest.class);
-    test = BulkListener.getInstance(WriteRequest.RefreshPolicy.IMMEDIATE, mock(MetricUtils.class));
+    test = BulkListener.getInstance(0, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils);
     test.beforeBulk(0L, mockRequest2);
     verify(mockRequest2, times(1)).setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
   }

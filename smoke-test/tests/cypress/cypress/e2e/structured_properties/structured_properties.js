@@ -31,35 +31,6 @@ const removeToastMessage = "removed";
 
 const fieldName = "shipment_info";
 
-const goToStructuredProperties = () => {
-  cy.visit("/structured-properties");
-  cy.waitTextVisible("Structured Properties");
-};
-
-const createStructuredProperty = (prop) => {
-  cy.get('[data-testid="structured-props-create-button"').click();
-  cy.get('[data-testid="structured-props-input-name"]').click().type(prop.name);
-  cy.get('[data-testid="structured-props-select-input-type"]').click();
-  cy.get('[data-testid="structured-props-property-type-options-list"]')
-    .contains("Text")
-    .click();
-  cy.get('[data-testid="structured-props-select-input-applies-to"]').click();
-  cy.get('[data-testid="applies-to-options-list"]')
-    .contains(prop.entity)
-    .click();
-  cy.get('[data-testid="structured-props-select-input-applies-to"]').click();
-  cy.get('[data-testid="structured-props-create-update-button"]').click();
-};
-
-const deleteStructuredProperty = (prop) => {
-  cy.contains("td", prop.name)
-    .siblings("td")
-    .find('[data-testid="structured-props-more-options-icon"]')
-    .click();
-  cy.get("body .ant-dropdown-menu").contains("Delete").click();
-  cy.get('[data-testid="modal-confirm-button"').click();
-};
-
 const addStructuredPropertyToEntity = (prop) => {
   cy.goToDataset(datasetUrn, datasetName);
   // Resize Observer Loop warning can be safely ignored - ref. https://github.com/cypress-io/cypress/issues/22113
@@ -85,6 +56,39 @@ const showStructuredPropertyInColumnsTable = (prop) => {
   cy.waitTextVisible(updateToastMessage);
 };
 
+const showStructuredPropertyInAssetSummaryTab = (prop) => {
+  cy.get('[data-testid="structured-props-table"]').contains(prop.name).click();
+  cy.get(
+    '[data-testid="structured-props-show-in-asset-summary-switch"]',
+  ).click();
+  cy.get('[data-testid="structured-props-create-update-button"]').click();
+  cy.waitTextVisible(updateToastMessage);
+};
+
+const hideStructuredPropertyInAssetSummaryTabWhenEmpty = (prop) => {
+  cy.getWithTestId("structured-props-table").contains(prop.name).click();
+  cy.getWithTestId(
+    "structured-props-hide-in-asset-summary-when-empty-checkbox",
+  ).click({ force: true });
+  cy.getWithTestId("structured-props-create-update-button").click();
+  cy.waitTextVisible(updateToastMessage);
+};
+
+const openEntityAssetSummaryTab = () => {
+  cy.get('[id="entity-sidebar-tabs-tab-Summary"]').then(($el) => {
+    const isSelected = $el.attr("aria-selected") === "true";
+    if (!isSelected) cy.wrap($el).click();
+  });
+};
+
+const ensureStructuredPropertyIsAvailableInAssetSummaryTab = (prop) => {
+  cy.get('[id="entity-profile-v2-sidebar"]').should("contain", prop.name);
+};
+
+const ensureStructuredPropertyIsNotAvailableInAssetSummaryTab = (prop) => {
+  cy.get('[id="entity-profile-v2-sidebar"]').should("not.contain", prop.name);
+};
+
 const addStructuredPropertyToField = (prop) => {
   cy.goToDataset(datasetUrn, datasetName);
   cy.contains(fieldName);
@@ -100,18 +104,18 @@ describe("Verify manage structured properties functionalities", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     cy.login();
-    goToStructuredProperties();
+    cy.goToStructuredProperties();
   });
 
   it("Verify creating a new structured property", () => {
-    createStructuredProperty(structuredProperty);
+    cy.createStructuredProperty(structuredProperty);
     cy.waitTextVisible(createToastMessage);
     cy.waitTextVisible(structuredProperty.name);
-    deleteStructuredProperty(structuredProperty);
+    cy.deleteStructuredProperty(structuredProperty);
   });
 
   it("Verify updating an existing structured property", () => {
-    createStructuredProperty(structuredProperty);
+    cy.createStructuredProperty(structuredProperty);
     cy.get('[data-testid="structured-props-table"]')
       .contains(structuredProperty.name)
       .click();
@@ -132,18 +136,18 @@ describe("Verify manage structured properties functionalities", () => {
     cy.waitTextVisible(updatedStructuredProperty.name);
     cy.waitTextVisible(updatedStructuredProperty.description);
     cy.waitTextVisible(updatedStructuredProperty.entity);
-    deleteStructuredProperty(updatedStructuredProperty);
+    cy.deleteStructuredProperty(updatedStructuredProperty);
   });
 
   it("Verify deleting a structured property", () => {
-    createStructuredProperty(structuredProperty);
-    deleteStructuredProperty(structuredProperty);
+    cy.createStructuredProperty(structuredProperty);
+    cy.deleteStructuredProperty(structuredProperty);
     cy.waitTextVisible(deleteToastMessage);
     cy.contains(structuredProperty.name).should("not.exist");
   });
 
   it("Verify the absence of hidden structured property", () => {
-    createStructuredProperty(structuredProperty);
+    cy.createStructuredProperty(structuredProperty);
     cy.get('[data-testid="structured-props-table"]')
       .contains(structuredProperty.name)
       .click();
@@ -157,22 +161,22 @@ describe("Verify manage structured properties functionalities", () => {
       .within(() => {
         cy.contains(structuredProperty.name).should("not.exist");
       });
-    goToStructuredProperties();
-    deleteStructuredProperty(structuredProperty);
+    cy.goToStructuredProperties();
+    cy.deleteStructuredProperty(structuredProperty);
   });
 
   it("Verify adding a structured property to an entity", () => {
-    createStructuredProperty(structuredProperty);
+    cy.createStructuredProperty(structuredProperty);
     addStructuredPropertyToEntity(structuredProperty);
     cy.waitTextVisible(addToastMessage);
     cy.waitTextVisible(structuredProperty.name);
     cy.waitTextVisible(structuredPropStringValue);
-    goToStructuredProperties();
-    deleteStructuredProperty(structuredProperty);
+    cy.goToStructuredProperties();
+    cy.deleteStructuredProperty(structuredProperty);
   });
 
   it("Verify removing a structured property from an entity", () => {
-    createStructuredProperty(structuredProperty);
+    cy.createStructuredProperty(structuredProperty);
     addStructuredPropertyToEntity(structuredProperty);
     cy.contains("td", structuredPropStringValue)
       .siblings("td")
@@ -182,12 +186,12 @@ describe("Verify manage structured properties functionalities", () => {
     cy.get('[data-testid="modal-confirm-button"').click();
     cy.waitTextVisible(removeToastMessage);
     cy.contains(structuredPropStringValue).should("not.exist");
-    goToStructuredProperties();
-    deleteStructuredProperty(structuredProperty);
+    cy.goToStructuredProperties();
+    cy.deleteStructuredProperty(structuredProperty);
   });
 
   it("Verify editing a structured property on an entity", () => {
-    createStructuredProperty(structuredProperty);
+    cy.createStructuredProperty(structuredProperty);
     addStructuredPropertyToEntity(structuredProperty);
     cy.contains("td", structuredPropStringValue)
       .siblings("td")
@@ -202,22 +206,22 @@ describe("Verify manage structured properties functionalities", () => {
     ).click();
     cy.waitTextVisible(updateToastMessage);
     cy.waitTextVisible(updatedStructuredPropStringValue);
-    goToStructuredProperties();
-    deleteStructuredProperty(structuredProperty);
+    cy.goToStructuredProperties();
+    cy.deleteStructuredProperty(structuredProperty);
   });
 
   it("Verify adding a structured property to a schema field", () => {
-    createStructuredProperty(fieldStructuredProperty);
+    cy.createStructuredProperty(fieldStructuredProperty);
     showStructuredPropertyInColumnsTable(fieldStructuredProperty);
     addStructuredPropertyToField(fieldStructuredProperty);
     cy.waitTextVisible(addToastMessage);
     cy.get(".ant-drawer-content").contains(structuredPropStringValue);
-    goToStructuredProperties();
-    deleteStructuredProperty(fieldStructuredProperty);
+    cy.goToStructuredProperties();
+    cy.deleteStructuredProperty(fieldStructuredProperty);
   });
 
   it("Verify updating a structured property on a schema field", () => {
-    createStructuredProperty(fieldStructuredProperty);
+    cy.createStructuredProperty(fieldStructuredProperty);
     showStructuredPropertyInColumnsTable(fieldStructuredProperty);
     addStructuredPropertyToField(fieldStructuredProperty);
     cy.get(
@@ -231,12 +235,12 @@ describe("Verify manage structured properties functionalities", () => {
     ).click();
     cy.waitTextVisible(updateToastMessage);
     cy.get(".ant-drawer-content").contains(updatedStructuredPropStringValue);
-    goToStructuredProperties();
-    deleteStructuredProperty(fieldStructuredProperty);
+    cy.goToStructuredProperties();
+    cy.deleteStructuredProperty(fieldStructuredProperty);
   });
 
   it("Verify removing a structured property from a schema field", () => {
-    createStructuredProperty(fieldStructuredProperty);
+    cy.createStructuredProperty(fieldStructuredProperty);
     showStructuredPropertyInColumnsTable(fieldStructuredProperty);
     addStructuredPropertyToField(fieldStructuredProperty);
     cy.get('[data-testid="Properties-field-drawer-tab-header"]').click();
@@ -250,7 +254,61 @@ describe("Verify manage structured properties functionalities", () => {
     cy.get(".ant-drawer-content")
       .contains(structuredPropStringValue)
       .should("not.exist");
-    goToStructuredProperties();
-    deleteStructuredProperty(fieldStructuredProperty);
+    cy.goToStructuredProperties();
+    cy.deleteStructuredProperty(fieldStructuredProperty);
+  });
+
+  it("Verify property is available in asset summary tab when empty", () => {
+    const property = {
+      ...structuredProperty,
+      name: "Property-showInSummaryTab",
+    };
+
+    cy.createStructuredProperty(property);
+    showStructuredPropertyInAssetSummaryTab(property);
+    cy.goToDataset(datasetUrn, datasetName);
+
+    openEntityAssetSummaryTab();
+    ensureStructuredPropertyIsAvailableInAssetSummaryTab(property);
+
+    cy.goToStructuredProperties();
+    cy.deleteStructuredProperty(property);
+  });
+
+  it("Verify property is not available in asset summary tab when it's empty", () => {
+    const property = {
+      ...structuredProperty,
+      name: "Property-hideInSummaryTabWithoutValue",
+    };
+    cy.createStructuredProperty(property);
+    showStructuredPropertyInAssetSummaryTab(property);
+    cy.goToStructuredProperties();
+    hideStructuredPropertyInAssetSummaryTabWhenEmpty(property);
+    cy.goToDataset(datasetUrn, datasetName);
+
+    openEntityAssetSummaryTab();
+    ensureStructuredPropertyIsNotAvailableInAssetSummaryTab(property);
+
+    cy.goToStructuredProperties();
+    cy.deleteStructuredProperty(property);
+  });
+
+  it("Verify property is available in asset summary tab when it isn't empty", () => {
+    const property = {
+      ...structuredProperty,
+      name: "Property-hideInSummaryTabWhenEmptyWithValue",
+    };
+    cy.createStructuredProperty(property);
+    showStructuredPropertyInAssetSummaryTab(property);
+    cy.goToStructuredProperties();
+    hideStructuredPropertyInAssetSummaryTabWhenEmpty(property);
+    cy.goToDataset(datasetUrn, datasetName);
+    addStructuredPropertyToEntity(property);
+
+    openEntityAssetSummaryTab();
+    ensureStructuredPropertyIsAvailableInAssetSummaryTab(property);
+
+    cy.goToStructuredProperties();
+    cy.deleteStructuredProperty(property);
   });
 });
