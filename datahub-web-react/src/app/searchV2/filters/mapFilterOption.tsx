@@ -22,6 +22,7 @@ interface CreateFilterOptionProps {
     includeCount?: boolean;
 }
 
+// Note
 export function mapFilterOption({
     filterOption,
     entityRegistry,
