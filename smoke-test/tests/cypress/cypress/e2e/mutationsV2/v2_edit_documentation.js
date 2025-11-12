@@ -11,16 +11,31 @@ const getSampleUrl = (path) => {
   return `${url}/${path}`;
 };
 
-const removeLinksByUrl = (url) => {
+const removeLinkByUrl = (url) => {
   cy.getWithTestId("link-list").within(() => {
-    cy.get(`[href='${url}']`).each(($el) => {
-      cy.wrap($el)
-        .closest(".ant-list-item")
-        .scrollIntoView()
-        .within(() => cy.clickOptionWithTestId("remove-link-button"));
-    });
+    cy.get(`a[href="${url}"]`)
+      .first()
+      .closest(".ant-list-item")
+      .within(() => {
+        cy.clickOptionWithTestId("remove-link-button");
+      });
   });
   cy.waitTextVisible("Link Removed");
+};
+
+const removeAllLinks = () => {
+  cy.getWithTestId("link-list").within(() => {
+    cy.getWithTestId("remove-link-button").then(($buttons) => {
+      if ($buttons.length > 0) {
+        cy.wrap($buttons).each(($button) => {
+          cy.wrap($button).click({ force: true });
+          cy.get("body", { withinSubject: null }).within(() => {
+            cy.waitTextVisible("Link Removed");
+          });
+        });
+      }
+    });
+  });
 };
 
 const fillLinksForm = (url, label, shouldShowInPreview) => {
@@ -200,7 +215,7 @@ describe("edit documentation and link to dataset", () => {
     ensureThatUrlIsAvaliableOnSidebar(sample);
     ensureThatUrlIsNotAvaliableOnEntityHeader(sample);
 
-    removeLinksByUrl(sample);
+    removeAllLinks();
   });
 
   it("should successflully add new link with showing in asset preview", () => {
@@ -216,7 +231,8 @@ describe("edit documentation and link to dataset", () => {
     ensureThatUrlIsAvaliableOnEntityHeader(sample);
 
     goToEntityDocumentationTab();
-    removeLinksByUrl(sample);
+
+    removeAllLinks();
   });
 
   it("should collapse links in the entity header", () => {
@@ -238,9 +254,7 @@ describe("edit documentation and link to dataset", () => {
     ensureThatUrlIsAvaliableOnEntityHeaderInViewMore(sample2);
     ensureThatUrlIsAvaliableOnEntityHeaderInViewMore(sample3);
 
-    removeLinksByUrl(sample1);
-    removeLinksByUrl(sample2);
-    removeLinksByUrl(sample3);
+    removeAllLinks();
   });
 
   it("should successfully update the link", () => {
@@ -277,7 +291,7 @@ describe("edit documentation and link to dataset", () => {
     ensureThatUrlIsAvaliableOnDocumentationTab(sample_edited_url);
     ensureThatUrlIsAvaliableOnSidebar(sample_edited_url);
 
-    removeLinksByUrl(sample_edited_url);
+    removeAllLinks();
   });
 
   it("should successfully remove the link", () => {
@@ -288,7 +302,7 @@ describe("edit documentation and link to dataset", () => {
     ensureThatUrlIsAvaliableOnDocumentationTab(sample_url);
     ensureThatUrlIsAvaliableOnEntityHeader(sample_url);
 
-    removeLinksByUrl(sample_url);
+    removeLinkByUrl(sample_url);
 
     ensureThatUrlIsNotAvaliableOnDocumentationTab(sample_url, sample_url);
     ensureThatUrlIsNotAvaliableOnEntityHeader(sample_url);
