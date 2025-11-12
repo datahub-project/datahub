@@ -1,4 +1,3 @@
-version: '3'
 services:
   hex-mock-api:
     image: python:3.9-alpine
