@@ -734,7 +734,7 @@ class S3Source(StatefulIngestionSourceBase):
                     platformSchema=OtherSchemaClass(rawSchema=""),
                 )
                 aspects.append(schema_metadata)
-            except Exception:
+            except Exception as e:
                 self.report.report_warning(
                     title="Failed to extract schema from file",
                     message="Schema may be missed for dataset because of failure when extracting schema from file",
