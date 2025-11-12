@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Union
 
 import parse
 from cached_property import cached_property
-from pydantic import field_validator, model_validator
+from pydantic import ConfigDict, field_validator, model_validator
 from pydantic.fields import Field
 from wcmatch import pathlib
 
@@ -83,8 +83,7 @@ class FolderTraversalMethod(Enum):
 
 
 class PathSpec(ConfigModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     include: str = Field(
         description="Path to table. Name variable `{table}` is used to mark the folder with dataset. In absence of `{table}`, file level dataset will be created. Check below examples for more details.",

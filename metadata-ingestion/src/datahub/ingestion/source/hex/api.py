@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Generator, List, Optional, Union
 
 import requests
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from requests.adapters import HTTPAdapter
 from typing_extensions import assert_never
 from urllib3.util.retry import Retry
@@ -133,8 +133,7 @@ class HexApiSharing(BaseModel):
     collections: Optional[List[HexApiCollectionAccess]] = []
     groups: Optional[List[Any]] = []
 
-    class Config:
-        extra = "ignore"  # Allow extra fields in the JSON
+    model_config = ConfigDict(extra="ignore")  # Allow extra fields in the JSON
 
 
 class HexApiItemType(StrEnum):
@@ -165,8 +164,7 @@ class HexApiProjectApiResource(BaseModel):
     schedules: Optional[List[HexApiSchedule]] = []
     sharing: Optional[HexApiSharing] = None
 
-    class Config:
-        extra = "ignore"  # Allow extra fields in the JSON
+    model_config = ConfigDict(extra="ignore")  # Allow extra fields in the JSON
 
     @field_validator(
         "created_at",
@@ -200,8 +198,7 @@ class HexApiProjectsListResponse(BaseModel):
     values: List[HexApiProjectApiResource]
     pagination: Optional[HexApiPageCursors] = None
 
-    class Config:
-        extra = "ignore"  # Allow extra fields in the JSON
+    model_config = ConfigDict(extra="ignore")  # Allow extra fields in the JSON
 
 
 @dataclass

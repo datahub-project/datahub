@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -603,14 +605,15 @@ public class UsageEventIndexUtils {
   }
 
   /**
-   * Creates an initial index for AWS OpenSearch usage events.
+   * Creates an initial index for OpenSearch usage events.
    *
-   * <p>This method creates the first index in a time-series setup for usage events in AWS
-   * OpenSearch environments. Unlike Elasticsearch data streams, OpenSearch uses numbered indices
-   * (e.g., "datahub_usage_event-000001") with aliases for rollover management.
+   * <p>This method creates the first index in a time-series setup for usage events in OpenSearch
+   * environments. Unlike Elasticsearch data streams, OpenSearch uses numbered indices (e.g.,
+   * "datahub_usage_event-000001") with aliases for rollover management.
    *
-   * <p>The method creates an empty index configuration and applies the specified prefix. The alias
-   * configuration is handled programmatically after index creation.
+   * <p>The method first checks if the specific index already exists. If it does, it skips creation.
+   * Then it checks if any index with the expected alias already exists. If an index with the alias
+   * exists, it skips creation. Otherwise, it creates a new index with the alias.
    *
    * <p>The created index includes:
    *
@@ -625,30 +628,43 @@ public class UsageEventIndexUtils {
    *
    * @param esComponents the Elasticsearch components factory providing search client access
    * @param indexName the name of the initial index to create (e.g., "datahub_usage_event-000001")
-   * @param prefix the index prefix to apply to alias configurations (e.g., "prod_")
+   * @param aliasName the name of the alias to assign to the index (e.g., "datahub_usage_event")
    * @throws IOException if there's an error reading the index configuration or making the request
    * @throws OpenSearchStatusException if the creation fails with a non-"already exists" error
    */
-  public static void createOpenSearchIndex(
+  public static void createOpenSearchUsageEventIndex(
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String indexName,
-      String prefix)
+      String aliasName)
       throws IOException {
     try {
-      GetIndexRequest getRequest = new GetIndexRequest(indexName);
+      // Check if the specific index already exists
+      GetIndexRequest getIndexRequest = new GetIndexRequest(indexName);
+      boolean indexExists =
+          esComponents.getSearchClient().indexExists(getIndexRequest, RequestOptions.DEFAULT);
 
-      boolean exists =
-          esComponents.getSearchClient().indexExists(getRequest, RequestOptions.DEFAULT);
-
-      if (!exists) {
-        // Create index with alias in a single request (common syntax for both Elasticsearch and
-        // OpenSearch)
-        String aliasName = prefix + "datahub_usage_event";
-        log.info("Creating new OpenSearch index: {} with alias: {}", indexName, aliasName);
-        createIndexWithWriteAlias(esComponents, indexName, aliasName);
-      } else {
+      if (indexExists) {
         log.info("OpenSearch index {} already exists - skipping creation", indexName);
+        return;
       }
+
+      // Check if any index with the expected alias already exists
+      GetAliasesRequest aliasRequest = new GetAliasesRequest(aliasName);
+      GetAliasesResponse aliasResponse =
+          esComponents.getSearchClient().getIndexAliases(aliasRequest, RequestOptions.DEFAULT);
+
+      if (!aliasResponse.getAliases().isEmpty()) {
+        log.info(
+            "Index with alias {} already exists (indices: {}). Skipping creation of {}",
+            aliasName,
+            aliasResponse.getAliases().keySet(),
+            indexName);
+        return;
+      }
+
+      // No index with the alias exists, create a new one
+      log.info("Creating new OpenSearch index: {} with alias: {}", indexName, aliasName);
+      createIndexWithWriteAlias(esComponents, indexName, aliasName);
     } catch (OpenSearchStatusException e) {
       if (e.getMessage().contains("resource_already_exists_exception")
           || (e.status().getStatus() == 400 && e.getMessage().contains("already exists"))) {
