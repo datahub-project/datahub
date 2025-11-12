@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import oracledb
 import sqlalchemy.engine
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 from sqlalchemy import event, sql
 from sqlalchemy.dialects.oracle.base import ischema_names
 from sqlalchemy.engine.reflection import Inspector
@@ -273,6 +273,32 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         if (
             self.thick_mode_lib_dir is None
             and self.enable_thick_mode
+    @field_validator("service_name", mode="after")
+    @classmethod
+    def check_service_name(
+        cls, v: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        if info.data.get("database") and v:
+            raise ValueError(
+                "specify one of 'database' and 'service_name', but not both"
+            )
+        return v
+
+    @field_validator("data_dictionary_mode", mode="after")
+    @classmethod
+    def check_data_dictionary_mode(cls, value: str) -> str:
+        if value not in ("ALL", "DBA"):
+            raise ValueError("Specify one of data dictionary views mode: 'ALL', 'DBA'.")
+        return value
+
+    @field_validator("thick_mode_lib_dir", mode="before")
+    @classmethod
+    def check_thick_mode_lib_dir(
+        cls, v: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        if (
+            v is None
+            and info.data.get("enable_thick_mode")
             and (platform.system() == "Darwin" or platform.system() == "Windows")
         ):
             raise ValueError(

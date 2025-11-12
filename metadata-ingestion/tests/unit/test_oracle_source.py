@@ -23,7 +23,7 @@ def test_oracle_config():
         "host_port": "host:1521",
     }
 
-    config = OracleConfig.parse_obj(
+    config = OracleConfig.model_validate(
         {
             **base_config,
             "service_name": "svc01",
@@ -35,7 +35,7 @@ def test_oracle_config():
     )
 
     with pytest.raises(ValueError):
-        config = OracleConfig.parse_obj(
+        config = OracleConfig.model_validate(
             {
                 **base_config,
                 "database": "db",

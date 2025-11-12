@@ -127,7 +127,7 @@ class DataHubGcSource(Source):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DataHubGcSourceConfig.parse_obj(config_dict)
+        config = DataHubGcSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     # auto_work_unit_report is overriden to disable a couple of automation like auto status aspect, etc. which is not needed her.

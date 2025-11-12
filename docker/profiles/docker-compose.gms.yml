@@ -330,10 +330,10 @@ services:
         condition: service_healthy
       opensearch:
         condition: service_healthy
-  system-update-debug-aws: &system-update-debug
+  system-update-debug-aws: &system-update-debug-aws
     <<: *datahub-system-update-service-dev
     environment:
-      <<: [*localstack-env]
+      <<: [*datahub-system-update-dev-env, *localstack-env]
     profiles:
       - debug-backend-aws
       - debug-aws

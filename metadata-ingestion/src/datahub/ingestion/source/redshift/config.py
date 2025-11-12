@@ -3,7 +3,7 @@ from copy import deepcopy
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import root_validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
@@ -182,7 +182,8 @@ class RedshiftConfig(
         description="Whether to skip EXTERNAL tables.",
     )
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def check_email_is_set_on_usage(cls, values):
         if values.get("include_usage_statistics"):
             assert "email_domain" in values and values["email_domain"], (
@@ -190,31 +191,28 @@ class RedshiftConfig(
             )
         return values
 
-    @root_validator(skip_on_failure=True)
-    def check_database_is_set(cls, values):
-        assert values.get("database"), "database must be set"
-        return values
+    @model_validator(mode="after")
+    def check_database_is_set(self) -> "RedshiftConfig":
+        assert self.database, "database must be set"
+        return self
 
-    @root_validator(skip_on_failure=True)
-    def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
-
-        schema_pattern: Optional[AllowDenyPattern] = values.get("schema_pattern")
-
+    @model_validator(mode="after")
+    def backward_compatibility_configs_set(self) -> "RedshiftConfig":
         if (
-            schema_pattern is not None
-            and schema_pattern != AllowDenyPattern.allow_all()
-            and match_fully_qualified_names is not None
-            and not match_fully_qualified_names
+            self.schema_pattern is not None
+            and self.schema_pattern != AllowDenyPattern.allow_all()
+            and self.match_fully_qualified_names is not None
+            and not self.match_fully_qualified_names
         ):
             logger.warning(
                 "Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
                 "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
                 "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
             )
-        return values
+        return self
 
-    @root_validator(skip_on_failure=True)
+    @model_validator(mode="before")
+    @classmethod
     def connection_config_compatibility_set(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
@@ -231,8 +229,8 @@ class RedshiftConfig(
         if "options" in values and "connect_args" in values["options"]:
             values["extra_client_options"] = values["options"]["connect_args"]
 
-        if values["extra_client_options"]:
-            if values["options"]:
+        if values.get("extra_client_options"):
+            if values.get("options"):
                 values["options"]["connect_args"] = values["extra_client_options"]
             else:
                 values["options"] = {"connect_args": values["extra_client_options"]}
