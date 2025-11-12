@@ -176,9 +176,9 @@ class TestMaskingErrorPaths:
         masking_filter = SecretMaskingFilter(registry)
 
         # Non-string input should be returned as-is
-        assert masking_filter._truncate_message(123) == 123
-        assert masking_filter._truncate_message(None) is None
-        assert masking_filter._truncate_message([]) == []
+        assert masking_filter._truncate_message(123) == 123  # type: ignore[arg-type]
+        assert masking_filter._truncate_message(None) is None  # type: ignore[arg-type]
+        assert masking_filter._truncate_message([]) == []  # type: ignore[arg-type]
 
     def test_mask_text_with_non_string_input(self):
         """Test that mask_text handles non-string input."""
@@ -186,8 +186,8 @@ class TestMaskingErrorPaths:
         masking_filter = SecretMaskingFilter(registry)
 
         # Non-string inputs should be returned as-is
-        assert masking_filter.mask_text(None) is None
-        assert masking_filter.mask_text(123) == 123
+        assert masking_filter.mask_text(None) is None  # type: ignore[arg-type]
+        assert masking_filter.mask_text(123) == 123  # type: ignore[arg-type]
         assert masking_filter.mask_text("") == ""
 
 
@@ -227,7 +227,7 @@ class TestStreamWrapperErrorHandling:
             def write(self, text):
                 raise IOError("Simulated write error")
 
-        wrapper = StreamMaskingWrapper(FailingStream(), masking_filter)
+        wrapper = StreamMaskingWrapper(FailingStream(), masking_filter)  # type: ignore[arg-type]
 
         # Should return 0 on error
         result = wrapper.write("test")
@@ -243,7 +243,7 @@ class TestStreamWrapperErrorHandling:
             def write(self, text):
                 return len(text)
 
-        wrapper = StreamMaskingWrapper(NoFlushStream(), masking_filter)
+        wrapper = StreamMaskingWrapper(NoFlushStream(), masking_filter)  # type: ignore[arg-type]
 
         # Should not raise
         wrapper.flush()
@@ -261,7 +261,7 @@ class TestStreamWrapperErrorHandling:
             def flush(self):
                 raise IOError("Simulated flush error")
 
-        wrapper = StreamMaskingWrapper(FailingFlushStream(), masking_filter)
+        wrapper = StreamMaskingWrapper(FailingFlushStream(), masking_filter)  # type: ignore[arg-type]
 
         # Should not raise
         wrapper.flush()
