@@ -504,4 +504,337 @@ public class DocumentServiceTest {
     verify(mockClient, times(1))
         .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class), eq(false));
   }
+
+  @Test
+  public void testUpdateDocumentSubTypeSuccess() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Test updating document subType
+    service.updateDocumentSubType(opContext, TEST_DOCUMENT_URN, "faq", TEST_USER_URN);
+
+    // Verify batch ingest was called (subTypes + info with updated lastModified)
+    verify(mockClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), any(List.class), eq(false));
+  }
+
+  @Test
+  public void testUpdateDocumentSubTypeNotFound() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Test updating subType for a non-existent document
+    try {
+      service.updateDocumentSubType(opContext, TEST_DOCUMENT_URN, "faq", TEST_USER_URN);
+      Assert.fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(e.getMessage().contains("does not exist"));
+    }
+  }
+
+  @Test
+  public void testCircularReferenceDetectionSimple() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+
+    // Create a simple circular reference: doc1 -> doc2 -> doc1
+    final Urn doc1Urn = UrnUtils.getUrn("urn:li:document:doc1");
+    final Urn doc2Urn = UrnUtils.getUrn("urn:li:document:doc2");
+
+    // Mock doc2 with parent doc1 (creates the cycle when we try to make doc1's parent = doc2)
+    final DocumentInfo doc2Info = new DocumentInfo();
+
+    // Set ALL required fields first (contents, created, lastModified, status)
+    final com.linkedin.knowledge.DocumentContents doc2Contents =
+        new com.linkedin.knowledge.DocumentContents();
+    doc2Contents.setText("doc2");
+    doc2Info.setContents(doc2Contents);
+
+    final com.linkedin.common.AuditStamp doc2Created = new com.linkedin.common.AuditStamp();
+    doc2Created.setTime(System.currentTimeMillis());
+    doc2Created.setActor(TEST_USER_URN);
+    doc2Info.setCreated(doc2Created);
+
+    final com.linkedin.common.AuditStamp doc2Modified = new com.linkedin.common.AuditStamp();
+    doc2Modified.setTime(System.currentTimeMillis());
+    doc2Modified.setActor(TEST_USER_URN);
+    doc2Info.setLastModified(doc2Modified);
+
+    final com.linkedin.knowledge.DocumentStatus doc2Status =
+        new com.linkedin.knowledge.DocumentStatus();
+    doc2Status.setState(com.linkedin.knowledge.DocumentState.PUBLISHED);
+    doc2Info.setStatus(doc2Status);
+
+    // Now set the parent document (optional field) - use regular setter
+    final com.linkedin.knowledge.ParentDocument doc2Parent =
+        new com.linkedin.knowledge.ParentDocument();
+    doc2Parent.setDocument(doc1Urn);
+    doc2Info.setParentDocument(doc2Parent);
+
+    final EnvelopedAspect doc2Aspect = new EnvelopedAspect();
+    doc2Aspect.setValue(new com.linkedin.entity.Aspect(doc2Info.data()));
+    final EnvelopedAspectMap doc2AspectMap = new EnvelopedAspectMap();
+    doc2AspectMap.put(Constants.DOCUMENT_INFO_ASPECT_NAME, doc2Aspect);
+    final EntityResponse doc2Response = new EntityResponse();
+    doc2Response.setUrn(doc2Urn);
+    doc2Response.setAspects(doc2AspectMap);
+
+    // Mock doc1 info (will be updated to have parent doc2)
+    final DocumentInfo doc1Info = new DocumentInfo();
+
+    final com.linkedin.knowledge.DocumentContents doc1Contents =
+        new com.linkedin.knowledge.DocumentContents();
+    doc1Contents.setText("doc1");
+    doc1Info.setContents(doc1Contents);
+
+    final com.linkedin.common.AuditStamp doc1Created = new com.linkedin.common.AuditStamp();
+    doc1Created.setTime(System.currentTimeMillis());
+    doc1Created.setActor(TEST_USER_URN);
+    doc1Info.setCreated(doc1Created);
+
+    final com.linkedin.common.AuditStamp doc1Modified = new com.linkedin.common.AuditStamp();
+    doc1Modified.setTime(System.currentTimeMillis());
+    doc1Modified.setActor(TEST_USER_URN);
+    doc1Info.setLastModified(doc1Modified);
+
+    final com.linkedin.knowledge.DocumentStatus doc1Status =
+        new com.linkedin.knowledge.DocumentStatus();
+    doc1Status.setState(com.linkedin.knowledge.DocumentState.PUBLISHED);
+    doc1Info.setStatus(doc1Status);
+
+    final EnvelopedAspect doc1Aspect = new EnvelopedAspect();
+    doc1Aspect.setValue(new com.linkedin.entity.Aspect(doc1Info.data()));
+    final EnvelopedAspectMap doc1AspectMap = new EnvelopedAspectMap();
+    doc1AspectMap.put(Constants.DOCUMENT_INFO_ASPECT_NAME, doc1Aspect);
+    final EntityResponse doc1Response = new EntityResponse();
+    doc1Response.setUrn(doc1Urn);
+    doc1Response.setAspects(doc1AspectMap);
+
+    // Setup mocks
+    when(mockClient.exists(any(OperationContext.class), eq(doc1Urn))).thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), eq(doc2Urn))).thenReturn(true);
+
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq(doc1Urn),
+            any(Set.class)))
+        .thenReturn(doc1Response);
+
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq(doc2Urn),
+            any(Set.class)))
+        .thenReturn(doc2Response);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Test moving doc1 to have parent doc2 (which would create a circular reference doc1 -> doc2 ->
+    // doc1)
+    try {
+      service.moveDocument(opContext, doc1Urn, doc2Urn, TEST_USER_URN);
+      Assert.fail("Expected IllegalArgumentException for circular reference");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(e.getMessage().contains("circular"));
+    }
+  }
+
+  // Note: Merge draft tests are complex to mock properly due to aspect deserialization
+  // The core functionality is tested through the integration tests and basic CRUD operations
+
+  @Test
+  public void testMergeDraftIntoParentNotADraft() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+
+    final Urn docUrn = UrnUtils.getUrn("urn:li:document:not-a-draft");
+
+    // Create document info WITHOUT draftOf
+    final DocumentInfo docInfo = new DocumentInfo();
+    docInfo.setTitle("Not a Draft");
+    docInfo.setContents(new com.linkedin.knowledge.DocumentContents().setText("Content"));
+    docInfo.setCreated(
+        new com.linkedin.common.AuditStamp()
+            .setTime(System.currentTimeMillis())
+            .setActor(TEST_USER_URN));
+
+    final EnvelopedAspect aspect = new EnvelopedAspect();
+    aspect.setValue(
+        new com.linkedin.entity.Aspect(GenericRecordUtils.serializeAspect(docInfo).data()));
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(Constants.DOCUMENT_INFO_ASPECT_NAME, aspect);
+    final EntityResponse response = new EntityResponse();
+    response.setUrn(docUrn);
+    response.setAspects(aspectMap);
+
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq(docUrn),
+            any(Set.class)))
+        .thenReturn(response);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Test merge on non-draft document
+    try {
+      service.mergeDraftIntoParent(opContext, docUrn, false, TEST_USER_URN);
+      Assert.fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(e.getMessage().contains("not a draft"));
+    }
+  }
+
+  @Test
+  public void testGetDraftDocumentsSuccess() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+
+    final Urn publishedUrn = UrnUtils.getUrn("urn:li:document:published-doc");
+
+    // Mock search result
+    final SearchResult searchResult = new SearchResult();
+    searchResult.setFrom(0);
+    searchResult.setPageSize(10);
+    searchResult.setNumEntities(2);
+
+    final SearchEntityArray entities = new SearchEntityArray();
+    entities.add(new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:document:draft1")));
+    entities.add(new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:document:draft2")));
+    searchResult.setEntities(entities);
+    searchResult.setMetadata(new SearchResultMetadata());
+
+    when(mockClient.search(
+            any(OperationContext.class),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq("*"),
+            any(),
+            any(),
+            eq(0),
+            eq(10)))
+        .thenReturn(searchResult);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Test getting draft documents
+    final SearchResult result = service.getDraftDocuments(opContext, publishedUrn, 0, 10);
+
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.getNumEntities(), 2);
+    verify(mockClient, times(1))
+        .search(
+            any(OperationContext.class),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq("*"),
+            any(),
+            any(),
+            eq(0),
+            eq(10));
+  }
+
+  @Test
+  public void testBuildDraftOfFilter() {
+    final Urn publishedUrn = UrnUtils.getUrn("urn:li:document:published");
+
+    // Test the static filter builder
+    final com.linkedin.metadata.query.filter.Filter filter =
+        DocumentService.buildDraftOfFilter(publishedUrn);
+
+    Assert.assertNotNull(filter);
+    Assert.assertNotNull(filter.getOr());
+    Assert.assertEquals(filter.getOr().size(), 1);
+    Assert.assertEquals(filter.getOr().get(0).getAnd().size(), 1);
+    Assert.assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "draftOf");
+    Assert.assertEquals(filter.getOr().get(0).getAnd().get(0).getValue(), publishedUrn.toString());
+  }
+
+  @Test
+  public void testBuildParentDocumentFilter() {
+    final Urn parentUrn = UrnUtils.getUrn("urn:li:document:parent");
+
+    // Test the static filter builder
+    final com.linkedin.metadata.query.filter.Filter filter =
+        DocumentService.buildParentDocumentFilter(parentUrn);
+
+    Assert.assertNotNull(filter);
+    Assert.assertNotNull(filter.getOr());
+    Assert.assertEquals(filter.getOr().size(), 1);
+    Assert.assertEquals(filter.getOr().get(0).getAnd().size(), 1);
+    Assert.assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "parentDocument");
+    Assert.assertEquals(filter.getOr().get(0).getAnd().get(0).getValue(), parentUrn.toString());
+  }
+
+  @Test
+  public void testBuildParentDocumentFilterNull() {
+    // Test with null parent
+    final com.linkedin.metadata.query.filter.Filter filter =
+        DocumentService.buildParentDocumentFilter(null);
+
+    Assert.assertNull(filter);
+  }
+
+  @Test
+  public void testCreateDocumentAsDraft() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    final Urn publishedDocUrn = UrnUtils.getUrn("urn:li:document:published");
+
+    // Test creating a draft document
+    final Urn draftUrn =
+        service.createDocument(
+            opContext,
+            null, // auto-generate ID
+            java.util.Collections.singletonList("tutorial"),
+            "Draft Title",
+            null, // source
+            null, // state (will be forced to UNPUBLISHED)
+            "Draft content",
+            null, // no parent
+            null, // no related assets
+            null, // no related documents
+            publishedDocUrn, // draftOf
+            TEST_USER_URN);
+
+    // Verify the URN was created
+    Assert.assertNotNull(draftUrn);
+    Assert.assertEquals(draftUrn.getEntityType(), Constants.DOCUMENT_ENTITY_NAME);
+
+    // Verify ingest was called
+    verify(mockClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), any(List.class), eq(false));
+  }
+
+  @Test
+  public void testCreateDraftWithPublishedStateFails() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    final Urn publishedDocUrn = UrnUtils.getUrn("urn:li:document:published");
+
+    // Test creating a draft with PUBLISHED state (should fail)
+    try {
+      service.createDocument(
+          opContext,
+          null,
+          java.util.Collections.singletonList("tutorial"),
+          "Draft Title",
+          null,
+          com.linkedin.knowledge.DocumentState.PUBLISHED, // PUBLISHED state with draftOf
+          "Draft content",
+          null,
+          null,
+          null,
+          publishedDocUrn, // draftOf
+          TEST_USER_URN);
+      Assert.fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(
+          e.getMessage().contains("Cannot create a draft document with PUBLISHED state"));
+    }
+  }
 }

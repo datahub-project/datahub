@@ -881,7 +881,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(PATCH_SCHEMA_FILE))
         .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(KNOWLEDGE_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
