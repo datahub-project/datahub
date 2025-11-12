@@ -8,8 +8,6 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2025-03-25 12:00:00"
 
-pytestmark = pytest.mark.integration_batch_6
-
 
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
@@ -51,6 +49,7 @@ def hex_mock_api_runner(docker_compose_runner, test_resources_dir):
         yield docker_services
 
 
+@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_hex_ingestion(pytestconfig, hex_mock_api_runner, test_resources_dir, tmp_path):
