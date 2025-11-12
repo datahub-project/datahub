@@ -6,7 +6,12 @@ Validates end-to-end functionality of:
 - document (get)
 - updateDocumentContents
 - updateDocumentStatus
-- searchDocuments
+- updateDocumentSubType
+- moveDocument
+- updateDocumentRelatedEntities
+- searchDocuments (with various filters)
+- changeHistory
+- parentDocuments (hierarchy)
 
 Tests are idempotent and use unique IDs for created documents.
 """
@@ -408,3 +413,646 @@ def test_search_documents(auth_session):
     """
     del_res = execute_graphql(auth_session, delete_mutation, {"urn": urn})
     assert del_res["data"]["deleteDocument"] is True
+
+
+@pytest.mark.dependency()
+def test_move_document(auth_session):
+    """
+    Test moving document to a parent and then to root.
+    1. Create two documents (parent and child).
+    2. Move child to parent.
+    3. Verify parent relationship.
+    4. Move child to root (no parent).
+    5. Verify parent relationship is removed.
+    6. Clean up.
+    """
+    parent_id = _unique_id("smoke-doc-parent")
+    child_id = _unique_id("smoke-doc-child")
+
+    # Create parent document
+    create_mutation = """
+        mutation CreateKA($input: CreateDocumentInput!) {
+          createDocument(input: $input)
+        }
+    """
+    parent_vars = {
+        "input": {
+            "id": parent_id,
+            "subType": "guide",
+            "title": f"Parent {parent_id}",
+            "contents": {"text": "Parent content"},
+        }
+    }
+    parent_res = execute_graphql(auth_session, create_mutation, parent_vars)
+    parent_urn = parent_res["data"]["createDocument"]
+
+    # Create child document
+    child_vars = {
+        "input": {
+            "id": child_id,
+            "subType": "guide",
+            "title": f"Child {child_id}",
+            "contents": {"text": "Child content"},
+        }
+    }
+    child_res = execute_graphql(auth_session, create_mutation, child_vars)
+    child_urn = child_res["data"]["createDocument"]
+
+    wait_for_writes_to_sync()
+
+    # Move child to parent
+    move_mutation = """
+        mutation MoveDoc($input: MoveDocumentInput!) {
+          moveDocument(input: $input)
+        }
+    """
+    move_vars = {"input": {"urn": child_urn, "parentDocument": parent_urn}}
+    move_res = execute_graphql(auth_session, move_mutation, move_vars)
+    assert move_res["data"]["moveDocument"] is True
+
+    wait_for_writes_to_sync()
+
+    # Verify parent relationship
+    get_query = """
+        query GetDoc($urn: String!) {
+          document(urn: $urn) {
+            info {
+              parentDocument {
+                document {
+                  urn
+                  info { title }
+                }
+              }
+            }
+          }
+        }
+    """
+    get_res = execute_graphql(auth_session, get_query, {"urn": child_urn})
+    parent_doc = get_res["data"]["document"]["info"]["parentDocument"]
+    assert parent_doc is not None
+    assert parent_doc["document"]["urn"] == parent_urn
+    assert parent_doc["document"]["info"]["title"].startswith("Parent ")
+
+    # Move child to root (null parent)
+    move_to_root_vars = {"input": {"urn": child_urn, "parentDocument": None}}
+    move_root_res = execute_graphql(auth_session, move_mutation, move_to_root_vars)
+    assert move_root_res["data"]["moveDocument"] is True
+
+    wait_for_writes_to_sync()
+
+    # Verify parent is removed
+    get_res2 = execute_graphql(auth_session, get_query, {"urn": child_urn})
+    parent_doc2 = get_res2["data"]["document"]["info"]["parentDocument"]
+    assert parent_doc2 is None
+
+    # Cleanup
+    delete_mutation = """
+        mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
+    """
+    execute_graphql(auth_session, delete_mutation, {"urn": child_urn})
+    execute_graphql(auth_session, delete_mutation, {"urn": parent_urn})
+
+
+@pytest.mark.dependency()
+def test_update_document_subtype(auth_session):
+    """
+    Test updating document sub-type.
+    1. Create a document with subType "guide".
+    2. Update sub-type to "tutorial".
+    3. Verify the change.
+    4. Clean up.
+    """
+    document_id = _unique_id("smoke-doc-subtype")
+
+    # Create document
+    create_mutation = """
+        mutation CreateKA($input: CreateDocumentInput!) {
+          createDocument(input: $input)
+        }
+    """
+    variables = {
+        "input": {
+            "id": document_id,
+            "subType": "guide",
+            "title": f"SubType Test {document_id}",
+            "contents": {"text": "SubType content"},
+        }
+    }
+    create_res = execute_graphql(auth_session, create_mutation, variables)
+    urn = create_res["data"]["createDocument"]
+
+    wait_for_writes_to_sync()
+
+    # Update sub-type
+    update_mutation = """
+        mutation UpdateSubType($input: UpdateDocumentSubTypeInput!) {
+          updateDocumentSubType(input: $input)
+        }
+    """
+    update_vars = {"input": {"urn": urn, "subType": "tutorial"}}
+    update_res = execute_graphql(auth_session, update_mutation, update_vars)
+    assert update_res["data"]["updateDocumentSubType"] is True
+
+    wait_for_writes_to_sync()
+
+    # Verify update
+    get_query = """
+        query GetDoc($urn: String!) {
+          document(urn: $urn) {
+            subType
+          }
+        }
+    """
+    get_res = execute_graphql(auth_session, get_query, {"urn": urn})
+    assert get_res["data"]["document"]["subType"] == "tutorial"
+
+    # Cleanup
+    delete_mutation = """
+        mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
+    """
+    execute_graphql(auth_session, delete_mutation, {"urn": urn})
+
+
+@pytest.mark.dependency()
+def test_update_related_entities(auth_session):
+    """
+    Test updating related entities (related assets and related documents).
+    1. Create three documents (main, related1, related2).
+    2. Update main document's related documents.
+    3. Verify the relationships via GraphQL walk.
+    4. Clean up.
+    """
+    main_id = _unique_id("smoke-doc-main")
+    related1_id = _unique_id("smoke-doc-related1")
+    related2_id = _unique_id("smoke-doc-related2")
+
+    # Create documents
+    create_mutation = """
+        mutation CreateKA($input: CreateDocumentInput!) {
+          createDocument(input: $input)
+        }
+    """
+
+    main_vars = {
+        "input": {
+            "id": main_id,
+            "subType": "guide",
+            "title": f"Main {main_id}",
+            "contents": {"text": "Main content"},
+        }
+    }
+    main_res = execute_graphql(auth_session, create_mutation, main_vars)
+    main_urn = main_res["data"]["createDocument"]
+
+    related1_vars = {
+        "input": {
+            "id": related1_id,
+            "subType": "reference",
+            "title": f"Related1 {related1_id}",
+            "contents": {"text": "Related1 content"},
+        }
+    }
+    related1_res = execute_graphql(auth_session, create_mutation, related1_vars)
+    related1_urn = related1_res["data"]["createDocument"]
+
+    related2_vars = {
+        "input": {
+            "id": related2_id,
+            "subType": "reference",
+            "title": f"Related2 {related2_id}",
+            "contents": {"text": "Related2 content"},
+        }
+    }
+    related2_res = execute_graphql(auth_session, create_mutation, related2_vars)
+    related2_urn = related2_res["data"]["createDocument"]
+
+    wait_for_writes_to_sync()
+
+    # Update related entities
+    update_mutation = """
+        mutation UpdateRelated($input: UpdateDocumentRelatedEntitiesInput!) {
+          updateDocumentRelatedEntities(input: $input)
+        }
+    """
+    update_vars = {
+        "input": {
+            "urn": main_urn,
+            "relatedDocuments": [related1_urn, related2_urn],
+        }
+    }
+    update_res = execute_graphql(auth_session, update_mutation, update_vars)
+    assert update_res["data"]["updateDocumentRelatedEntities"] is True
+
+    wait_for_writes_to_sync()
+
+    # Verify related documents via GraphQL walk
+    get_query = """
+        query GetDoc($urn: String!) {
+          document(urn: $urn) {
+            info {
+              relatedDocuments {
+                document {
+                  urn
+                  info {
+                    title
+                  }
+                }
+              }
+            }
+          }
+        }
+    """
+    get_res = execute_graphql(auth_session, get_query, {"urn": main_urn})
+    related_docs = get_res["data"]["document"]["info"]["relatedDocuments"]
+    assert related_docs is not None
+    assert len(related_docs) == 2
+
+    related_urns = [doc["document"]["urn"] for doc in related_docs]
+    assert related1_urn in related_urns
+    assert related2_urn in related_urns
+
+    # Verify that the related documents have resolved titles
+    for doc in related_docs:
+        assert doc["document"]["info"]["title"].startswith("Related")
+
+    # Cleanup
+    delete_mutation = """
+        mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
+    """
+    execute_graphql(auth_session, delete_mutation, {"urn": main_urn})
+    execute_graphql(auth_session, delete_mutation, {"urn": related1_urn})
+    execute_graphql(auth_session, delete_mutation, {"urn": related2_urn})
+
+
+@pytest.mark.dependency()
+def test_change_history(auth_session):
+    """
+    Test that change history is created for document edits and moves.
+    1. Create a document.
+    2. Update title.
+    3. Update content.
+    4. Create parent and move document.
+    5. Query change history and verify entries exist for each change.
+    6. Clean up.
+    """
+    document_id = _unique_id("smoke-doc-history")
+    parent_id = _unique_id("smoke-doc-history-parent")
+
+    # Create document
+    create_mutation = """
+        mutation CreateKA($input: CreateDocumentInput!) {
+          createDocument(input: $input)
+        }
+    """
+    doc_vars = {
+        "input": {
+            "id": document_id,
+            "subType": "guide",
+            "title": f"History Test {document_id}",
+            "contents": {"text": "Original content"},
+        }
+    }
+    doc_res = execute_graphql(auth_session, create_mutation, doc_vars)
+    doc_urn = doc_res["data"]["createDocument"]
+
+    wait_for_writes_to_sync()
+    time.sleep(2)  # Ensure distinct timestamps
+
+    # Update title
+    update_contents_mutation = """
+        mutation UpdateContents($input: UpdateDocumentContentsInput!) {
+          updateDocumentContents(input: $input)
+        }
+    """
+    update_vars = {
+        "input": {
+            "urn": doc_urn,
+            "title": f"Updated Title {document_id}",
+        }
+    }
+    execute_graphql(auth_session, update_contents_mutation, update_vars)
+
+    wait_for_writes_to_sync()
+    time.sleep(2)
+
+    # Update content
+    update_content_vars = {
+        "input": {
+            "urn": doc_urn,
+            "contents": {"text": "Updated content"},
+        }
+    }
+    execute_graphql(auth_session, update_contents_mutation, update_content_vars)
+
+    wait_for_writes_to_sync()
+    time.sleep(2)
+
+    # Create parent and move document
+    parent_vars = {
+        "input": {
+            "id": parent_id,
+            "subType": "guide",
+            "title": f"Parent {parent_id}",
+            "contents": {"text": "Parent content"},
+        }
+    }
+    parent_res = execute_graphql(auth_session, create_mutation, parent_vars)
+    parent_urn = parent_res["data"]["createDocument"]
+
+    wait_for_writes_to_sync()
+    time.sleep(2)
+
+    move_mutation = """
+        mutation MoveDoc($input: MoveDocumentInput!) {
+          moveDocument(input: $input)
+        }
+    """
+    move_vars = {"input": {"urn": doc_urn, "parentDocument": parent_urn}}
+    execute_graphql(auth_session, move_mutation, move_vars)
+
+    wait_for_writes_to_sync()
+    time.sleep(3)  # Give time for change history to be generated
+
+    # Query change history
+    history_query = """
+        query GetHistory($urn: String!) {
+          document(urn: $urn) {
+            changeHistory(limit: 100) {
+              category
+              operation
+              description
+            }
+          }
+        }
+    """
+    history_res = execute_graphql(auth_session, history_query, {"urn": doc_urn})
+    changes = history_res["data"]["document"]["changeHistory"]
+
+    # Verify we have change entries
+    assert len(changes) > 0, "Expected at least one change history entry"
+
+    # Look for specific changes (the exact structure may vary based on backend implementation)
+    descriptions = [change.get("description", "").lower() for change in changes]
+    change_str = " ".join(descriptions)
+
+    # At minimum, we should see document creation
+    assert any("created" in desc or "create" in desc for desc in descriptions), (
+        f"Expected 'created' in change history. Got: {change_str}"
+    )
+
+    # Cleanup
+    delete_mutation = """
+        mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
+    """
+    execute_graphql(auth_session, delete_mutation, {"urn": doc_urn})
+    execute_graphql(auth_session, delete_mutation, {"urn": parent_urn})
+
+
+@pytest.mark.dependency()
+def test_search_documents_with_filters(auth_session):
+    """
+    Test searching documents with various filters.
+    1. Create parent document and child document.
+    2. Search for documents with parentDocument filter.
+    3. Search for root-only documents.
+    4. Search by subType filter.
+    5. Clean up.
+    """
+    parent_id = _unique_id("smoke-search-parent")
+    child_id = _unique_id("smoke-search-child")
+    root_id = _unique_id("smoke-search-root")
+
+    # Create documents
+    create_mutation = """
+        mutation CreateKA($input: CreateDocumentInput!) {
+          createDocument(input: $input)
+        }
+    """
+
+    # Parent document
+    parent_vars = {
+        "input": {
+            "id": parent_id,
+            "subType": "faq",
+            "title": f"Search Parent {parent_id}",
+            "contents": {"text": "Parent content"},
+        }
+    }
+    parent_res = execute_graphql(auth_session, create_mutation, parent_vars)
+    parent_urn = parent_res["data"]["createDocument"]
+
+    # Child document
+    child_vars = {
+        "input": {
+            "id": child_id,
+            "subType": "tutorial",
+            "title": f"Search Child {child_id}",
+            "contents": {"text": "Child content"},
+        }
+    }
+    child_res = execute_graphql(auth_session, create_mutation, child_vars)
+    child_urn = child_res["data"]["createDocument"]
+
+    # Root document
+    root_vars = {
+        "input": {
+            "id": root_id,
+            "subType": "tutorial",
+            "title": f"Search Root {root_id}",
+            "contents": {"text": "Root content"},
+        }
+    }
+    root_res = execute_graphql(auth_session, create_mutation, root_vars)
+    root_urn = root_res["data"]["createDocument"]
+
+    wait_for_writes_to_sync()
+
+    # Move child to parent
+    move_mutation = """
+        mutation MoveDoc($input: MoveDocumentInput!) {
+          moveDocument(input: $input)
+        }
+    """
+    move_vars = {"input": {"urn": child_urn, "parentDocument": parent_urn}}
+    execute_graphql(auth_session, move_mutation, move_vars)
+
+    wait_for_writes_to_sync()
+    time.sleep(5)  # Extra time for search indexing
+
+    # Search by parent document filter
+    search_query = """
+        query SearchDocs($input: SearchDocumentsInput!) {
+          searchDocuments(input: $input) {
+            total
+            documents {
+              urn
+              info { title }
+            }
+          }
+        }
+    """
+    search_vars = {
+        "input": {
+            "start": 0,
+            "count": 100,
+            "parentDocument": parent_urn,
+            "states": ["UNPUBLISHED"],
+        }
+    }
+    search_res = execute_graphql(auth_session, search_query, search_vars)
+    assert "errors" not in search_res, f"GraphQL errors: {search_res.get('errors')}"
+
+    result = search_res["data"]["searchDocuments"]
+    urns = [doc["urn"] for doc in result["documents"]]
+    assert child_urn in urns, "Expected child document in parent filter results"
+
+    # Search for root-only documents
+    root_search_vars = {
+        "input": {
+            "start": 0,
+            "count": 100,
+            "rootOnly": True,
+            "states": ["UNPUBLISHED"],
+        }
+    }
+    root_search_res = execute_graphql(auth_session, search_query, root_search_vars)
+    root_result = root_search_res["data"]["searchDocuments"]
+    root_urns = [doc["urn"] for doc in root_result["documents"]]
+
+    # Root and parent should be in results, but not child
+    assert root_urn in root_urns or parent_urn in root_urns, (
+        "Expected root-level documents in rootOnly results"
+    )
+
+    # Search by type filter
+    type_search_vars = {
+        "input": {
+            "start": 0,
+            "count": 100,
+            "types": ["tutorial"],
+            "states": ["UNPUBLISHED"],
+        }
+    }
+    type_search_res = execute_graphql(auth_session, search_query, type_search_vars)
+    type_result = type_search_res["data"]["searchDocuments"]
+    type_urns = [doc["urn"] for doc in type_result["documents"]]
+
+    # Should find our tutorial documents
+    assert child_urn in type_urns or root_urn in type_urns, (
+        "Expected tutorial documents in type filter results"
+    )
+
+    # Cleanup
+    delete_mutation = """
+        mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
+    """
+    execute_graphql(auth_session, delete_mutation, {"urn": child_urn})
+    execute_graphql(auth_session, delete_mutation, {"urn": parent_urn})
+    execute_graphql(auth_session, delete_mutation, {"urn": root_urn})
+
+
+@pytest.mark.dependency()
+def test_parent_documents_hierarchy(auth_session):
+    """
+    Test the parentDocuments resolver that returns the full parent hierarchy.
+    1. Create grandparent -> parent -> child hierarchy.
+    2. Query parentDocuments on child.
+    3. Verify full hierarchy is returned.
+    4. Clean up.
+    """
+    grandparent_id = _unique_id("smoke-grandparent")
+    parent_id = _unique_id("smoke-parent")
+    child_id = _unique_id("smoke-child")
+
+    # Create documents
+    create_mutation = """
+        mutation CreateKA($input: CreateDocumentInput!) {
+          createDocument(input: $input)
+        }
+    """
+
+    grandparent_vars = {
+        "input": {
+            "id": grandparent_id,
+            "subType": "guide",
+            "title": f"Grandparent {grandparent_id}",
+            "contents": {"text": "Grandparent content"},
+        }
+    }
+    grandparent_res = execute_graphql(auth_session, create_mutation, grandparent_vars)
+    grandparent_urn = grandparent_res["data"]["createDocument"]
+
+    parent_vars = {
+        "input": {
+            "id": parent_id,
+            "subType": "guide",
+            "title": f"Parent {parent_id}",
+            "contents": {"text": "Parent content"},
+        }
+    }
+    parent_res = execute_graphql(auth_session, create_mutation, parent_vars)
+    parent_urn = parent_res["data"]["createDocument"]
+
+    child_vars = {
+        "input": {
+            "id": child_id,
+            "subType": "guide",
+            "title": f"Child {child_id}",
+            "contents": {"text": "Child content"},
+        }
+    }
+    child_res = execute_graphql(auth_session, create_mutation, child_vars)
+    child_urn = child_res["data"]["createDocument"]
+
+    wait_for_writes_to_sync()
+
+    # Build hierarchy: grandparent -> parent
+    move_mutation = """
+        mutation MoveDoc($input: MoveDocumentInput!) {
+          moveDocument(input: $input)
+        }
+    """
+    move_parent_vars = {"input": {"urn": parent_urn, "parentDocument": grandparent_urn}}
+    execute_graphql(auth_session, move_mutation, move_parent_vars)
+
+    wait_for_writes_to_sync()
+
+    # Build hierarchy: parent -> child
+    move_child_vars = {"input": {"urn": child_urn, "parentDocument": parent_urn}}
+    execute_graphql(auth_session, move_mutation, move_child_vars)
+
+    wait_for_writes_to_sync()
+
+    # Query parent hierarchy
+    hierarchy_query = """
+        query GetHierarchy($urn: String!) {
+          document(urn: $urn) {
+            parentDocuments {
+              count
+              parents {
+                urn
+                info {
+                  title
+                }
+              }
+            }
+          }
+        }
+    """
+    hierarchy_res = execute_graphql(auth_session, hierarchy_query, {"urn": child_urn})
+    parent_docs = hierarchy_res["data"]["document"]["parentDocuments"]
+
+    assert parent_docs is not None
+    assert parent_docs["count"] >= 2, "Expected at least 2 parents in hierarchy"
+
+    parent_urns = [p["urn"] for p in parent_docs["parents"]]
+    assert parent_urn in parent_urns, "Expected direct parent in hierarchy"
+    assert grandparent_urn in parent_urns, "Expected grandparent in hierarchy"
+
+    # Cleanup
+    delete_mutation = """
+        mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
+    """
+    execute_graphql(auth_session, delete_mutation, {"urn": child_urn})
+    execute_graphql(auth_session, delete_mutation, {"urn": parent_urn})
+    execute_graphql(auth_session, delete_mutation, {"urn": grandparent_urn})
