@@ -51,8 +51,14 @@ afterEach(() => {
       cy.log(`Used: ${formatBytes(mem.usedJSHeapSize)}`);
       cy.log(`Total: ${formatBytes(mem.totalJSHeapSize)}`);
       cy.log(`Limit: ${formatBytes(mem.jsHeapSizeLimit)}`);
+
+      console.log("=== Browser Tab Memory ===");
+      console.log(`Used: ${formatBytes(mem.usedJSHeapSize)}`);
+      console.log(`Total: ${formatBytes(mem.totalJSHeapSize)}`);
+      console.log(`Limit: ${formatBytes(mem.jsHeapSizeLimit)}`);
     } else {
       cy.log("Browser memory API not available");
+      console.log("Browser memory API not available");
     }
   });
 });
