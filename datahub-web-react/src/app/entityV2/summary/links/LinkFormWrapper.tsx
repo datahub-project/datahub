@@ -43,8 +43,9 @@ export function LinkFormWrapper({ initialValues }: Props) {
     }, [initialValues?.variant]);
 
     useEffect(() => {
-        setVariant(initialValues?.variant ?? LinkFormVariant.UploadFile);
-    }, [initialValues?.variant, setVariant]);
+        const defaultVariant = isDocumentationFileUploadV1Enabled ? LinkFormVariant.UploadFile : LinkFormVariant.URL;
+        setVariant(initialValues?.variant ?? defaultVariant);
+    }, [initialValues?.variant, setVariant, isDocumentationFileUploadV1Enabled]);
 
     const onTabChanged = useCallback(
         (key: string) => {
