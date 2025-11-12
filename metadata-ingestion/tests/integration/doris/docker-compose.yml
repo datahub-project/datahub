@@ -6,6 +6,10 @@ services:
     image: apache/doris:fe-3.0.8
     container_name: "testdoris-fe"
     hostname: fe
+    environment:
+      # Workaround for Java 17 cgroup v2 incompatibility in GitHub Actions
+      # These flags disable container metrics detection which causes NullPointerException
+      - JAVA_OPTS=-XX:-UseContainerSupport -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap
     ports:
       - 58030:8030  # FE web UI
       - 59030:9030  # MySQL protocol port
@@ -20,6 +24,9 @@ services:
     image: apache/doris:be-3.0.8
     container_name: "testdoris-be"
     hostname: be
+    environment:
+      # Workaround for Java 17 cgroup v2 incompatibility in GitHub Actions
+      - JAVA_OPTS=-XX:-UseContainerSupport -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap
     ports:
       - 58040:8040  # BE web UI
       - 59050:9050  # BE heartbeat port
