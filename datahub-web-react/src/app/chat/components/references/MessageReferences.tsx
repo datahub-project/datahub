@@ -1,4 +1,4 @@
-import { Button, Loader, Text, colors } from '@components';
+import { Button, Loader } from '@components';
 import { CaretDown, CaretRight } from '@phosphor-icons/react';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
@@ -10,7 +10,6 @@ import { useGetEntities } from '@app/sharedV2/useGetEntities';
 import { Entity } from '@types';
 
 const Container = styled.div`
-    margin-top: 12px;
     width: 100%;
 `;
 
@@ -81,16 +80,22 @@ export const MessageReferences: React.FC<Props> = ({ messageText, selectedEntity
     return (
         <Container>
             <Header onClick={handleToggle}>
-                <Button variant="text" size="sm" style={{ padding: 0, minWidth: 'auto' }}>
-                    {isExpanded ? (
-                        <CaretDown size={16} weight="bold" color={colors.gray[600]} />
-                    ) : (
-                        <CaretRight size={16} weight="bold" color={colors.gray[600]} />
-                    )}
-                </Button>
-                <Text color="gray" style={{ fontSize: '14px', fontWeight: 500 }}>
+                <Button
+                    variant="text"
+                    color="gray"
+                    size="sm"
+                    style={{
+                        minWidth: 'auto',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        gap: '8px',
+                        paddingLeft: 0,
+                        paddingRight: 0,
+                    }}
+                >
                     References ({entities.length})
-                </Text>
+                    {isExpanded ? <CaretDown size={16} weight="bold" /> : <CaretRight size={16} weight="bold" />}
+                </Button>
             </Header>
 
             {isExpanded && (
