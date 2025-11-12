@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -44,6 +45,12 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
 
   @Override
   public CompletableFuture get(DataFetchingEnvironment environment) {
+    // Set the DataFetchingEnvironment in the QueryContext for access in batchLoad methods
+    QueryContext context = environment.getContext();
+    if (context != null) {
+      context.setDataFetchingEnvironment(environment);
+    }
+
     final Entity resolvedEntity = _entityProvider.apply(environment);
     if (resolvedEntity == null) {
       return CompletableFuture.completedFuture(null);
