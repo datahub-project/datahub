@@ -219,7 +219,7 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
         domains = AddDatasetDomain.get_domain_class(ctx.graph, config.domains)
         generic_config = AddDatasetDomainSemanticsConfig(
             get_domains_to_add=lambda _: domains,
-            **config.dict(exclude={"domains"}),
+            **config.model_dump(exclude={"domains"}),
         )
         super().__init__(generic_config, ctx)
 
