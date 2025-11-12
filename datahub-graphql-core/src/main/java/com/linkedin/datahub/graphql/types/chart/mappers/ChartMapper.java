@@ -314,7 +314,12 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
   private static void mapApplicationAssociation(
       @Nullable final QueryContext context, @Nonnull Chart chart, @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    chart.setApplications(
-        ApplicationAssociationMapper.mapList(context, applications, chart.getUrn()));
+    final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+        applicationAssociations =
+            ApplicationAssociationMapper.mapList(context, applications, chart.getUrn());
+    chart.setApplications(applicationAssociations);
+    if (applicationAssociations != null && !applicationAssociations.isEmpty()) {
+      chart.setApplication(applicationAssociations.get(0));
+    }
   }
 }

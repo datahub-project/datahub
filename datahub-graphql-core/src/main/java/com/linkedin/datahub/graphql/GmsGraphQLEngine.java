@@ -968,17 +968,7 @@ public class GmsGraphQLEngine {
                           return container.getDataPlatformInstance() != null
                               ? container.getDataPlatformInstance().getUrn()
                               : null;
-                        }))
-                .dataFetcher(
-                    "application",
-                    (env) -> {
-                      final Container container = env.getSource();
-                      if (container.getApplications() != null
-                          && !container.getApplications().isEmpty()) {
-                        return container.getApplications().get(0);
-                      }
-                      return null;
-                    }));
+                        })));
   }
 
   private void configureDataPlatformInstanceResolvers(final RuntimeWiring.Builder builder) {
@@ -1833,17 +1823,7 @@ public class GmsGraphQLEngine {
                             (env) ->
                                 Optional.ofNullable((Dataset) env.getSource())
                                     .map(Dataset::getLogicalParent)
-                                    .orElse(null)))
-                    .dataFetcher(
-                        "application",
-                        (env) -> {
-                          final Dataset dataset = env.getSource();
-                          if (dataset.getApplications() != null
-                              && !dataset.getApplications().isEmpty()) {
-                            return dataset.getApplications().get(0);
-                          }
-                          return null;
-                        }))
+                                    .orElse(null))))
         .type(
             "Owner",
             typeWiring ->
@@ -1946,19 +1926,7 @@ public class GmsGraphQLEngine {
   private void configureVersionedDatasetResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "VersionedDataset",
-        typeWiring ->
-            typeWiring
-                .dataFetcher("relationships", new StaticDataFetcher(null))
-                .dataFetcher(
-                    "application",
-                    (env) -> {
-                      final VersionedDataset dataset = env.getSource();
-                      if (dataset.getApplications() != null
-                          && !dataset.getApplications().isEmpty()) {
-                        return dataset.getApplications().get(0);
-                      }
-                      return null;
-                    }));
+        typeWiring -> typeWiring.dataFetcher("relationships", new StaticDataFetcher(null)));
   }
 
   /**
@@ -1998,17 +1966,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
-                .dataFetcher(
-                    "application",
-                    (env) -> {
-                      final GlossaryTerm glossaryTerm = env.getSource();
-                      if (glossaryTerm.getApplications() != null
-                          && !glossaryTerm.getApplications().isEmpty()) {
-                        return glossaryTerm.getApplications().get(0);
-                      }
-                      return null;
-                    }));
+                .dataFetcher("exists", new EntityExistsResolver(entityService)));
   }
 
   private void configureGlossaryNodeResolvers(final RuntimeWiring.Builder builder) {
@@ -2236,17 +2194,7 @@ public class GmsGraphQLEngine {
                           return notebook.getDataPlatformInstance() != null
                               ? notebook.getDataPlatformInstance().getUrn()
                               : null;
-                        }))
-                .dataFetcher(
-                    "application",
-                    (env) -> {
-                      final Notebook notebook = env.getSource();
-                      if (notebook.getApplications() != null
-                          && !notebook.getApplications().isEmpty()) {
-                        return notebook.getApplications().get(0);
-                      }
-                      return null;
-                    }));
+                        })));
   }
 
   /**
@@ -2295,16 +2243,6 @@ public class GmsGraphQLEngine {
                 .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
                 .dataFetcher(
                     "statsSummary", new DashboardStatsSummaryResolver(timeseriesAspectService))
-                .dataFetcher(
-                    "application",
-                    (env) -> {
-                      final Dashboard dashboard = env.getSource();
-                      if (dashboard.getApplications() != null
-                          && !dashboard.getApplications().isEmpty()) {
-                        return dashboard.getApplications().get(0);
-                      }
-                      return null;
-                    })
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher(
@@ -2435,15 +2373,6 @@ public class GmsGraphQLEngine {
                 .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                 .dataFetcher(
                     "statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
-                .dataFetcher(
-                    "application",
-                    (env) -> {
-                      final Chart chart = env.getSource();
-                      if (chart.getApplications() != null && !chart.getApplications().isEmpty()) {
-                        return chart.getApplications().get(0);
-                      }
-                      return null;
-                    })
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher(
@@ -2668,17 +2597,7 @@ public class GmsGraphQLEngine {
                             entityClient,
                             graphClient,
                             timeseriesAspectService,
-                            new EntityHealthResolver.Config(false, true)))
-                    .dataFetcher(
-                        "application",
-                        (env) -> {
-                          final DataJob dataJob = env.getSource();
-                          if (dataJob.getApplications() != null
-                              && !dataJob.getApplications().isEmpty()) {
-                            return dataJob.getApplications().get(0);
-                          }
-                          return null;
-                        }))
+                            new EntityHealthResolver.Config(false, true))))
         .type(
             "DataJobInputOutput",
             typeWiring ->
@@ -2763,17 +2682,7 @@ public class GmsGraphQLEngine {
                         entityClient,
                         graphClient,
                         timeseriesAspectService,
-                        new EntityHealthResolver.Config(false, true)))
-                .dataFetcher(
-                    "application",
-                    (env) -> {
-                      final DataFlow dataFlow = env.getSource();
-                      if (dataFlow.getApplications() != null
-                          && !dataFlow.getApplications().isEmpty()) {
-                        return dataFlow.getApplications().get(0);
-                      }
-                      return null;
-                    }));
+                        new EntityHealthResolver.Config(false, true))));
   }
 
   /**
@@ -2814,17 +2723,7 @@ public class GmsGraphQLEngine {
                               return entity.getDataPlatformInstance() != null
                                   ? entity.getDataPlatformInstance().getUrn()
                                   : null;
-                            }))
-                    .dataFetcher(
-                        "application",
-                        (env) -> {
-                          final MLFeatureTable mlFeatureTable = env.getSource();
-                          if (mlFeatureTable.getApplications() != null
-                              && !mlFeatureTable.getApplications().isEmpty()) {
-                            return mlFeatureTable.getApplications().get(0);
-                          }
-                          return null;
-                        }))
+                            })))
         .type(
             "MLFeatureTableProperties",
             typeWiring ->
@@ -2915,17 +2814,7 @@ public class GmsGraphQLEngine {
                               return mlModel.getDataPlatformInstance() != null
                                   ? mlModel.getDataPlatformInstance().getUrn()
                                   : null;
-                            }))
-                    .dataFetcher(
-                        "application",
-                        (env) -> {
-                          final MLModel mlModel = env.getSource();
-                          if (mlModel.getApplications() != null
-                              && !mlModel.getApplications().isEmpty()) {
-                            return mlModel.getApplications().get(0);
-                          }
-                          return null;
-                        }))
+                            })))
         .type(
             "MLModelProperties",
             typeWiring ->
@@ -2974,17 +2863,7 @@ public class GmsGraphQLEngine {
                               return entity.getDataPlatformInstance() != null
                                   ? entity.getDataPlatformInstance().getUrn()
                                   : null;
-                            }))
-                    .dataFetcher(
-                        "application",
-                        (env) -> {
-                          final MLModelGroup mlModelGroup = env.getSource();
-                          if (mlModelGroup.getApplications() != null
-                              && !mlModelGroup.getApplications().isEmpty()) {
-                            return mlModelGroup.getApplications().get(0);
-                          }
-                          return null;
-                        }))
+                            })))
         .type(
             "MLFeature",
             typeWiring ->
@@ -3010,17 +2889,7 @@ public class GmsGraphQLEngine {
                               return entity.getDataPlatformInstance() != null
                                   ? entity.getDataPlatformInstance().getUrn()
                                   : null;
-                            }))
-                    .dataFetcher(
-                        "application",
-                        (env) -> {
-                          final MLFeature mlFeature = env.getSource();
-                          if (mlFeature.getApplications() != null
-                              && !mlFeature.getApplications().isEmpty()) {
-                            return mlFeature.getApplications().get(0);
-                          }
-                          return null;
-                        }))
+                            })))
         .type(
             "MLPrimaryKey",
             typeWiring ->
@@ -3046,17 +2915,7 @@ public class GmsGraphQLEngine {
                               return entity.getDataPlatformInstance() != null
                                   ? entity.getDataPlatformInstance().getUrn()
                                   : null;
-                            }))
-                    .dataFetcher(
-                        "application",
-                        (env) -> {
-                          final MLPrimaryKey mlPrimaryKey = env.getSource();
-                          if (mlPrimaryKey.getApplications() != null
-                              && !mlPrimaryKey.getApplications().isEmpty()) {
-                            return mlPrimaryKey.getApplications().get(0);
-                          }
-                          return null;
-                        }));
+                            })));
   }
 
   private void configureGlossaryRelationshipResolvers(final RuntimeWiring.Builder builder) {
@@ -3160,17 +3019,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher(
-                    "application",
-                    (env) -> {
-                      final DataProduct dataProduct = env.getSource();
-                      if (dataProduct.getApplications() != null
-                          && !dataProduct.getApplications().isEmpty()) {
-                        return dataProduct.getApplications().get(0);
-                      }
-                      return null;
-                    }));
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
   }
 
   private void configureApplicationResolvers(final RuntimeWiring.Builder builder) {

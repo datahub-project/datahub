@@ -186,7 +186,12 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
       @Nonnull MLModelGroup mlModelGroup,
       @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    mlModelGroup.setApplications(
-        ApplicationAssociationMapper.mapList(context, applications, mlModelGroup.getUrn()));
+    final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+        applicationAssociations =
+            ApplicationAssociationMapper.mapList(context, applications, mlModelGroup.getUrn());
+    mlModelGroup.setApplications(applicationAssociations);
+    if (applicationAssociations != null && !applicationAssociations.isEmpty()) {
+      mlModelGroup.setApplication(applicationAssociations.get(0));
+    }
   }
 }

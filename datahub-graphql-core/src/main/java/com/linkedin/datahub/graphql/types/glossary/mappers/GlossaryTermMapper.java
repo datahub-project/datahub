@@ -149,7 +149,12 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
       @Nonnull GlossaryTerm glossaryTerm,
       @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    glossaryTerm.setApplications(
-        ApplicationAssociationMapper.mapList(context, applications, glossaryTerm.getUrn()));
+    final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+        applicationAssociations =
+            ApplicationAssociationMapper.mapList(context, applications, glossaryTerm.getUrn());
+    glossaryTerm.setApplications(applicationAssociations);
+    if (applicationAssociations != null && !applicationAssociations.isEmpty()) {
+      glossaryTerm.setApplication(applicationAssociations.get(0));
+    }
   }
 }

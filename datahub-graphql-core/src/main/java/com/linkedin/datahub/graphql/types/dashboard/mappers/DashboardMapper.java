@@ -308,7 +308,12 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
       @Nonnull Dashboard dashboard,
       @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    dashboard.setApplications(
-        ApplicationAssociationMapper.mapList(context, applications, dashboard.getUrn()));
+    final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+        applicationAssociations =
+            ApplicationAssociationMapper.mapList(context, applications, dashboard.getUrn());
+    dashboard.setApplications(applicationAssociations);
+    if (applicationAssociations != null && !applicationAssociations.isEmpty()) {
+      dashboard.setApplication(applicationAssociations.get(0));
+    }
   }
 }

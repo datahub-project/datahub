@@ -164,7 +164,12 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
       @Nonnull DataProduct dataProduct,
       @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    dataProduct.setApplications(
-        ApplicationAssociationMapper.mapList(context, applications, dataProduct.getUrn()));
+    final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+        applicationAssociations =
+            ApplicationAssociationMapper.mapList(context, applications, dataProduct.getUrn());
+    dataProduct.setApplications(applicationAssociations);
+    if (applicationAssociations != null && !applicationAssociations.isEmpty()) {
+      dataProduct.setApplication(applicationAssociations.get(0));
+    }
   }
 }

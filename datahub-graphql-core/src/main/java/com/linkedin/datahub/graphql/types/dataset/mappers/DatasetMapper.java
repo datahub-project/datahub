@@ -322,7 +322,12 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
   private static void mapApplicationAssociation(
       @Nullable final QueryContext context, @Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    dataset.setApplications(
-        ApplicationAssociationMapper.mapList(context, applications, dataset.getUrn()));
+    final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+        applicationAssociations =
+            ApplicationAssociationMapper.mapList(context, applications, dataset.getUrn());
+    dataset.setApplications(applicationAssociations);
+    if (applicationAssociations != null && !applicationAssociations.isEmpty()) {
+      dataset.setApplication(applicationAssociations.get(0));
+    }
   }
 }
