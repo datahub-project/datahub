@@ -21,7 +21,7 @@ from tests.test_helpers.state_helpers import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.integration_batch_1
+pytestmark = pytest.mark.integration_batch_6
 FROZEN_TIME = "2021-10-25 13:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"

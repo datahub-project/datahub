@@ -192,8 +192,8 @@ task testSingle(dependsOn: [installDevTest]) {
   }
 }
 
-// Create testIntegrationBatch0 through testIntegrationBatch5 tasks
-(0..5).each { batchNum ->
+// Create testIntegrationBatch0 through testIntegrationBatch6 tasks
+(0..6).each { batchNum ->
     tasks.register("testIntegrationBatch${batchNum}", Exec) {
         dependsOn installDevTest
         def cvg_arg = get_coverage_args("intBatch${batchNum}")
