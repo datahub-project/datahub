@@ -134,7 +134,7 @@ public class DocumentChangeHistoryResolverTest {
 
     assertNotNull(result);
     assertEquals(result.size(), 1);
-    assertEquals(result.get(0).getChangeType(), DocumentChangeType.CONTENT_MODIFIED);
+    assertEquals(result.get(0).getChangeType(), DocumentChangeType.TITLE_CHANGED);
   }
 
   @Test
@@ -151,7 +151,7 @@ public class DocumentChangeHistoryResolverTest {
 
     ChangeEvent parentEvent =
         ChangeEvent.builder()
-            .category(ChangeCategory.TAG) // Using TAG as proxy
+            .category(ChangeCategory.PARENT)
             .operation(ChangeOperation.MODIFY)
             .entityUrn(TEST_DOCUMENT_URN.toString())
             .description("Document moved from old parent to new parent")
@@ -160,7 +160,10 @@ public class DocumentChangeHistoryResolverTest {
             .build();
 
     ChangeTransaction transaction =
-        ChangeTransaction.builder().changeEvents(List.of(parentEvent)).build();
+        ChangeTransaction.builder()
+            .changeEvents(List.of(parentEvent))
+            .timestamp(auditStamp.getTime())
+            .build();
     transactions.add(transaction);
 
     when(mockTimelineService.getTimeline(

@@ -374,8 +374,9 @@ public class AuthorizationUtils {
   }
 
   /**
-   * Returns true if the current user is able to create Documents. This is true if the user has
-   * 'Manage Documents' platform privilege.
+   * Returns true if the current user is able to create Knowledge Articles. This is true if the user
+   * has the 'Create Entity' privilege for Knowledge Articles or 'Manage Knowledge Articles'
+   * platform privilege.
    */
   public static boolean canCreateDocument(@Nonnull QueryContext context) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -396,8 +397,6 @@ public class AuthorizationUtils {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType())),
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())),
                 new ConjunctivePrivilegeGroup(
@@ -446,6 +445,12 @@ public class AuthorizationUtils {
 
     return isAuthorized(
         context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
+  }
+
+  /** Returns true if the current user has the platform-level 'Manage Documents' privilege. */
+  public static boolean canManageDocuments(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE);
   }
 
   public static boolean isAuthorized(

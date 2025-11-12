@@ -867,6 +867,7 @@ featureFlags:
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:false} # Enables displaying the asset summary page
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
+  contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

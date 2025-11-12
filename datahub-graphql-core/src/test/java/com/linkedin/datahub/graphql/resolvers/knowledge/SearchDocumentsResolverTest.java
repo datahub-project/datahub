@@ -12,6 +12,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DocumentState;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -19,6 +21,8 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.DocumentService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletionException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -28,6 +32,7 @@ public class SearchDocumentsResolverTest {
   private static final String TEST_DOCUMENT_URN = "urn:li:document:test-document";
 
   private DocumentService mockService;
+  private EntityClient mockEntityClient;
   private SearchDocumentsResolver resolver;
   private DataFetchingEnvironment mockEnv;
   private SearchDocumentsInput input;
@@ -35,6 +40,7 @@ public class SearchDocumentsResolverTest {
   @BeforeMethod
   public void setupTest() throws Exception {
     mockService = mock(DocumentService.class);
+    mockEntityClient = mock(EntityClient.class);
     mockEnv = mock(DataFetchingEnvironment.class);
 
     // Setup default input
@@ -62,7 +68,19 @@ public class SearchDocumentsResolverTest {
             any(Integer.class)))
         .thenReturn(searchResult);
 
-    resolver = new SearchDocumentsResolver(mockService);
+    // Mock EntityClient.batchGetV2 to return a hydrated entity
+    Map<com.linkedin.common.urn.Urn, EntityResponse> entityResponseMap = new HashMap<>();
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(UrnUtils.getUrn(TEST_DOCUMENT_URN));
+    entityResponse.setEntityName("document");
+    // Set empty aspects map to satisfy required field
+    entityResponse.setAspects(new com.linkedin.entity.EnvelopedAspectMap());
+    entityResponseMap.put(UrnUtils.getUrn(TEST_DOCUMENT_URN), entityResponse);
+
+    when(mockEntityClient.batchGetV2(any(OperationContext.class), any(String.class), any(), any()))
+        .thenReturn(entityResponseMap);
+
+    resolver = new SearchDocumentsResolver(mockService, mockEntityClient);
   }
 
   @Test

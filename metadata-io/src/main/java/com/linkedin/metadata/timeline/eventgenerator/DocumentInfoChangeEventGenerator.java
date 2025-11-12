@@ -171,7 +171,7 @@ public class DocumentInfoChangeEventGenerator extends EntityChangeEventGenerator
     String oldContent = oldDoc.hasContents() ? oldDoc.getContents().getText() : null;
     String newContent = newDoc.hasContents() ? newDoc.getContents().getText() : null;
     if (!Objects.equals(oldContent, newContent)) {
-      String description = "Document content was modified";
+      String description = "Document text content was modified";
       events.add(
           ChangeEvent.builder()
               .category(ChangeCategory.DOCUMENTATION)
@@ -179,6 +179,12 @@ public class DocumentInfoChangeEventGenerator extends EntityChangeEventGenerator
               .entityUrn(entityUrn)
               .auditStamp(auditStamp)
               .description(description)
+              .parameters(
+                  Map.of(
+                      "oldContent",
+                      oldContent != null ? oldContent : "",
+                      "newContent",
+                      newContent != null ? newContent : ""))
               .build());
     }
   }
@@ -211,7 +217,7 @@ public class DocumentInfoChangeEventGenerator extends EntityChangeEventGenerator
 
       events.add(
           ChangeEvent.builder()
-              .category(ChangeCategory.TAG) // Using TAG as a proxy for PARENT_DOCUMENT
+              .category(ChangeCategory.PARENT)
               .operation(ChangeOperation.MODIFY)
               .entityUrn(entityUrn)
               .auditStamp(auditStamp)
@@ -280,7 +286,7 @@ public class DocumentInfoChangeEventGenerator extends EntityChangeEventGenerator
     for (Urn urn : added) {
       events.add(
           ChangeEvent.builder()
-              .category(ChangeCategory.TAG) // Using TAG as proxy for related entities
+              .category(ChangeCategory.RELATED_ENTITIES)
               .operation(ChangeOperation.ADD)
               .entityUrn(entityUrn)
               .modifier(urn.toString())
@@ -292,7 +298,7 @@ public class DocumentInfoChangeEventGenerator extends EntityChangeEventGenerator
     for (Urn urn : removed) {
       events.add(
           ChangeEvent.builder()
-              .category(ChangeCategory.TAG) // Using TAG as proxy for related entities
+              .category(ChangeCategory.RELATED_ENTITIES)
               .operation(ChangeOperation.REMOVE)
               .entityUrn(entityUrn)
               .modifier(urn.toString())
@@ -362,7 +368,8 @@ public class DocumentInfoChangeEventGenerator extends EntityChangeEventGenerator
     return requested.name().equals(categoryName)
         || (categoryName.equals(CONTENT_CATEGORY) && requested == ChangeCategory.DOCUMENTATION)
         || (categoryName.equals(STATE_CATEGORY) && requested == ChangeCategory.LIFECYCLE)
-        || (categoryName.equals(PARENT_CATEGORY) && requested == ChangeCategory.TAG)
-        || (categoryName.equals(RELATED_ENTITIES_CATEGORY) && requested == ChangeCategory.TAG);
+        || (categoryName.equals(PARENT_CATEGORY) && requested == ChangeCategory.PARENT)
+        || (categoryName.equals(RELATED_ENTITIES_CATEGORY)
+            && requested == ChangeCategory.RELATED_ENTITIES);
   }
 }

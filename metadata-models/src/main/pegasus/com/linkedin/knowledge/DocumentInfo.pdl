@@ -20,6 +20,7 @@ record DocumentInfo includes CustomProperties {
     /**
      * Information about the external source of this document. 
      * Only populated for third-party documents ingested from external systems.
+     * If null, the document is first-party (created directly in DataHub).
      */
     source: optional DocumentSource
 

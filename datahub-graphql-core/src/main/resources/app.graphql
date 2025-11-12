@@ -135,6 +135,11 @@ type PlatformPrivileges {
   manageGlossaries: Boolean!
 
   """
+  Whether the user should be able to manage Documents (Knowledge Articles)
+  """
+  manageDocuments: Boolean!
+
+  """
   Whether the user is able to manage user credentials
   """
   manageUserCredentials: Boolean!
@@ -828,6 +833,11 @@ type FeatureFlagsConfig {
   If enabled, allows uploading of files for documentation.
   """
   documentationFileUploadV1: Boolean!
+
+  """
+  If enabled, shows the context documents feature in the sidebar.
+  """
+  contextDocumentsEnabled: Boolean!
 }
 
 """
