@@ -208,5 +208,4 @@ export type RequiredAndNotNull<T> = {
 export type EntityAndType = {
     urn: string;
     type: EntityType;
-    canViewEntityPage?: boolean | null;
 };

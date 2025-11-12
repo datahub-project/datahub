@@ -2335,13 +2335,6 @@ export const mocks = [
                             entity: {
                                 ...dataset1,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [
                                 {
                                     name: 'fieldName',
@@ -2354,26 +2347,12 @@ export const mocks = [
                             entity: {
                                 ...dataset2,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                         },
                         {
                             entity: {
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                         },
                     ],
                     facets: [
@@ -2449,13 +2428,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -2528,13 +2500,6 @@ export const mocks = [
                                 __typename: 'GLOSSARY_TERM',
                                 ...glossaryTerm1,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -2643,13 +2608,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -2824,13 +2782,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -2900,13 +2851,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -2915,13 +2859,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset4,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -2991,13 +2928,6 @@ export const mocks = [
                                 __typename: 'DataFlow',
                                 ...dataFlow1,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -3144,13 +3074,6 @@ export const mocks = [
                                 __typename: 'DataJob',
                                 ...dataJob1,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -3247,13 +3170,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -3374,13 +3290,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -3431,13 +3340,6 @@ export const mocks = [
                                 __typename: 'DataJob',
                                 ...dataJob1,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -3515,13 +3417,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -3604,13 +3499,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -3619,13 +3507,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset4,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -3715,13 +3596,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -3815,13 +3689,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -4093,13 +3960,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -4108,13 +3968,6 @@ export const mocks = [
                                 __typename: 'Dataset',
                                 ...dataset4,
                             },
-                            extraProperties: [
-                                {
-                                    name: 'canViewEntityPage',
-                                    value: 'true',
-                                    __typename: 'ExtraProperty',
-                                },
-                            ],
                             matchedFields: [],
                             insights: [],
                         },
@@ -4513,7 +4366,6 @@ export const mockSearchResult: SearchResult = {
     matchedFields: [],
     insights: [],
     extraProperties: [
-        { name: 'canViewEntityPage', value: 'true', __typename: 'ExtraProperty' },
         { name: 'isOutputPort', value: 'true' },
         { name: 'test2_name', value: 'test2_value' },
     ],
@@ -4536,13 +4388,7 @@ export const mockFineGrainedLineages1: GenericEntityProperties = {
     siblingsSearch: {
         count: 1,
         total: 1,
-        searchResults: [
-            {
-                entity: { type: EntityType.Dataset, urn: 'test_urn' },
-                matchedFields: [],
-                extraProperties: [{ name: 'canViewEntityPage', value: 'true', __typename: 'ExtraProperty' }],
-            },
-        ],
+        searchResults: [{ entity: { type: EntityType.Dataset, urn: 'test_urn' }, matchedFields: [] }],
     },
     fineGrainedLineages: [
         {

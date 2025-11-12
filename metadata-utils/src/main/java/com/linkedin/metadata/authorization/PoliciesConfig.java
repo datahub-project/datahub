@@ -267,7 +267,7 @@ public class PoliciesConfig {
 
   // Resource Privileges //
 
-  static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE =
+  public static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE =
       Privilege.of("VIEW_ENTITY_PAGE", "View Entity Page", "The ability to view the entity page.");
 
   static final Privilege EXISTS_ENTITY_PRIVILEGE =

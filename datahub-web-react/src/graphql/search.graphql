@@ -1302,10 +1302,6 @@ fragment searchResults on SearchResults {
             text
             icon
         }
-        extraProperties {
-            name
-            value
-        }
     }
     facets {
         ...facetFields
