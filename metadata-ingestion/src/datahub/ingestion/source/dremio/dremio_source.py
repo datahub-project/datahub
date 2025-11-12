@@ -194,7 +194,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
-        config = DremioSourceConfig.parse_obj(config_dict)
+        config = DremioSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_platform(self) -> str:
