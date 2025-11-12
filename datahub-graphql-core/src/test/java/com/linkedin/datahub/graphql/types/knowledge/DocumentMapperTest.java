@@ -13,12 +13,12 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.domain.Domains;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.DocumentSourceType;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -467,10 +467,8 @@ public class DocumentMapperTest {
 
     // Add DataPlatformInstance aspect
     DataPlatformInstance dataPlatformInstance = new DataPlatformInstance();
-    dataPlatformInstance.setPlatform(
-        Urn.createFromString("urn:li:dataPlatform:confluenceCloud"));
-    addAspectToResponse(
-        entityResponse, DATA_PLATFORM_INSTANCE_ASPECT_NAME, dataPlatformInstance);
+    dataPlatformInstance.setPlatform(Urn.createFromString("urn:li:dataPlatform:confluenceCloud"));
+    addAspectToResponse(entityResponse, DATA_PLATFORM_INSTANCE_ASPECT_NAME, dataPlatformInstance);
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
@@ -625,7 +623,8 @@ public class DocumentMapperTest {
       assertNotNull(result);
       assertNotNull(result.getInfo().getDraftOf());
       assertNotNull(result.getInfo().getDraftOf().getDocument());
-      assertEquals(result.getInfo().getDraftOf().getDocument().getUrn(), publishedDocUrn.toString());
+      assertEquals(
+          result.getInfo().getDraftOf().getDocument().getUrn(), publishedDocUrn.toString());
     }
   }
 
