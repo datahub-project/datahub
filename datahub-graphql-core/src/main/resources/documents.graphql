@@ -6,7 +6,7 @@ extend type Mutation {
   createDocument(input: CreateDocumentInput!): String!
 
   """
-  Update the contents of an existing Document.
+  Update the title or text of an existing Document.
   Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
   """
   updateDocumentContents(input: UpdateDocumentContentsInput!): Boolean!
@@ -36,6 +36,12 @@ extend type Mutation {
   Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
   """
   updateDocumentStatus(input: UpdateDocumentStatusInput!): Boolean!
+
+  """
+  Update the sub-type of a Document (e.g., "FAQ", "Tutorial", "Runbook").
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  updateDocumentSubType(input: UpdateDocumentSubTypeInput!): Boolean!
 
   """
   Merge a draft document into its parent (the document it is a draft of).
@@ -169,6 +175,12 @@ type Document implements Entity {
     """
     limit: Int = 50
   ): [DocumentChange!]!
+
+  """
+  Recursively get the lineage of parent documents for this document.
+  Returns parents with direct parent first followed by the parent's parent, etc.
+  """
+  parentDocuments: ParentDocumentsResult
 }
 
 """
@@ -355,9 +367,10 @@ input CreateDocumentInput {
   id: String
 
   """
-  The sub-type of the Document (e.g., "FAQ", "Tutorial", "Reference")
+  Optional sub-type of the Document (e.g., "FAQ", "Tutorial", "Reference").
+  If not provided, the document will have no type set.
   """
-  subType: String!
+  subType: String
 
   """
   Optional title for the document
@@ -421,14 +434,14 @@ input UpdateDocumentContentsInput {
   urn: String!
 
   """
-  The new contents for the Document
-  """
-  contents: DocumentContentInput!
-
-  """
-  Optional updated title for the document
+  Optional updated title for the document. If not provided, the existing title will not be updated.
   """
   title: String
+
+  """
+  The new text contents for the Document. If not provided, the existing contents will not be updated.
+  """
+  contents: DocumentContentInput
 
   """
   Optional updated sub-type for the document (e.g., "FAQ", "Tutorial", "Reference")
@@ -487,6 +500,21 @@ input UpdateDocumentStatusInput {
 }
 
 """
+Input required to update the sub-type of a Document
+"""
+input UpdateDocumentSubTypeInput {
+  """
+  The URN of the Document to update
+  """
+  urn: String!
+
+  """
+  The new sub-type for the document (e.g., "FAQ", "Tutorial", "Runbook"). Set to null to clear the sub-type.
+  """
+  subType: String
+}
+
+"""
 Input required when searching Documents
 """
 input SearchDocumentsInput {
@@ -509,6 +537,18 @@ input SearchDocumentsInput {
   Optional parent document URN to filter by (for hierarchical browsing)
   """
   parentDocument: String
+
+  """
+  Optional list of parent document URNs to filter by (for batch child lookups).
+  If both parentDocument and parentDocuments are provided, parentDocuments takes precedence.
+  """
+  parentDocuments: [String!]
+
+  """
+  If true, only returns documents with no parent (root-level documents).
+  If false or not provided, returns all documents regardless of parent.
+  """
+  rootOnly: Boolean
 
   """
   Optional list of document types to filter by (ANDed with other filters)
@@ -631,9 +671,14 @@ enum DocumentChangeType {
   CREATED
 
   """
-  Document content or title was modified
+  Document title was modified
   """
-  CONTENT_MODIFIED
+  TITLE_CHANGED
+
+  """
+  Document text content was modified
+  """
+  TEXT_CHANGED
 
   """
   Document was moved to a different parent
@@ -659,4 +704,19 @@ enum DocumentChangeType {
   Document was deleted
   """
   DELETED
+}
+
+"""
+All of the parent documents for a given document. Returns parents with direct parent first followed by the parent's parent, etc.
+"""
+type ParentDocumentsResult {
+  """
+  The number of parent documents bubbling up for this document
+  """
+  count: Int!
+
+  """
+  The ordered list of parent documents, starting with the direct parent
+  """
+  documents: [Document!]!
 }

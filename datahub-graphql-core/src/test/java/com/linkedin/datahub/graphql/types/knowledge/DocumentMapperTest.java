@@ -377,6 +377,230 @@ public class DocumentMapperTest {
     }
   }
 
+  @Test
+  public void testMapDocumentWithSubTypes() throws URISyntaxException {
+    // Setup entity response with SubTypes
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add minimal document info
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Add SubTypes aspect
+    com.linkedin.common.SubTypes subTypes = new com.linkedin.common.SubTypes();
+    subTypes.setTypeNames(
+        new com.linkedin.data.template.StringArray(java.util.Arrays.asList("tutorial", "guide")));
+    addAspectToResponse(entityResponse, SUB_TYPES_ASPECT_NAME, subTypes);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify subType is set to the first type
+      assertNotNull(result.getSubType());
+      assertEquals(result.getSubType(), "tutorial");
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithDomains() throws URISyntaxException {
+    // Setup entity response with Domains
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add minimal document info
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Add Domains aspect
+    com.linkedin.domain.Domains domains = new com.linkedin.domain.Domains();
+    Urn domainUrn = Urn.createFromString("urn:li:domain:test-domain");
+    com.linkedin.common.UrnArray domainUrns = new com.linkedin.common.UrnArray();
+    domainUrns.add(domainUrn);
+    domains.setDomains(domainUrns);
+    addAspectToResponse(entityResponse, DOMAINS_ASPECT_NAME, domains);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping - should not throw exception
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify result is not null and has basic fields
+      assertNotNull(result);
+      assertEquals(result.getUrn(), TEST_DOCUMENT_URN);
+      // Domain mapping is handled if query context and domains are set up properly
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithStatusRemoved() throws URISyntaxException {
+    // Setup entity response with Status aspect indicating soft delete
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add minimal document info
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Add Status aspect with removed = true
+    com.linkedin.common.Status status = new com.linkedin.common.Status();
+    status.setRemoved(true);
+    addAspectToResponse(entityResponse, STATUS_ASPECT_NAME, status);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify exists is set to false when removed
+      assertNotNull(result.getExists());
+      assertFalse(result.getExists());
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithStatusNotRemoved() throws URISyntaxException {
+    // Setup entity response with Status aspect indicating not removed
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add minimal document info
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Add Status aspect with removed = false
+    com.linkedin.common.Status status = new com.linkedin.common.Status();
+    status.setRemoved(false);
+    addAspectToResponse(entityResponse, STATUS_ASPECT_NAME, status);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify exists is set to true when not removed
+      assertNotNull(result.getExists());
+      assertTrue(result.getExists());
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithDraftOf() throws URISyntaxException {
+    // Setup entity response with DraftOf relationship
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add document info with DraftOf
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+
+    // Add DraftOf relationship
+    Urn publishedDocUrn = Urn.createFromString("urn:li:document:published-doc");
+    com.linkedin.knowledge.DraftOf draftOf = new com.linkedin.knowledge.DraftOf();
+    draftOf.setDocument(publishedDocUrn);
+    documentInfo.setDraftOf(draftOf);
+
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify draftOf is mapped
+      assertNotNull(result.getInfo().getDraftOf());
+      assertNotNull(result.getInfo().getDraftOf().getDocument());
+      assertEquals(
+          result.getInfo().getDraftOf().getDocument().getUrn(), publishedDocUrn.toString());
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithDocumentState() throws URISyntaxException {
+    // Setup entity response with DocumentState
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add document info with state
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+
+    // Add status with state
+    com.linkedin.knowledge.DocumentStatus status = new com.linkedin.knowledge.DocumentStatus();
+    status.setState(com.linkedin.knowledge.DocumentState.PUBLISHED);
+    documentInfo.setStatus(status);
+
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify status is mapped
+      assertNotNull(result.getInfo().getStatus());
+      assertEquals(
+          result.getInfo().getStatus().getState(),
+          com.linkedin.datahub.graphql.generated.DocumentState.PUBLISHED);
+    }
+  }
+
   // Helper methods
 
   private EntityResponse createBasicEntityResponse() {

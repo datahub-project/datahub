@@ -164,4 +164,65 @@ public class DocumentTypeTest {
 
     assertEquals(type.objectClass(), Document.class);
   }
+
+  @Test
+  public void testAutoComplete() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // Mock autocomplete result
+    com.linkedin.metadata.query.AutoCompleteResult mockResult =
+        new com.linkedin.metadata.query.AutoCompleteResult();
+    mockResult.setQuery("test");
+    mockResult.setSuggestions(new com.linkedin.data.template.StringArray());
+    mockResult.setEntities(new com.linkedin.metadata.query.AutoCompleteEntityArray());
+
+    Mockito.when(
+            mockClient.autoComplete(
+                any(),
+                Mockito.eq(Constants.DOCUMENT_ENTITY_NAME),
+                Mockito.eq("test"),
+                Mockito.any(),
+                Mockito.eq(10)))
+        .thenReturn(mockResult);
+
+    DocumentType type = new DocumentType(mockClient);
+    QueryContext context = getMockAllowContext();
+
+    // Execute autocomplete
+    com.linkedin.datahub.graphql.generated.AutoCompleteResults result =
+        type.autoComplete("test", null, null, 10, context);
+
+    // Verify
+    assertNotNull(result);
+    assertEquals(result.getQuery(), "test");
+    Mockito.verify(mockClient, Mockito.times(1))
+        .autoComplete(
+            any(),
+            Mockito.eq(Constants.DOCUMENT_ENTITY_NAME),
+            Mockito.eq("test"),
+            Mockito.any(),
+            Mockito.eq(10));
+  }
+
+  @Test(expectedExceptions = org.apache.commons.lang3.NotImplementedException.class)
+  public void testSearchThrowsNotImplementedException() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DocumentType type = new DocumentType(mockClient);
+    QueryContext context = getMockAllowContext();
+
+    // This should throw NotImplementedException
+    type.search("test query", null, 0, 10, context);
+  }
+
+  @Test
+  public void testGetKeyProvider() {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DocumentType type = new DocumentType(mockClient);
+
+    Document document = new Document();
+    document.setUrn("urn:li:document:test");
+
+    String key = type.getKeyProvider().apply(document);
+    assertEquals(key, "urn:li:document:test");
+  }
 }
