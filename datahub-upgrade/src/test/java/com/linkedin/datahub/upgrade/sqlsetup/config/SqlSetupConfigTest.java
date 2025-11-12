@@ -46,8 +46,6 @@ public class SqlSetupConfigTest {
     System.clearProperty("CREATE_USER");
     System.clearProperty("CREATE_USER_USERNAME");
     System.clearProperty("CREATE_USER_PASSWORD");
-    System.clearProperty("CREATE_USER_IAM_ROLE");
-    System.clearProperty("IAM_ROLE");
     System.clearProperty("DB_TYPE");
     System.clearProperty("CREATE_TABLES");
     System.clearProperty("CREATE_DB");
@@ -119,10 +117,10 @@ public class SqlSetupConfigTest {
     System.setProperty("CREATE_DB", "false");
     System.setProperty("CREATE_USER", "true");
     System.setProperty("CREATE_USER_USERNAME", "testuser");
+    // Note: No password set means IAM authentication will be used
     System.setProperty("CDC_MCL_PROCESSING_ENABLED", "true");
     System.setProperty("CDC_USER", "custom_cdc");
     System.setProperty("CDC_PASSWORD", "custom_cdc_pass");
-    System.setProperty("IAM_ROLE", "arn:aws:iam::123456789012:role/datahub-role");
     // Ensure ebean.url is set (required)
     sqlSetupConfig.setEbeanUrl("jdbc:mysql://localhost:3306/datahub");
 
@@ -135,7 +133,6 @@ public class SqlSetupConfigTest {
     assertEquals(args.isCdcEnabled(), true);
     assertEquals(args.getCdcUser(), "custom_cdc");
     assertEquals(args.getCdcPassword(), "custom_cdc_pass");
-    assertEquals(args.getCreateUserIamRole(), "arn:aws:iam::123456789012:role/datahub-role");
     assertEquals(args.isIamAuthEnabled(), true);
     assertEquals(args.getCreateUserUsername(), "testuser");
     assertEquals(args.getCreateUserPassword(), null); // No password for IAM auth
@@ -150,7 +147,6 @@ public class SqlSetupConfigTest {
     System.clearProperty("CDC_MCL_PROCESSING_ENABLED");
     System.clearProperty("CDC_USER");
     System.clearProperty("CDC_PASSWORD");
-    System.clearProperty("IAM_ROLE");
 
     // Ensure ebean.url is set (required)
     sqlSetupConfig.setEbeanUrl("jdbc:mysql://localhost:3306/datahub");
@@ -164,7 +160,6 @@ public class SqlSetupConfigTest {
     assertEquals(args.isCdcEnabled(), false); // Default value
     assertEquals(args.getCdcUser(), "datahub_cdc"); // Default value
     assertEquals(args.getCdcPassword(), "datahub_cdc"); // Default value
-    assertEquals(args.getCreateUserIamRole(), null); // Default value
   }
 
   @Test
@@ -183,8 +178,7 @@ public class SqlSetupConfigTest {
             null, // createUserPassword
             "localhost", // host
             0, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
 
     SqlSetup sqlSetup = sqlSetupConfig.createInstance(mockDatabase, setupArgs);
@@ -222,8 +216,10 @@ public class SqlSetupConfigTest {
     assertEquals(mysqlType, DatabaseType.MYSQL);
   }
 
-  @Test(expectedExceptions = IllegalStateException.class)
+  @Test
   public void testValidateAuthenticationConfigWithIamButNoRole() {
+    // Test that IAM auth without password (no role parameter) is valid
+    // IAM role parameter is no longer required
     SqlSetupArgs args =
         new SqlSetupArgs(
             true, // createTables
@@ -235,13 +231,13 @@ public class SqlSetupConfigTest {
             "datahub_cdc", // cdcUser
             "datahub_cdc", // cdcPassword
             "testuser", // createUserUsername
-            null, // createUserPassword
+            null, // createUserPassword - no password means IAM auth
             "localhost", // host
             0, // port
-            "datahub", // databaseName
-            null // createUserIamRole - Missing IAM role
+            "datahub" // databaseName
             );
 
+    // Should not throw exception - IAM auth is valid without role
     sqlSetupConfig.validateAuthenticationConfig(args);
   }
 
@@ -261,8 +257,7 @@ public class SqlSetupConfigTest {
             null, // createUserPassword
             "localhost", // host
             0, // port
-            "datahub", // databaseName
-            "arn:aws:iam::123456789012:role/datahub-role" // createUserIamRole
+            "datahub" // databaseName
             );
 
     sqlSetupConfig.validateAuthenticationConfig(args);
@@ -284,8 +279,7 @@ public class SqlSetupConfigTest {
             "testpass", // createUserPassword
             "localhost", // host
             0, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
 
     try {
@@ -312,8 +306,7 @@ public class SqlSetupConfigTest {
             null, // createUserPassword - Missing createUserPassword
             "localhost", // host
             0, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
 
     try {
@@ -340,8 +333,7 @@ public class SqlSetupConfigTest {
             null, // createUserPassword
             "localhost", // host
             0, // port
-            "datahub", // databaseName
-            "arn:aws:iam::123456789012:role/datahub-role" // createUserIamRole
+            "datahub" // databaseName
             );
 
     // Should not throw exception
@@ -364,8 +356,7 @@ public class SqlSetupConfigTest {
             "testpass", // createUserPassword
             "localhost", // host
             0, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
 
     // Should not throw exception
@@ -458,16 +449,11 @@ public class SqlSetupConfigTest {
             null, // createUserPassword
             "localhost", // host
             0, // port
-            "datahub", // databaseName
-            "" // createUserIamRole - Empty role
+            "datahub" // databaseName
             );
 
-    try {
-      sqlSetupConfig.validateAuthenticationConfig(args1);
-      assertTrue(false, "Expected IllegalStateException for empty IAM role");
-    } catch (Exception e) {
-      assertTrue(e instanceof IllegalStateException);
-    }
+    // Test IAM auth without password is valid (no exception expected)
+    sqlSetupConfig.validateAuthenticationConfig(args1);
 
     // Test IAM auth with whitespace-only role
     SqlSetupArgs args2 =
@@ -484,16 +470,11 @@ public class SqlSetupConfigTest {
             null, // createUserPassword
             "localhost", // host
             0, // port
-            "datahub", // databaseName
-            "   " // createUserIamRole - Whitespace-only role
+            "datahub" // databaseName
             );
 
-    try {
-      sqlSetupConfig.validateAuthenticationConfig(args2);
-      assertTrue(false, "Expected IllegalStateException for whitespace-only IAM role");
-    } catch (Exception e) {
-      assertTrue(e instanceof IllegalStateException);
-    }
+    // Test IAM auth without password is valid (no exception expected)
+    sqlSetupConfig.validateAuthenticationConfig(args2);
 
     // Test traditional auth with empty createUserUsername
     SqlSetupArgs args3 =
@@ -510,8 +491,7 @@ public class SqlSetupConfigTest {
             "testpass", // createUserPassword
             "localhost", // host
             0, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
 
     try {
@@ -536,8 +516,7 @@ public class SqlSetupConfigTest {
             "   ", // createUserPassword - Whitespace-only createUserPassword
             "localhost", // host
             0, // port
-            "datahub", // databaseName
-            null // createUserIamRole
+            "datahub" // databaseName
             );
 
     try {
@@ -555,8 +534,7 @@ public class SqlSetupConfigTest {
     sqlSetupConfig.setEbeanUrl(complexUrl);
     System.setProperty("CREATE_USER", "true");
     System.setProperty("CREATE_USER_USERNAME", "pguser");
-    System.setProperty("CREATE_USER_PASSWORD", "pgpass");
-    System.setProperty("IAM_ROLE", "my/role");
+    // Note: No password set means IAM authentication will be used
 
     SqlSetupArgs args = sqlSetupConfig.createSetupArgs();
 
@@ -566,7 +544,7 @@ public class SqlSetupConfigTest {
     assertEquals(args.getPort(), 5432);
     assertEquals(args.getDatabaseName(), "complexdb");
     assertEquals(args.getCreateUserUsername(), "pguser");
-    assertEquals(args.getCreateUserPassword(), null); // No password for IAM auth
+    assertEquals(args.getCreateUserPassword(), null); // No password - IAM auth enabled
     assertEquals(args.isIamAuthEnabled(), true);
   }
 

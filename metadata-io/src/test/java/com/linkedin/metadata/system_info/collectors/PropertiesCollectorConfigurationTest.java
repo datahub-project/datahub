@@ -466,6 +466,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
           "featureFlags.assetSummaryPageV1",
+          "featureFlags.datasetSummaryPageV1",
           "featureFlags.businessAttributeEntityEnabled",
           "featureFlags.cdcModeChangeLog",
           "featureFlags.dataContractsEnabled",
@@ -604,6 +605,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.graph.impact.keepAlive",
           "elasticsearch.search.graph.impact.maxHops",
           "elasticsearch.search.graph.impact.maxRelations",
+          "elasticsearch.search.graph.impact.partialResults",
+          "elasticsearch.search.graph.impact.searchQueryTimeReservation",
           "elasticsearch.search.graph.impact.slices",
           "elasticsearch.search.graph.lineageMaxHops",
           "elasticsearch.search.graph.maxThreads",
@@ -902,7 +905,16 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.plugin.name",
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.table.include.list",
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.server.id",
-          "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.include.list"
+          "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.include.list",
+          "elasticsearch.entityIndex.v2.cleanup",
+          "elasticsearch.entityIndex.v3.analyzerConfig",
+          "elasticsearch.entityIndex.v3.mappingConfig",
+          "elasticsearch.entityIndex.v3.cleanup",
+          "elasticsearch.entityIndex.v3.maxFieldsLimit",
+
+          // Metadata Change Log configuration
+          "metadataChangeLog.consumer.batch.enabled",
+          "metadataChangeLog.consumer.batch.size"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

@@ -1,8 +1,37 @@
+/* eslint-disable max-classes-per-file */
 import { act, waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useVisibilityObserver } from '@app/entityV2/summary/documentation/useVisibilityObserver';
+
+class MockResizeObserver {
+    cb: ResizeObserverCallback;
+
+    elements: Element[] = [];
+
+    constructor(cb: ResizeObserverCallback) {
+        this.cb = cb;
+    }
+
+    observe = (el: Element) => {
+        this.elements.push(el);
+    };
+
+    disconnect = vi.fn();
+
+    unobserve = vi.fn();
+
+    triggerResize = () => {
+        const entries = this.elements.map((el) => ({
+            target: el,
+            contentRect: {} as DOMRect,
+            borderBoxSize: [],
+            contentBoxSize: [],
+        }));
+        this.cb(entries as any, this as unknown as ResizeObserver);
+    };
+}
 
 // Mock IntersectionObserver
 class MockIntersectionObserver {
@@ -36,9 +65,6 @@ class MockIntersectionObserver {
     };
 }
 
-// @ts-expect-error override global (will be replaced per test in beforeEach)
-global.IntersectionObserver = MockIntersectionObserver;
-
 // helper to mock scrollHeight
 const setScrollHeight = (el: HTMLElement, value: number) => {
     Object.defineProperty(el, 'scrollHeight', { value, configurable: true });
@@ -46,18 +72,25 @@ const setScrollHeight = (el: HTMLElement, value: number) => {
 
 describe('useVisibilityObserver', () => {
     let element: HTMLDivElement;
-    let mockObserver: MockIntersectionObserver;
+    let mockIntersectionObserver: MockIntersectionObserver;
+    let mockResizeObserver: MockResizeObserver;
 
     beforeEach(() => {
         element = document.createElement('div');
         document.body.appendChild(element);
 
-        mockObserver = new MockIntersectionObserver(() => {});
-        // @ts-expect-error override with vi.fn factory
+        mockIntersectionObserver = new MockIntersectionObserver(() => {});
+        mockResizeObserver = new MockResizeObserver(() => {});
+
         global.IntersectionObserver = vi.fn((cb) => {
-            mockObserver = new MockIntersectionObserver(cb);
-            return mockObserver;
-        });
+            mockIntersectionObserver = new MockIntersectionObserver(cb);
+            return mockIntersectionObserver;
+        }) as any;
+
+        global.ResizeObserver = vi.fn((cb) => {
+            mockResizeObserver = new MockResizeObserver(cb);
+            return mockResizeObserver;
+        }) as any;
     });
 
     afterEach(() => {
@@ -123,7 +156,7 @@ describe('useVisibilityObserver', () => {
 
         act(() => {
             setScrollHeight(element, 100);
-            mockObserver.triggerIntersect(true);
+            mockIntersectionObserver.triggerIntersect(true);
         });
 
         await waitFor(() => {
@@ -155,7 +188,7 @@ describe('useVisibilityObserver', () => {
         expect((global.IntersectionObserver as any).mock.calls.length).toBeGreaterThan(1);
     });
 
-    it('should clean up observer on unmount', async () => {
+    it('should clean up both observers on unmount', async () => {
         const { result, unmount, rerender } = renderHook(({ maxHeight }) => useVisibilityObserver(maxHeight), {
             initialProps: { maxHeight: 0 },
         });
@@ -168,10 +201,40 @@ describe('useVisibilityObserver', () => {
         rerender({ maxHeight: 100 });
 
         await waitFor(() => {
-            expect(mockObserver.elements.length).toBeGreaterThan(0);
+            expect(mockIntersectionObserver.elements.length).toBeGreaterThan(0);
+            expect(mockResizeObserver.elements.length).toBeGreaterThan(0);
         });
 
         unmount();
-        expect(mockObserver.disconnect).toHaveBeenCalled();
+        expect(mockIntersectionObserver.disconnect).toHaveBeenCalled();
+        expect(mockResizeObserver.disconnect).toHaveBeenCalled();
+    });
+
+    it('should update hasMore when element size changes through ResizeObserver', async () => {
+        const { result, rerender } = renderHook(({ maxHeight }) => useVisibilityObserver(maxHeight), {
+            initialProps: { maxHeight: 0 },
+        });
+
+        act(() => {
+            result.current.elementRef.current = element;
+            setScrollHeight(element, 100);
+        });
+
+        rerender({ maxHeight: 300 });
+
+        await waitFor(() => {
+            expect(result.current.hasMore).toBe(false);
+        });
+
+        // Simulate a resize by changing scrollHeight and triggering the resize observer
+        act(() => {
+            setScrollHeight(element, 400);
+            // Trigger the resize observer to detect the change
+            mockResizeObserver.triggerResize();
+        });
+
+        await waitFor(() => {
+            expect(result.current.hasMore).toBe(true);
+        });
     });
 });

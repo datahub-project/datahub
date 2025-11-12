@@ -50,7 +50,7 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
                 data-testid={`owner-${actor.urn}`}
                 {...linkProps}
             >
-                <ContentWrapper $isProposed={isProposed}>
+                <ContentWrapper $isProposed={isProposed} data-testid={`${isProposed ? 'proposed-' : ''}owner-${name}`}>
                     <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
                     <Text color="gray" size="sm" data-testid="owner-name">
                         {name}
