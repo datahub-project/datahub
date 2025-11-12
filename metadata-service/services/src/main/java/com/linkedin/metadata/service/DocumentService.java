@@ -219,7 +219,7 @@ public class DocumentService {
     // Ingest the document with all aspects
     entityClient.batchIngestProposals(opContext, mcps, false);
 
-    log.info("Created document {} for user {}", documentUrn, actorUrn);
+    log.debug("Created document {} for user {}", documentUrn, actorUrn);
     return documentUrn;
   }
 
@@ -322,7 +322,7 @@ public class DocumentService {
     // Batch ingest all proposals
     entityClient.batchIngestProposals(opContext, mcps, false);
 
-    log.info("Updated contents for document {}", documentUrn);
+    log.debug("Updated contents for document {}", documentUrn);
   }
 
   /**
@@ -399,7 +399,7 @@ public class DocumentService {
 
     entityClient.ingestProposal(opContext, mcp, false);
 
-    log.info("Updated related entities for document {}", documentUrn);
+    log.debug("Updated related entities for document {}", documentUrn);
   }
 
   /**
@@ -474,7 +474,7 @@ public class DocumentService {
 
     entityClient.ingestProposal(opContext, mcp, false);
 
-    log.info("Moved document {} to parent {}", documentUrn, newParentUrn);
+    log.debug("Moved document {} to parent {}", documentUrn, newParentUrn);
   }
 
   /**
@@ -528,7 +528,7 @@ public class DocumentService {
 
     entityClient.ingestProposal(opContext, mcp, false);
 
-    log.info("Updated status of document {} to {}", documentUrn, newState);
+    log.debug("Updated status of document {} to {}", documentUrn, newState);
   }
 
   /**
@@ -548,7 +548,7 @@ public class DocumentService {
     }
 
     entityClient.deleteEntity(opContext, documentUrn);
-    log.info("Deleted document {}", documentUrn);
+    log.debug("Deleted document {}", documentUrn);
 
     // Asynchronously delete all references
     try {
@@ -599,7 +599,7 @@ public class DocumentService {
 
     entityClient.ingestProposal(opContext, mcp, false);
 
-    log.info("Set ownership for document {} with {} owners", documentUrn, owners.size());
+    log.debug("Set ownership for document {} with {} owners", documentUrn, owners.size());
   }
 
   /**
@@ -802,12 +802,12 @@ public class DocumentService {
     infoProposal.setAspect(GenericRecordUtils.serializeAspect(publishedInfo));
     entityClient.ingestProposal(opContext, infoProposal, false);
 
-    log.info("Merged draft {} into published document {}", draftUrn, publishedUrn);
+    log.debug("Merged draft {} into published document {}", draftUrn, publishedUrn);
 
     // Delete draft if requested
     if (deleteDraft) {
       deleteDocument(opContext, draftUrn);
-      log.info("Deleted draft document {} after merge", draftUrn);
+      log.debug("Deleted draft document {} after merge", draftUrn);
     }
   }
 

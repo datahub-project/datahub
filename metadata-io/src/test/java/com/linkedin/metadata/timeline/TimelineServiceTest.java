@@ -138,6 +138,43 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
     }
   }
 
+  @Test
+  public void testGetTimelineForDocument() throws Exception {
+    // Test that Document entity is properly registered in TimelineServiceImpl
+    Urn documentUrn =
+        Urn.createFromString("urn:li:document:test-doc-" + System.currentTimeMillis());
+    String aspectName = "documentInfo";
+
+    ArrayList<AuditStamp> timestamps = new ArrayList();
+    // Ingest document changes over time
+    for (int i = 3; i > 0; i--) {
+      com.linkedin.knowledge.DocumentInfo documentInfo =
+          getDocumentInfo("Document version " + i, "Content for version " + i);
+      AuditStamp daysAgo = createTestAuditStamp(i);
+      timestamps.add(daysAgo);
+      _entityServiceImpl.ingestAspects(
+          opContext,
+          documentUrn,
+          Collections.singletonList(new Pair<>(aspectName, documentInfo)),
+          daysAgo,
+          getSystemMetadata(daysAgo, "run-" + i));
+    }
+
+    // Test getting timeline for DOCUMENTATION category
+    Set<ChangeCategory> elements = new HashSet<>();
+    elements.add(ChangeCategory.DOCUMENTATION);
+    List<ChangeTransaction> changes =
+        _entityTimelineService.getTimeline(
+            documentUrn, elements, createTestAuditStamp(10).getTime(), 0, null, null, false);
+
+    // Verify that timeline was generated for document
+    // The first change should be creation, subsequent ones should be modifications
+    // Note: We're just verifying the service can process Document entities,
+    // detailed timeline logic is tested in DocumentInfoChangeEventGeneratorTest
+    assert changes != null;
+    assert !changes.isEmpty(); // Should have at least the creation event
+  }
+
   private SystemMetadata getSystemMetadata(AuditStamp twoDaysAgo, String s) {
     SystemMetadata metadata1 = new SystemMetadata();
     metadata1.setLastObserved(twoDaysAgo.getTime());
@@ -167,5 +204,32 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
         .setVersion(0L)
         .setDataset(new DatasetUrn(new DataPlatformUrn("hive"), "testDataset", FabricType.TEST))
         .setFields(fieldArray);
+  }
+
+  private com.linkedin.knowledge.DocumentInfo getDocumentInfo(String title, String content) {
+    com.linkedin.knowledge.DocumentInfo documentInfo = new com.linkedin.knowledge.DocumentInfo();
+    documentInfo.setTitle(title);
+    com.linkedin.knowledge.DocumentContents contents =
+        new com.linkedin.knowledge.DocumentContents();
+    contents.setText(content);
+    documentInfo.setContents(contents);
+
+    // Set required status field
+    com.linkedin.knowledge.DocumentStatus status = new com.linkedin.knowledge.DocumentStatus();
+    status.setState(com.linkedin.knowledge.DocumentState.PUBLISHED);
+    documentInfo.setStatus(status);
+
+    // Set created timestamp
+    AuditStamp created = new AuditStamp();
+    created.setTime(System.currentTimeMillis());
+    try {
+      created.setActor(Urn.createFromString("urn:li:corpuser:testUser"));
+    } catch (Exception e) {
+      // ignore
+    }
+    documentInfo.setCreated(created);
+    documentInfo.setLastModified(created);
+
+    return documentInfo;
   }
 }

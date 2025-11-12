@@ -43,8 +43,6 @@ public class DeleteDocumentResolver implements DataFetcher<CompletableFuture<Boo
 
             return true;
           } catch (Exception e) {
-            log.error(
-                "Failed to delete Document with URN {}: {}", documentUrnString, e.getMessage());
             throw new RuntimeException(
                 String.format("Failed to delete Document with urn %s", documentUrnString), e);
           }

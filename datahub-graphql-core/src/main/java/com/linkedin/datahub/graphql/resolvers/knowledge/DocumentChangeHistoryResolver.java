@@ -17,6 +17,8 @@ import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -37,7 +39,8 @@ public class DocumentChangeHistoryResolver
     implements DataFetcher<CompletableFuture<List<DocumentChange>>> {
 
   private final TimelineService _timelineService;
-  private static final long DEFAULT_LOOKBACK_MILLIS = 30L * 24 * 60 * 60 * 1000; // 30 days
+  private static final Duration DEFAULT_LOOKBACK =
+      Duration.ofDays(365); // Default lookback of one year.
   private static final int DEFAULT_LIMIT = 50;
 
   @Override
@@ -56,9 +59,12 @@ public class DocumentChangeHistoryResolver
         () -> {
           try {
             // Calculate time range
-            long endTime = endTimeMillis != null ? endTimeMillis : System.currentTimeMillis();
-            long startTime =
-                startTimeMillis != null ? startTimeMillis : (endTime - DEFAULT_LOOKBACK_MILLIS);
+            Instant endTime =
+                endTimeMillis != null ? Instant.ofEpochMilli(endTimeMillis) : Instant.now();
+            Instant startTime =
+                startTimeMillis != null
+                    ? Instant.ofEpochMilli(startTimeMillis)
+                    : endTime.minus(DEFAULT_LOOKBACK);
             int maxResults = limit != null ? limit : DEFAULT_LIMIT;
 
             // Fetch all relevant change categories for documents
@@ -69,8 +75,8 @@ public class DocumentChangeHistoryResolver
                 _timelineService.getTimeline(
                     documentUrn,
                     categories,
-                    startTime,
-                    endTime,
+                    startTime.toEpochMilli(),
+                    endTime.toEpochMilli(),
                     null, // startVersionStamp
                     null, // endVersionStamp
                     false); // rawDiffsRequested
@@ -154,7 +160,7 @@ public class DocumentChangeHistoryResolver
     change.setTimestamp(
         event.getAuditStamp() != null
             ? event.getAuditStamp().getTime()
-            : System.currentTimeMillis());
+            : Instant.now().toEpochMilli());
 
     // Set actor (optional)
     if (event.getAuditStamp() != null && event.getAuditStamp().hasActor()) {

@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
@@ -31,6 +32,7 @@ public class EntityPrivilegesResolverTest {
   final String dashboardUrn = "urn:li:dashboard:(looker,dashboards.1)";
   final String dataJobUrn =
       "urn:li:dataJob:(urn:li:dataFlow:(spark,test_machine.sparkTestApp,local),QueryExecId_31)";
+  final String documentUrn = "urn:li:document:test-document";
 
   private DataFetchingEnvironment setUpTestWithPermissions(Entity entity) {
     QueryContext mockContext = getMockAllowContext();
@@ -237,5 +239,51 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertFalse(result.getCanEditLineage());
+  }
+
+  @Test
+  public void testGetDocumentSuccessWithPermissions() throws Exception {
+    final Document document = new Document();
+    document.setUrn(documentUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithPermissions(document);
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    // Documents fall through to default case, so only common privileges are set
+    assertTrue(result.getCanEditLineage());
+    assertTrue(result.getCanEditProperties());
+    assertTrue(result.getCanEditDomains());
+    assertTrue(result.getCanEditDeprecation());
+    assertTrue(result.getCanEditGlossaryTerms());
+    assertTrue(result.getCanEditTags());
+    assertTrue(result.getCanEditOwners());
+    assertTrue(result.getCanEditDescription());
+    assertTrue(result.getCanEditLinks());
+  }
+
+  @Test
+  public void testGetDocumentSuccessWithoutPermissions() throws Exception {
+    final Document document = new Document();
+    document.setUrn(documentUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithoutPermissions(document);
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    // Documents fall through to default case, so only common privileges are set
+    assertFalse(result.getCanEditLineage());
+    assertFalse(result.getCanEditProperties());
+    assertFalse(result.getCanEditDomains());
+    assertFalse(result.getCanEditDeprecation());
+    assertFalse(result.getCanEditGlossaryTerms());
+    assertFalse(result.getCanEditTags());
+    assertFalse(result.getCanEditOwners());
+    assertFalse(result.getCanEditDescription());
+    assertFalse(result.getCanEditLinks());
   }
 }
