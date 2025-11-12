@@ -251,15 +251,16 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         description="Generate operation statistics from audit trail data (CREATE, INSERT, UPDATE, DELETE operations).",
     )
 
-    @model_validator(mode="before")
+    @field_validator("service_name", mode="after")
     @classmethod
-    def check_service_name(cls, values):
-        if isinstance(values, dict):
-            if values.get("database") and values.get("service_name"):
-                raise ValueError(
-                    "specify one of 'database' and 'service_name', but not both"
-                )
-        return values
+    def check_service_name(
+        cls, v: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        if info.data.get("database") and v:
+            raise ValueError(
+                "specify one of 'database' and 'service_name', but not both"
+            )
+        return v
 
     @field_validator("data_dictionary_mode", mode="before")
     @classmethod
@@ -273,32 +274,6 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         if (
             self.thick_mode_lib_dir is None
             and self.enable_thick_mode
-    @field_validator("service_name", mode="after")
-    @classmethod
-    def check_service_name(
-        cls, v: Optional[str], info: ValidationInfo
-    ) -> Optional[str]:
-        if info.data.get("database") and v:
-            raise ValueError(
-                "specify one of 'database' and 'service_name', but not both"
-            )
-        return v
-
-    @field_validator("data_dictionary_mode", mode="after")
-    @classmethod
-    def check_data_dictionary_mode(cls, value: str) -> str:
-        if value not in ("ALL", "DBA"):
-            raise ValueError("Specify one of data dictionary views mode: 'ALL', 'DBA'.")
-        return value
-
-    @field_validator("thick_mode_lib_dir", mode="before")
-    @classmethod
-    def check_thick_mode_lib_dir(
-        cls, v: Optional[str], info: ValidationInfo
-    ) -> Optional[str]:
-        if (
-            v is None
-            and info.data.get("enable_thick_mode")
             and (platform.system() == "Darwin" or platform.system() == "Windows")
         ):
             raise ValueError(
