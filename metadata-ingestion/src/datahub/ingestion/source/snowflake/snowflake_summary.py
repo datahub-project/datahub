@@ -59,7 +59,7 @@ class SnowflakeSummaryReport(SourceReport, BaseTimeWindowReport):
 
 
 @config_class(SnowflakeSummaryConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 class SnowflakeSummarySource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeSummaryConfig):
         super().__init__(ctx)

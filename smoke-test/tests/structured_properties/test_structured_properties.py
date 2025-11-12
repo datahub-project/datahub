@@ -28,12 +28,7 @@ from datahub.utilities.urns.structured_properties_urn import StructuredPropertyU
 from datahub.utilities.urns.urn import Urn
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities.file_emitter import FileEmitter
-from tests.utils import (
-    delete_urns,
-    delete_urns_from_file,
-    get_sleep_info,
-    ingest_file_via_rest,
-)
+from tests.utils import delete_urns, delete_urns_from_file, ingest_file_via_rest
 
 logger = logging.getLogger(__name__)
 
@@ -73,9 +68,6 @@ def create_test_data(filename: str):
 
     file_emitter.close()
     wait_for_writes_to_sync()
-
-
-sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module")

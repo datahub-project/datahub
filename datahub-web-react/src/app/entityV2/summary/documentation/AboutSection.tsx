@@ -83,7 +83,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
     };
 
     return (
-        <div>
+        <div data-testid="about-section">
             <SectionHeaderWrapper>
                 <Text weight="bold" color="gray" colorLevel={600} size="sm">
                     About
@@ -98,6 +98,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
                                 icon={{ icon: 'LinkSimple', source: 'phosphor', size: 'lg' }}
                                 style={{ padding: '0 2px' }}
                                 onClick={() => setShowAddLinkModal(true)}
+                                data-testid="add-link-button"
                             />
                         </Tooltip>
                     )}
@@ -110,6 +111,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
                                 icon={{ icon: 'PencilSimpleLine', source: 'phosphor', size: 'lg' }}
                                 style={{ padding: '0 2px' }}
                                 onClick={() => setShowDescriptionModal(true)}
+                                data-testid="edit-description-button"
                             />
                         </Tooltip>
                     )}
@@ -117,7 +119,12 @@ export default function AboutSection({ hideLinksButton }: Props) {
             </SectionHeaderWrapper>
             <DescriptionContainer>
                 <DescriptionViewer>
-                    <StyledEditor content={displayedDescription} placeholder={emptyDescriptionText} readOnly />
+                    <StyledEditor
+                        content={displayedDescription}
+                        placeholder={emptyDescriptionText}
+                        dataTestId="description-viewer"
+                        readOnly
+                    />
                 </DescriptionViewer>
             </DescriptionContainer>
             {!hideLinksButton && <Links />}

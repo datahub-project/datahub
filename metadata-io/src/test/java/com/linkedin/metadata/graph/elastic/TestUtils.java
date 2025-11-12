@@ -6,10 +6,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,7 +27,6 @@ import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -142,7 +143,7 @@ public class TestUtils {
    * each slice
    */
   public static void mockSliceBasedSearch(
-      RestHighLevelClient mockClient,
+      SearchClientShim<?> mockClient,
       List<SearchResponse> slice1Responses,
       List<SearchResponse> slice2Responses) {
 
@@ -202,10 +203,12 @@ public class TestUtils {
 
   /** Helper method to create an empty search response for pagination with correct total hits */
   public static SearchResponse createEmptySearchResponse(long totalHits) {
-    SearchResponse response = mock(SearchResponse.class);
+    // Use stubOnly() to avoid Mockito's expensive location tracking in concurrent contexts
+    // This prevents WeakConcurrentMap accumulation from stack walking
+    SearchResponse response = mock(SearchResponse.class, withSettings().stubOnly());
 
     // Create a real SearchHits mock with proper behavior
-    SearchHits searchHits = mock(SearchHits.class);
+    SearchHits searchHits = mock(SearchHits.class, withSettings().stubOnly());
 
     // Create an actual TotalHits instance from Lucene
     TotalHits totalHitsObj = new TotalHits(totalHits, TotalHits.Relation.EQUAL_TO);
@@ -304,12 +307,15 @@ public class TestUtils {
    */
   public static SearchResponse createFakeSearchResponse(
       SearchHit[] hits, long totalHits, String scrollId) {
-    SearchHits searchHits = mock(SearchHits.class);
+    // Use stubOnly() to avoid Mockito's expensive location tracking in concurrent contexts
+    // This prevents WeakConcurrentMap accumulation from stack walking when getHits() is called
+    // in ForkJoinPool threads
+    SearchHits searchHits = mock(SearchHits.class, withSettings().stubOnly());
     when(searchHits.getHits()).thenReturn(hits);
     when(searchHits.getTotalHits())
         .thenReturn(new TotalHits(totalHits, TotalHits.Relation.EQUAL_TO));
 
-    SearchResponse searchResponse = mock(SearchResponse.class);
+    SearchResponse searchResponse = mock(SearchResponse.class, withSettings().stubOnly());
     when(searchResponse.getHits()).thenReturn(searchHits);
 
     if (scrollId != null) {

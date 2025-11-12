@@ -41,13 +41,18 @@ const ColumnStatsV2 = () => {
     if (!hasColumnStats) return null;
 
     return (
-        <ColumnStatsContainer>
+        <ColumnStatsContainer data-testid="column-stats-container">
             <PageTitle
                 title="Column Stats"
                 subTitle="View latest stats for each column in this table."
                 variant="sectionHeader"
             />
-            <SearchBar placeholder="Search Column Name" value={searchQuery} onChange={(value) => handleSearch(value)} />
+            <SearchBar
+                placeholder="Search Column Name"
+                value={searchQuery}
+                onChange={(value) => handleSearch(value)}
+                data-testid="column-stats-search-bar"
+            />
             <ColumnStatsTable columnStats={columnStats} searchQuery={searchQuery} />
         </ColumnStatsContainer>
     );

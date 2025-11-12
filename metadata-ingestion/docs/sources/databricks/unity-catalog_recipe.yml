@@ -1,8 +1,17 @@
 source:
-  type: unity-catalog
+  type: databricks
   config:
     workspace_url: https://my-workspace.cloud.databricks.com
+    
+    # Authentication Option 1: Personal Access Token
     token: "<token>"
+    
+    # Authentication Option 2: Azure Authentication (for Azure Databricks)
+    # Uncomment the following section and comment out the token above to use Azure auth
+    # azure_auth:
+    #   client_id: "<azure_client_id>"
+    #   tenant_id: "<azure_tenant_id>" 
+    #   client_secret: "<azure_client_secret>"
     include_metastore: false
     include_ownership: true
     include_ml_model_aliases: false

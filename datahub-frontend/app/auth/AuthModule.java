@@ -303,11 +303,14 @@ public class AuthModule extends AbstractModule {
 
     final int metadataServicePort = getMetadataServicePort(configs);
 
+    final String metadataServiceBasePath = getMetadataServiceBasePath(configs);
+
     final boolean metadataServiceUseSsl = doesMetadataServiceUseSsl(configs);
 
     return new AuthServiceClient(
         metadataServiceHost,
         metadataServicePort,
+        metadataServiceBasePath,
         metadataServiceUseSsl,
         systemAuthentication,
         httpClient);
@@ -356,6 +359,16 @@ public class AuthModule extends AbstractModule {
             configs,
             utils.ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
             utils.ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
+    final String metadataServiceBasePath =
+        utils.ConfigUtil.getString(
+            configs,
+            utils.ConfigUtil.METADATA_SERVICE_BASE_PATH_CONFIG_PATH,
+            utils.ConfigUtil.DEFAULT_METADATA_SERVICE_BASE_PATH);
+    final boolean metadataServiceBasePathEnabled =
+        utils.ConfigUtil.getBoolean(
+            configs,
+            utils.ConfigUtil.METADATA_SERVICE_BASE_PATH_ENABLED_CONFIG_PATH,
+            utils.ConfigUtil.DEFAULT_METADATA_SERVICE_BASE_PATH_ENABLED);
     final boolean metadataServiceUseSsl =
         utils.ConfigUtil.getBoolean(
             configs,
@@ -366,9 +379,16 @@ public class AuthModule extends AbstractModule {
             configs,
             utils.ConfigUtil.METADATA_SERVICE_SSL_PROTOCOL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_SSL_PROTOCOL);
+
+    // Use the same logic as GMSConfiguration.getResolvedBasePath()
+    String resolvedBasePath =
+        com.linkedin.metadata.utils.BasePathUtils.resolveBasePath(
+            metadataServiceBasePathEnabled, metadataServiceBasePath);
+
     return DefaultRestliClientFactory.getRestLiClient(
         metadataServiceHost,
         metadataServicePort,
+        resolvedBasePath,
         metadataServiceUseSsl,
         metadataServiceSslProtocol);
   }
@@ -393,13 +413,35 @@ public class AuthModule extends AbstractModule {
             Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
   }
 
+  protected String getMetadataServiceBasePath(com.typesafe.config.Config configs) {
+    final String basePath =
+        configs.hasPath(METADATA_SERVICE_BASE_PATH_CONFIG_PATH)
+            ? configs.getString(METADATA_SERVICE_BASE_PATH_CONFIG_PATH)
+            : Configuration.getEnvironmentVariable(GMS_BASE_PATH_ENV_VAR, DEFAULT_GMS_BASE_PATH);
+
+    final boolean basePathEnabled =
+        configs.hasPath(METADATA_SERVICE_BASE_PATH_ENABLED_CONFIG_PATH)
+            ? configs.getBoolean(METADATA_SERVICE_BASE_PATH_ENABLED_CONFIG_PATH)
+            : Boolean.parseBoolean(
+                Configuration.getEnvironmentVariable(
+                    "DATAHUB_GMS_BASE_PATH_ENABLED", DEFAULT_GMS_BASE_PATH_ENABLED));
+
+    // Use the same logic as GMSConfiguration.getResolvedBasePath()
+    return com.linkedin.metadata.utils.BasePathUtils.resolveBasePath(basePathEnabled, basePath);
+  }
+
   protected String getSsoSettingsRequestUrl(com.typesafe.config.Config configs) {
     final String protocol = doesMetadataServiceUseSsl(configs) ? "https" : "http";
     final String metadataServiceHost = getMetadataServiceHost(configs);
+    final String metadataServiceBasePath = getMetadataServiceBasePath(configs);
     final Integer metadataServicePort = getMetadataServicePort(configs);
 
     return String.format(
-        "%s://%s:%s/%s",
-        protocol, metadataServiceHost, metadataServicePort, GET_SSO_SETTINGS_ENDPOINT);
+        "%s://%s:%s%s/%s",
+        protocol,
+        metadataServiceHost,
+        metadataServicePort,
+        metadataServiceBasePath,
+        GET_SSO_SETTINGS_ENDPOINT);
   }
 }

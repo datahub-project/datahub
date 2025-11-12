@@ -8,13 +8,13 @@
         "json": {
             "customProperties": {
                 "schema_inferred_from": "gs://my-test-bucket/folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=march/part2.json",
-                "number_of_partitions": "6"
+                "number_of_partitions": "1"
             },
             "externalUrl": "https://console.cloud.google.com/storage/browser/my-test-bucket/folder_a/folder_aa/folder_aaa/folder_aaaa",
             "name": "folder_aaaa",
             "description": "",
             "created": {
-                "time": 1586847680000
+                "time": 1586847780000
             },
             "lastModified": {
                 "time": 1586847790000
@@ -628,9 +628,9 @@
     "aspect": {
         "json": {
             "minPartition": {
-                "partition": "partition_0=pokemon_abilities_yearwise_2019/partition_1=month=feb",
-                "createdTime": 1586847680000,
-                "lastModifiedTime": 1586847690000
+                "partition": "partition_0=pokemon_abilities_yearwise_2021/partition_1=month=march",
+                "createdTime": 1586847780000,
+                "lastModifiedTime": 1586847790000
             },
             "maxPartition": {
                 "partition": "partition_0=pokemon_abilities_yearwise_2021/partition_1=month=march",

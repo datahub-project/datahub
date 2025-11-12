@@ -8,8 +8,7 @@ import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModa
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { Button } from '@src/alchemy-components';
+import { Button, Editor } from '@src/alchemy-components';
 
 const Header = styled.div`
     display: flex;

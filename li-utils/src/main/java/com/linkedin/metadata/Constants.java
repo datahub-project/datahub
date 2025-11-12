@@ -482,6 +482,10 @@ public class Constants {
   public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
       "dataHubPageModuleProperties";
 
+  // File
+  public static final String DATAHUB_FILE_ENTITY_NAME = "dataHubFile";
+  public static final String DATAHUB_FILE_INFO_ASPECT_NAME = "dataHubFileInfo";
+
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME =
       "dataHubStepStateProperties";
@@ -545,6 +549,9 @@ public class Constants {
   // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
   // EntityPrivilegesResolver
   public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
+
+  // AWS S3
+  public static final String S3_FILE_ID_NAME_SEPARATOR = "__";
 
   private Constants() {}
 }

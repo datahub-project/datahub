@@ -21,7 +21,7 @@ from datahub.metadata.schema_classes import DatasetSnapshotClass, StatusClass
 
 class KafkaEmitterTest(unittest.TestCase):
     def test_kafka_emitter_config(self):
-        emitter_config = KafkaEmitterConfig.parse_obj(
+        emitter_config = KafkaEmitterConfig.model_validate(
             {"connection": {"bootstrap": "foobar:9092"}}
         )
         assert emitter_config.topic_routes[MCE_KEY] == DEFAULT_MCE_KAFKA_TOPIC
@@ -33,7 +33,7 @@ class KafkaEmitterTest(unittest.TestCase):
 
     def test_kafka_emitter_config_old_and_new(self):
         with pytest.raises(pydantic.ValidationError):
-            KafkaEmitterConfig.parse_obj(
+            KafkaEmitterConfig.model_validate(
                 {
                     "connection": {"bootstrap": "foobar:9092"},
                     "topic": "NewTopic",
@@ -46,7 +46,7 @@ class KafkaEmitterTest(unittest.TestCase):
     """
 
     def test_kafka_emitter_config_topic_upgrade(self):
-        emitter_config = KafkaEmitterConfig.parse_obj(
+        emitter_config = KafkaEmitterConfig.model_validate(
             {"connection": {"bootstrap": "foobar:9092"}, "topic": "NewTopic"}
         )
         assert emitter_config.topic_routes[MCE_KEY] == "NewTopic"  # MCE topic upgraded

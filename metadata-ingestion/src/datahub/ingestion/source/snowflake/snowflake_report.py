@@ -9,7 +9,6 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,
 )
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyDict
@@ -96,7 +95,6 @@ class SnowflakeV2Report(
     SnowflakeUsageReport,
     StatefulIngestionReport,
     ClassificationReportMixin,
-    IngestionStageReport,
 ):
     account_locator: Optional[str] = None
     region: Optional[str] = None
@@ -106,6 +104,7 @@ class SnowflakeV2Report(
     tags_scanned: int = 0
     streams_scanned: int = 0
     procedures_scanned: int = 0
+    streamlit_apps_scanned: int = 0
 
     include_usage_stats: bool = False
     include_operational_stats: bool = False
@@ -167,6 +166,8 @@ class SnowflakeV2Report(
             self.streams_scanned += 1
         elif ent_type == "procedure":
             self.procedures_scanned += 1
+        elif ent_type == "streamlit":
+            self.streamlit_apps_scanned += 1
         else:
             raise KeyError(f"Unknown entity {ent_type}.")
 

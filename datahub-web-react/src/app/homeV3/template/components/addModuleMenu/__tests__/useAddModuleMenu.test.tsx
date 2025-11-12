@@ -155,11 +155,13 @@ describe('useAddModuleMenu', () => {
         // Check "Default" group - HomePage should have yourAssets and domains
         expect(items?.[1]).toHaveProperty('key', 'customLargeModulesGroup');
         // @ts-expect-error SubMenuItem should have children
-        expect(items?.[1]?.children).toHaveLength(2);
+        expect(items?.[1]?.children).toHaveLength(3);
         // @ts-expect-error SubMenuItem should have children
         expect(items?.[1]?.children?.[0]).toHaveProperty('key', 'your-assets');
         // @ts-expect-error SubMenuItem should have children
         expect(items?.[1]?.children?.[1]).toHaveProperty('key', 'domains');
+        // @ts-expect-error SubMenuItem should have children
+        expect(items?.[1]?.children?.[2]).toHaveProperty('key', 'platforms');
     });
 
     it('should include admin created modules when available in global template for HomePage', () => {
@@ -576,7 +578,7 @@ describe('useAddModuleMenu', () => {
 
             // Default modules should be HomePage defaults (not entity-specific)
             const defaultChildren = getChildren(result.current.items?.[1]);
-            expect(defaultChildren).toHaveLength(2);
+            expect(defaultChildren).toHaveLength(3);
             expect(defaultChildren[0]).toHaveProperty('key', 'your-assets');
             expect(defaultChildren[1]).toHaveProperty('key', 'domains');
         });

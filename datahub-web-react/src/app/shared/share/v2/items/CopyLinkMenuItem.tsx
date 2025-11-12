@@ -5,6 +5,7 @@ import styled from 'styled-components/macro';
 
 import { StyledMenuItem } from '@app/shared/share/v2/styledComponents';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { EntityType } from '@types';
 
@@ -32,7 +33,7 @@ export default function CopyLinkMenuItem({ key, urn, entityType }: CopyLinkMenuI
 
     const [isClicked, setIsClicked] = useState(false);
 
-    const copyUrl = `${origin}${entityRegistry.getEntityUrl(entityType, urn)}/`;
+    const copyUrl = `${origin}${resolveRuntimePath(`${entityRegistry.getEntityUrl(entityType, urn)}`)}/`;
 
     return (
         <StyledMenuItem
@@ -68,7 +69,7 @@ export function SimpleCopyLinkMenuItem({
 
     const [isClicked, setIsClicked] = useState(false);
 
-    const copyUrl = `${origin}${entityRegistry.getEntityUrl(entityType, urn)}/`;
+    const copyUrl = `${origin}${resolveRuntimePath(`${entityRegistry.getEntityUrl(entityType, urn)}`)}/`;
 
     return (
         <SimpleMenuItem

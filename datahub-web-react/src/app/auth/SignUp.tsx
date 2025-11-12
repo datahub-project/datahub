@@ -12,6 +12,7 @@ import useGetInviteTokenFromUrlParams from '@app/auth/useGetInviteTokenFromUrlPa
 import { Message } from '@app/shared/Message';
 import { useAppConfig } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useAcceptRoleMutation } from '@graphql/mutations.generated';
 
@@ -116,7 +117,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                     inviteToken,
                 }),
             };
-            fetch('/signUp', requestOptions)
+            fetch(resolveRuntimePath('/signUp'), requestOptions)
                 .then(async (response) => {
                     if (!response.ok) {
                         const data = await response.json();

@@ -77,5 +77,5 @@ class DruidSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DruidConfig.parse_obj(config_dict)
+        config = DruidConfig.model_validate(config_dict)
         return cls(config, ctx)

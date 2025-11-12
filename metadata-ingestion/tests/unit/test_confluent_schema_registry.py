@@ -60,7 +60,7 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
         """
         )
 
-        kafka_source_config = KafkaSourceConfig.parse_obj(
+        kafka_source_config = KafkaSourceConfig.model_validate(
             {
                 "connection": {
                     "bootstrap": "localhost:9092",
