@@ -39,3 +39,20 @@ beforeEach(function () {
     }
   }
 });
+
+afterEach(() => {
+  cy.window().then((win) => {
+    if (win.performance && win.performance.memory) {
+      const mem = win.performance.memory;
+      const formatBytes = (bytes) =>
+        (bytes / 1024 / 1024 / 1024).toFixed(3) + " GB";
+
+      cy.log("=== Browser Tab Memory ===");
+      cy.log(`Used: ${formatBytes(mem.usedJSHeapSize)}`);
+      cy.log(`Total: ${formatBytes(mem.totalJSHeapSize)}`);
+      cy.log(`Limit: ${formatBytes(mem.jsHeapSizeLimit)}`);
+    } else {
+      cy.log("Browser memory API not available");
+    }
+  });
+});
