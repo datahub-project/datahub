@@ -19,9 +19,9 @@ def test_stateful_ingestion(auth_session):
     def create_db_engine(sql_source_config_dict: Dict[str, Any]) -> Any:
         sql_config: Union[MySQLConfig, PostgresConfig]
         if get_db_type() == "mysql":
-            sql_config = MySQLConfig.parse_obj(sql_source_config_dict)
+            sql_config = MySQLConfig.model_validate(sql_source_config_dict)
         else:
-            sql_config = PostgresConfig.parse_obj(sql_source_config_dict)
+            sql_config = PostgresConfig.model_validate(sql_source_config_dict)
 
         url = sql_config.get_sql_alchemy_url()
         return create_engine(url)

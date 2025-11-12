@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
@@ -15,8 +15,7 @@ class DataHubSecretStoreConfig(BaseModel):
     graph_client: Optional[DataHubGraph] = None
     graph_client_config: Optional[DatahubClientConfig] = None
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @field_validator("graph_client", mode="after")
     @classmethod
