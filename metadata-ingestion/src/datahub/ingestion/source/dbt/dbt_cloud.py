@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 class AutoDiscoveryConfig(ConfigModel):
     """
     Configuration for auto-discovery mode that automatically discovers jobs for a project.
+    Ref: DBT Jobs: http://docs.getdbt.com/docs/deploy/jobs
     TODO: The configuration is oraganised this way to allow for future expansion to project discovery at account level.
     """
 
@@ -483,6 +484,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             data = response.json()
             environments = []
             for environment in data.get("data", []):
+                logger.debug(
+                    f"Found {len(data.get('data', []))} environments for project {project_id}"
+                )
                 deployment_type = environment.get("deployment_type")
                 if deployment_type is None:
                     logger.debug(
@@ -497,7 +501,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 )
 
             logger.debug(
-                f"Found {len(environments)} environments for project {project_id}"
+                f"Processed {len(environments)} environments out of {len(data.get('data', []))} for project {project_id}"
             )
             return environments
         except requests.exceptions.RequestException as e:
@@ -568,6 +572,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 self.config.project_id,
                 production_env.id,
             )
+            self.report.total_jobs_retreived_from_api = len(all_jobs)
         except Exception as e:
             logger.error(
                 f"Failed to fetch jobs for project {self.config.project_id}: {e}"
@@ -581,10 +586,17 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 str(job.id)
             ):
                 filtered_job_ids.append(job.id)
+                self.report.total_jobs_processed += 1
             else:
+                self.report.total_jobs_processed_skipped += 1
                 logger.debug(
                     f"Skipping job {job.id}: generate_docs={job.generate_docs}, "
                     f"matches_pattern={self.config.auto_discovery.job_id_pattern.allowed(str(job.id))}"
+                )
+                self.report.warning(
+                    title="DBT Cloud Jobs Skipped Processing",
+                    message=f"Jobs from account_id: {self.config.account_id}, project_id: {self.config.project_id}, environment_id: {production_env.id} were skipped because it did not match the job_id_pattern or did not generate_docs",
+                    context=str(job.id),
                 )
 
         logger.info(
