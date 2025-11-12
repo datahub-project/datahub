@@ -71,7 +71,7 @@ class SqlMetricChangeAssertion(BaseEntityAssertion):
                 statement=self.statement,
                 changeType=(
                     AssertionValueChangeType.ABSOLUTE
-                    if self.change_type == Literal["absolute"]
+                    if self.change_type == "absolute"
                     else AssertionValueChangeType.PERCENTAGE
                 ),
                 operator=self.operator.operator,

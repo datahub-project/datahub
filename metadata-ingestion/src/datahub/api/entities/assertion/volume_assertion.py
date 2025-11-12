@@ -77,7 +77,7 @@ class RowCountChangeVolumeAssertion(BaseEntityAssertion):
                 rowCountChange=RowCountChange(
                     type=(
                         AssertionValueChangeType.ABSOLUTE
-                        if self.change_type == Literal["absolute"]
+                        if self.change_type == "absolute"
                         else AssertionValueChangeType.PERCENTAGE
                     ),
                     operator=self.operator.operator,
