@@ -576,6 +576,11 @@ class GlueSource(StatefulIngestionSourceBase):
 
         script = obj["Body"].read().decode("utf-8")
 
+        logger.debug(
+            f"Downloaded Glue job script from {script_path}. Script content:\n"
+            f"{'=' * 80}\n{script}\n{'=' * 80}"
+        )
+
         try:
             # extract the job DAG from the script
             # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_dataflow_graph
