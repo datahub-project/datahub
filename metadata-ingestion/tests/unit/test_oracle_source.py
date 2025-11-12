@@ -69,8 +69,8 @@ def test_oracle_config_stored_procedures():
     assert config.include_stored_procedures is True
     assert config.procedure_pattern == AllowDenyPattern.allow_all()
     assert config.include_materialized_views is True
-    assert config.include_usage_stats is True
-    assert config.include_operational_stats is True
+    assert config.include_usage_stats is False
+    assert config.include_operational_stats is False
 
     # Test custom stored procedures configuration
     custom_config = {

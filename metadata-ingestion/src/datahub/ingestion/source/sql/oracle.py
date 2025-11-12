@@ -237,16 +237,17 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     )
     include_materialized_views: bool = Field(
         default=True,
-        description="Include materialized views in ingestion. Requires access to DBA_MVIEWS or ALL_MVIEWS.",
+        description="Include materialized views in ingestion. Requires access to DBA_MVIEWS or ALL_MVIEWS. "
+        "If permission errors occur, you can disable this feature or grant the required permissions.",
     )
 
     include_usage_stats: bool = Field(
-        default=True,
+        default=False,
         description="Generate usage statistics via SQL aggregator. Requires observed queries to be processed.",
     )
 
     include_operational_stats: bool = Field(
-        default=True,
+        default=False,
         description="Generate operation statistics from audit trail data (CREATE, INSERT, UPDATE, DELETE operations).",
     )
 
@@ -916,7 +917,7 @@ class OracleSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = OracleConfig.parse_obj(config_dict)
+        config = OracleConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @classmethod
@@ -1023,12 +1024,21 @@ class OracleSource(SQLAlchemySource):
             try:
                 yield from self.loop_materialized_views(inspector, schema, self.config)
             except Exception as e:
-                self.report.failure(
-                    message="Failed to process materialized views",
-                    title="Oracle Materialized Views Extraction",
-                    context=f"Error occurred during materialized view extraction for schema {schema}",
+                # Provide helpful guidance to users
+                self.report.warning(
+                    title="Failed to Ingest Materialized Views",
+                    message=f"Missing permissions to access {self.config.data_dictionary_mode}_MVIEWS. Grant SELECT on this view or set 'include_materialized_views: false' to disable.",
+                    context=f"{schema}",
                     exc=e,
                 )
+
+    def _validate_tables_prefix(self, tables_prefix: str) -> None:
+        """Validate tables_prefix to prevent SQL injection."""
+        if tables_prefix not in (
+            DataDictionaryMode.ALL.value,
+            DataDictionaryMode.DBA.value,
+        ):
+            raise ValueError(f"Invalid tables_prefix: {tables_prefix}")
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
@@ -1111,6 +1121,14 @@ class OracleSource(SQLAlchemySource):
                     f"Failed to get stored procedures for schema {schema}: {e}"
                 )
 
+                # Provide helpful guidance to users
+                self.report.warning(
+                    title="Failed to Ingest Stored Procedures",
+                    message=f"Missing permissions to access {self.config.data_dictionary_mode}_OBJECTS/SOURCE/ARGUMENTS/DEPENDENCIES. Grant SELECT on these views or set 'include_stored_procedures: false' to disable.",
+                    context=f"{schema}",
+                    exc=e,
+                )
+
         return base_procedures
 
     def _get_procedure_source_code(
@@ -1124,11 +1142,7 @@ class OracleSource(SQLAlchemySource):
         """Get procedure source code from ALL_SOURCE or DBA_SOURCE."""
         try:
             # Validate tables_prefix to prevent injection
-            if tables_prefix not in (
-                DataDictionaryMode.ALL.value,
-                DataDictionaryMode.DBA.value,
-            ):
-                raise ValueError(f"Invalid tables_prefix: {tables_prefix}")
+            self._validate_tables_prefix(tables_prefix)
 
             # Safe: tables_prefix is validated above, user params use prepared statements
             source_query = PROCEDURE_SOURCE_QUERY.format(tables_prefix=tables_prefix)
@@ -1164,11 +1178,7 @@ class OracleSource(SQLAlchemySource):
         """Get procedure arguments from ALL_ARGUMENTS or DBA_ARGUMENTS."""
         try:
             # Validate tables_prefix to prevent injection
-            if tables_prefix not in (
-                DataDictionaryMode.ALL.value,
-                DataDictionaryMode.DBA.value,
-            ):
-                raise ValueError(f"Invalid tables_prefix: {tables_prefix}")
+            self._validate_tables_prefix(tables_prefix)
 
             # Safe: tables_prefix is validated above, user params use prepared statements
             args_query = PROCEDURE_ARGUMENTS_QUERY.format(tables_prefix=tables_prefix)
@@ -1200,11 +1210,7 @@ class OracleSource(SQLAlchemySource):
         """Get procedure dependencies from ALL_DEPENDENCIES or DBA_DEPENDENCIES."""
         try:
             # Validate tables_prefix to prevent injection
-            if tables_prefix not in (
-                DataDictionaryMode.ALL.value,
-                DataDictionaryMode.DBA.value,
-            ):
-                raise ValueError(f"Invalid tables_prefix: {tables_prefix}")
+            self._validate_tables_prefix(tables_prefix)
 
             # Get objects that this procedure depends on (upstream)
             # Safe: tables_prefix is validated above, user params use prepared statements
@@ -1439,7 +1445,7 @@ class OracleSource(SQLAlchemySource):
             logger.warning(f"Error processing materialized view {schema}.{mview}: {e}")
             self.report.warning(
                 title="Failed to Process Materialized View",
-                message=f"Unable to process materialized view {schema}.{mview}",
+                message=f"Error processing materialized view. Check permissions on {self.config.data_dictionary_mode}_MVIEWS or set 'include_materialized_views: false'.",
                 context=f"{schema}.{mview}",
                 exc=e,
             )
