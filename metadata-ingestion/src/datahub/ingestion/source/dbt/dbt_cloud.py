@@ -586,7 +586,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 str(job.id)
             ):
                 filtered_job_ids.append(job.id)
-                self.report.total_jobs_processed += 1
             else:
                 self.report.total_jobs_processed_skipped += 1
                 logger.debug(
@@ -631,6 +630,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         # Fetch nodes from all jobs
         raw_nodes = []
         for job_id in job_ids_to_ingest:
+            self.report.processed_jobs_list.append(job_id)
+            self.report.total_jobs_processed += 1
             for node_type, fields in _DBT_FIELDS_BY_TYPE.items():
                 try:
                     logger.info(
