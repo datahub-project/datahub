@@ -16,6 +16,12 @@ module.exports = defineConfig({
     // We've imported your old cypress plugins here.
     // You may want to clean this up later by importing these.
     setupNodeEvents(on, config) {
+      // eslint-disable-next-line no-unused-vars
+      on("after:spec", (spec, results) => {
+        console.log(`Completed spec: ${spec.relative}`);
+        console.log(`Memory usage: ${JSON.stringify(process.memoryUsage())}`);
+      });
+
       // eslint-disable-next-line global-require
       return require("./cypress/plugins/index")(on, config);
     },
