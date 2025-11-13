@@ -1,3 +1,4 @@
+import { FileDragAndDropArea } from '@components';
 import { Form } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
@@ -6,7 +7,6 @@ import { getFileNameFromUrl } from '@components/components/Editor/extensions/fil
 import { FileNode } from '@components/components/FileNode/FileNode';
 import { FontSizeOptions } from '@components/theme/config';
 
-import { FileDragAndDropArea } from '@app/entityV2/summary/links/FileDragAndDropArea';
 import { LinkFormData, LinkFormVariant } from '@app/entityV2/summary/links/types';
 import { useUploadFileHandler } from '@app/entityV2/summary/links/useUploadFileHandler';
 
