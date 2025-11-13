@@ -899,20 +899,16 @@ class APISource(Source, ABC):
                     )
 
     def get_report(self):
+        return self.report
+
+    def close(self) -> None:
         """
-        Generate and return the final ingestion report with statistics.
+        Close the source and log the final schema extraction summary.
 
-        This method provides a comprehensive summary of the ingestion process,
-        including statistics on schema extraction sources and success rates.
-
-        Returns:
-            SourceReport containing detailed ingestion statistics and warnings
-
-        Note:
-            Calculates percentages for different schema extraction methods
-            Provides insights into the effectiveness of the extraction strategy
+        This method is called once at the end of ingestion, ensuring the summary
+        is only displayed once in the logs.
         """
-        # Add schema extraction statistics to the report
+        # Log schema extraction statistics summary at the end of ingestion
         total_endpoints = self.schema_extraction_stats.total()
 
         if total_endpoints > 0:
@@ -930,7 +926,8 @@ class APISource(Source, ABC):
                 f"{self.schema_extraction_stats.no_schema_found} no schema found"
             )
 
-        return self.report
+        # Call parent close to ensure proper cleanup
+        super().close()
 
 
 class OpenApiSource(APISource):
