@@ -351,6 +351,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         setInputValue('');
     };
 
+    const handleStop = () => {
+        // Emit analytics event for stopping chat response
+        analytics.event({
+            type: EventType.StopDataHubChatResponseEvent,
+            conversationUrn,
+        });
+        stopStreaming();
+    };
+
     const handleQuestionSelect = (question: string) => {
         if (isStreaming) return;
 
@@ -421,14 +430,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                         value={inputValue}
                                         onChange={setInputValue}
                                         onSubmit={handleSend}
-                                        onStop={() => {
-                                            // Emit analytics event for stopping chat response
-                                            analytics.event({
-                                                type: EventType.StopDataHubChatResponseEvent,
-                                                conversationUrn,
-                                            });
-                                            stopStreaming();
-                                        }}
+                                        onStop={handleStop}
                                         placeholder="Ask anything about your data..."
                                         isStreaming={isStreaming}
                                         isWelcomeState
@@ -483,14 +485,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                 value={inputValue}
                                 onChange={setInputValue}
                                 onSubmit={handleSend}
-                                onStop={() => {
-                                    // Emit analytics event for stopping chat response
-                                    analytics.event({
-                                        type: EventType.StopDataHubChatResponseEvent,
-                                        conversationUrn,
-                                    });
-                                    stopStreaming();
-                                }}
+                                onStop={handleStop}
                                 placeholder="Ask about your data... (use @ to mention assets)"
                                 isStreaming={isStreaming}
                             />

@@ -14,14 +14,14 @@ const InputContainer = styled.div`
     flex: 1;
 `;
 
-const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $isWelcomeState?: boolean }>`
+const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $isWelcomeState?: boolean; $isStreaming?: boolean }>`
     width: 100%;
     min-height: ${(props) => (props.$isWelcomeState ? '120px' : '44px')};
     max-height: 120px; /* Grows up to 120px, then scrolls */
     padding: 12px 56px 12px 16px; /* Extra right padding for send button */
     border: 1px solid
         ${(props) => {
-            if (props.$isFocused) return colors.violet[200];
+            if (props.$isFocused && !props.$isStreaming) return colors.violet[200];
             return colors.gray[100];
         }};
     border-radius: ${(props) => (props.$isWelcomeState ? '16px' : '12px')};
@@ -37,9 +37,10 @@ const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $isWelcomeState?: 
     outline: none;
     transition: all 0.2s;
     background-color: white;
-    cursor: text;
+    cursor: ${(props) => (props.$isStreaming ? 'default' : 'text')};
+    pointer-events: ${(props) => (props.$isStreaming ? 'none' : 'auto')};
 
-    ${(props) => props.$isFocused && `outline: 1px solid ${colors.violet[200]};`}
+    ${(props) => props.$isFocused && !props.$isStreaming && `outline: 1px solid ${colors.violet[200]};`}
 
     &:empty:before {
         content: attr(data-placeholder);
@@ -74,6 +75,7 @@ const SendButtonWrapper = styled.div`
     right: 8px;
     bottom: 8px;
     cursor: pointer;
+    pointer-events: auto;
 `;
 
 interface Props {
@@ -121,6 +123,20 @@ export const ChatInput: React.FC<Props> = ({
         }
     }, [mentionState.isActive, mentionState.query, getAutoComplete, viewUrn]);
 
+    // Blur input when value is cleared after sending
+    useEffect(() => {
+        if (value === '' && contentEditableRef.current === document.activeElement) {
+            contentEditableRef.current?.blur();
+        }
+    }, [value, contentEditableRef]);
+
+    // Blur input when streaming starts
+    useEffect(() => {
+        if (isStreaming && contentEditableRef.current === document.activeElement) {
+            contentEditableRef.current?.blur();
+        }
+    }, [isStreaming, contentEditableRef]);
+
     // Handle keyboard events including submit
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -146,7 +162,7 @@ export const ChatInput: React.FC<Props> = ({
     const handleButtonClick = useCallback(() => {
         if (isStreaming && onStop) {
             onStop();
-        } else if (!isSubmitDisabled) {
+        } else if (!isStreaming && !isSubmitDisabled) {
             onSubmit();
         }
     }, [isStreaming, onStop, isSubmitDisabled, onSubmit]);
@@ -166,6 +182,7 @@ export const ChatInput: React.FC<Props> = ({
                 data-placeholder={placeholder}
                 $isFocused={isFocused}
                 $isWelcomeState={isWelcomeState}
+                $isStreaming={isStreaming}
                 suppressContentEditableWarning
             />
             <SendButtonWrapper>
