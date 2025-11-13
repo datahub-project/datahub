@@ -2,9 +2,8 @@ import { Button, Checkbox, Modal, Text } from '@components';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-
-import { LinkFormWrapper } from '@app/entityV2/summary/links/LinkFormWrapper';
-import { LinkFormData } from '@app/entityV2/summary/links/types';
+import { LinkFormData } from '@app/entityV2/shared/components/links/types';
+import { LinkFormWrapper } from '@app/entityV2/shared/components/links/LinkFormWrapper';
 
 const FooterContainer = styled.div`
     display: flex;

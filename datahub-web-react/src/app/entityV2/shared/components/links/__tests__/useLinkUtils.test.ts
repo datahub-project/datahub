@@ -5,8 +5,8 @@ import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
-import { LinkFormVariant } from '@app/entityV2/summary/links/types';
-import { useLinkUtils } from '@app/entityV2/summary/links/useLinkUtils';
+import { LinkFormVariant } from '@app/entityV2/shared/components/links/types';
+import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
 
 import { EntityType } from '@types';
 
@@ -53,7 +53,7 @@ vi.mock('@app/analytics', () => ({
     EntityActionType: { UpdateLinks: 'UpdateLinks' },
 }));
 
-vi.mock('@app/entityV2/summary/links/utils', () => ({
+vi.mock('@app/entityV2/shared/components/links/utils', () => ({
     getGeneralizedLinkFormDataFromFormData: vi.fn((data) => ({
         url: data.variant === 'uploadFile' ? data.fileUrl : data.url,
         label: data.label,

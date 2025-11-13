@@ -1,9 +1,9 @@
-import { LinkOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { InstitutionalMemoryMetadata } from '@types';
+import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 
 export const StyledLink = styled(Button)`
     display: flex;
@@ -19,6 +19,10 @@ export const StyledLink = styled(Button)`
     }
 `;
 
+const StyledFileIcon = styled(LinkIcon)`
+    margin-right: 4px;
+`
+
 interface Props {
     link: InstitutionalMemoryMetadata;
 }
@@ -32,7 +36,7 @@ export default function LinkButton({ link }: Props) {
             rel="noreferrer"
             key={`${link.label}-${link.url}-${link.actor.urn}`}
         >
-            <LinkOutlined />
+            <StyledFileIcon url={link.url}/>
             {link.description || link.label}
         </StyledLink>
     );

@@ -7,8 +7,8 @@ import { getFileNameFromUrl } from '@components/components/Editor/extensions/fil
 import { FileNode } from '@components/components/FileNode/FileNode';
 import { FontSizeOptions } from '@components/theme/config';
 
-import { LinkFormData, LinkFormVariant } from '@app/entityV2/summary/links/types';
-import { useUploadFileHandler } from '@app/entityV2/summary/links/useUploadFileHandler';
+import { LinkFormData, LinkFormVariant } from '@app/entityV2/shared/components/links/types';
+import { useUploadFileHandler } from '@app/entityV2/shared/components/links/useUploadFileHandler';
 
 const StyledFileDragAndDropArea = styled(FileDragAndDropArea)``;
 

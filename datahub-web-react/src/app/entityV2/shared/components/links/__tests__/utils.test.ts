@@ -3,11 +3,11 @@ import type { Mock } from 'vitest';
 
 import { isFileUrl } from '@components/components/Editor/extensions/fileDragDrop';
 
-import { LinkFormVariant } from '@app/entityV2/summary/links/types';
+import { LinkFormVariant } from '@app/entityV2/shared/components/links/types';
 import {
     getGeneralizedLinkFormDataFromFormData,
     getInitialLinkFormDataFromInstitutionMemory,
-} from '@app/entityV2/summary/links/utils';
+} from '@app/entityV2/shared/components/links/utils';
 
 // Mock the isFileUrl function from the fileDragDrop module
 vi.mock('@components/components/Editor/extensions/fileDragDrop', () => ({

@@ -1,9 +1,9 @@
 import { useForm } from 'antd/lib/form/Form';
 import React from 'react';
+import { LinkFormData } from '@app/entityV2/shared/components/links/types';
+import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
+import AddEditLinkModal from '@app/entityV2/shared/components/links/AddEditLinkModal';
 
-import AddEditLinkModal from '@app/entityV2/summary/links/AddEditLinkModal';
-import { LinkFormData } from '@app/entityV2/summary/links/types';
-import { useLinkUtils } from '@app/entityV2/summary/links/useLinkUtils';
 
 type Props = {
     setShowAddLinkModal: React.Dispatch<React.SetStateAction<boolean>>;

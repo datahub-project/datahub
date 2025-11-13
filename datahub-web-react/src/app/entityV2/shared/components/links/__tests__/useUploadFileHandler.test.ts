@@ -8,7 +8,7 @@ import { validateFile } from '@components/components/Editor/extensions/fileDragD
 import { FileUploadFailureType } from '@components/components/Editor/types';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { useUploadFileHandler } from '@app/entityV2/summary/links/useUploadFileHandler';
+import { useUploadFileHandler } from '@app/entityV2/shared/components/links/useUploadFileHandler';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 

@@ -3,12 +3,10 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import AddEditLinkModal from '@app/entityV2/summary/links/AddEditLinkModal';
+import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
+import { LinkFormData } from '@app/entityV2/shared/components/links/types';
+import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
 import LinkItem from '@app/entityV2/summary/links/LinkItem';
-import { LinkFormData } from '@app/entityV2/summary/links/types';
-import { useLinkUtils } from '@app/entityV2/summary/links/useLinkUtils';
-import { getInitialLinkFormDataFromInstitutionMemory } from '@app/entityV2/summary/links/utils';
-import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -21,15 +19,13 @@ const ListContainer = styled.div`
 `;
 
 export default function LinksList() {
-    const isDocumentationFileUploadV1Enabled = useIsDocumentationFileUploadV1Enabled();
     const { entityData } = useEntityData();
     const links = entityData?.institutionalMemory?.elements || [];
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
     const [showEditLinkModal, setShowEditLinkModal] = useState(false);
     const [selectedLink, setSelectedLink] = useState<InstitutionalMemoryMetadata | null>(null);
 
-    const { handleDeleteLink, handleUpdateLink, showInAssetPreview, setShowInAssetPreview } =
-        useLinkUtils(selectedLink);
+    const { handleDeleteLink } = useLinkUtils(selectedLink);
     const [form] = useForm<LinkFormData>();
 
     useEffect(() => {
@@ -62,14 +58,6 @@ export default function LinksList() {
         form.resetFields();
     };
 
-    const handleUpdate = () => {
-        if (selectedLink) {
-            form.validateFields()
-                .then((values) => handleUpdateLink(values))
-                .then(() => handleCloseUpdate());
-        }
-    };
-
     if (!links.length) return null;
 
     return (
@@ -95,20 +83,7 @@ export default function LinksList() {
                 confirmButtonText="Delete"
                 isDeleteModal
             />
-            {showEditLinkModal && (
-                <AddEditLinkModal
-                    variant="update"
-                    form={form}
-                    initialValues={getInitialLinkFormDataFromInstitutionMemory(
-                        selectedLink,
-                        isDocumentationFileUploadV1Enabled,
-                    )}
-                    onClose={handleCloseUpdate}
-                    onSubmit={handleUpdate}
-                    showInAssetPreview={showInAssetPreview}
-                    setShowInAssetPreview={setShowInAssetPreview}
-                />
-            )}
+            {showEditLinkModal && <EditLinkModal link={selectedLink} onClose={handleCloseUpdate} />}
         </>
     );
 }

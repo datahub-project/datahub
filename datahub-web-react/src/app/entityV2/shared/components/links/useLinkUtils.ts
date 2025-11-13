@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
-import { LinkFormData } from '@app/entityV2/summary/links/types';
-import { getGeneralizedLinkFormDataFromFormData } from '@app/entityV2/summary/links/utils';
+import { LinkFormData } from '@app/entityV2/shared/components/links/types';
+import { getGeneralizedLinkFormDataFromFormData } from '@app/entityV2/shared/components/links/utils';
 
 import { useAddLinkMutation, useRemoveLinkMutation, useUpdateLinkMutation } from '@graphql/mutations.generated';
 import { InstitutionalMemoryMetadata } from '@types';

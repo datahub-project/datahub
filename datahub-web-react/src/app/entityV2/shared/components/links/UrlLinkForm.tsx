@@ -2,7 +2,7 @@ import { Input } from '@components';
 import { Form } from 'antd';
 import React, { useMemo } from 'react';
 
-import { LinkFormData, LinkFormVariant } from '@app/entityV2/summary/links/types';
+import { LinkFormData, LinkFormVariant } from '@app/entityV2/shared/components/links/types';
 
 export function UrlLinkForm() {
     const form = Form.useFormInstance<LinkFormData>();

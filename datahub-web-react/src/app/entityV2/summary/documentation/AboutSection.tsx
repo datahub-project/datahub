@@ -8,9 +8,9 @@ import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionVi
 import EditDescriptionModal from '@app/entityV2/summary/documentation/EditDescriptionModal';
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
-import AddLinkModal from '@app/entityV2/summary/links/AddLinkModal';
 import Links from '@app/entityV2/summary/links/Links';
 import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
+import AddLinkModal from '@app/entityV2/shared/components/links/AddLinkModal';
 
 const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
     border: none;

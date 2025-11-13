@@ -1,6 +1,6 @@
 import { isFileUrl } from '@components/components/Editor/extensions/fileDragDrop';
 
-import { GeneralizedLinkFormData, LinkFormData, LinkFormVariant } from '@app/entityV2/summary/links/types';
+import { GeneralizedLinkFormData, LinkFormData, LinkFormVariant } from '@app/entityV2/shared/components/links/types';
 
 import { InstitutionalMemoryMetadata } from '@types';
 
