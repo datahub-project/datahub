@@ -740,7 +740,6 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         )
 
 
-@pytest.mark.integration_batch_7
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_snowflake_sink_ingest(
     pytestconfig, tmp_path, mock_time, requests_mock
@@ -878,7 +877,6 @@ def test_kafka_connect_debezium_sqlserver(
     )
 
 
-@pytest.mark.integration_batch_7
 def test_filter_stale_topics_topics_list():
     """
     Test case for filter_stale_topics method when sink_config has 'topics' key.
@@ -898,7 +896,6 @@ def test_filter_stale_topics_topics_list():
     assert result == expected_result, f"Expected {expected_result}, but got {result}"
 
 
-@pytest.mark.integration_batch_7
 def test_filter_stale_topics_regex_filtering():
     """
     Test filter_stale_topics when using topics.regex for filtering.
@@ -920,7 +917,6 @@ def test_filter_stale_topics_regex_filtering():
     assert result == ["topic1", "topic2"]
 
 
-@pytest.mark.integration_batch_7
 def test_filter_stale_topics_no_topics_config():
     """
     Test filter_stale_topics when using neither topics.regex not topics
