@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
-from pydantic import validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
