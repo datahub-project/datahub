@@ -11,20 +11,44 @@ services:
       - sh
       - -c
       - |
-        apk add --no-cache wget curl
+        set -x
+        echo "=== HEX-MOCK-API STARTUP BEGIN ==="
+        echo "Shell: $$SHELL, PID: $$$$"
+        echo "Installing wget..."
+        apk add --no-cache wget 2>&1 || { echo "ERROR: Failed to install wget"; exit 1; }
+        echo "wget installed successfully"
+        echo "Checking if mock_hex_server.py exists..."
+        ls -la /app/mock_hex_server.py || { echo "ERROR: mock_hex_server.py not found"; exit 1; }
+        echo "Checking if hex_projects_response.json exists..."
+        ls -la /app/hex_projects_response.json || { echo "ERROR: hex_projects_response.json not found"; exit 1; }
+        echo "Starting Python server in background..."
         python /app/mock_hex_server.py &
         SERVER_PID=$$!
-        echo "Waiting for server to start on port 8000..."
+        echo "Python server started with PID: $$SERVER_PID"
+        ps aux | grep python
+        echo "Waiting for server to bind to port 8000..."
         for i in $$(seq 1 30); do
-          if wget --no-verbose --tries=1 --spider http://localhost:8000/health 2>/dev/null; then
-            echo "Server is ready after $$i attempts"
+          echo "=== Attempt $$i/30 ==="
+          if netstat -ln 2>/dev/null | grep :8000; then
+            echo "Port 8000 is bound!"
+          fi
+          if wget --no-verbose --tries=1 --spider http://localhost:8000/health 2>&1; then
+            echo "SUCCESS: Server responded to health check after $$i attempts"
+            echo "Server is healthy, keeping it running..."
             wait $$SERVER_PID
             exit 0
+          else
+            echo "Health check failed, retrying..."
+          fi
+          if ! kill -0 $$SERVER_PID 2>/dev/null; then
+            echo "ERROR: Python server died! Checking logs..."
+            exit 1
           fi
           sleep 1
         done
-        echo "Server failed to start within 30 seconds"
-        kill $$SERVER_PID 2>/dev/null
+        echo "FAILURE: Server failed to respond within 30 seconds"
+        ps aux | grep python
+        kill $$SERVER_PID 2>/dev/null || true
         exit 1
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1"]
@@ -47,20 +71,44 @@ services:
       - sh
       - -c
       - |
-        apk add --no-cache wget curl
+        set -x
+        echo "=== DATAHUB-MOCK-API STARTUP BEGIN ==="
+        echo "Shell: $$SHELL, PID: $$$$"
+        echo "Installing wget..."
+        apk add --no-cache wget 2>&1 || { echo "ERROR: Failed to install wget"; exit 1; }
+        echo "wget installed successfully"
+        echo "Checking if mock_datahub_server.py exists..."
+        ls -la /app/mock_datahub_server.py || { echo "ERROR: mock_datahub_server.py not found"; exit 1; }
+        echo "Checking JSON files..."
+        ls -la /app/*.json || { echo "ERROR: JSON files not found"; exit 1; }
+        echo "Starting Python server in background..."
         python /app/mock_datahub_server.py &
         SERVER_PID=$$!
-        echo "Waiting for server to start on port 8010..."
+        echo "Python server started with PID: $$SERVER_PID"
+        ps aux | grep python
+        echo "Waiting for server to bind to port 8010..."
         for i in $$(seq 1 30); do
-          if wget --no-verbose --tries=1 --spider http://localhost:8010/health 2>/dev/null; then
-            echo "Server is ready after $$i attempts"
+          echo "=== Attempt $$i/30 ==="
+          if netstat -ln 2>/dev/null | grep :8010; then
+            echo "Port 8010 is bound!"
+          fi
+          if wget --no-verbose --tries=1 --spider http://localhost:8010/health 2>&1; then
+            echo "SUCCESS: Server responded to health check after $$i attempts"
+            echo "Server is healthy, keeping it running..."
             wait $$SERVER_PID
             exit 0
+          else
+            echo "Health check failed, retrying..."
+          fi
+          if ! kill -0 $$SERVER_PID 2>/dev/null; then
+            echo "ERROR: Python server died! Checking logs..."
+            exit 1
           fi
           sleep 1
         done
-        echo "Server failed to start within 30 seconds"
-        kill $$SERVER_PID 2>/dev/null
+        echo "FAILURE: Server failed to respond within 30 seconds"
+        ps aux | grep python
+        kill $$SERVER_PID 2>/dev/null || true
         exit 1
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8010/health || exit 1"]

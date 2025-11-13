@@ -209,19 +209,42 @@ services:
       - /bin/sh
       - -c
       - |
+        set -x
+        echo "=== S3MOCK STARTUP BEGIN ==="
+        echo "Shell: $$SHELL, PID: $$$$"
+        echo "Checking if entrypoint exists..."
+        ls -la /entrypoint.sh || { echo "ERROR: /entrypoint.sh not found"; exit 1; }
+        echo "Checking if wget is available..."
+        which wget || { echo "Installing wget..."; apk add --no-cache wget 2>&1 || { echo "ERROR: Failed to install wget"; exit 1; }; }
+        echo "Starting S3Mock service in background..."
         /entrypoint.sh &
         SERVICE_PID=$$!
-        echo "Waiting for S3Mock to start on port 9191..."
+        echo "S3Mock started with PID: $$SERVICE_PID"
+        ps aux | grep java
+        echo "Waiting for S3Mock to bind to port 9191..."
         for i in $$(seq 1 60); do
-          if wget --no-verbose --tries=1 --spider http://localhost:9191/ 2>/dev/null; then
-            echo "S3Mock is ready after $$i attempts"
+          echo "=== Attempt $$i/60 ==="
+          if netstat -ln 2>/dev/null | grep :9191; then
+            echo "Port 9191 is bound!"
+          fi
+          if wget --no-verbose --tries=1 --spider http://localhost:9191/ 2>&1; then
+            echo "SUCCESS: S3Mock responded to health check after $$i attempts"
+            echo "S3Mock is healthy, keeping it running..."
             wait $$SERVICE_PID
             exit 0
+          else
+            echo "Health check failed, retrying..."
+          fi
+          if ! kill -0 $$SERVICE_PID 2>/dev/null; then
+            echo "ERROR: S3Mock service died! Checking logs..."
+            ps aux
+            exit 1
           fi
           sleep 1
         done
-        echo "S3Mock failed to start within 60 seconds"
-        kill $$SERVICE_PID 2>/dev/null
+        echo "FAILURE: S3Mock failed to respond within 60 seconds"
+        ps aux | grep java
+        kill $$SERVICE_PID 2>/dev/null || true
         exit 1
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9191/ || exit 1"]
