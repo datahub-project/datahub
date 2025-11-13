@@ -1,0 +1,33 @@
+source:
+  type: hbase
+  config:
+    # Coordinates
+    host: localhost
+    port: 9090  # default Thrift port
+
+    # Optional configurations
+    use_ssl: false
+    auth_mechanism: null  # Options: null, KERBEROS, or custom
+
+    # Filtering patterns
+    namespace_pattern:
+      allow:
+        - ".*"
+      deny:
+        - "system"
+    table_pattern:
+      allow:
+        - ".*"
+      # deny:
+      #   - "temp_.*"
+
+    # Schema extraction options
+    include_column_families: true
+    max_column_qualifiers: 100
+
+    # Environment and platform instance
+    env: "PROD"
+    platform_instance: null  # Optional: specify if you have multiple HBase instances
+
+sink:
+  # sink configs

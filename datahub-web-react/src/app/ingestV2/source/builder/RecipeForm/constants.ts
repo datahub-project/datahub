@@ -74,6 +74,16 @@ import {
     TARGET_PLATFORM_INSTANCE,
 } from '@app/ingestV2/source/builder/RecipeForm/dbt_cloud';
 import {
+    HBASE_AUTH_MECHANISM,
+    HBASE_HOST,
+    HBASE_INCLUDE_COLUMN_FAMILIES,
+    HBASE_MAX_COLUMN_QUALIFIERS,
+    HBASE_PORT,
+    HBASE_USE_SSL,
+    NAMESPACE_ALLOW,
+    NAMESPACE_DENY,
+} from '@app/ingestV2/source/builder/RecipeForm/hbase';
+import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
     HIVE_PASSWORD,
@@ -235,6 +245,7 @@ import {
     CSV,
     DATABRICKS,
     DBT_CLOUD,
+    HBASE,
     MYSQL,
     OKTA,
     POWER_BI,
@@ -422,6 +433,16 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
         advancedFields: [INCLUDE_TABLES, TABLE_PROFILING_ENABLED, COLUMN_PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
+    },
+    [HBASE]: {
+        fields: [HBASE_HOST, HBASE_PORT, HBASE_USE_SSL, HBASE_AUTH_MECHANISM],
+        filterFields: [NAMESPACE_ALLOW, NAMESPACE_DENY, TABLE_ALLOW, TABLE_DENY],
+        advancedFields: [
+            HBASE_INCLUDE_COLUMN_FAMILIES,
+            HBASE_MAX_COLUMN_QUALIFIERS,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Namespaces and Tables from ingestion.',
     },
     [PRESTO]: {
         fields: [PRESTO_HOST_PORT, PRESTO_USERNAME, PRESTO_PASSWORD, PRESTO_DATABASE],

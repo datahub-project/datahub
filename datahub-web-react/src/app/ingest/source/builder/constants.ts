@@ -17,6 +17,7 @@ import fivetranLogo from '@images/fivetranlogo.png';
 import glueLogo from '@images/gluelogo.png';
 import googleSheetsLogo from '@images/google-sheets-logo.png';
 import grafanaLogo from '@images/grafana.png';
+import hbaseLogo from '@images/hbaselogo.png';
 import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
@@ -75,6 +76,8 @@ export const GLUE = 'glue';
 export const GLUE_URN = `urn:li:dataPlatform:${GLUE}`;
 export const GRAFANA = 'grafana';
 export const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
+export const HBASE = 'hbase';
+export const HBASE_URN = `urn:li:dataPlatform:${HBASE}`;
 export const HIVE = 'hive';
 export const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
 export const KAFKA = 'kafka';
@@ -170,6 +173,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [FEAST_URN]: feastLogo,
     [GLUE_URN]: glueLogo,
     [GRAFANA_URN]: grafanaLogo,
+    [HBASE_URN]: hbaseLogo,
     [HIVE_URN]: hiveLogo,
     [KAFKA_URN]: kafkaLogo,
     [LOOKER_URN]: lookerLogo,

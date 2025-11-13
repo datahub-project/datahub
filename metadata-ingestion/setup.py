@@ -508,6 +508,10 @@ plugins: Dict[str, Set[str]] = {
         "sqlalchemy-hana>=0.5.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "hdbcli>=2.11.20; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     },
+    "hbase": {
+        "happybase>=1.2.0",
+        "thrift>=0.13.0",
+    },
     "hive": sql_common
     | pyhive_common
     | {

@@ -1,13 +1,13 @@
 """
 HBase Source for DataHub Metadata Ingestion
 """
+
 import logging
 from typing import Dict, Iterable, List, Optional, Union
 
-import pydantic
 from pydantic import Field
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -43,7 +43,6 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +120,12 @@ class HBaseSourceReport(ConfigModel):
         else:
             self.dropped_namespaces.append(name)
 
-    def failure(self, message: str, context: Optional[str] = None, exc: Optional[Exception] = None) -> None:
+    def failure(
+        self,
+        message: str,
+        context: Optional[str] = None,
+        exc: Optional[Exception] = None,
+    ) -> None:
         failure_entry = {"message": message}
         if context:
             failure_entry["context"] = context
@@ -203,40 +207,44 @@ class HBaseSource(StatefulIngestionSourceBase):
         try:
             # Import HBase Thrift libraries
             # Note: This requires happybase or similar HBase Python client
-            from thrift.transport import TSocket, TTransport
-            from thrift.protocol import TBinaryProtocol
             from hbase import Hbase
+            from thrift.protocol import TBinaryProtocol
+            from thrift.transport import TSocket, TTransport
 
             # Create socket
             transport = TSocket.TSocket(self.config.host, self.config.port)
-            
+
             # Wrap in buffered transport
             transport = TTransport.TBufferedTransport(transport)
-            
+
             # Use binary protocol
             protocol = TBinaryProtocol.TBinaryProtocol(transport)
-            
+
             # Create client
             self.connection = Hbase.Client(protocol)
-            
+
             # Open connection
             transport.open()
-            
-            logger.info(f"Successfully connected to HBase at {self.config.host}:{self.config.port}")
+
+            logger.info(
+                f"Successfully connected to HBase at {self.config.host}:{self.config.port}"
+            )
             return True
-            
+
         except ImportError:
             self.report.failure(
                 message="Failed to import HBase Thrift libraries. Please install 'happybase' or 'hbase-thrift' package.",
-                context="connection"
+                context="connection",
             )
-            logger.error("HBase Thrift libraries not found. Install with: pip install happybase")
+            logger.error(
+                "HBase Thrift libraries not found. Install with: pip install happybase"
+            )
             return False
         except Exception as e:
             self.report.failure(
                 message="Failed to connect to HBase",
                 context=f"{self.config.host}:{self.config.port}",
-                exc=e
+                exc=e,
             )
             return False
 
@@ -249,23 +257,22 @@ class HBaseSource(StatefulIngestionSourceBase):
             # We'll get all tables and extract namespaces from table names
             # Table names in HBase can be namespace:table or just table (default namespace)
             tables = self.connection.getTableNames()
-            
+
             namespaces = set()
             for table in tables:
-                table_str = table.decode('utf-8') if isinstance(table, bytes) else str(table)
-                if ':' in table_str:
-                    namespace = table_str.split(':', 1)[0]
+                table_str = (
+                    table.decode("utf-8") if isinstance(table, bytes) else str(table)
+                )
+                if ":" in table_str:
+                    namespace = table_str.split(":", 1)[0]
                     namespaces.add(namespace)
                 else:
-                    namespaces.add('default')
-            
+                    namespaces.add("default")
+
             return sorted(list(namespaces))
-            
+
         except Exception as e:
-            self.report.failure(
-                message="Failed to get namespaces from HBase",
-                exc=e
-            )
+            self.report.failure(message="Failed to get namespaces from HBase", exc=e)
             return []
 
     def _get_tables_in_namespace(self, namespace: str) -> List[str]:
@@ -275,27 +282,28 @@ class HBaseSource(StatefulIngestionSourceBase):
         try:
             all_tables = self.connection.getTableNames()
             namespace_tables = []
-            
+
             for table in all_tables:
-                table_str = table.decode('utf-8') if isinstance(table, bytes) else str(table)
-                
-                if namespace == 'default':
+                table_str = (
+                    table.decode("utf-8") if isinstance(table, bytes) else str(table)
+                )
+
+                if namespace == "default":
                     # Default namespace tables don't have namespace prefix
-                    if ':' not in table_str:
+                    if ":" not in table_str:
                         namespace_tables.append(table_str)
                 else:
                     # Check if table belongs to this namespace
                     if table_str.startswith(f"{namespace}:"):
                         # Remove namespace prefix for table name
-                        table_name = table_str.split(':', 1)[1]
+                        table_name = table_str.split(":", 1)[1]
                         namespace_tables.append(table_name)
-            
+
             return namespace_tables
-            
+
         except Exception as e:
             self.report.failure(
-                message=f"Failed to get tables for namespace {namespace}",
-                exc=e
+                message=f"Failed to get tables for namespace {namespace}", exc=e
             )
             return []
 
@@ -305,40 +313,49 @@ class HBaseSource(StatefulIngestionSourceBase):
         """
         try:
             # Convert to bytes if string
-            table_bytes = full_table_name.encode('utf-8') if isinstance(full_table_name, str) else full_table_name
-            
+            table_bytes = (
+                full_table_name.encode("utf-8")
+                if isinstance(full_table_name, str)
+                else full_table_name
+            )
+
             # Get column descriptors
             descriptors = self.connection.getColumnDescriptors(table_bytes)
-            
+
             # Convert to dict structure
-            result = {
-                "column_families": {}
-            }
-            
+            result = {"column_families": {}}
+
             for cf_name, cf_descriptor in descriptors.items():
-                cf_name_str = cf_name.decode('utf-8') if isinstance(cf_name, bytes) else str(cf_name)
+                cf_name_str = (
+                    cf_name.decode("utf-8")
+                    if isinstance(cf_name, bytes)
+                    else str(cf_name)
+                )
                 # Remove trailing colon if present
-                cf_name_str = cf_name_str.rstrip(':')
-                
+                cf_name_str = cf_name_str.rstrip(":")
+
                 result["column_families"][cf_name_str] = {
                     "name": cf_name_str,
-                    "maxVersions": getattr(cf_descriptor, 'maxVersions', 1),
-                    "compression": getattr(cf_descriptor, 'compression', 'NONE'),
-                    "inMemory": getattr(cf_descriptor, 'inMemory', False),
-                    "blockCacheEnabled": getattr(cf_descriptor, 'blockCacheEnabled', True),
-                    "timeToLive": getattr(cf_descriptor, 'timeToLive', -1),
+                    "maxVersions": getattr(cf_descriptor, "maxVersions", 1),
+                    "compression": getattr(cf_descriptor, "compression", "NONE"),
+                    "inMemory": getattr(cf_descriptor, "inMemory", False),
+                    "blockCacheEnabled": getattr(
+                        cf_descriptor, "blockCacheEnabled", True
+                    ),
+                    "timeToLive": getattr(cf_descriptor, "timeToLive", -1),
                 }
-            
+
             return result
-            
+
         except Exception as e:
             self.report.failure(
-                message=f"Failed to get descriptor for table {full_table_name}",
-                exc=e
+                message=f"Failed to get descriptor for table {full_table_name}", exc=e
             )
             return None
 
-    def _convert_hbase_type_to_schema_field_type(self, hbase_type: str = "bytes") -> SchemaFieldDataTypeClass:
+    def _convert_hbase_type_to_schema_field_type(
+        self, hbase_type: str = "bytes"
+    ) -> SchemaFieldDataTypeClass:
         """
         Convert HBase data types to DataHub schema field types
         HBase stores everything as bytes, but we provide common type mappings
@@ -353,15 +370,17 @@ class HBaseSource(StatefulIngestionSourceBase):
             "bytes": BytesTypeClass(),
             "array": ArrayTypeClass(nestedType=["bytes"]),
         }
-        
-        return SchemaFieldDataTypeClass(type=type_mapping.get(hbase_type.lower(), BytesTypeClass()))
+
+        return SchemaFieldDataTypeClass(
+            type=type_mapping.get(hbase_type.lower(), BytesTypeClass())
+        )
 
     def _generate_schema_fields(self, table_descriptor: Dict) -> List[SchemaField]:
         """
         Generate schema fields from table descriptor
         """
         schema_fields = []
-        
+
         # Add row key field (always present in HBase)
         schema_fields.append(
             SchemaField(
@@ -373,9 +392,9 @@ class HBaseSource(StatefulIngestionSourceBase):
                 isPartOfKey=True,
             )
         )
-        
+
         # Add column family fields
-        for cf_name, cf_props in table_descriptor.get("column_families", {}).items():
+        for cf_name, _cf_props in table_descriptor.get("column_families", {}).items():
             schema_fields.append(
                 SchemaField(
                     fieldPath=cf_name,
@@ -386,7 +405,7 @@ class HBaseSource(StatefulIngestionSourceBase):
                     isPartOfKey=False,
                 )
             )
-        
+
         return schema_fields
 
     def _generate_namespace_container(self, namespace: str) -> Container:
@@ -394,7 +413,7 @@ class HBaseSource(StatefulIngestionSourceBase):
         Generate container for HBase namespace
         """
         namespace_container_key = self._generate_namespace_container_key(namespace)
-        
+
         return Container(
             namespace_container_key,
             display_name=namespace,
@@ -421,38 +440,43 @@ class HBaseSource(StatefulIngestionSourceBase):
         Generate dataset for HBase table
         """
         # Full table name with namespace
-        if namespace == 'default':
+        if namespace == "default":
             full_table_name = table_name
             dataset_name = table_name
         else:
             full_table_name = f"{namespace}:{table_name}"
             dataset_name = f"{namespace}.{table_name}"
-        
+
         self.report.report_entity_scanned(dataset_name, ent_type="table")
-        
+
         if not self.config.table_pattern.allowed(dataset_name):
             self.report.report_dropped(dataset_name)
             return None
-        
+
         # Generate schema fields
         schema_fields = None
         if self.config.include_column_families and table_descriptor:
             try:
                 schema_fields = self._generate_schema_fields(table_descriptor)
-            except Exception as e:
+            except Exception:
                 self.report.warning(
-                    message="Failed to generate schema fields",
-                    context=dataset_name
+                    message="Failed to generate schema fields", context=dataset_name
                 )
-        
+
         # Generate custom properties
         custom_properties = {}
         if table_descriptor and "column_families" in table_descriptor:
-            custom_properties["column_families"] = str(len(table_descriptor["column_families"]))
+            custom_properties["column_families"] = str(
+                len(table_descriptor["column_families"])
+            )
             for cf_name, cf_props in table_descriptor["column_families"].items():
-                custom_properties[f"cf.{cf_name}.maxVersions"] = str(cf_props.get("maxVersions", "1"))
-                custom_properties[f"cf.{cf_name}.compression"] = str(cf_props.get("compression", "NONE"))
-        
+                custom_properties[f"cf.{cf_name}.maxVersions"] = str(
+                    cf_props.get("maxVersions", "1")
+                )
+                custom_properties[f"cf.{cf_name}.compression"] = str(
+                    cf_props.get("compression", "NONE")
+                )
+
         return Dataset(
             platform=self.platform,
             name=dataset_name,
@@ -474,49 +498,49 @@ class HBaseSource(StatefulIngestionSourceBase):
         # Connect to HBase
         if not self._connect():
             return
-        
+
         # Get all namespaces
         namespaces = self._get_namespaces()
-        
+
         for namespace in namespaces:
             # Check if namespace matches pattern
             if not self.config.namespace_pattern.allowed(namespace):
                 self.report.report_dropped(namespace)
                 continue
-            
+
             self.report.report_entity_scanned(namespace, ent_type="namespace")
-            
+
             # Generate namespace container
             yield self._generate_namespace_container(namespace)
-            
+
             # Get tables in namespace
             tables = self._get_tables_in_namespace(namespace)
-            
+
             for table_name in tables:
                 try:
                     # Get full table name for HBase API
-                    if namespace == 'default':
+                    if namespace == "default":
                         full_table_name = table_name
                     else:
                         full_table_name = f"{namespace}:{table_name}"
-                    
+
                     # Get table descriptor
                     table_descriptor = self._get_table_descriptor(full_table_name)
-                    
+
                     # Generate table dataset
                     dataset = self._generate_table_dataset(
                         namespace, table_name, table_descriptor
                     )
-                    
+
                     if dataset:
                         yield dataset
-                        
+
                 except Exception as e:
                     self.report.num_tables_failed += 1
                     self.report.failure(
                         message="Failed to process table",
                         context=f"{namespace}:{table_name}",
-                        exc=e
+                        exc=e,
                     )
 
     def get_report(self) -> HBaseSourceReport:
@@ -532,9 +556,9 @@ class HBaseSource(StatefulIngestionSourceBase):
         if self.connection:
             try:
                 # Close connection if it has a close method
-                if hasattr(self.connection, 'close'):
+                if hasattr(self.connection, "close"):
                     self.connection.close()
             except Exception as e:
                 logger.warning(f"Error closing HBase connection: {e}")
-        
+
         super().close()
