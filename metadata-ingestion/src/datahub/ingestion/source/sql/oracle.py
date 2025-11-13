@@ -65,8 +65,29 @@ class DataDictionaryMode(StrEnum):
     DBA = "DBA"
 
 
+# Oracle system schemas to exclude from ingestion
+# These contain internal Oracle objects that should not be ingested
+ORACLE_SYSTEM_SCHEMAS = (
+    "SYS",
+    "SYSTEM",
+    "DBSNMP",
+    "WMSYS",
+    "CTXSYS",
+    "XDB",
+    "MDSYS",
+    "ORDSYS",
+    "OUTLN",
+    "ORDDATA",
+)
+
+# Format system schemas for SQL IN clause
+_SYSTEM_SCHEMAS_SQL = ", ".join(f"'{schema}'" for schema in ORACLE_SYSTEM_SCHEMAS)
+
 # SQL Query Constants
-PROCEDURES_QUERY = """
+# Note: System schemas are explicitly excluded to prevent ingesting internal Oracle objects,
+# even if they match the user's schema_pattern. This is a defense-in-depth measure.
+PROCEDURES_QUERY = (
+    """
     SELECT
         o.object_name as name,
         o.object_type as type,
@@ -77,8 +98,12 @@ PROCEDURES_QUERY = """
     WHERE o.owner = :schema
         AND o.object_type IN ('PROCEDURE', 'FUNCTION', 'PACKAGE')
         AND o.status = 'VALID'
-    ORDER BY o.object_name
+        AND o.owner NOT IN ("""
+    + _SYSTEM_SCHEMAS_SQL
+    + """)
+    ORDER BY o.last_ddl_time
 """
+)
 
 PROCEDURE_SOURCE_QUERY = """
     SELECT text
@@ -112,7 +137,6 @@ PROCEDURE_UPSTREAM_DEPENDENCIES_QUERY = """
         AND name = :procedure_name
         AND type IN ('PROCEDURE', 'FUNCTION', 'PACKAGE')
         AND referenced_type IN ('TABLE', 'VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'PACKAGE', 'SYNONYM')
-    ORDER BY referenced_type, referenced_owner, referenced_name
 """
 
 PROCEDURE_DOWNSTREAM_DEPENDENCIES_QUERY = """
@@ -125,15 +149,43 @@ PROCEDURE_DOWNSTREAM_DEPENDENCIES_QUERY = """
         AND referenced_name = :procedure_name
         AND referenced_type IN ('PROCEDURE', 'FUNCTION', 'PACKAGE')
         AND type IN ('TABLE', 'VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'PACKAGE')
-    ORDER BY type, owner, name
 """
 
-MATERIALIZED_VIEWS_QUERY = """
-    SELECT mview_name FROM {tables_prefix}_MVIEWS WHERE owner = :owner
+MATERIALIZED_VIEWS_QUERY = (
+    """
+    SELECT mview_name, last_refresh_date 
+    FROM {tables_prefix}_MVIEWS 
+    WHERE owner = :owner
+        AND owner NOT IN ("""
+    + _SYSTEM_SCHEMAS_SQL
+    + """)
+    ORDER BY COALESCE(last_refresh_date, TO_DATE('1900-01-01', 'YYYY-MM-DD'))
 """
+)
 
 MATERIALIZED_VIEW_DEFINITION_QUERY = """
     SELECT query FROM {tables_prefix}_MVIEWS WHERE mview_name=:mview_name
+"""
+
+# DBA-specific queries for OracleInspectorObjectWrapper
+DBA_VIEWS_QUERY = """
+    SELECT view_name FROM dba_views WHERE owner = :owner
+"""
+
+DBA_MVIEWS_QUERY = (
+    """
+    SELECT mview_name, last_refresh_date 
+    FROM dba_mviews 
+    WHERE owner = :owner
+        AND owner NOT IN ("""
+    + _SYSTEM_SCHEMAS_SQL
+    + """)
+    ORDER BY COALESCE(last_refresh_date, TO_DATE('1900-01-01', 'YYYY-MM-DD'))
+"""
+)
+
+DBA_MVIEW_DEFINITION_QUERY = """
+    SELECT query FROM dba_mviews WHERE mview_name=:mview_name
 """
 
 PROFILE_CANDIDATES_QUERY = """
@@ -316,7 +368,6 @@ class OracleInspectorObjectWrapper:
     def get_db_name(self) -> str:
         db_name = None
         try:
-            # Try to retrieve current DB name by executing query
             db_name = self._inspector_instance.bind.execute(
                 sql.text("select sys_context('USERENV','DB_NAME') from dual")
             ).scalar()
@@ -332,7 +383,7 @@ class OracleInspectorObjectWrapper:
 
     def get_schema_names(self) -> List[str]:
         cursor = self._inspector_instance.bind.execute(
-            sql.text("SELECT username FROM dba_users ORDER BY username")
+            sql.text("SELECT username FROM dba_users")
         )
 
         return [
@@ -342,9 +393,6 @@ class OracleInspectorObjectWrapper:
         ]
 
     def get_table_names(self, schema: Optional[str] = None) -> List[str]:
-        """
-        skip order_by, we are not using order_by
-        """
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
         )
@@ -378,7 +426,7 @@ class OracleInspectorObjectWrapper:
             schema = self._inspector_instance.dialect.default_schema_name
 
         cursor = self._inspector_instance.bind.execute(
-            sql.text("SELECT view_name FROM dba_views WHERE owner = :owner"),
+            sql.text(DBA_VIEWS_QUERY),
             dict(owner=self._inspector_instance.dialect.denormalize_name(schema)),
         )
 
@@ -398,7 +446,7 @@ class OracleInspectorObjectWrapper:
             schema = self._inspector_instance.dialect.default_schema_name
 
         cursor = self._inspector_instance.bind.execute(
-            sql.text("SELECT mview_name FROM dba_mviews WHERE owner = :owner"),
+            sql.text(DBA_MVIEWS_QUERY),
             dict(owner=self._inspector_instance.dialect.denormalize_name(schema)),
         )
 
@@ -429,7 +477,7 @@ class OracleInspectorObjectWrapper:
             schema = self._inspector_instance.dialect.default_schema_name
 
         params = {"mview_name": denormalized_mview_name}
-        text = "SELECT query FROM dba_mviews WHERE mview_name=:mview_name"
+        text = DBA_MVIEW_DEFINITION_QUERY.strip()
 
         if schema is not None:
             params["owner"] = schema
@@ -824,10 +872,8 @@ class OracleInspectorObjectWrapper:
         return rp
 
     def __getattr__(self, item: str) -> Any:
-        # Map method call to wrapper class
         if item in self.__dict__:
             return getattr(self, item)
-        # Map method call to original class
         return getattr(self._inspector_instance, item)
 
 
@@ -963,10 +1009,7 @@ class OracleSource(SQLAlchemySource):
                 f'Data dictionary mode is: "{self.config.data_dictionary_mode}".'
             )
 
-            # Oracle uses SQL aggregator for usage and lineage (no separate extractor needed)
-
-            # Sqlalchemy inspector uses ALL_* tables as per oracle dialect implementation.
-            # OracleInspectorObjectWrapper provides alternate implementation using DBA_* tables.
+            # SQLAlchemy inspector uses ALL_* tables; OracleInspectorObjectWrapper uses DBA_* tables
             if self.config.data_dictionary_mode != DataDictionaryMode.ALL:
                 yield cast(Inspector, OracleInspectorObjectWrapper(inspector))
             else:
@@ -1025,11 +1068,10 @@ class OracleSource(SQLAlchemySource):
             try:
                 yield from self.loop_materialized_views(inspector, schema, self.config)
             except Exception as e:
-                # Provide helpful guidance to users
                 self.report.warning(
                     title="Failed to Ingest Materialized Views",
-                    message=f"Missing permissions to access {self.config.data_dictionary_mode}_MVIEWS. Grant SELECT on this view or set 'include_materialized_views: false' to disable.",
-                    context=f"{schema}",
+                    message="Missing permissions to access MVIEWS. Grant SELECT on this view or set 'include_materialized_views: false' to disable.",
+                    context=f"schema={schema}, table={self.config.data_dictionary_mode}_MVIEWS",
                     exc=e,
                 )
 
@@ -1048,8 +1090,6 @@ class OracleSource(SQLAlchemySource):
         Get stored procedures, functions, and packages for a specific schema.
         """
         base_procedures = []
-
-        # Determine table prefix based on data dictionary mode
         tables_prefix = self.config.data_dictionary_mode.value
 
         # Oracle stores schema names in uppercase, so normalize the schema name
@@ -1057,15 +1097,12 @@ class OracleSource(SQLAlchemySource):
 
         with inspector.engine.connect() as conn:
             try:
-                # Get procedures, functions, and packages
                 procedures_query = PROCEDURES_QUERY.format(tables_prefix=tables_prefix)
-
                 procedures = conn.execute(
                     sql.text(procedures_query), dict(schema=normalized_schema)
                 )
 
                 for row in procedures:
-                    # Get procedure source code
                     source_code = self._get_procedure_source_code(
                         conn=conn,
                         schema=normalized_schema,
@@ -1074,7 +1111,6 @@ class OracleSource(SQLAlchemySource):
                         tables_prefix=tables_prefix,
                     )
 
-                    # Get procedure arguments
                     arguments = self._get_procedure_arguments(
                         conn=conn,
                         schema=normalized_schema,
@@ -1082,7 +1118,6 @@ class OracleSource(SQLAlchemySource):
                         tables_prefix=tables_prefix,
                     )
 
-                    # Get dependencies for this procedure
                     dependencies = self._get_procedure_dependencies(
                         conn=conn,
                         schema=normalized_schema,
@@ -1122,11 +1157,10 @@ class OracleSource(SQLAlchemySource):
                     f"Failed to get stored procedures for schema {schema}: {e}"
                 )
 
-                # Provide helpful guidance to users
                 self.report.warning(
                     title="Failed to Ingest Stored Procedures",
-                    message=f"Missing permissions to access {self.config.data_dictionary_mode}_OBJECTS/SOURCE/ARGUMENTS/DEPENDENCIES. Grant SELECT on these views or set 'include_stored_procedures: false' to disable.",
-                    context=f"{schema}",
+                    message="Missing permissions to access OBJECTS/SOURCE/ARGUMENTS/DEPENDENCIES. Grant SELECT on these views or set 'include_stored_procedures: false' to disable.",
+                    context=f"schema={schema}, table={self.config.data_dictionary_mode}_OBJECTS/SOURCE/ARGUMENTS/DEPENDENCIES",
                     exc=e,
                 )
 
@@ -1142,10 +1176,7 @@ class OracleSource(SQLAlchemySource):
     ) -> Optional[str]:
         """Get procedure source code from ALL_SOURCE or DBA_SOURCE."""
         try:
-            # Validate tables_prefix to prevent injection
             self._validate_tables_prefix(tables_prefix)
-
-            # Safe: tables_prefix is validated above, user params use prepared statements
             source_query = PROCEDURE_SOURCE_QUERY.format(tables_prefix=tables_prefix)
 
             source_data = conn.execute(
@@ -1180,8 +1211,6 @@ class OracleSource(SQLAlchemySource):
         try:
             # Validate tables_prefix to prevent injection
             self._validate_tables_prefix(tables_prefix)
-
-            # Safe: tables_prefix is validated above, user params use prepared statements
             args_query = PROCEDURE_ARGUMENTS_QUERY.format(tables_prefix=tables_prefix)
 
             args_data = conn.execute(
@@ -1213,23 +1242,17 @@ class OracleSource(SQLAlchemySource):
             # Validate tables_prefix to prevent injection
             self._validate_tables_prefix(tables_prefix)
 
-            # Get objects that this procedure depends on (upstream)
-            # Safe: tables_prefix is validated above, user params use prepared statements
             upstream_query = PROCEDURE_UPSTREAM_DEPENDENCIES_QUERY.format(
                 tables_prefix=tables_prefix
             )
-
             upstream_data = conn.execute(
                 sql.text(upstream_query),
                 dict(schema=schema, procedure_name=procedure_name),
             )
 
-            # Get objects that depend on this procedure (downstream)
-            # Safe: tables_prefix is validated above, user params use prepared statements
             downstream_query = PROCEDURE_DOWNSTREAM_DEPENDENCIES_QUERY.format(
                 tables_prefix=tables_prefix
             )
-
             downstream_data = conn.execute(
                 sql.text(downstream_query),
                 dict(schema=schema, procedure_name=procedure_name),
@@ -1237,7 +1260,6 @@ class OracleSource(SQLAlchemySource):
 
             dependencies = {}
 
-            # Process upstream dependencies
             upstream_deps = []
             for row in upstream_data:
                 dep_str = f"{row.referenced_owner}.{row.referenced_name} ({row.referenced_type})"
@@ -1246,7 +1268,6 @@ class OracleSource(SQLAlchemySource):
             if upstream_deps:
                 dependencies["upstream"] = upstream_deps
 
-            # Process downstream dependencies
             downstream_deps = []
             for row in downstream_data:
                 dep_str = f"{row.owner}.{row.name} ({row.type})"
@@ -1273,7 +1294,7 @@ class OracleSource(SQLAlchemySource):
         if hasattr(inspector, "get_materialized_view_names"):
             mview_names = inspector.get_materialized_view_names(schema=schema)
         else:
-            # Fallback for regular inspector
+            logger.info("Fallback for regular inspector")
             mview_names = self._get_materialized_view_names_fallback(
                 inspector=inspector, schema=schema
             )
@@ -1443,11 +1464,10 @@ class OracleSource(SQLAlchemySource):
                     )
 
         except Exception as e:
-            logger.warning(f"Error processing materialized view {schema}.{mview}: {e}")
             self.report.warning(
                 title="Failed to Process Materialized View",
-                message=f"Error processing materialized view. Check permissions on {self.config.data_dictionary_mode}_MVIEWS or set 'include_materialized_views: false'.",
-                context=f"{schema}.{mview}",
+                message="Error processing materialized view. Check permissions on _MVIEWS or set 'include_materialized_views: false'.",
+                context=f"view={schema}.{mview}, {self.config.data_dictionary_mode}_MVIEWS",
                 exc=e,
             )
 

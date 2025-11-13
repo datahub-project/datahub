@@ -57,8 +57,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
-- #15118: (Ingestion) The Oracle source now ingests stored procedures and materialized views by default. If permissions are missing, clear warnings will be displayed with required grants. No action needed if your Oracle user has appropriate permissions. To disable: set `include_stored_procedures: false` or `include_materialized_views: false`.
-
 ### Other Notable Changes
 
 - #15118: (Ingestion) The Oracle source now includes stored procedures, functions, packages, and materialized views with automatic lineage generation. Use `procedure_pattern` to filter procedures if needed. See the Oracle source documentation for permissions and configuration details.

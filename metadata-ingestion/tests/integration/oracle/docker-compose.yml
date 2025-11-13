@@ -11,9 +11,9 @@ services:
     volumes:
       - ./startup:/opt/oracle/scripts/startup
     healthcheck:
-      test: ["CMD-SHELL", "healthcheck.sh"]
+      test: ["CMD-SHELL", "/opt/oracle/checkDBStatus.sh"]
       interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
+      timeout: 30s
+      retries: 30
+      start_period: 240s
     

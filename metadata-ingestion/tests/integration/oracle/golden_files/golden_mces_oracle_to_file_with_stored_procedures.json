@@ -1427,112 +1427,6 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "object_type": "FUNCTION",
-                "status": "VALID",
-                "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), HR_SCHEMA.EMPLOYEES (TABLE)"
-            },
-            "name": "CALCULATE_ANNUAL_SALARY",
-            "type": {
-                "string": "Stored Procedure"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Stored Procedure"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
-    "changeType": "UPSERT",
-    "aspectName": "dataTransformLogic",
-    "aspect": {
-        "json": {
-            "transforms": [
-                {
-                    "queryStatement": {
-                        "value": "FUNCTION calculate_annual_salary(p_emp_id IN NUMBER) RETURN NUMBER AS\n    v_salary NUMBER;\n    v_commission NUMBER;\nBEGIN\n    SELECT salary, NVL(commission_pct, 0) INTO v_salary, v_commission\n    FROM employees\n    WHERE employee_id = p_emp_id;\n\n    RETURN v_salary * 12 * (1 + v_commission);\nEND;",
-                        "language": "SQL"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                },
-                {
-                    "id": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e",
-                    "urn": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
@@ -1615,6 +1509,112 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
+                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
+                },
+                {
+                    "id": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e",
+                    "urn": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-stored-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "object_type": "FUNCTION",
+                "status": "VALID",
+                "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), HR_SCHEMA.EMPLOYEES (TABLE)"
+            },
+            "name": "CALCULATE_ANNUAL_SALARY",
+            "type": {
+                "string": "Stored Procedure"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-stored-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stored Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-stored-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:afc89a9f6529cfeae28f6d91b84f159e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-stored-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "FUNCTION calculate_annual_salary(p_emp_id IN NUMBER) RETURN NUMBER AS\n    v_salary NUMBER;\n    v_commission NUMBER;\nBEGIN\n    SELECT salary, NVL(commission_pct, 0) INTO v_salary, v_commission\n    FROM employees\n    WHERE employee_id = p_emp_id;\n\n    RETURN v_salary * 12 * (1 + v_commission);\nEND;",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-stored-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -18379,844 +18379,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.system.stored_procedures,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": ".system.stored_procedures"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.system.stored_procedures,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Procedures Container"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.system.stored_procedures,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.system.stored_procedures,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$COL_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "object_type": "FUNCTION",
-                "status": "VALID",
-                "upstream_dependencies": "SYS.LOGMNR_DICT_CACHE (PACKAGE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), PUBLIC.PLITBLM (SYNONYM)"
-            },
-            "name": "LOGMNR$COL_GG_TABF_PUBLIC",
-            "type": {
-                "string": "Stored Procedure"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$COL_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Stored Procedure"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$COL_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$COL_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "dataTransformLogic",
-    "aspect": {
-        "json": {
-            "transforms": [
-                {
-                    "queryStatement": {
-                        "value": "FUNCTION        LOGMNR$COL_GG_TABF_PUBLIC wrapped\na000000\n1\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\n8\n237 185\nnkvJV1w6wH1y7mRApzf9mGuebNUwgxDILkhGfHQCmP8+Vi4fyqh3SG1Fyq+pCts1OlgnK761\nYuzKBA4JE5DNwZzBIF/Y4ZM5eUlquVyTkOg+AodK3vQJt9NLvPITXbP42O37gO+zKr4BQEJk\nypwrP1U/Pf6MLZONN8LUaVqHCN87T14HqHs5taX7LhLXQ2lCVBE1Ll8dyB9CDOlbyvQS/lrb\n+0n1pQi9IJAWySL85ChAqnTaqFJm0YeToD4lZ8UUPQqIZNoX0x73WK9OzsmdBrvEC97iduxe\nPEXVkxF6xklPod6yOGBvW7DAFMBgf+LajDLVKOAwB2EAiKCXYMuTUTtMYYkCFFf4sj1rCpsj\nTLth6TSru530aM2HP6bEbm3m\n",
-                        "language": "SQL"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$COL_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                },
-                {
-                    "id": "urn:li:container:f168a130824e2bed58c76e305bf4631c",
-                    "urn": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$GSBA_GG_TABF_PUBLIC_5d2d46c2c96d70c5e0c9ceee5faa26d1)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "object_type": "FUNCTION",
-                "status": "VALID",
-                "upstream_dependencies": "SYS.LOGMNR_DICT_CACHE (PACKAGE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), PUBLIC.PLITBLM (SYNONYM)"
-            },
-            "name": "LOGMNR$GSBA_GG_TABF_PUBLIC",
-            "type": {
-                "string": "Stored Procedure"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$GSBA_GG_TABF_PUBLIC_5d2d46c2c96d70c5e0c9ceee5faa26d1)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Stored Procedure"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$GSBA_GG_TABF_PUBLIC_5d2d46c2c96d70c5e0c9ceee5faa26d1)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$GSBA_GG_TABF_PUBLIC_5d2d46c2c96d70c5e0c9ceee5faa26d1)",
-    "changeType": "UPSERT",
-    "aspectName": "dataTransformLogic",
-    "aspect": {
-        "json": {
-            "transforms": [
-                {
-                    "queryStatement": {
-                        "value": "FUNCTION        LOGMNR$GSBA_GG_TABF_PUBLIC wrapped\na000000\n1\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\n8\n206 171\n6gxi/CQwK1I5Rfwuw/SXrOGpVRYwgwLI1yfbfHRGEjNe54OE4QwRZCoA20oG536tzgcBrj+1\nxE3tE8jIhAoTlUdUmkdYMmZycO1SdiJZwwt/6BrM1wHXl/E5+3Ip2NXzC9j8v4+KjkD9d5AT\np05eEsEWjU1CBTMSpjZZrXzbgFl9QNnQ+zJGjSug21f76ajs78m6anxz7vFcTcem6XpAgKjc\nEXzd/ijP8qiOqwblTfnXcRslJn3MljD02u+5fh9NBctOmnaw/tOjRCFPUhY8I9gCoMptjG7U\nrHEIFzHOFyxBEdulRGq4ngSgcm7l2yOdSHgNM8rO2vUH4gozvJoLE1S8GBBzG/wrvHPhACQ/\n2w==\n",
-                        "language": "SQL"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$GSBA_GG_TABF_PUBLIC_5d2d46c2c96d70c5e0c9ceee5faa26d1)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                },
-                {
-                    "id": "urn:li:container:f168a130824e2bed58c76e305bf4631c",
-                    "urn": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$KEY_GG_TABF_PUBLIC_77a58b36bdddafb91baa24311fe59af7)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "object_type": "FUNCTION",
-                "status": "VALID",
-                "upstream_dependencies": "SYS.LOGMNR_DICT_CACHE (PACKAGE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), PUBLIC.PLITBLM (SYNONYM)"
-            },
-            "name": "LOGMNR$KEY_GG_TABF_PUBLIC",
-            "type": {
-                "string": "Stored Procedure"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$KEY_GG_TABF_PUBLIC_77a58b36bdddafb91baa24311fe59af7)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Stored Procedure"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$KEY_GG_TABF_PUBLIC_77a58b36bdddafb91baa24311fe59af7)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$KEY_GG_TABF_PUBLIC_77a58b36bdddafb91baa24311fe59af7)",
-    "changeType": "UPSERT",
-    "aspectName": "dataTransformLogic",
-    "aspect": {
-        "json": {
-            "transforms": [
-                {
-                    "queryStatement": {
-                        "value": "FUNCTION        LOGMNR$KEY_GG_TABF_PUBLIC wrapped\na000000\n1\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\n8\n2a0 1a1\n3O4I5hDO715d8A2tqbxMCflFW0owg/D319xqfC9Grfg+K6yE71zMvtNS45AyRXBk77WpI5v4\nnUSfE2lbvUYgk3JHySIe28XxC3xIYYpPGQjxwa3GzPw0FN5aN6kerQQTHUBp29Dd+vLSgBaC\n2pAFrq059ZvN0ZPN11XG/2RuDY7HaTQu/QffhnY8rVlNxpFmbkVidwtZQahx5qIFu9Uww/tv\no1AvhjaORi898/KiPtOqv7LpsPFbyNuMnZEG48cxtZuesMBJFP/bKtgU2DN69xiT8Pxf+N2n\ng0D2ximYzZqwY/4dBQj9dyQDuXRFo40hdqtWw0L96zV6723aQ8Xp0cqBaZj2wWTI4+6Ikry9\nzY0Mdm3bV8TYqsOa+zT4fnikGO0eYbTFHEiW9QUbl/UwzuERwk8p\n",
-                        "language": "SQL"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$KEY_GG_TABF_PUBLIC_77a58b36bdddafb91baa24311fe59af7)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                },
-                {
-                    "id": "urn:li:container:f168a130824e2bed58c76e305bf4631c",
-                    "urn": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$SEQ_GG_TABF_PUBLIC_9ae1b2cd87934dcb4bda65f8828fab9f)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "object_type": "FUNCTION",
-                "status": "VALID",
-                "upstream_dependencies": "SYS.LOGMNR_DICT_CACHE (PACKAGE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), PUBLIC.PLITBLM (SYNONYM)"
-            },
-            "name": "LOGMNR$SEQ_GG_TABF_PUBLIC",
-            "type": {
-                "string": "Stored Procedure"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$SEQ_GG_TABF_PUBLIC_9ae1b2cd87934dcb4bda65f8828fab9f)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Stored Procedure"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$SEQ_GG_TABF_PUBLIC_9ae1b2cd87934dcb4bda65f8828fab9f)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$SEQ_GG_TABF_PUBLIC_9ae1b2cd87934dcb4bda65f8828fab9f)",
-    "changeType": "UPSERT",
-    "aspectName": "dataTransformLogic",
-    "aspect": {
-        "json": {
-            "transforms": [
-                {
-                    "queryStatement": {
-                        "value": "FUNCTION        LOGMNR$SEQ_GG_TABF_PUBLIC wrapped\na000000\n1\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\n8\n249 181\n++dDv/cHZatK7/vHG9lvR8DQCpYwg/D3AEhqfHQC2h6ONoOvOeHvTNX1S5GDyajM4j8vkSVz\nIMw+LbYS3goujprvmrB/LUpdBF8TVvjEqZpC7MCKPXWcGnTeL7ja8C2tcOdjOpRXkwL5NmPJ\nB0KqMvwepdiQDY7HUDQrBddQC1lBqHGEogWkwRJ3+2+jUC+Gpo5GTazIWS0V551NkSl3+h0W\nBhkPglLbvQDPzxWTnmu4ZuJIlTiNwTf1R0WxghyyKFjES9CJsCrGT8Fn7prlF4Mr5kx1YBGf\n5xaODtRnmVJgb65RlKbAN9+Xxf2QnQjKQL99RZAgsEwGVKNfx9lFKwHLGUwzjOxmIAXXYd/Z\n+L9osPQJjZYkNrD0pQ==\n",
-                        "language": "SQL"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$SEQ_GG_TABF_PUBLIC_9ae1b2cd87934dcb4bda65f8828fab9f)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                },
-                {
-                    "id": "urn:li:container:f168a130824e2bed58c76e305bf4631c",
-                    "urn": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$TAB_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "object_type": "FUNCTION",
-                "status": "VALID",
-                "upstream_dependencies": "SYS.LOGMNR_DICT_CACHE (PACKAGE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), PUBLIC.PLITBLM (SYNONYM)"
-            },
-            "name": "LOGMNR$TAB_GG_TABF_PUBLIC",
-            "type": {
-                "string": "Stored Procedure"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$TAB_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Stored Procedure"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$TAB_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$TAB_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "dataTransformLogic",
-    "aspect": {
-        "json": {
-            "transforms": [
-                {
-                    "queryStatement": {
-                        "value": "FUNCTION        LOGMNR$TAB_GG_TABF_PUBLIC wrapped\na000000\n1\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\n8\n22e 181\nPRVt0FiLRPgjIhZlCZcQhnOHXQ4wgzJp2UhGfHSKrQ843hKm3gKD9swoFAS4jVcW0CsSl7W1\n6banVWdjktOVM18XyRjY4ZM5eRdquSp0ZdfHl3KJPBYqPi9LXIwum30Qh7ymgO+zTKj+R1N2\nnSs/TPnknfYLwcUdAfBryDQGEIMisMuE9XT5ix3sudhHa5tLJRjsBIDKlqL7zk2CH0C1NRAZ\nXrP7WgavVdNS3Yikz88VupZG21hTuAGspJBgCagmNWIwi9pgCIWP3rxF4p+uMps/ABEg+MBP\n6Iykm62kO6hWhVHJXkfKF/jrQFjYBTTzatr1VTcOXt/AFuagDR7isNtb//lnXh8TXyAFWyCT\nubv6GXL0aM0PP/t+DfSl\n",
-                        "language": "SQL"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$TAB_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                },
-                {
-                    "id": "urn:li:container:f168a130824e2bed58c76e305bf4631c",
-                    "urn": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$USER_GG_TABF_PUBLIC_2296f4485fd114c2708254214ed8e953)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "object_type": "FUNCTION",
-                "status": "VALID",
-                "upstream_dependencies": "SYS.LOGMNR_DICT_CACHE (PACKAGE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), PUBLIC.PLITBLM (SYNONYM)"
-            },
-            "name": "LOGMNR$USER_GG_TABF_PUBLIC",
-            "type": {
-                "string": "Stored Procedure"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$USER_GG_TABF_PUBLIC_2296f4485fd114c2708254214ed8e953)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Stored Procedure"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$USER_GG_TABF_PUBLIC_2296f4485fd114c2708254214ed8e953)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$USER_GG_TABF_PUBLIC_2296f4485fd114c2708254214ed8e953)",
-    "changeType": "UPSERT",
-    "aspectName": "dataTransformLogic",
-    "aspect": {
-        "json": {
-            "transforms": [
-                {
-                    "queryStatement": {
-                        "value": "FUNCTION        LOGMNR$USER_GG_TABF_PUBLIC wrapped\na000000\n1\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\nabcd\n8\n272 191\nVc+i+Mga8m7/BSlvXl0J+GmParYwg/D319wCfC8CTE6Ot30G8QRR0WzR8ohw8Z/y6DuL4pL5\nIDjZApnCaZgeKa1OTjLj2B2tOYZg2ZuOAPKrxo7DeBqtn0Ahw0tubS36jP4xc+d2eQebdJMD\nc/U0JxdiAl0qIPzsltBjeoGAEsxUk0aubCMJmysgc2d8ojil6ixQ37D7RA0HWMkh27QdOuXF\nvSwuufDunMMT8Hue9dvy4vRXj+PhuyylJSukStsxyIb234EahCXyrjDlnzbC91eoU7v5sb4D\nOvtDmggQCEViyhFXwspP9P0dOObin8JENsDJeFZYr/oVAgSHa97LRKvNZgd+f//XHlpEAOP4\nrNm5mF0wTCABbb7tc5c7uo09M+79i7en8g==\n",
-                        "language": "SQL"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$USER_GG_TABF_PUBLIC_2296f4485fd114c2708254214ed8e953)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                },
-                {
-                    "id": "urn:li:container:f168a130824e2bed58c76e305bf4631c",
-                    "urn": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "materialized_view_definition": "SELECT\n    COUNT(*) AS total_schemas,\n    'Test Materialized View' AS description\nFROM all_users\nWHERE username LIKE '%SCHEMA%'"
-            },
-            "name": "test_mview",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "schemaMetadata",
-    "aspect": {
-        "json": {
-            "schemaName": "system.test_mview",
-            "platform": "urn:li:dataPlatform:oracle",
-            "version": 0,
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "hash": "",
-            "platformSchema": {
-                "com.linkedin.schema.MySqlDDL": {
-                    "tableSchema": ""
-                }
-            },
-            "fields": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "View"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "viewProperties",
-    "aspect": {
-        "json": {
-            "materialized": true,
-            "viewLogic": "SELECT\n    COUNT(*) AS total_schemas,\n    'Test Materialized View' AS description\nFROM all_users\nWHERE username LIKE '%SCHEMA%'",
-            "viewLanguage": "SQL"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                },
-                {
-                    "id": "urn:li:container:f168a130824e2bed58c76e305bf4631c",
-                    "urn": "urn:li:container:f168a130824e2bed58c76e305bf4631c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD)",
     "changeType": "UPSERT",
@@ -19906,110 +19068,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "created": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.all_users,PROD)",
-                    "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.test_mview%2CPROD%29"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.test_mview%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "queryProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "statement": {
-                "value": "SELECT\n  COUNT(*) AS total_schemas,\n  'Test Materialized View' AS description\nFROM all_users\nWHERE\n  username LIKE '%SCHEMA%'",
-                "language": "SQL"
-            },
-            "source": "SYSTEM",
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:_ingestion"
-            },
-            "lastModified": {
-                "time": 1643871600000,
-                "actor": "urn:li:corpuser:_ingestion"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.test_mview%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "querySubjects",
-    "aspect": {
-        "json": {
-            "subjects": [
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.all_users,PROD)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD),total_schemas)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD),description)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.test_mview%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:oracle"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD)",
     "changeType": "UPSERT",
@@ -20044,22 +19102,6 @@
 {
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.system.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -20170,118 +19212,6 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$COL_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$GSBA_GG_TABF_PUBLIC_5d2d46c2c96d70c5e0c9ceee5faa26d1)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$KEY_GG_TABF_PUBLIC_77a58b36bdddafb91baa24311fe59af7)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$SEQ_GG_TABF_PUBLIC_9ae1b2cd87934dcb4bda65f8828fab9f)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$TAB_GG_TABF_PUBLIC_ef2341af0dcac8651a66e2477d17845f)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.system.stored_procedures,PROD),LOGMNR$USER_GG_TABF_PUBLIC_2296f4485fd114c2708254214ed8e953)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "query",
     "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
     "changeType": "UPSERT",
@@ -20332,22 +19262,6 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-stored-procedures-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.test_mview%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

@@ -1,5 +1,4 @@
 import os
-import subprocess
 import time
 from typing import Any
 from unittest import mock
@@ -22,18 +21,6 @@ from tests.test_helpers.docker_helpers import wait_for_port
 FROZEN_TIME = "2022-02-03 07:00:00"
 
 
-def is_oracle_up(container_name: str, port: int) -> bool:
-    """Check if Oracle is responsive on a container"""
-    cmd = f"docker exec {container_name} /opt/oracle/checkDBStatus.sh"
-    ret = subprocess.run(
-        cmd,
-        shell=True,
-        capture_output=True,
-        text=True,
-    )
-    return ret.returncode == 0
-
-
 @pytest.fixture(scope="module")
 def oracle_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/oracle"
@@ -44,13 +31,10 @@ def oracle_runner(docker_compose_runner, pytestconfig):
             docker_services,
             "testoracle",
             1521,
-            timeout=300,  # Oracle takes longer to start than SQL Server
-            checker=lambda: is_oracle_up("testoracle", 1521),
+            timeout=300,
         )
 
-        # Oracle XE automatically runs setup scripts from /opt/oracle/scripts/setup/
-        # Wait a bit more to ensure setup is complete
-        time.sleep(10)
+        time.sleep(30)  # Extra time for setup scripts to complete
 
         yield docker_services
 
