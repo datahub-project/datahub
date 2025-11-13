@@ -1,5 +1,5 @@
-import { Button, Loader, Text, Tooltip, colors } from '@components';
-import { CaretDown, Chat, ChatsTeardrop, Sparkle } from '@phosphor-icons/react';
+import { Button, Loader, Text, colors } from '@components';
+import { CaretDown, Chat, ChatsTeardrop } from '@phosphor-icons/react';
 import { message as antMessage } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -7,6 +7,14 @@ import styled from 'styled-components';
 import { getColor } from '@components/theme/utils';
 
 import analytics, { EventType } from '@app/analytics';
+import { AskDataHubIcon } from '@app/chat/components/AskDataHubIcon';
+import {
+    NAV_ITEM_HOVER_BOX_SHADOW,
+    NAV_ITEM_HOVER_GRADIENT,
+    NAV_ITEM_SELECTED_BOX_SHADOW,
+    NAV_ITEM_SELECTED_GRADIENT,
+} from '@app/shared/styleUtils';
+import { getTimeFromNow } from '@app/shared/time/timeUtils';
 
 import { useDeleteDataHubAiConversationMutation } from '@graphql/aiChat.generated';
 import { DataHubAiConversation } from '@types';
@@ -68,20 +76,6 @@ const CaretIcon = styled(CaretDown)<{ $isCollapsed?: boolean }>`
     transform: ${(props) => (props.$isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)')};
 `;
 
-const GradientIcon = styled.div`
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    && svg {
-        fill: url(#ask-datahub-icon-gradient) ${(props) => props.theme.styles['primary-color']};
-        width: 20px;
-        height: 20px;
-    }
-`;
-
 const DeleteButton = styled(Button)``;
 
 const ConversationItem = styled.div<{ selected?: boolean }>`
@@ -94,23 +88,12 @@ const ConversationItem = styled.div<{ selected?: boolean }>`
     justify-content: space-between;
     align-items: center;
     transition: all 0.2s;
-    background-color: ${(props) =>
-        props.selected
-            ? 'linear-gradient(180deg, rgba(83, 63, 209, 0.04) -3.99%, rgba(112, 94, 228, 0.04) 53.04%, rgba(112, 94, 228, 0.04) 100%)'
-            : 'transparent'};
-    background: ${(props) =>
-        props.selected
-            ? 'linear-gradient(180deg, rgba(83, 63, 209, 0.04) -3.99%, rgba(112, 94, 228, 0.04) 53.04%, rgba(112, 94, 228, 0.04) 100%)'
-            : 'transparent'};
-    box-shadow: ${(props) => (props.selected ? '0px 0px 0px 1px rgba(108, 71, 255, 0.08)' : 'none')};
+    background: ${(props) => (props.selected ? NAV_ITEM_SELECTED_GRADIENT : 'transparent')};
+    box-shadow: ${(props) => (props.selected ? NAV_ITEM_SELECTED_BOX_SHADOW : 'none')};
 
     &:hover {
-        background: ${(props) =>
-            props.selected
-                ? 'linear-gradient(180deg, rgba(83, 63, 209, 0.04) -3.99%, rgba(112, 94, 228, 0.04) 53.04%, rgba(112, 94, 228, 0.04) 100%)'
-                : 'linear-gradient(180deg, rgba(243, 244, 246, 0.5) -3.99%, rgba(235, 236, 240, 0.5) 53.04%, rgba(235, 236, 240, 0.5) 100%)'};
-        box-shadow: ${(props) =>
-            props.selected ? '0px 0px 0px 1px rgba(108, 71, 255, 0.08)' : '0px 0px 0px 1px rgba(139, 135, 157, 0.08)'};
+        background: ${(props) => (props.selected ? NAV_ITEM_SELECTED_GRADIENT : NAV_ITEM_HOVER_GRADIENT)};
+        box-shadow: ${(props) => (props.selected ? NAV_ITEM_SELECTED_BOX_SHADOW : NAV_ITEM_HOVER_BOX_SHADOW)};
     }
 
     /* Hide delete button by default */
@@ -245,62 +228,29 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         }
     };
 
-    const formatTimeAgo = (timestamp: number) => {
-        const now = Date.now();
-        const diffInSeconds = Math.floor((now - timestamp) / 1000);
-        const diffInMinutes = Math.floor(diffInSeconds / 60);
-        const diffInHours = Math.floor(diffInMinutes / 60);
-        const diffInDays = Math.floor(diffInHours / 24);
-        const diffInMonths = Math.floor(diffInDays / 30);
-        const diffInYears = Math.floor(diffInDays / 365);
-
-        if (diffInSeconds < 60) return 'now';
-        if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-        if (diffInHours < 24) return `${diffInHours}h ago`;
-        if (diffInDays < 30) return `${diffInDays}d ago`;
-        if (diffInMonths < 12) return `${diffInMonths}mo ago`;
-        return `${diffInYears}y ago`;
-    };
-
     return (
         <Container>
-            {/* SVG gradient definition for Ask DataHub icon */}
-            <svg
-                style={{ width: 0, height: 0, position: 'absolute', visibility: 'hidden' }}
-                aria-hidden="true"
-                focusable="false"
-            >
-                <linearGradient id="ask-datahub-icon-gradient" x2="1" y2="1">
-                    <stop offset="1%" stopColor={getColor('primary', 300)} />
-                    <stop offset="99%" stopColor={getColor('primary', 500)} />
-                </linearGradient>
-            </svg>
-
             <Header>
                 <HeaderItem $clickable onClick={onCreateConversation}>
                     <HeaderContent>
-                        <GradientIcon>
-                            <Sparkle size={20} weight="fill" />
-                        </GradientIcon>
+                        <AskDataHubIcon />
                         <HeaderTitle>Ask DataHub</HeaderTitle>
                     </HeaderContent>
-                    <Tooltip title="Start a new chat" placement="bottom">
-                        <Button
-                            variant="text"
-                            icon={{
-                                icon: 'Plus',
-                                source: 'phosphor',
-                                size: 'lg',
-                            }}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onCreateConversation();
-                            }}
-                            isLoading={creatingConversation}
-                            size="sm"
-                            style={{ padding: 4 }}
-                        />
-                    </Tooltip>
+                    <Button
+                        variant="text"
+                        icon={{
+                            icon: 'Plus',
+                            source: 'phosphor',
+                            size: 'lg',
+                        }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onCreateConversation();
+                        }}
+                        isLoading={creatingConversation}
+                        size="sm"
+                        style={{ padding: 4 }}
+                    />
                 </HeaderItem>
             </Header>
             <ConversationsSection>
@@ -361,7 +311,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                                 </ConversationContent>
                                 <ActionsContainer>
                                     <ConversationMeta>
-                                        {formatTimeAgo(conversation.lastUpdated?.time || Date.now())}
+                                        {getTimeFromNow(conversation.lastUpdated?.time || conversation.created?.time)}
                                     </ConversationMeta>
                                     <DeleteButton
                                         variant="text"

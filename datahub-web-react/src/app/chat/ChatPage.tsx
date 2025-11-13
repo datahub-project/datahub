@@ -121,7 +121,9 @@ export const ChatPage = () => {
     const conversations = useMemo(() => {
         const baseConversations = conversationsData?.listDataHubAiConversations?.conversations || [];
 
-        // Sort conversations by lastUpdated.time (most recent first)
+        // Sort conversations by most recent activity to show active conversations at the top.
+        // This provides better UX as users typically want to continue recent conversations.
+        // Note: Relies on backend updating lastUpdated timestamp when messages are sent.
         const sortedConversations = [...baseConversations].sort((a, b) => {
             const aTime = a.lastUpdated?.time || 0;
             const bTime = b.lastUpdated?.time || 0;
@@ -161,10 +163,6 @@ export const ChatPage = () => {
                         origin: initialMessageRef.current ? 'search_bar' : 'manual',
                         conversationUrn: newConversation.urn,
                     });
-
-                    if (!silent) {
-                        antMessage.success('New conversation created!');
-                    }
 
                     // Navigate to the new conversation
                     history.push(`${PageRoutes.AI_CHAT}?conversation=${newConversation.urn}`);
