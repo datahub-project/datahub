@@ -45,6 +45,31 @@ class MockHexAPIHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps({"error": "Not found", "path": self.path}).encode())
 
+    def do_HEAD(self):
+        """Handle HEAD requests (used by wget --spider for health checks)"""
+        parsed_url = urlparse(self.path)
+        path = parsed_url.path
+
+        # Health check endpoint
+        if path == "/health":
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-type", "text/plain")
+            self.end_headers()
+            return
+
+        # Mock Hex API endpoints
+        if path.startswith("/api/v1/projects"):
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            return
+
+        # Default 404 response
+        self.send_response(HTTPStatus.NOT_FOUND)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+
 
 # Set up the server
 handler = MockHexAPIHandler

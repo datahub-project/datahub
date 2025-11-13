@@ -291,7 +291,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         # TODO: We should refactor out the multithreading functionality of the sink
         # into a separate class that can be used by both the sink and the graph client
         # e.g. a DatahubBulkRestEmitter that both the sink and the graph client use.
-        return DatahubRestSinkConfig(**self.config.dict(), **(extra_config or {}))
+        return DatahubRestSinkConfig(**self.config.model_dump(), **(extra_config or {}))
 
     @contextlib.contextmanager
     def make_rest_sink(
@@ -775,7 +775,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         """
 
         if isinstance(config, (ConfigModel, BaseModel)):
-            blob = config.json()
+            blob = config.model_dump_json()
         else:
             blob = json.dumps(config)
 
