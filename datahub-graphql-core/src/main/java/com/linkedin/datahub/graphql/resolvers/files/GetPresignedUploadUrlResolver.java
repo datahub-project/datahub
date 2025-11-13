@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.files;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -10,6 +11,9 @@ import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlInput;
 import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlResponse;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.aws.S3Util;
@@ -27,10 +31,13 @@ public class GetPresignedUploadUrlResolver
 
   private final S3Util s3Util;
   private final S3Configuration s3Configuration;
+  private final EntityClient _entityClient;
 
-  public GetPresignedUploadUrlResolver(S3Util s3Util, S3Configuration s3Configuration) {
+  public GetPresignedUploadUrlResolver(
+      S3Util s3Util, S3Configuration s3Configuration, EntityClient entityClient) {
     this.s3Util = s3Util;
     this.s3Configuration = s3Configuration;
+    this._entityClient = entityClient;
   }
 
   @Override
@@ -83,7 +90,7 @@ public class GetPresignedUploadUrlResolver
     }
 
     if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS) {
-      validateInputForAssetDocumentationScenario(context, input);
+      validateInputForAssetDocumentationLinksScenario(context, input);
     }
   }
 
@@ -108,6 +115,21 @@ public class GetPresignedUploadUrlResolver
         throw new AuthorizationException(
             "Unauthorized to edit documentation for asset: " + assetUrn);
       }
+    }
+  }
+
+  private void validateInputForAssetDocumentationLinksScenario(
+      final QueryContext context, final GetPresignedUploadUrlInput input) {
+    String assetUrnString = input.getAssetUrn();
+
+    if (assetUrnString == null) {
+      throw new IllegalArgumentException("assetUrn is required for ASSET_DOCUMENTATION scenario");
+    }
+
+    Urn assetUrn = UrnUtils.getUrn(assetUrnString);
+    if (!LinkUtils.isAuthorizedToUpdateLinks(context, assetUrn)
+        && !GlossaryUtils.canUpdateGlossaryEntity(assetUrn, context, _entityClient)) {
+      throw new AuthorizationException("Unauthorized to edit links for asset: " + assetUrnString);
     }
   }
 
