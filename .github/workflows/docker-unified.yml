@@ -433,6 +433,7 @@ jobs:
           elif [[ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]]; then
             includes="$python_matrix"
           fi
+          echo $includes
           echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
 
   smoke_test:
