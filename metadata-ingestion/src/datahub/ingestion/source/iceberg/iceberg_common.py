@@ -220,6 +220,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
                     "Current role and the role we wanted to assume are the same, continuing without further assumption steps"
                 )
             else:
+                logger.debug(f"Assuming the role {role_to_assume}")
                 # below might fail if such duration is not allowed per policies
                 try:
                     response = sts_client.assume_role(
