@@ -172,53 +172,54 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
             self.profiling.operation_config
         )
 
-    def get_catalog(self) -> Catalog:
-        """Returns the Iceberg catalog instance as configured by the `catalog` dictionary.
-
-        Returns:
-            Catalog: Iceberg catalog instance.
-        """
-        if not self.catalog:
-            raise ValueError("No catalog configuration found")
-
-        # Retrieve the dict associated with the one catalog entry
-        catalog_name, catalog_config = next(iter(self.catalog.items()))
-        logger.debug(
-            "Initializing the catalog %s with config: %s", catalog_name, catalog_config
+    def _custom_glue_catalog_handling(self, catalog_config: Dict[str, Any]) -> None:
+        role_to_assume = get_first_property_value(
+            catalog_config, GLUE_ROLE_ARN, AWS_ROLE_ARN
         )
-
-        # workaround pyiceberg 0.10.0 issue with ignoring role assumption for glue catalog, remove this code once pyiceberg is fixed
-        if catalog_config.get("type") == "glue":
-            role_to_assume = get_first_property_value(
-                catalog_config, GLUE_ROLE_ARN, AWS_ROLE_ARN
+        if role_to_assume:
+            logger.debug(
+                "Recognized role ARN in glue catalog config, attempting to workaround pyiceberg limitation in role assumption for the glue client"
             )
-            if role_to_assume:
-                logger.debug(
-                    "Recognized role ARN in glue catalog config, attempting to workaround pyiceberg limitation in role assumption for the glue client"
-                )
-                session = boto3.Session(
-                    profile_name=catalog_config.get(GLUE_PROFILE_NAME),
-                    region_name=get_first_property_value(
-                        catalog_config, GLUE_REGION, AWS_REGION
-                    ),
-                    botocore_session=catalog_config.get(BOTOCORE_SESSION),
-                    aws_access_key_id=get_first_property_value(
-                        catalog_config, GLUE_ACCESS_KEY_ID, AWS_ACCESS_KEY_ID
-                    ),
-                    aws_secret_access_key=get_first_property_value(
-                        catalog_config, GLUE_SECRET_ACCESS_KEY, AWS_SECRET_ACCESS_KEY
-                    ),
-                    aws_session_token=get_first_property_value(
-                        catalog_config, GLUE_SESSION_TOKEN, AWS_SESSION_TOKEN
-                    ),
+            session = boto3.Session(
+                profile_name=catalog_config.get(GLUE_PROFILE_NAME),
+                region_name=get_first_property_value(
+                    catalog_config, GLUE_REGION, AWS_REGION
+                ),
+                botocore_session=catalog_config.get(BOTOCORE_SESSION),
+                aws_access_key_id=get_first_property_value(
+                    catalog_config, GLUE_ACCESS_KEY_ID, AWS_ACCESS_KEY_ID
+                ),
+                aws_secret_access_key=get_first_property_value(
+                    catalog_config, GLUE_SECRET_ACCESS_KEY, AWS_SECRET_ACCESS_KEY
+                ),
+                aws_session_token=get_first_property_value(
+                    catalog_config, GLUE_SESSION_TOKEN, AWS_SESSION_TOKEN
+                ),
+            )
+
+            sts_client = session.client("sts")
+            identity = sts_client.get_caller_identity()
+            logger.debug(
+                f"Authenticated as {identity['Arn']}, attempting to assume a role: {role_to_assume}"
+            )
+            current_role_name = None
+            if ":assumed-role/" in identity["Arn"]:
+                current_role_name = (
+                    identity["Arn"].split(":assumed-role/")[1].split("/")[0]
                 )
 
-                sts_client = session.client("sts")
-                identity = sts_client.get_caller_identity()
-                logger.debug(
-                    f"Authenticated as {identity['Arn']}, attempting to assume a role: {role_to_assume}"
+            maybe_target_role_name = role_to_assume.split("/")
+            if len(maybe_target_role_name) < 2:
+                logger.warning(
+                    f"Expected target role to be proper ARN, it doesn't appear to be so: {role_to_assume}, continuing nonetheless"
                 )
+            target_role_name = maybe_target_role_name[-1]
 
+            if current_role_name == target_role_name:
+                logger.debug(
+                    "Current role and the role we wanted to assume are the same, continuing without further assumption steps"
+                )
+            else:
                 # below might fail if such duration is not allowed per policies
                 try:
                     response = sts_client.assume_role(
@@ -236,6 +237,25 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
                 catalog_config[GLUE_ACCESS_KEY_ID] = creds["AccessKeyId"]
                 catalog_config[GLUE_SECRET_ACCESS_KEY] = creds["SecretAccessKey"]
                 catalog_config[GLUE_SESSION_TOKEN] = creds["SessionToken"]
+
+    def get_catalog(self) -> Catalog:
+        """Returns the Iceberg catalog instance as configured by the `catalog` dictionary.
+
+        Returns:
+            Catalog: Iceberg catalog instance.
+        """
+        if not self.catalog:
+            raise ValueError("No catalog configuration found")
+
+        # Retrieve the dict associated with the one catalog entry
+        catalog_name, catalog_config = next(iter(self.catalog.items()))
+        logger.debug(
+            "Initializing the catalog %s with config: %s", catalog_name, catalog_config
+        )
+
+        # workaround pyiceberg 0.10.0 issue with ignoring role assumption for glue catalog, remove this code once pyiceberg is fixed
+        if catalog_config.get("type") == "glue":
+            self._custom_glue_catalog_handling(catalog_config)
 
         catalog = load_catalog(name=catalog_name, **catalog_config)
         if isinstance(catalog, RestCatalog):
