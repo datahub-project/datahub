@@ -236,9 +236,6 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
                 catalog_config[GLUE_ACCESS_KEY_ID] = creds["AccessKeyId"]
                 catalog_config[GLUE_SECRET_ACCESS_KEY] = creds["SecretAccessKey"]
                 catalog_config[GLUE_SESSION_TOKEN] = creds["SessionToken"]
-                catalog_config[GLUE_REGION] = response["AssumedRoleUser"]["Arn"].split(
-                    ":"
-                )[4]
 
         catalog = load_catalog(name=catalog_name, **catalog_config)
         if isinstance(catalog, RestCatalog):
