@@ -219,6 +219,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return BigQueryTestConnection.test_connection(config_dict)
 
     def _init_schema_resolver(self) -> SchemaResolver:
+        """
+        The ininitialization of SchemaResolver prefetches all existing urns and schemas in the env/platform/instance.
+        Because of that, it's important all classes requiring a SchemaResolver use this instance, as it has an already pre-populated cache.
+        An alternative strategy would be to do an on-demand resolution of the urns/schemas.
+
+        TODO: prove pre-fetch is better strategy than on-demand resolution or make this behaviour configurable.
+        """
         schema_resolution_required = (
             self.config.use_queries_v2 or self.config.lineage_use_sql_parser
         )
