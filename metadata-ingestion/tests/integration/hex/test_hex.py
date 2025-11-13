@@ -49,7 +49,7 @@ def hex_mock_api_runner(docker_compose_runner, test_resources_dir):
         yield docker_services
 
 
-@pytest.mark.integration_batch_6
+@pytest.mark.integration_batch_7
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_hex_ingestion(pytestconfig, hex_mock_api_runner, test_resources_dir, tmp_path):
