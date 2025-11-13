@@ -2390,17 +2390,23 @@ class DebeziumSourceConnector(BaseConnector):
         patterns = parse_comma_separated_list(table_config)
         expanded_tables = []
 
+        logger.info(
+            f"Processing table patterns for connector {self.connector_manifest.name}: "
+            f"platform={source_platform}, database={database_name}, patterns={patterns}"
+        )
+
         for pattern in patterns:
             # Check if pattern needs expansion (contains regex special characters)
             if self._is_regex_pattern(pattern):
                 logger.info(
-                    f"Expanding pattern '{pattern}' using DataHub schema metadata"
+                    f"Pattern '{pattern}' contains wildcards - will query DataHub for matching tables "
+                    f"(platform={source_platform}, database={database_name})"
                 )
                 tables = self._query_tables_from_datahub(
                     pattern, source_platform, database_name
                 )
                 if tables:
-                    logger.info(f"Expanded pattern '{pattern}' to {len(tables)} tables")
+                    logger.info(f"Expanded pattern '{pattern}' to {len(tables)} tables: {tables[:5]}...")
                     expanded_tables.extend(tables)
                 else:
                     logger.warning(
@@ -2409,6 +2415,9 @@ class DebeziumSourceConnector(BaseConnector):
                     expanded_tables.append(pattern)
             else:
                 # Already explicit table name - no expansion needed
+                logger.debug(
+                    f"Table '{pattern}' is explicit (no wildcards) - using as-is without querying DataHub"
+                )
                 expanded_tables.append(pattern)
 
         return expanded_tables
@@ -2460,9 +2469,15 @@ class DebeziumSourceConnector(BaseConnector):
             # Get all URNs from schema resolver cache
             all_urns = self.schema_resolver.get_urns()
 
+            logger.info(
+                f"SchemaResolver returned {len(all_urns)} cached URNs for platform={platform}, "
+                f"database={database}, will match against pattern='{pattern}'"
+            )
+
             if not all_urns:
-                logger.debug(
-                    "No cached schemas available in SchemaResolver for pattern expansion"
+                logger.warning(
+                    f"No cached schemas available in SchemaResolver for platform={platform}. "
+                    f"Make sure you've ingested {platform} datasets into DataHub before running Kafka Connect ingestion."
                 )
                 return []
 
