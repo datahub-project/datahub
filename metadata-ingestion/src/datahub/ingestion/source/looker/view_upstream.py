@@ -55,6 +55,9 @@ from datahub.sql_parsing.sqlglot_lineage import (
 
 logger = logging.getLogger(__name__)
 
+# Constants
+EXPLORE_CACHE_SIZE = 1000
+
 
 def is_derived_view(view_name: str) -> bool:
     if DERIVED_VIEW_SUFFIX in view_name.lower():
@@ -298,7 +301,7 @@ class AbstractViewUpstream(ABC):
         return upstream_column_refs
 
     @classmethod
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=EXPLORE_CACHE_SIZE)
     def get_explore_fields_from_looker_api(
         cls, looker_client: "LookerAPI", model_name: str, explore_name: str
     ) -> LookmlModelExplore:
@@ -307,8 +310,9 @@ class AbstractViewUpstream(ABC):
         Only queries for the fields we need (dimensions, measures, and dimension groups)
         to optimize API performance.
 
-        Note: This is a cached method to optimize API performance since a single explore can have multiple views.
-        When we associate a view with an explore, we try to associate as many views as possible with the same explore to reduce the number of API calls.
+        Note: This is a cached method (cache size: EXPLORE_CACHE_SIZE) to optimize API performance
+        since a single explore can have multiple views. When we associate a view with an explore,
+        we try to associate as many views as possible with the same explore to reduce the number of API calls.
 
         Returns:
             LookmlModelExplore: The explore with the fields.
@@ -441,23 +445,17 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         try:
             # Get fields for the current view
             explore_name = self.view_to_explore_map.get(self.view_context.name())
-            assert explore_name  # Happy linter
+            if not explore_name:
+                # This should not happen
+                raise ValueError(
+                    f"No explore name found in view_to_explore_map for view '{self.view_context.name()}'"
+                )
 
             view_fields = self._get_fields_from_looker_api(explore_name)
-            # TODO: Remove this after debugging
-            logger.debug(
-                f"view-name={self.view_context.name()}, total-fields-from-looker-api={len(view_fields)}, total-fields-from-view-context={len(self._get_fields_from_view_context())}"
-            )
-            # Compare diff between view fields, if any, print the diff
-            # Compute set differences in both directions to identify fields missing from Looker API and fields extra in Looker API
-            view_context_fields = set(self._get_fields_from_view_context())
-            view_fields_set = set(view_fields)
-            missing_from_looker_api = view_context_fields - view_fields_set
-            extra_in_looker_api = view_fields_set - view_context_fields
-            logger.debug(
-                f"view-name={self.view_context.name()}, missing-from-looker-api={missing_from_looker_api}, extra-in-looker-api={extra_in_looker_api}"
-            )
             if not view_fields:
+                logger.debug(
+                    f"No fields from Looker API for view '{self.view_context.name()}', falling back to view context"
+                )
                 view_fields = self._get_fields_from_view_context()
 
             if not view_fields:
@@ -472,6 +470,9 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 )
                 return self._get_spr_with_field_splitting(view_fields, explore_name)
             else:
+                logger.debug(
+                    f"Processing view '{self.view_context.name()}' with {len(view_fields)} fields in single query"
+                )
                 # Use the original single-query approach
                 sql_query: WriteQuery = self._get_sql_write_query_with_fields(
                     view_fields, explore_name
@@ -531,14 +532,15 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             graph=self.ctx.graph,
         )
 
-        has_errors = False
-
-        # Check for errors encountered during table extraction.
+        # Check for errors encountered during parsing
         table_error = spr.debug_info.table_error
+        column_error = spr.debug_info.column_error
+        has_errors = table_error is not None or column_error is not None
+
+        # Handle table extraction errors
         if table_error is not None:
-            has_errors = True
             logger.debug(
-                f"view-name={self.view_context.name()}, table-error={table_error}, sql-query={sql_response}"
+                f"Table parsing error for view '{self.view_context.name()}': {table_error}"
             )
             self.reporter.report_warning(
                 title="Table Level Lineage Extraction Failed",
@@ -550,16 +552,14 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 raise ValueError(
                     f"Error in parsing SQL for upstream tables: {table_error}"
                 )
-            else:
-                logger.warning(
-                    f"Allowing partial results despite table parsing error for view '{self.view_context.name()}'"
-                )
+            logger.warning(
+                f"Allowing partial results despite table parsing error for view '{self.view_context.name()}'"
+            )
 
-        column_error = spr.debug_info.column_error
+        # Handle column lineage errors
         if column_error is not None:
-            has_errors = True
             logger.debug(
-                f"view-name={self.view_context.name()}, column-error={column_error}, sql-query={sql_response}"
+                f"Column parsing error for view '{self.view_context.name()}': {column_error}"
             )
             self.reporter.report_warning(
                 title="Column Level Lineage Extraction Failed",
@@ -571,10 +571,9 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 raise ValueError(
                     f"Error in parsing SQL for column lineage: {column_error}"
                 )
-            else:
-                logger.warning(
-                    f"Allowing partial results despite column parsing error for view '{self.view_context.name()}'"
-                )
+            logger.warning(
+                f"Allowing partial results despite column parsing error for view '{self.view_context.name()}'"
+            )
 
         return spr, has_errors
 
@@ -596,7 +595,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
             # Check if we should trigger individual field fallback due to parsing errors
             if has_errors and self.config.enable_individual_field_fallback:
-                logger.warning(
+                logger.debug(
                     f"Chunk {chunk_idx + 1} had parsing errors, attempting individual field processing for view '{self.view_context.name()}'"
                 )
                 try:
@@ -608,12 +607,15 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     ) = self._process_individual_fields(field_chunk, explore_name)
 
                     # Combine individual field results with chunk results
-                    spr.in_tables.extend(list(individual_tables))
+                    spr.in_tables.extend(individual_tables)
                     if individual_lineage and spr.column_lineage:
-                        spr.column_lineage.extend(list(individual_lineage))
+                        spr.column_lineage.extend(individual_lineage)
                     elif individual_lineage:
-                        spr.column_lineage = list(individual_lineage)
+                        spr.column_lineage = individual_lineage
 
+                    logger.debug(
+                        f"Individual field fallback for chunk {chunk_idx + 1}: {individual_success} successful, {individual_failed} failed"
+                    )
                     return spr, False, individual_success, individual_failed
 
                 except Exception as individual_error:
@@ -672,7 +674,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         failed_count = 0
         problematic_fields = []
 
-        logger.info(
+        logger.debug(
             f"Processing {len(field_chunk)} fields individually in parallel for view '{self.view_context.name()}' "
             f"to isolate problematic fields"
         )
@@ -717,12 +719,12 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 f"{problematic_fields}"
             )
             self.reporter.report_warning(
-                title="Problematic Fields Identified",
-                message="Identified problematic fields that cannot be processed",
-                context=f"View-name: {self.view_context.name()}, Total problematic: {len(problematic_fields)}, Fields: {', '.join(problematic_fields[:10])}{'...' if len(problematic_fields) > 10 else ''}",
+                title="Problematic Fields Identified in LookMl View Processing",
+                message=f"Identified problematic fields that cannot be processed, View-name: {self.view_context.name()}",
+                context=str(problematic_fields),
             )
 
-        logger.info(
+        logger.debug(
             f"Individual field processing completed for view '{self.view_context.name()}: "
             f"{successful_count} successful, {failed_count} failed"
         )
@@ -757,11 +759,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
             # Collect results
             tables = set(spr.in_tables) if spr.in_tables else set()
-            lineage = list(spr.column_lineage) if spr.column_lineage else []
-
-            logger.debug(
-                f"Successfully processed individual field '{field_name}' for view '{self.view_context.name()}'"
-            )
+            lineage = spr.column_lineage if spr.column_lineage else []
 
             return tables, lineage, True
 
@@ -800,9 +798,8 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             )
         ]
 
-        logger.info(
-            f"Split {len(view_fields)} fields into {len(field_chunks)} chunks for view '{self.view_context.name()}' "
-            f"and processing them in parallel"
+        logger.debug(
+            f"Split {len(view_fields)} fields into {len(field_chunks)} chunks for view '{self.view_context.name()}'"
         )
 
         all_in_tables = set()
@@ -842,11 +839,6 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     successful_queries += chunk_success
                     failed_queries += chunk_failed
 
-                    logger.debug(
-                        f"Completed processing chunk {chunk_idx + 1}/{len(field_chunks)}: "
-                        f"{chunk_success} successful, {chunk_failed} failed"
-                    )
-
                 except Exception as e:
                     failed_queries += 1
                     logger.warning(
@@ -854,12 +846,6 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     )
 
         if not successful_queries or not all_in_tables or not all_column_lineage:
-            logger.debug(
-                f"All field chunks failed for view '{self.view_context.name()}'. Total chunks: {len(field_chunks)}, Failed: {failed_queries}",
-                successful_queries,
-                all_in_tables,
-                all_column_lineage,
-            )
             raise ValueError(
                 f"All field chunks failed for view '{self.view_context.name()}'. "
                 f"Total chunks: {len(field_chunks)}, Failed: {failed_queries}"
@@ -873,10 +859,15 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             debug_info=combined_debug_info or SqlParsingDebugInfo(),
         )
 
-        logger.info(
-            f"Successfully combined results for view '{self.view_context.name()}': "
-            f"{len(all_in_tables)} upstream tables, {len(all_column_lineage)} column lineages. "
-            f"Success rate: {(successful_queries / (successful_queries + failed_queries)) * 100:.1f}%"
+        success_rate = (
+            (successful_queries / (successful_queries + failed_queries)) * 100
+            if (successful_queries + failed_queries) > 0
+            else 0
+        )
+        logger.debug(
+            f"Combined results for view '{self.view_context.name()}': "
+            f"{len(all_in_tables)} tables, {len(all_column_lineage)} column lineages, "
+            f"success rate: {success_rate:.1f}%"
         )
 
         # Report field splitting statistics
@@ -1010,7 +1001,6 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         # If no view attribute, we can't determine the source view
         # In this case, we'll be conservative and include the field
-        logger.debug(f"Field {field.name} has no view attribute, including it")
         return True
 
     def _get_fields_from_looker_api(self, explore_name: str) -> List[str]:
@@ -1089,18 +1079,16 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         current_view_name = self.view_context.name()
 
         try:
-            logger.debug(
-                f"Attempting to get explore details from Looker API for explore: {explore_name} and view: {current_view_name}"
-            )
             # Only query for the fields we need to optimize API performance
             explore: LookmlModelExplore = self.get_explore_fields_from_looker_api(
                 self.looker_client, self.looker_view_id_cache.model_name, explore_name
             )
 
+            logger.debug(
+                f"Retrieved explore '{explore_name}' from Looker API for view '{current_view_name}'"
+            )
+
             if explore and explore.fields:
-                logger.debug(
-                    f"Looker API response for explore fields: {explore.fields}"
-                )
                 # Creating a map to de-dup dimension group fields - adding all of them adds to the query length, we dont need all of them for CLL
                 dimension_group_fields_mapping: Dict[str, str] = {}
                 # Get dimensions from API
@@ -1123,9 +1111,6 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                                 ] = dim_field.name
 
                             view_fields.append(dim_field.name)
-                            logger.debug(
-                                f"Added dimension field from API: {dim_field.name} (dimension_group: {dim_field.dimension_group})"
-                            )
 
                 # Get measures from API
                 if explore.fields.measures:
@@ -1134,9 +1119,10 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                             measure_field, current_view_name
                         ):
                             view_fields.append(measure_field.name)
-                            logger.debug(
-                                f"Added measure field from API: {measure_field.name}"
-                            )
+
+                logger.debug(
+                    f"Collected {len(view_fields)} fields from Looker API for view '{current_view_name}'"
+                )
             else:
                 logger.warning(
                     f"No fields found in explore '{explore_name}' from Looker API, falling back to view context"
@@ -1144,7 +1130,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         except Exception:
             logger.warning(
-                f"Failed to get explore details from Looker API for explore '{explore_name}'. Current view: {self.view_context.name()} and view_fields: {view_fields}. Falling back to view csontext.",
+                f"Failed to get explore details from Looker API for explore '{explore_name}'. Current view: {self.view_context.name()} and view_fields: {view_fields}. Falling back to view context.",
                 exc_info=True,
             )
             # Resetting view_fields to trigger fallback to view context
@@ -1161,22 +1147,18 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         """
         view_fields: List[str] = []
 
-        logger.debug(
-            f"Using view context as fallback for view: {self.view_context.name()}"
-        )
-
         # Add dimension fields in the format: <view_name>.<dimension_name> or <view_name>.<measure_name>
         for field in self.view_context.dimensions() + self.view_context.measures():
             field_name = field.get(NAME)
-            assert field_name  # Happy linter
+            if not field_name:
+                logger.warning(
+                    f"Skipping field with missing name in view '{self.view_context.name()}'"
+                )
+                continue
             view_fields.append(self._get_looker_api_field_name(field_name))
 
         for dim_group in self.view_context.dimension_groups():
             dim_group_type_str = dim_group.get(VIEW_FIELD_TYPE_ATTRIBUTE)
-
-            logger.debug(
-                f"Processing dimension group from view context: {dim_group.get(NAME, 'unknown')}, type: {dim_group_type_str}"
-            )
 
             if dim_group_type_str is None:
                 logger.warning(
@@ -1209,6 +1191,9 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 # Continue processing other fields instead of failing completely
                 continue
 
+        logger.debug(
+            f"Collected {len(view_fields)} fields from view context for view '{self.view_context.name()}'"
+        )
         return view_fields
 
     def _execute_query(self, query: WriteQuery) -> str:
@@ -1252,6 +1237,10 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         # Record the start time for latency measurement.
         start_time = datetime.now()
 
+        logger.debug(
+            f"Executing Looker API query for view '{self.view_context.name()}' with {len(query.fields or [])} fields"
+        )
+
         # Execute the query using the Looker client.
         sql_response = self.looker_client.generate_sql_query(
             write_query=query, use_cache=self.config.use_api_cache_for_view_lineage
@@ -1281,9 +1270,6 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 f"No SQL found in response for view '{self.view_context.name()}'. Response: {sql_response}"
             )
 
-        logger.debug(
-            f"view-name={self.view_context.name()}, sql-response={sql_response}"
-        )
         # Extract the SQL string from the response.
         return sql_response
 
@@ -1301,6 +1287,10 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         upstream_dataset_urns: List[str] = [
             _drop_hive_dot(urn) for urn in spr.in_tables
         ]
+
+        logger.debug(
+            f"Found {len(upstream_dataset_urns)} upstream tables for view '{self.view_context.name()}'"
+        )
 
         # Fix any derived view references present in the URNs.
         upstream_dataset_urns = fix_derived_view_urn(
@@ -1387,9 +1377,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         except Exception:
             # Not a dimension group, no modification needed
-            logger.debug(
-                f"view-name={self.view_context.name()}, field-name={field_name}, field-type={field_context.raw_field.get(VIEW_FIELD_TYPE_ATTRIBUTE)}"
-            )
+            pass
 
         field_api_names = self._get_looker_api_field_names(field_name)
         field_api_names = [name.lower() for name in field_api_names]
@@ -1486,9 +1474,6 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
             return []
 
         if sql_parsing_result.debug_info.table_error is not None:
-            logger.debug(
-                f"view-name={self.view_context.name()}, sql_query={self.get_sql_query()}"
-            )
             self.reporter.report_warning(
                 title="Table Level Lineage Missing",
                 message="Error in parsing derived sql",
@@ -1654,8 +1639,10 @@ class NativeDerivedViewUpstream(AbstractViewUpstream):
             )
         )
 
-        # Current view will always be present in cache. assert  will silence the lint
-        assert current_view_id
+        if not current_view_id:
+            raise ValueError(
+                f"View '{self.view_context.name()}' not found in looker_view_id_cache"
+            )
 
         # We're creating a "LookerExplore" just to use the urn generator.
         upstream_dataset_urns: List[str] = [
@@ -1684,7 +1671,7 @@ class NativeDerivedViewUpstream(AbstractViewUpstream):
 
         if not self._get_upstream_dataset_urn():
             # No upstream explore dataset found
-            logging.debug(
+            logger.debug(
                 f"upstream explore not found for field {field_context.name()} of view {self.view_context.name()}"
             )
             return upstream_column_refs
@@ -1867,16 +1854,9 @@ def create_view_upstream(
                 context=f"View-name: {view_context.name()}",
                 exc=e,
             )
-    else:
-        logger.debug(
-            f"Skipping Looker Query API for view: {view_context.name()} because one or more conditions are not met: "
-            f"use_api_for_view_lineage={config.use_api_for_view_lineage}, "
-            f"looker_client={'set' if looker_client else 'not set'}, "
-            f"view_to_explore_map={'set' if view_to_explore_map else 'not set'}, "
-            f"view_in_view_to_explore_map={view_context.name() in view_to_explore_map if view_to_explore_map else False}"
-        )
 
     if view_context.is_regular_case():
+        logger.debug(f"Using RegularViewUpstream for view '{view_context.name()}'")
         return RegularViewUpstream(
             view_context=view_context,
             config=config,
@@ -1886,6 +1866,9 @@ def create_view_upstream(
         )
 
     if view_context.is_sql_table_name_referring_to_view():
+        logger.debug(
+            f"Using DotSqlTableNameViewUpstream for view '{view_context.name()}'"
+        )
         return DotSqlTableNameViewUpstream(
             view_context=view_context,
             config=config,
@@ -1900,6 +1883,9 @@ def create_view_upstream(
             view_context.is_sql_based_derived_view_without_fields_case(),
         ]
     ):
+        logger.debug(
+            f"Using DerivedQueryUpstreamSource for view '{view_context.name()}'"
+        )
         return DerivedQueryUpstreamSource(
             view_context=view_context,
             config=config,
@@ -1909,6 +1895,9 @@ def create_view_upstream(
         )
 
     if view_context.is_direct_sql_query_case():
+        logger.debug(
+            f"Using DirectQueryUpstreamSource for view '{view_context.name()}'"
+        )
         return DirectQueryUpstreamSource(
             view_context=view_context,
             config=config,
@@ -1918,6 +1907,9 @@ def create_view_upstream(
         )
 
     if view_context.is_native_derived_case():
+        logger.debug(
+            f"Using NativeDerivedViewUpstream for view '{view_context.name()}'"
+        )
         return NativeDerivedViewUpstream(
             view_context=view_context,
             config=config,

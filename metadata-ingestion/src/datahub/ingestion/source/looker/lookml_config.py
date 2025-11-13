@@ -5,7 +5,11 @@ from datetime import timedelta
 from typing import Any, Dict, Literal, Optional, Union
 
 import pydantic
+<<<<<<< HEAD
 from pydantic import model_validator
+=======
+from pydantic import field_validator, root_validator, validator
+>>>>>>> 274332b524 (feat(lookml): Updated debug logs (removed and merged), refactored for readability)
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -234,11 +238,24 @@ class LookMLSourceConfig(
 
     max_workers_for_parallel_processing: int = Field(
         10,
-        description=(
-            "Maximum number of worker threads to use for parallel processing of field chunks and individual fields. "
-            "Set to 1 to process everything sequentially. Higher values can improve performance but may increase memory usage."
-        ),
+        description="Maximum number of worker threads to use for parallel processing of field chunks and individual fields. "
+        "Set to 1 to process everything sequentially. Higher values can improve performance but may increase memory usage. "
+        "Maximum allowed value is 100 to prevent resource exhaustion.",
     )
+
+    @field_validator("max_workers_for_parallel_processing")
+    def validate_max_workers(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(
+                f"max_workers_for_parallel_processing must be at least 1, got {v}"
+            )
+        if v > 100:
+            logger.warning(
+                f"max_workers_for_parallel_processing is set to {v}, which exceeds the recommended maximum of 100. "
+                f"This may cause resource exhaustion. Using 100 instead."
+            )
+            return 100
+        return v
 
     @model_validator(mode="before")
     @classmethod
