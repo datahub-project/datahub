@@ -1,9 +1,30 @@
 {
   "enabled": true,
-  "id": "v1.2.1",
-  "title": "What's New In DataHub",
-  "description": "Explore version v1.2.1",
-  "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/sample-product-update-image.png",
-  "ctaText": "Read updates",
-  "ctaLink": "https://docs.datahub.com/docs/releases#v1-2-1"
+  "id": "v0.3.16",
+  "requiredVersion": "v1.3.0rc1",
+  "header": "Welcome to your free trial of DataHub!",
+  "title": "Get to know your Demo Environment",
+  "description": "We've pre-loaded your environment with sample data and entities to help you get started. Whether you're interested in learning more about AI-powered data discovery, data lineage, data quality, or something else, we've made sure you have real-world examples to explore.",
+  "image": "link-to-highlight-image",
+  "ctaText": "Let's dig in!",
+  "ctaLink": "link-to-pre-seeded-search-page",
+  "secondaryCtaText": "Learn more",
+  "secondaryCtaLink": "link-to-loom-video",
+  "features": [
+    {
+      "title": "Get familiar with Search",
+      "description": "See how DataHub makes it easy to find your data, no matter where it's stored.",
+      "icon": "magnifying-glass"
+    },
+    {
+      "title": "View technical and business context in one place",
+      "description": "DataHub makes it easy to find your data, no matter where it's stored.",
+      "icon": "magnifying-glass"
+    },
+    {
+      "title": "Go deeper with Ask DataHub",
+      "description": "Try out our new AI-powered assistant to get a deeper understanding of your metadata.",
+      "icon": "ai-assistant"
+    }
+  ]
 }
