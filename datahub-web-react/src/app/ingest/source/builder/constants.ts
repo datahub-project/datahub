@@ -42,6 +42,7 @@ import sigmaLogo from '@images/sigmalogo.png';
 import snaplogic from '@images/snaplogic.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
 import sparkLogo from '@images/sparklogo.png';
+import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.png';
 import trinoLogo from '@images/trinologo.png';
@@ -164,6 +165,8 @@ export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
 export const GOOGLE_SHEETS = 'google_sheets';
 export const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
+export const STREAMLIT = 'streamlit';
+export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -216,6 +219,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [VERTEXAI_URN]: vertexAI,
     [SNAPLOGIC_URN]: snaplogic,
     [GOOGLE_SHEETS_URN]: googleSheetsLogo,
+    [STREAMLIT_URN]: streamlitLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

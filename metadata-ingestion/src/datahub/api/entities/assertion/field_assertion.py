@@ -38,7 +38,7 @@ class FieldValuesFailThreshold(v1_ConfigModel):
         return FieldValuesFailThresholdClass(
             type=(
                 FieldValuesFailThresholdTypeClass.COUNT
-                if self.type == Literal["count"]
+                if self.type == "count"
                 else FieldValuesFailThresholdTypeClass.PERCENTAGE
             ),
             value=self.value,
@@ -81,7 +81,7 @@ class FieldValuesAssertion(BaseEntityAssertion):
                     excludeNulls=self.exclude_nulls,
                     transform=(
                         FieldTransformClass(type=FieldTransformTypeClass.LENGTH)
-                        if self.field_transform == Literal["length"]
+                        if self.field_transform == FieldTransform.LENGTH
                         else None
                     ),
                 ),
