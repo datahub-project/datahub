@@ -1,0 +1,20 @@
+---
+services:
+  confluent-cloud-mock:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: test_confluent_cloud_mock
+    hostname: confluent-cloud-mock
+    ports:
+      - "8888:8888"
+    environment:
+      - FLASK_ENV=production
+      - PORT=8888
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import requests; requests.get(\"http://localhost:8888/health\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: on-failure:3
