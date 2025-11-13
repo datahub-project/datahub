@@ -14,17 +14,17 @@ const InputContainer = styled.div`
     flex: 1;
 `;
 
-const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $disabled?: boolean }>`
+const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $isWelcomeState?: boolean }>`
     width: 100%;
-    min-height: 120px; /* 3x larger: 40px * 3 = 120px */
-    max-height: 252px; /* 3x larger: 84px * 3 = 252px */
-    padding: 16px 56px 16px 16px; /* Extra right padding for send button */
+    min-height: ${(props) => (props.$isWelcomeState ? '120px' : '44px')};
+    max-height: 120px; /* Grows up to 120px, then scrolls */
+    padding: 12px 56px 12px 16px; /* Extra right padding for send button */
     border: 1px solid
         ${(props) => {
             if (props.$isFocused) return colors.violet[200];
             return colors.gray[100];
         }};
-    border-radius: 16px;
+    border-radius: ${(props) => (props.$isWelcomeState ? '16px' : '12px')};
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     font-size: 14px;
     font-family: inherit;
@@ -40,15 +40,6 @@ const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $disabled?: boolea
     cursor: text;
 
     ${(props) => props.$isFocused && `outline: 1px solid ${colors.violet[200]};`}
-
-    ${(props) =>
-        props.$disabled &&
-        `
-        background-color: ${colors.gray[1500]};
-        cursor: not-allowed;
-        opacity: 0.6;
-        pointer-events: none;
-    `}
 
     &:empty:before {
         content: attr(data-placeholder);
@@ -91,8 +82,8 @@ interface Props {
     onSubmit: () => void;
     onStop?: () => void;
     placeholder?: string;
-    disabled?: boolean;
     isStreaming?: boolean;
+    isWelcomeState?: boolean;
 }
 
 export const ChatInput: React.FC<Props> = ({
@@ -101,8 +92,8 @@ export const ChatInput: React.FC<Props> = ({
     onSubmit,
     onStop,
     placeholder = 'Type a message...',
-    disabled = false,
     isStreaming = false,
+    isWelcomeState = false,
 }) => {
     const [isFocused, setIsFocused] = useState(false);
     const userContext = useUserContext();
@@ -139,18 +130,18 @@ export const ChatInput: React.FC<Props> = ({
             // Handle submit
             if (!mentionState.isActive && e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                if (!disabled && value.trim()) {
+                if (!isStreaming && value.trim()) {
                     onSubmit();
                 }
             }
         },
-        [handleMentionKeyDown, mentionState.isActive, disabled, value, onSubmit],
+        [handleMentionKeyDown, mentionState.isActive, isStreaming, value, onSubmit],
     );
 
     const suggestions = autocompleteData?.autoCompleteForMultiple?.suggestions || [];
     const entities = flattenAutocompleteSuggestions(suggestions);
 
-    const isSubmitDisabled = !isStreaming && (disabled || !value.trim());
+    const isSubmitDisabled = !isStreaming && !value.trim();
 
     const handleButtonClick = useCallback(() => {
         if (isStreaming && onStop) {
@@ -164,7 +155,7 @@ export const ChatInput: React.FC<Props> = ({
         <InputContainer>
             <ContentEditableDiv
                 ref={contentEditableRef}
-                contentEditable={!disabled && !isStreaming}
+                contentEditable={!isStreaming}
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
                 onFocus={() => setIsFocused(true)}
@@ -174,7 +165,7 @@ export const ChatInput: React.FC<Props> = ({
                 }}
                 data-placeholder={placeholder}
                 $isFocused={isFocused}
-                $disabled={disabled}
+                $isWelcomeState={isWelcomeState}
                 suppressContentEditableWarning
             />
             <SendButtonWrapper>

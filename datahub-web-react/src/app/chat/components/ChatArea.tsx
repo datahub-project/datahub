@@ -430,8 +430,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                             stopStreaming();
                                         }}
                                         placeholder="Ask anything about your data..."
-                                        disabled={false}
                                         isStreaming={isStreaming}
+                                        isWelcomeState
                                     />
                                     <SuggestedQuestions onQuestionSelect={handleQuestionSelect} />
                                 </EmptyStateInputWrapper>
@@ -492,7 +492,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                     stopStreaming();
                                 }}
                                 placeholder="Ask about your data... (use @ to mention assets)"
-                                disabled={false}
                                 isStreaming={isStreaming}
                             />
                         </InputContent>
