@@ -5,11 +5,7 @@ from datetime import timedelta
 from typing import Any, Dict, Literal, Optional, Union
 
 import pydantic
-<<<<<<< HEAD
-from pydantic import model_validator
-=======
-from pydantic import field_validator, root_validator, validator
->>>>>>> 274332b524 (feat(lookml): Updated debug logs (removed and merged), refactored for readability)
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
