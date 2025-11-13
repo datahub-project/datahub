@@ -139,22 +139,23 @@ def get_endpoints(sw_dict: dict) -> dict:
     """
     Get all the URLs, together with their description and the tags
     """
-    url_details = {}
+    url_details: Dict[str, Dict[str, Any]] = {}
 
     check_sw_version(sw_dict)
 
+    # Define method priority order (same as schema extraction priority)
+    # Higher priority methods are processed first and their metadata is preserved
+    priority_methods = ["get", "post", "put", "patch"]
+    other_methods = ["delete", "options", "head"]
+
     for p_k, p_o in sw_dict["paths"].items():
-        for method, method_spec in p_o.items():
-            # skip non-method keys like "parameters"
-            if method.lower() not in [
-                "get",
-                "post",
-                "put",
-                "delete",
-                "patch",
-                "options",
-                "head",
-            ]:
+        # Process methods in priority order to align with schema extraction
+        # Only set metadata if it doesn't already exist (don't overwrite higher-priority metadata)
+        all_methods = priority_methods + other_methods
+
+        for method in all_methods:
+            method_spec = p_o.get(method)
+            if not method_spec:
                 continue
 
             responses = method_spec.get("responses", {})
@@ -163,25 +164,35 @@ def get_endpoints(sw_dict: dict) -> dict:
                 # if there is no 200 response, we skip this method
                 continue
 
-            # if the description is not present, we will use the summary
-            # if both are not present, we will use an empty string
-            desc = method_spec.get("description") or method_spec.get("summary", "")
+            # Initialize endpoint details if it doesn't exist
+            if p_k not in url_details:
+                url_details[p_k] = {}
 
-            # if the tags are not present, we will use an empty list
-            tags = method_spec.get("tags", [])
+            # Only set metadata if it doesn't already exist (preserve higher-priority metadata)
+            if "method" not in url_details[p_k]:
+                url_details[p_k]["method"] = method.lower()
 
-            url_details[p_k] = {
-                "description": desc,
-                "tags": tags,
-                "method": method.lower(),  # Normalize to lowercase for case-insensitive comparisons
-            }
+            if (
+                "description" not in url_details[p_k]
+                or not url_details[p_k]["description"]
+            ):
+                # if the description is not present, we will use the summary
+                # if both are not present, we will use an empty string
+                desc = method_spec.get("description") or method_spec.get("summary", "")
+                url_details[p_k]["description"] = desc
 
+            if "tags" not in url_details[p_k] or not url_details[p_k]["tags"]:
+                # if the tags are not present, we will use an empty list
+                tags = method_spec.get("tags", [])
+                url_details[p_k]["tags"] = tags
+
+            # Example data can be added from any method (accumulate if needed)
             example_data = check_for_api_example_data(base_res, p_k)
-            if example_data:
+            if example_data and "data" not in url_details[p_k]:
                 url_details[p_k]["data"] = example_data
 
             # checking whether there are defined parameters to execute the call...
-            if "parameters" in p_o[method]:
+            if "parameters" in p_o[method] and "parameters" not in url_details[p_k]:
                 url_details[p_k]["parameters"] = p_o[method]["parameters"]
 
     return dict(sorted(url_details.items()))

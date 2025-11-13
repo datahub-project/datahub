@@ -175,13 +175,13 @@
         "json": {
             "customProperties": {},
             "name": "board.{row}.{column}",
-            "description": "Places a mark on the board and retrieves the whole board and the winner (if any).",
+            "description": "Retrieves the requested square.",
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-4po7dp",
+        "runId": "openapi-2020_04_14-07_00_00-j55d9h",
         "lastRunId": "no-run-id-provided"
     }
 },
