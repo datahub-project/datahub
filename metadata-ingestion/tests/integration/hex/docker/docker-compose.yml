@@ -13,18 +13,18 @@ services:
       - |
         apk add --no-cache wget curl
         python /app/mock_hex_server.py &
-        SERVER_PID=$!
+        SERVER_PID=$$!
         echo "Waiting for server to start on port 8000..."
-        for i in $(seq 1 30); do
+        for i in $$(seq 1 30); do
           if wget --no-verbose --tries=1 --spider http://localhost:8000/health 2>/dev/null; then
-            echo "Server is ready after $i attempts"
-            wait $SERVER_PID
+            echo "Server is ready after $$i attempts"
+            wait $$SERVER_PID
             exit 0
           fi
           sleep 1
         done
         echo "Server failed to start within 30 seconds"
-        kill $SERVER_PID 2>/dev/null
+        kill $$SERVER_PID 2>/dev/null
         exit 1
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1"]
@@ -49,18 +49,18 @@ services:
       - |
         apk add --no-cache wget curl
         python /app/mock_datahub_server.py &
-        SERVER_PID=$!
+        SERVER_PID=$$!
         echo "Waiting for server to start on port 8010..."
-        for i in $(seq 1 30); do
+        for i in $$(seq 1 30); do
           if wget --no-verbose --tries=1 --spider http://localhost:8010/health 2>/dev/null; then
-            echo "Server is ready after $i attempts"
-            wait $SERVER_PID
+            echo "Server is ready after $$i attempts"
+            wait $$SERVER_PID
             exit 0
           fi
           sleep 1
         done
         echo "Server failed to start within 30 seconds"
-        kill $SERVER_PID 2>/dev/null
+        kill $$SERVER_PID 2>/dev/null
         exit 1
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8010/health || exit 1"]

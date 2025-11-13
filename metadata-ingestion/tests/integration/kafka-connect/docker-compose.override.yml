@@ -210,18 +210,18 @@ services:
       - -c
       - |
         /entrypoint.sh &
-        SERVICE_PID=$!
+        SERVICE_PID=$$!
         echo "Waiting for S3Mock to start on port 9191..."
-        for i in $(seq 1 60); do
+        for i in $$(seq 1 60); do
           if wget --no-verbose --tries=1 --spider http://localhost:9191/ 2>/dev/null; then
-            echo "S3Mock is ready after $i attempts"
-            wait $SERVICE_PID
+            echo "S3Mock is ready after $$i attempts"
+            wait $$SERVICE_PID
             exit 0
           fi
           sleep 1
         done
         echo "S3Mock failed to start within 60 seconds"
-        kill $SERVICE_PID 2>/dev/null
+        kill $$SERVICE_PID 2>/dev/null
         exit 1
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9191/ || exit 1"]
