@@ -427,14 +427,8 @@ jobs:
             cypress_matrix="$cypress_matrix"',{"test_strategy":"cypress","batch_count":"'"$cypress_batch_count"'","batch":"'"$i"'"}'
           done
 
-          includes=''
-          if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
-            includes="$python_matrix,$cypress_matrix"
-          elif [[  "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
-            includes="$cypress_matrix"
-          elif [[ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]]; then
-            includes="$python_matrix"
-          fi
+          includes="$python_matrix,$cypress_matrix"
+
           echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
 
   smoke_test:
@@ -545,6 +539,7 @@ jobs:
           ELASTICSEARCH_SHIM_ENGINE_TYPE: AUTO_DETECT
           DATAHUB_SEARCH_IMAGE: elasticsearch
           DATAHUB_SEARCH_TAG: 8.17.10
+          DATAHUB_ANALYTICS_ENABLED: false
         run: |
           # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
           ./smoke-test/run-quickstart.sh
