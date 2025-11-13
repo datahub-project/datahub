@@ -1,140 +1,322 @@
-The dataset metadata should be defined directly in the Swagger file, section `["example"]`. If this is not true, the following procedures will take place.
+This connector ingests OpenAPI (Swagger) API endpoint metadata into DataHub. It extracts API endpoints from OpenAPI v2 (Swagger) and v3 specifications and represents them as datasets in DataHub, allowing you to catalog and discover your API endpoints alongside your data assets.
+
+### Concept Mapping
+
+This ingestion source maps the following Source System Concepts to DataHub Concepts:
+
+| Source Concept         | DataHub Concept                                                                           | Notes                       |
+| ---------------------- | ----------------------------------------------------------------------------------------- | --------------------------- |
+| `"OpenAPI"`            | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                             |
+| API Endpoint           | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            | Subtype `API_ENDPOINT`      |
+| Endpoint Path Segments | [Browse Paths](https://docs.datahub.com/docs/generated/metamodel/aspects/browsepaths/)    | Organized by path structure |
 
 ## Capabilities
 
-This plugin reads the swagger file where the endpoints are defined, reads example data if provided (for any method), or searches for
-data for the endpoints which do not have example data and accept a `GET` call.
+The OpenAPI source extracts metadata from OpenAPI specifications and optionally makes live API calls to gather schema information. It supports:
 
-For every selected endpoint defined in the `paths` section,
-the tool searches whether the metadata are already defined.
-As example, if in your swagger file there is the `/api/users/` defined as follows:
+- **OpenAPI v2 (Swagger) and v3 specifications** - Automatically detects and processes both formats
+- **Schema extraction from specifications** - Extracts schemas directly from OpenAPI spec definitions (preferred method)
+- **Schema extraction from API calls** - Optionally makes GET requests to endpoints when schema isn't in spec (requires credentials)
+- **Multiple HTTP methods** - Supports GET, POST, PUT, and PATCH methods with 200 response codes
+- **Browse path organization** - Endpoints are organized by their path structure in DataHub's browse interface
+- **Tag extraction** - Preserves tags from OpenAPI specifications
+- **Description extraction** - Extracts endpoint descriptions and summaries
 
-```yaml
-paths:
-  /api/users/:
-    get:
-      tags: ["Users"]
-      operationID: GetUsers
-      description: Retrieve users data
-      responses:
-        "200":
-          description: Return the list of users
-          content:
-            application/json:
-              example:
-                {
-                  "user": "username",
-                  "name": "Full Name",
-                  "job": "any",
-                  "is_active": True,
-                }
-```
+## Schema Extraction Behavior
 
-then this plugin has all the information needed to create the dataset in DataHub.
+The source uses a multi-step approach to extract schemas for API endpoints:
 
-In case there is no example defined, the plugin will try to get the metadata directly from the endpoint, if it is a `GET` method.
-So, if in your swagger file you have
+1. **OpenAPI Specification (Primary)** - The source first attempts to extract schemas directly from the OpenAPI specification file. This includes:
 
-```yaml
-paths:
-  /colors/:
-    get:
-      tags: ["Colors"]
-      operationID: GetDefinedColors
-      description: Retrieve colors
-      responses:
-        "200":
-          description: Return the list of colors
-```
+   - Response schemas from 200 responses
+   - Request body schemas for POST/PUT/PATCH methods
+   - Parameter schemas when available
 
-the tool will make a `GET` call to `https://test_endpoint.com/colors`
-and parse the response obtained.
+2. **Example Data (Secondary)** - If schemas aren't fully defined, the source looks for example data in the specification
 
-### Automatically recorded examples
+3. **Live API Calls (Optional)** - If `enable_api_calls_for_schema_extraction=True` and credentials are provided, the source will make GET requests to endpoints when:
+   - Schema extraction from the spec fails
+   - The endpoint uses the GET method
+   - Valid credentials are available (username/password, token, or bearer_token)
 
-Sometimes you can have an endpoint which wants a parameter to work, like
-`https://test_endpoint.com/colors/{color}`.
+:::note
+API calls are only made for GET methods. POST, PUT, and PATCH methods rely solely on schema definitions in the OpenAPI specification.
+:::
 
-Since in the OpenApi specifications the listing endpoints are specified
-just before the detailed ones, in the list of the paths, you will find
+:::tip
+Most schemas are extracted from the OpenAPI specification itself. API calls are primarily used as a fallback when the specification is incomplete.
+:::
 
-    https://test_endpoint.com/colors
+### Schema Extraction Priority
 
-defined before
+When multiple HTTP methods are available for an endpoint, the source prioritizes methods in this order:
 
-    https://test_endpoint.com/colors/{color}
+1. GET
+2. POST
+3. PUT
+4. PATCH
 
-This plugin is set to automatically keep an example of the data given by the first URL,
-which with some probability will include an example of attribute needed by the second.
+The description, tags, and schema metadata all come from the same priority method to ensure consistency.
 
-So, if by calling GET to the first URL you get as response:
+## Browse Paths
 
-    {"pantone code": 100,
-     "color": "yellow",
-     ...}
+All ingested endpoints are organized in DataHub's browse interface using browse paths based on their endpoint path structure. This makes it easy to navigate and discover related endpoints.
 
-the `"color": "yellow"` part will be used to complete the second link, which
-will become:
+For example:
 
-    https://test_endpoint.com/colors/yellow
+- `/pet/findByStatus` appears under the `pet` browse path
+- `/pet/{petId}` appears under the `pet` browse path
+- `/store/order/{orderId}` appears under `store` → `order`
 
-and this last URL will be called to get back the needed metadata.
+Endpoints are grouped by their path segments, making it easy to find all endpoints related to a particular resource or feature.
 
-### Automatic guessing of IDs
+## Prerequisites
 
-If no useful example is found, a second procedure will try to guess a numerical ID.
-So if we have:
+### OpenAPI Specification Access
 
-    https://test_endpoint.com/colors/{colorID}
+- The OpenAPI specification file must be accessible via HTTP/HTTPS
+- The specification should be in JSON or YAML format
+- OpenAPI v2 (Swagger 2.0) and v3.x specifications are supported
 
-and there is no `colorID` example already found by the plugin,
-it will try to put a number one (1) at the parameter place
+### Authentication (for API calls)
 
-    https://test_endpoint.com/colors/1
+If you want to enable live API calls for schema extraction (`enable_api_calls_for_schema_extraction=True`), you'll need to provide authentication credentials. The source supports:
 
-and this URL will be called to get back the needed metadata.
+- **Bearer token authentication**
+- **Custom token authentication**
+- **Dynamic token retrieval** (GET or POST)
+- **Basic authentication** (username/password)
 
-## Config details
+:::note
+Authentication is only required if you want to enable live API calls. Schema extraction from the OpenAPI specification itself does not require authentication.
+:::
 
-### Token authentication
+## Config Details
 
-If this tool needs to get an access token to interrogate the endpoints, this can be requested. Two methods are available at the moment:
+### Source Configuration
 
-- 'get' : this requires username/password combination to be present in the url. Note that {username} and {password} are mandatory placeholders. They will be replaced with the true credentials at runtime. Note that username and password will be sent in the request address, so it's unsecure. If your provider allows for the other method, please go for it.
-- 'post' : username and password will be inserted in the body of the POST request
+| Field                                    | Required | Description                                                                                                        |
+| ---------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `name`                                   | Yes      | Name of the ingestion. This appears in DataHub and is used in dataset URNs.                                        |
+| `url`                                    | Yes      | Base URL of the API endpoint. e.g. `https://api.example.com`                                                       |
+| `swagger_file`                           | Yes      | Path to the OpenAPI specification file relative to the base URL. e.g. `openapi.json` or `api/docs/swagger.yaml`    |
+| `ignore_endpoints`                       | No       | List of endpoint paths to exclude from ingestion. e.g. `[/health, /metrics]`                                       |
+| `enable_api_calls_for_schema_extraction` | No       | If `True`, makes live GET API calls when schema extraction from spec fails. Default: `True`. Requires credentials. |
+| `username`                               | No\*     | Username for basic authentication or token retrieval. Required if using basic auth or `get_token`.                 |
+| `password`                               | No\*     | Password for basic authentication or token retrieval. Required if using basic auth or `get_token`.                 |
+| `bearer_token`                           | No\*     | Bearer token for authentication. Cannot be used together with `token`.                                             |
+| `token`                                  | No\*     | Custom token for authentication. Cannot be used together with `bearer_token`.                                      |
+| `get_token`                              | No\*     | Configuration for dynamically retrieving a token. See below for details.                                           |
+| `forced_examples`                        | No       | Dictionary mapping endpoint paths to example parameter values. See below for details.                              |
+| `proxies`                                | No       | Proxy configuration dictionary. e.g. `{'http': 'http://proxy:8080', 'https': 'https://proxy:8080'}`                |
+| `verify_ssl`                             | No       | Enable SSL certificate verification. Default: `True`                                                               |
 
-In both cases, username and password are the ones defined in the configuration file.
+\* At least one authentication method is required if `enable_api_calls_for_schema_extraction=True`
 
-### Getting dataset metadata from `forced_example`
+### Authentication Methods
 
-Suppose you have an endpoint defined in the swagger file, but without example given, and the tool is
-unable to guess the URL. In such cases you can still manually specify it in the `forced_examples` part of the
-configuration file.
-
-As example, if in your swagger file you have
+#### Bearer Token
 
 ```yaml
-paths:
-  /accounts/groupname/{name}/:
-    get:
-      tags: ["Groups"]
-      operationID: GetGroup
-      description: Retrieve group data
-      responses:
-        "200":
-          description: Return details about the group
+source:
+  type: openapi
+  config:
+    name: my_api
+    url: https://api.example.com
+    swagger_file: openapi.json
+    bearer_token: "your-bearer-token-here"
 ```
 
-and the plugin did not find an example in its previous calls,
-the tool has no idea about what to substitute for the `{name}` part.
-
-By specifying in the configuration file
+#### Custom Token
 
 ```yaml
-forced_examples: # optionals
-  /accounts/groupname/{name}: ["test"]
+source:
+  type: openapi
+  config:
+    name: my_api
+    url: https://api.example.com
+    swagger_file: openapi.json
+    token: "your-token-here"
 ```
 
-the plugin is able to build a correct URL, as follows:
+#### Basic Authentication
 
-https://test_endpoint.com/accounts/groupname/test
+```yaml
+source:
+  type: openapi
+  config:
+    name: my_api
+    url: https://api.example.com
+    swagger_file: openapi.json
+    username: your_username
+    password: your_password
+```
+
+#### Dynamic Token Retrieval
+
+The source can retrieve a token dynamically by making a request to a token endpoint. This is useful when tokens expire and need to be refreshed.
+
+```yaml
+source:
+  type: openapi
+  config:
+    name: my_api
+    url: https://api.example.com
+    swagger_file: openapi.json
+    get_token:
+      request_type: get # or "post"
+      url_complement: api/auth/login?username={username}&password={password}
+    username: your_username
+    password: your_password
+```
+
+:::note
+When using `get_token` with `request_type: get`, the username and password are sent in the URL query parameters, which is less secure. Use `request_type: post` when possible.
+:::
+
+### Forced Examples
+
+For endpoints with path parameters where the source cannot automatically determine example values, you can provide them manually using `forced_examples`:
+
+```yaml
+source:
+  type: openapi
+  config:
+    name: petstore_api
+    url: https://petstore.swagger.io
+    swagger_file: /v2/swagger.json
+    forced_examples:
+      /pet/{petId}: [1]
+      /store/order/{orderId}: [1]
+      /user/{username}: ["user1"]
+```
+
+The source will use these values to construct URLs for API calls when needed.
+
+### Ignoring Endpoints
+
+You can exclude specific endpoints from ingestion:
+
+```yaml
+source:
+  type: openapi
+  config:
+    name: my_api
+    url: https://api.example.com
+    swagger_file: openapi.json
+    ignore_endpoints:
+      - /health
+      - /metrics
+      - /internal/debug
+```
+
+## Examples
+
+### Basic Configuration (Schema from Spec Only)
+
+```yaml
+source:
+  type: openapi
+  config:
+    name: petstore_api
+    url: https://petstore.swagger.io
+    swagger_file: /v2/swagger.json
+    enable_api_calls_for_schema_extraction: false
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
+
+### With API Calls Enabled
+
+```yaml
+source:
+  type: openapi
+  config:
+    name: petstore_api
+    url: https://petstore.swagger.io
+    swagger_file: /v2/swagger.json
+    bearer_token: "${BEARER_TOKEN}"
+    enable_api_calls_for_schema_extraction: true
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
+
+### Complete Example with All Options
+
+```yaml
+source:
+  type: openapi
+  config:
+    name: petstore_api
+    url: https://petstore.swagger.io
+    swagger_file: /v2/swagger.json
+
+    # Authentication
+    bearer_token: "${BEARER_TOKEN}"
+
+    # Optional: Enable/disable API calls
+    enable_api_calls_for_schema_extraction: true
+
+    # Optional: Ignore specific endpoints
+    ignore_endpoints:
+      - /user/logout
+
+    # Optional: Provide example values for parameterized endpoints
+    forced_examples:
+      /pet/{petId}: [1]
+      /store/order/{orderId}: [1]
+      /user/{username}: ["user1"]
+
+    # Optional: Proxy configuration
+    proxies:
+      http: "http://proxy.example.com:8080"
+      https: "https://proxy.example.com:8080"
+
+    # Optional: SSL verification
+    verify_ssl: true
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
+
+## Limitations
+
+- **API calls are GET-only**: Live API calls for schema extraction are only made for GET methods. POST, PUT, and PATCH methods rely solely on schema definitions in the OpenAPI specification.
+- **Authentication required for API calls**: If `enable_api_calls_for_schema_extraction=True`, valid credentials must be provided.
+- **200 response codes only**: Only endpoints with 200 response codes are ingested.
+- **Schema extraction from spec is preferred**: The source prioritizes extracting schemas from the OpenAPI specification. API calls are used as a fallback.
+
+## Troubleshooting
+
+### No schemas extracted
+
+If schemas aren't being extracted:
+
+1. **Check the OpenAPI specification** - Ensure your spec includes schema definitions in responses or request bodies
+2. **Enable API calls** - Set `enable_api_calls_for_schema_extraction: true` and provide credentials
+3. **Check authentication** - Verify your credentials are correct if API calls are enabled
+4. **Review warnings** - Check the ingestion report for warnings about specific endpoints
+
+### Endpoints not appearing
+
+If endpoints aren't appearing in DataHub:
+
+1. **Check ignore_endpoints** - Ensure endpoints aren't in the ignore list
+2. **Verify response codes** - Only endpoints with 200 response codes are ingested
+3. **Check OpenAPI spec format** - Ensure the specification is valid OpenAPI v2 or v3
+
+### Authentication errors
+
+If you see authentication errors:
+
+1. **Verify credentials** - Check that username/password or tokens are correct
+2. **Check token format** - Bearer tokens should not include the "Bearer " prefix
+3. **Review get_token configuration** - Ensure the token endpoint URL and method are correct
