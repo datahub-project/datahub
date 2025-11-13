@@ -203,11 +203,10 @@ services:
     image: adobe/s3mock:2.13.0
     environment:
       - initialBuckets=test-bucket
-      - SERVER_PORT=9090
     ports:
-      - "9090:9090"
+      - "9090:9191"
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9090/ || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9191/ || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 10

@@ -7,7 +7,12 @@ services:
     volumes:
       - ./hex_projects_response.json:/app/hex_projects_response.json
       - ./mock_hex_server.py:/app/mock_hex_server.py
-    command: ["python", "/app/mock_hex_server.py"]
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache wget
+        python /app/mock_hex_server.py
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1"]
       interval: 5s
@@ -25,7 +30,12 @@ services:
       - ./datahub_get_urns_by_filter_page1.json:/app/datahub_get_urns_by_filter_page1.json
       - ./datahub_get_urns_by_filter_page2.json:/app/datahub_get_urns_by_filter_page2.json
       - ./mock_datahub_server.py:/app/mock_datahub_server.py
-    command: ["python", "/app/mock_datahub_server.py"]
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache wget
+        python /app/mock_datahub_server.py
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8010/health || exit 1"]
       interval: 5s
