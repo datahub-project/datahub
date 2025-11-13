@@ -1,6 +1,5 @@
 import json
 import logging
-import time
 import warnings
 from abc import ABC
 from dataclasses import dataclass
@@ -42,13 +41,10 @@ from datahub.ingestion.source.openapi_parser import (
     try_guessing,
 )
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     BrowsePathEntryClass,
     BrowsePathsV2Class,
     DatasetPropertiesClass,
     GlobalTagsClass,
-    InstitutionalMemoryClass,
-    InstitutionalMemoryMetadataClass,
     SchemaMetadataClass,
     SubTypesClass,
     TagAssociationClass,
@@ -522,24 +518,6 @@ class APISource(Source, ABC):
         wu = MetadataWorkUnit(
             id=f"{dataset_name_urn}-tags",
             mcp=MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=gtc),
-        )
-        workunits.append(wu)
-
-        # the link will appear in the "documentation"
-        link_url = clean_url(config.url + self.url_basepath + endpoint_k)
-        link_description = "Link to call for the dataset."
-        creation = AuditStampClass(
-            time=int(time.time()), actor="urn:li:corpuser:etl", impersonator=None
-        )
-        link_metadata = InstitutionalMemoryMetadataClass(
-            url=link_url, description=link_description, createStamp=creation
-        )
-        inst_memory = InstitutionalMemoryClass([link_metadata])
-        wu = MetadataWorkUnit(
-            id=f"{dataset_name_urn}-docs",
-            mcp=MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=inst_memory
-            ),
         )
         workunits.append(wu)
 

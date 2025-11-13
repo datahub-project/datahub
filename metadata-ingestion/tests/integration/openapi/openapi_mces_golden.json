@@ -38,31 +38,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.root,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "institutionalMemory",
-    "aspect": {
-        "json": {
-            "elements": [
-                {
-                    "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/",
-                    "description": "Link to call for the dataset.",
-                    "createStamp": {
-                        "time": 1586847600,
-                        "actor": "urn:li:corpuser:etl"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-iqxees",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.root,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
         "json": {
@@ -242,31 +217,6 @@
     "aspect": {
         "json": {
             "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-iqxees",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.v2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "institutionalMemory",
-    "aspect": {
-        "json": {
-            "elements": [
-                {
-                    "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/v2",
-                    "description": "Link to call for the dataset.",
-                    "createStamp": {
-                        "time": 1586847600,
-                        "actor": "urn:li:corpuser:etl"
-                    }
-                }
-            ]
         }
     },
     "systemMetadata": {

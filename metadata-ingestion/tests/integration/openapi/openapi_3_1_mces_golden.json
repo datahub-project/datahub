@@ -42,31 +42,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "institutionalMemory",
-    "aspect": {
-        "json": {
-            "elements": [
-                {
-                    "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/board",
-                    "description": "Link to call for the dataset.",
-                    "createStamp": {
-                        "time": 1586847600,
-                        "actor": "urn:li:corpuser:etl"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
         "json": {
@@ -223,31 +198,6 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "openapi-2020_04_14-07_00_00-9t0kon",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.row.column,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "institutionalMemory",
-    "aspect": {
-        "json": {
-            "elements": [
-                {
-                    "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/board/{row}/{column}",
-                    "description": "Link to call for the dataset.",
-                    "createStamp": {
-                        "time": 1586847600,
-                        "actor": "urn:li:corpuser:etl"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-4po7dp",
         "lastRunId": "no-run-id-provided"
     }
 },
