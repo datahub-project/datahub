@@ -1,4 +1,3 @@
-version: '3'
 services:
   hex-mock-api:
     image: python:3.9-alpine
@@ -8,12 +7,28 @@ services:
     volumes:
       - ./hex_projects_response.json:/app/hex_projects_response.json
       - ./mock_hex_server.py:/app/mock_hex_server.py
-    command: ["python", "/app/mock_hex_server.py"]
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache wget
+        python /app/mock_hex_server.py &
+        SERVER_PID=$$!
+        for i in $$(seq 1 30); do
+          if wget --no-verbose --tries=1 --spider http://localhost:8000/health 2>/dev/null; then
+            wait $$SERVER_PID
+            exit 0
+          fi
+          sleep 1
+        done
+        kill $$SERVER_PID 2>/dev/null || true
+        exit 1
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1"]
       interval: 5s
-      timeout: 5s
-      retries: 3
+      timeout: 10s
+      retries: 60
+      start_period: 30s
   datahub-mock-api:
     image: python:3.9-alpine
     container_name: datahub-mock-api
@@ -25,9 +40,25 @@ services:
       - ./datahub_get_urns_by_filter_page1.json:/app/datahub_get_urns_by_filter_page1.json
       - ./datahub_get_urns_by_filter_page2.json:/app/datahub_get_urns_by_filter_page2.json
       - ./mock_datahub_server.py:/app/mock_datahub_server.py
-    command: ["python", "/app/mock_datahub_server.py"]
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache wget
+        python /app/mock_datahub_server.py &
+        SERVER_PID=$$!
+        for i in $$(seq 1 30); do
+          if wget --no-verbose --tries=1 --spider http://localhost:8010/health 2>/dev/null; then
+            wait $$SERVER_PID
+            exit 0
+          fi
+          sleep 1
+        done
+        kill $$SERVER_PID 2>/dev/null || true
+        exit 1
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8010/health"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8010/health || exit 1"]
       interval: 5s
-      timeout: 5s
-      retries: 3
+      timeout: 10s
+      retries: 60
+      start_period: 30s

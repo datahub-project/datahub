@@ -11,7 +11,9 @@ concurrency:
   # Using `github.run_id` (unique val) instead of `github.ref` here
   # because we don't want to cancel this workflow on master only for PRs
   #   as that makes reproducing issues easier
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  # Adding github.event.action == labeled as a means to differentiate the trigger due to adding a label -- most labels are
+  # no-ops except for `depot`
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}-${{ github.event.action == 'labeled' }}
   cancel-in-progress: true
 
 env:
@@ -24,7 +26,9 @@ env:
   #### IMPORTANT ####
 
   DOCKER_CACHE: "DEPOT"
-  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  DEPOT_PROJECT_ID: "s0gr1cr3jd"
+  HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
+  IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
 permissions:
@@ -34,6 +38,7 @@ permissions:
 jobs:
   setup:
     runs-on: depot-ubuntu-24.04-small
+    if: ${{ github.event_name != 'pull_request' || github.event.action != 'labeled' || github.event.label.name == 'depot' }}
     outputs:
       # TODO: Many of the vars below should not be required anymore.
       tag: ${{ steps.tag.outputs.tag }}
@@ -130,22 +135,25 @@ jobs:
       - name: Determine runner type
         id: set-runner
         # This needs to handle two scenarios:
-        # 1. Running on a PR from a fork. There are some auth issues that prevent us from using depot in that case.
-        #    So, Its easier to just use the regular github actions cache and build all images for each parallel job running smoke test.
-        #    Note, concurrency is lower when using github runners, queue times can be longer, test time is longer due to fewer parallel jobs.
-        # 2. Running on a PR from a branch in the datahub-project org and push/schedule events on master.
+        # 1. Running on a PR from a fork. We use github runners, unless the "depot" label exists -- in which case, we run
+        #    it on depotNote, concurrency is lower when using github runners, queue times can be longer, test time is longer
+        #    due to fewer parallel jobs.
+        # 3. Running on a PR from a branch in the datahub-project org and push/schedule events on master.
         #    Depot is used here for remote container builds in base_build and also for all runners. Depot runners support unlimited concurrency
         #    and hence short queue times and higher parallelism of smoke tests
-
         run: |
-          if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
+          if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.IS_FORK }}" == "false" ]]; then
             echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
             echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
             echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
             echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
           else
             echo "build_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            if [[ "${{ env.HAS_DEPOT_LABEL }}" == "true" ]]; then
+              echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+            else
+              echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            fi
             echo "test_runner_type_small=ubuntu-latest" >> "$GITHUB_OUTPUT"
             echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
             # publishing is currently only supported via depot
@@ -387,7 +395,7 @@ jobs:
         # python_batch_count is used to split pytests in the smoke-test (batches of actual test functions)
         # cypress_batch_count is used to split the collection of cypress test specs into batches.
         run: |
-          if [[ "${{ needs.setup.outputs.test_runner_type }}" == "ubuntu-latest" ]]; then
+          if [[ "${{ env.IS_FORK }}" == "true" ]]; then
             echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
@@ -658,7 +666,7 @@ jobs:
 
       - name: Download build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: ${{ github.workspace }}/build
