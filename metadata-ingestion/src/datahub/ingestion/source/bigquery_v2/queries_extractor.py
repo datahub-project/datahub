@@ -249,7 +249,9 @@ class BigQueryQueriesExtractor(Closeable):
             # Debug the individual conditions
             is_allowed = self.filters.is_allowed(table)
             has_discovered_tables = bool(self.discovered_tables)
-            table_ref_str = str(BigQueryTableRef(table))
+            table_ref_str = self.identifiers.standardize_identifier_case(
+                str(BigQueryTableRef(table))
+            )
             not_in_discovered = (
                 table_ref_str not in self.discovered_tables
                 if self.discovered_tables
@@ -263,7 +265,10 @@ class BigQueryQueriesExtractor(Closeable):
             if (
                 self.filters.is_allowed(table)
                 and self.discovered_tables
-                and str(BigQueryTableRef(table)) not in self.discovered_tables
+                and self.identifiers.standardize_identifier_case(
+                    str(BigQueryTableRef(table))
+                )
+                not in self.discovered_tables
             ):
                 logger.debug(f"inferred as temp table {name}")
                 self.report.inferred_temp_tables.add(name)
