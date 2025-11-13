@@ -25,17 +25,18 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
         }
     }, [selectedLink, selectedLink?.settings?.showInAssetPreview]);
 
-    const handleDeleteLink = async () => {
-        if (!selectedLink) {
+    const handleDeleteLink = async (link?: InstitutionalMemoryMetadata | null) => {
+        const linkToDelete = link ?? selectedLink;
+        if (!linkToDelete) {
             return;
         }
         try {
             await removeLinkMutation({
                 variables: {
                     input: {
-                        linkUrl: selectedLink.url,
-                        label: selectedLink.label || selectedLink.description,
-                        resourceUrn: selectedLink.associatedUrn || entityUrn,
+                        linkUrl: linkToDelete.url,
+                        label: linkToDelete.label || linkToDelete.description,
+                        resourceUrn: linkToDelete.associatedUrn || entityUrn,
                     },
                 },
             });

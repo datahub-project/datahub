@@ -84,7 +84,7 @@ export const LinkList = () => {
                                         <Pencil size={16} color={colors.gray[500]} />
                                     </Button>
                                     <Button
-                                        onClick={() => handleDeleteLink()}
+                                        onClick={() => handleDeleteLink(link)}
                                         type="text"
                                         shape="circle"
                                         data-testid="remove-link-button"
