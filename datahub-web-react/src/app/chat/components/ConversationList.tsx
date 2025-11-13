@@ -84,13 +84,6 @@ const GradientIcon = styled.div`
 
 const DeleteButton = styled(Button)``;
 
-const ActionsContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 0px;
-    margin-left: 4px;
-`;
-
 const ConversationItem = styled.div<{ selected?: boolean }>`
     padding: 8px 0px 8px 8px;
     margin-bottom: 4px;
@@ -132,8 +125,27 @@ const ConversationItem = styled.div<{ selected?: boolean }>`
     }
 `;
 
+const ActionsContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 0px;
+    margin-left: 4px;
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition:
+        max-width 0.2s ease,
+        opacity 0.2s ease;
+
+    ${ConversationItem}:hover & {
+        max-width: 200px;
+        opacity: 1;
+    }
+`;
+
 const ConversationContent = styled.div`
     flex: 1;
+    min-width: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -168,12 +180,7 @@ const ConversationMeta = styled.div`
     font-size: 12px;
     color: ${colors.gray[1800]};
     line-height: 16px;
-    opacity: 0;
-    transition: opacity 0.2s;
-
-    ${ConversationItem}:hover & {
-        opacity: 1;
-    }
+    white-space: nowrap;
 `;
 
 const EmptyState = styled.div`
@@ -254,11 +261,6 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         if (diffInMonths < 12) return `${diffInMonths}mo ago`;
         return `${diffInYears}y ago`;
     };
-
-    // Sort conversations by lastUpdated time (most recent first)
-    const sortedConversations = [...conversations].sort((a, b) => {
-        return b.lastUpdated.time - a.lastUpdated.time;
-    });
 
     return (
         <Container>
@@ -344,7 +346,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                             </EmptyState>
                         );
                     }
-                    return sortedConversations.map((conversation) => {
+                    return conversations.map((conversation) => {
                         const isSelected = conversation.urn === selectedConversationUrn;
                         return (
                             <ConversationItem
@@ -358,7 +360,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                                     </ConversationTitle>
                                 </ConversationContent>
                                 <ActionsContainer>
-                                    <ConversationMeta>{formatTimeAgo(conversation.lastUpdated.time)}</ConversationMeta>
+                                    <ConversationMeta>
+                                        {formatTimeAgo(conversation.lastUpdated?.time || Date.now())}
+                                    </ConversationMeta>
                                     <DeleteButton
                                         variant="text"
                                         color="red"

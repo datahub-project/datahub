@@ -121,12 +121,19 @@ export const ChatPage = () => {
     const conversations = useMemo(() => {
         const baseConversations = conversationsData?.listDataHubAiConversations?.conversations || [];
 
+        // Sort conversations by lastUpdated.time (most recent first)
+        const sortedConversations = [...baseConversations].sort((a, b) => {
+            const aTime = a.lastUpdated?.time || 0;
+            const bTime = b.lastUpdated?.time || 0;
+            return bTime - aTime;
+        });
+
         // If we have an optimistic conversation and it's not in the list yet, add it
-        if (optimisticConversation && !baseConversations.some((c) => c.urn === optimisticConversation.urn)) {
-            return [optimisticConversation, ...baseConversations];
+        if (optimisticConversation && !sortedConversations.some((c) => c.urn === optimisticConversation.urn)) {
+            return [optimisticConversation, ...sortedConversations];
         }
 
-        return baseConversations;
+        return sortedConversations;
     }, [conversationsData, optimisticConversation]);
 
     // Handle creating a new conversation

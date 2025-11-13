@@ -37,6 +37,13 @@ const Header = styled.div`
     align-items: center;
 `;
 
+const HeaderTitle = styled.div`
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
 const MessagesContainer = styled.div`
     flex: 1;
     min-height: 0;
@@ -343,12 +350,21 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         );
     }
 
+    const truncateTitle = (title: string, maxLength = 40) => {
+        if (title.length <= maxLength) return title;
+        return `${title.substring(0, maxLength)}...`;
+    };
+
+    const displayTitle = truncateTitle(conversation.title || 'New Chat');
+
     return (
         <Container>
             <Header>
-                <Text size="md" weight="bold" style={{ color: colors.gray[600] }}>
-                    {conversation.title || 'New Chat'}
-                </Text>
+                <HeaderTitle>
+                    <Text size="md" weight="bold" style={{ color: colors.gray[600] }}>
+                        {displayTitle}
+                    </Text>
+                </HeaderTitle>
             </Header>
             <MessagesContainer>
                 {messages.length === 0 ? (
