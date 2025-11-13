@@ -1,4 +1,5 @@
 import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, StopOutlined } from '@ant-design/icons';
+import { Location } from 'history';
 import QueryString from 'query-string';
 import React from 'react';
 
@@ -172,7 +173,7 @@ export const validateAssertionsHasInputFields = (info: DatasetAssertionInfo) => 
     throw new Error('Failed to find field path(s) for column assertion.');
 };
 
-export const getQueryParams = (param: string, location: any): string | null => {
+export const getQueryParams = (param: string, location: Location): string | null => {
     const params = QueryString.parse(location.search);
     return params[param] ? String(params[param]) : null;
 };

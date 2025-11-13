@@ -27,7 +27,7 @@ FROZEN_TIME = "2021-09-15 09:00:00"
 
 
 def test_redshift_usage_config():
-    config = RedshiftConfig.parse_obj(
+    config = RedshiftConfig.model_validate(
         dict(
             host_port="xxxxx",
             database="xxxxx",

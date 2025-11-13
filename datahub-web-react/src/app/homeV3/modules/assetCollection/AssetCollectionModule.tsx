@@ -1,5 +1,6 @@
 import { InfiniteScrollList } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
+import styled from 'styled-components';
 
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
@@ -12,6 +13,10 @@ import { convertLogicalPredicateToOrFilters } from '@app/sharedV2/queryBuilder/b
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { DataHubPageModuleType, Entity } from '@types';
+
+const ContentWrapper = styled.div`
+    height: 100%;
+`;
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -152,7 +157,7 @@ const AssetCollectionModule = (props: ModuleProps) => {
 
     return (
         <LargeModule {...props} loading={loading} dataTestId="asset-collection-module">
-            <div data-testid="asset-collection-entities">
+            <ContentWrapper data-testid="asset-collection-entities">
                 <InfiniteScrollList<Entity>
                     key={assetUrns.join(',')}
                     fetchData={fetchEntities}
@@ -173,7 +178,7 @@ const AssetCollectionModule = (props: ModuleProps) => {
                     }
                     totalItemCount={totalForInfiniteScroll}
                 />
-            </div>
+            </ContentWrapper>
         </LargeModule>
     );
 };

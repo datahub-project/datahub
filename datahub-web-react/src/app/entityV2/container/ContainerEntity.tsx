@@ -33,7 +33,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { GetContainerQuery, useGetContainerQuery } from '@graphql/container.generated';
 import { Container, EntityType, SearchResult } from '@types';
 
-const headerDropdownItems = new Set([EntityMenuItems.EXTERNAL_URL, EntityMenuItems.SHARE, EntityMenuItems.ANNOUNCE]);
+const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.ANNOUNCE]);
 
 /**
  * Definition of the DataHub Container entity.

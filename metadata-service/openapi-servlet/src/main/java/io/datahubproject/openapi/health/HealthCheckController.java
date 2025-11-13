@@ -4,6 +4,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.BootstrapManager;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,7 +14,6 @@ import java.util.concurrent.TimeUnit;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -30,8 +30,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "HealthCheck", description = "An API for checking health of GMS and its clients.")
 public class HealthCheckController {
   @Autowired
-  @Qualifier("elasticSearchRestHighLevelClient")
-  private RestHighLevelClient elasticClient;
+  @Qualifier("searchClientShim")
+  private SearchClientShim<?> elasticClient;
 
   @Autowired
   @Qualifier("bootstrapManager")
@@ -161,8 +161,7 @@ public class HealthCheckController {
     String responseString = null;
     try {
       ClusterHealthRequest request = new ClusterHealthRequest();
-      ClusterHealthResponse response =
-          elasticClient.cluster().health(request, RequestOptions.DEFAULT);
+      ClusterHealthResponse response = elasticClient.clusterHealth(request, RequestOptions.DEFAULT);
 
       boolean isHealthy = !response.isTimedOut() && response.getStatus() != ClusterHealthStatus.RED;
       responseString = response.toString();

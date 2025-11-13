@@ -35,7 +35,7 @@ export default function StatsTabContent(props: StatsProps) {
 
     return (
         <StatsTabContextProvider properties={props.properties}>
-            <Container>
+            <Container data-testid="stats-tab-container">
                 <StatsAndInsightsSection />
                 <SamplesSection />
                 <ChartsSection />

@@ -11,7 +11,7 @@ FROZEN_TIME = datetime.fromisoformat("2023-01-01 00:00:00+00:00")
 
 @freeze_time(FROZEN_TIME)
 def test_within_thirty_days():
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://workspace_url",
@@ -26,7 +26,7 @@ def test_within_thirty_days():
     with pytest.raises(
         ValueError, match="Query history is only maintained for 30 days."
     ):
-        UnityCatalogSourceConfig.parse_obj(
+        UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
                 "workspace_url": "https://workspace_url",
@@ -37,7 +37,7 @@ def test_within_thirty_days():
 
 
 def test_profiling_requires_warehouses_id():
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://workspace_url",
@@ -51,7 +51,7 @@ def test_profiling_requires_warehouses_id():
     )
     assert config.profiling.enabled is True
 
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://workspace_url",
@@ -63,7 +63,7 @@ def test_profiling_requires_warehouses_id():
     assert config.profiling.enabled is False
 
     with pytest.raises(ValueError):
-        UnityCatalogSourceConfig.parse_obj(
+        UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
                 "include_hive_metastore": False,
@@ -76,7 +76,7 @@ def test_profiling_requires_warehouses_id():
 @freeze_time(FROZEN_TIME)
 def test_workspace_url_should_start_with_https():
     with pytest.raises(ValueError, match="Workspace URL must start with http scheme"):
-        UnityCatalogSourceConfig.parse_obj(
+        UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
                 "workspace_url": "workspace_url",
@@ -86,7 +86,7 @@ def test_workspace_url_should_start_with_https():
 
 
 def test_global_warehouse_id_is_set_from_profiling():
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
@@ -106,7 +106,7 @@ def test_set_different_warehouse_id_from_profiling():
         ValueError,
         match="When `warehouse_id` is set, it must match the `warehouse_id` in `profiling`.",
     ):
-        UnityCatalogSourceConfig.parse_obj(
+        UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
                 "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
@@ -122,7 +122,7 @@ def test_set_different_warehouse_id_from_profiling():
 
 def test_warehouse_id_must_be_set_if_include_hive_metastore_is_true():
     """Test that include_hive_metastore is auto-disabled when warehouse_id is missing."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
@@ -134,6 +134,9 @@ def test_warehouse_id_must_be_set_if_include_hive_metastore_is_true():
     assert config.warehouse_id is None
 
 
+@pytest.mark.skip(
+    reason="This test is making actual network calls with retries taking ~5 mins, needs to be mocked"
+)
 def test_warehouse_id_must_be_present_test_connection():
     """Test that connection succeeds when hive_metastore gets auto-disabled."""
     config_dict = {
@@ -147,7 +150,7 @@ def test_warehouse_id_must_be_present_test_connection():
 
 
 def test_set_profiling_warehouse_id_from_global():
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
@@ -163,7 +166,7 @@ def test_set_profiling_warehouse_id_from_global():
 
 def test_warehouse_id_auto_disables_tags_when_missing():
     """Test that include_tags is automatically disabled when warehouse_id is missing."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -178,7 +181,7 @@ def test_warehouse_id_auto_disables_tags_when_missing():
 
 def test_warehouse_id_not_required_when_tags_disabled():
     """Test that warehouse_id is not required when include_tags=False."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -193,7 +196,7 @@ def test_warehouse_id_not_required_when_tags_disabled():
 
 def test_warehouse_id_explicit_true_auto_disables():
     """Test that explicitly setting include_tags=True gets auto-disabled when warehouse_id is missing."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -209,7 +212,7 @@ def test_warehouse_id_explicit_true_auto_disables():
 
 def test_warehouse_id_with_tags_enabled_succeeds():
     """Test that providing warehouse_id with include_tags=True succeeds."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -224,7 +227,7 @@ def test_warehouse_id_with_tags_enabled_succeeds():
 
 def test_warehouse_id_validation_with_hive_metastore_precedence():
     """Test that both hive_metastore and tags are auto-disabled when warehouse_id is missing."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -241,7 +244,7 @@ def test_warehouse_id_validation_with_hive_metastore_precedence():
 
 def test_databricks_api_page_size_default():
     """Test that databricks_api_page_size defaults to 0."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -254,7 +257,7 @@ def test_databricks_api_page_size_default():
 
 def test_databricks_api_page_size_valid_values():
     """Test that databricks_api_page_size accepts valid positive integers."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -265,7 +268,7 @@ def test_databricks_api_page_size_valid_values():
     )
     assert config.databricks_api_page_size == 100
 
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -279,7 +282,7 @@ def test_databricks_api_page_size_valid_values():
 
 def test_databricks_api_page_size_zero_allowed():
     """Test that databricks_api_page_size allows zero (default behavior)."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -293,10 +296,8 @@ def test_databricks_api_page_size_zero_allowed():
 
 def test_databricks_api_page_size_negative_invalid():
     """Test that databricks_api_page_size rejects negative values."""
-    with pytest.raises(
-        ValueError, match="ensure this value is greater than or equal to 0"
-    ):
-        UnityCatalogSourceConfig.parse_obj(
+    with pytest.raises(ValueError, match="Input should be greater than or equal to 0"):
+        UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
                 "workspace_url": "https://test.databricks.com",
@@ -306,10 +307,8 @@ def test_databricks_api_page_size_negative_invalid():
             }
         )
 
-    with pytest.raises(
-        ValueError, match="ensure this value is greater than or equal to 0"
-    ):
-        UnityCatalogSourceConfig.parse_obj(
+    with pytest.raises(ValueError, match="Input should be greater than or equal to 0"):
+        UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
                 "workspace_url": "https://test.databricks.com",
@@ -322,7 +321,7 @@ def test_databricks_api_page_size_negative_invalid():
 
 def test_include_ml_model_default():
     """Test that include_ml_model_aliases defaults to False."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -335,7 +334,7 @@ def test_include_ml_model_default():
 
 def test_include_ml_model_aliases_explicit_true():
     """Test that include_ml_model_aliases can be set to True."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -348,7 +347,7 @@ def test_include_ml_model_aliases_explicit_true():
 
 def test_ml_model_max_results_valid_values():
     """Test that ml_model_max_results accepts valid positive integers."""
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -358,7 +357,7 @@ def test_ml_model_max_results_valid_values():
     )
     assert config.ml_model_max_results == 2000
 
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://test.databricks.com",
@@ -372,7 +371,7 @@ def test_ml_model_max_results_valid_values():
 def test_ml_model_max_results_negative_invalid():
     """Test that ml_model_max_results rejects negative values."""
     with pytest.raises(ValueError):
-        UnityCatalogSourceConfig.parse_obj(
+        UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
                 "workspace_url": "https://test.databricks.com",
@@ -380,3 +379,119 @@ def test_ml_model_max_results_negative_invalid():
                 "ml_model_max_results": -100,
             }
         )
+
+
+def test_lineage_data_source_default():
+    """Test that lineage_data_source defaults to AUTO."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+        }
+    )
+    from datahub.ingestion.source.unity.config import LineageDataSource
+
+    assert config.lineage_data_source == LineageDataSource.AUTO
+
+
+def test_lineage_data_source_system_tables_requires_warehouse_id():
+    """Test that lineage_data_source=SYSTEM_TABLES requires warehouse_id."""
+    with pytest.raises(
+        ValueError,
+        match="lineage_data_source='SYSTEM_TABLES' requires warehouse_id to be set",
+    ):
+        UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "include_tags": False,
+                "lineage_data_source": "SYSTEM_TABLES",
+            }
+        )
+
+
+def test_lineage_data_source_api_does_not_require_warehouse():
+    """Test that lineage_data_source=API does not require warehouse_id."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "lineage_data_source": "API",
+        }
+    )
+    from datahub.ingestion.source.unity.config import LineageDataSource
+
+    assert config.lineage_data_source == LineageDataSource.API
+    assert config.warehouse_id is None
+
+
+def test_usage_data_source_default():
+    """Test that usage_data_source defaults to AUTO."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+        }
+    )
+    from datahub.ingestion.source.unity.config import UsageDataSource
+
+    assert config.usage_data_source == UsageDataSource.AUTO
+
+
+def test_usage_data_source_system_tables_requires_warehouse_id():
+    """Test that usage_data_source=SYSTEM_TABLES requires warehouse_id."""
+    with pytest.raises(
+        ValueError,
+        match="usage_data_source='SYSTEM_TABLES' requires warehouse_id to be set",
+    ):
+        UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "include_tags": False,
+                "usage_data_source": "SYSTEM_TABLES",
+            }
+        )
+
+
+def test_usage_data_source_api_does_not_require_warehouse():
+    """Test that usage_data_source=API does not require warehouse_id."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "usage_data_source": "API",
+        }
+    )
+    from datahub.ingestion.source.unity.config import UsageDataSource
+
+    assert config.usage_data_source == UsageDataSource.API
+    assert config.warehouse_id is None
+
+
+def test_usage_data_source_can_be_set_with_warehouse():
+    """Test that usage_data_source can be set to SYSTEM_TABLES with warehouse_id."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "warehouse_id": "test_warehouse",
+            "usage_data_source": "SYSTEM_TABLES",
+        }
+    )
+    from datahub.ingestion.source.unity.config import UsageDataSource
+
+    assert config.usage_data_source == UsageDataSource.SYSTEM_TABLES
+    assert config.warehouse_id == "test_warehouse"

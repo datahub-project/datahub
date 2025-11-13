@@ -1,8 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { Button, Tooltip } from '@src/alchemy-components';
+import { Button, Editor, Tooltip } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
 
@@ -41,6 +40,8 @@ const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
 `;
 
 const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React.CSSProperties }>`
+    border: none;
+
     .remirror-theme {
         max-width: 100%;
     }

@@ -11,9 +11,9 @@ const modalStyle = {};
 const modalBodyStyle = {
     paddingRight: 0,
     paddingLeft: 0,
-    paddingBottom: 20,
+    paddingBottom: 0,
     paddingTop: 0,
-    maxHeight: '70vh',
+    height: '70vh',
     'overflow-x': 'auto',
 };
 

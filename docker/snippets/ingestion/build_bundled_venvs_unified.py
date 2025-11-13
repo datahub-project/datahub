@@ -2,7 +2,7 @@
 """
 Self-contained script to create bundled venvs for DataHub ingestion sources.
 This script creates virtual environments with predictable names following the pattern:
-<plugin-name>-default that are leveraged within acryl-executor to run ingestion jobs.
+<plugin-name>-bundled that are leveraged within acryl-executor to run ingestion jobs.
 """
 
 import os
@@ -12,12 +12,12 @@ from typing import List, Tuple
 
 
 def generate_venv_mappings(plugins: List[str]) -> List[Tuple[str, str]]:
-    """Generate simple venv name mappings using <plugin-name>-default pattern."""
+    """Generate simple venv name mappings using <plugin-name>-bundled pattern."""
     venv_mappings = []
 
     for plugin in plugins:
-        # Simple, predictable naming: <plugin-name>-default
-        venv_name = f"{plugin}-default"
+        # Simple, predictable naming: <plugin-name>-bundled
+        venv_name = f"{plugin}-bundled"
         venv_mappings.append((plugin, venv_name))
 
     return venv_mappings
@@ -43,7 +43,8 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
         # Install DataHub with the specific plugin
         print(f"  → Installing datahub with {plugin} plugin...")
         datahub_package = f'acryl-datahub[datahub-rest,datahub-kafka,file,{plugin}]=={bundled_cli_version}'
-        install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}"'
+        constraints_path = os.path.join(venv_base_path, "constraints.txt")
+        install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}"  --constraints {constraints_path}'
         subprocess.run(['bash', '-c', install_cmd], check=True, capture_output=True)
 
         print(f"  ✅ Successfully created {venv_name}")

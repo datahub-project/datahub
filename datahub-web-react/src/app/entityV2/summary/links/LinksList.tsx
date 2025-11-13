@@ -24,7 +24,8 @@ export default function LinksList() {
     const [showEditLinkModal, setShowEditLinkModal] = useState(false);
     const [selectedLink, setSelectedLink] = useState<InstitutionalMemoryMetadata | null>(null);
 
-    const { handleDeleteLink, handleUpdateLink } = useLinkUtils(selectedLink);
+    const { handleDeleteLink, handleUpdateLink, showInAssetPreview, setShowInAssetPreview } =
+        useLinkUtils(selectedLink);
     const [form] = useForm();
 
     useEffect(() => {
@@ -87,6 +88,8 @@ export default function LinksList() {
                 handleConfirm={handleDelete}
                 modalTitle="Confirm Delete"
                 modalText="Are you sure you want to delete this link?"
+                confirmButtonText="Delete"
+                isDeleteModal
             />
             {showEditLinkModal && (
                 <AddEditLinkModal
@@ -95,9 +98,12 @@ export default function LinksList() {
                     initialValues={{
                         url: selectedLink?.url,
                         label: selectedLink?.label || selectedLink?.description,
+                        showInAssetPreview: selectedLink?.settings?.showInAssetPreview,
                     }}
                     onClose={handleCloseUpdate}
                     onSubmit={handleUpdate}
+                    showInAssetPreview={showInAssetPreview}
+                    setShowInAssetPreview={setShowInAssetPreview}
                 />
             )}
         </>

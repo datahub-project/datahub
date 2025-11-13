@@ -25,12 +25,16 @@ export default function useDomains(parentDomainUrn: string | undefined, start: n
                 },
             },
         },
+        // FYI: this request could be called manually by some user action (e.g. expanding)
+        // to keep it simple network is used for first call (possible longer first loading of modules with automatic expanding of child nodes)
+        fetchPolicy: 'cache-and-network',
+        nextFetchPolicy: 'cache-first',
         skip,
     });
 
     const domains = useMemo(() => {
         if (skip) return [];
-        return data?.searchAcrossEntities?.searchResults.map((result) => result.entity).filter(isDomain);
+        return data?.searchAcrossEntities?.searchResults?.map((result) => result.entity).filter(isDomain);
     }, [data, skip]);
 
     const total = useMemo(() => data?.searchAcrossEntities?.total, [data]);

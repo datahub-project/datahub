@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
 import static com.linkedin.metadata.models.registry.TestConstants.*;
+import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.data.schema.ArrayDataSchema;
@@ -76,7 +77,7 @@ public class PluginEntityRegistryLoaderTest {
 
     MergedEntityRegistry configEntityRegistry = new MergedEntityRegistry(baseEntityRegistry);
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60, null)
+        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60, true, null)
             .withBaseRegistry(configEntityRegistry)
             .start(true);
     assertEquals(pluginEntityRegistryLoader.getPatchRegistries().size(), 1);
@@ -88,6 +89,38 @@ public class PluginEntityRegistryLoaderTest {
             .getSecond();
     assertNotNull(loadResult);
     assertEquals(loadResult.getLoadResult(), LoadStatus.FAILURE);
+  }
+
+  @Test
+  public void testPluginEntityRegistryWillIgnoreFailure()
+      throws InterruptedException, EntityRegistryException {
+    boolean ignoreFailure = true;
+    PluginEntityRegistryLoader pluginEntityRegistryLoader =
+        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60, ignoreFailure, null)
+            .withBaseRegistry(getFaultyEntityRegistry());
+
+    try {
+      // Start the loader but ignore any failure.
+      pluginEntityRegistryLoader.start(true);
+    } catch (Exception e) {
+      fail("Expected no exception, but got: " + e);
+    }
+  }
+
+  @Test
+  public void testPluginEntityRegistryNotIgnoreFailure()
+      throws InterruptedException, EntityRegistryException {
+    boolean ignoreFailure = false;
+    PluginEntityRegistryLoader pluginEntityRegistryLoader =
+        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60, ignoreFailure, null)
+            .withBaseRegistry(getFaultyEntityRegistry());
+
+    try {
+      pluginEntityRegistryLoader.start(true);
+      fail("Expected Exception to be thrown");
+    } catch (Exception e) {
+      assertTrue(e instanceof RuntimeException);
+    }
   }
 
   private EntityRegistry getBaseEntityRegistry() {
@@ -167,12 +200,19 @@ public class PluginEntityRegistryLoaderTest {
     return baseEntityRegistry;
   }
 
+  private MergedEntityRegistry getFaultyEntityRegistry() throws EntityRegistryException {
+    MergedEntityRegistry mergedEntityRegistry = mock(MergedEntityRegistry.class);
+    when(mergedEntityRegistry.apply(any(EntityRegistry.class)))
+        .thenThrow(new RuntimeException("Error!"));
+    return mergedEntityRegistry;
+  }
+
   @Test
   public void testEntityRegistryWithGoodBase() throws FileNotFoundException, InterruptedException {
 
     MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(getBaseEntityRegistry());
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(BASE_DIRECTORY, 60, null)
+        new PluginEntityRegistryLoader(BASE_DIRECTORY, 60, true, null)
             .withBaseRegistry(mergedEntityRegistry)
             .start(true);
     assertEquals(pluginEntityRegistryLoader.getPatchRegistries().size(), 1);
@@ -217,7 +257,7 @@ public class PluginEntityRegistryLoaderTest {
     String multiversionPluginDir = "src/test_plugins/";
 
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(multiversionPluginDir, 60, null)
+        new PluginEntityRegistryLoader(multiversionPluginDir, 60, true, null)
             .withBaseRegistry(mergedEntityRegistry)
             .start(true);
     Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>>

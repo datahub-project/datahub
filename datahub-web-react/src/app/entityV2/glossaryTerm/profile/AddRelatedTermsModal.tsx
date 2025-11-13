@@ -9,11 +9,14 @@ import { getParentEntities } from '@app/searchV2/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import TermLabel from '@app/shared/TermLabel';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useAddRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { EntityType, SearchResult, TermRelationshipType } from '@types';
+import { DataHubPageModuleType, EntityType, SearchResult, TermRelationshipType } from '@types';
 
 const StyledSelect = styled(Select)`
     width: 480px;
@@ -41,6 +44,7 @@ function AddRelatedTermsModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const { urn: entityDataUrn } = useEntityData();
     const refetch = useRefetch();
+    const { reloadByKeyType } = useReloadableContext();
 
     const [AddRelatedTerms] = useAddRelatedTermsMutation();
 
@@ -66,6 +70,11 @@ function AddRelatedTermsModal(props: Props) {
                         duration: 2,
                     });
                     refetch();
+                    // Reload modules
+                    // RelatedTerms - update related terms module on term summary tab
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.RelatedTerms),
+                    ]);
                 }, 2000);
             });
         onClose();
@@ -179,11 +188,17 @@ function AddRelatedTermsModal(props: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button type="primary" onClick={addTerms} disabled={!selectedUrns.length}>
+                    <Button
+                        type="primary"
+                        onClick={addTerms}
+                        disabled={!selectedUrns.length}
+                        data-testid="submit-button"
+                    >
                         Add
                     </Button>
                 </>
             }
+            data-testid="add-related-terms-modal"
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <StyledSelect
@@ -207,6 +222,7 @@ function AddRelatedTermsModal(props: Props) {
                     onFocus={() => setIsFocusedOnInput(true)}
                     onBlur={handleBlur}
                     dropdownStyle={isShowingGlossaryBrowser || !inputValue ? { display: 'none' } : {}}
+                    data-testid="related-terms-select"
                 >
                     {tagSearchOptions}
                 </StyledSelect>

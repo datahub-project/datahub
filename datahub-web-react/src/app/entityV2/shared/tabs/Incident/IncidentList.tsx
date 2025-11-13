@@ -1,5 +1,6 @@
 import { Empty } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
@@ -20,6 +21,7 @@ import { EntityPrivileges, Incident } from '@types';
 
 export const IncidentList = () => {
     const { urn, entityType } = useEntityData();
+    const location = useLocation();
     const refetchEntity = useRefetch();
     const [showIncidentBuilder, setShowIncidentBuilder] = useState(false);
     const [entity, setEntity] = useState<EntityStagedForIncident>({
@@ -33,7 +35,7 @@ export const IncidentList = () => {
     const [allIncidentData, setAllIncidentData] = useState<Incident[]>([]);
 
     const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
-    const incidentUrnParam = getQueryParams('incident_urn', window.location);
+    const incidentUrnParam = getQueryParams('incident_urn', location);
     const incidentDefaultFilters = INCIDENT_DEFAULT_FILTERS;
     if (incidentUrnParam) {
         incidentDefaultFilters.filterCriteria.state = [];

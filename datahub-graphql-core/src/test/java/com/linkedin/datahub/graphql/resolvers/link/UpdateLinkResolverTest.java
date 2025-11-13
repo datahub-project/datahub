@@ -7,6 +7,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.*;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.LinkSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateLinkInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateLinkResolver;
 import com.linkedin.entity.client.EntityClient;
@@ -29,13 +30,13 @@ public class UpdateLinkResolverTest {
   public void testGetSuccessWhenUpdatingExistingLink() throws Exception {
     InstitutionalMemory originalAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadata originalLink =
-        LinkTestUtils.createLink("https://original-url.com", "Original label");
+        LinkTestUtils.createLink("https://original-url.com", "Original label", true);
     InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray(originalLink);
     originalAspect.setElements(elements);
 
     InstitutionalMemory expectedAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadata updatedLink =
-        LinkTestUtils.createLink("https://updated-url.com", "Updated label");
+        LinkTestUtils.createLink("https://updated-url.com", "Updated label", false);
     InstitutionalMemoryMetadataArray newElements =
         new InstitutionalMemoryMetadataArray(updatedLink);
     expectedAspect.setElements(newElements);
@@ -49,6 +50,7 @@ public class UpdateLinkResolverTest {
                 "Original label",
                 "https://updated-url.com",
                 "Updated label",
+                new LinkSettingsInput(false),
                 ASSET_URN));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
     resolver.get(mockEnv).get();
@@ -70,6 +72,7 @@ public class UpdateLinkResolverTest {
                 "Original label",
                 "https://updated-url.com",
                 "Updated label",
+                new LinkSettingsInput(false),
                 ASSET_URN));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -79,9 +82,9 @@ public class UpdateLinkResolverTest {
   public void testGetFailedWhenUpdatedLinkIsNotUnique() throws Exception {
     InstitutionalMemory originalAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadata originalLink =
-        LinkTestUtils.createLink("https://original-url.com", "Original label");
+        LinkTestUtils.createLink("https://original-url.com", "Original label", true);
     InstitutionalMemoryMetadata duplicatedLink =
-        LinkTestUtils.createLink("https://duplicated-url.com", "Duplicated label");
+        LinkTestUtils.createLink("https://duplicated-url.com", "Duplicated label", true);
     InstitutionalMemoryMetadataArray elements =
         new InstitutionalMemoryMetadataArray(originalLink, duplicatedLink);
     originalAspect.setElements(elements);
@@ -95,6 +98,7 @@ public class UpdateLinkResolverTest {
                 "Original label",
                 "https://duplicated-url.com",
                 "Duplicated label",
+                new LinkSettingsInput(false),
                 ASSET_URN));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
 
@@ -113,6 +117,7 @@ public class UpdateLinkResolverTest {
                 "Original label",
                 "https://duplicated-url.com",
                 "Duplicated label",
+                new LinkSettingsInput(false),
                 ASSET_URN));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -135,6 +140,7 @@ public class UpdateLinkResolverTest {
                 "Original label",
                 "https://duplicated-url.com",
                 "Duplicated label",
+                new LinkSettingsInput(false),
                 ASSET_URN));
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 

@@ -1,6 +1,8 @@
 import { Button } from '@components';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { useVisibilityObserver } from '@app/entityV2/summary/documentation/useVisibilityObserver';
 
 const MAX_VIEW_HEIGHT = 286;
 
@@ -32,20 +34,13 @@ interface Props {
 }
 
 export default function DescriptionViewer({ children }: Props) {
-    const contentRef = useRef<HTMLDivElement | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
-    const [hasMore, setHasMore] = useState(false);
 
-    useEffect(() => {
-        const element = contentRef.current;
-        if (element) {
-            setHasMore(element.scrollHeight > MAX_VIEW_HEIGHT);
-        }
-    }, [children]);
+    const { elementRef, hasMore } = useVisibilityObserver(MAX_VIEW_HEIGHT, [children]);
 
     return (
         <Wrapper expanded={isExpanded}>
-            <ContentContainer ref={contentRef} $expanded={isExpanded} $hasMore={hasMore}>
+            <ContentContainer ref={elementRef} $expanded={isExpanded} $hasMore={hasMore}>
                 {children}
             </ContentContainer>
             {hasMore && (

@@ -15,10 +15,11 @@ from typing import (
 )
 
 import pydantic
+from pydantic import ValidationInfo, field_validator
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
@@ -194,13 +195,13 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
 
 class BaseUsageConfig(BaseTimeWindowConfig):
-    queries_character_limit: int = Field(
+    queries_character_limit: HiddenFromDocs[int] = Field(
+        # Hidden since we don't want to encourage people to break elasticsearch.
         default=DEFAULT_QUERIES_CHARACTER_LIMIT,
         description=(
             "Total character limit for all queries in a single usage aspect."
             " Queries will be truncated to length `queries_character_limit / top_n_queries`."
         ),
-        hidden_from_docs=True,  # Don't want to encourage people to break elasticsearch
     )
 
     top_n_queries: pydantic.PositiveInt = Field(
@@ -226,10 +227,11 @@ class BaseUsageConfig(BaseTimeWindowConfig):
         default=True, description="Whether to ingest the top_n_queries."
     )
 
-    @pydantic.validator("top_n_queries")
-    def ensure_top_n_queries_is_not_too_big(cls, v: int, values: dict) -> int:
+    @field_validator("top_n_queries", mode="after")
+    @classmethod
+    def ensure_top_n_queries_is_not_too_big(cls, v: int, info: ValidationInfo) -> int:
         minimum_query_size = 20
-
+        values = info.data
         max_queries = int(values["queries_character_limit"] / minimum_query_size)
         if v > max_queries:
             raise ValueError(

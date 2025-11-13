@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import BaseModuleModal from '@app/homeV3/moduleModals/common/BaseModuleModal';
 import ModuleDetailsForm from '@app/homeV3/moduleModals/common/ModuleDetailsForm';
-import AssetsSection from '@app/homeV3/modules/assetCollection/AssetsSection';
+import SelectAssetsSection from '@app/homeV3/modules/assetCollection/SelectAssetsSection';
 import { SELECT_ASSET_TYPE_DYNAMIC, SELECT_ASSET_TYPE_MANUAL } from '@app/homeV3/modules/assetCollection/constants';
 import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { isEmptyLogicalPredicate } from '@app/sharedV2/queryBuilder/builder/utils';
@@ -24,7 +24,7 @@ const AssetCollectionModal = () => {
         moduleModalState: { position, close, isEditing, initialState },
     } = usePageTemplateContext();
     const [form] = Form.useForm();
-    const currentName = initialState?.properties.name || '';
+    const currentName = initialState?.properties?.name || '';
     const currentAssets = (initialState?.properties?.params?.assetCollectionParams?.assetUrns || []).filter(
         (urn): urn is string => typeof urn === 'string',
     );
@@ -113,7 +113,7 @@ const AssetCollectionModal = () => {
         >
             <ModalContent>
                 <ModuleDetailsForm form={form} formValues={{ name: currentName }} />
-                <AssetsSection
+                <SelectAssetsSection
                     selectAssetType={selectAssetType}
                     setSelectAssetType={setSelectAssetType}
                     selectedAssetUrns={selectedAssetUrns}

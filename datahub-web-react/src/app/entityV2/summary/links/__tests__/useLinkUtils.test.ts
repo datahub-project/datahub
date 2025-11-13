@@ -138,6 +138,9 @@ describe('useLinkUtils', () => {
                         linkUrl: 'http://test-add.com',
                         label: 'Added Link',
                         resourceUrn: mutationUrn,
+                        settings: {
+                            showInAssetPreview: false,
+                        },
                     },
                 },
             });
@@ -146,7 +149,7 @@ describe('useLinkUtils', () => {
                 type: EventType.EntityActionEvent,
                 entityType,
                 entityUrn: mutationUrn,
-                actionType: EntityActionType.UpdateLinks,
+                actionType: EntityActionType.AddLink,
             });
             expect(refetch).toHaveBeenCalled();
         });
@@ -185,6 +188,9 @@ describe('useLinkUtils', () => {
                         resourceUrn: selectedLink.associatedUrn,
                         label: 'New Label',
                         linkUrl: 'http://new.com',
+                        settings: {
+                            showInAssetPreview: false,
+                        },
                     },
                 },
             });

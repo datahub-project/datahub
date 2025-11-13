@@ -39,6 +39,7 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.io.InputStream;
@@ -50,7 +51,6 @@ import java.util.Map;
 import org.apache.commons.lang3.tuple.Triple;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchRequest;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -58,7 +58,7 @@ import org.testng.annotations.Test;
 
 public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests {
 
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   protected abstract SearchConfiguration getSearchConfiguration();
 
@@ -212,7 +212,6 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
         new ESSearchDAO(
             getSearchClient(),
             false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getElasticSearchConfiguration(),
             null,
             QueryFilterRewriteChain.EMPTY,
@@ -304,7 +303,6 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
         new ESSearchDAO(
             getSearchClient(),
             false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getElasticSearchConfiguration(),
             null,
             QueryFilterRewriteChain.EMPTY,
@@ -460,7 +458,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
         explainResponse.getId(),
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.ca_border_wait_times,PROD)");
     assertTrue(explainResponse.isExists());
-    assertEquals(explainResponse.getExplanation().getValue(), 1.25f);
+    assertEquals(explainResponse.getExplanation().getValue(), 18.0f);
   }
 
   @Test

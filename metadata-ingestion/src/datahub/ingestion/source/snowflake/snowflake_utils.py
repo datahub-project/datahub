@@ -73,16 +73,16 @@ class SnowsightUrlBuilder:
                 url_cloud_provider_suffix = ""
             else:
                 url_cloud_provider_suffix = f".{cloud}"
-        if privatelink:
-            url = f"https://app.{account_locator}.{cloud_region_id}.privatelink.{snowflake_domain}/"
+        # Note: Snowsight is always accessed via the public internet (app.snowflake.com)
+        # even for accounts using privatelink. Privatelink only applies to database connections,
+        # not the Snowsight web UI.
+        # Standard Snowsight URL format - works for most regions
+        # China region may use app.snowflake.cn instead of app.snowflake.com. This is not documented, just
+        # guessing Based on existence of snowflake.cn domain (https://domainindex.com/domains/snowflake.cn)
+        if snowflake_domain == "snowflakecomputing.cn":
+            url = f"https://app.snowflake.cn/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
         else:
-            # Standard Snowsight URL format - works for most regions
-            # China region may use app.snowflake.cn instead of app.snowflake.com. This is not documented, just
-            # guessing Based on existence of snowflake.cn domain (https://domainindex.com/domains/snowflake.cn)
-            if snowflake_domain == "snowflakecomputing.cn":
-                url = f"https://app.snowflake.cn/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
-            else:
-                url = f"https://app.snowflake.com/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
+            url = f"https://app.snowflake.com/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
         return url
 
     @staticmethod
@@ -128,6 +128,11 @@ class SnowsightUrlBuilder:
 
     def get_external_url_for_database(self, db_name: str) -> Optional[str]:
         return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
+
+    def get_external_url_for_streamlit(
+        self, app_name: str, schema_name: str, db_name: str
+    ) -> Optional[str]:
+        return f"{self.snowsight_base_url}#/streamlit-apps/{db_name}.{schema_name}.{app_name}"
 
 
 class SnowflakeFilter:
@@ -212,6 +217,9 @@ class SnowflakeFilter:
 
     def is_procedure_allowed(self, procedure_name: str) -> bool:
         return self.filter_config.procedure_pattern.allowed(procedure_name)
+
+    def is_streamlit_allowed(self, streamlit_name: str) -> bool:
+        return self.filter_config.streamlit_pattern.allowed(streamlit_name)
 
 
 def _combine_identifier_parts(

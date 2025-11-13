@@ -78,16 +78,16 @@ public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringCont
     serializer.configure(schemaRegistryConfig.getProperties(null), false);
     SchemaRegistryClient registry = serializer.getSchemaRegistryClient();
 
-    // The RENAMED_MCL_AVRO_SCHEMA can have either schema ID 11 or 12
+    // The RENAMED_MCL_AVRO_SCHEMA can have either schema ID 18 or 19
     // Both are valid for the METADATA_CHANGE_LOG_VERSIONED topic
     int actualSchemaId =
         registry.getId(
             topicToSubjectName(Topics.METADATA_CHANGE_LOG_VERSIONED), RENAMED_MCL_AVRO_SCHEMA);
 
-    // Accept either schema ID 11 (METADATA_CHANGE_LOG) or 12 (METADATA_CHANGE_LOG_TIMESERIES)
+    // Accept either schema ID 18 (METADATA_CHANGE_LOG) or 19 (METADATA_CHANGE_LOG_TIMESERIES)
     assertTrue(
-        actualSchemaId == 11 || actualSchemaId == 12,
-        "Expected schema ID 11 or 12, but got: " + actualSchemaId);
+        actualSchemaId == 18 || actualSchemaId == 19,
+        "Expected schema ID 18 or 19, but got: " + actualSchemaId);
   }
 
   @Test

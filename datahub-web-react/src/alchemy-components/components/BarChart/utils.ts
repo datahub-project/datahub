@@ -11,7 +11,8 @@ export function generateMockData(length = 30, maxValue = 50_000, minValue = 0) {
                 .add(index - length, 'days')
                 .toDate()
                 .getTime();
-            const value = Math.max(Math.random() * maxValue, minValue);
+
+            const value = Math.max(Math.random() * (maxValue - minValue)) + minValue;
 
             return {
                 x: date,

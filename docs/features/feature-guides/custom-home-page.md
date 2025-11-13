@@ -1,14 +1,14 @@
 ---
-title: Custom Home Page
+title: Home Page
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Custom Home Page
+# Home Page
 
 <FeatureAvailability saasOnly />
 
-DataHub's **Custom Home Page** empowers organizations and individual users to create personalized, modular home page experiences that put the most relevant data assets and information front and center.
+DataHub's **Home Page** empowers organizations and individual users to create personalized, modular home page experiences that put the most relevant data assets and information front and center.
 
 <p align="center">
   <img
@@ -17,20 +17,20 @@ DataHub's **Custom Home Page** empowers organizations and individual users to cr
        alt="Default custom home page"/>
 </p>
 
-## Why Use the Custom Home Page?
+## Why Use the Home Page?
 
-The Custom Home Page transforms how your team interacts with DataHub by enabling you to:
+The Home Page transforms how your team interacts with DataHub by enabling you to:
 
 - **Reduce Time to Insight**: Surface the most critical data assets, domains, and resources directly on your home page for instant access
 - **Personalize Your Workflow**: Create a home page experience tailored to your specific role, projects, and data needs
 - **Improve Data Discoverability**: Highlight important collections, documentation, and quick links that help your team find what they need faster
 - **Standardize Organization Views**: Administrators can create consistent default experiences while still allowing individual customization
 
-Whether you're a data analyst who needs quick access to specific dashboards, a data engineer focused on particular domains, or an administrator wanting to promote data governance resources, the Custom Home Page adapts to your workflow.
+Whether you're a data analyst who needs quick access to specific dashboards, a data engineer focused on particular domains, or an administrator wanting to promote data governance resources, the Home Page adapts to your workflow.
 
 ## What's Included
 
-The Custom Home Page consists of **modules** that you can arrange in rows of up to 3 modules each. You can choose from:
+The Home Page consists of **modules** that you can arrange in rows of up to 3 modules each. You can choose from:
 
 ### Default Modules
 
@@ -206,7 +206,7 @@ Now that you understand how to customize your home page experience:
 3. **Gather feedback**: If you're an administrator, ask users what they'd find most valuable on the default home page
 4. **Iterate over time**: Home page needs may change as your team and data landscape evolve
 
-The Custom Home Page is designed to grow with your organization's needs, providing both the flexibility for individual workflows and the consistency that administrators need to promote important resources and best practices.
+The Home Page is designed to grow with your organization's needs, providing both the flexibility for individual workflows and the consistency that administrators need to promote important resources and best practices.
 
 ## Relevant APIs
 

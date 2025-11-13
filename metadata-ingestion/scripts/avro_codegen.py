@@ -45,6 +45,7 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
         "mxe/MetadataChangeLog.avsc",
         "mxe/PlatformEvent.avsc",
         "platform/event/v1/EntityChangeEvent.avsc",
+        "platform/event/v1/RelationshipChangeEvent.avsc",
         "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
     }
 

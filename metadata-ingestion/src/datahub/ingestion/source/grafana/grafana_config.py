@@ -1,8 +1,8 @@
 from typing import Dict, Optional
 
-from pydantic import Field, SecretStr, validator
+from pydantic import Field, SecretStr, field_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     EnvConfigMixin,
@@ -37,7 +37,7 @@ class GrafanaSourceConfig(
 ):
     """Configuration for Grafana source"""
 
-    platform: str = Field(default="grafana", hidden_from_docs=True)
+    platform: HiddenFromDocs[str] = Field(default="grafana")
     url: str = Field(
         description="Grafana URL in the format http://your-grafana-instance with no trailing slash"
     )
@@ -99,6 +99,7 @@ class GrafanaSourceConfig(
         description="Map of Grafana datasource types/UIDs to platform connection configs for lineage extraction",
     )
 
-    @validator("url", allow_reuse=True)
-    def remove_trailing_slash(cls, v):
+    @field_validator("url", mode="after")
+    @classmethod
+    def remove_trailing_slash(cls, v: str) -> str:
         return config_clean.remove_trailing_slashes(v)

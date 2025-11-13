@@ -35,6 +35,9 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             rows = [{ modules: [CHILD_HIERARCHY_MODULE] }];
             summaryElements = [CREATED, OWNERS];
             break;
+        case EntityType.Dataset:
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
         default:
             break;
     }
@@ -53,4 +56,10 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             assetSummary: { summaryElements },
         },
     };
+}
+
+export function filterNonExistentStructuredProperties(summaryElements) {
+    return summaryElements.filter((element) =>
+        element.elementType === SummaryElementType.StructuredProperty ? element.structuredProperty?.exists : true,
+    );
 }

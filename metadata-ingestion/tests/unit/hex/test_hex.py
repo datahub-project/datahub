@@ -27,30 +27,30 @@ class TestHexSourceConfig(unittest.TestCase):
         with self.assertRaises(ValueError):
             input_config = {**self.minimum_input_config}
             del input_config["workspace_name"]
-            HexSourceConfig.parse_obj(input_config)
+            HexSourceConfig.model_validate(input_config)
 
         with self.assertRaises(ValueError):
             input_config = {**self.minimum_input_config}
             del input_config["token"]
-            HexSourceConfig.parse_obj(input_config)
+            HexSourceConfig.model_validate(input_config)
 
     def test_minimum_config(self):
-        config = HexSourceConfig.parse_obj(self.minimum_input_config)
+        config = HexSourceConfig.model_validate(self.minimum_input_config)
 
         assert config
         assert config.workspace_name == "test-workspace"
         assert config.token.get_secret_value() == "test-token"
 
     def test_lineage_config(self):
-        config = HexSourceConfig.parse_obj(self.minimum_input_config)
+        config = HexSourceConfig.model_validate(self.minimum_input_config)
         assert config and config.include_lineage
 
         input_config = {**self.minimum_input_config, "include_lineage": False}
-        config = HexSourceConfig.parse_obj(input_config)
+        config = HexSourceConfig.model_validate(input_config)
         assert config and not config.include_lineage
 
         # default values for lineage_start_time and lineage_end_time
-        config = HexSourceConfig.parse_obj(self.minimum_input_config)
+        config = HexSourceConfig.model_validate(self.minimum_input_config)
         assert (
             config.lineage_start_time
             and isinstance(config.lineage_start_time, datetime)
@@ -72,7 +72,7 @@ class TestHexSourceConfig(unittest.TestCase):
             "lineage_start_time": "2025-03-24 12:00:00",
             "lineage_end_time": "2025-03-25 12:00:00",
         }
-        config = HexSourceConfig.parse_obj(input_config)
+        config = HexSourceConfig.model_validate(input_config)
         assert (
             config.lineage_start_time
             and isinstance(config.lineage_start_time, datetime)
@@ -94,7 +94,7 @@ class TestHexSourceConfig(unittest.TestCase):
             **self.minimum_input_config,
             "lineage_end_time": "2025-03-25 12:00:00",
         }
-        config = HexSourceConfig.parse_obj(input_config)
+        config = HexSourceConfig.model_validate(input_config)
         assert (
             config.lineage_start_time
             and isinstance(config.lineage_start_time, datetime)
@@ -117,7 +117,7 @@ class TestHexSourceConfig(unittest.TestCase):
             **self.minimum_input_config,
             "lineage_start_time": "2025-03-25 12:00:00",
         }
-        config = HexSourceConfig.parse_obj(input_config)
+        config = HexSourceConfig.model_validate(input_config)
         assert (
             config.lineage_start_time
             and isinstance(config.lineage_start_time, datetime)
@@ -139,7 +139,7 @@ class TestHexSourceConfig(unittest.TestCase):
             "lineage_start_time": "-3day",
             "lineage_end_time": "now",
         }
-        config = HexSourceConfig.parse_obj(input_config)
+        config = HexSourceConfig.model_validate(input_config)
         assert (
             config.lineage_start_time
             and isinstance(config.lineage_start_time, datetime)
