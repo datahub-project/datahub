@@ -130,13 +130,11 @@ class OpenApiConfig(ConfigModel):
         "Only applicable for GET methods.",
     )
 
-    @validator("bearer_token", always=True)
-    def ensure_only_one_token(
-        cls, bearer_token: Optional[str], values: Dict
-    ) -> Optional[str]:
-        if bearer_token is not None and values.get("token") is not None:
+    @model_validator(mode="after")
+    def ensure_only_one_token(self) -> "OpenApiConfig":
+        if self.bearer_token is not None and self.token is not None:
             raise ValueError("Unable to use 'token' and 'bearer_token' together.")
-        return bearer_token
+        return self
 
     def get_swagger(self) -> Dict:
         """
@@ -944,5 +942,5 @@ class OpenApiSource(APISource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = OpenApiConfig.parse_obj(config_dict)
+        config = OpenApiConfig.model_validate(config_dict)
         return cls(config, ctx)

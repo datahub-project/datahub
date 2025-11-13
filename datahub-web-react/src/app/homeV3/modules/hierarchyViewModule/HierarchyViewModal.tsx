@@ -20,19 +20,19 @@ export default function HierarchyViewModal() {
     const [form] = Form.useForm<HierarchyForm>();
 
     const initialFormState: HierarchyForm = useMemo(() => {
-        const originalAssetUrns = initialState?.properties.params.hierarchyViewParams?.assetUrns;
+        const originalAssetUrns = initialState?.properties?.params?.hierarchyViewParams?.assetUrns;
         const assetType = getAssetTypeFromAssetUrns(originalAssetUrns);
         const assetUrns = filterAssetUrnsByAssetType(originalAssetUrns, assetType);
 
         const relatedEntitiesFilterJson =
-            initialState?.properties.params.hierarchyViewParams?.relatedEntitiesFilterJson;
+            initialState?.properties?.params?.hierarchyViewParams?.relatedEntitiesFilterJson;
 
         return {
-            name: initialState?.properties.name || '',
+            name: initialState?.properties?.name || '',
             assetsType: assetType,
             domainAssets: assetType === ASSET_TYPE_DOMAINS ? assetUrns : [],
             glossaryAssets: assetType === ASSET_TYPE_GLOSSARY ? assetUrns : [],
-            showRelatedEntities: !!initialState?.properties.params.hierarchyViewParams?.showRelatedEntities,
+            showRelatedEntities: !!initialState?.properties?.params?.hierarchyViewParams?.showRelatedEntities,
             relatedEntitiesFilter: relatedEntitiesFilterJson ? JSON.parse(relatedEntitiesFilterJson) : undefined,
         };
     }, [initialState]);
@@ -69,12 +69,31 @@ export default function HierarchyViewModal() {
         });
     };
 
+    const nameValue = Form.useWatch('name', form);
+    const assetsTypeValue = Form.useWatch('assetsType', form);
+    const domainAssetsValue = Form.useWatch('domainAssets', form);
+    const glossaryAssetsValue = Form.useWatch('glossaryAssets', form);
+
+    const isSubmitButtonDisabled = useMemo(() => {
+        if (!nameValue?.trim()) return true;
+
+        let assetUrns: string[] = [];
+        if (assetsTypeValue === ASSET_TYPE_DOMAINS) {
+            assetUrns = domainAssetsValue ?? [];
+        } else if (assetsTypeValue === ASSET_TYPE_GLOSSARY) {
+            assetUrns = glossaryAssetsValue ?? [];
+        }
+
+        return assetUrns.length === 0;
+    }, [nameValue, assetsTypeValue, domainAssetsValue, glossaryAssetsValue]);
+
     return (
         <BaseModuleModal
             title={`${isEditing ? 'Edit' : 'Add'} Hierarchy View`}
-            subtitle="Create a widget by selecting assets and information that will be shown to your users"
+            subtitle="Create a module by selecting assets and information that will be shown to your users"
             onUpsert={handleUpsertAssetCollectionModule}
             maxWidth="900px"
+            submitButtonProps={{ disabled: isSubmitButtonDisabled }}
         >
             <Form form={form} initialValues={initialFormState}>
                 <HierarchyFormContextProvider initialValues={initialFormState}>

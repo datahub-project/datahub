@@ -9,6 +9,7 @@ import com.datahub.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
 import java.io.InputStream;
@@ -16,6 +17,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -41,29 +43,64 @@ public class Application extends Controller {
   private static final Logger logger = LoggerFactory.getLogger(Application.class.getName());
   private static final Set<String> RESTRICTED_HEADERS =
       Set.of("connection", "host", "content-length", "expect", "upgrade", "transfer-encoding");
+  private static final Set<String> SWAGGER_PATHS =
+      Set.of("/openapi/swagger-ui", "/openapi/v3/api-docs");
   private final HttpClient httpClient;
 
   private final Config config;
   private final Environment environment;
+
+  private final String basePath;
+  private final String gaTrackingId;
 
   @Inject
   public Application(HttpClient httpClient, Environment environment, @Nonnull Config config) {
     this.httpClient = httpClient;
     this.config = config;
     this.environment = environment;
+    this.basePath = config.getString("datahub.basePath");
+    this.gaTrackingId =
+        config.hasPath("analytics.google.tracking.id")
+            ? config.getString("analytics.google.tracking.id")
+            : null;
   }
 
   /**
    * Serves the build output index.html for any given path
    *
    * @param path takes a path string, which essentially is ignored routing is managed client side
-   * @return {Result} build output index.html resource
+   * @return {Result} rendered index template with dynamic base path
    */
   @Nonnull
   private Result serveAsset(@Nullable String path) {
     try {
       InputStream indexHtml = environment.resourceAsStream("public/index.html");
-      return ok(indexHtml).withHeader("Cache-Control", "no-cache").as("text/html");
+      if (indexHtml == null) {
+        throw new IllegalStateException("index.html not found");
+      }
+
+      String html = new String(indexHtml.readAllBytes(), StandardCharsets.UTF_8);
+
+      String basePath = this.basePath;
+      // Ensure base path ends with / for HTML base tag
+      if (!basePath.endsWith("/")) {
+        basePath += "/";
+      }
+      // Inject <base href="..."/> right after <head> for use in the frontend.
+      String modifiedHtml = html.replace("@basePath", basePath);
+
+      // Inject google tracking if it exists, should only be enabled for demo site
+      if (gaTrackingId != null && !gaTrackingId.isEmpty()) {
+        String gaScript =
+            String.format(
+                "<script async src=\"https://www.googletagmanager.com/gtag/js?id=%s\"></script>"
+                    + "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}"
+                    + "gtag('js',new Date());gtag('config','%s');</script>",
+                gaTrackingId, gaTrackingId);
+        modifiedHtml = modifiedHtml.replace("</head>", gaScript + "</head>");
+      }
+
+      return ok(modifiedHtml).withHeader("Cache-Control", "no-cache").as("text/html");
     } catch (Exception e) {
       logger.warn("Cannot load public/index.html resource. Static assets or assets jar missing?");
       return notFound().withHeader("Cache-Control", "no-cache").as("text/html");
@@ -78,12 +115,23 @@ public class Application extends Controller {
   /**
    * index Action proxies to serveAsset
    *
-   * @param path takes a path string which is either index.html or the path segment after /
    * @return {Result} response from serveAsset method
    */
   @Nonnull
   public Result index(@Nullable String path) {
-    return serveAsset("");
+    return serveAsset(path);
+  }
+
+  /**
+   * Moves permanently the get into version without trailing slash
+   *
+   * @param path String
+   * @return Result
+   */
+  @Nonnull
+  public Result redirectTrailingSlash(@Nullable String path) {
+
+    return movedPermanently("/" + path);
   }
 
   /**
@@ -106,15 +154,31 @@ public class Application extends Controller {
             config,
             ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
+    final String metadataServiceBasePath =
+        ConfigUtil.getString(
+            config,
+            ConfigUtil.METADATA_SERVICE_BASE_PATH_CONFIG_PATH,
+            ConfigUtil.DEFAULT_METADATA_SERVICE_BASE_PATH);
+    final boolean metadataServiceBasePathEnabled =
+        ConfigUtil.getBoolean(
+            config,
+            ConfigUtil.METADATA_SERVICE_BASE_PATH_ENABLED_CONFIG_PATH,
+            ConfigUtil.DEFAULT_METADATA_SERVICE_BASE_PATH_ENABLED);
     final boolean metadataServiceUseSsl =
         ConfigUtil.getBoolean(
             config,
             ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL);
+
+    // Use the same logic as GMSConfiguration.getResolvedBasePath()
+    String resolvedBasePath =
+        BasePathUtils.resolveBasePath(metadataServiceBasePathEnabled, metadataServiceBasePath);
+
     final String protocol = metadataServiceUseSsl ? "https" : "http";
     final String targetUrl =
         String.format(
-            "%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri);
+            "%s://%s:%s%s%s",
+            protocol, metadataServiceHost, metadataServicePort, resolvedBasePath, resolvedUri);
     HttpRequest.Builder httpRequestBuilder =
         HttpRequest.newBuilder().uri(URI.create(targetUrl)).timeout(Duration.ofSeconds(120));
     httpRequestBuilder.method(request.method(), buildBodyPublisher(request));
@@ -237,6 +301,9 @@ public class Application extends Controller {
     // Insert properties for user profile operations
     config.set("userEntityProps", userEntityProps());
 
+    // Add base path configuration for frontend
+    config.put("basePath", this.basePath);
+
     final ObjectNode response = Json.newObject();
     response.put("status", "ok");
     response.set("config", config);
@@ -342,23 +409,34 @@ public class Application extends Controller {
   }
 
   private String mapPath(@Nonnull final String path) {
+
+    final String strippedPath;
+
+    // Cannot strip base path from swagger urls
+    if (SWAGGER_PATHS.stream().noneMatch(path::contains)) {
+      // First, strip the base path if present
+      strippedPath = BasePathUtils.stripBasePath(path, this.basePath);
+    } else {
+      strippedPath = path;
+    }
+
     // Case 1: Map legacy GraphQL path to GMS GraphQL API (for compatibility)
-    if (path.equals("/api/v2/graphql")) {
+    if (strippedPath.equals("/api/v2/graphql")) {
       return "/api/graphql";
     }
 
     // Case 2: Map requests to /gms to / (Rest.li API)
     final String gmsApiPath = "/api/gms";
-    if (path.startsWith(gmsApiPath)) {
-      String newPath = path.substring(gmsApiPath.length());
+    if (strippedPath.startsWith(gmsApiPath)) {
+      String newPath = strippedPath.substring(gmsApiPath.length());
       if (!newPath.startsWith("/")) {
         newPath = "/" + newPath;
       }
       return newPath;
     }
 
-    // Otherwise, return original path
-    return path;
+    // Otherwise, return the stripped path
+    return strippedPath;
   }
 
   /**

@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 import click
 from docgen_types import Platform, Plugin
-from docs_config_table import gen_md_table_from_json_schema
+from docs_config_table import gen_md_table_from_pydantic
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.decorators import (
@@ -23,6 +23,13 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
+
+DENY_LIST = {
+    "snowflake-summary",
+    "snowflake-queries",
+    "bigquery-queries",
+    "datahub-mock-data",
+}
 
 
 def get_snippet(long_string: str, max_length: int = 100) -> str:
@@ -83,7 +90,7 @@ def map_capability_name_to_enum(capability_name: str) -> SourceCapability:
         try:
             return SourceCapability(capability_name)
         except ValueError:
-            raise ValueError(f"Unknown capability name: {capability_name}")
+            raise ValueError(f"Unknown capability name: {capability_name}") from None
 
 
 def does_extra_exist(extra_name: str) -> bool:
@@ -236,9 +243,11 @@ def create_plugin_from_capability_data(
         if hasattr(source_type, "get_config_class"):
             source_config_class: ConfigModel = source_type.get_config_class()
 
-            plugin.config_json_schema = source_config_class.schema_json(indent=2)
-            plugin.config_md = gen_md_table_from_json_schema(
-                source_config_class.schema(), current_source=plugin_name
+            plugin.config_json_schema = json.dumps(
+                source_config_class.model_json_schema(), indent=2
+            )
+            plugin.config_md = gen_md_table_from_pydantic(
+                source_config_class, current_source=plugin_name
             )
 
             # Write the config json schema to the out_dir.
@@ -279,7 +288,7 @@ class PlatformMetrics:
 )
 @click.option("--extra-docs", type=str, required=False)
 @click.option("--source", type=str, required=False)
-def generate(
+def generate(  # noqa: C901
     out_dir: str,
     capability_summary: str,
     extra_docs: Optional[str] = None,
@@ -302,11 +311,7 @@ def generate(
         if source and source != plugin_name:
             continue
 
-        if plugin_name in {
-            "snowflake-summary",
-            "snowflake-queries",
-            "bigquery-queries",
-        }:
+        if plugin_name in DENY_LIST:
             logger.info(f"Skipping {plugin_name} as it is on the deny list")
             continue
 
@@ -582,7 +587,7 @@ For data tools with limited native lineage tracking, [**DataHub's SQL Parser**](
 
 Types of lineage connections supported in DataHub and the example codes are as follows.
 
-* [Dataset to Dataset](../../../metadata-ingestion/examples/library/add_lineage_dataset_to_dataset.py)
+* [Dataset to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_add.py)
 * [DataJob to DataFlow](../../../metadata-ingestion/examples/library/lineage_job_dataflow.py)
 * [DataJob to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_job_dataset.py)
 * [Chart to Dashboard](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py)

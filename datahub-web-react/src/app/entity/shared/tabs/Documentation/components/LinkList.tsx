@@ -49,7 +49,13 @@ export const LinkList = ({ refetch }: LinkListProps) => {
     const handleDeleteLink = async (metadata: InstitutionalMemoryMetadata) => {
         try {
             await removeLinkMutation({
-                variables: { input: { linkUrl: metadata.url, resourceUrn: metadata.associatedUrn || entityUrn } },
+                variables: {
+                    input: {
+                        linkUrl: metadata.url,
+                        label: metadata.label,
+                        resourceUrn: metadata.associatedUrn || entityUrn,
+                    },
+                },
             });
             message.success({ content: 'Link Removed', duration: 2 });
         } catch (e: unknown) {
@@ -79,7 +85,13 @@ export const LinkList = ({ refetch }: LinkListProps) => {
         if (!linkDetails) return;
         try {
             await removeLinkMutation({
-                variables: { input: { linkUrl: linkDetails.url, resourceUrn: linkDetails.associatedUrn || entityUrn } },
+                variables: {
+                    input: {
+                        linkUrl: linkDetails.url,
+                        label: linkDetails.label,
+                        resourceUrn: linkDetails.associatedUrn || entityUrn,
+                    },
+                },
             });
             await addLinkMutation({
                 variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: mutationUrn } },

@@ -19,6 +19,7 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.datahub_api_reader import DataHubApiReader
 from datahub.ingestion.source.datahub.datahub_database_reader import (
@@ -39,7 +40,13 @@ logger = logging.getLogger(__name__)
 @platform_name("DataHub")
 @config_class(DataHubSourceConfig)
 @support_status(SupportStatus.TESTING)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+    ],
+)
 class DataHubSource(StatefulIngestionSourceBase):
     platform: str = "datahub"
 
@@ -55,7 +62,7 @@ class DataHubSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DataHubSource":
-        config: DataHubSourceConfig = DataHubSourceConfig.parse_obj(config_dict)
+        config: DataHubSourceConfig = DataHubSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_report(self) -> SourceReport:

@@ -60,7 +60,7 @@ AggregatedDataset = GenericAggregatedDataset[TrinoTableRef]
 
 class TrinoConnectorInfo(BaseModel):
     partitionIds: List[str]
-    truncated: Optional[bool]
+    truncated: Optional[bool] = None
 
 
 class TrinoAccessedMetadata(BaseModel):
@@ -80,7 +80,7 @@ class TrinoJoinedAccessEvent(BaseModel):
     table: Optional[str] = None
     accessed_metadata: List[TrinoAccessedMetadata]
     starttime: datetime = Field(alias="create_time")
-    endtime: Optional[datetime] = Field(alias="end_time")
+    endtime: Optional[datetime] = Field(None, alias="end_time")
 
 
 class EnvBasedSourceBaseConfig:
@@ -133,7 +133,7 @@ class TrinoUsageSource(Source):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = TrinoUsageConfig.parse_obj(config_dict)
+        config = TrinoUsageConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

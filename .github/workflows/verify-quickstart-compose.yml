@@ -6,10 +6,14 @@ on:
     branches:
       - master
   pull_request:
+    branches:
+      - master
 jobs:
   verify-quickstart-compose-updated:
     name: Verify quickstart compose file is up-to-date
     runs-on: ubuntu-latest
+    env:
+      THRESHOLD_GB: 4.3
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,12 +23,104 @@ jobs:
           ./gradlew :docker:generateQuickstartComposeConfig
 
       - name: Verify generated file
+        id: verify-file
         # If there are build changes, then the generated file will be different from the one in the PR
         run: |
           git diff --exit-code docker/quickstart/docker-compose.quickstart-profile.yml
 
-      - name: Validation
-        if: failure()
+      - name: Install yq
         run: |
-          echo "Build file changes are detected. Run\n ./gradlew :docker:generateQuickstartComposeConfig \n and commit the generated docker/quickstart/docker-compose.quickstart-profile.yml file"
-          exit 1
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
+      - name: Validate memory requirements
+        id: validate-memory
+        run: |
+          echo "Validating minimum memory requirements..."
+          COMPOSE_FILE="docker/quickstart/docker-compose.quickstart-profile.yml"
+          total_mb=0
+
+          declare -A JVM_SERVICES=(
+            ["opensearch"]="OPENSEARCH_JAVA_OPTS"
+            ["datahub-gms-quickstart"]="JAVA_OPTS"
+            ["frontend-quickstart"]="JAVA_OPTS"
+            ["kafka-broker"]="KAFKA_HEAP_OPTS"
+          )
+
+          # Define memory estimates for non-JVM services in MB
+          declare -A NON_JVM_ESTIMATES=(
+            ["mysql"]=400
+            ["datahub-actions"]=200
+            ["docker-overhead"]=300
+          )
+
+          parse_mem_to_mb() {
+            local mem_str=$1
+            if [[ -z "$mem_str" ]]; then echo 0; return; fi
+
+            if [[ $mem_str =~ ([0-9]+)[gG] ]]; then
+              echo $((${BASH_REMATCH[1]} * 1024))
+            elif [[ $mem_str =~ ([0-9]+)[mM] ]]; then
+              echo ${BASH_REMATCH[1]}
+            else
+              echo 0
+            fi
+          }
+
+          for service in "${!JVM_SERVICES[@]}"; do
+            env_var_name=${JVM_SERVICES[$service]}
+            env_var_value=$(yq ".services.${service}.environment.${env_var_name} // \"\"" "$COMPOSE_FILE")
+            xmx_value=$(echo "$env_var_value" | grep -oP '\-Xmx\K[0-9]+[mMgG]' || echo "")
+
+            mb=$(parse_mem_to_mb "$xmx_value")
+            echo "${service}: ${mb}MB"
+            total_mb=$((total_mb + mb))
+          done
+
+          # Add estimates for non-JVM services
+          for service in "${!NON_JVM_ESTIMATES[@]}"; do
+            mb=${NON_JVM_ESTIMATES[$service]}
+            echo "${service}: ${mb}MB (estimated)"
+            total_mb=$((total_mb + mb))
+          done
+
+          total_gb=$(echo "scale=2; $total_mb / 1024" | bc)
+          echo "---"
+          echo "Total minimum memory: ${total_mb}MB (${total_gb}GB)"
+          echo "Threshold: ${{ env.THRESHOLD_GB }}GB"
+
+          threshold_mb=$(echo "${{ env.THRESHOLD_GB }} * 1024" | bc | cut -d'.' -f1)
+
+          if [ $total_mb -gt $threshold_mb ]; then
+            echo "❌ FAILURE: Memory requirement (${total_mb}MB) exceeds threshold (${threshold_mb}MB)"
+            exit 1
+          else
+            echo "✅ SUCCESS: Memory requirement is within threshold"
+            margin=$((threshold_mb - total_mb))
+            margin_gb=$(echo "scale=2; $margin / 1024" | bc)
+            echo "Margin: ${margin}MB (${margin_gb}GB)"
+          fi
+
+      - name: Compose file validation failure message
+        if: failure() && steps.verify-file.outcome == 'failure'
+        run: |
+          echo "==================== Validation Failed ===================="
+          echo ""
+          echo "The committed docker-compose file differs from the generated version."
+          echo ""
+          echo "Solution: Run the following command and commit the changes:"
+          echo "  ./gradlew :docker:generateQuickstartComposeConfig"
+          echo ""
+          echo "=========================================================="
+
+      - name: Memory validation failure message
+        if: failure() && steps.validate-memory.outcome == 'failure'
+        run: |
+          echo "==================== Validation Failed ===================="
+          echo ""
+          echo "The total memory requirement exceeds the ${{ env.THRESHOLD_GB }}GB threshold."
+          echo ""
+          echo "Solution: Adjust the threshold in this workflow. Also update MIN_MEMORY_NEEDED"
+          echo "in metadata-ingestion/src/datahub/cli/docker_check.py"
+          echo ""
+          echo "=========================================================="

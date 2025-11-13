@@ -160,3 +160,16 @@ GO
 EXEC dbo.sp_add_jobserver
     @job_name = N'Weekly Demo Data Backup'
 GO
+
+--Database with special symbols in object names for testing quote_schemas and use_odbc params
+DROP DATABASE IF EXISTS [DB_WITH@SPEC_SYMB];
+CREATE DATABASE [DB_WITH@SPEC_SYMB];
+GO
+USE [DB_WITH@SPEC_SYMB];
+GO
+CREATE SCHEMA [John.Doe];
+GO
+CREATE PROCEDURE [John.Doe].[InitialProcedure's] @ID INT
+AS
+    SELECT @ID;
+GO

@@ -2,10 +2,14 @@ import { Modal, message } from 'antd';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generated';
 
+import { useBatchSetApplicationMutation } from '@graphql/application.generated';
 import { useRemoveTermMutation, useUnsetDomainMutation } from '@graphql/mutations.generated';
-import { BrowsePathV2, GlobalTags, Owner } from '@types';
+import { BrowsePathV2, DataHubPageModuleType, EntityType, GlobalTags, Owner } from '@types';
 
 export function getUniqueOwners(owners?: Owner[] | null) {
     const uniqueOwnerUrns = new Set();
@@ -30,8 +34,9 @@ export const isNullOrUndefined = (value: any) => {
 };
 
 export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
-    const { entityState, refetch } = useEntityContext();
+    const { entityState, refetch, entityType } = useEntityContext();
     const [unsetDomainMutation] = useUnsetDomainMutation();
+    const { reloadByKeyType } = useReloadableContext();
 
     const handleRemoveDomain = (urnToRemoveFrom) => {
         message.loading({ content: 'Removing Domain...', duration: 2 });
@@ -42,6 +47,17 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
                     entityState?.setShouldRefetchContents(true);
                     refetch();
                     message.success({ content: 'Domain Removed!', duration: 2 });
+                    // Reload modules
+                    // Assets - to update assets in domain summary tab
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
+                    ]);
+                    // DataProduct - to update data products module in domain summary tab
+                    if (entityType === EntityType.DataProduct) {
+                        reloadByKeyType([
+                            getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.DataProducts),
+                        ]);
+                    }
                 }, 2000);
             })
             .catch((e: unknown) => {
@@ -70,6 +86,7 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
 }
 
 export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) {
+    const { reloadByKeyType } = useReloadableContext();
     const [removeTermMutation] = useRemoveTermMutation();
 
     const handleRemoveTerm = (previewData, termUrn) => {
@@ -88,6 +105,9 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
                         setTimeout(() => {
                             setShouldRefetchEmbeddedListSearch(true);
                             message.success({ content: 'Term Removed!', duration: 2 });
+                            reloadByKeyType([
+                                getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
+                            ]);
                         }, 2000);
                     }
                 })
@@ -116,6 +136,7 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
 }
 
 export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
+    const { reloadByKeyType } = useReloadableContext();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
 
     function handleDataProduct(urn) {
@@ -124,13 +145,16 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
                     message.success({ content: 'Removed Data Product.', duration: 2 });
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
+                    ]);
                 }, 2000);
             })
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
                     message.error({
-                        content: `Failed to remove data product. An unknown error occurred.`,
+                        content: e.message || `Failed to remove data product. An unknown error occurred.`,
                         duration: 3,
                     });
                 }
@@ -152,6 +176,45 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
     };
 
     return { removeDataProduct };
+}
+
+export function useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch) {
+    const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
+
+    function handleApplication(urn) {
+        batchSetApplicationMutation({ variables: { input: { resourceUrns: [urn] } } })
+            .then(() => {
+                setTimeout(() => {
+                    setShouldRefetchEmbeddedListSearch(true);
+                    message.success({ content: 'Removed Application.', duration: 2 });
+                }, 2000);
+            })
+            .catch((e: unknown) => {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({
+                        content: `Failed to remove application: ${e.message}`,
+                        duration: 3,
+                    });
+                }
+            });
+    }
+
+    const removeApplication = (urn) => {
+        Modal.confirm({
+            title: `Confirm Application Removal`,
+            content: `Are you sure you want to remove this application?`,
+            onOk() {
+                handleApplication(urn);
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
+    return { removeApplication };
 }
 
 export const isDefaultBrowsePath = (browsePaths: BrowsePathV2) => {

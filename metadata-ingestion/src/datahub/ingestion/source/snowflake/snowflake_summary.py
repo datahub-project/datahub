@@ -59,7 +59,7 @@ class SnowflakeSummaryReport(SourceReport, BaseTimeWindowReport):
 
 
 @config_class(SnowflakeSummaryConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 class SnowflakeSummarySource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeSummaryConfig):
         super().__init__(ctx)
@@ -86,6 +86,7 @@ class SnowflakeSummarySource(Source):
                 filter_config=self.config,
                 structured_reporter=self.report,
             ),
+            fetch_views_from_information_schema=False,  # we haven't enabled this config for SnowflakeSummarySource
         )
 
         # Databases.

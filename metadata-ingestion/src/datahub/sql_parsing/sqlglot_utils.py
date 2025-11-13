@@ -40,9 +40,6 @@ def _get_dialect_str(platform: str) -> str:
         # let the fuzzy resolution logic handle it.
         # MariaDB is a fork of MySQL, so we reuse the same dialect.
         return "mysql, normalization_strategy = lowercase"
-    # Dremio is based upon drill. Not 100% compatibility
-    elif platform == "dremio":
-        return "drill"
     else:
         return platform
 
@@ -115,6 +112,8 @@ def _expression_to_string(
     return expression.sql(dialect=get_dialect(platform))
 
 
+PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION = re.compile(r"(%s|\$\d|\?)")
+
 _BASIC_NORMALIZATION_RULES = {
     # Remove /* */ comments.
     re.compile(r"/\*.*?\*/", re.DOTALL): "",
@@ -130,7 +129,9 @@ _BASIC_NORMALIZATION_RULES = {
     re.compile(r"'[^']*'"): "?",
     # Replace sequences of IN/VALUES with a single placeholder.
     # The r" ?" makes it more robust to uneven spacing.
-    re.compile(r"\b(IN|VALUES)\s*\( ?\?(?:, ?\?)* ?\)", re.IGNORECASE): r"\1 (?)",
+    re.compile(
+        r"\b(IN|VALUES)\s*\( ?(?:%s|\$\d|\?)(?:, ?(?:%s|\$\d|\?))* ?\)", re.IGNORECASE
+    ): r"\1 (?)",
     # Normalize parenthesis spacing.
     re.compile(r"\( "): "(",
     re.compile(r" \)"): ")",
@@ -139,6 +140,9 @@ _BASIC_NORMALIZATION_RULES = {
     # e.g. "col1,col2" -> "col1, col2"
     re.compile(r"\b ,"): ",",
     re.compile(r"\b,\b"): ", ",
+    # MAKE SURE THAT THIS IS AFTER THE ABOVE REPLACEMENT
+    # Replace all versions of placeholders with generic ? placeholder.
+    PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION: "?",
 }
 _TABLE_NAME_NORMALIZATION_RULES = {
     # Replace UUID-like strings with a placeholder (both - and _ variants).
@@ -262,6 +266,10 @@ def get_query_fingerprint_debug(
         if not fast:
             dialect = get_dialect(platform)
             expression_sql = generalize_query(expression, dialect=dialect)
+            # Normalize placeholders for consistent fingerprinting -> this only needs to be backward compatible with earlier sqglot generated generalized queries where the placeholders were always ?
+            expression_sql = PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION.sub(
+                "?", expression_sql
+            )
         else:
             expression_sql = generalize_query_fast(expression, dialect=platform)
     except (ValueError, sqlglot.errors.SqlglotError) as e:

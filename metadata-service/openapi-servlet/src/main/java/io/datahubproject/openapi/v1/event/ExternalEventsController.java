@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.naming.TimeLimitExceededException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -49,7 +50,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Events", description = "An API for fetching external facing DataHub events.")
 public class ExternalEventsController {
 
-  static final int MAX_POLL_TIMEOUT_SECONDS = 60; // 1 minute
+  static final int MAX_POLL_TIMEOUT_SECONDS = 10; // 10 seconds
   static final int MAX_LIMIT = 5000; // Max of 5,000 messages per batch
 
   private ExternalEventsService eventsService;
@@ -80,7 +81,7 @@ public class ExternalEventsController {
               name = "topic",
               required = true,
               description =
-                  "The topic to read events for. Currently only supports PlatformEvent_v1, which provides Platform Events such as EntityChangeEvent and NotificationRequestEvent.")
+                  "The topic to read events for. Currently only supports PlatformEvent_v1, which provides Platform Events such as EntityChangeEvent and NotificationRequestEvents and MetadataChangeLog_v1, which provides all aspect updates.")
           @RequestParam(name = "topic", required = true)
           String topic,
       @Parameter(name = "offsetId", description = "The offset to start reading the topic from")
@@ -126,6 +127,10 @@ public class ExternalEventsController {
       // If unauthorized
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
 
+    } catch (TimeLimitExceededException timeLimitExceededException) {
+      ExternalEventsResponse externalEventsResponse = new ExternalEventsResponse();
+      externalEventsResponse.setErrorMessage(timeLimitExceededException.getMessage());
+      return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(externalEventsResponse);
     } catch (Exception ex) {
       // Log the exception
       log.error("An unexpected error occurred while polling events. Returning 500 to client", ex);
@@ -142,6 +147,12 @@ public class ExternalEventsController {
       @Nonnull final OperationContext opContext, @Nonnull final String topic) {
     if (Topics.PLATFORM_EVENT.equals(topic)) {
       return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_PLATFORM_EVENTS_PRIVILEGE);
+    }
+    if (Topics.METADATA_CHANGE_LOG_VERSIONED.equals(topic)) {
+      return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
+    }
+    if (Topics.METADATA_CHANGE_LOG_TIMESERIES.equals(topic)) {
+      return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
     }
     return false;
   }

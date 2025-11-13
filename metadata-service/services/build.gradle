@@ -31,7 +31,6 @@ dependencies {
     implementation externalDependency.swaggerAnnotations
     runtimeOnly externalDependency.logbackClassic
     compileOnly externalDependency.lombok
-    implementation externalDependency.commonsCollections
     implementation externalDependency.javatuples
     implementation externalDependency.javaxValidation
     implementation externalDependency.opentelemetryAnnotations

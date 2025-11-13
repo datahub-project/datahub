@@ -22,6 +22,7 @@ dependencies {
     exclude group: 'org.json', module: 'json'
   }
   implementation externalDependency.elasticSearchRest
+  implementation externalDependency.elasticsearch8Client
   implementation externalDependency.httpClient
   implementation externalDependency.gson
   implementation (externalDependency.hazelcast) {
@@ -45,6 +46,12 @@ dependencies {
   implementation externalDependency.micrometerObserve
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
+
+  // AWS SDK for S3 file serving
+  implementation platform(externalDependency.awsSdk2Bom)
+  implementation 'software.amazon.awssdk:regions'
+  implementation 'software.amazon.awssdk:sts'
+  implementation 'software.amazon.awssdk:s3'
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
@@ -67,6 +74,12 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation externalDependency.hazelcastTest
   testImplementation externalDependency.javatuples
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.testContainersElasticsearch
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
 
 
   constraints {

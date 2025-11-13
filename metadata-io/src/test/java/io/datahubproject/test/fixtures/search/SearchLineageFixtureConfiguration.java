@@ -1,9 +1,11 @@
 package io.datahubproject.test.fixtures.search;
 
-import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
+import static org.mockito.Mockito.*;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
@@ -15,6 +17,7 @@ import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -27,8 +30,10 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -36,12 +41,15 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import java.io.IOException;
@@ -49,7 +57,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -60,11 +67,11 @@ import org.springframework.context.annotation.Import;
 
 @TestConfiguration
 @Import(SearchCommonTestConfiguration.class)
-public class SearchLineageFixtureConfiguration {
+public abstract class SearchLineageFixtureConfiguration {
 
   @Autowired private ESBulkProcessor bulkProcessor;
 
-  @Autowired private RestHighLevelClient searchClient;
+  @Autowired private SearchClientShim<?> searchClient;
 
   @Autowired
   @Qualifier("fixtureCustomSearchConfig")
@@ -81,7 +88,8 @@ public class SearchLineageFixtureConfiguration {
         IndexConventionImpl.IndexConventionConfig.builder()
             .prefix(prefix)
             .hashIdAlgo("MD5")
-            .build());
+            .build(),
+        SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   }
 
   @Bean(name = "searchLineageFixtureName")
@@ -104,55 +112,65 @@ public class SearchLineageFixtureConfiguration {
         .getSideEffects()
         .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
     conf.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
-    conf.setElasticSearch(TEST_ES_SEARCH_CONFIG);
+    conf.setElasticSearch(getElasticSearchConfiguration());
     return conf;
   }
+
+  /**
+   * Abstract method that child classes must implement to provide the correct
+   * ElasticSearchConfiguration. This allows different implementations (OpenSearch vs Elasticsearch)
+   * to use their respective configurations.
+   */
+  protected abstract ElasticSearchConfiguration getElasticSearchConfiguration();
 
   @Bean(name = "searchLineageEntitySearchService")
   protected ElasticSearchService entitySearchService(
       @Qualifier("searchLineageOperationContext") OperationContext opContext,
       final QueryFilterRewriteChain queryFilterRewriteChain) {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    // Create a configuration with the test values
+    ElasticSearchConfiguration testConfig =
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .index(
+                TEST_ES_SEARCH_CONFIG.getIndex().toBuilder()
+                    .numShards(1)
+                    .numReplicas(0)
+                    .numRetries(1)
+                    .refreshIntervalSeconds(1)
+                    .build())
+            .build();
+
     ESIndexBuilder indexBuilder =
         new ESIndexBuilder(
-            searchClient,
-            1,
-            0,
-            1,
-            1,
-            Map.of(),
-            true,
-            false,
-            false,
-            TEST_ES_SEARCH_CONFIG,
-            gitVersion);
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
-    SettingsBuilder settingsBuilder = new SettingsBuilder(null, indexConfiguration);
+            searchClient, testConfig, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             searchClient,
             false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             customSearchConfiguration,
             queryFilterRewriteChain,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
             searchClient,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             customSearchConfiguration,
             queryFilterRewriteChain,
             TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO = new ESWriteDAO(TEST_ES_SEARCH_CONFIG, searchClient, bulkProcessor);
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(getElasticSearchConfiguration(), searchClient, bulkProcessor);
 
     return new ElasticSearchService(
         indexBuilder,
-        opContext.getEntityRegistry(),
-        opContext.getSearchContext().getIndexConvention(),
-        settingsBuilder,
         TEST_SEARCH_SERVICE_CONFIG,
+        TEST_ES_SEARCH_CONFIG,
+        new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
+        new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
         searchDAO,
         browseDAO,
         writeDAO);
@@ -164,17 +182,48 @@ public class SearchLineageFixtureConfiguration {
 
     OperationContext testOpContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
+    // Create real SearchContext using ESUtils methods
+    MappingsBuilder mappingsBuilder = createMappingsBuilder();
+    SearchContext searchContext =
+        SearchContext.builder()
+            .indexConvention(indexConvention)
+            .searchableFieldTypes(
+                ESUtils.buildSearchableFieldTypes(
+                    testOpContext.getEntityRegistry(), mappingsBuilder))
+            .searchableFieldPaths(
+                ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
+            .build();
+
     return testOpContext.toBuilder()
-        .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
+        .searchContext(searchContext)
         .build(testOpContext.getSessionAuthentication(), true);
+  }
+
+  /**
+   * Helper method to create a MappingsBuilder for the fixture tests. This creates a
+   * DelegatingMappingsBuilder with both v2 and v3 mappings builders.
+   */
+  private MappingsBuilder createMappingsBuilder() {
+    return createDelegatingMappingsBuilder(SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   }
 
   @Bean(name = "searchLineageESIndexBuilder")
   @Nonnull
   protected ESIndexBuilder esIndexBuilder() {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    // Create a configuration with the test values
+    ElasticSearchConfiguration testConfig =
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .index(
+                TEST_ES_SEARCH_CONFIG.getIndex().toBuilder()
+                    .numShards(1)
+                    .numReplicas(1)
+                    .numRetries(1)
+                    .refreshIntervalSeconds(1)
+                    .build())
+            .build();
     return new ESIndexBuilder(
-        searchClient, 1, 1, 1, 1, Map.of(), true, true, false, TEST_ES_SEARCH_CONFIG, gitVersion);
+        searchClient, testConfig, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
   }
 
   @Bean(name = "searchLineageGraphService")
@@ -190,17 +239,15 @@ public class SearchLineageFixtureConfiguration {
             bulkProcessor,
             indexConvention,
             new ESGraphWriteDAO(
-                indexConvention, bulkProcessor, 1, TEST_ES_SEARCH_CONFIG.getSearch().getGraph()),
-            new ESGraphQueryDAO(
-                searchClient,
-                lineageRegistry,
                 indexConvention,
-                TEST_GRAPH_SERVICE_CONFIG,
-                TEST_ES_SEARCH_CONFIG,
-                null),
+                bulkProcessor,
+                1,
+                getElasticSearchConfiguration().getSearch().getGraph()),
+            new ESGraphQueryDAO(
+                searchClient, TEST_GRAPH_SERVICE_CONFIG, getElasticSearchConfiguration(), null),
             indexBuilder,
             indexConvention.getIdHashAlgo());
-    graphService.reindexAll(Collections.emptySet());
+    graphService.reindexAll(opContext, Collections.emptySet());
     return graphService;
   }
 
@@ -251,7 +298,7 @@ public class SearchLineageFixtureConfiguration {
             TEST_SEARCH_SERVICE_CONFIG);
 
     // Build indices
-    entitySearchService.reindexAll(Collections.emptySet());
+    entitySearchService.reindexAll(opContext, Collections.emptySet());
 
     return service;
   }

@@ -20,6 +20,7 @@ export enum LogicalOperatorType {
  * Represents a single compound logical predicate type (AND, OR, or NOT).
  */
 export type LogicalPredicate = {
+    type: 'logical';
     operator: LogicalOperatorType;
     operands: (PropertyPredicate | LogicalPredicate)[];
 };
@@ -29,6 +30,7 @@ export type LogicalPredicate = {
  * property, an operator, and a set of values.
  */
 export interface PropertyPredicate {
+    type: 'property';
     property?: string; // -> the identifier of the property. e.g. 'name'
     operator?: string; // -> the identifier of the operator. e.g. 'exists'
     values?: string[]; // -> the value to compare against. e.g. ['something']

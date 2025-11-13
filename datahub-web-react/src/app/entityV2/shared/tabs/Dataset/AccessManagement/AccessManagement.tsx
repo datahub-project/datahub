@@ -1,13 +1,17 @@
-import { Button, Table } from 'antd';
+import { Table } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import {
+    RoleAccessData,
+    renderAccessButton,
+} from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessButtonHelpers';
 import AccessManagerDescription from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagerDescription';
 import { handleAccessRoles } from '@app/entityV2/shared/tabs/Dataset/AccessManagement/utils';
 
 import { GetDatasetQuery, useGetExternalRolesQuery } from '@graphql/dataset.generated';
-import { useGetMeQuery } from '@graphql/me.generated';
 
 const StyledTable = styled(Table)`
     overflow: inherit;
@@ -19,7 +23,7 @@ const StyledTable = styled(Table)`
     &&& .ant-table-thead .ant-table-cell {
         font-weight: 600;
         font-size: 12px;
-        color: '#898989';
+        color: ${ANTD_GRAY[7]};
     }
     &&
         .ant-table-thead
@@ -27,13 +31,16 @@ const StyledTable = styled(Table)`
         > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
             [colspan]
         )::before {
-        border: 1px solid #f0f0f0;
+        border: 1px solid ${ANTD_GRAY[4]};
     }
 ` as typeof Table;
 
-const StyledSection = styled.section`
-    background-color: #fff;
-    color: black;
+/**
+ * Styled component for empty access state display
+ */
+const EmptyAccessSection = styled.section`
+    background-color: ${REDESIGN_COLORS.WHITE};
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
     width: 83px;
     text-align: center;
     border-radius: 3px;
@@ -41,31 +48,28 @@ const StyledSection = styled.section`
     font-weight: bold;
 `;
 
-const AccessButton = styled(Button)`
-    background-color: #1890ff;
-    color: white;
-    width: 80px;
-    height: 30px;
-    border-radius: 3.5px;
-    border: none;
-    font-weight: bold;
-    &:hover {
-        background-color: #18baff;
-        color: white;
-        width: 80px;
-        height: 30px;
-        border-radius: 3.5px;
-        border: none;
-        font-weight: bold;
-    }
-`;
+/**
+ * Renders the access button or empty state based on role data
+ */
+const renderAccessCell = (hasAccess: boolean, record: RoleAccessData) => {
+    const roleData = { hasAccess, url: record.url, name: record.name };
+    const button = renderAccessButton(roleData);
 
+    return button || <EmptyAccessSection />;
+};
+
+/**
+ * AccessManagement component displays a table of roles with access request functionality.
+ * Shows "Granted" (disabled) buttons for roles the user already has access to,
+ * and "Request" (enabled) buttons for roles they can request access to.
+ */
 export default function AccessManagement() {
-    const { data: loggedInUser } = useGetMeQuery({ fetchPolicy: 'cache-first' });
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const entityUrn = baseEntity?.dataset?.urn as string;
+
     const { data: externalRoles } = useGetExternalRolesQuery({
-        variables: { urn: baseEntity?.dataset?.urn as string },
-        skip: !baseEntity?.dataset?.urn,
+        variables: { urn: entityUrn },
+        skip: !entityUrn,
     });
 
     const columns = [
@@ -91,29 +95,19 @@ export default function AccessManagement() {
             title: 'Access',
             dataIndex: 'hasAccess',
             key: 'hasAccess',
-            render: (hasAccess, record) => {
-                if (hasAccess) {
-                    return <StyledSection>Provisioned</StyledSection>;
-                }
-                if (record?.url) {
-                    return (
-                        <AccessButton
-                            onClick={(e) => {
-                                e.preventDefault();
-                                window.open(record.url);
-                            }}
-                        >
-                            Request
-                        </AccessButton>
-                    );
-                }
-                return <StyledSection />;
-            },
+            render: renderAccessCell,
             hidden: true,
         },
     ];
 
+    const tableData = handleAccessRoles(externalRoles);
+
     return (
-        <StyledTable dataSource={handleAccessRoles(externalRoles, loggedInUser)} columns={columns} pagination={false} />
+        <StyledTable
+            dataSource={tableData}
+            columns={columns}
+            pagination={false}
+            aria-label="Access management roles table"
+        />
     );
 }

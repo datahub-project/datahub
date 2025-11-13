@@ -6,6 +6,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -71,7 +72,7 @@ export const Preview = ({
     paths?: EntityPath[];
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
     parentContainers?: ParentContainersResult | null;
     subTypes?: SubTypes | null;
 }): JSX.Element => {
@@ -110,7 +111,7 @@ export const Preview = ({
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
             parentEntities={parentContainers?.containers}
-            type={subTypes?.typeNames?.[0]}
+            type={getFirstSubType({ subTypes })}
         />
     );
 };

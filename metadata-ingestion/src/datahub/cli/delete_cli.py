@@ -469,6 +469,7 @@ def by_filter(
                 query=query,
                 status=soft_delete_filter,
                 batch_size=batch_size,
+                skip_cache=True,
             )
         )
         if len(urns) == 0:

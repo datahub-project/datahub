@@ -1,6 +1,7 @@
 import { EntityType } from '@types';
 
 // TODO(Gabe): integrate this w/ the theme
+// These colors are deprecated, use the colors in @components/theme/foundations/colors
 export const REDESIGN_COLORS = {
     BACKGROUND: '#F4F5F7',
     GREY: '#e5e5e5',
@@ -239,3 +240,10 @@ export const TITLE_CASE_EXCEPTION_WORDS = ['of', 'the', 'in', 'on', 'and', 'a', 
 export const RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES = 'RecentlyViewedEntities';
 export const RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES = 'RecentlyEditedEntities';
 export const RECOMMENDATION_MODULE_ID_RECENT_SEARCHES = 'RecentSearches';
+
+export const ENTITY_TYPES_WITH_NEW_SUMMARY_TAB = [
+    EntityType.GlossaryNode,
+    EntityType.GlossaryTerm,
+    EntityType.DataProduct,
+    EntityType.Domain,
+];

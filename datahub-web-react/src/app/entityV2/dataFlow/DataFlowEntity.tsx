@@ -25,14 +25,13 @@ import { DataFlowJobsTab } from '@app/entityV2/shared/tabs/Entity/DataFlowJobsTa
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { DAGTab } from '@app/entityV2/shared/tabs/Lineage/DAGTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
+import { isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlow.generated';
 import { DataFlow, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -58,10 +57,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
         return (
             <ShareAltOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -200,8 +196,6 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 platformLogo={data?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
@@ -227,8 +221,6 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 insights={result.insights}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 jobCount={(data as any).childJobs?.total}
                 deprecation={data.deprecation}
@@ -238,6 +230,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 headerDropdownItems={headerDropdownItems}
                 parentContainers={data.parentContainers}
                 subTypes={genericProperties?.subTypes}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

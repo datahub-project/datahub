@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Route, Switch, matchPath, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { DomainsContext } from '@app/domainV2/DomainsContext';
+import { DomainsContext, UpdatedDomain } from '@app/domainV2/DomainsContext';
 import ManageDomainsPageV2 from '@app/domainV2/nestedDomains/ManageDomainsPageV2';
 import ManageDomainsSidebar from '@app/domainV2/nestedDomains/ManageDomainsSidebar';
 import { EntityPage } from '@app/entity/EntityPage';
@@ -26,6 +26,9 @@ const ContentWrapper = styled.div<{ $isShowNavBarRedesign?: boolean; $isEntityPr
 export default function DomainRoutes() {
     const entityRegistry = useEntityRegistry();
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
+    const [newDomain, setNewDomain] = useState<UpdatedDomain | null>(null);
+    const [deletedDomain, setDeletedDomain] = useState<UpdatedDomain | null>(null);
+    const [updatedDomain, setUpdatedDomain] = useState<UpdatedDomain | null>(null);
     const [isSidebarClosed, setIsSidebarClosed] = useState(true);
     const entitySidebarWidth = useSidebarWidth();
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -35,7 +38,18 @@ export default function DomainRoutes() {
         matchPath(location.pathname, `/${entityRegistry.getPathName(EntityType.Domain)}/:urn`) !== null;
 
     return (
-        <DomainsContext.Provider value={{ entityData, setEntityData }}>
+        <DomainsContext.Provider
+            value={{
+                entityData,
+                setEntityData,
+                newDomain,
+                setNewDomain,
+                deletedDomain,
+                setDeletedDomain,
+                updatedDomain,
+                setUpdatedDomain,
+            }}
+        >
             <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $isEntityProfile={isEntityProfile}>
                 <ManageDomainsSidebar isEntityProfile={isEntityProfile} />
                 <Switch>

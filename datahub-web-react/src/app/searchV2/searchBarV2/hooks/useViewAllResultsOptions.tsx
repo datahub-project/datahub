@@ -11,7 +11,7 @@ export default function useViewAllResultsOptions(query: string, shouldShow?: boo
         return [
             {
                 value: `${EXACT_SEARCH_PREFIX}${query}`,
-                label: <ViewAllResults searchText={query} />,
+                label: <ViewAllResults searchText={query} dataTestId="view-all-results" />,
                 type: EXACT_AUTOCOMPLETE_OPTION_TYPE,
             },
         ];

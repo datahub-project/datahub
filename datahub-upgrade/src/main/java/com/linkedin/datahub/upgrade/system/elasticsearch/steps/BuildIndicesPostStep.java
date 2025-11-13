@@ -50,7 +50,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
       try {
 
         List<ReindexConfig> indexConfigs =
-            getAllReindexConfigs(services, structuredProperties).stream()
+            getAllReindexConfigs(context.opContext(), services, structuredProperties).stream()
                 .filter(ReindexConfig::requiresReindex)
                 .collect(Collectors.toList());
 
@@ -63,8 +63,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
           boolean ack =
               esComponents
                   .getSearchClient()
-                  .indices()
-                  .putSettings(request, RequestOptions.DEFAULT)
+                  .updateIndexSettings(request, RequestOptions.DEFAULT)
                   .isAcknowledged();
           log.info(
               "Updated index {} with new settings. Settings: {}, Acknowledged: {}",

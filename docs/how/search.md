@@ -146,8 +146,37 @@ If you want to:
   - BrowsePath is stored as a complete string, for instance `/datasets/prod/hive/SampleKafkaDataset`, hence the need for wildcards on both ends of the term to return a result.
 
 - Find a dataset without the **name** field
+
   - `/q -_exists_:name` [Sample results](https://demo.datahub.com/search?filter_entity___false___EQUAL___0=DATASET&page=1&query=%252Fq%2520-_exists_%253Aname&unionType=0)
   - the `-` is negating the existence of the field name.
+
+- Find whether a dataset has upstream lineage as per the last emission of the relvant aspect.
+
+  - `/q hasUpstreams:true`
+  - `/q hasFineGrainedUpstreams:true`
+  - These 2 filters are supported starting from release `0.3.13.x` of DataHub Cloud.
+  - Note that whether or not the upstreams are valid URNs or not is not considered. It just considers whether the metadata was emitted or not.
+  - There is no corresponding filter for downstream lineage currently.
+  - This only works for `dataset` entity.
+
+- Find whether a dataset has usage as per the last emission of the relvant aspect.
+
+  - `/q hasUniqueUserCount:true`
+  - `/q hasTotalSqlQueriesCount:true`
+  - These 2 filters will be supported starting from release `0.3.14.x` of DataHub Cloud.
+  - Note that it does not check whether the field is zero. It just checks for whether the metadata was emitted or not.
+
+- Find the number of upstreams via `upstreamCountFeature` field or downstreams via `downstreamCountFeature` field. Only 1 hop lineage is considered.
+
+  - `/q upstreamCountFeature:>2` -> Greater than 2 upstreams at 1 hop
+  - `/q downstreamCountFeature:<3` -> Less than 3 downstreams at 1 hop
+  - `/q upstreamCountFeature:<=10` -> Less than or equal to 10 upstreams at 1 hop
+  - `/q upstreamCountFeature:[5 TO *]` -> To find out where at 1 hop an asset has Greater than or equal to 5 upstream lineage
+  - The advantage of `upstreamCountFeature` over `hasUpstreams` is that it considers whether the upstreams and downstreams are valid URNs.
+  - The disadvantage of `upstreamCountFeature` over `hasUpstreams` is that these are updated once a day and are not real-time like `hasUpstreams`.
+  - The reason `upstreamCountFeature` is useful is that after lineage is emitted once it will probably not change drastically for most of the tables. So this information will be almost up-to-date for all tables with a lag of around 24 hours.
+  - These 2 filters will be supported starting from release `0.3.14.x` of DataHub Cloud.
+  - These are DataHub Cloud _only_ filters.
 
 <!--
 ## Additional Resources

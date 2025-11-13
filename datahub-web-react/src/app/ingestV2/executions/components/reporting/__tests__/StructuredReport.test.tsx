@@ -50,7 +50,8 @@ vi.mock('@components', () => ({
     colors: {
         red: { 0: '#FBF3EF', 1000: '#C4360B' },
         yellow: { 0: '#FFFAEB', 1000: '#C77100' },
-        gray: { 1500: '#F9FAFC', 1700: '#5F6685' },
+        gray: { 1000: '#F1F3FD', 1500: '#F9FAFC', 1700: '#5F6685' },
+        violet: { 500: '#533FD1' },
     },
     Icon: ({ icon, ...props }: any) => (
         <span data-testid={`icon-${icon}`} data-icon={icon} {...props}>

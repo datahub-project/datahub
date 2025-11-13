@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from typing import Dict, List
 
-import pydantic
 import pytest
+from pydantic import model_validator
 
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.sql_common_state import (
@@ -158,19 +158,22 @@ def test_supported_encodings():
     test_serde_idempotence(test_state)
 
 
-def test_base85_upgrade_pickle_to_json():
-    """Verify that base85 (pickle) encoding is transitioned to base85-bz2-json."""
+def test_base85_is_removed():
+    """Verify that base85 encoding throws an error."""
 
     base85_payload = b"LRx4!F+o`-Q&~9zyaE6Km;c~@!8ry1Vd6kI1ULe}@BgM?1daeO0O_j`RP>&v5Eub8X^>>mqalb7C^byc8UsjrKmgDKAR1|q0#p(YC>k_rkk9}C0g>tf5XN6Ukbt0I-PV9G8w@zi7T+Sfbo$@HCtElKF-WJ9s~2<3(ryuxT}MN0DW*v>5|o${#bF{|bU_>|0pOAXZ$h9H+K5Hnfao<V0t4|A&l|ECl%3a~3snn}%ap>6Y<yIr$4eZIcxS2Ig`q(J&`QRF$0_OwQfa!>g3#ELVd4P5nvyX?j>N&ZHgqcR1Zc?#LWa^1m=n<!NpoAI5xrS(_*3yB*fiuZ44Funf%Sq?N|V|85WFwtbQE8kLB%FHC-}RPDZ+$-$Q9ra"
     checkpoint_state = IngestionCheckpointStateClass(
         formatVersion="1.0", serde="base85", payload=base85_payload
     )
 
-    checkpoint = _assert_checkpoint_deserialization(
-        checkpoint_state, _checkpoint_aspect_test_cases["BaseSQLAlchemyCheckpointState"]
-    )
-    assert checkpoint.state.serde == "base85-bz2-json"
-    assert len(checkpoint.state.to_bytes()) < len(base85_payload)
+    with pytest.raises(
+        ValueError,
+        match=r"base85 encoding.*removed",
+    ):
+        _assert_checkpoint_deserialization(
+            checkpoint_state,
+            _checkpoint_aspect_test_cases["BaseSQLAlchemyCheckpointState"],
+        )
 
 
 @pytest.mark.parametrize(
@@ -185,7 +188,8 @@ def test_state_forward_compatibility(serde: str) -> None:
     class NextState(CheckpointStateBase):
         list_stuff: List[str]
 
-        @pydantic.root_validator(pre=True, allow_reuse=True)
+        @model_validator(mode="before")
+        @classmethod
         def _migrate(cls, values: dict) -> dict:
             values.setdefault("list_stuff", [])
             values["list_stuff"] += values.pop("list_a", [])

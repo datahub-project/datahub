@@ -3,7 +3,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { Entity } from '@types';
 
-export function useGetEntities(urns: string[]): {
+export function useGetEntities(
+    urns: string[],
+    checkForExistence?: boolean,
+): {
     entities: Entity[];
     loading: boolean;
 } {
@@ -13,7 +16,7 @@ export function useGetEntities(urns: string[]): {
     );
 
     const { data, loading } = useGetEntitiesQuery({
-        variables: { urns: verifiedUrns },
+        variables: { urns: verifiedUrns, checkForExistence },
         skip: !verifiedUrns.length,
         fetchPolicy: 'cache-first',
     });

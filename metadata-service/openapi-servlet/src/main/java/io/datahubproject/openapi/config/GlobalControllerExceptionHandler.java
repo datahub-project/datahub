@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
@@ -165,5 +166,13 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     log.error("Invalid JSON format: {}", request.getRequestURI(), e);
     return new ResponseEntity<>(
         Map.of("error", "Invalid JSON format", "message", e.getMessage()), HttpStatus.BAD_REQUEST);
+  }
+
+  @ExceptionHandler(InvalidSyntaxException.class)
+  public ResponseEntity<Map<String, String>> handleInvalidSyntaxException(
+      InvalidSyntaxException e) {
+    return new ResponseEntity<>(
+        Map.of("error", "Invalid GraphQL syntax", "message", e.getMessage()),
+        HttpStatus.BAD_REQUEST);
   }
 }

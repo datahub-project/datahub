@@ -1,10 +1,15 @@
 package com.linkedin.metadata.search;
 
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG_WITH_PIT;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -15,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -27,23 +33,29 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -54,7 +66,7 @@ import org.testng.annotations.Test;
 public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextTests {
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   @Nonnull
   protected abstract ESBulkProcessor getBulkProcessor();
@@ -63,33 +75,63 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   protected abstract ESIndexBuilder getIndexBuilder();
 
   @Nonnull
+  protected abstract String getElasticSearchImplementation();
+
+  @Nonnull
   protected abstract SearchConfiguration getSearchConfiguration();
 
   protected OperationContext operationContext;
-  private SettingsBuilder settingsBuilder;
-  private ElasticSearchService elasticSearchService;
+  private V2LegacySettingsBuilder settingsBuilder;
+  protected ElasticSearchService elasticSearchService;
+  protected ElasticSearchService pitElasticSearchService;
   private CacheManager cacheManager;
-  private SearchService searchService;
+  protected SearchService searchService;
+  protected SearchService pitSearchService;
 
-  private static final String ENTITY_NAME = "testEntity";
+  protected static final String ENTITY_NAME = "testEntity";
 
   @BeforeClass
   public void setup() throws RemoteInvocationException, URISyntaxException {
-    operationContext =
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("search_service_test")
+                .hashIdAlgo("MD5")
+                .build(),
+            SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+
+    OperationContext testOpContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-                new SnapshotEntityRegistry(new Snapshot()),
-                new IndexConventionImpl(
-                    IndexConventionImpl.IndexConventionConfig.builder()
-                        .prefix("search_service_test")
-                        .hashIdAlgo("MD5")
-                        .build()))
+            new SnapshotEntityRegistry(new Snapshot()));
+
+    // Create real SearchContext using ESUtils methods
+    MappingsBuilder mappingsBuilder =
+        createDelegatingMappingsBuilder(SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+    SearchContext searchContext =
+        SearchContext.builder()
+            .indexConvention(indexConvention)
+            .searchableFieldTypes(
+                ESUtils.buildSearchableFieldTypes(
+                    testOpContext.getEntityRegistry(), mappingsBuilder))
+            .searchableFieldPaths(
+                ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
+            .build();
+
+    operationContext =
+        testOpContext.toBuilder()
+            .searchContext(searchContext)
+            .build(testOpContext.getSessionAuthentication(), true)
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
-    settingsBuilder = new SettingsBuilder(null, indexConfiguration);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
+    IndexConvention mockIndexConvention = mock(IndexConvention.class);
+    when(mockIndexConvention.isV2EntityIndex(anyString())).thenReturn(true);
+    settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
     elasticSearchService = buildEntitySearchService();
-    elasticSearchService.reindexAll(Collections.emptySet());
+    elasticSearchService.reindexAll(operationContext, Collections.emptySet());
+    pitElasticSearchService = buildPITEntitySearchService();
+    pitElasticSearchService.reindexAll(operationContext, Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
     resetSearchService();
   }
@@ -110,6 +152,18 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             cachingEntitySearchService,
             new SimpleRanker(),
             TEST_SEARCH_SERVICE_CONFIG);
+
+    CachingEntitySearchService cachingPITEntitySearchService =
+        new CachingEntitySearchService(cacheManager, pitElasticSearchService, 100, true);
+    pitSearchService =
+        new SearchService(
+            new EntityDocCountCache(
+                operationContext.getEntityRegistry(),
+                pitElasticSearchService,
+                entityDocCountCacheConfiguration),
+            cachingPITEntitySearchService,
+            new SimpleRanker(),
+            TEST_SEARCH_SERVICE_CONFIG);
   }
 
   @BeforeMethod
@@ -121,38 +175,69 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
+    ElasticSearchConfiguration esConfig = TEST_OS_SEARCH_CONFIG.toBuilder().build();
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),
-            false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            TEST_ES_SEARCH_CONFIG,
+            esConfig.getSearch().isPointInTimeCreationEnabled(),
+            esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
             getSearchClient(),
-            TEST_ES_SEARCH_CONFIG,
+            esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO =
-        new ESWriteDAO(TEST_ES_SEARCH_CONFIG, getSearchClient(), getBulkProcessor());
+    ESWriteDAO writeDAO = new ESWriteDAO(esConfig, getSearchClient(), getBulkProcessor());
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
-            operationContext.getEntityRegistry(),
-            operationContext.getSearchContext().getIndexConvention(),
-            settingsBuilder,
             TEST_SEARCH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
+            new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
+            settingsBuilder,
             searchDAO,
             browseDAO,
             writeDAO);
     return searchService;
   }
 
-  private void clearCache() {
+  @Nonnull
+  private ElasticSearchService buildPITEntitySearchService() {
+    ElasticSearchConfiguration esConfig = TEST_OS_SEARCH_CONFIG_WITH_PIT.toBuilder().build();
+    ESSearchDAO searchDAO =
+        new ESSearchDAO(
+            getSearchClient(),
+            esConfig.getSearch().isPointInTimeCreationEnabled(),
+            esConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    ESBrowseDAO browseDAO =
+        new ESBrowseDAO(
+            getSearchClient(),
+            esConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    ESWriteDAO writeDAO = new ESWriteDAO(esConfig, getSearchClient(), getBulkProcessor());
+    ElasticSearchService searchService =
+        new ElasticSearchService(
+            getIndexBuilder(),
+            TEST_SEARCH_SERVICE_CONFIG,
+            esConfig,
+            new V2MappingsBuilder(esConfig.getEntityIndex()),
+            settingsBuilder,
+            searchDAO,
+            browseDAO,
+            writeDAO);
+    return searchService;
+  }
+
+  protected void clearCache() {
     cacheManager.getCacheNames().forEach(cache -> cacheManager.getCache(cache).clear());
     resetSearchService();
   }
@@ -343,7 +428,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     SearchResult searchResult =
         searchService.searchAcrossEntities(
             operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
-            ImmutableList.of(ENTITY_NAME),
+            ImmutableList.of(),
             "test",
             filterWithCondition,
             null,
@@ -373,7 +458,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     document2.set("subtypes", JsonNodeFactory.instance.textNode("table"));
     document2.set("platform", JsonNodeFactory.instance.textNode("hive"));
-    document.set("removed", JsonNodeFactory.instance.booleanNode(false));
+    document2.set("removed", JsonNodeFactory.instance.booleanNode(false));
     elasticSearchService.upsertDocument(
         operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
 
@@ -385,7 +470,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document3.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     document3.set("subtypes", JsonNodeFactory.instance.textNode("table"));
     document3.set("platform", JsonNodeFactory.instance.textNode("snowflake"));
-    document.set("removed", JsonNodeFactory.instance.booleanNode(false));
+    document3.set("removed", JsonNodeFactory.instance.booleanNode(false));
     elasticSearchService.upsertDocument(
         operationContext, ENTITY_NAME, document3.toString(), urn3.toString());
 
@@ -478,6 +563,188 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn3);
+    clearCache();
+  }
+
+  @Test
+  public void testSearchWithSearchAfter() throws Exception {
+    // Set up test data
+    Urn urn1 = new TestEntityUrn("pit", "testUrn1", "VALUE_1");
+    ObjectNode document1 = JsonNodeFactory.instance.objectNode();
+    document1.set("urn", JsonNodeFactory.instance.textNode(urn1.toString()));
+    document1.set("keyPart1", JsonNodeFactory.instance.textNode("pit_test_data"));
+    document1.set("textFieldOverride", JsonNodeFactory.instance.textNode("pit_test_field1"));
+    document1.set("browsePaths", JsonNodeFactory.instance.textNode("/pit/test/1"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document1.toString(), urn1.toString());
+
+    Urn urn2 = new TestEntityUrn("pit", "testUrn2", "VALUE_2");
+    ObjectNode document2 = JsonNodeFactory.instance.objectNode();
+    document2.set("urn", JsonNodeFactory.instance.textNode(urn2.toString()));
+    document2.set("keyPart1", JsonNodeFactory.instance.textNode("pit_test_data"));
+    document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("pit_test_field2"));
+    document2.set("browsePaths", JsonNodeFactory.instance.textNode("/pit/test/2"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
+
+    Urn urn3 = new TestEntityUrn("pit", "testUrn3", "VALUE_3");
+    ObjectNode document3 = JsonNodeFactory.instance.objectNode();
+    document3.set("urn", JsonNodeFactory.instance.textNode(urn3.toString()));
+    document3.set("keyPart1", JsonNodeFactory.instance.textNode("pit_test_data"));
+    document3.set("textFieldOverride", JsonNodeFactory.instance.textNode("pit_test_field3"));
+    document3.set("browsePaths", JsonNodeFactory.instance.textNode("/pit/test/3"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document3.toString(), urn3.toString());
+
+    Urn urn4 = new TestEntityUrn("pit", "testUrn4", "VALUE_4");
+    ObjectNode document4 = JsonNodeFactory.instance.objectNode();
+    document4.set("urn", JsonNodeFactory.instance.textNode(urn4.toString()));
+    document4.set("keyPart1", JsonNodeFactory.instance.textNode("pit_test_data"));
+    document4.set("textFieldOverride", JsonNodeFactory.instance.textNode("pit_test_field4"));
+    document4.set("browsePaths", JsonNodeFactory.instance.textNode("/pit/test/4"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document4.toString(), urn4.toString());
+
+    syncAfterWrite(getBulkProcessor());
+    clearCache();
+
+    ScrollResult searchResultAll =
+        searchService.scrollAcrossEntities(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+            ImmutableList.of(),
+            "pit_test_data",
+            null,
+            null,
+            null,
+            "2m",
+            3,
+            null);
+    assertEquals(searchResultAll.getEntities().size(), 3);
+    searchResultAll =
+        searchService.scrollAcrossEntities(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+            ImmutableList.of(),
+            "pit_test_data",
+            null,
+            null,
+            searchResultAll.getScrollId(),
+            "2m",
+            3,
+            null);
+    assertEquals(searchResultAll.getEntities().size(), 1);
+
+    // Clean up test data
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn1.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn3.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn4.toString());
+    syncAfterWrite(getBulkProcessor());
+
+    // Verify cleanup
+    ScrollResult searchResultAfterCleanup =
+        searchService.scrollAcrossEntities(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+            ImmutableList.of(),
+            "pit_test_data",
+            null,
+            null,
+            null,
+            "2m",
+            10,
+            null);
+    assertEquals(searchResultAfterCleanup.getNumEntities().intValue(), 0);
+
+    clearCache();
+  }
+
+  @Test
+  public void testSearchWithPIT() throws Exception {
+    // Set up test data
+    Urn urn1 = new TestEntityUrn("pit", "testUrn1", "VALUE_1");
+    ObjectNode document1 = JsonNodeFactory.instance.objectNode();
+    document1.set("urn", JsonNodeFactory.instance.textNode(urn1.toString()));
+    document1.set("keyPart1", JsonNodeFactory.instance.textNode("pit_test_data"));
+    document1.set("textFieldOverride", JsonNodeFactory.instance.textNode("pit_test_field1"));
+    document1.set("browsePaths", JsonNodeFactory.instance.textNode("/pit/test/1"));
+    pitElasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document1.toString(), urn1.toString());
+
+    Urn urn2 = new TestEntityUrn("pit", "testUrn2", "VALUE_2");
+    ObjectNode document2 = JsonNodeFactory.instance.objectNode();
+    document2.set("urn", JsonNodeFactory.instance.textNode(urn2.toString()));
+    document2.set("keyPart1", JsonNodeFactory.instance.textNode("pit_test_data"));
+    document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("pit_test_field2"));
+    document2.set("browsePaths", JsonNodeFactory.instance.textNode("/pit/test/2"));
+    pitElasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
+
+    Urn urn3 = new TestEntityUrn("pit", "testUrn3", "VALUE_3");
+    ObjectNode document3 = JsonNodeFactory.instance.objectNode();
+    document3.set("urn", JsonNodeFactory.instance.textNode(urn3.toString()));
+    document3.set("keyPart1", JsonNodeFactory.instance.textNode("pit_test_data"));
+    document3.set("textFieldOverride", JsonNodeFactory.instance.textNode("pit_test_field3"));
+    document3.set("browsePaths", JsonNodeFactory.instance.textNode("/pit/test/3"));
+    pitElasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document3.toString(), urn3.toString());
+
+    Urn urn4 = new TestEntityUrn("pit", "testUrn4", "VALUE_4");
+    ObjectNode document4 = JsonNodeFactory.instance.objectNode();
+    document4.set("urn", JsonNodeFactory.instance.textNode(urn4.toString()));
+    document4.set("keyPart1", JsonNodeFactory.instance.textNode("pit_test_data"));
+    document4.set("textFieldOverride", JsonNodeFactory.instance.textNode("pit_test_field4"));
+    document4.set("browsePaths", JsonNodeFactory.instance.textNode("/pit/test/4"));
+    pitElasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document4.toString(), urn4.toString());
+
+    syncAfterWrite(getBulkProcessor());
+    clearCache();
+
+    ScrollResult searchResultAll =
+        pitSearchService.scrollAcrossEntities(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+            ImmutableList.of(),
+            "pit_test_data",
+            null,
+            null,
+            null,
+            "2m",
+            3,
+            null);
+    assertEquals(searchResultAll.getEntities().size(), 3);
+    searchResultAll =
+        pitSearchService.scrollAcrossEntities(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+            ImmutableList.of(),
+            "pit_test_data",
+            null,
+            null,
+            searchResultAll.getScrollId(),
+            "2m",
+            3,
+            null);
+    assertEquals(searchResultAll.getEntities().size(), 1);
+
+    // Clean up test data
+    pitElasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn1.toString());
+    pitElasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn2.toString());
+    pitElasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn3.toString());
+    pitElasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn4.toString());
+    syncAfterWrite(getBulkProcessor());
+
+    // Verify cleanup
+    ScrollResult searchResultAfterCleanup =
+        pitSearchService.scrollAcrossEntities(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+            ImmutableList.of(),
+            "pit_test_data",
+            null,
+            null,
+            null,
+            "2m",
+            10,
+            null);
+    assertEquals(searchResultAfterCleanup.getNumEntities().intValue(), 0);
+
     clearCache();
   }
 }

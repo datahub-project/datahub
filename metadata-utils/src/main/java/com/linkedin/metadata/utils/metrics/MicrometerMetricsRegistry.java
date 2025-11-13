@@ -27,11 +27,7 @@ public class MicrometerMetricsRegistry {
   public static synchronized boolean registerCacheMetrics(
       @Nonnull String cacheName,
       @Nonnull Object nativeCache,
-      @Nullable MeterRegistry meterRegistry) {
-
-    if (cacheName == null || nativeCache == null || meterRegistry == null) {
-      return false;
-    }
+      @Nonnull MeterRegistry meterRegistry) {
 
     if (!GLOBALLY_REGISTERED_CACHES.add(cacheName)) {
       return false;

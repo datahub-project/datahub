@@ -41,7 +41,7 @@ lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
     "ruff==0.11.7",
-    "mypy==1.14.1",
+    "mypy==1.17.1",
 }
 
 base_requirements = {
@@ -78,7 +78,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Action Plugins
     "executor": {
-        "acryl-executor==0.2.2",
+        "acryl-executor==0.2.6",
     },
     "slack": {
         "slack-bolt>=1.15.5",

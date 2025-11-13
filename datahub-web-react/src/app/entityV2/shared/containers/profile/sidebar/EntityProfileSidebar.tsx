@@ -160,6 +160,7 @@ export default function EntityProfileSidebar({
             className={className}
             $isShowNavBarRedesign={isShowNavBarRedesign}
             $contextType={contextType}
+            aria-expanded={!isClosed}
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentContainer isVisible={!isClosed}>

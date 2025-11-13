@@ -1,5 +1,5 @@
 ---
-title: "Overview"
+title: "DataHub Architecture Overview"
 ---
 
 # DataHub Architecture Overview

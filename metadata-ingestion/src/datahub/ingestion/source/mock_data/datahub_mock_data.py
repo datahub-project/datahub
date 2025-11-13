@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from pydantic import Field
 
@@ -14,6 +14,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport, StructuredLogCategory
+from datahub.ingestion.api.source_helpers import AutoSystemMetadata, auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.mock_data.datahub_mock_data_report import (
@@ -31,6 +32,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.sdk.entity import Entity
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
@@ -139,6 +141,10 @@ class DataHubMockDataConfig(ConfigModel):
         default=0,
         description="Number of warnings to add in report for testing",
     )
+    num_info: int = Field(
+        default=0,
+        description="Number of info to add in report for testing",
+    )
 
     gen_1: LineageConfigGen1 = Field(
         default_factory=LineageConfigGen1,
@@ -161,6 +167,17 @@ class DataHubMockDataSource(Source):
         self.report = DataHubMockDataReport()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        workunit_processors = [AutoSystemMetadata(self.ctx).stamp]
+        return self._apply_workunit_processors(
+            workunit_processors, auto_workunit(self.get_workunits_internal())
+        )
+
+    def get_workunits_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
+        # We don't want any implicit aspects to be produced
+        # so we are not using get_workunits_internal
+
         if self.config.throw_uncaught_exceptions:
             raise Exception("This is a test exception")
 
@@ -181,8 +198,14 @@ class DataHubMockDataSource(Source):
                     log_category=StructuredLogCategory.LINEAGE,
                 )
 
-        # We don't want any implicit aspects to be produced
-        # so we are not using get_workunits_internal
+        if self.config.num_info > 0:
+            for i in range(self.config.num_info):
+                self.report.info(
+                    message="This is test info",
+                    title="Test Info",
+                    context=f"This is test info {i}",
+                )
+
         if self.config.gen_1.enabled:
             for wu in self._data_gen_1():
                 if self.report.first_urn_seen is None:

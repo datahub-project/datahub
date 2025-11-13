@@ -105,6 +105,17 @@ enum IngestionSourceType {
 
 const DEFAULT_PAGE_SIZE = 25;
 
+const mapSourceTypeAliases = <T extends { type: string }>(source?: T): T | undefined => {
+    if (source) {
+        let { type } = source;
+        if (type === 'unity-catalog') {
+            type = 'databricks';
+        }
+        return { ...source, type };
+    }
+    return undefined;
+};
+
 const removeExecutionsFromIngestionSource = (source) => {
     if (source) {
         return {
@@ -256,6 +267,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
             .then(() => {
                 analytics.event({
                     type: EventType.ExecuteIngestionSourceEvent,
+                    sourceType: focusSource?.type,
+                    sourceUrn: focusSource?.urn,
                 });
                 message.success({
                     content: `Successfully submitted ingestion execution request!`,
@@ -308,6 +321,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
+                        sourceUrn: focusSourceUrn,
                         interval: input.schedule?.interval,
                     });
                     message.success({
@@ -359,6 +373,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         analytics.event({
                             type: EventType.CreateIngestionSourceEvent,
                             sourceType: input.type,
+                            sourceUrn: newSource.urn,
                             interval: input.schedule?.interval,
                         });
                         message.success({
@@ -557,7 +572,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                 </PaginationContainer>
             </SourceContainer>
             <IngestionSourceBuilderModal
-                initialState={removeExecutionsFromIngestionSource(focusSource)}
+                initialState={mapSourceTypeAliases(removeExecutionsFromIngestionSource(focusSource))}
                 open={isBuildingSource}
                 onSubmit={onSubmit}
                 onCancel={onCancel}

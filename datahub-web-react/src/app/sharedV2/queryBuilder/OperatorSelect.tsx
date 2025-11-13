@@ -2,6 +2,7 @@ import { SelectOption, SimpleSelect } from '@components';
 import React, { useMemo } from 'react';
 
 import { Operator } from '@app/sharedV2/queryBuilder/builder/property/types/operators';
+import { ConditionElementWithFixedWidth } from '@app/sharedV2/queryBuilder/styledComponents';
 
 interface Props {
     selectedOperator?: string;
@@ -21,16 +22,18 @@ const OperatorSelect = ({ selectedOperator, operators, onChangeOperator }: Props
     );
 
     return (
-        <SimpleSelect
-            options={options}
-            placeholder="Select an operator..."
-            onUpdate={(val) => onChangeOperator(val[0])}
-            values={selectedOperator ? [selectedOperator.toLowerCase()] : []}
-            isDisabled={!operators}
-            data-testid="condition-operator-select"
-            width="full"
-            showClear={false}
-        />
+        <ConditionElementWithFixedWidth>
+            <SimpleSelect
+                options={options}
+                placeholder="Select an operator..."
+                onUpdate={(val) => onChangeOperator(val[0])}
+                values={selectedOperator ? [selectedOperator.toLowerCase()] : []}
+                isDisabled={!operators}
+                data-testid="condition-operator-select"
+                width="full"
+                showClear={false}
+            />
+        </ConditionElementWithFixedWidth>
     );
 };
 

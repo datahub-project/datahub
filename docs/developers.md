@@ -116,22 +116,34 @@ The frontend will be available at `http://localhost:3000` and will automatically
 
 ### Refreshing components of quickStart
 
-To refresh any of the running system started by `./gradlew quickStartDebug`, run
+To refresh any of the running system started by `./gradlew quickstartDebug`, run
 
 ```shell
 ./gradlew debugReload
 ```
 
 This will build any changed components and restart those containers that had changes.
-There are a few other quickStart\* variants, like quickStartDebugMin, quickStartDebugConsumers
+There are a few other quickstart\* variants, like quickstartDebugMin, quickstartDebugConsumers
 
 For each of those variants, there is a corresponding reloadTask.
 
-For `./gradlew quickStartDebugConsumers`, the reload command is `./gradlew debugConsumersReload`
-For `./gradlew quickStartDebugMin`, the reload command is `./gradlew debugMinReload`
+For `./gradlew quickstartDebugConsumers`, the reload command is `./gradlew debugConsumersReload`
+For `./gradlew quickstartDebugMin`, the reload command is `./gradlew debugMinReload`
 
-A full restart using `./gradlew quickStartDebug` is recommended if there are significant changes and the setup/system update containers need to be run again.
+A full restart using `./gradlew quickstartDebug` is recommended if there are significant changes and the setup/system update containers need to be run again.
 For incremental changes, the `debugReload*` variants can be used.
+
+### Cleaning up containers and volumes
+
+To completely remove containers and volumes for a specific project, you can use the nuke tasks:
+
+```shell
+# Remove containers and volumes for specific projects
+./gradlew quickstartDebugNuke     # For debug project
+./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
+```
+
+> **Note**: These are Gradle nuke tasks. For CLI-based cleanup, see `datahub docker nuke` in the [quickstart guide](quickstart.md).
 
 ### Using .env to configure settings of services started by quickstart
 
@@ -139,7 +151,7 @@ To start datahub with a customized set of environment variables, .env files can 
 For example, an env file `my-settings.env` can be created in docker/profiles folder and loaded using
 
 ```shell
-DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickStartDebug
+DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickstartDebug
 ```
 
 To refresh the containers due to code changes, `debugReload` task can be used.
@@ -176,18 +188,39 @@ Expected Output:
 acryl-datahub, version unavailable (installed in develop mode)
 ```
 
+### Building All Docker images
+
+Running `./gradlew quickstart` or one of its variants builds images required for that variant and also starts datahub.
+If you want to build all images without starting datahub, run
+
+```commandline
+./gradlew :docker:build
+```
+
+You can optionally pass the following additional args when executing `:docker:build` task
+
+- `-Ptag=customTag` to use the custom tag when generating the image tag.
+- `-PdockerRegistry=customRegistry` to use the custom registry when generating the full image tag.
+
 ## IDE Support
 
 The recommended IDE for DataHub development is [IntelliJ IDEA](https://www.jetbrains.com/idea/).
-You can run the following command to generate or update the IntelliJ project file.
 
-```shell
-./gradlew idea
-```
+### Required IntelliJ Plugins
 
-Open `datahub.ipr` in IntelliJ to start developing!
+DataHub requires the following IntelliJ plugins for proper development:
 
-For consistency please import and auto format the code using [LinkedIn IntelliJ Java style](../gradle/idea/LinkedIn%20Style.xml).
+1. **Lombok Plugin** - Essential for Lombok annotation processing
+   - Install: Settings → Plugins → Search "Lombok" → Install
+
+### Setup Steps
+
+1. Install required plugins (see above)
+2. Generate the IntelliJ project file (re-run after dependency changes):
+   ```shell
+   ./gradlew idea
+   ```
+3. Open `datahub.ipr` in IntelliJ
 
 ## Windows Compatibility
 

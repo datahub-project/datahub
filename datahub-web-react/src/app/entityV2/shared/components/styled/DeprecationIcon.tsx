@@ -5,13 +5,14 @@ import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { toLocalDateString } from '@app/shared/time/timeUtils';
 import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
-import CompactMarkdownViewer from '@src/app/entity/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { Deprecation, SubResourceType } from '@types';
@@ -132,6 +133,12 @@ export const DeprecationIcon = ({
                 if (!errors) {
                     message.success({ content: 'Marked assets as un-deprecated!', duration: 2 });
                     refetch?.();
+                    analytics.event({
+                        type: EventType.SetDeprecation,
+                        entityUrns: [urn],
+                        deprecated: false,
+                        resources: subResource ? [{ resourceUrn: urn, subResource, subResourceType }] : undefined,
+                    });
                 }
             })
             .catch((e) => {

@@ -69,17 +69,13 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
                 // TODO: include priority level when available
                 metricUtils
                     .getRegistry()
-                    .ifPresent(
-                        meterRegistry -> {
-                          meterRegistry
-                              .timer(
-                                  MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-                                  "topic",
-                                  consumerRecord.topic(),
-                                  "consumer.group",
-                                  consumerGroupId)
-                              .record(Duration.ofMillis(queueTimeMs));
-                        });
+                    .timer(
+                        MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+                        "topic",
+                        consumerRecord.topic(),
+                        "consumer.group",
+                        consumerGroupId)
+                    .record(Duration.ofMillis(queueTimeMs));
               });
       final R record = consumerRecord.value();
       log.debug(

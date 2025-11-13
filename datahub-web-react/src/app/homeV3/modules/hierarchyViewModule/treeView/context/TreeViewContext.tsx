@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { DEFAULT_NUMBER_OF_CHILDREN_TO_LOAD } from '@app/homeV3/modules/hierarchyViewModule/treeView/constants';
+import { DEFAULT_LOAD_BATCH_SIZE } from '@app/homeV3/modules/hierarchyViewModule/treeView/constants';
 import { TreeViewContextType } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 
 const DEFAULT_TREE_VIEW_CONTEXT: TreeViewContextType = {
@@ -8,9 +8,14 @@ const DEFAULT_TREE_VIEW_CONTEXT: TreeViewContextType = {
 
     getHasParentNode: () => false,
     getIsRootNode: () => false,
+    rootNodesLength: 0,
+    rootNodesTotal: 0,
+    getChildrenLength: () => 0,
+    getChildrenTotal: () => 0,
 
     getIsExpandable: () => false,
     getIsExpanded: () => false,
+    hasAnyExpanded: false,
     expand: () => {},
     collapse: () => {},
     toggleExpanded: () => {},
@@ -25,9 +30,8 @@ const DEFAULT_TREE_VIEW_CONTEXT: TreeViewContextType = {
     toggleSelected: () => {},
 
     getIsChildrenLoading: () => false,
-    getNumberOfNotLoadedChildren: () => 0,
     loadChildren: () => {},
-    numberOfChildrenToLoad: DEFAULT_NUMBER_OF_CHILDREN_TO_LOAD,
+    loadBatchSize: DEFAULT_LOAD_BATCH_SIZE,
 
     explicitlySelectChildren: false,
     explicitlyUnselectChildren: false,
