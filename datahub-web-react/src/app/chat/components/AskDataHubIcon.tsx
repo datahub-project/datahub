@@ -12,15 +12,20 @@ const IconWrapper = styled.div`
     justify-content: center;
 
     && svg {
-        fill: url(#ask-datahub-icon-gradient) ${(props) => props.theme.styles['primary-color']};
+        fill: url(#ask-datahub-icon-gradient);
         width: 20px;
         height: 20px;
     }
 `;
 
 /**
- * Ask DataHub icon with gradient fill
- * Uses a Sparkle icon with a gradient matching the nav bar primary colors
+ * Ask DataHub icon with gradient fill matching the nav bar primary colors.
+ *
+ * Uses an inline hidden SVG to define the gradient because:
+ * - Keeps gradient definition co-located with the component that uses it
+ * - Avoids polluting the global SVG namespace
+ * - Ensures gradient is available when component renders
+ * - Makes the component self-contained and reusable
  */
 export const AskDataHubIcon: React.FC = () => {
     return (
