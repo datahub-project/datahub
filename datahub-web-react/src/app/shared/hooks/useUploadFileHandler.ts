@@ -4,23 +4,20 @@ import { useCallback } from 'react';
 import { validateFile } from '@components/components/Editor/extensions/fileDragDrop';
 import { FileUploadFailureType } from '@components/components/Editor/types';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 
 import { UploadDownloadScenario } from '@types';
 
-export function useUploadFileHandler() {
-    const { urn } = useEntityData();
+interface Props {
+    scenario: UploadDownloadScenario;
+    assetUrn?: string;
+    schemaField?: string;
+}
 
-    const { uploadFile: onFileUpload } = useFileUpload({
-        scenario: UploadDownloadScenario.AssetDocumentationLinks,
-        assetUrn: urn,
-    });
-    const analyticsCallbacks = useFileUploadAnalyticsCallbacks({
-        scenario: UploadDownloadScenario.AssetDocumentationLinks,
-        assetUrn: urn,
-    });
+export function useUploadFileHandler(props: Props) {
+    const { uploadFile: onFileUpload } = useFileUpload(props);
+    const analyticsCallbacks = useFileUploadAnalyticsCallbacks(props);
 
     const handleFileUpload = useCallback(
         async (file: File) => {

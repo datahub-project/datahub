@@ -2,9 +2,8 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button as AntButton } from 'antd';
 import React, { useState } from 'react';
 
-import { Button } from '@src/alchemy-components';
-
 import AddLinkModalUpdated from '@app/entityV2/shared/components/links/AddLinkModal';
+import { Button } from '@src/alchemy-components';
 
 interface Props {
     buttonProps?: Record<string, unknown>;

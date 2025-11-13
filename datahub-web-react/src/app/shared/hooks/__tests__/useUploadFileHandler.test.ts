@@ -7,10 +7,11 @@ import type { Mock } from 'vitest';
 import { validateFile } from '@components/components/Editor/extensions/fileDragDrop';
 import { FileUploadFailureType } from '@components/components/Editor/types';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { useUploadFileHandler } from '@app/entityV2/shared/components/links/useUploadFileHandler';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+import { useUploadFileHandler } from '@app/shared/hooks/useUploadFileHandler';
+
+import { UploadDownloadScenario } from '@types';
 
 // Mock required modules
 vi.mock('@components', () => ({
@@ -21,10 +22,6 @@ vi.mock('@components', () => ({
 
 vi.mock('@components/components/Editor/extensions/fileDragDrop', () => ({
     validateFile: vi.fn(),
-}));
-
-vi.mock('@app/entity/shared/EntityContext', () => ({
-    useEntityData: vi.fn(),
 }));
 
 vi.mock('@app/shared/hooks/useFileUpload', () => ({
@@ -47,7 +44,6 @@ describe('useUploadFileHandler', () => {
         vi.clearAllMocks();
 
         // Set up default mocks
-        (useEntityData as Mock).mockReturnValue({ urn: mockEntityUrn });
         (useFileUpload as Mock).mockReturnValue({ uploadFile: vi.fn() });
         (useFileUploadAnalyticsCallbacks as Mock).mockReturnValue({
             onFileUploadAttempt: vi.fn(),
@@ -60,7 +56,9 @@ describe('useUploadFileHandler', () => {
         const mockValidation = { isValid: true };
         (validateFile as Mock).mockReturnValueOnce(mockValidation);
 
-        const { result } = renderHook(() => useUploadFileHandler());
+        const { result } = renderHook(() =>
+            useUploadFileHandler({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn: mockEntityUrn }),
+        );
 
         await act(async () => {
             await result.current(mockFile);
@@ -83,7 +81,9 @@ describe('useUploadFileHandler', () => {
         };
         (useFileUploadAnalyticsCallbacks as Mock).mockReturnValueOnce(analyticsCallbacks);
 
-        const { result } = renderHook(() => useUploadFileHandler());
+        const { result } = renderHook(() =>
+            useUploadFileHandler({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn: mockEntityUrn }),
+        );
 
         let resultValue;
         await act(async () => {
@@ -113,7 +113,9 @@ describe('useUploadFileHandler', () => {
         };
         (validateFile as Mock).mockReturnValueOnce(mockValidation);
 
-        const { result } = renderHook(() => useUploadFileHandler());
+        const { result } = renderHook(() =>
+            useUploadFileHandler({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn: mockEntityUrn }),
+        );
 
         let resultValue;
         await act(async () => {
@@ -140,7 +142,9 @@ describe('useUploadFileHandler', () => {
         };
         (useFileUploadAnalyticsCallbacks as Mock).mockReturnValueOnce(analyticsCallbacks);
 
-        const { result } = renderHook(() => useUploadFileHandler());
+        const { result } = renderHook(() =>
+            useUploadFileHandler({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn: mockEntityUrn }),
+        );
 
         let resultValue;
         await act(async () => {
@@ -164,7 +168,9 @@ describe('useUploadFileHandler', () => {
         };
         (useFileUploadAnalyticsCallbacks as Mock).mockReturnValueOnce(analyticsCallbacks);
 
-        const { result } = renderHook(() => useUploadFileHandler());
+        const { result } = renderHook(() =>
+            useUploadFileHandler({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn: mockEntityUrn }),
+        );
 
         let resultValue;
         await act(async () => {
@@ -196,7 +202,9 @@ describe('useUploadFileHandler', () => {
         };
         (useFileUploadAnalyticsCallbacks as Mock).mockReturnValueOnce(analyticsCallbacks);
 
-        const { result } = renderHook(() => useUploadFileHandler());
+        const { result } = renderHook(() =>
+            useUploadFileHandler({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn: mockEntityUrn }),
+        );
 
         let resultValue;
         await act(async () => {

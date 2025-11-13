@@ -4,12 +4,12 @@ import styled from 'styled-components';
 
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
 
+import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { InstitutionalMemoryMetadata } from '@types';
-import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 
 const LinkContainer = styled.div`
     display: flex;
@@ -56,7 +56,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
         <a href={link.url} target="_blank" rel="noreferrer" data-testid={`${link.url}-${label}`}>
             <LinkContainer>
                 <LeftSection>
-                    <LinkIcon url={link.url}/>
+                    <LinkIcon url={link.url} />
                     <Text color="primary" lineHeight="normal" data-testid="link-label">
                         {label}
                     </Text>

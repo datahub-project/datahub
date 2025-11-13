@@ -4,13 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
+import AddLinkModal from '@app/entityV2/shared/components/links/AddLinkModal';
 import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionViewer';
 import EditDescriptionModal from '@app/entityV2/summary/documentation/EditDescriptionModal';
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 import Links from '@app/entityV2/summary/links/Links';
 import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
-import AddLinkModal from '@app/entityV2/shared/components/links/AddLinkModal';
 
 const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
     border: none;

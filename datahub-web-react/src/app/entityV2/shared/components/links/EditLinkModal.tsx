@@ -1,14 +1,13 @@
 import { Form } from 'antd';
 import React, { useCallback } from 'react';
 
-import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
-
-import { InstitutionalMemoryMetadata } from '@types';
-
 import AddEditLinkModal from '@app/entityV2/shared/components/links/AddEditLinkModal';
 import { LinkFormData } from '@app/entityV2/shared/components/links/types';
 import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
 import { getInitialLinkFormDataFromInstitutionMemory } from '@app/entityV2/shared/components/links/utils';
+import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
+
+import { InstitutionalMemoryMetadata } from '@types';
 
 interface Props {
     link?: InstitutionalMemoryMetadata | null;

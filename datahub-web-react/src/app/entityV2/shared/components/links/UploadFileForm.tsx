@@ -7,8 +7,11 @@ import { getFileNameFromUrl } from '@components/components/Editor/extensions/fil
 import { FileNode } from '@components/components/FileNode/FileNode';
 import { FontSizeOptions } from '@components/theme/config';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { LinkFormData, LinkFormVariant } from '@app/entityV2/shared/components/links/types';
-import { useUploadFileHandler } from '@app/entityV2/shared/components/links/useUploadFileHandler';
+import { useUploadFileHandler } from '@app/shared/hooks/useUploadFileHandler';
+
+import { UploadDownloadScenario } from '@types';
 
 const StyledFileDragAndDropArea = styled(FileDragAndDropArea)``;
 
@@ -22,7 +25,12 @@ interface Props {
 }
 
 export function UploadFileForm({ initialValues, fontSize: _fontSize }: Props) {
-    const handleFileUpload = useUploadFileHandler();
+    const { urn } = useEntityData();
+
+    const handleFileUpload = useUploadFileHandler({
+        scenario: UploadDownloadScenario.AssetDocumentationLinks,
+        assetUrn: urn,
+    });
 
     const [isFileUploading, setIsFileUploading] = useState<boolean>(false);
     const [fileName, setFileName] = useState<string>(getFileNameFromUrl(initialValues?.fileUrl ?? '') ?? '');
