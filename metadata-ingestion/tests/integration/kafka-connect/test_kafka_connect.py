@@ -822,7 +822,7 @@ def test_kafka_connect_snowflake_sink_ingest(
     )
 
 
-@pytest.mark.integration_batch_8
+@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_bigquery_sink_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
@@ -842,7 +842,7 @@ def test_kafka_connect_bigquery_sink_ingest(
     )
 
 
-@pytest.mark.integration_batch_8
+@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_debezium_postgres(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
@@ -863,7 +863,7 @@ def test_kafka_connect_debezium_postgres(
     )
 
 
-@pytest.mark.integration_batch_8
+@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_debezium_sqlserver(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir

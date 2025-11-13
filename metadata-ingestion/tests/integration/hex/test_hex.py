@@ -93,7 +93,7 @@ def test_hex_ingestion(pytestconfig, hex_mock_api_runner, test_resources_dir, tm
     )
 
 
-@pytest.mark.integration_batch_8
+@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_hex_ingestion_with_lineage(
