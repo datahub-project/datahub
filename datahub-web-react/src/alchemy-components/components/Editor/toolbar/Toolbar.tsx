@@ -26,13 +26,19 @@ import { HeadingMenu } from '@components/components/Editor/toolbar/HeadingMenu';
 import { useAppConfig } from '@app/useAppConfig';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
-const Container = styled.div`
-    position: sticky;
-    top: 0;
-    z-index: 99;
+const Container = styled.div<{ $fixedBottom?: boolean }>`
+    position: ${(props) => (props.$fixedBottom ? 'fixed' : 'sticky')};
+    ${(props) => (props.$fixedBottom ? 'bottom: 48px;' : 'top: 0;')}
+    ${(props) =>
+        props.$fixedBottom
+            ? 'left: 50%; transform: translateX(-40%); max-width: 800px; width: fit-content;'
+            : 'width: 100%;'}
+    z-index: ${(props) => (props.$fixedBottom ? '1000' : '99')};
     background-color: white;
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
+    ${(props) =>
+        props.$fixedBottom
+            ? 'border-radius: 12px; border: 1px solid #e8e8e8;'
+            : 'border-top-left-radius: 12px; border-top-right-radius: 12px;'}
     padding: 8px !important;
     & button {
         line-height: 0;
@@ -40,8 +46,10 @@ const Container = styled.div`
     display: flex;
     justify-content: start;
     align-items: center;
-    box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-    width: 100%;
+    ${(props) =>
+        props.$fixedBottom
+            ? 'box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.12), 0px 2px 6px rgba(0, 0, 0, 0.08);'
+            : 'box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.1);'}
 `;
 
 const InnerContainer = styled.div`
@@ -57,9 +65,10 @@ const CustomDivider = styled(Divider)`
 
 interface Props {
     styles?: React.CSSProperties;
+    fixedBottom?: boolean;
 }
 
-export const Toolbar = ({ styles }: Props) => {
+export const Toolbar = ({ styles, fixedBottom }: Props) => {
     const commands = useCommands();
     const active = useActive(true);
     const { config } = useAppConfig();
@@ -70,7 +79,7 @@ export const Toolbar = ({ styles }: Props) => {
     const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.uploadFileProps?.onFileUpload;
 
     return (
-        <Container style={styles}>
+        <Container style={styles} $fixedBottom={fixedBottom}>
             <InnerContainer>
                 <FontSizeSelect />
                 <HeadingMenu />

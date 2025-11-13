@@ -113,6 +113,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             $readOnly={readOnly}
             onKeyDown={onKeyDown}
             $hideBorder={hideBorder}
+            $fixedBottomToolbar={fixedBottomToolbar}
         >
             <ThemeProvider theme={EditorTheme}>
                 <Remirror
@@ -124,7 +125,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 >
                     {!readOnly && (
                         <>
-                            <Toolbar styles={toolbarStyles} />
+                            <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
                             <CodeBlockToolbar />
                             {!hideHighlightToolbar && <FloatingToolbar />}
                             <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />

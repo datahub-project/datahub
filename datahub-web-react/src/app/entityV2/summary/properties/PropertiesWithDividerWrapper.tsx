@@ -10,10 +10,20 @@ import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext'
 export default function PropertiesWithDividerWrapper() {
     const { summaryElements, isTemplateEditable } = usePageTemplateContext();
 
+    console.log('[PropertiesWithDividerWrapper] Rendering', {
+        summaryElements,
+        summaryElementsLength: summaryElements?.length,
+        isTemplateEditable,
+    });
+
     // Do not show properties section at all when there are no properties
     // and the current user has no permissions to manage properties.
-    if (!summaryElements?.length && !isTemplateEditable) return null;
+    if (!summaryElements?.length && !isTemplateEditable) {
+        console.log('[PropertiesWithDividerWrapper] Returning null - no properties to show');
+        return null;
+    }
 
+    console.log('[PropertiesWithDividerWrapper] Rendering Properties component');
     return (
         <>
             <Properties />

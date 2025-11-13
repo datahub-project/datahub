@@ -96,6 +96,7 @@ export const DEFAULT_APP_CONFIG = {
         assetSummaryPageV1: false,
         datasetSummaryPageV1: false,
         documentationFileUploadV1: false,
+        contextDocumentsEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

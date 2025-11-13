@@ -118,6 +118,7 @@ query appConfig {
             assetSummaryPageV1
             datasetSummaryPageV1
             documentationFileUploadV1
+            contextDocumentsEnabled
         }
         chromeExtensionConfig {
             enabled

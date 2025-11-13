@@ -80,7 +80,8 @@ export const SearchPage = () => {
                 viewUrn,
                 sortInput,
                 searchFlags: {
-                    getSuggestions: true,
+                    // TODO: Remove this before merging. For some reason causing issues locally.
+                    // getSuggestions: true,
                     includeStructuredPropertyFacets: true,
                     skipHighlighting: config?.searchFlagsConfig?.defaultSkipHighlighting || false,
                 },
