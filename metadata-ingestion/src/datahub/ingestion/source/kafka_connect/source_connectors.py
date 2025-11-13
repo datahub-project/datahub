@@ -2406,7 +2406,9 @@ class DebeziumSourceConnector(BaseConnector):
                     pattern, source_platform, database_name
                 )
                 if tables:
-                    logger.info(f"Expanded pattern '{pattern}' to {len(tables)} tables: {tables[:5]}...")
+                    logger.info(
+                        f"Expanded pattern '{pattern}' to {len(tables)} tables: {tables[:5]}..."
+                    )
                     expanded_tables.extend(tables)
                 else:
                     logger.warning(
