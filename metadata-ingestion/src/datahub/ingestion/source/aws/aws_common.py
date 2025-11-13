@@ -384,7 +384,10 @@ class AwsConnectionConfig(ConfigModel):
 
                 if should_assume_role:
                     env = detect_aws_environment()
-                    logger.debug(f"Assuming role(s) from {env.value} environment")
+                    role_arns = [role.RoleArn for role in target_roles]
+                    logger.debug(
+                        f"Assuming {role_arns} role(s) from {env.value} environment"
+                    )
 
                     current_credentials = session.get_credentials()
                     if current_credentials is None:
