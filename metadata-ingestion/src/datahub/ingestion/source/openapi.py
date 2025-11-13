@@ -487,22 +487,30 @@ class APISource(Source, ABC):
         config = self.config
         workunits = []
 
-        dataset_name = endpoint_k[1:].replace("/", ".")
-
-        if len(dataset_name) > 0:
-            if dataset_name[-1] == ".":
-                dataset_name = dataset_name[:-1]
+        # Create dataset name with braces (for display name)
+        dataset_name_display = endpoint_k[1:].replace("/", ".")
+        if len(dataset_name_display) > 0:
+            if dataset_name_display[-1] == ".":
+                dataset_name_display = dataset_name_display[:-1]
         else:
-            dataset_name = "root"
+            dataset_name_display = "root"
 
-        dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{config.name}.{dataset_name},PROD)"
+        # Create dataset name without braces (for URN)
+        dataset_name_urn = dataset_name_display.replace("{", "").replace("}", "")
 
-        # Create dataset properties aspect
+        # Clean config name for URN (replace spaces with underscores)
+        config_name_urn = config.name.replace(" ", "_")
+
+        dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{config_name_urn}.{dataset_name_urn},PROD)"
+
+        # Create dataset properties aspect with display name (keeping braces)
         properties = DatasetPropertiesClass(
-            description=endpoint_dets["description"], customProperties={}
+            name=dataset_name_display,
+            description=endpoint_dets["description"],
+            customProperties={},
         )
         wu = MetadataWorkUnit(
-            id=dataset_name,
+            id=dataset_name_urn,
             mcp=MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=properties),
         )
         workunits.append(wu)
@@ -512,7 +520,7 @@ class APISource(Source, ABC):
         tags_tac = [TagAssociationClass(t) for t in tags_str]
         gtc = GlobalTagsClass(tags_tac)
         wu = MetadataWorkUnit(
-            id=f"{dataset_name}-tags",
+            id=f"{dataset_name_urn}-tags",
             mcp=MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=gtc),
         )
         workunits.append(wu)
@@ -528,7 +536,7 @@ class APISource(Source, ABC):
         )
         inst_memory = InstitutionalMemoryClass([link_metadata])
         wu = MetadataWorkUnit(
-            id=f"{dataset_name}-docs",
+            id=f"{dataset_name_urn}-docs",
             mcp=MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn, aspect=inst_memory
             ),
@@ -538,7 +546,7 @@ class APISource(Source, ABC):
         # Create subtype aspect
         sub_types = SubTypesClass(typeNames=[DatasetSubTypes.API_ENDPOINT])
         wu = MetadataWorkUnit(
-            id=f"{dataset_name}-subtype",
+            id=f"{dataset_name_urn}-subtype",
             mcp=MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=sub_types),
         )
         workunits.append(wu)
@@ -560,20 +568,22 @@ class APISource(Source, ABC):
                         # Remove braces from parameter names (e.g., {value1} -> value1)
                         clean_segment = segment.replace("{", "").replace("}", "")
                         if clean_segment:
-                            browse_path_entries.append(BrowsePathEntryClass(id=segment))
+                            browse_path_entries.append(
+                                BrowsePathEntryClass(id=clean_segment)
+                            )
 
         # Only create browse path if we have entries
         if browse_path_entries:
             browse_paths_v2 = BrowsePathsV2Class(path=browse_path_entries)
             wu = MetadataWorkUnit(
-                id=f"{dataset_name}-browse-paths",
+                id=f"{dataset_name_urn}-browse-paths",
                 mcp=MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn, aspect=browse_paths_v2
                 ),
             )
             workunits.append(wu)
 
-        return dataset_name, dataset_urn, workunits
+        return dataset_name_urn, dataset_urn, workunits
 
     def _extract_schema_from_openapi_spec(
         self, endpoint_k: str, dataset_name: str, sw_dict: Dict

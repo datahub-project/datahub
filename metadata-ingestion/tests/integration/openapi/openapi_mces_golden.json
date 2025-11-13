@@ -7,13 +7,14 @@
     "aspect": {
         "json": {
             "customProperties": {},
+            "name": "root",
             "description": "List API versions",
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-iqxees",
+        "runId": "openapi-2020_04_14-07_00_00-9oohpi",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -222,13 +223,14 @@
     "aspect": {
         "json": {
             "customProperties": {},
+            "name": "v2",
             "description": "Show API version details",
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-iqxees",
+        "runId": "openapi-2020_04_14-07_00_00-9oohpi",
         "lastRunId": "no-run-id-provided"
     }
 },
