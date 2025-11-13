@@ -56,7 +56,22 @@ class ConnectorRegistry:
         Returns:
             SchemaResolver instance if feature is enabled and graph is available, None otherwise
         """
-        if not config.use_schema_resolver or not ctx or not ctx.graph:
+        if not config.use_schema_resolver:
+            return None
+
+        if not ctx:
+            logger.debug(
+                f"SchemaResolver not available for connector {connector.connector_manifest.name}: "
+                "PipelineContext is None"
+            )
+            return None
+
+        if not ctx.graph:
+            logger.warning(
+                f"SchemaResolver not available for connector {connector.connector_manifest.name}: "
+                "DataHub graph connection is not available. Make sure the ingestion is running with "
+                "a valid DataHub connection (datahub_api or sink configuration)."
+            )
             return None
 
         try:

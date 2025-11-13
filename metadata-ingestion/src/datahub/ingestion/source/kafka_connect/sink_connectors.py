@@ -139,6 +139,10 @@ class ConfluentS3SinkConnector(BaseConnector):
 
         return []
 
+    def get_platform(self) -> str:
+        """Get the platform for S3 Sink connector."""
+        return "s3"
+
 
 @dataclass
 class SnowflakeSinkConnector(BaseConnector):
@@ -271,6 +275,10 @@ class SnowflakeSinkConnector(BaseConnector):
             )
 
         return lineages
+
+    def get_platform(self) -> str:
+        """Get the platform for Snowflake Sink connector."""
+        return "snowflake"
 
 
 @dataclass
@@ -493,6 +501,10 @@ class BigQuerySinkConnector(BaseConnector):
                 )
             )
         return lineages
+
+    def get_platform(self) -> str:
+        """Get the platform for BigQuery Sink connector."""
+        return "bigquery"
 
 
 @dataclass
@@ -938,6 +950,10 @@ class JdbcSinkConnector(BaseConnector):
                 exc=e,
             )
             return []
+
+    def get_platform(self) -> str:
+        """Get the platform for JDBC Sink connector."""
+        return self.platform
 
 
 BIGQUERY_SINK_CONNECTOR_CLASS: Final[str] = (
