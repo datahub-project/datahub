@@ -208,9 +208,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9191/ || exit 1"]
       interval: 10s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
+      timeout: 15s
+      retries: 60
+      start_period: 60s
     restart: on-failure:3
     deploy:
       resources:
