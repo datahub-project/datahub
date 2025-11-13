@@ -154,6 +154,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
             verify_ssl=self.config.verify_ssl,
             page_size=self.config.page_size,
             report=self.report,
+            skip_text_panels=self.config.skip_text_panels,
         )
 
         # Initialize lineage extractor with graph
