@@ -42,23 +42,12 @@ beforeEach(function () {
 
 afterEach(() => {
   cy.window().then((win) => {
-    if (win.performance && win.performance.memory) {
-      const mem = win.performance.memory;
-      const formatBytes = (bytes) =>
-        (bytes / 1024 / 1024 / 1024).toFixed(3) + " GB";
+    const browserMemoryUsage = {
+      usedJSHeapSize: win.performance?.memory?.usedJSHeapSize,
+      totalJSHeapSize: win.performance?.memory?.totalJSHeapSize,
+      jsHeapSizeLimit: win.performance?.memory?.jsHeapSizeLimit,
+    };
 
-      cy.log("=== Browser Tab Memory ===");
-      cy.log(`Used: ${formatBytes(mem.usedJSHeapSize)}`);
-      cy.log(`Total: ${formatBytes(mem.totalJSHeapSize)}`);
-      cy.log(`Limit: ${formatBytes(mem.jsHeapSizeLimit)}`);
-
-      console.log("=== Browser Tab Memory ===");
-      console.log(`Used: ${formatBytes(mem.usedJSHeapSize)}`);
-      console.log(`Total: ${formatBytes(mem.totalJSHeapSize)}`);
-      console.log(`Limit: ${formatBytes(mem.jsHeapSizeLimit)}`);
-    } else {
-      cy.log("Browser memory API not available");
-      console.log("Browser memory API not available");
-    }
+    cy.task("logMemoryUsage", browserMemoryUsage);
   });
 });
