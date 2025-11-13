@@ -21,6 +21,7 @@ from tests.test_helpers.state_helpers import (
 
 logger = logging.getLogger(__name__)
 
+pytestmark = pytest.mark.integration_batch_1
 FROZEN_TIME = "2021-10-25 13:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
@@ -515,7 +516,6 @@ def loaded_kafka_connect(kafka_connect_runner):
     print("Kafka Connect connectors are ready!")
 
 
-@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
@@ -533,7 +533,6 @@ def test_kafka_connect_ingest(
     )
 
 
-@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_mongosourceconnect_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
@@ -551,7 +550,6 @@ def test_kafka_connect_mongosourceconnect_ingest(
     )
 
 
-@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_s3sink_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
@@ -569,7 +567,6 @@ def test_kafka_connect_s3sink_ingest(
     )
 
 
-@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_ingest_stateful(
     loaded_kafka_connect, pytestconfig, tmp_path, mock_datahub_graph, test_resources_dir
@@ -822,7 +819,6 @@ def test_kafka_connect_snowflake_sink_ingest(
     )
 
 
-@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_bigquery_sink_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
@@ -842,7 +838,6 @@ def test_kafka_connect_bigquery_sink_ingest(
     )
 
 
-@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_debezium_postgres(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
@@ -863,7 +858,6 @@ def test_kafka_connect_debezium_postgres(
     )
 
 
-@pytest.mark.integration_batch_6
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_debezium_sqlserver(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
