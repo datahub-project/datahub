@@ -655,7 +655,8 @@ class APISource(Source, ABC):
             return False
 
         # Only make API calls for GET methods
-        if endpoint_dets.get("method") != "get":
+        method = endpoint_dets.get("method", "").lower()
+        if method != "get":
             return False
 
         # Only make API calls if credentials are provided
@@ -845,10 +846,11 @@ class APISource(Source, ABC):
             if not schema_metadata and self._should_make_api_call(
                 endpoint_k, endpoint_dets
             ):
-                if endpoint_dets["method"] != "get":
+                method = endpoint_dets.get("method", "").lower()
+                if method != "get":
                     self.report.report_warning(
                         title="Failed to Extract Endpoint Metadata",
-                        message=f"No schema found in OpenAPI spec for {endpoint_dets['method']} method (API calls only made for GET methods with credentials)",
+                        message=f"No schema found in OpenAPI spec for {endpoint_dets.get('method', 'unknown')} method (API calls only made for GET methods with credentials)",
                         context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
                     )
                     continue
@@ -878,8 +880,9 @@ class APISource(Source, ABC):
                 self.schema_extraction_stats.no_schema_found += 1
 
                 # Check if we could have made an API call but didn't due to missing credentials
+                method = endpoint_dets.get("method", "").lower()
                 if (
-                    endpoint_dets.get("method") == "get"
+                    method == "get"
                     and self.config.enable_api_calls_for_schema_extraction
                     and not self._has_credentials()
                 ):

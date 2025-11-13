@@ -173,7 +173,7 @@ def get_endpoints(sw_dict: dict) -> dict:
             url_details[p_k] = {
                 "description": desc,
                 "tags": tags,
-                "method": method.upper(),
+                "method": method.lower(),  # Normalize to lowercase for case-insensitive comparisons
             }
 
             example_data = check_for_api_example_data(base_res, p_k)
