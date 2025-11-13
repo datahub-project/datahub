@@ -28,22 +28,36 @@ from datahub.ingestion.source.looker.lookml_config import (
 )
 from datahub.ingestion.source.looker.lookml_source import LookMLSource
 from datahub.ingestion.source.looker.view_upstream import (
+    AbstractViewUpstream,
     LookerQueryAPIBasedViewUpstream,
 )
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+    SqlParsingDebugInfo,
+    SqlParsingResult,
+)
 
 
 def create_mock_sql_parsing_result(
     table_error=None, column_error=None, in_tables=None, column_lineage=None
 ):
     """Helper function to create a properly mocked SqlParsingResult."""
-    mock_spr = MagicMock(spec=SqlParsingResult)
-    mock_debug_info = MagicMock()
-    mock_debug_info.table_error = table_error
-    mock_debug_info.column_error = column_error
-    mock_spr.debug_info = mock_debug_info
-    mock_spr.in_tables = in_tables or []
-    mock_spr.column_lineage = column_lineage or []
+    # Create a proper SqlParsingDebugInfo instance
+    debug_info = SqlParsingDebugInfo()
+    if table_error:
+        debug_info.table_error = table_error
+    if column_error:
+        debug_info.column_error = column_error
+
+    # Create a proper SqlParsingResult instance
+    mock_spr = SqlParsingResult(
+        in_tables=in_tables or [],
+        out_tables=[],
+        column_lineage=column_lineage or None,
+        debug_info=debug_info,
+    )
     return mock_spr
 
 
@@ -783,3 +797,532 @@ class TestLookMLAPIBasedViewUpstream:
         assert len(result_3) == 1
         assert "view1" in result_3
         assert result_3["view1"] in ["explore_a", "explore_b", "explore_c"]
+
+
+class TestFieldSplittingAndParallelProcessing:
+    """Test suite for field splitting, parallel processing, and individual field fallback functionality."""
+
+    @pytest.fixture
+    def mock_view_context(self):
+        """Create a mock LookerViewContext for testing."""
+        view_context = MagicMock(spec=LookerViewContext)
+        view_context.name.return_value = "large_view"
+        view_context.base_folder_path = "/test/path"
+        view_context.dimensions.return_value = []
+        view_context.measures.return_value = []
+        view_context.dimension_groups.return_value = []
+
+        mock_connection = MagicMock()
+        mock_connection.default_schema = "public"
+        mock_connection.default_db = "test_db"
+        mock_connection.platform = "postgres"
+        mock_connection.platform_instance = None
+        mock_connection.platform_env = None
+        view_context.view_connection = mock_connection
+
+        return view_context
+
+    @pytest.fixture
+    def mock_config_with_field_splitting(self):
+        """Create a mock config with field splitting enabled."""
+        config = MagicMock(spec=LookMLSourceConfig)
+        config.use_api_for_view_lineage = True
+        config.use_api_cache_for_view_lineage = False
+        config.env = "PROD"
+        config.field_threshold_for_splitting = 5  # Low threshold for testing
+        config.allow_partial_lineage_results = True
+        config.enable_individual_field_fallback = True
+        config.max_workers_for_parallel_processing = 2
+        return config
+
+    @pytest.fixture
+    def mock_looker_client_with_fields(self):
+        """Create a mock LookerAPI client that returns field data."""
+        client = MagicMock(spec=LookerAPI)
+
+        # Mock explore fields response - need proper structure
+        # Create 3 fields (below threshold of 5) to avoid field splitting during initialization
+        mock_fields = []
+        for i in range(3):
+            mock_field = MagicMock()
+            mock_field.name = f"large_view.field_{i}"
+            mock_field.view = "large_view"
+            mock_field.category = "dimension"
+            mock_field.dimension_group = None
+            mock_fields.append(mock_field)
+
+        # Create fields object with dimensions attribute
+        mock_fields_obj = MagicMock()
+        mock_fields_obj.dimensions = mock_fields
+        mock_fields_obj.measures = []
+
+        # Create explore with fields attribute
+        mock_explore = MagicMock()
+        mock_explore.fields = mock_fields_obj
+
+        client.lookml_model_explore.return_value = mock_explore
+        return client
+
+    @pytest.fixture
+    def upstream_instance_with_splitting(
+        self,
+        mock_view_context,
+        mock_config_with_field_splitting,
+        mock_looker_client_with_fields,
+    ):
+        """Create an upstream instance configured for field splitting."""
+        mock_looker_view_id_cache = MagicMock(spec=LookerViewIdCache)
+        mock_looker_view_id_cache.model_name = "test_model"
+        mock_view_id = MagicMock(spec=LookerViewId)
+        mock_view_id.get_urn.return_value = "urn:li:dataset:test"
+        mock_looker_view_id_cache.get_looker_view_id.return_value = mock_view_id
+
+        mock_reporter = MagicMock(spec=LookMLSourceReport)
+        mock_ctx = MagicMock(spec=PipelineContext)
+        mock_ctx.graph = MagicMock()
+
+        view_to_explore_map = {"large_view": "test_explore"}
+
+        # Mock SQL response (3 fields, below threshold, so no splitting during init)
+        # generate_sql_query returns a string, not a list
+        def generate_sql_side_effect(write_query=None, use_cache=False, **kwargs):
+            # Return SQL string
+            return "SELECT large_view.field_0, large_view.field_1, large_view.field_2 FROM test_table"
+
+        mock_looker_client_with_fields.generate_sql_query.side_effect = (
+            generate_sql_side_effect
+        )
+
+        with patch(
+            "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
+        ) as mock_create_lineage:
+            # Mock successful SQL parsing for each chunk
+            # Need to return results with in_tables to avoid "All field chunks failed" error
+            # Use empty list for column_lineage since the check is "not all_column_lineage" which is False for empty list
+            mock_spr = create_mock_sql_parsing_result(
+                in_tables=["urn:li:dataset:(postgres,test_table,PROD)"],
+                column_lineage=[],  # Empty list is fine - the check is "not all_column_lineage" which evaluates to False for []
+            )
+            mock_create_lineage.return_value = mock_spr
+
+            return LookerQueryAPIBasedViewUpstream(
+                view_context=mock_view_context,
+                looker_view_id_cache=mock_looker_view_id_cache,
+                config=mock_config_with_field_splitting,
+                reporter=mock_reporter,
+                ctx=mock_ctx,
+                looker_client=mock_looker_client_with_fields,
+                view_to_explore_map=view_to_explore_map,
+            )
+
+    @patch(
+        "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
+    )
+    def test_field_splitting_triggered_when_exceeding_threshold(
+        self,
+        mock_create_lineage,
+        upstream_instance_with_splitting,
+        mock_looker_client_with_fields,
+    ):
+        """Test that field splitting is triggered when field count exceeds threshold."""
+        # Create 10 fields (exceeds threshold of 5)
+        field_names = [f"large_view.field{i}" for i in range(10)]
+
+        # Mock the _get_fields_from_looker_api method to return our fields
+        upstream_instance_with_splitting._get_fields_from_looker_api = MagicMock(
+            return_value=field_names
+        )
+
+        # Mock successful SQL responses for each chunk
+        # Need at least one column lineage to satisfy the check in _get_spr_with_field_splitting
+        mock_column_lineage = ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table="test_table", column="field1"),
+            upstreams=[ColumnRef(table="table1", column="col1")],
+        )
+        mock_spr_chunk1 = create_mock_sql_parsing_result(
+            in_tables=["urn:li:dataset:(postgres,table1,PROD)"],
+            column_lineage=[mock_column_lineage],
+        )
+        mock_spr_chunk2 = create_mock_sql_parsing_result(
+            in_tables=["urn:li:dataset:(postgres,table2,PROD)"],
+            column_lineage=[mock_column_lineage],
+        )
+
+        # Mock SQL responses
+        mock_looker_client_with_fields.generate_sql_query.side_effect = [
+            "SELECT field1, field2, field3, field4, field5 FROM table1",
+            "SELECT field6, field7, field8, field9, field10 FROM table2",
+        ]
+
+        # Mock parsing results for chunks
+        mock_create_lineage.side_effect = [mock_spr_chunk1, mock_spr_chunk2]
+
+        # Clear cache to force re-execution
+        upstream_instance_with_splitting._get_spr.cache_clear()
+
+        # Reset call count to exclude initialization calls
+        initial_call_count = (
+            mock_looker_client_with_fields.generate_sql_query.call_count
+        )
+
+        # Execute - should trigger field splitting
+        result = upstream_instance_with_splitting._get_spr()
+
+        # Verify field splitting was used
+        assert result is not None
+        assert len(result.in_tables) >= 1  # Should have combined results
+        # Verify multiple SQL queries were made (one per chunk, plus initialization)
+        # Should have 2 new calls for the 2 chunks
+        new_calls = (
+            mock_looker_client_with_fields.generate_sql_query.call_count
+            - initial_call_count
+        )
+        assert new_calls == 2, f"Expected 2 new calls for chunks, got {new_calls}"
+
+    @patch(
+        "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
+    )
+    def test_field_splitting_combines_results_from_multiple_chunks(
+        self,
+        mock_create_lineage,
+        upstream_instance_with_splitting,
+        mock_looker_client_with_fields,
+    ):
+        """Test that field splitting correctly combines results from multiple chunks."""
+        field_names = [f"large_view.field{i}" for i in range(10)]
+        upstream_instance_with_splitting._get_fields_from_looker_api = MagicMock(
+            return_value=field_names
+        )
+
+        # Create different results for each chunk
+        # Need valid ColumnLineageInfo objects
+        mock_column_lineage1 = ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table="test_table", column="field1"),
+            upstreams=[ColumnRef(table="table1", column="col1")],
+        )
+        mock_column_lineage2 = ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table="test_table", column="field2"),
+            upstreams=[ColumnRef(table="table2", column="col2")],
+        )
+        mock_spr_chunk1 = create_mock_sql_parsing_result(
+            in_tables=["urn:li:dataset:(postgres,table1,PROD)"],
+            column_lineage=[mock_column_lineage1],
+        )
+        mock_spr_chunk2 = create_mock_sql_parsing_result(
+            in_tables=["urn:li:dataset:(postgres,table2,PROD)"],
+            column_lineage=[mock_column_lineage2],
+        )
+
+        mock_looker_client_with_fields.generate_sql_query.side_effect = [
+            "SELECT * FROM table1",
+            "SELECT * FROM table2",
+        ]
+        mock_create_lineage.side_effect = [mock_spr_chunk1, mock_spr_chunk2]
+
+        upstream_instance_with_splitting._get_spr.cache_clear()
+
+        result = upstream_instance_with_splitting._get_spr()
+
+        # Verify combined results
+        assert result is not None
+        assert len(result.in_tables) == 2  # Both tables should be present
+        assert len(result.column_lineage) == 2  # Both lineages should be present
+
+    @patch(
+        "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
+    )
+    def test_individual_field_fallback_when_chunk_fails(
+        self,
+        mock_create_lineage,
+        upstream_instance_with_splitting,
+        mock_looker_client_with_fields,
+    ):
+        """Test that individual field fallback is triggered when a chunk fails."""
+        field_names = [f"large_view.field{i}" for i in range(10)]
+        upstream_instance_with_splitting._get_fields_from_looker_api = MagicMock(
+            return_value=field_names
+        )
+
+        # First chunk fails with parsing error
+        mock_spr_chunk1_error = create_mock_sql_parsing_result(
+            table_error=Exception("Parsing failed"),
+            in_tables=[],
+            column_lineage=[],
+        )
+        # Individual field succeeds - need at least one column lineage
+        mock_column_lineage = ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table="test_table", column="field1"),
+            upstreams=[ColumnRef(table="table1", column="col1")],
+        )
+        mock_spr_individual = create_mock_sql_parsing_result(
+            in_tables=["urn:li:dataset:(postgres,table1,PROD)"],
+            column_lineage=[mock_column_lineage],
+        )
+
+        mock_looker_client_with_fields.generate_sql_query.side_effect = [
+            "SELECT * FROM table1",  # Chunk query
+            "SELECT field1 FROM table1",  # Individual field query
+            "SELECT field2 FROM table1",
+            "SELECT field3 FROM table1",
+            "SELECT field4 FROM table1",
+            "SELECT field5 FROM table1",
+        ]
+
+        # Chunk fails, but individual fields succeed
+        def create_lineage_side_effect(*args, **kwargs):
+            query = args[0] if args else kwargs.get("query", "")
+            if (
+                "field1" in query
+                or "field2" in query
+                or "field3" in query
+                or "field4" in query
+                or "field5" in query
+            ):
+                return mock_spr_individual
+            return mock_spr_chunk1_error
+
+        mock_create_lineage.side_effect = create_lineage_side_effect
+
+        upstream_instance_with_splitting._get_spr.cache_clear()
+
+        result = upstream_instance_with_splitting._get_spr()
+
+        # Should have partial results from individual fields
+        assert result is not None
+        # Verify individual field processing was attempted
+        assert mock_looker_client_with_fields.generate_sql_query.call_count > 2
+
+    @patch(
+        "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
+    )
+    def test_partial_lineage_allowed_when_parsing_errors_occur(
+        self,
+        mock_create_lineage,
+        upstream_instance_with_splitting,
+        mock_looker_client_with_fields,
+    ):
+        """Test that partial lineage results are returned when allow_partial_lineage_results is True."""
+        field_names = [f"large_view.field{i}" for i in range(3)]  # Below threshold
+        upstream_instance_with_splitting._get_fields_from_looker_api = MagicMock(
+            return_value=field_names
+        )
+
+        # Mock SQL response with parsing error but partial results
+        mock_spr_with_error = create_mock_sql_parsing_result(
+            table_error=Exception("Table parsing error"),
+            column_error=None,
+            in_tables=["urn:li:dataset:(postgres,table1,PROD)"],  # Partial results
+            column_lineage=[],
+        )
+
+        mock_looker_client_with_fields.generate_sql_query.return_value = (
+            "SELECT * FROM table1"
+        )
+        mock_create_lineage.return_value = mock_spr_with_error
+
+        upstream_instance_with_splitting._get_spr.cache_clear()
+
+        # Should not raise exception when allow_partial_lineage_results is True
+        result = upstream_instance_with_splitting._get_spr()
+
+        assert result is not None
+        assert len(result.in_tables) > 0  # Should have partial results
+
+    @patch(
+        "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
+    )
+    def test_no_partial_lineage_when_disabled(
+        self,
+        mock_create_lineage,
+        upstream_instance_with_splitting,
+        mock_looker_client_with_fields,
+    ):
+        """Test that exceptions are raised when allow_partial_lineage_results is False."""
+        upstream_instance_with_splitting.config.allow_partial_lineage_results = False
+        field_names = [f"large_view.field{i}" for i in range(3)]
+        upstream_instance_with_splitting._get_fields_from_looker_api = MagicMock(
+            return_value=field_names
+        )
+
+        mock_spr_with_error = create_mock_sql_parsing_result(
+            table_error=Exception("Table parsing error"),
+            in_tables=[],
+            column_lineage=[],
+        )
+
+        mock_looker_client_with_fields.generate_sql_query.return_value = (
+            "SELECT * FROM table1"
+        )
+        mock_create_lineage.return_value = mock_spr_with_error
+
+        upstream_instance_with_splitting._get_spr.cache_clear()
+
+        # Should raise exception when allow_partial_lineage_results is False
+        with pytest.raises(
+            ValueError, match="Error in parsing SQL for upstream tables"
+        ):
+            upstream_instance_with_splitting._get_spr()
+
+    def test_max_workers_validation_minimum(
+        self, mock_config_with_field_splitting, tmp_path
+    ):
+        """Test that max_workers validation rejects values below 1."""
+        from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
+
+        # Create a temporary directory for base_folder validation
+        test_dir = tmp_path / "test_base"
+        test_dir.mkdir()
+
+        with pytest.raises(ValueError, match="must be at least 1"):
+            LookMLSourceConfig.model_validate(
+                {
+                    "base_folder": str(test_dir),
+                    "max_workers_for_parallel_processing": 0,
+                }
+            )
+
+    def test_max_workers_validation_maximum(
+        self, mock_config_with_field_splitting, tmp_path
+    ):
+        """Test that max_workers validation caps values above 100."""
+        import logging
+
+        from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
+
+        # Create a temporary directory for base_folder validation
+        test_dir = tmp_path / "test_base"
+        test_dir.mkdir()
+
+        with patch.object(
+            logging.getLogger("datahub.ingestion.source.looker.lookml_config"),
+            "warning",
+        ) as mock_warning:
+            config = LookMLSourceConfig.model_validate(
+                {
+                    "base_folder": str(test_dir),
+                    "connection_to_platform_map": {"test_connection": "postgres"},
+                    "project_name": "test_project",
+                    "max_workers_for_parallel_processing": 150,
+                }
+            )
+            # Should be capped to 100
+            assert config.max_workers_for_parallel_processing == 100
+            # Should log a warning
+            mock_warning.assert_called()
+
+    @patch(
+        "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
+    )
+    def test_parallel_processing_with_multiple_workers(
+        self,
+        mock_create_lineage,
+        upstream_instance_with_splitting,
+        mock_looker_client_with_fields,
+    ):
+        """Test that parallel processing works correctly with multiple workers."""
+        # Set max workers to 5 for this test
+        upstream_instance_with_splitting.config.max_workers_for_parallel_processing = 5
+
+        field_names = [f"large_view.field{i}" for i in range(15)]  # 3 chunks of 5
+        upstream_instance_with_splitting._get_fields_from_looker_api = MagicMock(
+            return_value=field_names
+        )
+
+        # Create successful results for each chunk - need at least one column lineage
+        mock_column_lineage = ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table="test_table", column="field1"),
+            upstreams=[ColumnRef(table="table1", column="col1")],
+        )
+        mock_sprs = [
+            create_mock_sql_parsing_result(
+                in_tables=[f"urn:li:dataset:(postgres,table{i},PROD)"],
+                column_lineage=[mock_column_lineage],
+            )
+            for i in range(3)
+        ]
+
+        mock_looker_client_with_fields.generate_sql_query.side_effect = [
+            f"SELECT * FROM table{i}" for i in range(3)
+        ]
+        mock_create_lineage.side_effect = mock_sprs
+
+        upstream_instance_with_splitting._get_spr.cache_clear()
+
+        result = upstream_instance_with_splitting._get_spr()
+
+        # Verify all chunks were processed
+        assert result is not None
+        assert len(result.in_tables) == 3  # All 3 tables should be present
+
+    def test_get_fields_from_looker_api_filters_by_view(
+        self, upstream_instance_with_splitting, mock_looker_client_with_fields
+    ):
+        """Test that _get_fields_from_looker_api correctly filters fields by view."""
+        # Clear the class-level cache to force re-fetch
+        AbstractViewUpstream.get_explore_fields_from_looker_api.cache_clear()
+
+        # Mock explore with fields from multiple views
+        mock_field_current_view = MagicMock()
+        mock_field_current_view.name = "large_view.field1"
+        mock_field_current_view.view = "large_view"
+        mock_field_current_view.category = "dimension"
+        mock_field_current_view.dimension_group = None
+
+        mock_field_other_view = MagicMock()
+        mock_field_other_view.name = "other_view.field1"
+        mock_field_other_view.view = "other_view"
+        mock_field_other_view.category = "dimension"
+        mock_field_other_view.dimension_group = None
+
+        # Create proper fields structure
+        mock_fields_obj = MagicMock()
+        mock_fields_obj.dimensions = [mock_field_current_view, mock_field_other_view]
+        mock_fields_obj.measures = []
+
+        mock_explore = MagicMock()
+        mock_explore.fields = mock_fields_obj
+
+        # Override the fixture's mock
+        mock_looker_client_with_fields.lookml_model_explore.return_value = mock_explore
+
+        fields = upstream_instance_with_splitting._get_fields_from_looker_api(
+            "test_explore"
+        )
+
+        # Should only return fields from the current view
+        assert "large_view.field1" in fields
+        # Note: The actual implementation filters by view, so other_view fields should not be included
+        assert "other_view.field1" not in fields
+        assert len(fields) == 1  # Only one field from current view
+
+    def test_field_splitting_statistics_reporting(
+        self, upstream_instance_with_splitting, mock_looker_client_with_fields
+    ):
+        """Test that field splitting statistics are properly reported."""
+        field_names = [f"large_view.field{i}" for i in range(10)]
+        upstream_instance_with_splitting._get_fields_from_looker_api = MagicMock(
+            return_value=field_names
+        )
+
+        # Mock successful processing - need at least one column lineage
+        mock_column_lineage = ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table="test_table", column="field1"),
+            upstreams=[ColumnRef(table="table1", column="col1")],
+        )
+        with patch(
+            "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
+        ) as mock_create_lineage:
+            mock_spr = create_mock_sql_parsing_result(
+                in_tables=["urn:li:dataset:(postgres,table1,PROD)"],
+                column_lineage=[mock_column_lineage],
+            )
+            mock_create_lineage.return_value = mock_spr
+            mock_looker_client_with_fields.generate_sql_query.return_value = (
+                "SELECT * FROM table1"
+            )
+
+            upstream_instance_with_splitting._get_spr.cache_clear()
+            upstream_instance_with_splitting._get_spr()
+
+            # Verify reporter was called for statistics
+            assert upstream_instance_with_splitting.reporter.report_warning.called
