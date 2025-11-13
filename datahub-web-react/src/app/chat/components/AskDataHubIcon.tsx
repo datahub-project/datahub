@@ -25,7 +25,7 @@ const IconWrapper = styled.div`
 export const AskDataHubIcon: React.FC = () => {
     return (
         <>
-            {/* SVG gradient definition */}
+            {/* Hidden SVG for gradient definition - required for the fill to reference via url(#ask-datahub-icon-gradient) */}
             <svg
                 style={{ width: 0, height: 0, position: 'absolute', visibility: 'hidden' }}
                 aria-hidden="true"

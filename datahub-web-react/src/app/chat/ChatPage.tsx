@@ -124,9 +124,10 @@ export const ChatPage = () => {
         // Sort conversations by most recent activity to show active conversations at the top.
         // This provides better UX as users typically want to continue recent conversations.
         // Note: Relies on backend updating lastUpdated timestamp when messages are sent.
+        // Fallback to created.time ensures new conversations without messages sort correctly.
         const sortedConversations = [...baseConversations].sort((a, b) => {
-            const aTime = a.lastUpdated?.time || 0;
-            const bTime = b.lastUpdated?.time || 0;
+            const aTime = a.lastUpdated?.time || a.created?.time || 0;
+            const bTime = b.lastUpdated?.time || b.created?.time || 0;
             return bTime - aTime;
         });
 
