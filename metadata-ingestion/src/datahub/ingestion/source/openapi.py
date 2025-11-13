@@ -43,6 +43,8 @@ from datahub.ingestion.source.openapi_parser import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DatasetPropertiesClass,
     GlobalTagsClass,
     InstitutionalMemoryClass,
@@ -540,6 +542,36 @@ class APISource(Source, ABC):
             mcp=MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=sub_types),
         )
         workunits.append(wu)
+
+        # Create browse paths v2 aspect
+        # Parse endpoint path and create browse path segments
+        # Only include actual path segments, exclude parameter placeholders
+        # Example: /endpoint/{variable1}/{variable2}/ -> ["endpoint"]
+        # Example: /trades/{trade_reference}/verify -> ["trades", "verify"]
+        browse_path_entries = []
+        if endpoint_k:
+            # Remove leading and trailing slashes
+            path = endpoint_k.strip("/")
+            if path:
+                # Split by / to get segments
+                segments = path.split("/")
+                for segment in segments:
+                    if segment:
+                        # Remove braces from parameter names (e.g., {value1} -> value1)
+                        clean_segment = segment.replace("{", "").replace("}", "")
+                        if clean_segment:
+                            browse_path_entries.append(BrowsePathEntryClass(id=segment))
+
+        # Only create browse path if we have entries
+        if browse_path_entries:
+            browse_paths_v2 = BrowsePathsV2Class(path=browse_path_entries)
+            wu = MetadataWorkUnit(
+                id=f"{dataset_name}-browse-paths",
+                mcp=MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=browse_paths_v2
+                ),
+            )
+            workunits.append(wu)
 
         return dataset_name, dataset_urn, workunits
 
