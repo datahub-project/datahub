@@ -37,7 +37,9 @@ const ThinkingLabelContent = styled.div`
     font-weight: 400;
     padding: 4px 0;
 
-    /* Apply gradient to lightning icon */
+    /* Apply gradient to lightning icon per design requirements.
+       The gradient creates a visual distinction for AI thinking states,
+       transitioning from #7565d6 to #5340cc to match brand styling. */
     && svg {
         fill: url(#thinking-gradient) #533fd1;
     }

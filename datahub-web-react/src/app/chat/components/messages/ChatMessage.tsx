@@ -1,11 +1,12 @@
 import { colors } from '@components';
-import { Check, Copy, Warning } from '@phosphor-icons/react';
 import '@uiw/react-markdown-preview/dist/markdown.css';
 import MDEditor from '@uiw/react-md-editor';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { CodeBlock } from '@app/chat/components/messages/CodeBlock';
 import { MessageReferences } from '@app/chat/components/references/MessageReferences';
+import { parseMessageContent } from '@app/chat/utils/parseMessageContent';
 
 import {
     DataHubAiConversationActorType,
@@ -44,96 +45,6 @@ const MessageBubble = styled.div<{ isUser: boolean }>`
     overflow-y: visible; /* Allow content to expand vertically */
 `;
 
-/* Code Block Container - matches Figma design */
-const CodeBlockContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    background: ${colors.white};
-    border: 1px solid ${colors.gray[100]};
-    box-shadow: 0px 4px 8px rgba(33, 23, 95, 0.04);
-    border-radius: 12px;
-    margin: 8px 0 24px 0;
-    overflow: hidden;
-    width: 100%;
-`;
-
-const CodeBlockHeader = styled.div`
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    height: 40px;
-    background: ${colors.gray[1500]};
-    border-bottom: 1px solid ${colors.gray[100]};
-`;
-
-const CodeBlockLanguageLabel = styled.span`
-    font-family: 'Mulish', sans-serif;
-    font-weight: 700;
-    font-size: 12px;
-    line-height: 15px;
-    color: ${colors.gray[600]};
-`;
-
-const CopyButton = styled.button`
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    color: ${colors.gray[1800]};
-    font-family: 'Mulish', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    transition: all 0.2s;
-
-    &:hover {
-        background: ${colors.gray[100]};
-        color: ${colors.gray[600]};
-    }
-
-    &:active {
-        background: ${colors.gray[200]};
-    }
-`;
-
-const CodeBlockContent = styled.div`
-    overflow-x: auto;
-
-    & pre {
-        margin: 0 !important;
-        padding: 0 !important;
-        background: transparent !important;
-        border: none !important;
-        border-radius: 0 !important;
-        overflow: visible !important;
-    }
-
-    & code {
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 14px;
-        line-height: 18px;
-    }
-`;
-
-const TruncatedBanner = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 8px;
-    margin: 12px 16px;
-    background: ${colors.yellow[0]};
-    border-radius: 6px;
-    font-family: 'Mulish', sans-serif;
-    font-size: 14px;
-    line-height: 20px;
-    color: ${colors.yellow[1000]};
-`;
-
 const MarkdownContent = styled.div<{ isUser: boolean }>`
     font-size: 15px;
     line-height: 1.7;
@@ -142,8 +53,9 @@ const MarkdownContent = styled.div<{ isUser: boolean }>`
     overflow-wrap: anywhere; /* Break words anywhere if needed */
     word-break: break-word; /* Break long words */
 
-    /* Style markdown output */
-    & p {
+    /* Style markdown output - apply to both direct children and MDEditor rendered content */
+    & p,
+    & .wmde-markdown p {
         margin: 0 0 8px 0;
         overflow-wrap: anywhere; /* Break words anywhere if needed */
         word-break: break-word; /* Break long words if necessary */
@@ -151,23 +63,30 @@ const MarkdownContent = styled.div<{ isUser: boolean }>`
         font-size: 15px; /* Match base font size */
     }
 
-    & p:last-child {
+    & p:last-child,
+    & .wmde-markdown p:last-child {
         margin-bottom: 0;
     }
 
-    /* Paragraphs containing strong tags (headers) should have no bottom margin */
-    & p:has(strong) {
+    /* Paragraphs containing strong tags (headers) should have no bottom margin.
+       The AI wraps header text (e.g., "**Header Text**") in <p><strong> tags,
+       so we target the parent <p> to remove its default bottom margin and maintain
+       consistent spacing between headers and content. */
+    & p:has(strong),
+    & .wmde-markdown p:has(strong) {
         margin-bottom: 0;
     }
 
-    & strong {
+    & strong,
+    & .wmde-markdown strong {
         font-weight: 600;
         font-size: inherit; /* Use same size as parent text for inline bold */
         margin-bottom: 0px;
         /* Color inherited from parent */
     }
 
-    & code {
+    & code,
+    & .wmde-markdown code:not([class*='language-']) {
         background-color: ${colors.gray[1500]};
         padding: 2px 6px;
         border-radius: 4px;
@@ -199,8 +118,30 @@ const MarkdownContent = styled.div<{ isUser: boolean }>`
         color: ${colors.gray[600]} !important;
     }
 
-    & a {
-        color: ${colors.violet[600]}; /* Links use violet */
+    /* Override MDEditor's link colors */
+    & a,
+    & .wmde-markdown a {
+        color: ${colors.violet[600]} !important; /* Links use violet */
+        text-decoration: underline;
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    /* Ensure links inside headings are also violet */
+    & h1 a,
+    & h2 a,
+    & h3 a,
+    & h4 a,
+    & h5 a,
+    & h6 a,
+    & .wmde-markdown h1 a,
+    & .wmde-markdown h2 a,
+    & .wmde-markdown h3 a,
+    & .wmde-markdown h4 a,
+    & .wmde-markdown h5 a,
+    & .wmde-markdown h6 a {
+        color: ${colors.violet[600]} !important;
         text-decoration: underline;
         &:hover {
             text-decoration: underline;
@@ -208,23 +149,33 @@ const MarkdownContent = styled.div<{ isUser: boolean }>`
     }
 
     & ul,
-    & ol {
+    & ol,
+    & .wmde-markdown ul,
+    & .wmde-markdown ol {
         margin: 0 0 8px 0;
         padding-left: 24px;
     }
 
-    & li {
+    & li,
+    & .wmde-markdown li {
         margin: 4px 0;
         font-weight: 400; /* Regular weight */
         font-size: 15px; /* Match base font size */
-        /* Color inherited from parent */
+        color: ${colors.gray[600]}; /* Ensure list items are gray */
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        hyphens: auto;
     }
 
-    & blockquote {
+    & blockquote,
+    & .wmde-markdown blockquote {
         border-left: 4px solid ${colors.gray[200]};
         padding-left: 16px;
         margin: 8px 0;
         color: ${colors.gray[600]};
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        hyphens: auto;
     }
 
     & h1,
@@ -236,6 +187,9 @@ const MarkdownContent = styled.div<{ isUser: boolean }>`
         margin: 32px 0 8px 0;
         font-weight: 600;
         color: ${colors.gray[600]} !important;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        hyphens: auto;
     }
 
     /* Remove top margin from first heading */
@@ -290,30 +244,6 @@ const MarkdownContent = styled.div<{ isUser: boolean }>`
         max-width: 100%;
         height: auto;
     }
-
-    & blockquote {
-        overflow-wrap: anywhere;
-        word-break: break-word;
-        hyphens: auto;
-    }
-
-    /* Apply word breaking to all text elements */
-    & h1,
-    & h2,
-    & h3,
-    & h4,
-    & h5,
-    & h6 {
-        overflow-wrap: anywhere;
-        word-break: break-word;
-        hyphens: auto;
-    }
-
-    & li {
-        overflow-wrap: anywhere;
-        word-break: break-word;
-        hyphens: auto;
-    }
 `;
 
 interface MessageRendererProps {
@@ -341,76 +271,14 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({ message, selectedE
             await navigator.clipboard.writeText(code);
             setCopiedIndex(index);
             setTimeout(() => setCopiedIndex(null), 2000);
-        } catch (err) {
-            console.error('Failed to copy code:', err);
+        } catch {
+            // Silently fail - clipboard API may not be available in some contexts
+            // User will not see the "Copied" feedback if copy fails
         }
-    };
-
-    // Parse markdown to extract code blocks and regular content
-    const parseMessageContent = () => {
-        const text = message.content.text || '';
-        const parts: Array<{ type: 'markdown' | 'code'; content: string; language?: string }> = [];
-
-        // Regex to match complete code blocks
-        const codeBlockRegex = /```(\w+)?[\s\n]*([\s\S]*?)```/g;
-        let lastIndex = 0;
-        let match = codeBlockRegex.exec(text);
-
-        while (match !== null) {
-            // Add markdown content before code block
-            if (match.index > lastIndex) {
-                const markdownText = text.substring(lastIndex, match.index);
-                if (markdownText.trim()) {
-                    parts.push({ type: 'markdown', content: markdownText });
-                }
-            }
-
-            // Add complete code block
-            parts.push({
-                type: 'code',
-                language: match[1] || 'code',
-                content: match[2].trim(),
-            });
-
-            lastIndex = match.index + match[0].length;
-            match = codeBlockRegex.exec(text);
-        }
-
-        // Check for incomplete/truncated code block at the end (missing closing ```)
-        const remainingText = text.substring(lastIndex);
-        const incompleteCodeMatch = remainingText.match(/```(\w+)?[\s\n]*([\s\S]*?)$/);
-
-        if (incompleteCodeMatch) {
-            // Add markdown content before incomplete code block
-            const beforeIncomplete = remainingText.substring(0, incompleteCodeMatch.index);
-            if (beforeIncomplete.trim()) {
-                parts.push({ type: 'markdown', content: beforeIncomplete });
-            }
-
-            // Add incomplete code block with (Truncated) indicator
-            const codeContent = incompleteCodeMatch[2].trim();
-            if (codeContent) {
-                parts.push({
-                    type: 'code',
-                    language: incompleteCodeMatch[1] || 'code',
-                    content: codeContent,
-                });
-            }
-        } else if (remainingText.trim()) {
-            // No incomplete code block, just regular markdown
-            parts.push({ type: 'markdown', content: remainingText });
-        }
-
-        // If no parts found, return the whole text as markdown
-        if (parts.length === 0) {
-            parts.push({ type: 'markdown', content: text });
-        }
-
-        return parts;
     };
 
     const renderContent = () => {
-        const parts = parseMessageContent();
+        const parts = parseMessageContent(message.content.text || '');
 
         return (
             <MarkdownContent isUser={isUser}>
@@ -425,41 +293,14 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({ message, selectedE
                         const isTruncated = part.content?.endsWith('...');
 
                         return (
-                            <CodeBlockContainer key={key}>
-                                <CodeBlockHeader>
-                                    <CodeBlockLanguageLabel>{part.language?.toUpperCase()}</CodeBlockLanguageLabel>
-                                    <CopyButton
-                                        onClick={() => handleCopyCode(part.content || '', index)}
-                                        title={isCopied ? 'Copied!' : 'Copy code'}
-                                    >
-                                        {isCopied ? (
-                                            <>
-                                                <Check size={14} weight="bold" />
-                                                Copied
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Copy size={14} weight="regular" />
-                                                Copy
-                                            </>
-                                        )}
-                                    </CopyButton>
-                                </CodeBlockHeader>
-                                <CodeBlockContent>
-                                    <MDEditor.Markdown
-                                        source={`\`\`\`${part.language}\n${part.content}\n\`\`\``}
-                                        style={{ backgroundColor: 'transparent', color: 'inherit' }}
-                                    />
-                                </CodeBlockContent>
-                                {isTruncated && (
-                                    <TruncatedBanner>
-                                        <Warning size={16} weight="fill" color={colors.yellow[500]} />
-                                        <span>
-                                            The query exceeds the maximum length. Try generating something shorter.
-                                        </span>
-                                    </TruncatedBanner>
-                                )}
-                            </CodeBlockContainer>
+                            <CodeBlock
+                                key={key}
+                                language={part.language || 'code'}
+                                content={part.content}
+                                isTruncated={isTruncated}
+                                isCopied={isCopied}
+                                onCopy={() => handleCopyCode(part.content || '', index)}
+                            />
                         );
                     }
                     return (
@@ -481,13 +322,11 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({ message, selectedE
             <MessageContent isUser={isUser}>
                 <MessageBubble isUser={isUser}>{renderContent()}</MessageBubble>
                 {shouldShowReferences && (
-                    <>
-                        <MessageReferences
-                            messageText={message.content.text}
-                            selectedEntityUrn={selectedEntityUrn}
-                            onEntitySelect={onEntitySelect}
-                        />
-                    </>
+                    <MessageReferences
+                        messageText={message.content.text}
+                        selectedEntityUrn={selectedEntityUrn}
+                        onEntitySelect={onEntitySelect}
+                    />
                 )}
             </MessageContent>
         </MessageContainer>
