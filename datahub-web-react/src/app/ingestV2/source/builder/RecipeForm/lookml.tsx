@@ -74,15 +74,8 @@ export const LOOKML_GIT_INFO_REPO_SSH_LOCATOR: RecipeField = {
     label: 'Repository SSH Locator',
     tooltip: (
         <>
-            The SSH URL to clone the repository. Required for Git platforms other than GitHub and GitLab.
-            <div style={{ marginTop: 8 }}>
-                <strong>Examples:</strong>
-                <ul style={{ marginTop: 4, marginBottom: 0 }}>
-                    <li>GitHub: git@github.com:datahub-project/datahub.git</li>
-                    <li>GitLab: git@gitlab.com:gitlab-org/gitlab.git</li>
-                    <li>Other platforms: git@your-git-server.com:org/repo.git</li>
-                </ul>
-            </div>
+            The SSH URL to clone the repository. Required for Git platforms other than GitHub and GitLab (which are
+            auto-inferred). Example: git@your-git-server.com:org/repo.git
         </>
     ),
     type: FieldType.TEXT,

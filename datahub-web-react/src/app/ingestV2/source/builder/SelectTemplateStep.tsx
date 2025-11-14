@@ -1,5 +1,5 @@
 import { FormOutlined, SearchOutlined } from '@ant-design/icons';
-import { Input } from 'antd';
+import { Input, InputRef } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -102,7 +102,7 @@ export const SelectTemplateStep = ({
     const [searchFilter, setSearchFilter] = useState('');
 
     // Callback ref that focuses immediately when the element is attached
-    const searchInputCallbackRef = (node: any) => {
+    const searchInputCallbackRef = (node: InputRef | null) => {
         if (node) {
             node.focus();
         }
