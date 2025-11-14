@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Final, List, Optional
+from typing import TYPE_CHECKING, Dict, Final, List, Optional, TypedDict
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -18,6 +18,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+if TYPE_CHECKING:
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +59,15 @@ KNOWN_TOPIC_ROUTING_TRANSFORMS: Final[List[str]] = [
 DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER: Final[set] = {
     "io.debezium.connector.sqlserver.SqlServerConnector",
 }
+
+
+class FineGrainedLineageDict(TypedDict):
+    """Structure for fine-grained (column-level) lineage mappings."""
+
+    upstreamType: str
+    downstreamType: str
+    upstreams: List[str]
+    downstreams: List[str]
 
 
 class ConnectorConfigKeys:
@@ -129,10 +142,12 @@ class ConnectorConfigKeys:
 # - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source-v2.html
 # - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-sink.html
 # - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-sink.html
+# - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-source.html
 POSTGRES_CDC_SOURCE_CLOUD: Final[str] = "PostgresCdcSource"
 POSTGRES_CDC_SOURCE_V2_CLOUD: Final[str] = "PostgresCdcSourceV2"
 POSTGRES_SINK_CLOUD: Final[str] = "PostgresSink"
 SNOWFLAKE_SINK_CLOUD: Final[str] = "SnowflakeSink"
+SNOWFLAKE_SOURCE_CLOUD: Final[str] = "SnowflakeSource"
 MYSQL_SOURCE_CLOUD: Final[str] = "MySqlSource"
 MYSQL_CDC_SOURCE_CLOUD: Final[str] = "MySqlCdcSource"
 MYSQL_SINK_CLOUD: Final[str] = "MySqlSink"
@@ -257,6 +272,30 @@ class KafkaConnectSourceConfig(
         "This is the recommended approach for Confluent Cloud instead of manually constructing the full URI.",
     )
 
+    # Schema resolver configuration for enhanced lineage
+    use_schema_resolver: bool = Field(
+        default=False,
+        description="Use DataHub's schema metadata to enhance CDC connector lineage. "
+        "When enabled (requires DataHub graph connection): "
+        "1) Expands table patterns (e.g., 'database.*') to actual tables using DataHub metadata "
+        "2) Generates fine-grained column-level lineage for CDC sources/sinks. "
+        "Disabled by default to maintain backward compatibility.",
+    )
+
+    schema_resolver_expand_patterns: bool = Field(
+        default=True,
+        description="Enable table pattern expansion using DataHub schema metadata. "
+        "When use_schema_resolver=True, this controls whether to expand patterns like 'database.*' "
+        "to actual table names by querying DataHub. Only applies when use_schema_resolver is enabled.",
+    )
+
+    schema_resolver_finegrained_lineage: bool = Field(
+        default=True,
+        description="Enable fine-grained (column-level) lineage extraction using DataHub schema metadata. "
+        "When use_schema_resolver=True, this controls whether to generate column-level lineage "
+        "by matching schemas between source tables and Kafka topics. Only applies when use_schema_resolver is enabled.",
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @model_validator(mode="before")
@@ -359,6 +398,7 @@ class KafkaConnectLineage:
     target_platform: str
     job_property_bag: Optional[Dict[str, str]] = None
     source_dataset: Optional[str] = None
+    fine_grained_lineages: Optional[List[FineGrainedLineageDict]] = None
 
 
 @dataclass
@@ -373,26 +413,6 @@ class ConnectorManifest:
     flow_property_bag: Optional[Dict[str, str]] = None
     lineages: List[KafkaConnectLineage] = field(default_factory=list)
     topic_names: List[str] = field(default_factory=list)
-
-    def extract_lineages(
-        self, config: "KafkaConnectSourceConfig", report: "KafkaConnectSourceReport"
-    ) -> List[KafkaConnectLineage]:
-        """Extract lineages for this connector using connector registry."""
-        from datahub.ingestion.source.kafka_connect.connector_registry import (
-            ConnectorRegistry,
-        )
-
-        return ConnectorRegistry.extract_lineages(self, config, report)
-
-    def extract_flow_property_bag(
-        self, config: "KafkaConnectSourceConfig", report: "KafkaConnectSourceReport"
-    ) -> Optional[Dict[str, str]]:
-        """Extract flow property bag for this connector using connector registry."""
-        from datahub.ingestion.source.kafka_connect.connector_registry import (
-            ConnectorRegistry,
-        )
-
-        return ConnectorRegistry.extract_flow_property_bag(self, config, report)
 
     def get_topics_from_config(
         self, config: "KafkaConnectSourceConfig", report: "KafkaConnectSourceReport"
@@ -591,9 +611,13 @@ def get_platform_instance(
             )
     elif config.platform_instance_map and config.platform_instance_map.get(platform):
         instance_name = config.platform_instance_map[platform]
-    logger.info(
-        f"Instance name assigned is: {instance_name} for Connector Name {connector_name} and platform {platform}"
-    )
+
+    # Only log when a platform instance is actually assigned (non-None)
+    if instance_name:
+        logger.debug(
+            f"Platform instance '{instance_name}' assigned for connector '{connector_name}' platform '{platform}'"
+        )
+
     return instance_name
 
 
@@ -632,6 +656,7 @@ class BaseConnector:
     connector_manifest: ConnectorManifest
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
+    schema_resolver: Optional["SchemaResolver"] = None
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         """Extract lineage mappings for this connector. Override in subclasses."""
@@ -650,10 +675,213 @@ class BaseConnector:
         """Check if this connector handles the given class. Override in subclasses."""
         return False
 
-    @staticmethod
-    def get_platform(connector_class: str) -> str:
-        """Get the platform for this connector type. Override in subclasses."""
+    def get_platform(self) -> str:
+        """Get the platform for this connector instance. Override in subclasses."""
         return "unknown"
+
+    def _apply_replace_field_transform(
+        self, source_columns: List[str]
+    ) -> Dict[str, Optional[str]]:
+        """
+        Apply ReplaceField SMT transformations to column mappings.
+
+        ReplaceField transform can filter, rename, or drop fields:
+        - include: Keep only specified fields (all others dropped)
+        - exclude: Drop specified fields (all others kept)
+        - rename: Rename fields using from:to format
+
+        Reference: https://docs.confluent.io/platform/current/connect/transforms/replacefield.html
+
+        Args:
+            source_columns: List of source column names
+
+        Returns:
+            Dictionary mapping source column -> target column name (None if dropped)
+        """
+        # Parse transforms from connector config
+        transforms_config = self.connector_manifest.config.get("transforms", "")
+        if not transforms_config:
+            # No transforms - return 1:1 mapping
+            return {col: col for col in source_columns}
+
+        transform_names = parse_comma_separated_list(transforms_config)
+
+        # Build column mapping (source -> target, None means dropped)
+        column_mapping: Dict[str, Optional[str]] = {col: col for col in source_columns}
+
+        # Apply each ReplaceField transform in order
+        for transform_name in transform_names:
+            transform_type = self.connector_manifest.config.get(
+                f"transforms.{transform_name}.type", ""
+            )
+
+            # Check if this is a ReplaceField$Value transform
+            # We only support Value transforms since those affect the column data
+            if (
+                transform_type
+                != "org.apache.kafka.connect.transforms.ReplaceField$Value"
+            ):
+                continue
+
+            # Get transform configuration
+            include_config = self.connector_manifest.config.get(
+                f"transforms.{transform_name}.include", ""
+            )
+            exclude_config = self.connector_manifest.config.get(
+                f"transforms.{transform_name}.exclude", ""
+            )
+            rename_config = self.connector_manifest.config.get(
+                f"transforms.{transform_name}.renames", ""
+            )
+
+            # Apply include filter (keep only specified fields)
+            if include_config:
+                include_fields = set(parse_comma_separated_list(include_config))
+                for col in list(column_mapping.keys()):
+                    if column_mapping[col] not in include_fields:
+                        column_mapping[col] = None
+
+            # Apply exclude filter (drop specified fields)
+            if exclude_config:
+                exclude_fields = set(parse_comma_separated_list(exclude_config))
+                for col in list(column_mapping.keys()):
+                    if column_mapping[col] in exclude_fields:
+                        column_mapping[col] = None
+
+            # Apply renames (format: "from:to,from2:to2")
+            if rename_config:
+                rename_pairs = parse_comma_separated_list(rename_config)
+                rename_map = {}
+                for pair in rename_pairs:
+                    if ":" in pair:
+                        from_field, to_field = pair.split(":", 1)
+                        rename_map[from_field.strip()] = to_field.strip()
+
+                # Apply renames to the column mapping
+                for col in list(column_mapping.keys()):
+                    current_name = column_mapping[col]
+                    if current_name and current_name in rename_map:
+                        column_mapping[col] = rename_map[current_name]
+
+        return column_mapping
+
+    def _extract_fine_grained_lineage(
+        self,
+        source_dataset: str,
+        source_platform: str,
+        target_dataset: str,
+        target_platform: str = "kafka",
+    ) -> Optional[List[FineGrainedLineageDict]]:
+        """
+        Extract column-level lineage using schema metadata from DataHub.
+
+        This unified implementation works for all source connectors that preserve
+        column names in a 1:1 mapping (e.g., CDC connectors, JDBC polling connectors).
+
+        Args:
+            source_dataset: Source table name (e.g., "database.schema.table")
+            source_platform: Source platform (e.g., "postgres", "snowflake", "mysql")
+            target_dataset: Target Kafka topic name
+            target_platform: Target platform (default: "kafka")
+
+        Returns:
+            List of fine-grained lineage dictionaries or None if not available
+        """
+        # Check if feature is enabled
+        if not self.config.use_schema_resolver:
+            return None
+        if not self.config.schema_resolver_finegrained_lineage:
+            return None
+        if not self.schema_resolver:
+            return None
+
+        try:
+            from datahub.emitter.mce_builder import make_schema_field_urn
+            from datahub.sql_parsing._models import _TableName
+            from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+            # Build source table reference
+            source_table = _TableName(
+                database=None, db_schema=None, table=source_dataset
+            )
+
+            # Resolve source table schema from DataHub
+            source_urn_str, source_schema = self.schema_resolver.resolve_table(
+                source_table
+            )
+
+            if not source_schema:
+                logger.debug(
+                    f"No schema metadata found in DataHub for {source_platform} table {source_dataset}"
+                )
+                return None
+
+            # Build target URN using DatasetUrn helper with correct target platform
+            target_urn = DatasetUrn.create_from_ids(
+                platform_id=target_platform,
+                table_name=target_dataset,
+                env=self.config.env,
+            )
+
+            # Apply ReplaceField transforms to column mappings
+            # source_schema is Dict[str, str] mapping column names to types
+            column_mapping = self._apply_replace_field_transform(
+                list(source_schema.keys())
+            )
+
+            # Create fine-grained lineage for each source column
+            fine_grained_lineages: List[FineGrainedLineageDict] = []
+
+            for source_col in source_schema:
+                target_col = column_mapping.get(source_col)
+
+                # Skip if field was dropped by ReplaceField transform
+                if target_col is None:
+                    logger.debug(
+                        f"Skipping column '{source_col}' - dropped by ReplaceField transform"
+                    )
+                    continue
+
+                fine_grained_lineage: FineGrainedLineageDict = {
+                    "upstreamType": "FIELD_SET",
+                    "downstreamType": "FIELD",
+                    "upstreams": [make_schema_field_urn(source_urn_str, source_col)],
+                    "downstreams": [make_schema_field_urn(str(target_urn), target_col)],
+                }
+                fine_grained_lineages.append(fine_grained_lineage)
+
+            if fine_grained_lineages:
+                logger.info(
+                    f"Generated {len(fine_grained_lineages)} fine-grained lineages "
+                    f"for {source_platform} table {source_dataset} → {target_dataset}"
+                )
+                return fine_grained_lineages
+
+        except Exception as e:
+            logger.debug(
+                f"Failed to extract fine-grained lineage for "
+                f"{source_dataset} → {target_dataset}: {e}"
+            )
+
+        return None
+
+    def _extract_table_name_from_urn(self, urn: str) -> Optional[str]:
+        """
+        Extract table name from DataHub URN using standard DatasetUrn parser.
+
+        Args:
+            urn: DataHub dataset URN
+                Format: urn:li:dataset:(urn:li:dataPlatform:platform,table_name,ENV)
+                Example: urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)
+
+        Returns:
+            Extracted table name (e.g., "database.schema.table") or None if parsing fails
+        """
+        try:
+            return DatasetUrn.from_string(urn).name
+        except Exception as e:
+            logger.debug(f"Failed to extract table name from URN {urn}: {e}")
+            return None
 
 
 # Removed: TopicResolver and ConnectorTopicHandlerRegistry - logic moved directly to BaseConnector subclasses

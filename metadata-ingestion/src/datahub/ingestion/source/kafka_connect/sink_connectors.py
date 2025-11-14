@@ -139,6 +139,10 @@ class ConfluentS3SinkConnector(BaseConnector):
 
         return []
 
+    def get_platform(self) -> str:
+        """Get the platform for S3 Sink connector."""
+        return "s3"
+
 
 @dataclass
 class SnowflakeSinkConnector(BaseConnector):
@@ -251,16 +255,30 @@ class SnowflakeSinkConnector(BaseConnector):
 
         for topic, table in parser.topics_to_tables.items():
             target_dataset: str = f"{parser.database_name}.{parser.schema_name}.{table}"
+
+            # Extract column-level lineage if enabled (uses base class method)
+            fine_grained = self._extract_fine_grained_lineage(
+                source_dataset=topic,
+                source_platform=KAFKA,
+                target_dataset=target_dataset,
+                target_platform="snowflake",
+            )
+
             lineages.append(
                 KafkaConnectLineage(
                     source_dataset=topic,
                     source_platform=KAFKA,
                     target_dataset=target_dataset,
                     target_platform="snowflake",
+                    fine_grained_lineages=fine_grained,
                 )
             )
 
         return lineages
+
+    def get_platform(self) -> str:
+        """Get the platform for Snowflake Sink connector."""
+        return "snowflake"
 
 
 @dataclass
@@ -465,15 +483,28 @@ class BigQuerySinkConnector(BaseConnector):
                 continue
             target_dataset: str = f"{project}.{dataset_table}"
 
+            # Extract column-level lineage if enabled (uses base class method)
+            fine_grained = self._extract_fine_grained_lineage(
+                source_dataset=original_topic,
+                source_platform=KAFKA,
+                target_dataset=target_dataset,
+                target_platform=target_platform,
+            )
+
             lineages.append(
                 KafkaConnectLineage(
                     source_dataset=original_topic,  # Keep original topic as source
                     source_platform=KAFKA,
                     target_dataset=target_dataset,
                     target_platform=target_platform,
+                    fine_grained_lineages=fine_grained,
                 )
             )
         return lineages
+
+    def get_platform(self) -> str:
+        """Get the platform for BigQuery Sink connector."""
+        return "bigquery"
 
 
 @dataclass
@@ -881,12 +912,21 @@ class JdbcSinkConnector(BaseConnector):
                     # Platform doesn't use schemas: database.table
                     target_dataset = get_dataset_name(parser.database_name, table_name)
 
+                # Extract column-level lineage if enabled (uses base class method)
+                fine_grained = self._extract_fine_grained_lineage(
+                    source_dataset=original_topic,
+                    source_platform=KAFKA,
+                    target_dataset=target_dataset,
+                    target_platform=parser.target_platform,
+                )
+
                 lineages.append(
                     KafkaConnectLineage(
                         source_dataset=original_topic,
                         source_platform=KAFKA,
                         target_dataset=target_dataset,
                         target_platform=parser.target_platform,
+                        fine_grained_lineages=fine_grained,
                     )
                 )
 
@@ -910,6 +950,10 @@ class JdbcSinkConnector(BaseConnector):
                 exc=e,
             )
             return []
+
+    def get_platform(self) -> str:
+        """Get the platform for JDBC Sink connector."""
+        return self.platform
 
 
 BIGQUERY_SINK_CONNECTOR_CLASS: Final[str] = (

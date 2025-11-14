@@ -189,6 +189,37 @@ class ComplexTransformPlugin(TransformPlugin):
         return False  # Complex transforms require explicit user configuration
 
 
+class ReplaceFieldPlugin(TransformPlugin):
+    """
+    Plugin for ReplaceField transforms.
+
+    ReplaceField transforms only affect message field names (include/exclude/rename),
+    not topic names, so they're a no-op for topic transformation but need to be
+    registered as known transforms to avoid warnings.
+    """
+
+    SUPPORTED_TYPES = {
+        "org.apache.kafka.connect.transforms.ReplaceField$Value",
+        "org.apache.kafka.connect.transforms.ReplaceField$Key",
+    }
+
+    @classmethod
+    def supports_transform_type(cls, transform_type: str) -> bool:
+        return transform_type in cls.SUPPORTED_TYPES
+
+    def apply_forward(self, topics: List[str], config: TransformConfig) -> List[str]:
+        """ReplaceField doesn't affect topic names, only field names within messages."""
+        return topics
+
+    def apply_reverse(self, topics: List[str], config: TransformConfig) -> List[str]:
+        """ReplaceField doesn't affect topic names, only field names within messages."""
+        return topics
+
+    @classmethod
+    def should_apply_automatically(cls) -> bool:
+        return True  # Safe to apply automatically - it's a no-op for topic names
+
+
 class TransformPluginRegistry:
     """Registry for transform plugins."""
 
@@ -200,6 +231,7 @@ class TransformPluginRegistry:
         """Register default transform plugins."""
         self.register(RegexRouterPlugin())
         self.register(ComplexTransformPlugin())
+        self.register(ReplaceFieldPlugin())
 
     def register(self, plugin: TransformPlugin) -> None:
         """Register a transform plugin."""

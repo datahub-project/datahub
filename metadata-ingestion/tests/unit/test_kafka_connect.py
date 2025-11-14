@@ -31,6 +31,16 @@ from datahub.ingestion.source.kafka_connect.transform_plugins import (
 logger = logging.getLogger(__name__)
 
 
+def create_mock_kafka_connect_config() -> Mock:
+    """Helper to create a properly configured KafkaConnectSourceConfig mock."""
+    config = Mock(spec=KafkaConnectSourceConfig)
+    config.use_schema_resolver = False
+    config.schema_resolver_expand_patterns = True
+    config.schema_resolver_finegrained_lineage = True
+    config.env = "PROD"
+    return config
+
+
 @pytest.fixture(scope="session", autouse=True)
 def ensure_jvm_started():
     """Ensure JVM is started for all tests requiring Java regex."""
@@ -188,7 +198,10 @@ class TestBigQuerySinkConnector:
 
     def create_mock_dependencies(self) -> Tuple[Mock, Mock]:
         """Helper to create mock dependencies."""
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
+        config.use_schema_resolver = False
+        config.schema_resolver_expand_patterns = True
+        config.schema_resolver_finegrained_lineage = True
         report: Mock = Mock(spec=KafkaConnectSourceReport)
         return config, report
 
@@ -301,7 +314,7 @@ class TestS3SinkConnector:
         }
 
         manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentS3SinkConnector = ConfluentS3SinkConnector(
@@ -349,7 +362,7 @@ class TestBigquerySinkConnector:
         }
 
         manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: BigQuerySinkConnector = BigQuerySinkConnector(
@@ -394,7 +407,7 @@ class TestSnowflakeSinkConnector:
         }
 
         manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: SnowflakeSinkConnector = SnowflakeSinkConnector(
@@ -444,7 +457,7 @@ class TestJDBCSourceConnector:
         }
 
         manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -488,7 +501,7 @@ class TestIntegration:
             topic_names=["raw_users_data", "raw_orders_data", "other_topic"],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: BigQuerySinkConnector = BigQuerySinkConnector(
@@ -536,7 +549,7 @@ class TestIntegration:
             topic_names=["test-topic"],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         # Should not raise an exception
@@ -576,7 +589,7 @@ class TestMongoSourceConnector:
         }
 
         manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: MongoSourceConnector = MongoSourceConnector(manifest, config, report)
@@ -627,7 +640,7 @@ class TestConfluentCloudConnectors:
         }
 
         manifest: ConnectorManifest = self.create_platform_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -667,7 +680,7 @@ class TestConfluentCloudConnectors:
         }
 
         manifest: ConnectorManifest = self.create_cloud_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -716,7 +729,7 @@ class TestConfluentCloudConnectors:
             ],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -755,7 +768,7 @@ class TestConfluentCloudConnectors:
             topic_names=["cloud_server.public.cloud_table"],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -791,7 +804,7 @@ class TestConfluentCloudConnectors:
             topic_names=[],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -847,7 +860,7 @@ class TestConfluentCloudConnectors:
             topic_names=["db-server.public.users"],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         # Test Platform connector
@@ -918,7 +931,7 @@ class TestFullConnectorConfigValidation:
             topic_names=topic_names,
         )
 
-        mock_config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        mock_config: Mock = create_mock_kafka_connect_config()
         mock_report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -2984,7 +2997,7 @@ class TestFlowPropertyBag:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3098,7 +3111,7 @@ class TestDebeziumConnectors:
             topic_names=["myserver.public.users", "myserver.public.orders"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = DebeziumSourceConnector(manifest, config, report)
 
@@ -3139,7 +3152,7 @@ class TestDebeziumConnectors:
             ],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = DebeziumSourceConnector(manifest, config, report)
 
@@ -3172,7 +3185,7 @@ class TestDebeziumConnectors:
             topic_names=["sqlserver.mydb.dbo.customers"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = DebeziumSourceConnector(manifest, config, report)
 
@@ -3205,7 +3218,7 @@ class TestDebeziumConnectors:
             topic_names=["my-prefix.public.events"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = DebeziumSourceConnector(manifest, config, report)
 
@@ -3235,7 +3248,7 @@ class TestErrorHandling:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3258,7 +3271,7 @@ class TestErrorHandling:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3282,7 +3295,7 @@ class TestErrorHandling:
             topic_names=["custom_topic"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3309,7 +3322,7 @@ class TestErrorHandling:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3343,7 +3356,7 @@ class TestInferMappings:
             topic_names=["users_topic"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3373,7 +3386,7 @@ class TestInferMappings:
             topic_names=["db_products", "db_customers", "db_orders"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3408,7 +3421,7 @@ class TestInferMappings:
             topic_names=["staging_events", "staging_logs"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3440,7 +3453,7 @@ class TestInferMappings:
             topic_names=["public.users", "analytics.events"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3469,7 +3482,7 @@ class TestInferMappings:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3495,7 +3508,7 @@ class TestInferMappings:
             topic_names=["test_topic"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3527,7 +3540,7 @@ class TestCloudEnvironmentEdgeCases:
             topic_names=[],  # No topics available
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3559,7 +3572,7 @@ class TestCloudEnvironmentEdgeCases:
             topic_names=["transformed"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3603,7 +3616,7 @@ class TestCloudEnvironmentEdgeCases:
             topic_names=["topic1"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
 
         # Both should work but use different extraction logic
@@ -3637,7 +3650,7 @@ class TestPlatformDetection:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3661,7 +3674,7 @@ class TestPlatformDetection:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3685,7 +3698,7 @@ class TestPlatformDetection:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3709,7 +3722,7 @@ class TestPlatformDetection:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3731,7 +3744,7 @@ class TestPlatformDetection:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
