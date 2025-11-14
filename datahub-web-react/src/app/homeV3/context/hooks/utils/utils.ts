@@ -1,6 +1,7 @@
 import {
     ASSETS_MODULE,
     CHILD_HIERARCHY_MODULE,
+    COLUMNS_MODULE,
     DATA_PRODUCTS_MODULE,
     RELATED_TERMS_MODULE,
 } from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
@@ -36,6 +37,7 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             summaryElements = [CREATED, OWNERS];
             break;
         case EntityType.Dataset:
+            rows = [{ modules: [COLUMNS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         default:
