@@ -95,6 +95,18 @@ public class ConfluentSchemaRegistryCleanupPolicyStepTest {
   }
 
   @Test
+  public void testSkipWhenApplySchemaRegistryCleanupPolicyDisabled() {
+    // Set applySchemaRegistryCleanupPolicy to false
+    kafkaConfiguration.getSetup().setApplySchemaRegistryCleanupPolicy(false);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    UpgradeStepResult result = step.executable().apply(mockContext);
+
+    assertNotNull(result);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+  }
+
+  @Test
   public void testSuccessfulCleanupPolicyConfiguration() throws Exception {
     // Create spy to mock the createAdminClient method
     ConfluentSchemaRegistryCleanupPolicyStep spyStep = spy(step);

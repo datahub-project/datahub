@@ -62,6 +62,13 @@ public class ConfluentSchemaRegistryCleanupPolicyStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
       }
 
+      // Check if cleanup policy application is enabled
+      if (!_kafkaConfiguration.getSetup().isApplySchemaRegistryCleanupPolicy()) {
+        log.info(
+            "Skipping Confluent Schema Registry cleanup policy configuration - applySchemaRegistryCleanupPolicy is disabled");
+        return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
+      }
+
       try {
         // Create AdminClient using AdminClientFactory
         AdminClient adminClient = createAdminClient();
