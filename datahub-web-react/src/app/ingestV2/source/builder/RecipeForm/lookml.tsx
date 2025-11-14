@@ -91,10 +91,10 @@ export const LOOKML_GIT_INFO_REPO_SSH_LOCATOR: RecipeField = {
                 // If it starts with git@, it must be explicitly github.com or gitlab.com
                 const isGitHubSSH = repo.startsWith('git@github.com:');
                 const isGitLabSSH = repo.startsWith('git@gitlab.com:');
-                
+
                 // Check for other SSH formats (git@custom-server.com:...) - these are NOT GitHub/GitLab
                 const isOtherSSH = repo.startsWith('git@') && !isGitHubSSH && !isGitLabSSH;
-                
+
                 const isGitHub =
                     repo.toLowerCase().includes('github.com') ||
                     (!repo.includes('://') && !repo.startsWith('git@') && repo.split('/').length === 2) ||
