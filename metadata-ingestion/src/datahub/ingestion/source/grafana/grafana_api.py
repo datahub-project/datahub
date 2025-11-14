@@ -23,11 +23,13 @@ class GrafanaAPIClient:
         verify_ssl: bool,
         page_size: int,
         report: GrafanaSourceReport,
+        skip_text_panels: bool = False,
     ) -> None:
         self.base_url = base_url
         self.verify_ssl = verify_ssl
         self.page_size = page_size
         self.report = report
+        self.skip_text_panels = skip_text_panels
         self.session = self._create_session(token)
 
     def _create_session(self, token: SecretStr) -> requests.Session:
@@ -88,7 +90,10 @@ class GrafanaAPIClient:
         try:
             response = self.session.get(f"{self.base_url}/api/dashboards/uid/{uid}")
             response.raise_for_status()
-            return Dashboard.model_validate(response.json())
+            dashboard_data = response.json()
+            if self.skip_text_panels:
+                dashboard_data["_skip_text_panels"] = True
+            return Dashboard.model_validate(dashboard_data)
         except requests.exceptions.RequestException as e:
             self.report.warning(
                 title="Dashboard Fetch Error",

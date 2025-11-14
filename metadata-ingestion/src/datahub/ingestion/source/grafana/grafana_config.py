@@ -80,6 +80,11 @@ class GrafanaSourceConfig(
     ingest_owners: bool = Field(
         default=True, description="Whether to ingest dashboard ownership information"
     )
+    skip_text_panels: bool = Field(
+        default=False,
+        description="Whether to skip text panels during ingestion. "
+        "Text panels don't contain data visualizations and may not be relevant for data lineage.",
+    )
 
     include_lineage: bool = Field(
         default=True,
