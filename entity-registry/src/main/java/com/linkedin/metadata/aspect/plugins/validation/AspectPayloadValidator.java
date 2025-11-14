@@ -23,12 +23,34 @@ public abstract class AspectPayloadValidator extends PluginSpec {
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext,
       @Nullable AuthorizationSession session) {
-    return validateProposedAspects(
+    // Keep original batch for cross-aspect lookups (e.g., domain lookups in
+    // getEntityDomainsFromBatchOrDB)
+    Collection<? extends BatchItem> originalBatch = mcpItems;
+
+    // Filter to only items this validator should actually process
+    // Domains are NOT included here - they're only used for lookups via originalBatch
+    Collection<? extends BatchItem> filteredBatch =
         mcpItems.stream()
             .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectName()))
-            .collect(Collectors.toList()),
-        retrieverContext,
-        session);
+            .collect(Collectors.toList());
+
+    return validateProposedAspectsWithOriginalBatch(
+        filteredBatch, originalBatch, retrieverContext, session);
+  }
+
+  /**
+   * Validate aspects with access to both filtered and original batch. The filtered batch contains
+   * only aspects this validator should process. The original batch contains ALL aspects for
+   * cross-aspect lookups (e.g., domain lookups).
+   *
+   * <p>Default implementation delegates to existing method for backward compatibility.
+   */
+  protected Stream<AspectValidationException> validateProposedAspectsWithOriginalBatch(
+      @Nonnull Collection<? extends BatchItem> filteredBatch,
+      @Nonnull Collection<? extends BatchItem> originalBatch,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
+    return validateProposedAspects(filteredBatch, retrieverContext, session);
   }
 
   /**

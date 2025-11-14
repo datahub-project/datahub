@@ -50,6 +50,7 @@ import org.apache.commons.collections4.map.HashedMap;
 public class PolicyEngine {
 
   private final EntityClient _entityClient;
+  private final boolean domainBasedAuthorizationEnabled;
 
   public PolicyEvaluationResult evaluatePolicy(
       @Nonnull OperationContext opContext,
@@ -101,7 +102,7 @@ public class PolicyEngine {
       if (actorFilter.isAllUsers()) {
         allUsers = true;
       }
-      if (actorFilter.isAllUsers()) {
+      if (actorFilter.isAllGroups()) {
         allGroups = true;
       }
 
@@ -140,7 +141,8 @@ public class PolicyEngine {
     }
 
     // If the resource is not in scope, deny the request.
-    if (!isResourceMatch(policy.getType(), policy.getResources(), resource)) {
+    // Pass subResources for fallback when resource is empty (e.g., entity creation)
+    if (!isResourceMatch(policy.getType(), policy.getResources(), resource, subResources)) {
       return new PolicyEvaluationResult(policy.getDisplayName(), false, "Resource does not match");
     }
 
@@ -188,6 +190,7 @@ public class PolicyEngine {
    */
   public Boolean policyMatchesResource(
       final DataHubPolicyInfo policy, final Optional<ResolvedEntitySpec> resourceSpec) {
+    // Pass empty list since this public method doesn't have access to subResources
     return isResourceMatch(policy.getType(), policy.getResources(), resourceSpec);
   }
 
@@ -224,6 +227,164 @@ public class PolicyEngine {
     return checkFilter(filter, requestResource.get());
   }
 
+  /**
+   * Checks if a resource matches policy criteria, with domain fallback support.
+   *
+   * <p>Standard case: Use the entity's own domain for authorization.
+   *
+   * <p>Fallback case: If the entity has no domain but domains are provided in subResources, use
+   * those subResource domains instead. This enables authorization during entity creation when the
+   * domain is being assigned for the first time.
+   */
+  private boolean isResourceMatch(
+      final String policyType,
+      final @Nullable DataHubResourceFilter policyResourceFilter,
+      final Optional<ResolvedEntitySpec> requestResource,
+      final List<ResolvedEntitySpec> subResources) {
+
+    // Early exits for simple cases
+    if (PoliciesConfig.PLATFORM_POLICY_TYPE.equals(policyType)) {
+      return true;
+    }
+    if (policyResourceFilter == null) {
+      log.debug("No resource defined on the policy.");
+      return true;
+    }
+    if (requestResource.isEmpty()) {
+      log.debug("Resource filter present in policy, but no resource spec provided.");
+      return false;
+    }
+
+    final PolicyMatchFilter filter = getFilter(policyResourceFilter);
+    final ResolvedEntitySpec resource = requestResource.get();
+
+    // Determine if we should use UNION logic (resource + subResource domains)
+    if (shouldUseSubResourceDomains(resource, filter, subResources)) {
+      return validateUsingSubResourceDomains(filter, resource, subResources);
+    }
+
+    // Standard case: validate resource against filter
+    return checkFilter(filter, resource);
+  }
+
+  /**
+   * Determines if UNION logic should be applied for domain validation.
+   *
+   * <p>Conditions for UNION logic: 1. Resource has NO domain metadata (empty domain field) 2.
+   * Policy HAS domain criteria (requires domain filtering) 3. Domain subResources are provided
+   * (domain being assigned)
+   *
+   * @return true if should use subResource domains instead of resource's domain
+   */
+  private boolean shouldUseSubResourceDomains(
+      ResolvedEntitySpec resource,
+      PolicyMatchFilter filter,
+      List<ResolvedEntitySpec> subResources) {
+
+    // If domain-based authorization is disabled, never use subResource domains
+    if (!domainBasedAuthorizationEnabled) {
+      log.debug("Domain-based authorization is DISABLED - skipping subResource domain logic");
+      return false;
+    }
+
+    // Condition 1: Resource must have NO domain
+    if (!resource.getFieldValues(EntityFieldType.DOMAIN).isEmpty()) {
+      return false;
+    }
+
+    // Condition 2: Policy must have domain criteria
+    if (filter.getCriteria().stream()
+        .noneMatch(criterion -> EntityFieldType.DOMAIN.name().equals(criterion.getField()))) {
+      return false;
+    }
+
+    // Condition 3: Domain subResources must exist
+    boolean hasDomainSubResources =
+        subResources.stream()
+            .anyMatch(subResource -> "domain".equals(subResource.getSpec().getType()));
+
+    if (hasDomainSubResources) {
+      log.debug(
+          "Using subResource domains for authorization (resource has no domain but subResources have domains)");
+    }
+
+    return hasDomainSubResources;
+  }
+
+  /**
+   * Validates resource using UNION logic: resource's non-domain criteria + subResource's domains.
+   *
+   * <p>Validation Process: 1. Validate all NON-domain criteria against the resource 2. Validate
+   * domain criteria against domain subResources 3. Both must pass for overall success
+   *
+   * @return true if resource passes non-domain checks AND domain subResources pass domain checks
+   */
+  private boolean validateUsingSubResourceDomains(
+      PolicyMatchFilter filter,
+      ResolvedEntitySpec resource,
+      List<ResolvedEntitySpec> subResources) {
+
+    // Validate non-domain criteria against resource
+    boolean nonDomainMatch =
+        filter.getCriteria().stream()
+            .filter(criterion -> !EntityFieldType.DOMAIN.name().equals(criterion.getField()))
+            .allMatch(criterion -> checkCriterion(criterion, resource));
+
+    if (!nonDomainMatch) {
+      return false;
+    }
+
+    // Validate domain criteria against domain subResources
+    return validateDomainsInSubResources(filter, subResources);
+  }
+
+  /**
+   * Helper method to extract domain criteria from a policy filter.
+   *
+   * @param filter The policy match filter
+   * @return List of domain criteria, empty if none exist
+   */
+  private List<PolicyMatchCriterion> extractDomainCriteria(PolicyMatchFilter filter) {
+    return filter.getCriteria().stream()
+        .filter(criterion -> EntityFieldType.DOMAIN.name().equals(criterion.getField()))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Helper method to extract domain subResources from a list of subResources.
+   *
+   * @param subResources All subResources
+   * @return List of domain subResources, empty if none exist
+   */
+  private List<ResolvedEntitySpec> extractDomainSubResources(
+      List<ResolvedEntitySpec> subResources) {
+    return subResources.stream()
+        .filter(subResource -> "domain".equals(subResource.getSpec().getType()))
+        .collect(Collectors.toList());
+  }
+
+  /** Validates that domain subResources match policy's domain criteria. */
+  private boolean validateDomainsInSubResources(
+      PolicyMatchFilter filter, List<ResolvedEntitySpec> subResources) {
+    List<PolicyMatchCriterion> domainCriteria = extractDomainCriteria(filter);
+    List<ResolvedEntitySpec> domainSubResources = extractDomainSubResources(subResources);
+
+    if (domainCriteria.isEmpty() || domainSubResources.isEmpty()) {
+      return true;
+    }
+
+    return domainCriteria.stream()
+        .allMatch(
+            criterion ->
+                domainSubResources.stream()
+                    .allMatch(
+                        subResource -> {
+                          String domainUrn = subResource.getSpec().getEntity();
+                          return WILDCARD_URN.toString().equals(domainUrn)
+                              || criterion.getValues().contains(domainUrn);
+                        }));
+  }
+
   private boolean isSubResourceAllowed(
       final @Nullable DataHubResourceFilter policyResourceFilter,
       final List<ResolvedEntitySpec> subResources) {
@@ -235,15 +396,33 @@ public class PolicyEngine {
       log.debug("No subresources to evaluate.");
       return true;
     }
+
+    // Check privilege constraints (e.g., which tags can be modified)
+    // Exclude domain subResources from privilege constraints check as they are validated separately
     if (policyResourceFilter.getPrivilegeConstraints() != null) {
       PolicyMatchFilter filter = policyResourceFilter.getPrivilegeConstraints();
-      return subResources.stream()
-          .allMatch(
-              subResource ->
-                  WILDCARD_URN.toString().equals(subResource.getSpec().getEntity())
-                      || checkFilter(filter, subResource));
+      boolean privilegeConstraintsMatch =
+          subResources.stream()
+              .filter(subResource -> !"domain".equals(subResource.getSpec().getType()))
+              .allMatch(
+                  subResource ->
+                      WILDCARD_URN.toString().equals(subResource.getSpec().getEntity())
+                          || checkFilter(filter, subResource));
+      if (!privilegeConstraintsMatch) {
+        return false;
+      }
     }
-    log.debug("No modification constraints specified.");
+
+    // Domain-based authorization: Only validate if feature is enabled
+    if (domainBasedAuthorizationEnabled) {
+      log.debug("Domain-based authorization is ENABLED - validating domains in subResources");
+      PolicyMatchFilter mainFilter = getFilter(policyResourceFilter);
+      return validateDomainsInSubResources(mainFilter, subResources);
+    } else {
+      log.debug(
+          "Domain-based authorization is DISABLED - skipping domain validation in subResources");
+    }
+
     return true;
   }
 
@@ -280,6 +459,7 @@ public class PolicyEngine {
   private boolean checkCriterion(
       final PolicyMatchCriterion criterion, final ResolvedEntitySpec resource) {
     EntityFieldType entityFieldType;
+
     try {
       entityFieldType = EntityFieldType.valueOf(criterion.getField().toUpperCase());
     } catch (IllegalArgumentException e) {
@@ -288,6 +468,12 @@ public class PolicyEngine {
     }
 
     Set<String> fieldValues = resource.getFieldValues(entityFieldType);
+    log.info(
+        "checkCriterion for {} {} {} {}",
+        fieldValues,
+        criterion.getValues(),
+        criterion.getCondition(),
+        resource);
     return checkCondition(fieldValues, criterion.getValues(), criterion.getCondition());
   }
 
