@@ -223,7 +223,28 @@ class ApiWorkUnit(MetadataWorkUnit):
 @platform_name("OpenAPI", id="openapi")
 @config_class(OpenApiConfig)
 @support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.PLATFORM_INSTANCE, supported=False, description="")
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Extracts schemas from OpenAPI specifications for GET, POST, PUT, and PATCH methods",
+)
+@capability(
+    SourceCapability.DESCRIPTIONS,
+    "Extracts endpoint descriptions and summaries from OpenAPI specifications",
+)
+@capability(
+    SourceCapability.TAGS,
+    "Extracts tags from OpenAPI specifications",
+)
+@capability(
+    SourceCapability.OWNERSHIP,
+    "Does not currently support extracting ownership",
+    supported=False,
+)
+@capability(
+    SourceCapability.DOMAINS,
+    "Does not currently support domain assignment",
+    supported=False,
+)
 class APISource(Source, ABC):
     """
 

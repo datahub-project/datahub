@@ -91,10 +91,6 @@ If you want to enable live API calls for schema extraction (`enable_api_calls_fo
 Authentication is only required if you want to enable live API calls. Schema extraction from the OpenAPI specification itself does not require authentication.
 :::
 
-## Config Details
-
-\* At least one authentication method is required if `enable_api_calls_for_schema_extraction=True`
-
 ### Authentication Methods
 
 #### Bearer Token
