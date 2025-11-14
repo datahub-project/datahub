@@ -28,6 +28,7 @@ from datahub.ingestion.extractor.json_schema_util import (
 )
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.openapi_parser import (
+    SCHEMA_EXTRACTABLE_METHODS,
     clean_url,
     compose_url_attr,
     extract_fields,
@@ -352,8 +353,8 @@ class APISource(Source, ABC):
                 return get_schema_from_response(schema, sw_dict)
 
             return None
-        except Exception as e:
-            logger.warning(f"Error extracting response schema: {str(e)}")
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Error extracting response schema: {str(e)}", exc_info=True)
             return None
 
     def extract_request_schema_from_endpoint(
@@ -402,8 +403,8 @@ class APISource(Source, ABC):
         """Extract schema from GET, POST, PUT, PATCH methods for an endpoint."""
         path_spec = sw_dict["paths"].get(endpoint_k, {})
 
-        # Focus on the four main HTTP methods
-        methods = ["get", "post", "put", "patch"]
+        # Focus on the HTTP methods that can provide useful schemas
+        methods = SCHEMA_EXTRACTABLE_METHODS
 
         for method in methods:
             method_spec = path_spec.get(method, {})

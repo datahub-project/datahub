@@ -20,6 +20,13 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
+# HTTP methods that can provide useful schemas for extraction
+# Priority order matches schema extraction precedence in APISource.extract_schema_from_all_methods
+SCHEMA_EXTRACTABLE_METHODS = ["get", "post", "put", "patch"]
+
+# HTTP methods that typically don't provide useful schemas
+OTHER_HTTP_METHODS = ["delete", "options", "head"]
+
 
 def flatten(d: dict, prefix: str = "") -> Generator:
     for k, v in d.items():
@@ -143,15 +150,13 @@ def get_endpoints(sw_dict: dict) -> dict:
 
     check_sw_version(sw_dict)
 
-    # Define method priority order (same as schema extraction priority)
+    # Process methods in priority order to align with schema extraction
     # Higher priority methods are processed first and their metadata is preserved
-    priority_methods = ["get", "post", "put", "patch"]
-    other_methods = ["delete", "options", "head"]
+    # Priority order matches schema extraction precedence in APISource.extract_schema_from_all_methods
+    all_methods = SCHEMA_EXTRACTABLE_METHODS + OTHER_HTTP_METHODS
 
     for p_k, p_o in sw_dict["paths"].items():
-        # Process methods in priority order to align with schema extraction
         # Only set metadata if it doesn't already exist (don't overwrite higher-priority metadata)
-        all_methods = priority_methods + other_methods
 
         for method in all_methods:
             method_spec = p_o.get(method)
