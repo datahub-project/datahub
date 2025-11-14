@@ -1,0 +1,57 @@
+# Sample configuration for testing Dataplex connector
+# Copy this file and customize for your environment
+
+source:
+  type: dataplex
+  config:
+    # Required: List of GCP project IDs
+    project_ids:
+      - "your-gcp-project-id"
+      # - "another-project-id"  # Add more projects as needed
+
+    # Optional: GCP location/region (default: us-central1)
+    location: "us-central1"
+
+    # Optional: GCP credentials (if not using ADC)
+    # credential:
+    #   project_id: "your-gcp-project-id"
+    #   private_key_id: "key-id"
+    #   private_key: "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+    #   client_email: "service-account@project.iam.gserviceaccount.com"
+    #   client_id: "123456789"
+
+    # Optional: Filters (default: allow all)
+    filter_config:
+      lake_pattern:
+        allow:
+          - ".*"  # Allow all lakes
+        # deny:
+        #   - "test-.*"  # Optionally deny test lakes
+
+      zone_pattern:
+        allow:
+          - ".*"  # Allow all zones
+        # deny:
+        #   - "deprecated-.*"
+
+      asset_pattern:
+        allow:
+          - ".*"  # Allow all assets
+
+    # Feature flags
+    extract_lakes: true
+    extract_zones: true
+    extract_assets: true
+    extract_entities: true
+    extract_lineage: true
+    create_sibling_relationships: true
+
+    # Tagging
+    apply_zone_type_tags: true
+    apply_label_tags: true
+
+    # Performance
+    max_workers: 10
+
+# Note: When using this with the test script, only the 'source.config' section is used
+# The sink configuration is ignored during testing
