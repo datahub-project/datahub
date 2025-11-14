@@ -1,4 +1,5 @@
 import unittest
+from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import yaml
@@ -880,6 +881,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         result = self.source.extract_request_schema_from_endpoint(endpoint_spec, {})
 
         self.assertIsNotNone(result)
+        assert result is not None  # Type assertion for mypy
         self.assertEqual(result["type"], "object")
         self.assertIn("properties", result)
         self.assertIn("id", result["properties"])
@@ -942,6 +944,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
             # Should return GET schema (higher priority)
             self.assertIsNotNone(result)
+            assert result is not None  # Type assertion for mypy
             self.assertIn("id", result.get("properties", {}))
 
     def test_extract_schema_all_methods_order(self):
@@ -1007,6 +1010,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
             # Should return GET schema (first in priority)
             self.assertIsNotNone(result)
+            assert result is not None  # Type assertion for mypy
             self.assertIn("get", result.get("properties", {}))
 
     def test_extract_schema_fallback_to_lower_priority(self):
@@ -1043,6 +1047,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
             # Should return POST schema (GET has no 200 response)
             self.assertIsNotNone(result)
+            assert result is not None  # Type assertion for mypy
             self.assertIn("post_field", result.get("properties", {}))
 
     def test_extract_schema_from_openapi_spec_success(self):
@@ -1392,9 +1397,10 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         }
 
         # Create nested references up to level 20 (exceeds default max_depth of 10)
+        definitions: Dict[str, Dict[str, Any]] = {}
         for i in range(0, 20):
             if i < 19:
-                sw_dict["definitions"][f"Level{i}"] = {
+                definitions[f"Level{i}"] = {
                     "type": "object",
                     "properties": {
                         f"level{i + 1}": {"$ref": f"#/definitions/Level{i + 1}"},
@@ -1402,12 +1408,13 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 }
             else:
                 # Last level has no reference
-                sw_dict["definitions"][f"Level{i}"] = {
+                definitions[f"Level{i}"] = {
                     "type": "object",
                     "properties": {
                         "value": {"type": "string"},
                     },
                 }
+        sw_dict["definitions"] = definitions
 
         schema = {"$ref": "#/definitions/Level0"}
 
@@ -1520,6 +1527,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
             # Should return POST schema (GET has no schema)
             self.assertIsNotNone(result)
+            assert result is not None  # Type assertion for mypy
             self.assertIn("name", result.get("properties", {}))
 
     def test_extract_schema_mixed_methods_get_has_schema_post_has_schema(self):
@@ -1567,6 +1575,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
             # Should return GET schema (higher priority)
             self.assertIsNotNone(result)
+            assert result is not None  # Type assertion for mypy
             self.assertIn("id", result.get("properties", {}))
             self.assertNotIn("name", result.get("properties", {}))
 
