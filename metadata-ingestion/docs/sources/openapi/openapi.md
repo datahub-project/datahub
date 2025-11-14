@@ -49,7 +49,7 @@ Most schemas are extracted from the OpenAPI specification itself. API calls are 
 
 ### Schema Extraction Priority
 
-When multiple HTTP methods are available for an endpoint, the source prioritizes methods in this order:
+When multiple HTTP methods are available for an endpoint, the source prioritizes extracting metadat from methods in this order:
 
 1. GET
 2. POST
