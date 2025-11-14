@@ -61,7 +61,7 @@ class SnowflakeAnalyticsEngine(AnalyticsEngine):
             "private_key_password": self.connection.private_key_password,
         }
 
-        self._config = SnowflakeConnectionConfigPermissive.parse_obj(config_dict)
+        self._config = SnowflakeConnectionConfigPermissive.model_validate(config_dict)
         return self._config
 
     def _get_sqlalchemy_engine(self) -> Engine:

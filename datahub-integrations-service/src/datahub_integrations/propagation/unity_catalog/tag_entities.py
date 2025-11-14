@@ -94,7 +94,7 @@ class UnityCatalogTagId(BaseModel, ExternalEntityId):
                     unity_catalog_tag = UnityCatalogTagPlatformResource(
                         **platform_resource.resource_info.value.as_pydantic_object(
                             UnityCatalogTagPlatformResource
-                        ).dict()
+                        ).model_dump()
                     )
                     if (
                         unity_catalog_tag.id.platform_instance
@@ -237,7 +237,7 @@ class UnityCatalogTagPlatformResource(BaseModel, ExternalEntity):
                     unity_catalog_tag = UnityCatalogTagPlatformResource(
                         **platform_resource.resource_info.value.as_pydantic_object(
                             UnityCatalogTagPlatformResource
-                        ).dict()
+                        ).model_dump()
                     )
                     if (
                         unity_catalog_tag.id.platform_instance

@@ -84,7 +84,7 @@ class SnowflakeConnection(_FrozenConnectionModel):  # type: ignore[misc]  # Froz
         if not obj:
             raise Exception("No snowflake config found")
 
-        config = SnowflakeConnection.parse_obj(obj)
+        config = SnowflakeConnection.model_validate(obj)
 
         return config
 

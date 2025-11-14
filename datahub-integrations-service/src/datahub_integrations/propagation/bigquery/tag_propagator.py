@@ -63,7 +63,7 @@ class BigqueryTagPropagatorAction(ExtendedAction[SelectedAsset]):
             config_str=config.json(), graph=ctx.graph.graph
         )
 
-        self.config = BigqueryTagPropagatorConfig.parse_obj(resolved_config)
+        self.config = BigqueryTagPropagatorConfig.model_validate(resolved_config)
 
         # self.config: BigqueryTagPropagatorConfig = config
         self.ctx = ctx
@@ -117,7 +117,7 @@ class BigqueryTagPropagatorAction(ExtendedAction[SelectedAsset]):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        config = BigqueryTagPropagatorConfig.parse_obj(config_dict or {})
+        config = BigqueryTagPropagatorConfig.model_validate(config_dict or {})
         return cls(config, ctx)
 
     def name(self) -> str:

@@ -138,7 +138,7 @@ class ActionStatsReporter:
 
         updated_status_class.structuredReport = models.StructuredExecutionReportClass(
             type="ACTION_REPORT",
-            serializedValue=action_stats.json(),
+            serializedValue=action_stats.model_dump_json(),
             contentType=JSON_CONTENT_TYPE,
         )
 

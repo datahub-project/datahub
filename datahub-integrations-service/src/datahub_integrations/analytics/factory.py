@@ -55,7 +55,7 @@ class AnalyticsEngineFactory:
         if locator.connection_urn:
             connection_json = get_connection_json(graph, locator.connection_urn)
             if connection_json:
-                return connector_model_class.parse_obj(connection_json)
+                return connector_model_class.model_validate(connection_json)
         return None
 
     def _get_or_create_engine(

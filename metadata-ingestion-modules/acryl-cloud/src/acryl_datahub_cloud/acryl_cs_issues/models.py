@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any, Iterable, List, Optional
 
 import pydantic
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 
 class DataHubProductGlossary:
@@ -308,7 +308,8 @@ class Project(BaseModel):
         platform: str
         id: str
 
-        @validator("id", pre=True)
+        @field_validator("id", mode="before")
+        @classmethod
         def id_must_be_coerced_to_string(cls, v: Any) -> str:
             if not v:
                 raise ValueError("id must be present")
@@ -328,7 +329,8 @@ class Issue(BaseModel):
         platform: str
         id: str
 
-        @validator("id", pre=True)
+        @field_validator("id", mode="before")
+        @classmethod
         def id_must_be_coerced_to_string(cls, v: Any) -> str:
             if not v:
                 raise ValueError("id must be present")

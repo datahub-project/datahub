@@ -18,7 +18,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.filters import SearchFilterRule
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, model_validator
 from datetime import date, datetime, timedelta, time
 from loguru import logger
 from progressbar import progressbar
@@ -340,11 +340,11 @@ class FakeFormData(FakeDataModel, FormData):
     steady_fake: Faker = None
     fake_asset_data: FakeAssetData = None
 
-    @validator("earliest_assignment_start_date")
-    def start_date_must_be_before_today(cls, v, values):
-        if v > values["today_date"]:
+    @model_validator(mode="after")
+    def start_date_must_be_before_today(self) -> "FakeFormDataGeneratorConfig":
+        if self.earliest_assignment_start_date > self.today_date:
             raise ValueError("start_date must be before today's date")
-        return v
+        return self
 
     def _initialize_random_generators(self):
         if not self.random_generator_initialized:

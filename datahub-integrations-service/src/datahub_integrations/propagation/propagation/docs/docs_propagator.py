@@ -204,7 +204,7 @@ class DocsPropagator(EntityPropagator):
             if current_documentation_instance.attribution
             else {}
         )
-        source_details_parsed: SourceDetails = SourceDetails.parse_obj(
+        source_details_parsed: SourceDetails = SourceDetails.model_validate(
             source_details_dict
         )
 
@@ -493,7 +493,7 @@ class DocsPropagator(EntityPropagator):
         # and sourced from the same origin; if so, update them
         for doc_association in documentations.documentations[:]:
             if doc_association.attribution and doc_association.attribution.source:
-                source_details_parsed = SourceDetails.parse_obj(
+                source_details_parsed = SourceDetails.model_validate(
                     doc_association.attribution.sourceDetail
                 )
                 if (

@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.graph.client import DataHubGraph
-from pydantic import dataclasses, root_validator
+from pydantic import dataclasses, model_validator
 
 _GLOSSARY_NODE_GQL = (
     pathlib.Path(__file__).parent / "term_suggestion_universe.gql"
@@ -18,17 +18,11 @@ class GlossaryUniverseConfig(ConfigModel):
     glossary_terms: Optional[List[str]] = None
     glossary_nodes: Optional[List[str]] = None
 
-    @root_validator(skip_on_failure=True)
-    def check_not_all_none(cls, values: dict) -> dict:
-        # Extract values
-        glossary_terms = values.get("glossary_terms")
-        glossary_nodes = values.get("glossary_nodes")
-
-        # Check if all are None
-        if glossary_terms is None and glossary_nodes is None:
+    @model_validator(mode="after")
+    def check_not_all_none(self) -> "GlossaryUniverseConfig":
+        if self.glossary_terms is None and self.glossary_nodes is None:
             raise ValueError("At least one glossary term or node urn must be provided.")
-
-        return values
+        return self
 
 
 @dataclasses.dataclass
