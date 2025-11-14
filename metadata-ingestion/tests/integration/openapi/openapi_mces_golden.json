@@ -192,6 +192,26 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.root,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "test_openapi"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "openapi-2020_04_14-07_00_00-81oa3w",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.v2,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -429,6 +449,9 @@
         "json": {
             "path": [
                 {
+                    "id": "test_openapi"
+                },
+                {
                     "id": "v2"
                 }
             ]
@@ -436,7 +459,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-ph3fll",
+        "runId": "openapi-2020_04_14-07_00_00-81oa3w",
         "lastRunId": "no-run-id-provided"
     }
 },

@@ -74,10 +74,10 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             },
-            "hash": "f12dd5accc54733381cf135568d0b007",
+            "hash": "ea3f8b030194e96fd99b39aaf0e3bc1a",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"winner\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \".\",\n        \"X\",\n        \"O\"\n      ],\n      \"description\": \"Winner of the game. `.` means nobody has won yet.\",\n      \"example\": \".\",\n      \"title\": \"winner\"\n    },\n    \"board\": {\n      \"type\": \"array\",\n      \"maxItems\": 3,\n      \"minItems\": 3,\n      \"items\": {\n        \"type\": \"array\",\n        \"maxItems\": 3,\n        \"minItems\": 3,\n        \"items\": {\n          \"type\": \"string\",\n          \"enum\": [\n            \".\",\n            \"X\",\n            \"O\"\n          ],\n          \"description\": \"Possible values for a board square. `.` means empty square.\",\n          \"example\": \".\",\n          \"title\": \"mark\"\n        },\n        \"title\": \"item\"\n      },\n      \"title\": \"board\"\n    }\n  }\n}"
+                    "rawSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"winner\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \".\",\n        \"X\",\n        \"O\"\n      ],\n      \"description\": \"Winner of the game. `.` means nobody has won yet.\",\n      \"example\": \".\"\n    },\n    \"board\": {\n      \"type\": \"array\",\n      \"maxItems\": 3,\n      \"minItems\": 3,\n      \"items\": {\n        \"type\": \"array\",\n        \"maxItems\": 3,\n        \"minItems\": 3,\n        \"items\": {\n          \"type\": \"string\",\n          \"enum\": [\n            \".\",\n            \"X\",\n            \"O\"\n          ],\n          \"description\": \"Possible values for a board square. `.` means empty square.\",\n          \"example\": \".\"\n        }\n      }\n    }\n  }\n}"
                 }
             },
             "fields": [
@@ -110,7 +110,7 @@
                     "jsonProps": "{\"required\": false}"
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=object].[type=array].board.[type=array].item",
+                    "fieldPath": "[version=2.0].[type=object].[type=array].board.[type=array].array",
                     "nullable": false,
                     "description": "",
                     "type": {
@@ -124,7 +124,7 @@
                     "jsonProps": "{\"required\": false}"
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=object].[type=array].board.[type=array].item.[type=enum].mark",
+                    "fieldPath": "[version=2.0].[type=object].[type=array].board.[type=array].array.[type=enum].enum",
                     "nullable": false,
                     "description": "One of: \".\", \"X\", \"O\"",
                     "type": {
@@ -142,7 +142,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-ckeaqh",
+        "runId": "openapi-2020_04_14-07_00_00-eg5nkk",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -155,6 +155,9 @@
         "json": {
             "path": [
                 {
+                    "id": "test_openapi"
+                },
+                {
                     "id": "board"
                 }
             ]
@@ -162,7 +165,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-m5pfxj",
+        "runId": "openapi-2020_04_14-07_00_00-eg5nkk",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -264,6 +267,9 @@
         "json": {
             "path": [
                 {
+                    "id": "test_openapi"
+                },
+                {
                     "id": "board"
                 },
                 {
@@ -277,7 +283,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00-4po7dp",
+        "runId": "openapi-2020_04_14-07_00_00-eg5nkk",
         "lastRunId": "no-run-id-provided"
     }
 },
