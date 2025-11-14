@@ -4,6 +4,9 @@ import MDEditor from '@uiw/react-md-editor';
 import React from 'react';
 import styled from 'styled-components';
 
+// Shared style object for MDEditor.Markdown (avoids recreating on every render)
+const MARKDOWN_STYLE = { backgroundColor: 'transparent', color: 'inherit' };
+
 /* Code Block Container - matches Figma design */
 const CodeBlockContainer = styled.div`
     display: flex;
@@ -83,13 +86,15 @@ export interface CodeBlockProps {
 }
 
 /**
- * CodeBlock component for displaying syntax-highlighted code with copy functionality.
+ * Extracted component to encapsulate code block rendering and styling.
  *
- * Displays code in a styled container with:
- * - Language label in the header
- * - Copy button with feedback
- * - Syntax highlighting via MDEditor
- * - Optional truncation warning banner
+ * Rationale:
+ * - Separating code blocks from markdown allows custom styling (headers, copy buttons)
+ *   that would be difficult to achieve with MDEditor's default rendering
+ * - Centralized component improves maintainability and ensures consistent code block
+ *   presentation across all chat messages
+ * - Enables special handling for truncated code blocks with warning UI
+ * - Provides better accessibility with clear language labels and copy functionality
  *
  * @example
  * <CodeBlock
@@ -116,10 +121,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ language, content, isTrunc
                 </Button>
             </CodeBlockHeader>
             <CodeBlockContent>
-                <MDEditor.Markdown
-                    source={`\`\`\`${language}\n${content}\n\`\`\``}
-                    style={{ backgroundColor: 'transparent', color: 'inherit' }}
-                />
+                <MDEditor.Markdown source={`\`\`\`${language}\n${content}\n\`\`\``} style={MARKDOWN_STYLE} />
             </CodeBlockContent>
             {isTruncated && (
                 <TruncatedBanner>

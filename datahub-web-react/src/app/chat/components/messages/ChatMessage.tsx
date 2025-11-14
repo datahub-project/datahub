@@ -1,7 +1,6 @@
 import { colors } from '@components';
-import '@uiw/react-markdown-preview/dist/markdown.css';
 import MDEditor from '@uiw/react-md-editor';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { CodeBlock } from '@app/chat/components/messages/CodeBlock';
@@ -14,6 +13,9 @@ import {
     DataHubAiConversationMessageType,
     Entity,
 } from '@types';
+
+// Shared style object for MDEditor.Markdown (avoids recreating on every render)
+const MARKDOWN_STYLE = { backgroundColor: 'transparent', color: 'inherit' };
 
 const MessageContainer = styled.div<{ isUser: boolean }>`
     display: flex;
@@ -261,10 +263,10 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({ message, selectedE
     // Hooks must be called before any early returns
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-    // Don't render thinking/tool messages - they're handled by ThinkingGroup
-    if (isThinking || isToolCall || isToolResult) {
-        return null;
-    }
+    // Memoize parsing to avoid re-parsing on every render (matches pattern used in MessageReferences)
+    const parts = useMemo(() => {
+        return parseMessageContent(message.content.text || '');
+    }, [message.content.text]);
 
     const handleCopyCode = async (code: string, index: number) => {
         try {
@@ -277,9 +279,9 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({ message, selectedE
         }
     };
 
-    const renderContent = () => {
-        const parts = parseMessageContent(message.content.text || '');
-
+    // Memoize the entire render output to avoid recreating JSX on every parent re-render
+    // This prevents lag when typing in input field (which causes parent ChatArea to re-render)
+    const content = useMemo(() => {
         return (
             <MarkdownContent isUser={isUser}>
                 {parts.map((part, index) => {
@@ -303,24 +305,23 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({ message, selectedE
                             />
                         );
                     }
-                    return (
-                        <MDEditor.Markdown
-                            key={key}
-                            source={part.content}
-                            style={{ backgroundColor: 'transparent', color: 'inherit' }}
-                        />
-                    );
+                    return <MDEditor.Markdown key={key} source={part.content} style={MARKDOWN_STYLE} />;
                 })}
             </MarkdownContent>
         );
-    };
+    }, [parts, isUser, copiedIndex]);
+
+    // Don't render thinking/tool messages - they're handled by ThinkingGroup
+    if (isThinking || isToolCall || isToolResult) {
+        return null;
+    }
 
     const shouldShowReferences = !isUser && message.type === DataHubAiConversationMessageType.Text && !!onEntitySelect;
 
     return (
         <MessageContainer isUser={isUser}>
             <MessageContent isUser={isUser}>
-                <MessageBubble isUser={isUser}>{renderContent()}</MessageBubble>
+                <MessageBubble isUser={isUser}>{content}</MessageBubble>
                 {shouldShowReferences && (
                     <MessageReferences
                         messageText={message.content.text}

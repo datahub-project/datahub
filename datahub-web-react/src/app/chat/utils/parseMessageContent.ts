@@ -42,8 +42,9 @@ export interface MessagePart {
 export function parseMessageContent(text: string): MessagePart[] {
     const parts: MessagePart[] = [];
 
-    // Regex to match complete code blocks with optional language identifier
-    // Matches: ```language\ncode\n``` or ```\ncode\n```
+    // Uses non-greedy matching ([\s\S]*?) to handle multiple code blocks correctly.
+    // Alternative approaches (split, line-by-line parsing) would be more complex and harder to maintain.
+    // Limitation: doesn't support nested backticks or escaped delimiters, but AI responses don't require this.
     const codeBlockRegex = /```(\w+)?[\s\n]*([\s\S]*?)```/g;
     let lastIndex = 0;
     let match = codeBlockRegex.exec(text);
