@@ -1359,6 +1359,9 @@ def test_handle_expected_exceptions() -> None:
     def _raise_rest_error(_: Catalog) -> Never:
         raise RESTError()
 
+    def _raise_os_error(_: Catalog) -> Never:
+        raise OSError()
+
     def _raise_fileio_error(_: Catalog) -> Never:
         raise ValueError("Could not initialize FileIO: abc.dummy.fileio")
 
@@ -1424,6 +1427,7 @@ def test_handle_expected_exceptions() -> None:
                 "table9": _raise_server_error,
                 "table10": _raise_fileio_error,
                 "table11": _raise_rest_error,
+                "table12": _raise_os_error,
             }
         }
     )
@@ -1451,7 +1455,7 @@ def test_handle_expected_exceptions() -> None:
             expected_wu_urns,
         )
         assert (
-            source.report.warnings.total_elements == 6
+            source.report.warnings.total_elements == 7
         )  # ServerError and RESTError exceptions are caught together
         assert source.report.failures.total_elements == 0
         assert source.report.tables_scanned == 4
