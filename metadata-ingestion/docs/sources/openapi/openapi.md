@@ -4,11 +4,10 @@ This connector ingests OpenAPI (Swagger) API endpoint metadata into DataHub. It 
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
-| Source Concept         | DataHub Concept                                                                           | Notes                       |
-| ---------------------- | ----------------------------------------------------------------------------------------- | --------------------------- |
-| `"OpenAPI"`            | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                             |
-| API Endpoint           | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            | Subtype `API_ENDPOINT`      |
-| Endpoint Path Segments | [Browse Paths](https://docs.datahub.com/docs/generated/metamodel/aspects/browsepaths/)    | Organized by path structure |
+| Source Concept | DataHub Concept                                                                           | Notes                  |
+| -------------- | ----------------------------------------------------------------------------------------- | ---------------------- |
+| `"OpenAPI"`    | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                        |
+| API Endpoint   | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            | Subtype `API_ENDPOINT` |
 
 ## Capabilities
 
