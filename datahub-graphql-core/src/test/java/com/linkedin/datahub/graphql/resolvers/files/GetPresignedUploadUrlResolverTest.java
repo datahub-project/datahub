@@ -823,7 +823,6 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(TEST_EXPIRATION_SECONDS);
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
-    // Reset to true to pass new authorization validation so old behavior continues to work
     linkUtilsMockedStatic.reset();
     linkUtilsMockedStatic
         .when(
@@ -848,11 +847,11 @@ public class GetPresignedUploadUrlResolverTest {
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
     assertNotNull(result.getFileId());
 
-    // Verify that asset documentation authorization is called for ASSET_DOCUMENTATION_LINKS
-    // scenario (fallback to old validation)
-    descriptionUtilsMockedStatic.verify(
+    // Verify that LinkUtils.isAuthorizedToUpdateLinks is called for ASSET_DOCUMENTATION_LINKS
+    // scenario
+    linkUtilsMockedStatic.verify(
         () ->
-            DescriptionUtils.isAuthorizedToUpdateDescription(
+            com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils.isAuthorizedToUpdateLinks(
                 any(QueryContext.class), any(Urn.class)));
 
     String capturedS3Key = s3KeyCaptor.getValue();
@@ -896,7 +895,6 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(TEST_EXPIRATION_SECONDS);
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
-    // Reset to true to pass new authorization validation so old behavior continues to work
     linkUtilsMockedStatic.reset();
     linkUtilsMockedStatic
         .when(
@@ -921,12 +919,11 @@ public class GetPresignedUploadUrlResolverTest {
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
     assertNotNull(result.getFileId());
 
-    // Verify that schema field documentation authorization is called for ASSET_DOCUMENTATION_LINKS
-    // scenario (fallback to old validation)
-    // when schema field URN is provided
-    descriptionUtilsMockedStatic.verify(
+    // Verify that LinkUtils.isAuthorizedToUpdateLinks is called for ASSET_DOCUMENTATION_LINKS
+    // scenario
+    linkUtilsMockedStatic.verify(
         () ->
-            DescriptionUtils.isAuthorizedToUpdateFieldDescription(
+            com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils.isAuthorizedToUpdateLinks(
                 any(QueryContext.class), any(Urn.class)));
 
     String capturedS3Key = s3KeyCaptor.getValue();
@@ -982,27 +979,19 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    // Mock asset description authorization to return false
-    descriptionUtilsMockedStatic
-        .when(
-            () ->
-                DescriptionUtils.isAuthorizedToUpdateDescription(
-                    any(QueryContext.class), any(Urn.class)))
-        .thenReturn(false);
-
     when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
     when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
         .thenReturn(TEST_EXPIRATION_SECONDS);
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
-    // Reset to true to pass new authorization validation so old behavior continues to work
+    // Reset mocks to return false for link/glossary authorization (this should cause the failure)
     linkUtilsMockedStatic.reset();
     linkUtilsMockedStatic
         .when(
             () ->
                 com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils
                     .isAuthorizedToUpdateLinks(any(QueryContext.class), any(Urn.class)))
-        .thenReturn(true);
+        .thenReturn(false);
     glossaryUtilsMockedStatic.reset();
     glossaryUtilsMockedStatic
         .when(
@@ -1014,7 +1003,7 @@ public class GetPresignedUploadUrlResolverTest {
     GetPresignedUploadUrlResolver resolver =
         new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     assertThrows(
-        "Unauthorized to edit documentation for asset: " + TEST_ASSET_URN,
+        "Unauthorized to edit links for asset: " + TEST_ASSET_URN,
         AuthorizationException.class,
         () -> resolver.get(mockEnv).get());
   }
