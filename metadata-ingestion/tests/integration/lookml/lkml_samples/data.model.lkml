@@ -10,6 +10,9 @@ include: "native_derived_table.view.lkml"
 include: "owners_refinement.view.lkml"
 include: "flights.view.lkml"
 include: "large_view.view.lkml"
+include: "problematic_view.view.lkml"
+include: "parallel_view.view.lkml"
+include: "partial_view.view.lkml"
 
 explore: aliased_explore {
   from: my_view
@@ -17,6 +20,18 @@ explore: aliased_explore {
 
 explore: large_explore {
   from: large_view
+}
+
+explore: problematic_explore {
+  from: problematic_view
+}
+
+explore: parallel_explore {
+  from: parallel_view
+}
+
+explore: partial_explore {
+  from: partial_view
 }
 
 explore: dataset_owners{
