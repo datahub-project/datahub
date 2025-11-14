@@ -10,12 +10,19 @@ The test script allows you to validate the connector before running actual inges
 # 1. Authenticate with Google Cloud
 gcloud auth application-default login
 
-# 2. Install the package in development mode
-cd metadata-ingestion
-pip install -e .
-
-# OR using gradle (from repository root)
+# 2. Install dependencies with Dataplex plugin
+# Option A: Using gradle (recommended - from repository root)
+# This creates a venv at metadata-ingestion/venv and installs base dependencies
 ./gradlew :metadata-ingestion:installDev
+
+# Then install the Dataplex-specific dependencies
+metadata-ingestion/venv/bin/pip install -e "metadata-ingestion[dataplex]"
+
+# Option B: Using pip directly (you must create your own venv first)
+cd metadata-ingestion
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -e ".[dataplex]"
 
 # 3. Enable Dataplex API
 gcloud services enable dataplex.googleapis.com --project=YOUR_PROJECT
@@ -24,9 +31,18 @@ gcloud services enable dataplex.googleapis.com --project=YOUR_PROJECT
 ### Basic Usage
 
 ```bash
+# From repository root (using gradle-created venv):
+metadata-ingestion/venv/bin/python metadata-ingestion/src/datahub/ingestion/source/dataplex/test_dataplex_connector.py \
+  --project my-gcp-project
+
+# OR navigate to the dataplex directory and use activated venv:
 cd metadata-ingestion/src/datahub/ingestion/source/dataplex/
 
-# Quick test with project ID (uses ADC)
+# If using Option A (gradle), use the full path to python
+../../../venv/bin/python test_dataplex_connector.py --project my-gcp-project
+
+# If using Option B (manual venv), activate it first then use python directly
+# (from metadata-ingestion directory: source venv/bin/activate)
 python test_dataplex_connector.py --project my-gcp-project
 
 # Test with config file
