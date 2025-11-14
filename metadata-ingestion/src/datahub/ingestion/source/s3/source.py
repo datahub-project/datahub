@@ -735,8 +735,11 @@ class S3Source(StatefulIngestionSourceBase):
                 )
                 aspects.append(schema_metadata)
             except Exception as e:
-                logger.error(
-                    f"Failed to extract schema from file {table_data.full_path}. The error was:{e}"
+                self.report.report_warning(
+                    title="Failed to extract schema from file",
+                    message="Schema may be missed for dataset because of failure when extracting schema from file",
+                    context=f"dataset={table_data.display_name}, file={table_data.full_path}",
+                    exc=e,
                 )
         else:
             logger.info(

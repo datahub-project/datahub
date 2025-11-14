@@ -142,6 +142,12 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     nodes_with_graph_columns: int = 0
     nodes_with_no_columns: int = 0
 
+    # Total jobs processed successfully
+    total_jobs_retreived_from_api: int = 0
+    total_jobs_processed: int = 0
+    total_jobs_processed_skipped: int = 0
+    processed_jobs_list: List[int] = field(default_factory=list)
+
     sql_parser_parse_failures_list: LossyList[str] = field(default_factory=LossyList)
     sql_parser_detach_ctes_failures_list: LossyList[str] = field(
         default_factory=LossyList

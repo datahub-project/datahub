@@ -59,6 +59,14 @@ def get_default_recipe(output_file_path, base_folder_path):
                 "tag_measures_and_dimensions": False,
                 "project_name": "lkml_samples",
                 "model_pattern": {"deny": ["data2"]},
+                "view_pattern": {
+                    "deny": [
+                        "large_view",
+                        "problematic_view",
+                        "parallel_view",
+                        "partial_view",
+                    ]
+                },  # Exclude views used for field splitting tests
                 "emit_reachable_views_only": False,
                 "liquid_variable": {"order_region": "ap-south-1"},
             },
@@ -332,6 +340,14 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "view_pattern": {
+                        "deny": [
+                            "large_view",
+                            "problematic_view",
+                            "parallel_view",
+                            "partial_view",
+                        ]
+                    },  # Exclude views used for field splitting tests
                     "emit_reachable_views_only": False,
                     "process_refinements": False,
                 },
@@ -426,6 +442,14 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "view_pattern": {
+                        "deny": [
+                            "large_view",
+                            "problematic_view",
+                            "parallel_view",
+                            "partial_view",
+                        ]
+                    },  # Exclude views used for field splitting tests
                     "emit_reachable_views_only": False,
                     "process_refinements": False,
                 },
@@ -507,6 +531,14 @@ def ingestion_test(
                         },
                         "parse_table_names_from_sql": True,
                         "model_pattern": {"deny": ["data2"]},
+                        "view_pattern": {
+                            "deny": [
+                                "large_view",
+                                "problematic_view",
+                                "parallel_view",
+                                "partial_view",
+                            ]
+                        },  # Exclude views used for field splitting tests
                         "emit_reachable_views_only": False,
                         "process_refinements": False,
                         "liquid_variable": {
@@ -556,6 +588,14 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "view_pattern": {
+                        "deny": [
+                            "large_view",
+                            "problematic_view",
+                            "parallel_view",
+                            "partial_view",
+                        ]
+                    },  # Exclude views used for field splitting tests
                     "git_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
                     "process_refinements": False,
@@ -611,6 +651,14 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
                     },
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
+                    "view_pattern": {
+                        "deny": [
+                            "large_view",
+                            "problematic_view",
+                            "parallel_view",
+                            "partial_view",
+                        ]
+                    },  # Exclude views used for field splitting tests
                     "emit_reachable_views_only": True,
                     "process_refinements": False,
                 },
@@ -724,6 +772,14 @@ def test_lookml_stateful_ingestion(pytestconfig, tmp_path, mock_time):
                 "tag_measures_and_dimensions": False,
                 "project_name": "lkml_samples",
                 "model_pattern": {"deny": ["data2"]},
+                "view_pattern": {
+                    "deny": [
+                        "large_view",
+                        "problematic_view",
+                        "parallel_view",
+                        "partial_view",
+                    ]
+                },  # Exclude views used for field splitting tests
                 "emit_reachable_views_only": False,
                 "stateful_ingestion": {
                     "enabled": True,

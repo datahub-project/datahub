@@ -5,7 +5,7 @@ from datetime import timedelta
 from typing import Any, Dict, Literal, Optional, Union
 
 import pydantic
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -210,6 +210,48 @@ class LookMLSourceConfig(
         "It helps to evaluate looker if comments i.e. -- if prod --. "
         "All if comments are evaluated to true for configured looker_environment value",
     )
+
+    field_threshold_for_splitting: int = Field(
+        100,
+        description="When the total number of fields returned by Looker API exceeds this threshold, "
+        "the fields will be split into multiple API calls to avoid SQL parsing failures. "
+        "This helps provide partial column and table lineage when dealing with large field sets.",
+    )
+
+    allow_partial_lineage_results: bool = Field(
+        True,
+        description="When enabled, allows partial lineage results to be returned even when some field chunks "
+        "fail or when there are SQL parsing errors. This provides better resilience for large field sets "
+        "and ensures some lineage information is available rather than complete failure.",
+    )
+
+    enable_individual_field_fallback: bool = Field(
+        True,
+        description="When enabled, if a field chunk fails, the system will attempt to process each field "
+        "individually to maximize information and isolate problematic fields. This helps identify "
+        "which specific fields are causing issues while still getting lineage for working fields.",
+    )
+
+    max_workers_for_parallel_processing: int = Field(
+        10,
+        description="Maximum number of worker threads to use for parallel processing of field chunks and individual fields. "
+        "Set to 1 to process everything sequentially. Higher values can improve performance but may increase memory usage. "
+        "Maximum allowed value is 100 to prevent resource exhaustion.",
+    )
+
+    @field_validator("max_workers_for_parallel_processing")
+    def validate_max_workers(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(
+                f"max_workers_for_parallel_processing must be at least 1, got {v}"
+            )
+        if v > 100:
+            logger.warning(
+                f"max_workers_for_parallel_processing is set to {v}, which exceeds the recommended maximum of 100. "
+                f"This may cause resource exhaustion. Using 100 instead."
+            )
+            return 100
+        return v
 
     @model_validator(mode="before")
     @classmethod
