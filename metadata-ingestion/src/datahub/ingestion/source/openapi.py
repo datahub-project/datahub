@@ -529,10 +529,13 @@ class APISource(Source, ABC):
 
         # Create browse paths v2 aspect
         # Parse endpoint path and create browse path segments
-        # Only include actual path segments, exclude parameter placeholders
-        # Example: /endpoint/{variable1}/{variable2}/ -> ["endpoint"]
-        # Example: /trades/{trade_reference}/verify -> ["trades", "verify"]
+        # Include both path segments and parameter placeholders (with braces removed)
+        # Example: /endpoint/{variable1}/{variable2}/ -> ["config_name", "endpoint", "variable1", "variable2"]
+        # Example: /path/{variable1}/endpoint -> ["config_name", "path", "variable1", "endpoint"]
         browse_path_entries = []
+        # Add config name as the top level of the browse path
+        browse_path_entries.append(BrowsePathEntryClass(id=config_name_urn))
+
         if endpoint_k:
             # Remove leading and trailing slashes
             path = endpoint_k.strip("/")
@@ -548,7 +551,7 @@ class APISource(Source, ABC):
                                 BrowsePathEntryClass(id=clean_segment)
                             )
 
-        # Only create browse path if we have entries
+        # Only create browse path if we have entries (we always have at least config_name_urn)
         if browse_path_entries:
             browse_paths_v2 = BrowsePathsV2Class(path=browse_path_entries)
             wu = MetadataWorkUnit(
