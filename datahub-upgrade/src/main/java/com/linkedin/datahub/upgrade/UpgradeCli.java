@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.restoreaspect.RestoreAspect;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.datahub.upgrade.secret.RotateSecrets;
+import com.linkedin.datahub.upgrade.semanticsearch.SearchEmbeddingsUpdate;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetup;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
@@ -101,6 +102,10 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("evaluateTests")
   private EvaluateTests evaluateTests;
 
+  @Autowired(required = false)
+  @Named("searchEmbeddingsUpdate")
+  private SearchEmbeddingsUpdate searchEmbeddingsUpdate;
+
   @Override
   public void run(String... cmdLineArgs) {
     // Register upgrades with null checks and warnings
@@ -187,6 +192,12 @@ public class UpgradeCli implements CommandLineRunner {
       _upgradeManager.register(evaluateTests);
     } else {
       log.warn("EvaluateTests upgrade not available - bean not found");
+    }
+
+    if (searchEmbeddingsUpdate != null) {
+      _upgradeManager.register(searchEmbeddingsUpdate);
+    } else {
+      log.info("SearchEmbeddingsUpdate upgrade not available - bean not found");
     }
 
     final Args args = new Args();
