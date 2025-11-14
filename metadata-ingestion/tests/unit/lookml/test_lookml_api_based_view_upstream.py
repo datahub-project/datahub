@@ -119,6 +119,11 @@ class TestLookMLAPIBasedViewUpstream:
         config.use_api_for_view_lineage = True
         config.use_api_cache_for_view_lineage = False
         config.env = "PROD"
+        # Add field splitting config attributes with defaults
+        config.field_threshold_for_splitting = 100
+        config.allow_partial_lineage_results = True
+        config.enable_individual_field_fallback = True
+        config.max_workers_for_parallel_processing = 10
         return config
 
     @pytest.fixture
@@ -248,7 +253,11 @@ class TestLookMLAPIBasedViewUpstream:
 
     def test_get_sql_write_query_success(self, upstream_instance):
         """Test successful WriteQuery construction."""
-        query = upstream_instance._get_sql_write_query()
+        # Get fields first, then construct query
+        fields = ["test_view.user_id", "test_view.email", "test_view.total_users"]
+        query = upstream_instance._get_sql_write_query_with_fields(
+            fields, "test_explore"
+        )
 
         assert isinstance(query, WriteQuery)
         assert query.model == "test_model"
@@ -259,14 +268,12 @@ class TestLookMLAPIBasedViewUpstream:
         assert "test_view.email" in query.fields
         assert "test_view.total_users" in query.fields
 
-    def test_get_sql_write_query_no_fields(self, upstream_instance, mock_view_context):
-        """Test WriteQuery construction when no fields are found."""
-        mock_view_context.dimensions.return_value = []
-        mock_view_context.measures.return_value = []
-        mock_view_context.dimension_groups.return_value = []
-
-        with pytest.raises(ValueError, match="No fields found for view"):
-            upstream_instance._get_sql_write_query()
+    def test_get_sql_write_query_no_fields(self, upstream_instance):
+        """Test WriteQuery construction when no fields are provided."""
+        # Empty fields list should still create a query, but with empty fields
+        query = upstream_instance._get_sql_write_query_with_fields([], "test_explore")
+        assert isinstance(query, WriteQuery)
+        assert query.fields == []
 
     @patch(
         "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
@@ -285,15 +292,21 @@ class TestLookMLAPIBasedViewUpstream:
         )
         mock_create_lineage.return_value = mock_spr
 
-        result = upstream_instance._execute_query(MagicMock(spec=WriteQuery))
+        # Create a proper WriteQuery mock with fields attribute
+        mock_query = MagicMock(spec=WriteQuery)
+        mock_query.fields = ["test_view.user_id"]
+        result = upstream_instance._execute_query(mock_query)
         assert result == "SELECT test_view.user_id FROM test_table"
 
     def test_execute_query_no_sql_response(self, upstream_instance, mock_looker_client):
         """Test query execution when no SQL is returned."""
         mock_looker_client.generate_sql_query.return_value = []
 
+        # Create a proper WriteQuery mock with fields attribute
+        mock_query = MagicMock(spec=WriteQuery)
+        mock_query.fields = ["test_view.user_id"]
         with pytest.raises(ValueError, match="No SQL found in response"):
-            upstream_instance._execute_query(MagicMock(spec=WriteQuery))
+            upstream_instance._execute_query(mock_query)
 
     def test_execute_query_invalid_response_format(
         self, upstream_instance, mock_looker_client
@@ -301,18 +314,24 @@ class TestLookMLAPIBasedViewUpstream:
         """Test query execution with invalid response format."""
         mock_looker_client.generate_sql_query.return_value = None
 
+        # Create a proper WriteQuery mock with fields attribute
+        mock_query = MagicMock(spec=WriteQuery)
+        mock_query.fields = ["test_view.user_id"]
         with pytest.raises(ValueError, match="No SQL found in response"):
-            upstream_instance._execute_query(MagicMock(spec=WriteQuery))
+            upstream_instance._execute_query(mock_query)
 
     @patch(
         "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
     )
     def test_get_spr_table_error(
-        self, mock_create_lineage, upstream_instance, mock_looker_client
+        self, mock_create_lineage, upstream_instance, mock_looker_client, mock_config
     ):
         """Test SQL parsing result when table extraction fails."""
         # Clear the cache to force re-execution
         upstream_instance._get_spr.cache_clear()
+
+        # Set allow_partial_lineage_results to False to test error raising
+        mock_config.allow_partial_lineage_results = False
 
         # Mock the SQL response
         mock_sql_response = [{"sql": "SELECT * FROM test_table"}]
@@ -333,11 +352,14 @@ class TestLookMLAPIBasedViewUpstream:
         "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
     )
     def test_get_spr_column_error(
-        self, mock_create_lineage, upstream_instance, mock_looker_client
+        self, mock_create_lineage, upstream_instance, mock_looker_client, mock_config
     ):
         """Test SQL parsing result when column extraction fails."""
         # Clear the cache to force re-execution
         upstream_instance._get_spr.cache_clear()
+
+        # Set allow_partial_lineage_results to False to test error raising
+        mock_config.allow_partial_lineage_results = False
 
         # Mock the SQL response
         mock_sql_response = [{"sql": "SELECT * FROM test_table"}]
@@ -393,9 +415,11 @@ class TestLookMLAPIBasedViewUpstream:
 
         # Mock the SQL parsing result with column lineage
         mock_column_lineage = [
-            MagicMock(
-                downstream=MagicMock(column="test_view.user_id"),
-                upstreams=[MagicMock(table="test_table", column="user_id")],
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    table="test_view", column="test_view.user_id"
+                ),
+                upstreams=[ColumnRef(table="test_table", column="user_id")],
             )
         ]
         mock_spr = create_mock_sql_parsing_result(column_lineage=mock_column_lineage)
@@ -427,9 +451,11 @@ class TestLookMLAPIBasedViewUpstream:
 
         # Mock the SQL parsing result with column lineage
         mock_column_lineage = [
-            MagicMock(
-                downstream=MagicMock(column="test_view.created_date"),
-                upstreams=[MagicMock(table="test_table", column="created_at")],
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    table="test_view", column="test_view.created_date"
+                ),
+                upstreams=[ColumnRef(table="test_table", column="created_at")],
             )
         ]
         mock_spr = create_mock_sql_parsing_result(column_lineage=mock_column_lineage)
@@ -465,11 +491,13 @@ class TestLookMLAPIBasedViewUpstream:
 
         # Mock the SQL parsing result with column lineage
         mock_column_lineage = [
-            MagicMock(
-                downstream=MagicMock(
-                    column="test_view.user_id", native_column_type="string"
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    table="test_view",
+                    column="test_view.user_id",
+                    native_column_type="string",
                 ),
-                upstreams=[MagicMock(table="test_table", column="user_id")],
+                upstreams=[ColumnRef(table="test_table", column="user_id")],
             )
         ]
         mock_spr = create_mock_sql_parsing_result(column_lineage=mock_column_lineage)
@@ -543,7 +571,10 @@ class TestLookMLAPIBasedViewUpstream:
             mock_spr = create_mock_sql_parsing_result()
             mock_create_lineage.return_value = mock_spr
 
-            upstream_instance._execute_query(MagicMock(spec=WriteQuery))
+            # Create a proper WriteQuery mock with fields attribute
+            mock_query = MagicMock(spec=WriteQuery)
+            mock_query.fields = ["test_view.user_id"]
+            upstream_instance._execute_query(mock_query)
 
             # Verify that latency was reported (may be called multiple times due to caching)
             assert mock_reporter.report_looker_query_api_latency.call_count >= 1
