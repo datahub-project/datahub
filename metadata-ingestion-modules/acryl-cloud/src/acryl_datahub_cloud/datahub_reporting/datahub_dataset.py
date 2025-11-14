@@ -12,7 +12,7 @@ import duckdb
 import pandas
 import pyarrow as pa
 import pyarrow.parquet as pq
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow, SchemaField
 from datahub.configuration.common import ConfigModel
@@ -87,7 +87,8 @@ class FileStoreBackedDatasetConfig(ConfigModel):
 
     datahub_platform: str = "acryl"
 
-    @validator("snapshot_partitioning_strategy")
+    @field_validator("snapshot_partitioning_strategy")
+    @classmethod
     def validate_partitioning_strategy(cls, v):
         if v not in PartitioningStrategy._value2member_map_:
             raise ValueError(f"Unsupported partitioning strategy: {v}")
@@ -195,7 +196,7 @@ class DataHubBasedS3Dataset:
             )
         if isinstance(row, (BaseModel, BaseModelRow)):
             # for anything extending BaseModel, we want to use the dict representation
-            write_row: Dict[str, Any] = row.dict()
+            write_row: Dict[str, Any] = row.model_dump()
         elif isinstance(row, dict):
             write_row = row
         else:

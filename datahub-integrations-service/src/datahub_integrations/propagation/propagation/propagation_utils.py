@@ -13,7 +13,7 @@ from datahub.ingestion.graph.filters import SearchFilterRule
 from datahub.metadata.schema_classes import MetadataAttributionClass
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 from datahub_actions.api.action_graph import AcrylDataHubGraph
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from ratelimit import limits, sleep_and_retry
 
 from datahub_integrations.propagation.propagation.propagation_rule_config import (
@@ -160,13 +160,15 @@ class SourceDetails(BaseModel):
         description="Lookup for the target entity",
     )
 
-    @validator("propagated", pre=True)
+    @field_validator("propagated", mode="before")
+    @classmethod
     def convert_boolean_to_lowercase_string(cls, v: Any) -> Optional[str]:
         if isinstance(v, bool):
             return str(v).lower()
         return v
 
-    @validator("propagation_depth", "propagation_started_at", pre=True)
+    @field_validator("propagation_depth", "propagation_started_at", mode="before")
+    @classmethod
     def convert_to_int(cls, v: Any) -> Optional[int]:
         if v is not None:
             return int(v)
@@ -178,7 +180,7 @@ class SourceDetails(BaseModel):
         Metadata Attribution MCPs.
         """
         result = {}
-        for k, v in self.dict(exclude_none=True).items():
+        for k, v in self.model_dump(exclude_none=True).items():
             if isinstance(v, Enum):
                 result[k] = v.value  # Use the enum's value
             elif isinstance(v, bool):

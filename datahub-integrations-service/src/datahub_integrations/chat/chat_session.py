@@ -68,7 +68,7 @@ from datahub_integrations.mcp.mcp_server import (
     mcp,
     with_datahub_client,
 )
-from datahub_integrations.mcp.tool import (
+from datahub_integrations.mcp_integration.tool import (
     ToolWrapper,
     async_background,
     tools_from_fastmcp,

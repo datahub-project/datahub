@@ -163,31 +163,50 @@ class AddDatasetDomain(DatasetDomainTransformer):
 
         return domain_mcps
 
+    def _should_skip_on_conflict(self, entity_urn: str) -> bool:
+        """Check if we should skip updating based on on_conflict setting and existing server domains."""
+        if self.config.on_conflict != TransformerOnConflict.DO_NOTHING:
+            return False
+
+        assert self.ctx.graph
+        server_domain = self.ctx.graph.get_domain(entity_urn)
+        return bool(server_domain and server_domain.domains)
+
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-        in_domain_aspect: DomainsClass = cast(DomainsClass, aspect)
+        in_domain_aspect = cast(Optional[DomainsClass], aspect)
+
         domain_aspect: DomainsClass = DomainsClass(domains=[])
+
         # Check if we have received existing aspect
         if in_domain_aspect is not None and self.config.replace_existing is False:
             domain_aspect.domains.extend(in_domain_aspect.domains)
 
         domain_to_add = self.config.get_domains_to_add(entity_urn)
-
         domain_aspect.domains.extend(domain_to_add.domains)
 
-        final_aspect: Optional[DomainsClass] = domain_aspect
-        if domain_aspect.domains:
-            if self.config.on_conflict == TransformerOnConflict.DO_NOTHING:
+        # Handle PATCH semantics
+        result: Optional[DomainsClass]
+        if self.config.semantics == TransformerSemantics.PATCH:
+            if not domain_aspect.domains:
                 assert self.ctx.graph
-                server_domain = self.ctx.graph.get_domain(entity_urn)
-                if server_domain and server_domain.domains:
+                result = self.ctx.graph.get_domain(entity_urn)
+            else:
+                # Check on_conflict before merging
+                if self._should_skip_on_conflict(entity_urn):
                     return None
-            if self.config.semantics == TransformerSemantics.PATCH:
-                final_aspect = AddDatasetDomain._merge_with_server_domains(
+                result = AddDatasetDomain._merge_with_server_domains(
                     self.ctx.graph, entity_urn, domain_aspect
                 )
-        return cast(Optional[Aspect], final_aspect)
+        else:
+            # OVERWRITE semantics: check on_conflict setting
+            if domain_aspect.domains and self._should_skip_on_conflict(entity_urn):
+                return None
+            result = domain_aspect
+
+        # Cast needed to convert concrete DomainsClass to TypeVar Aspect for mypy
+        return cast(Optional[Aspect], result)
 
 
 class SimpleAddDatasetDomain(AddDatasetDomain):

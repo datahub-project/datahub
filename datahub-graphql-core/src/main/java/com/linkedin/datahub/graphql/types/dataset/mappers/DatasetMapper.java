@@ -43,6 +43,7 @@ import com.linkedin.metadata.search.features.LineageFeatures;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.settings.asset.AssetSettings;
 import com.linkedin.structured.StructuredProperties;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -187,6 +188,10 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
                         logicalParent ->
                             UrnToEntityMapper.map(context, logicalParent.getDestinationUrn()))
                     .orElse(null)));
+    mappingHelper.mapToResult(
+        ASSET_SETTINGS_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
 
     // SaaS Only
     mappingHelper.mapToResult(

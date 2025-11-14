@@ -107,7 +107,7 @@ class TermSuggestionAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
-        config = TermSuggestionActionConfig.parse_obj(config_dict)
+        config = TermSuggestionActionConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def act(self, event: EventEnvelope) -> None:

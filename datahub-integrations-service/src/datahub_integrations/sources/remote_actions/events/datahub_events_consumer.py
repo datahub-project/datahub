@@ -110,7 +110,9 @@ class DataHubEventsConsumer:
 
         response = requests.get(endpoint, params=params, headers=headers)
         response.raise_for_status()  # Raise an exception for HTTP errors
-        external_events_response = ExternalEventsResponse.parse_obj(response.json())
+        external_events_response = ExternalEventsResponse.model_validate(
+            response.json()
+        )
         self.offset_id = external_events_response.offsetId
         return external_events_response
 

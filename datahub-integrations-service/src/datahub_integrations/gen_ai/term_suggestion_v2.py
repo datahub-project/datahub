@@ -72,7 +72,7 @@ def parse_terms_list_obj(terms_list: List[dict]) -> List[TermSuggestionBundle]:
     parsed_terms_list: List[TermSuggestionBundle] = []
     for term_dict in terms_list:
         try:
-            parsed_terms_list.append(TermSuggestionBundle.parse_obj(term_dict))
+            parsed_terms_list.append(TermSuggestionBundle.model_validate(term_dict))
         except ValidationError as e:
             logger.info(f"Validation error for element {term_dict}: {e}")
     return parsed_terms_list
@@ -164,14 +164,14 @@ def filter_table_information(
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     table_info_filtered = {
         k: v
-        for k, v in table_info.dict(exclude_none=True).items()
+        for k, v in table_info.model_dump(exclude_none=True).items()
         if k in _TABLE_INFO_FOR_PROMPT
     }
     column_info_filtered = {}
     for column_name, column_metadata in column_info.items():
         column_info_filtered[column_name] = {
             k: v
-            for k, v in column_metadata.dict(exclude_none=True).items()
+            for k, v in column_metadata.model_dump(exclude_none=True).items()
             if k in _COLUMN_INFO_FOR_PROMPT
         }
     return table_info_filtered, column_info_filtered

@@ -6,7 +6,7 @@ from typing import List, Optional
 
 import boto3
 from opensearchpy import OpenSearch
-from pydantic import validator
+from pydantic import field_validator
 
 from acryl_datahub_cloud.datahub_reporting.datahub_dataset import (
     DataHubBasedS3Dataset,
@@ -43,8 +43,9 @@ class DataHubReportingExtractGraphSourceConfig(ConfigModel):
     query_timeout: int = 30
     extract_batch_size: int = 2000
 
-    @validator("extract_graph_store", pre=True, always=True)
-    def set_default_extract_soft_delete_flag(cls, v, values):
+    @field_validator("extract_graph_store", mode="before")
+    @classmethod
+    def set_default_extract_soft_delete_flag(cls, v):
         if v is not None:
             if "dataset_registration_spec" not in v:
                 v["dataset_registration_spec"] = DatasetRegistrationSpec(

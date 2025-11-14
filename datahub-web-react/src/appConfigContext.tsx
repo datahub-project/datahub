@@ -69,6 +69,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     },
     dataHubConfig: {
         serverEnv: 'cloud',
+        isFreeTrialInstance: false,
     },
     classificationConfig: {
         enabled: false,

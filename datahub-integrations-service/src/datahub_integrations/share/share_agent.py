@@ -85,7 +85,7 @@ class ShareAgent:
         graph: DataHubGraph, connection_urn: str
     ) -> DataHubGraph:
         share_config_raw = get_connection_json(graph, connection_urn)
-        share_config = ShareConfig.parse_obj(share_config_raw)
+        share_config = ShareConfig.model_validate(share_config_raw)
         destination_graph = DataHubGraph(share_config.connection)
         logger.debug(f"Using destination graph: {destination_graph!r}")
         return destination_graph

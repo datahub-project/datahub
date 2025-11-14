@@ -259,12 +259,32 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 };
                 setMessages((prev) => [...prev, userMessage]);
 
+                // Extract entity mentions from markdown
+                const mentions = extractReferencesFromMarkdown(initialMessage);
+
+                // Calculate message index - count existing user messages
+                const userMessageCount = messages.filter(
+                    (msg) => msg.actor.type === DataHubAiConversationActorType.User,
+                ).length;
+
+                // Emit analytics event for message creation
+                analytics.event({
+                    type: EventType.CreateDataHubChatMessageEvent,
+                    conversationUrn,
+                    messageLength: initialMessage.length,
+                    hasEntityMentions: mentions.length > 0,
+                    entityMentionCount: mentions.length,
+                    userMessageIndex: userMessageCount, // 0 = first user message, N = Nth user message
+                    totalMessageCount: messages.length, // Total messages (user + agent) before this message
+                    messagePreview: initialMessage.substring(0, 200), // First 200 characters
+                });
+
                 // Send the message
                 sendMessage(initialMessage);
                 setInputValue('');
             }, 100);
         }
-    }, [initialMessage, loading, conversation, userUrn, sendMessage]);
+    }, [initialMessage, loading, conversation, userUrn, sendMessage, conversationUrn, messages]);
 
     const handleSend = () => {
         if (!inputValue.trim()) {
@@ -288,6 +308,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         // Extract entity mentions from markdown
         const mentions = extractReferencesFromMarkdown(inputValue);
 
+        // Calculate message index - count existing user messages
+        const userMessageCount = messages.filter(
+            (msg) => msg.actor.type === DataHubAiConversationActorType.User,
+        ).length;
+
         // Emit analytics event for message creation
         analytics.event({
             type: EventType.CreateDataHubChatMessageEvent,
@@ -295,6 +320,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             messageLength: inputValue.length,
             hasEntityMentions: mentions.length > 0,
             entityMentionCount: mentions.length,
+            userMessageIndex: userMessageCount, // 0 = first user message, N = Nth user message
+            totalMessageCount: messages.length, // Total messages (user + agent) before this message
+            messagePreview: inputValue.substring(0, 200), // First 200 characters
         });
 
         // Send the message
@@ -318,6 +346,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             },
         };
         setMessages((prev) => [...prev, userMessage]);
+
+        // Extract entity mentions from markdown
+        const mentions = extractReferencesFromMarkdown(question);
+
+        // Calculate message index - count existing user messages
+        const userMessageCount = messages.filter(
+            (msg) => msg.actor.type === DataHubAiConversationActorType.User,
+        ).length;
+
+        // Emit analytics event for message creation
+        analytics.event({
+            type: EventType.CreateDataHubChatMessageEvent,
+            conversationUrn,
+            messageLength: question.length,
+            hasEntityMentions: mentions.length > 0,
+            entityMentionCount: mentions.length,
+            userMessageIndex: userMessageCount, // 0 = first user message, N = Nth user message
+            totalMessageCount: messages.length, // Total messages (user + agent) before this message
+            messagePreview: question.substring(0, 200), // First 200 characters
+        });
 
         // Send the message
         sendMessage(question);

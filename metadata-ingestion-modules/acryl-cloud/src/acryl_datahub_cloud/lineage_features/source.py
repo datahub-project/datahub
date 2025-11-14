@@ -12,7 +12,7 @@ from opensearchpy.exceptions import (
     RequestError,
     TransportError,
 )
-from pydantic import validator
+from pydantic import field_validator
 from tenacity import (
     before_sleep_log,
     retry,
@@ -58,19 +58,22 @@ class LineageFeaturesSourceConfig(ConfigModel):
     cleanup_batch_size: int = 100
     cleanup_old_features_days: int = 2
 
-    @validator("max_retries")
+    @field_validator("max_retries")
+    @classmethod
     def validate_max_retries(cls, v: int) -> int:
         if v < 1:
             raise ValueError("max_retries must be at least 1")
         return v
 
-    @validator("retry_delay_seconds")
+    @field_validator("retry_delay_seconds")
+    @classmethod
     def validate_retry_delay_seconds(cls, v: int) -> int:
         if v < 1:
             raise ValueError("retry_delay_seconds must be at least 1")
         return v
 
-    @validator("retry_backoff_multiplier")
+    @field_validator("retry_backoff_multiplier")
+    @classmethod
     def validate_retry_backoff_multiplier(cls, v: float) -> float:
         if v < 1.0:
             raise ValueError("retry_backoff_multiplier must be at least 1.0")

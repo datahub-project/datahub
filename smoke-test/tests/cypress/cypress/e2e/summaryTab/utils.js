@@ -296,6 +296,9 @@ export function ensurePropertyExist(property) {
         expect(text).to.match(new RegExp(property.value, "i"));
       });
     }
+    if (property.dataTestId !== undefined) {
+      cy.getWithTestId(property.dataTestId).should("exist");
+    }
   });
 }
 

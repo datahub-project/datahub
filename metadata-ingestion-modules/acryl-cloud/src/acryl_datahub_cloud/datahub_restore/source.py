@@ -3,7 +3,7 @@ import time
 from functools import partial
 from typing import Any, Dict, Iterable, List, Optional
 
-from pydantic import Field, root_validator
+from pydantic import Field, model_validator
 
 from acryl_datahub_cloud.datahub_restore.do_restore import restore_indices
 from datahub.configuration.common import ConfigModel
@@ -64,7 +64,8 @@ class DataHubRestoreIndicesConfig(ConfigModel, StatefulIngestionConfigBase):
         description="Same as restore indices endpoint.",
     )
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def extract_assertion_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if values.get("urn") is None and values.get("urn_like") is None:
             raise ValueError("Either urn or urn_like must be provided.")

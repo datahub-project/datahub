@@ -243,6 +243,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final DataHubConfig dataHubConfig = new DataHubConfig();
     dataHubConfig.setServerEnv(_datahubConfiguration.getServerEnv());
+    dataHubConfig.setIsFreeTrialInstance(_datahubConfiguration.isFreeTrialInstance());
     appConfig.setDataHubConfig(dataHubConfig);
 
     final ViewsConfig viewsConfig = new ViewsConfig();

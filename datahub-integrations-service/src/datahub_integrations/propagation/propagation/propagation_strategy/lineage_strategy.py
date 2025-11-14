@@ -201,7 +201,7 @@ class LineageBasedStrategy(BaseStrategy):
         self, context: SourceDetails, direction: DirectionType
     ) -> SourceDetails:
         """Create a new context with propagation details."""
-        propagated_context = SourceDetails.parse_obj(context.dict())
+        propagated_context = SourceDetails.model_validate(context.model_dump())
         propagated_context.propagation_relationship = RelationshipType.LINEAGE
 
         # For first hop, set the direction; for subsequent hops, preserve original direction

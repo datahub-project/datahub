@@ -10,15 +10,14 @@ from typing import List
 import datahub.metadata.schema_classes as models
 import pandas as pd
 import plotly.graph_objects as go
-import pydantic
-import pydantic.v1.class_validators
 import streamlit as st
 import streamlit_ext as ste
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.urns import DatasetUrn
 from plotly.subplots import make_subplots
-from pydantic.v1.json import pydantic_encoder
+from pydantic import TypeAdapter
+from pydantic.json import pydantic_encoder
 
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     default_volume_assertion_urn,
@@ -228,7 +227,7 @@ def render_monitor_detail_page() -> None:
         return
 
     monitor = _get_monitor(monitor_urn)
-    st.json(monitor.json(), expanded=False)
+    st.json(monitor.model_dump_json(), expanded=False)
 
     # TODO: only render for volume assertions.
     render_volume_assertion_simulation_ui(monitor)
@@ -330,10 +329,9 @@ Example exclusion windows:
         expanded=False,
     )
 
-    exclusion_windows: List[AssertionExclusionWindow] = pydantic.parse_obj_as(
-        List[AssertionExclusionWindow],  # type: ignore
-        json.loads(exclusion_windows_raw or "[]"),
-    )
+    exclusion_windows: List[AssertionExclusionWindow] = TypeAdapter(
+        List[AssertionExclusionWindow]  # type: ignore
+    ).validate_python(json.loads(exclusion_windows_raw or "[]"))
     user_config = json.loads(user_config_raw)
 
     adjustment_settings = AssertionAdjustmentSettings(
@@ -631,9 +629,9 @@ def render_monitor_list_page() -> None:
             "Mode": monitor.mode.value if monitor.mode else None,
             "Dataset": dataset.table_name if dataset else None,
             "Assertion Type": assertion.assertion.type.value if assertion else None,
-            "Assertion": assertion.json() if assertion else None,
+            "Assertion": assertion.model_dump_json() if assertion else None,
             "Settings": (
-                monitor.assertion_monitor.settings.json()
+                monitor.assertion_monitor.settings.model_dump_json()
                 if monitor.assertion_monitor and monitor.assertion_monitor.settings
                 else None
             ),
@@ -742,5 +740,8 @@ pages = {
 page = st.navigation(pages)
 page.run()
 
+# Historical note: Pydantic v1 required clearing validator cache for Streamlit reruns
+# via pydantic.v1.class_validators._FUNCS.clear() to avoid duplicate validator errors.
 # See https://github.com/streamlit/streamlit/issues/3218
-pydantic.v1.class_validators._FUNCS.clear()
+# This workaround is NOT needed in Pydantic v2 - the validator system was redesigned
+# and no longer uses a global cache that causes conflicts on script reruns.

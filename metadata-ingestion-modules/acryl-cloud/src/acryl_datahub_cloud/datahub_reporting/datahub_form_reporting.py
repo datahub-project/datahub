@@ -159,7 +159,7 @@ class DataHubFormReportingData(FormData):
         on_form_scanned: Callable[[str], Any],
     ) -> pd.DataFrame:
         return pd.DataFrame(
-            x.dict()
+            x.model_dump()
             for x in self.get_data(
                 on_asset_scanned=on_asset_scanned, on_form_scanned=on_form_scanned
             )

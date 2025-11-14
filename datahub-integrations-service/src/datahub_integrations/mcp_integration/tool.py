@@ -4,7 +4,6 @@ import dataclasses
 import functools
 import inspect
 import json
-import os
 from typing import Any, Awaitable, Callable, List, Optional, ParamSpec, TypeVar
 
 import asyncer
@@ -16,13 +15,10 @@ from loguru import logger
 from mcp.types import TextContent
 
 from datahub_integrations.chat.context_reducer import TokenCountEstimator
+from datahub_integrations.mcp.mcp_server import TOOL_RESPONSE_TOKEN_LIMIT
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
-
-# Maximum token count for tool responses to prevent context window issues
-# As per telemetry tool result length goes upto
-TOOL_RESPONSE_TOKEN_LIMIT = int(os.getenv("TOOL_RESPONSE_TOKEN_LIMIT", 80000))
 
 
 # Note: This is intentionally duplicated from mcp_server.py (which is a copy from upstream project)

@@ -53,7 +53,7 @@ class UnityCatalogPropagatorAction(ExtendedAction[SelectedAsset]):
             config_str=config.json(), graph=ctx.graph.graph
         )
 
-        self.config = UnityCatalogTagPropagatorConfig.parse_obj(resolved_config)
+        self.config = UnityCatalogTagPropagatorConfig.model_validate(resolved_config)
 
         # self.config: BigqueryTagPropagatorConfig = config
         logger.info("Initializing Unity Catalog Tag Propagator Action")
@@ -107,7 +107,7 @@ class UnityCatalogPropagatorAction(ExtendedAction[SelectedAsset]):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        config = UnityCatalogTagPropagatorConfig.parse_obj(config_dict or {})
+        config = UnityCatalogTagPropagatorConfig.model_validate(config_dict or {})
         return cls(config, ctx)
 
     def name(self) -> str:
