@@ -342,9 +342,12 @@ public class SpringStandardPluginConfiguration {
   @ConditionalOnProperty(
       name = "metadataChangeProposal.validation.privilegeConstraints.enabled",
       havingValue = "true")
-  public AspectPayloadValidator privilegeConstraintsValidator() {
+  public AspectPayloadValidator privilegeConstraintsValidator(
+      @Value("${authorization.defaultAuthorizer.domainBasedAuthorizationEnabled:false}")
+          boolean domainBasedAuthorizationEnabled) {
     // Supports tag constraints only for now
     return new PrivilegeConstraintsValidator()
+        .setDomainBasedAuthorizationEnabled(domainBasedAuthorizationEnabled)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(PrivilegeConstraintsValidator.class.getName())

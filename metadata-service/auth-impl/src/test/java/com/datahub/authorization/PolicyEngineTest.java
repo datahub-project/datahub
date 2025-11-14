@@ -39,6 +39,7 @@ public class PolicyEngineTest {
   private static final String AUTHORIZED_GROUP = "urn:li:corpGroup:authorizedGroup";
   private static final String RESOURCE_URN = "urn:li:dataset:test";
   private static final String DOMAIN_URN = "urn:li:domain:domain1";
+  private static final String DATASET_URN = "urn:li:dataset:dataset1";
   private static final String CONTAINER_URN = "urn:li:container:container1";
   private static final String TAG_URN = "urn:li:tag:allowed";
   private static final String OWNERSHIP_TYPE_URN = "urn:li:ownershipType:__system__technical_owner";
@@ -59,7 +60,7 @@ public class PolicyEngineTest {
   public void setupTest() throws Exception {
     _entityClient = Mockito.mock(EntityClient.class);
     systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    _policyEngine = new PolicyEngine(_entityClient);
+    _policyEngine = new PolicyEngine(_entityClient, true);
 
     authorizedUserUrn = Urn.createFromString(AUTHORIZED_PRINCIPAL);
     resolvedAuthorizedUserSpec =
@@ -2443,6 +2444,480 @@ public class PolicyEngineTest {
             mixedOwnerships);
 
     assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyEntityCreationWithWrongDomainInSubResources() throws Exception {
+    // Policy that allows entity creation only in specific domain
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Domain-scoped entity creation policy");
+    dataHubPolicyInfo.setDescription("Policy that restricts entity creation to specific domain");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    resourceFilter.setFilter(
+        FilterUtils.newFilter(
+            ImmutableMap.of(
+                EntityFieldType.TYPE,
+                Collections.singletonList("dataset"),
+                EntityFieldType.DOMAIN,
+                Collections.singletonList(DOMAIN_URN))));
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Container with matching domain as main resource
+    ResolvedEntitySpec datasetSpec =
+        buildEntityResolvers(
+            "dataset",
+            DATASET_URN,
+            Collections.emptySet(),
+            Collections.singleton("urn:li:domain:wrong_domain"),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet());
+
+    // SubResources contain different domain that doesn't match policy
+    List<ResolvedEntitySpec> subResources =
+        Collections.singletonList(buildEntityResolvers("domain", "urn:li:domain:wrong_domain"));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(datasetSpec), // No existing resource
+            subResources);
+
+    assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyEntityCreationWithDomainMatch() throws Exception {
+    // Policy allows entities in specific domain
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Domain policy");
+    dataHubPolicyInfo.setDescription("Policy based on container's domain");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("container");
+    resourceFilter.setFilter(
+        FilterUtils.newFilter(
+            ImmutableMap.of(
+                EntityFieldType.TYPE,
+                Collections.singletonList("container"),
+                EntityFieldType.DOMAIN,
+                Collections.singletonList(DOMAIN_URN))));
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Container with matching domain as main resource
+    ResolvedEntitySpec containerSpec =
+        buildEntityResolvers(
+            "container",
+            CONTAINER_URN,
+            Collections.emptySet(),
+            Collections.singleton(DOMAIN_URN),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet());
+
+    List<ResolvedEntitySpec> subResources =
+        Collections.singletonList(
+            buildEntityResolvers("domain", DOMAIN_URN)); // Domain matches policy
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(containerSpec),
+            subResources);
+
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyEntityUpdateMultipleDomainsInSubResources() throws Exception {
+    // Policy allows multiple domains
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Multi-domain policy");
+    dataHubPolicyInfo.setDescription("Allows entities in multiple domains");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(
+        FilterUtils.newFilter(
+            ImmutableMap.of(
+                EntityFieldType.DOMAIN, Arrays.asList(DOMAIN_URN, "urn:li:domain:domain2"))));
+    dataHubPolicyInfo.setResources(resourceFilter);
+    // Dataset has authorized domain
+    ResolvedEntitySpec datasetSpec =
+        buildEntityResolvers(
+            "dataset",
+            DATASET_URN,
+            Collections.emptySet(),
+            Collections.singleton(DOMAIN_URN), // Container domain matches
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet());
+    // Entity being created with domain2
+    List<ResolvedEntitySpec> subResources =
+        Arrays.asList(
+            buildEntityResolvers("domain", "urn:li:domain:domain2"),
+            buildEntityResolvers("domain", DOMAIN_URN));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(datasetSpec),
+            subResources);
+
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyUpdateEntityChangingDomain() throws Exception {
+    // Policy that restricts which domains can be assigned
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_DOMAINS"));
+    dataHubPolicyInfo.setDisplayName("Domain change restriction policy1");
+    dataHubPolicyInfo.setDescription("Restricts which domains can be assigned to entities");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    resourceFilter.setFilter(
+        FilterUtils.newFilter(
+            ImmutableMap.of(
+                EntityFieldType.TYPE,
+                Collections.singletonList("dataset"),
+                EntityFieldType.DOMAIN,
+                Collections.singletonList(DOMAIN_URN))));
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec existingEntity =
+        buildEntityResolvers(
+            "dataset",
+            DATASET_URN,
+            Collections.emptySet(),
+            Collections.singleton(DOMAIN_URN),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet());
+
+    // Try to change entity to UNAUTHORIZED domain (not in policy)
+    List<ResolvedEntitySpec> subResources =
+        Collections.singletonList(
+            buildEntityResolvers("domain", "urn:li:domain:unauthorized_new_domain"));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_DOMAINS",
+            Optional.of(existingEntity),
+            subResources);
+
+    // Should be DENIED - trying to set to unauthorized domain
+    assertFalse(result.isGranted());
+
+    // Now try to change entity to AUTHORIZED domain
+    List<ResolvedEntitySpec> authorizedSubResources =
+        Collections.singletonList(buildEntityResolvers("domain", DOMAIN_URN));
+
+    result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_DOMAINS",
+            Optional.of(existingEntity),
+            authorizedSubResources);
+
+    // Should be ALLOWED - setting to authorized domain
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyEntityCreationWithEmptyDomainUsesSubResource() throws Exception {
+    // Test UNION logic: when resource domain is empty, use domain subResources
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY"));
+    dataHubPolicyInfo.setDisplayName("Domain-scoped creation policy");
+    dataHubPolicyInfo.setDescription("Allows entity creation in specific domains");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    resourceFilter.setFilter(
+        FilterUtils.newFilter(
+            ImmutableMap.of(
+                EntityFieldType.TYPE,
+                Collections.singletonList("dataset"),
+                EntityFieldType.DOMAIN,
+                Collections.singletonList(DOMAIN_URN))));
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Dataset being created with NO domain (empty domain field)
+    ResolvedEntitySpec datasetSpec =
+        buildEntityResolvers(
+            "dataset",
+            DATASET_URN,
+            Collections.emptySet(),
+            Collections.emptySet(), // NO DOMAIN in resource
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet());
+
+    // Domain provided in subResources (entity being created with this domain)
+    List<ResolvedEntitySpec> subResources =
+        Collections.singletonList(buildEntityResolvers("domain", DOMAIN_URN));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY",
+            Optional.of(datasetSpec),
+            subResources);
+
+    // Should be GRANTED - domain in subResource matches policy's allowed domains
+    assertTrue(result.isGranted());
+
+    // Now test with WRONG domain in subResources
+    List<ResolvedEntitySpec> wrongSubResources =
+        Collections.singletonList(
+            buildEntityResolvers("domain", "urn:li:domain:unauthorized_domain"));
+
+    result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY",
+            Optional.of(datasetSpec),
+            wrongSubResources);
+
+    // Should be DENIED - domain in subResource doesn't match policy
+    assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyEntityCreationNoDomainRequired() throws Exception {
+    // Policy without domain filter - should allow any domain
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Unrestricted policy");
+    dataHubPolicyInfo.setDescription("No domain restrictions");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(
+        FilterUtils.newFilter(
+            ImmutableMap.of(EntityFieldType.TAG, Arrays.asList(TAG_URN, "urn:li:tag:tag2"))));
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec existingEntity =
+        buildEntityResolvers(
+            "dataset",
+            RESOURCE_URN,
+            Collections.singleton(DOMAIN_URN),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.singleton(TAG_URN));
+
+    // Entity with any domain should be allowed
+    List<ResolvedEntitySpec> subResources =
+        Arrays.asList(
+            buildEntityResolvers("domain", "urn:li:domain:any_domain"),
+            buildEntityResolvers("tag", "urn:li:tag:tag2"));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(existingEntity),
+            subResources);
+
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyEntityCreationWithDomainMatchWithNoDomainAuthorzatorEnable()
+      throws Exception {
+    PolicyEngine disableDomainEngine = new PolicyEngine(_entityClient, false);
+
+    // Policy allows entities in specific domain
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Domain policy");
+    dataHubPolicyInfo.setDescription("Policy based on container's domain");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("container");
+    resourceFilter.setFilter(
+        FilterUtils.newFilter(
+            ImmutableMap.of(
+                EntityFieldType.TYPE,
+                Collections.singletonList("container"),
+                EntityFieldType.DOMAIN,
+                Collections.singletonList(DOMAIN_URN))));
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Container with matching domain as main resource
+    ResolvedEntitySpec containerSpec =
+        buildEntityResolvers(
+            "container",
+            CONTAINER_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet());
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(containerSpec),
+            Collections.emptyList());
+
+    assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyWithSubResourceTagsDomainAllowed() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Tag modification policy");
+    dataHubPolicyInfo.setDescription("Policy that restricts which tags can be added/removed");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(
+        FilterUtils.newFilter(
+            ImmutableMap.of(
+                EntityFieldType.TYPE,
+                Collections.singletonList("dataset"),
+                EntityFieldType.DOMAIN,
+                Collections.singletonList(DOMAIN_URN))));
+
+    // Set policy constraints - only allow modification of tags starting with "urn:li:tag:public"
+    PolicyMatchCriterion tagCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:tag:public"),
+            PolicyMatchCondition.STARTS_WITH);
+    PolicyMatchFilter constraintFilter =
+        new PolicyMatchFilter()
+            .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(tagCriterion)));
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolvers(
+            "dataset",
+            DATASET_URN,
+            Collections.emptySet(),
+            Collections.singleton(DOMAIN_URN),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet());
+
+    List<ResolvedEntitySpec> subResources =
+        Arrays.asList(
+            buildEntityResolvers("domain", DOMAIN_URN),
+            buildEntityResolvers("tag", "urn:li:tag:public_data"),
+            buildEntityResolvers("tag", "urn:li:tag:public_analytics"));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            subResources);
+
+    assertTrue(result.isGranted());
   }
 
   private Ownership createOwnershipAspect(final Boolean addUserOwner, final Boolean addGroupOwner)
