@@ -1,4 +1,4 @@
-import { GIT_INFO_REPO } from '@app/ingestV2/source/builder/RecipeForm/common';
+import { FieldType, GIT_INFO_REPO } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { RECIPE_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { LOOKML, LOOKML_GIT_INFO_REPO } from '@app/ingestV2/source/builder/RecipeForm/lookml';
 
@@ -69,7 +69,7 @@ describe('Constants Git Info Integration', () => {
 
             gitInfoFields.forEach((field) => {
                 expect(field.type).toBeDefined();
-                expect(['TEXT', 'SECRET']).toContain(field.type);
+                expect([FieldType.TEXT, FieldType.SECRET]).toContain(field.type);
             });
         });
     });
