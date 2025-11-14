@@ -238,4 +238,60 @@ public class EntityPrivilegesResolverTest {
 
     assertFalse(result.getCanEditLineage());
   }
+
+  @Test
+  public void testCanViewEntityPageWithPermissions() throws Exception {
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(datasetUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithPermissions(dataset);
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertTrue(result.getCanViewEntityPage());
+  }
+
+  @Test
+  public void testCanViewEntityPageWithoutPermissions() throws Exception {
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(datasetUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithoutPermissions(dataset);
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertFalse(result.getCanViewEntityPage());
+  }
+
+  @Test
+  public void testCanViewEntityPageForChartWithPermissions() throws Exception {
+    final Chart chart = new Chart();
+    chart.setUrn(chartUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithPermissions(chart);
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertTrue(result.getCanViewEntityPage());
+  }
+
+  @Test
+  public void testCanViewEntityPageForChartWithoutPermissions() throws Exception {
+    final Chart chart = new Chart();
+    chart.setUrn(chartUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithoutPermissions(chart);
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertFalse(result.getCanViewEntityPage());
+  }
 }

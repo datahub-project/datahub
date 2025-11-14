@@ -451,6 +451,14 @@ public class AuthorizationUtils {
         new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
   }
 
+  public static boolean isViewEntityPageAuthorized(
+      final QueryContext context, final Urn resourceUrn) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(),
+        PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE,
+        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+  }
+
   public static boolean canManageAssetSummary(@Nonnull QueryContext context, @Nonnull Urn urn) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
