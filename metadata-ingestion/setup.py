@@ -520,6 +520,7 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
+    "iceberg-rest-sink": iceberg_common,
     "json-schema": {"requests"},
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
@@ -930,6 +931,7 @@ entry_points = {
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
         "datahub-lite = datahub.ingestion.sink.datahub_lite:DataHubLiteSink",
+        "iceberg-rest = datahub.ingestion.sink.iceberg_rest:IcebergRestSink",
     ],
     "datahub.ingestion.checkpointing_provider.plugins": [
         "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",
