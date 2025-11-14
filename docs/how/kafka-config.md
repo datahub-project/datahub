@@ -277,6 +277,30 @@ Configurations specified in `topicDefaults` are applied to all topics by merging
 If you intend to create and configure the topics yourself and not have datahub create them, the kafka setup process of
 datahub-system-update can be turned off by setting env var DATAHUB_PRECREATE_TOPICS to false
 
+### Schema Registry Topic Configuration
+
+When using Confluent Schema Registry, DataHub's system update job attempts to configure the cleanup policy for the `_schemas` topic. If your Kafka user does not have `ALTER_CONFIGS` permission on the Schema Registry topics, you can disable this step:
+
+```bash
+KAFKA_SETUP_APPLY_SCHEMA_REGISTRY_CLEANUP_POLICY=false
+```
+
+This configuration is useful in enterprise environments where:
+- Schema Registry and its topics are managed separately
+- DataHub's Kafka user has restricted permissions
+- The `_schemas` topic cleanup policy is already configured by your Kafka administrators
+
+**Helm configuration:**
+
+```yaml
+datahub-system-update:
+  extraEnvs:
+    - name: KAFKA_SETUP_APPLY_SCHEMA_REGISTRY_CLEANUP_POLICY
+      value: "false"
+```
+
+> **Note:** This setting defaults to `true` for backward compatibility. Only set it to `false` if you encounter `TopicAuthorizationException` errors during upgrades and your Schema Registry topics are managed externally.
+
 ## Debugging Kafka
 
 You can install [kafkacat](https://github.com/edenhill/kafkacat) to consume and produce messaged to Kafka topics.
