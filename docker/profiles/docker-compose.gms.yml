@@ -76,6 +76,11 @@ x-datahub-system-update-service: &datahub-system-update-service
     - ${DATAHUB_LOCAL_SYS_UPDATE_ENV:-empty2.env}
   environment: &datahub-system-update-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env, *datahub-common-env]
+    EBEAN_DATASOURCE_USERNAME: ${DATAHUB_EBEAN_DATASOURCE_ROOT_USERNAME:-root}
+    EBEAN_DATASOURCE_PASSWORD: ${DATAHUB_EBEAN_DATASOURCE_ROOT_PASSWORD:-datahub}
+    CREATE_USER: ${DATAHUB_CREATE_USER:-false}
+    CREATE_USER_USERNAME: ${DATAHUB_CREATE_USER_USERNAME:-datahub}
+    CREATE_USER_PASSWORD: ${DATAHUB_CREATE_USER_PASSWORD:-datahub}
     SCHEMA_REGISTRY_SYSTEM_UPDATE: ${SCHEMA_REGISTRY_SYSTEM_UPDATE:-true}
     SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: ${SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS:-true}
     SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: ${SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION:-true}
