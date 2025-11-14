@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 import pydantic
-from pydantic import model_validator
+from pydantic import BaseModel as GenericModel, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -12,7 +12,6 @@ from datahub.configuration.common import (
     DynamicTypedConfig,
     HiddenFromDocs,
 )
-from datahub.configuration.pydantic_migration_helpers import GenericModel
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext

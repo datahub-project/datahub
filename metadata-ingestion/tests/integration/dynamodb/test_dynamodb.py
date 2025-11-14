@@ -112,11 +112,11 @@ def test_dynamodb(pytestconfig, tmp_path):
                                     minimum_values_threshold=1,
                                     info_types_config={
                                         "Phone_Number": InfoTypeConfig(
-                                            prediction_factors_and_weights=PredictionFactorsAndWeights(
-                                                name=0.7,
-                                                description=0,
-                                                datatype=0,
-                                                values=0.3,
+                                            Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
+                                                Name=0.7,
+                                                Description=0,
+                                                Datatype=0,
+                                                Values=0.3,
                                             )
                                         )
                                     },

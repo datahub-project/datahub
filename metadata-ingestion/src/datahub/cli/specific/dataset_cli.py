@@ -55,7 +55,7 @@ def get(urn: str, to_file: str) -> None:
         if graph.exists(urn):
             dataset: Dataset = Dataset.from_datahub(graph=graph, urn=urn)
             click.secho(
-                f"{json.dumps(dataset.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                f"{json.dumps(dataset.model_dump(exclude_unset=True, exclude_none=True), indent=2)}"
             )
             if to_file:
                 dataset.to_yaml(Path(to_file))

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from datahub.ingestion.source.powerbi_report_server.constants import (
     RelationshipDirection,
@@ -357,9 +357,8 @@ class OwnershipData(BaseModel):
     existing_owners: Optional[List[OwnerClass]] = []
     owner_to_add: Optional[CorpUser] = None
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
-CatalogItem.update_forward_refs()
-CorpUserProperties.update_forward_refs()
+CatalogItem.model_rebuild()
+CorpUserProperties.model_rebuild()
