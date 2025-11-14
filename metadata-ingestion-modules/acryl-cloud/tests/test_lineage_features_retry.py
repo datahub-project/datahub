@@ -63,16 +63,16 @@ class TestLineageFeaturesRetry:
         assert mock_opensearch.call_count == 3
 
     @patch("acryl_datahub_cloud.lineage_features.source.OpenSearch")
-    def test_create_pit_retry(self, mock_opensearch: Mock) -> None:
-        """Test that PIT creation retries on failure."""
+    def test_scroll_retry(self, mock_opensearch: Mock) -> None:
+        """Test that scroll operations retry on failure."""
         mock_client = Mock()
         mock_opensearch.return_value = mock_client
 
-        # Mock PIT creation to fail twice then succeed
-        mock_client.create_pit.side_effect = [
+        # Mock scroll to fail twice then succeed
+        mock_client.scroll.side_effect = [
             ConnectionTimeout("Connection timeout", None, None),
             OpenSearchConnectionError("Connection error", None, None),
-            {"pit_id": "test_pit_id"},
+            {"hits": {"hits": []}, "_scroll_id": "test_scroll_id"},
         ]
 
         config = LineageFeaturesSourceConfig(max_retries=3)
@@ -80,9 +80,9 @@ class TestLineageFeaturesRetry:
         source = DataHubLineageFeaturesSource(config, ctx)
 
         # Should succeed after retries
-        result = source._create_pit_with_retry(mock_client, "test_index")
-        assert result == "test_pit_id"
-        assert mock_client.create_pit.call_count == 3
+        result = source._scroll_with_retry(mock_client, "test_scroll_id")
+        assert result == {"hits": {"hits": []}, "_scroll_id": "test_scroll_id"}
+        assert mock_client.scroll.call_count == 3
 
     @patch("acryl_datahub_cloud.lineage_features.source.OpenSearch")
     def test_search_retry(self, mock_opensearch: Mock) -> None:
@@ -94,7 +94,7 @@ class TestLineageFeaturesRetry:
         mock_client.search.side_effect = [
             ConnectionTimeout("Connection timeout", None, None),
             OpenSearchConnectionError("Connection error", None, None),
-            {"hits": {"hits": []}},
+            {"hits": {"hits": []}, "_scroll_id": "test_scroll_id"},
         ]
 
         config = LineageFeaturesSourceConfig(max_retries=3)
@@ -102,18 +102,20 @@ class TestLineageFeaturesRetry:
         source = DataHubLineageFeaturesSource(config, ctx)
 
         # Should succeed after retries
-        result = source._search_with_retry(mock_client, {"query": "test"}, 100)
-        assert result == {"hits": {"hits": []}}
+        result = source._search_with_retry(
+            mock_client, "test_index", {"query": "test"}, 100
+        )
+        assert result == {"hits": {"hits": []}, "_scroll_id": "test_scroll_id"}
         assert mock_client.search.call_count == 3
 
     @patch("acryl_datahub_cloud.lineage_features.source.OpenSearch")
-    def test_delete_pit_retry(self, mock_opensearch: Mock) -> None:
-        """Test that PIT deletion retries on failure."""
+    def test_clear_scroll_retry(self, mock_opensearch: Mock) -> None:
+        """Test that scroll clearing retries on failure."""
         mock_client = Mock()
         mock_opensearch.return_value = mock_client
 
-        # Mock PIT deletion to fail twice then succeed
-        mock_client.delete_pit.side_effect = [
+        # Mock scroll clearing to fail twice then succeed
+        mock_client.clear_scroll.side_effect = [
             ConnectionTimeout("Connection timeout", None, None),
             OpenSearchConnectionError("Connection error", None, None),
             None,  # Success
@@ -124,8 +126,8 @@ class TestLineageFeaturesRetry:
         source = DataHubLineageFeaturesSource(config, ctx)
 
         # Should succeed after retries
-        source._delete_pit_with_retry(mock_client, "test_pit_id")
-        assert mock_client.delete_pit.call_count == 3
+        source._clear_scroll_with_retry(mock_client, "test_scroll_id")
+        assert mock_client.clear_scroll.call_count == 3
 
     @patch("acryl_datahub_cloud.lineage_features.source.OpenSearch")
     def test_max_retries_exceeded(self, mock_opensearch: Mock) -> None:
@@ -134,7 +136,7 @@ class TestLineageFeaturesRetry:
         mock_opensearch.return_value = mock_client
 
         # Mock to always fail
-        mock_client.create_pit.side_effect = ConnectionTimeout(
+        mock_client.scroll.side_effect = ConnectionTimeout(
             "Connection timeout", None, None
         )
 
@@ -144,6 +146,69 @@ class TestLineageFeaturesRetry:
 
         # Should raise exception after max retries
         with pytest.raises(ConnectionTimeout):
-            source._create_pit_with_retry(mock_client, "test_index")
+            source._scroll_with_retry(mock_client, "test_scroll_id")
 
-        assert mock_client.create_pit.call_count == 2
+        assert mock_client.scroll.call_count == 2
+
+    @patch("acryl_datahub_cloud.lineage_features.source.OpenSearch")
+    def test_get_workunits_query_structure(self, mock_opensearch: Mock) -> None:
+        """Test that get_workunits constructs query and uses scroll."""
+        mock_client = Mock()
+        mock_opensearch.return_value = mock_client
+
+        # Mock data node count to return 0 (single slice path)
+        mock_client.nodes.info.return_value = {"nodes": {}}
+
+        # Mock search to return empty results with scroll_id (completes on first call)
+        mock_client.search.return_value = {
+            "hits": {"hits": []},
+            "_scroll_id": "test_scroll_id",
+        }
+
+        # Mock clear_scroll
+        mock_client.clear_scroll.return_value = None
+
+        # Mock context and graph
+        mock_graph = Mock()
+        mock_graph.get_urns_by_filter.return_value = []
+
+        mock_ctx = Mock(spec=PipelineContext)
+        mock_ctx.require_graph.return_value = mock_graph
+
+        config = LineageFeaturesSourceConfig(max_retries=1)
+        source = DataHubLineageFeaturesSource(config, mock_ctx)
+
+        # Execute get_workunits
+        list(source.get_workunits())
+
+        # Verify search was called
+        assert mock_client.search.call_count == 1
+
+        # Get the query that was passed to search
+        search_call_args = mock_client.search.call_args
+        query = search_call_args.kwargs["body"]
+
+        # Verify query structure does not contain 'sort' or 'pit' field
+        assert "sort" not in query, "Query should not contain 'sort' field"
+        assert "pit" not in query, "Query should not contain 'pit' field"
+
+        # Verify query has required fields
+        assert "query" in query
+
+        # Verify query has correct relationship types
+        assert "bool" in query["query"]
+        assert "should" in query["query"]["bool"]
+        relationship_types = [
+            term["term"]["relationshipType"]
+            for term in query["query"]["bool"]["should"]
+            if "term" in term and "relationshipType" in term["term"]
+        ]
+        assert "Consumes" in relationship_types
+        assert "DownstreamOf" in relationship_types
+
+        # Verify scroll parameter was passed
+        search_params = search_call_args.kwargs.get("params", {})
+        assert "scroll" in search_params, "Search should include scroll parameter"
+
+        # Verify scroll was cleared
+        mock_client.clear_scroll.assert_called_once_with(scroll_id="test_scroll_id")
