@@ -193,6 +193,7 @@ USER root
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 
 COPY --from=bundled-vEnvs $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+COPY --from=bundled-vEnvs /usr/local/bin/build_bundled_venvs_unified.py /usr/local/bin/build_bundled_venvs_unified.py
 COPY --from=bundled-vEnvs /usr/local/bin/build_bundled_venvs_unified.sh /usr/local/bin/build_bundled_venvs_unified.sh
 
 USER 0

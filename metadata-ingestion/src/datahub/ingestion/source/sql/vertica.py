@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tupl
 
 import pydantic
 import pytest
-from pydantic import validator
+from pydantic import field_validator
 from vertica_sqlalchemy_dialect.base import VerticaInspector
 
 from datahub.configuration.common import AllowDenyPattern
@@ -105,8 +105,9 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme: str = pydantic.Field(default="vertica+vertica_python")
 
-    @validator("host_port")
-    def clean_host_port(cls, v):
+    @field_validator("host_port", mode="after")
+    @classmethod
+    def clean_host_port(cls, v: str) -> str:
         return config_clean.remove_protocol(v)
 
 
@@ -138,7 +139,7 @@ class VerticaSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":
-        config = VerticaConfig.parse_obj(config_dict)
+        config = VerticaConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:

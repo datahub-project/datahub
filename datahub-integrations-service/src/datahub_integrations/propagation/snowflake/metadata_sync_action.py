@@ -99,7 +99,7 @@ class SnowflakeMetadataSyncAction(ExtendedAction[SelectedAsset]):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        config = SnowflakeMetadataSyncConfig.parse_obj(config_dict or {})
+        config = SnowflakeMetadataSyncConfig.model_validate(config_dict or {})
         return cls(config, ctx)
 
     def name(self) -> str:

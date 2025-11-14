@@ -351,7 +351,7 @@ class HiveMetastoreSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = HiveMetastore.parse_obj(config_dict)
+        config = HiveMetastore.model_validate(config_dict)
         return cls(config, ctx)
 
     def gen_database_containers(

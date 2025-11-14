@@ -75,7 +75,7 @@ class DataHubReportingFormsSource(Source):
                     enabled=False, dataset_urn=None, physical_uri_prefix=None
                 )
             result_map = query_result.get(query_name, {})
-            return FormAnalyticsConfig.parse_obj(
+            return FormAnalyticsConfig.model_validate(
                 dict(
                     (field, result_map.get(graphql_field))
                     for field, graphql_field in field_mappings.items()

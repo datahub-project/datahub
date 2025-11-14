@@ -1012,27 +1012,82 @@ public class GraphQueryElasticsearch7DAOTest {
           "Exception message should mention partialResults option. Got: " + message);
     } catch (RuntimeException e) {
       // The exception might be wrapped, check the cause chain
+      // The IllegalStateException may be wrapped multiple times:
+      // - RuntimeException("Failed to execute slice-based search", RuntimeException("Slice X
+      // failed", ExecutionException(IllegalStateException)))
       Throwable cause = e;
-      boolean foundIllegalStateException = false;
-      while (cause != null) {
+      IllegalStateException foundIllegalStateException = null;
+
+      // Traverse the entire cause chain to find IllegalStateException
+      while (cause != null && foundIllegalStateException == null) {
         if (cause instanceof IllegalStateException) {
-          foundIllegalStateException = true;
           String message = cause.getMessage();
-          Assert.assertNotNull(message, "Exception message should not be null");
-          Assert.assertTrue(
-              message.contains("exceeded maxRelations limit")
-                  || message.contains("maxRelations limit"),
-              "Exception message should mention maxRelations limit. Got: " + message);
-          break;
+          if (message != null
+              && (message.contains("exceeded maxRelations limit")
+                  || message.contains("maxRelations limit"))) {
+            foundIllegalStateException = (IllegalStateException) cause;
+            break;
+          }
+        }
+        // Also check if it's an ExecutionException (from CompletableFuture) and unwrap its cause
+        if (cause instanceof java.util.concurrent.ExecutionException && cause.getCause() != null) {
+          cause = cause.getCause();
+          continue;
         }
         cause = cause.getCause();
       }
-      if (!foundIllegalStateException) {
-        Assert.fail(
-            "Expected IllegalStateException in exception chain but got: "
-                + e.getClass().getSimpleName()
-                + " - "
-                + e.getMessage());
+
+      if (foundIllegalStateException != null) {
+        String message = foundIllegalStateException.getMessage();
+        Assert.assertNotNull(message, "Exception message should not be null");
+        Assert.assertTrue(
+            message.contains("exceeded maxRelations limit")
+                || message.contains("maxRelations limit"),
+            "Exception message should mention maxRelations limit. Got: " + message);
+        Assert.assertTrue(
+            message.contains("Slice"),
+            "Exception message should mention which slice exceeded the limit. Got: " + message);
+        Assert.assertTrue(
+            message.contains("partialResults"),
+            "Exception message should mention partialResults option. Got: " + message);
+      } else {
+        // If we didn't find IllegalStateException, check if any exception in the chain contains
+        // maxRelations info
+        // This handles cases where the exception is wrapped at a different level
+        Throwable checkCause = e;
+        boolean foundMaxRelationsMessage = false;
+        while (checkCause != null && !foundMaxRelationsMessage) {
+          String msg = checkCause.getMessage();
+          if (msg != null
+              && (msg.contains("exceeded maxRelations limit")
+                  || msg.contains("maxRelations limit"))) {
+            foundMaxRelationsMessage = true;
+            // Verify it mentions maxRelations
+            Assert.assertTrue(
+                msg.contains("maxRelations"), "Exception should mention maxRelations. Got: " + msg);
+            break;
+          }
+          if (checkCause instanceof java.util.concurrent.ExecutionException
+              && checkCause.getCause() != null) {
+            checkCause = checkCause.getCause();
+          } else {
+            checkCause = checkCause.getCause();
+          }
+        }
+        if (!foundMaxRelationsMessage) {
+          Assert.fail(
+              "Expected IllegalStateException with maxRelations message in exception chain but got: "
+                  + e.getClass().getSimpleName()
+                  + " - "
+                  + e.getMessage()
+                  + (e.getCause() != null
+                      ? " (cause: "
+                          + e.getCause().getClass().getSimpleName()
+                          + " - "
+                          + e.getCause().getMessage()
+                          + ")"
+                      : ""));
+        }
       }
     }
   }

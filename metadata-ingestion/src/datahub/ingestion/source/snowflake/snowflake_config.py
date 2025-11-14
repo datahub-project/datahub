@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Set
 
 import pydantic
-from pydantic import Field, root_validator, validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
@@ -117,15 +117,23 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         " use the regex 'Customer.public.customer.*'",
     )
 
+    streamlit_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for Streamlit app to filter in ingestion. "
+        "Specify regex to match the entire Streamlit app name in database.schema.streamlit format. "
+        "e.g. to match all Streamlit apps starting with dashboard in Analytics database and public schema,"
+        " use the regex 'Analytics.public.dashboard.*'",
+    )
+
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def validate_legacy_schema_pattern(cls, values: Dict) -> Dict:
-        schema_pattern: Optional[AllowDenyPattern] = values.get("schema_pattern")
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
+    @model_validator(mode="after")
+    def validate_legacy_schema_pattern(self) -> "SnowflakeFilterConfig":
+        schema_pattern: Optional[AllowDenyPattern] = self.schema_pattern
+        match_fully_qualified_names = self.match_fully_qualified_names
 
         if (
             schema_pattern is not None
@@ -145,7 +153,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             assert isinstance(schema_pattern, AllowDenyPattern)
             schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
 
-        return values
+        return self
 
 
 class SnowflakeIdentifierConfig(
@@ -317,6 +325,11 @@ class SnowflakeV2Config(
         description="If enabled, procedures will be ingested as pipelines/tasks.",
     )
 
+    include_streamlits: bool = Field(
+        default=False,
+        description="If enabled, Streamlit apps will be ingested as dashboards.",
+    )
+
     structured_property_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -391,7 +404,8 @@ class SnowflakeV2Config(
         "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
     )
 
-    @validator("convert_urns_to_lowercase")
+    @field_validator("convert_urns_to_lowercase", mode="after")
+    @classmethod
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:
             add_global_warning(
@@ -400,30 +414,31 @@ class SnowflakeV2Config(
 
         return v
 
-    @validator("include_column_lineage")
-    def validate_include_column_lineage(cls, v, values):
-        if not values.get("include_table_lineage") and v:
+    @field_validator("include_column_lineage", mode="after")
+    @classmethod
+    def validate_include_column_lineage(cls, v, info):
+        if not info.data.get("include_table_lineage") and v:
             raise ValueError(
                 "include_table_lineage must be True for include_column_lineage to be set."
             )
         return v
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def validate_unsupported_configs(cls, values: Dict) -> Dict:
-        value = values.get("include_read_operational_stats")
-        if value is not None and value:
+    @model_validator(mode="after")
+    def validate_unsupported_configs(self) -> "SnowflakeV2Config":
+        if (
+            hasattr(self, "include_read_operational_stats")
+            and self.include_read_operational_stats
+        ):
             raise ValueError(
                 "include_read_operational_stats is not supported. Set `include_read_operational_stats` to False.",
             )
 
-        include_technical_schema = values.get("include_technical_schema")
-        include_profiles = (
-            values.get("profiling") is not None and values["profiling"].enabled
-        )
+        include_technical_schema = self.include_technical_schema
+        include_profiles = self.profiling is not None and self.profiling.enabled
         delete_detection_enabled = (
-            values.get("stateful_ingestion") is not None
-            and values["stateful_ingestion"].enabled
-            and values["stateful_ingestion"].remove_stale_metadata
+            self.stateful_ingestion is not None
+            and self.stateful_ingestion.enabled
+            and self.stateful_ingestion.remove_stale_metadata
         )
 
         # TODO: Allow profiling irrespective of basic schema extraction,
@@ -435,13 +450,14 @@ class SnowflakeV2Config(
                 "Cannot perform Deletion Detection or Profiling without extracting snowflake technical schema. Set `include_technical_schema` to True or disable Deletion Detection and Profiling."
             )
 
-        return values
+        return self
 
-    @validator("shares")
+    @field_validator("shares", mode="after")
+    @classmethod
     def validate_shares(
-        cls, shares: Optional[Dict[str, SnowflakeShareConfig]], values: Dict
+        cls, shares: Optional[Dict[str, SnowflakeShareConfig]], info: ValidationInfo
     ) -> Optional[Dict[str, SnowflakeShareConfig]]:
-        current_platform_instance = values.get("platform_instance")
+        current_platform_instance = info.data.get("platform_instance")
 
         if shares:
             # Check: platform_instance should be present
@@ -479,11 +495,12 @@ class SnowflakeV2Config(
 
         return shares
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def validate_queries_v2_stateful_ingestion(cls, values: Dict) -> Dict:
-        if values.get("use_queries_v2"):
-            if values.get("enable_stateful_lineage_ingestion") or values.get(
-                "enable_stateful_usage_ingestion"
+    @model_validator(mode="after")
+    def validate_queries_v2_stateful_ingestion(self) -> "SnowflakeV2Config":
+        if self.use_queries_v2:
+            if (
+                self.enable_stateful_lineage_ingestion
+                or self.enable_stateful_usage_ingestion
             ):
                 logger.warning(
                     "enable_stateful_lineage_ingestion and enable_stateful_usage_ingestion are deprecated "
@@ -491,7 +508,7 @@ class SnowflakeV2Config(
                     "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
                     "for the unified time window extraction (lineage + usage + operations + queries)."
                 )
-        return values
+        return self
 
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:
         """

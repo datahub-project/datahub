@@ -354,6 +354,7 @@ export const useChatStream = ({ conversationUrn, onMessageReceived, onStreamComp
                         errorMessage: error.message || 'Unknown error',
                         errorType: error.name || 'UnknownError',
                         statusCode: error.status || undefined,
+                        messagePreview: messageText.substring(0, 200), // First 200 characters of message that caused error
                     });
 
                     // Create an error message to display in the chat

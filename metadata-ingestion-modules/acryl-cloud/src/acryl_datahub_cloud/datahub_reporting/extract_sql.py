@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 import boto3
-from pydantic import validator
+from pydantic import field_validator
 
 from acryl_datahub_cloud.datahub_reporting.datahub_dataset import (
     DataHubBasedS3Dataset,
@@ -43,7 +43,8 @@ class DataHubReportingExtractSQLSourceConfig(ConfigModel):
     sql_backup_config: S3ClientConfig
     extract_sql_store: FileStoreBackedDatasetConfig
 
-    @validator("extract_sql_store", pre=True, always=True)
+    @field_validator("extract_sql_store", mode="before")
+    @classmethod
     def set_default_extract_soft_delete_flag(cls, v):
         if v is not None:
             if "dataset_registration_spec" not in v:

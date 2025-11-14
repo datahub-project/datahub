@@ -337,7 +337,7 @@ class RemoteActionRunner:
                     type: hello_world
                     config: {}
         """
-        config = PipelineConfig.parse_obj(
+        config = PipelineConfig.model_validate(
             action_recipe
         )  # Converts action_recipe to Pydantic model
         action_config = (
@@ -350,7 +350,7 @@ class RemoteActionRunner:
                 "type": REMOTE_ACTION_SOURCE_NAME,
                 "config": {
                     "action_urn": action_urn,
-                    "action_spec": action_config.dict(),
+                    "action_spec": action_config.model_dump(),
                     "stage": stage.value,
                 },
             }

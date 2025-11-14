@@ -892,5 +892,5 @@ class MLflowSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MLflowSource":
-        config = MLflowConfig.parse_obj(config_dict)
+        config = MLflowConfig.model_validate(config_dict)
         return cls(ctx, config)

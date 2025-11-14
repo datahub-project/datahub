@@ -1316,7 +1316,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = PowerBiDashboardSourceConfig.parse_obj(config_dict)
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_allowed_workspaces(self) -> List[powerbi_data_classes.Workspace]:

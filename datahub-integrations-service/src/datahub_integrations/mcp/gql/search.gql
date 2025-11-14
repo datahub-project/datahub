@@ -81,15 +81,15 @@ query search(
   $query: String!
   $orFilters: [AndFilterInput!]
   $count: Int!
-  $scrollId: String
+  $start: Int!
   $viewUrn: String
   $sortInput: SearchSortInput
 ) {
-  scrollAcrossEntities(
+  searchAcrossEntities(
     input: {
       query: $query
       count: $count
-      scrollId: $scrollId
+      start: $start
       types: $types
       orFilters: $orFilters
       viewUrn: $viewUrn
@@ -97,6 +97,7 @@ query search(
       searchFlags: { skipHighlighting: true, maxAggValues: 5 }
     }
   ) {
+    start
     count
     total
     searchResults {

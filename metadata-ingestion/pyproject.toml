@@ -56,5 +56,11 @@ max-complexity = 20
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# pytandic v2 deprecations
+"pydantic.validator" = { msg = "Use pydantic.field_validator instead of deprecated validator" }
+"pydantic.root_validator" = { msg = "Use pydantic.model_validator instead of deprecated root_validator" }
+
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"src/datahub/configuration/pydantic_migration_helpers.py" = ["TID251"]  # Intentional V1 imports for backward compatibility

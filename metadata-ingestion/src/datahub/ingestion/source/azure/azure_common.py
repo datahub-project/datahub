@@ -1,9 +1,9 @@
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 from azure.identity import ClientSecretCredential
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
-from pydantic import Field, root_validator
+from pydantic import Field, model_validator
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
@@ -81,18 +81,14 @@ class AzureConnectionConfig(ConfigModel):
             )
         return self.sas_token if self.sas_token is not None else self.account_key
 
-    @root_validator(skip_on_failure=True)
-    def _check_credential_values(cls, values: Dict) -> Dict:
+    @model_validator(mode="after")
+    def _check_credential_values(self) -> "AzureConnectionConfig":
         if (
-            values.get("account_key")
-            or values.get("sas_token")
-            or (
-                values.get("client_id")
-                and values.get("client_secret")
-                and values.get("tenant_id")
-            )
+            self.account_key
+            or self.sas_token
+            or (self.client_id and self.client_secret and self.tenant_id)
         ):
-            return values
+            return self
         raise ConfigurationError(
             "credentials missing, requires one combination of account_key or sas_token or (client_id and client_secret and tenant_id)"
         )

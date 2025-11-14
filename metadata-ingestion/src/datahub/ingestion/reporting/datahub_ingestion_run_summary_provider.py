@@ -82,7 +82,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         ctx: PipelineContext,
         sink: Sink,
     ) -> PipelineRunListener:
-        reporter_config = DatahubIngestionRunSummaryProviderConfig.parse_obj(
+        reporter_config = DatahubIngestionRunSummaryProviderConfig.model_validate(
             config_dict or {}
         )
         if reporter_config.sink:

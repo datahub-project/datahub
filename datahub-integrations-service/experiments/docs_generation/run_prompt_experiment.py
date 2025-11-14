@@ -205,6 +205,12 @@ def log_generation_time_metrics(table_descriptions_df: pd.DataFrame) -> None:
         mlflow.log_metric("generation_time_max", generation_times.max())
         mlflow.log_metric("generation_time_avg", generation_times.mean())
 
+def log_metadata_extraction_metrics(table_descriptions_df: pd.DataFrame) -> None:
+    """Log metadata extraction metrics to MLflow."""
+    metadata_extraction_times = table_descriptions_df["metadata_extraction_time"]
+    if len(metadata_extraction_times) > 0:
+        mlflow.log_metric("metadata_extraction_time_avg", metadata_extraction_times.mean())
+        mlflow.log_metric("metadata_extraction_time_max", metadata_extraction_times.max())
 
 def run_experiment(files: List[pathlib.Path], run_description: Optional[str]) -> None:
     logger.info(f"Running experiment with {len(files)} files")

@@ -126,6 +126,7 @@ secretService:
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
   serverEnv: ${DATAHUB_SERVER_ENV:core}
+  isFreeTrialInstance: ${IS_FREE_TRIAL_INSTANCE:false}
   # The base path for the URL where DataHub will be deployed
   basePath: ${DATAHUB_BASE_PATH:}
 
@@ -924,6 +925,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_BATCH_SIZE:1000}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_REPROCESS:false}
+  lineageIndexFields:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_BATCH_SIZE:100}
+    reprocess:
+      enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_REPROCESS:false}
   schemaFieldsFromSchemaMetadata:
     enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
@@ -1037,6 +1043,8 @@ featureFlags:
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:false} # Enables displaying the asset summary page
+  datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
+  showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   # SaaS-only features
   showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false}
@@ -1092,8 +1100,6 @@ featureFlags:
   # If turned on, display executor pools across the UI
   onlineSmartAssertionsEnabled: ${ONLINE_SMART_ASSERTIONS_ENABLED:true}
   # If turned on, allow on-demand creation of smart assertions in the UI, and they will run online.
-  showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true}
-  # If turned on, show the default external links on the entity page
   showCreatedAtFilter: ${SHOW_CREATED_AT_FILTER:false}
   # If turned on, show the re-designed Ingestion page
   # If turned on, show the expand more button (>>) in the lineage graph

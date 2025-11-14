@@ -5,6 +5,7 @@ import analytics, { EventType } from '@app/analytics';
 import { useIsDocumentationInferenceEnabled } from '@app/entityV2/shared/components/inferredDocs/utils';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
+import { checkShouldSkipWelcomeModal, setSkipWelcomeModal } from '@app/shared/localStorageUtils';
 import {
     LoadingContainer,
     SlideContainer,
@@ -18,17 +19,12 @@ import welcomeModalHomeScreenshot from '@images/welcome-modal-home-screenshot.pn
 const SLIDE_DURATION_MS = 10000;
 const DATAHUB_DOCS_URL = 'https://docs.datahub.com/docs/category/features';
 const WELCOME_TO_DATAHUB_MODAL_TITLE = 'Welcome to DataHub';
-const SKIP_WELCOME_MODAL_KEY = 'skipWelcomeModal';
 
 interface VideoSources {
     search: string;
     lineage: string;
     impact: string;
     aiDocs?: string;
-}
-
-function checkShouldSkipWelcomeModal() {
-    return localStorage.getItem(SKIP_WELCOME_MODAL_KEY) === 'true';
 }
 
 export const WelcomeToDataHubModal = () => {
@@ -148,7 +144,7 @@ export const WelcomeToDataHubModal = () => {
             closeModalTour();
         } else {
             // Only set localStorage for automatic first-time tours, not manual triggers
-            localStorage.setItem(SKIP_WELCOME_MODAL_KEY, 'true');
+            setSkipWelcomeModal(true);
         }
     }
 

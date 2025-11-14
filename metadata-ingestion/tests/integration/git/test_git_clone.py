@@ -62,7 +62,7 @@ def test_base_url_guessing() -> None:
 
     # Deprecated: base_url.
     with pytest.warns(ConfigurationWarning, match="base_url is deprecated"):
-        config = GitInfo.parse_obj(
+        config = GitInfo.model_validate(
             dict(
                 repo="https://github.com/datahub-project/datahub",
                 branch="master",

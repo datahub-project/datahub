@@ -13,7 +13,7 @@ record QuerySubject {
    */
   @Searchable = {
     "fieldName": "entities",
-    "fieldType": "URN",
+    "fieldType": "KEYWORD",
   }
   entity: Urn
 }

@@ -35,7 +35,7 @@ from datahub_actions.action.action import Action
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from datahub_integrations.actions.oss.mcl_utils import MCLProcessor
 from datahub_integrations.actions.oss.stats_util import (
@@ -91,7 +91,8 @@ class SourceDetails(BaseModel):
         description="Actor that triggered the documentation propagation.",
     )
 
-    @validator("propagated", pre=True)
+    @field_validator("propagated", mode="before")
+    @classmethod
     def convert_boolean_to_lowercase_string(cls, v: Any) -> Optional[str]:
         if isinstance(v, bool):
             return str(v).lower()
@@ -184,7 +185,7 @@ class DocPropagationAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        action_config = DocPropagationConfig.parse_obj(config_dict or {})
+        action_config = DocPropagationConfig.model_validate(config_dict or {})
         logger.info(f"Doc Propagation Config action configured with {action_config}")
         return cls(action_config, ctx)
 
@@ -320,7 +321,7 @@ class DocPropagationAction(Action):
             time=int(time.time() * 1000.0), actor=self.actor_urn
         )
 
-        source_details = context.dict(exclude_none=True)
+        source_details = context.model_dump(exclude_none=True)
         attribution: MetadataAttributionClass = MetadataAttributionClass(
             source=self.action_urn,
             time=auditStamp.time,

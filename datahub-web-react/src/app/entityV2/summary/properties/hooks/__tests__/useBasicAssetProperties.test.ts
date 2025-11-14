@@ -53,7 +53,7 @@ describe('useBasicAssetProperties', () => {
     });
 
     it('should return an empty array for other entity types', () => {
-        (useEntityContext as any).mockReturnValue({ entityType: EntityType.Dataset });
+        (useEntityContext as any).mockReturnValue({ entityType: EntityType.Chart });
         const { result } = renderHook(() => useBasicAssetProperties());
         expect(result.current).toEqual([]);
     });

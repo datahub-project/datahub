@@ -41,11 +41,11 @@ dependencies = [
 	# AI.
 	"tenacity",
 	"boto3",
-	"mlflow-skinny==2.22.0",
-	"sagemaker-mlflow==0.1.0",
+	"mlflow-skinny>=3.3.1,<4",
+	"sagemaker-mlflow==0.1.1",
 	"requests-auth-aws-sigv4==0.7",
-	"cryptography==42.0.5",
-	"pyOpenSSL==24.1.0",
+	"cryptography>=43.0.0,<46",
+	"pyOpenSSL>=25.1.0",
 	"litellm>=1.0.0",
 	"beautifulsoup4>=4.13.5",
 	"json-repair",  # For parsing Bedrock's malformed JSON in structured output

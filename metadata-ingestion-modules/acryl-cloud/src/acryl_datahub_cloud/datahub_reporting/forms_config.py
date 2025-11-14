@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import validator
+from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.source import SourceReport
@@ -32,7 +32,8 @@ class DataHubReportingFormSourceConfig(ConfigModel):
     generate_presigned_url: bool = True
     presigned_url_expiry_days: int = 7
 
-    @validator("reporting_snapshot_partitioning_strategy")
+    @field_validator("reporting_snapshot_partitioning_strategy")
+    @classmethod
     def validate_partitioning_strategy(cls, v):
         if v not in PartitioningStrategy:
             raise ValueError(f"Unsupported partitioning strategy: {v}")

@@ -1,4 +1,8 @@
-"""Tests for semantic search functionality in the MCP server."""
+"""Tests for semantic search functionality in the MCP server.
+
+NOTE: Semantic search is a DataHub Cloud-only feature and not available in open source.
+These tests are kept in mcp_integration since they test cloud-specific functionality.
+"""
 
 import json
 from contextlib import contextmanager
@@ -127,7 +131,8 @@ class TestSearchImplementation:
         mock_get_client.return_value = mock_client
 
         mock_response = {
-            "scrollAcrossEntities": {
+            "searchAcrossEntities": {
+                "start": 0,
                 "count": 3,
                 "total": 50,
                 "searchResults": [],
@@ -159,7 +164,7 @@ class TestSearchImplementation:
         variables = second_call[1]["variables"]
         assert variables["query"] == "user_events"
         assert variables["count"] == 5
-        assert variables["scrollId"] is None  # Keyword search includes scrollId
+        assert variables["start"] == 0  # Default offset is 0
         assert "viewUrn" in variables  # Should include viewUrn (even if None)
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
@@ -175,7 +180,8 @@ class TestSearchImplementation:
         mock_get_client.return_value = mock_client
 
         mock_response = {
-            "scrollAcrossEntities": {
+            "searchAcrossEntities": {
+                "start": 0,
                 "count": 1,
                 "total": 10,
                 "searchResults": [],
@@ -297,7 +303,8 @@ class TestSearchImplementation:
         mock_get_client.return_value = mock_client
 
         mock_response = {
-            "scrollAcrossEntities": {
+            "searchAcrossEntities": {
+                "start": 0,
                 "count": 5,
                 "total": 100,
                 "searchResults": [],
@@ -342,7 +349,8 @@ class TestSearchImplementation:
         mock_get_client.return_value = mock_client
 
         mock_response = {
-            "scrollAcrossEntities": {
+            "searchAcrossEntities": {
+                "start": 0,
                 "count": 5,
                 "total": 100,
                 "searchResults": [],
@@ -382,7 +390,8 @@ class TestSearchImplementation:
         mock_get_client.return_value = mock_client
 
         mock_response = {
-            "scrollAcrossEntities": {
+            "searchAcrossEntities": {
+                "start": 0,
                 "count": 5,
                 "total": 100,
                 "searchResults": [],
@@ -405,6 +414,85 @@ class TestSearchImplementation:
         variables = search_call[1]["variables"]
 
         assert "sortInput" not in variables
+
+    @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
+    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    def test_search_implementation_with_offset(
+        self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
+    ) -> None:
+        """Test that offset parameter is correctly passed to GraphQL."""
+        # Setup mocks
+        mock_graph = mock.Mock()
+        mock_client = mock.Mock()
+        mock_client._graph = mock_graph
+        mock_get_client.return_value = mock_client
+
+        mock_response = {
+            "searchAcrossEntities": {
+                "start": 20,
+                "count": 5,
+                "total": 100,
+                "searchResults": [],
+                "facets": [],
+            }
+        }
+        mock_execute_graphql.return_value = mock_response
+
+        # Call with offset parameter
+        _search_implementation(
+            query="*",
+            filters=None,
+            num_results=10,
+            search_strategy="keyword",
+            offset=20,
+        )
+
+        # Verify offset is passed as start parameter
+        assert mock_execute_graphql.call_count == 2
+        search_call = mock_execute_graphql.call_args_list[1]
+        variables = search_call[1]["variables"]
+
+        assert variables["start"] == 20
+        assert variables["count"] == 10
+
+    @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
+    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    def test_search_implementation_num_results_cap(
+        self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
+    ) -> None:
+        """Test that num_results is capped at 50."""
+        # Setup mocks
+        mock_graph = mock.Mock()
+        mock_client = mock.Mock()
+        mock_client._graph = mock_graph
+        mock_get_client.return_value = mock_client
+
+        mock_response = {
+            "searchAcrossEntities": {
+                "start": 0,
+                "count": 50,
+                "total": 5000,
+                "searchResults": [],
+                "facets": [],
+            }
+        }
+        mock_execute_graphql.return_value = mock_response
+
+        # Call with num_results > 50 (should be capped)
+        _search_implementation(
+            query="*",
+            filters=None,
+            num_results=5000,  # Request 5000 results
+            search_strategy="keyword",
+        )
+
+        # Verify num_results was capped at 50
+        assert mock_execute_graphql.call_count == 2
+        search_call = mock_execute_graphql.call_args_list[1]
+        variables = search_call[1]["variables"]
+
+        # Should be capped at 50, not 5000
+        assert variables["count"] == 50
 
 
 @pytest.mark.anyio

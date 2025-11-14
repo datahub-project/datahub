@@ -69,6 +69,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     },
     dataHubConfig: {
         serverEnv: 'cloud',
+        isFreeTrialInstance: false,
     },
     classificationConfig: {
         enabled: false,
@@ -145,6 +146,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showAskDataHub: false,
         supportTicketsEnabled: false,
         teamsNotificationsEnabled: false,
+        datasetSummaryPageV1: false,
         documentationFileUploadV1: false,
     },
     chromeExtensionConfig: {

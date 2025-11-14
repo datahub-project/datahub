@@ -394,6 +394,7 @@ export const dataset1 = {
     forms: null,
     notes: [],
     activeIncidents: null,
+    settings: null,
 };
 
 export const dataset2 = {
@@ -501,6 +502,7 @@ export const dataset2 = {
     forms: null,
     notes: [],
     activeIncidents: null,
+    settings: null,
 };
 
 export const dataset3 = {
@@ -777,6 +779,7 @@ export const dataset3 = {
     upstream: null,
     downstream: null,
     extraProperties: null,
+    settings: null,
 } as Dataset;
 
 export const dataset3WithSchema = {

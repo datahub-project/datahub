@@ -16,7 +16,7 @@ def detectMemoryProfile() {
   if (explicitProfile) {
     return explicitProfile
   }
-  
+
   // Auto-detect based on actual system memory (total RAM) using OperatingSystemMXBean
   try {
     def osBean = java.lang.management.ManagementFactory.getOperatingSystemMXBean()
@@ -24,11 +24,11 @@ def detectMemoryProfile() {
     if (!sunOsBean.isInstance(osBean)) {
       throw new Exception("OperatingSystemMXBean does not support getTotalPhysicalMemorySize()")
     }
-    
+
     def method = sunOsBean.getMethod("getTotalPhysicalMemorySize")
     def totalMemoryBytes = method.invoke(osBean) as Long
     def totalMemoryGB = totalMemoryBytes / (1024.0 * 1024.0 * 1024.0)
-    
+
     def detectedProfile
     if (totalMemoryGB < 12) {
       detectedProfile = "low"  // < 12GB: use low profile (8GB systems)
@@ -37,7 +37,7 @@ def detectMemoryProfile() {
     } else {
       detectedProfile = "high"  // >= 24GB: use high profile (32GB+ systems)
     }
-    
+
     println "Auto-detected memory profile: ${detectedProfile} (System RAM: ${String.format("%.1f", totalMemoryGB)}GB)"
     return detectedProfile
   } catch (Exception e) {
@@ -265,48 +265,6 @@ test {
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
 }
 
-// Custom task to run only Cassandra tests
-task testCassandra(type: Test) {
-  doFirst {
-    maxParallelForks = 1
-  }
-  useTestNG() {
-    suites 'src/test/resources/testng-cassandra.xml'
-  }
-  testLogging {
-    events "failed", "skipped"
-    exceptionFormat "full"
-    showStandardStreams = false
-  }
-  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
-}
-
-// Custom task to run only Neo4j tests
-task testNeo4j(type: Test) {
-  doFirst {
-    maxParallelForks = 1
-  }
-  useTestNG() {
-    suites 'src/test/resources/testng-neo4j.xml'
-  }
-  testLogging {
-    events "failed", "skipped"
-    exceptionFormat "full"
-    showStandardStreams = false
-  }
-  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
-}
-
-// Ensure a single SLF4J binding and avoid Log4j core conflicts during tests
-configurations {
-  testRuntimeClasspath {
-    resolutionStrategy {
-      force 'ch.qos.logback:logback-classic:1.4.7'
-    }
-    exclude group: 'org.apache.logging.log4j', module: 'log4j-core'
-  }
-}
-
 task testEs7CassandraNeo4j(type: Test) {
   doFirst {
     maxParallelForks = 1
@@ -374,16 +332,16 @@ tasks.withType(Test) {
   // This is separate from gradle.properties which only sets memory for the Gradle daemon
   maxHeapSize = memoryConfig.testHeap
   minHeapSize = memoryConfig.testMinHeap
-  
+
   // Add JVM args for memory efficiency and to prevent OOM kills
   // -XX:MaxMetaspaceSize: Limit metaspace to prevent unbounded growth
   // -XX:+UseG1GC: Use G1 garbage collector for better memory efficiency
   // -XX:MaxGCPauseMillis: Target pause time for GC (higher for low-memory systems)
   def gcPauseMillis = memoryProfile == "low" ? "1000" : "500"
   jvmArgs = [
-    "-XX:MaxMetaspaceSize=${memoryConfig.testMetaspace}",
-    "-XX:+UseG1GC",
-    "-XX:MaxGCPauseMillis=${gcPauseMillis}"
+          "-XX:MaxMetaspaceSize=${memoryConfig.testMetaspace}",
+          "-XX:+UseG1GC",
+          "-XX:MaxGCPauseMillis=${gcPauseMillis}"
   ]
 }
 

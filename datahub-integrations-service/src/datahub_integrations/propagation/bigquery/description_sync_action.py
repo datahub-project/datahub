@@ -67,7 +67,7 @@ class DescriptionSyncAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DescriptionSyncAction":
-        config = DescriptionSyncConfig.parse_obj(config_dict or {})
+        config = DescriptionSyncConfig.model_validate(config_dict or {})
         logger.info(f"DescriptionSyncAction configured with {config}")
         return cls(config, ctx)
 

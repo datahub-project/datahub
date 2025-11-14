@@ -47,9 +47,16 @@ public class ConfluentSchemaRegistryCleanupPolicyStep implements UpgradeStep {
     return (context) -> {
       log.info("Configuring Confluent Schema Registry cleanup policies...");
 
-      // Check if Confluent Schema Registry is enabled
+      // Check if Kafka setup is enabled
       if (_kafkaConfiguration.getSetup() == null
-          || !_kafkaConfiguration.getSetup().isUseConfluentSchemaRegistry()) {
+          || !_kafkaConfiguration.getSetup().isPreCreateTopics()) {
+        log.info(
+            "Skipping Confluent Schema Registry cleanup policy configuration - Kafka setup is disabled");
+        return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
+      }
+
+      // Check if Confluent Schema Registry is enabled
+      if (!_kafkaConfiguration.getSetup().isUseConfluentSchemaRegistry()) {
         log.info(
             "Skipping Confluent Schema Registry cleanup policy configuration - schema registry is disabled");
         return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);

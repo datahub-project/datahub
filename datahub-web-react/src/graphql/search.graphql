@@ -339,6 +339,9 @@ fragment autoCompleteFields on Entity {
     ... on DataPlatformInstance {
         ...dataPlatformInstanceFields
     }
+    ... on StructuredPropertyEntity {
+        ...structuredPropertyFields
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
