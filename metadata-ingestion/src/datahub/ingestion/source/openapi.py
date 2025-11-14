@@ -978,8 +978,7 @@ class OpenApiSource(APISource):
     OpenAPI source implementation for DataHub ingestion.
 
     This class provides the concrete implementation of the OpenAPI source,
-    configured specifically for OpenAPI specifications. It inherits all the
-    schema extraction and processing logic from APISource.
+    configured specifically for OpenAPI specifications.
     """
 
     def __init__(self, config: OpenApiConfig, ctx: PipelineContext):
