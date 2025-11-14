@@ -30,54 +30,56 @@ source:
 - If `emit_reachable_views_only: true`: The view is skipped and a warning is logged
 - If `emit_reachable_views_only: false`: The view is processed using regex-based parsing (may have limited lineage accuracy)
 
-1. Handling Liquid Templates
+#### Liquid Template Support and Limitations
 
-   If a view contains a liquid template, for example:
+1.  Handling Liquid Templates
 
-   ```
-   sql_table_name: {{ user_attributes['db'] }}.kafka_streaming.events
-   ```
+    If a view contains a liquid template, for example:
 
-   where `db=ANALYTICS_PROD`, you need to specify the values of those variables in the liquid_variables configuration as shown below:
+    ```
+    sql_table_name: {{ user_attributes['db'] }}.kafka_streaming.events
+    ```
 
-   ```yml
-   liquid_variables:
-     user_attributes:
-       db: ANALYTICS_PROD
-   ```
+    where `db=ANALYTICS_PROD`, you need to specify the values of those variables in the liquid_variables configuration as shown below:
 
-2. Resolving LookML Constants
+    ```yml
+    liquid_variables:
+      user_attributes:
+        db: ANALYTICS_PROD
+    ```
 
-   If a view contains a LookML constant, for example:
+2.  Resolving LookML Constants
 
-   ```
-   sql_table_name: @{db}.kafka_streaming.events;
-   ```
+    If a view contains a LookML constant, for example:
 
-   Ingestion attempts to resolve it's value by looking at project manifest files
+    ```
+    sql_table_name: @{db}.kafka_streaming.events;
+    ```
 
-   ```yml
-   manifest.lkml
-     constant: db {
-         value: "ANALYTICS_PROD"
-     }
-   ```
+    Ingestion attempts to resolve it's value by looking at project manifest files
 
-   - If the constant's value is not resolved or incorrectly resolved, you can specify `lookml_constants` configuration in ingestion recipe as shown below. The constant value in recipe takes precedence over constant values resolved from manifest.
+    ```yml
+    manifest.lkml
+      constant: db {
+          value: "ANALYTICS_PROD"
+      }
+    ```
 
-     ```yml
-     lookml_constants:
-       db: ANALYTICS_PROD
-     ```
+    - If the constant's value is not resolved or incorrectly resolved, you can specify `lookml_constants` configuration in ingestion recipe as shown below. The constant value in recipe takes precedence over constant values resolved from manifest.
 
-**Liquid Template Support Limits:**
+           ```yml
+           lookml_constants:
+             db: ANALYTICS_PROD
+           ```
+
+**Limitations:**
 
 - Supported: Simple variable interpolation (`{{ var }}`) and condition directives (`{% condition filter_name %} field {% endcondition %}`)
 - Unsupported: Conditional logic with `if`/`else`/`endif` and custom Looker tags like `date_start`, `date_end`, and `parameter`
 
-Unsupported templates may cause lineage extraction to fail for some assets.
-
 **Additional Notes**
+
+**Important:** Unsupported templates may cause lineage extraction to fail for some assets.
 
 Although liquid variables and LookML constants can be used anywhere in LookML code, their values are currently resolved only for LookML views by DataHub LookML ingestion. This behavior is sufficient since LookML ingestion processes only views and their upstream dependencies.
 
