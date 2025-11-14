@@ -93,24 +93,6 @@ Authentication is only required if you want to enable live API calls. Schema ext
 
 ## Config Details
 
-### Source Configuration
-
-| Field                                    | Required | Description                                                                                                        |
-| ---------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
-| `name`                                   | Yes      | Name of the ingestion. This appears in DataHub and is used in dataset URNs.                                        |
-| `url`                                    | Yes      | Base URL of the API endpoint. e.g. `https://api.example.com`                                                       |
-| `swagger_file`                           | Yes      | Path to the OpenAPI specification file relative to the base URL. e.g. `openapi.json` or `api/docs/swagger.yaml`    |
-| `ignore_endpoints`                       | No       | List of endpoint paths to exclude from ingestion. e.g. `[/health, /metrics]`                                       |
-| `enable_api_calls_for_schema_extraction` | No       | If `True`, makes live GET API calls when schema extraction from spec fails. Default: `True`. Requires credentials. |
-| `username`                               | No\*     | Username for basic authentication or token retrieval. Required if using basic auth or `get_token`.                 |
-| `password`                               | No\*     | Password for basic authentication or token retrieval. Required if using basic auth or `get_token`.                 |
-| `bearer_token`                           | No\*     | Bearer token for authentication. Cannot be used together with `token`.                                             |
-| `token`                                  | No\*     | Custom token for authentication. Cannot be used together with `bearer_token`.                                      |
-| `get_token`                              | No\*     | Configuration for dynamically retrieving a token. See below for details.                                           |
-| `forced_examples`                        | No       | Dictionary mapping endpoint paths to example parameter values. See below for details.                              |
-| `proxies`                                | No       | Proxy configuration dictionary. e.g. `{'http': 'http://proxy:8080', 'https': 'https://proxy:8080'}`                |
-| `verify_ssl`                             | No       | Enable SSL certificate verification. Default: `True`                                                               |
-
 \* At least one authentication method is required if `enable_api_calls_for_schema_extraction=True`
 
 ### Authentication Methods
