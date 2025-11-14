@@ -1,9 +1,8 @@
 import logging
 from typing import Optional
 
-import pydantic
 from cached_property import cached_property
-from pydantic import Field
+from pydantic import Field, field_validator
 from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -98,8 +97,11 @@ class DeltaLakeSourceConfig(
 
         return complete_path
 
-    @pydantic.validator("version_history_lookback")
-    def negative_version_history_implies_no_limit(cls, v):
+    @field_validator("version_history_lookback", mode="after")
+    @classmethod
+    def negative_version_history_implies_no_limit(
+        cls, v: Optional[int]
+    ) -> Optional[int]:
         if v and v < 0:
             return None
         return v

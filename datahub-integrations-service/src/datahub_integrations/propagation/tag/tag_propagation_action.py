@@ -13,7 +13,7 @@ from datahub_actions.pipeline.pipeline_context import PipelineContext
 from datahub_actions.plugin.action.propagation.propagation_utils import (
     PropagationConfig,
 )
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from ratelimit import limits, sleep_and_retry
 
 from datahub_integrations.actions.action_extended import (
@@ -79,11 +79,14 @@ class TagPropagationConfig(PropagationConfig, AutomationActionConfig):
         examples=[True],
     )
 
-    @validator("tag_prefixes", each_item=True)
-    def tag_prefix_should_start_with_urn(cls, v: str) -> str:
-        if v:
-            return make_tag_urn(v)
-        return v
+    @field_validator("tag_prefixes")
+    @classmethod
+    def tag_prefix_should_start_with_urn(
+        cls, v: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        if v is None:
+            return v
+        return [make_tag_urn(item) if item else item for item in v]
 
 
 class TagPropagationDirective(BaseModel):
@@ -120,7 +123,7 @@ class TagPropagationAction(ExtendedAction[str]):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "TagPropagationAction":
-        config = TagPropagationConfig.parse_obj(config_dict or {})
+        config = TagPropagationConfig.model_validate(config_dict or {})
         logger.info(f"TagPropagationAction configured with {config}")
         return cls(config, ctx)
 

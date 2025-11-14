@@ -95,9 +95,7 @@ Focus on the business value and use cases of the data."
 1. Build and activate datahub-integrations-service python venv
 2. Create `.env` file in `datahub-integrations-service` folder containing bedrock credentials
    ```.env
-   BEDROCK_AWS_ACCESS_KEY_ID=
-   BEDROCK_AWS_SECRET_ACCESS_KEY=
-   BEDROCK_AWS_REGION=
+   AWS_PROFILE=<profile corresponding to your Acryl_Developer_Engineer role>
    DATAHUB_INTEGRATIONS_SEND_TELEMETRY_EVENTS=false
    ```
 3. Start local mlflow server

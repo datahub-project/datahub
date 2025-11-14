@@ -250,15 +250,15 @@ query smartSearch(
   $query: String!
   $orFilters: [AndFilterInput!]
   $count: Int!
-  $scrollId: String
+  $start: Int!
   $viewUrn: String
   $sortInput: SearchSortInput
 ) {
-  scrollAcrossEntities(
+  searchAcrossEntities(
     input: {
       query: $query
       count: $count
-      scrollId: $scrollId
+      start: $start
       types: $types
       orFilters: $orFilters
       viewUrn: $viewUrn
@@ -266,6 +266,7 @@ query smartSearch(
       searchFlags: { skipHighlighting: true, maxAggValues: 5 }
     }
   ) {
+    start
     count
     total
     searchResults {

@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
@@ -34,8 +34,9 @@ class Filter(BaseModel):
     condition: Optional[str] = None
     negated: bool = Field(default=False)
 
-    @validator("condition", pre=True, always=True)
-    def default_condition_is_equals(cls, v: str, values: Any) -> str:
+    @field_validator("condition", mode="before")
+    @classmethod
+    def default_condition_is_equals(cls, v: str) -> str:
         if v is None:
             return "="
         return v

@@ -246,7 +246,7 @@ def oauth_callback(
 
     # Save the new bot token.
     bot_token = oauth_response["access_token"]
-    new_config = config.copy(
+    new_config = config.model_copy(
         update=dict(
             bot_token=bot_token,
         )

@@ -1819,6 +1819,30 @@
     "additions": 49,
     "deletions": 16
   },
+  "metadata-ingestion/tests/integration/hex/docker/docker-compose.yml": {
+    "additions": 40,
+    "deletions": 9
+  },
+  "metadata-ingestion/tests/integration/hex/docker/mock_datahub_server.py": {
+    "additions": 25,
+    "deletions": 0
+  },
+  "metadata-ingestion/tests/integration/hex/docker/mock_hex_server.py": {
+    "additions": 25,
+    "deletions": 0
+  },
+  "metadata-ingestion/tests/integration/hex/test_hex.py": {
+    "additions": 1,
+    "deletions": 0
+  },
+  "metadata-ingestion/tests/integration/iceberg/docker-compose.yml": {
+    "additions": 8,
+    "deletions": 1
+  },
+  "metadata-ingestion/tests/integration/kafka-connect/docker-compose.override.yml": {
+    "additions": 1,
+    "deletions": 7
+  },
   "metadata-ingestion/tests/integration/mongodb/docker-compose.yml": {
     "additions": 8,
     "deletions": 1

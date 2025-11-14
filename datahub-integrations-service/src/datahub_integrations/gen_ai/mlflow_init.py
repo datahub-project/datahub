@@ -48,6 +48,8 @@ def initialize_mlflow() -> None:
     if "MLFLOW_TRACKING_URI" in os.environ:
         logger.debug("Initializing MLflow with tracking URI")
         bedrock.autolog()
+        mlflow.litellm.autolog()
+        # mlflow.langchain.autolog()
         mlflow.config.enable_async_logging()
         _mlflow_enabled = True
     else:

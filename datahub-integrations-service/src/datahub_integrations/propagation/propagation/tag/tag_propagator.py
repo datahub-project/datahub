@@ -21,7 +21,7 @@ from datahub.utilities.urns.urn import Urn
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import EntityChangeEvent
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 
 from datahub_integrations.propagation.propagation.propagation_utils import (
     PropagationDirective,
@@ -63,12 +63,15 @@ class TagPropagatorConfig(EntityPropagatorConfig):
         examples=["urn:li:tag:classification"],
     )
 
-    @validator("tag_prefixes", each_item=True)
-    def tag_prefix_should_start_with_urn(cls, v: str) -> str:
+    @field_validator("tag_prefixes")
+    @classmethod
+    def tag_prefix_should_start_with_urn(
+        cls, v: Optional[List[str]]
+    ) -> Optional[List[str]]:
         """Validate that tag prefixes start with URN format."""
-        if v:
-            return make_tag_urn(v)
-        return v
+        if v is None:
+            return v
+        return [make_tag_urn(item) if item else item for item in v]
 
 
 class TagPropagationDirective(PropagationDirective):
@@ -309,7 +312,7 @@ class TagPropagator(EntityPropagator):
         tag = semantic_event.modifier
 
         # Parse source details from context
-        source_details_parsed = SourceDetails.parse_obj(json.loads(context_str))
+        source_details_parsed = SourceDetails.model_validate(json.loads(context_str))
         if not source_details_parsed.actor:
             source_details_parsed.actor = self.actor_urn
 

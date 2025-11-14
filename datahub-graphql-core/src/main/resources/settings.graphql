@@ -84,3 +84,10 @@ extend type GlossaryNode {
   """
   settings: AssetSettings
 }
+
+extend type Dataset {
+  """
+  Settings associated with this asset
+  """
+  settings: AssetSettings
+}

@@ -48,8 +48,8 @@ export function useSetAppTheme() {
         if (customThemeId && customThemeId.endsWith('.json')) {
             if (import.meta.env.DEV) {
                 import(/* @vite-ignore */ `./conf/theme/${customThemeId}`)
-                    .then((module) => {
-                        updateTheme(module.default as unknown as Theme);
+                    .then((theme) => {
+                        updateTheme(theme);
                     })
                     .catch((error) => {
                         console.error(`Failed to load theme from './conf/theme/${customThemeId}':`, error);
@@ -58,7 +58,7 @@ export function useSetAppTheme() {
                 fetch(`assets/conf/theme/${customThemeId}`)
                     .then((response) => response.json())
                     .then((theme) => {
-                        updateTheme(theme as unknown as Theme);
+                        updateTheme(theme);
                     })
                     .catch((error) => {
                         console.error(`Failed to load theme from 'assets/conf/theme/${customThemeId}':`, error);

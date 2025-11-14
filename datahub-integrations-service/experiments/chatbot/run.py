@@ -4,7 +4,10 @@ from datahub_integrations.experimentation.ai_init import (
 )
 
 import fnmatch
+import os
 import pathlib
+import platform
+import socket
 import time
 from typing import Annotated, Dict, List, Optional
 
@@ -313,6 +316,14 @@ async def main(
             experiments_dir / "runs" / run.info.run_name
         )
         experiment_results_dir.mkdir(parents=True)
+
+        # Tag run with machine/environment metadata for debugging and tracking
+        mlflow.set_tags({
+            "machine.hostname": socket.gethostname(),
+            "machine.user": os.getenv("USER") or os.getenv("USERNAME") or "unknown",
+            "machine.os": f"{platform.system()} {platform.release()}",
+            "machine.python_version": platform.python_version(),
+        })
 
         mlflow.log_artifact(str(prompts_file))
         mlflow.log_params(

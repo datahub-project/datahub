@@ -1,12 +1,12 @@
 # Reporting Security Issues
 
-If you think you have found a security vulnerability, please send a report to security@datahubproject.io. This address can be used for all of DataHub’s open source and commercial products (including but not limited to DataHub Core and DataHub Cloud). We can accept only vulnerability reports at this address.
+If you think you have found a security vulnerability, please send a report to security@datahub.com. This address can be used for all of DataHub’s open source and commercial products (including but not limited to DataHub Core and DataHub Cloud). We can accept only vulnerability reports at this address.
 
 It's not mandatory, but if you'd like to encrypt your message to us; please use our PGP key. The key fingerprint is:
 
-A50B10A86CC21F4B7BE102E170764C95B4FACEBF
+61C8 635F 856A 97AA 90D2 E1D9 EBD4 FB71 D997 8918
 
-The key is available from [keyserver.ubuntu.com](https://keyserver.ubuntu.com/pks/lookup?search=A50B10A86CC21F4B7BE102E170764C95B4FACEBF&fingerprint=on&op=index).
+The key is available from [keys.openpgp.org](https://keys.openpgp.org/search?q=61C8635F856A97AA90D2E1D9EBD4FB71D9978918).
 
 DataHub will send you a response indicating the next steps in handling your report. After the initial reply to your report, the security team will keep you informed of the progress towards a fix and full announcement, and may ask for additional information or guidance.
 

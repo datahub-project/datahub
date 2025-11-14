@@ -6,7 +6,7 @@
 1. Create `.env` file in `datahub-integrations-service` folder containing bedrock credentials
 
    ```bash
-   AWS_PROFILE=<profile corresponding to your Acryl_Developer_Prod role>
+   AWS_PROFILE=<profile corresponding to your Acryl_Developer_Engineer role>
    DATAHUB_TELEMETRY_ENABLED=false
    MLFLOW_TRACKING_URI=arn:aws:sagemaker:us-west-2:795586375822:mlflow-tracking-server/prod-mlflow-tracking-server-01
    MLFLOW_TRACKING_AWS_SIGV4=true

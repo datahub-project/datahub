@@ -1515,3 +1515,231 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **bf21758549** - improve(uploadFiles): move upload files related props to its own oject (#15179)
   *by v-tarasevich-blitz-brain on 2025-11-04*
 
+
+## Upstream Merge Session - 2025-11-07 00:00:10
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-11-07-000009`
+- **Merge Base**: `12dec48ce17a339f682929e9152bdf0c4a9c6fd3`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 40
+- **Strategy**: stacked
+- **Started**: Fri Nov  7 00:00:10 UTC 2025
+
+### Commits Included in This Merge
+- **135786c1c3** - fix(ingestion): Add aws_common dependency to cockroachdb and mariadb plugins (#15189)
+  *by Anush Kumar on 2025-11-03*
+
+- **34abd003dd** - fix(ui/theme): Catch errors in loading custom theme (#15184)
+  *by Andrew Sikowitz on 2025-11-03*
+
+- **3e5e552cd9** - docs(observe): add documentation for custom sql in column value assertions (#15192)
+  *by Peter Wang on 2025-11-04*
+
+- **76ecfa6e8e** - feat(uploadFiles): bring changes from SaaS (#15166)
+  *by v-tarasevich-blitz-brain on 2025-11-04*
+
+- **3d7d7a6eed** - improvement(upload-files): bring back changes from SaaS (#15181)
+  *by Purnima Garg on 2025-11-04*
+
+- **b0673a67d1** - feat(ui/file-upload): show inline previews of text, pdf and video files (#15182)
+  *by Purnima Garg on 2025-11-04*
+
+- **f429c2a491** - test(uploadFile): add cypress tests (#15195)
+  *by v-tarasevich-blitz-brain on 2025-11-04*
+
+- **bf21758549** - improve(uploadFiles): move upload files related props to its own oject (#15179)
+  *by v-tarasevich-blitz-brain on 2025-11-04*
+
+- **1749d845ff** - feat(docs): Click to expand image (#15201)
+  *by Adrian Machado on 2025-11-04*
+
+- **4a210cd6d9** - feat(docs): Add docs for injecting custom instructions to Ask DataHub, Docs Gen, + Classification (#15197)
+  *by John Joyce on 2025-11-04*
+
+- **6048a8255e** - feat(unity/mlmodel): add model signature and run details support in Unity Catalog Source (#15177)
+  *by Anush Kumar on 2025-11-04*
+
+- **b66a2b3270** - fix(smoke-tests): fix some of the top failing cypress tests (#15199)
+  *by ani-malgari on 2025-11-05*
+
+- **680a1eeabf** - add readWrite documentation to be added to mongodb page (#15200)
+  *by dgluong-datahub on 2025-11-05*
+
+- **d90fce58f7** - fix(quickstart): limit old cli to 1.2 (#15208)
+  *by Chakru on 2025-11-05*
+
+- **f1c95c79d1** - chore: Remove Pydantic V1 deprecation warnings (#15057)
+  *by Sergio Gómez Villamor on 2025-11-05*
+
+- **7df902af09** - fix(cypress/summaryTab): split test into separated files (#15194)
+  *by v-tarasevich-blitz-brain on 2025-11-05*
+
+- **725ffecaac** - feat(datasetSummaryTab): add feature flag (#15206)
+  *by v-tarasevich-blitz-brain on 2025-11-05*
+
+- **842512af34** - docs(subscriptions): Update docs for subscriptions management (#15203)
+  *by Adrian Machado on 2025-11-05*
+
+- **ac1d9d47e1** - chore(docs): Clarify definition of "View Entity" and "View Entity Pag… (#15213)
+  *by Abe on 2025-11-05*
+
+- **4ae64377a4** - docs(release): Add release notes for version 0.3.15 (#15139)
+  *by Jay on 2025-11-05*
+
+- **d8166f2388** - docs(logical): Add docs on creating logical datasets and bulk relationship removal (#15029)
+  *by Andrew Sikowitz on 2025-11-05*
+
+- **8b51cee2ef** - Add feature guide for upload/download to s3 in documentation (#15168)
+  *by Chris Collins on 2025-11-05*
+
+- **0262d9717d** - hotfix(): Add new create domains flow  (#15202)
+  *by John Joyce on 2025-11-05*
+
+- **da2043b0fb** - fix(docs): change incorrect link to CF template (#15217)
+  *by Kevin Karch on 2025-11-05*
+
+- **67aed02165** - fix(ingest/airflow): Remove Python 2.9 airflow tests (#15216)
+  *by Tamas Nemeth on 2025-11-06*
+
+- **1c11ec033d** - bug(unity-catalog): update parameter key in UnityCatalogApiProxy for MLFlow Model files (#15220)
+  *by Anush Kumar on 2025-11-05*
+
+- **6f81e720aa** - fix(ui): Handle structured properties overflow and indentation (#15131)
+  *by Saketh Varma on 2025-11-06*
+
+- **7f25b6d250** - chore(ci): update gradle config, test infrastructure, and testng suit… (#15207)
+  *by david-leifker on 2025-11-05*
+
+- **71daaa9ac0** - Update announcement bar content to Context ON-DEMAND (#15221)
+  *by Gray Ayer on 2025-11-06*
+
+- **bdb46d9909** - feat(databricks): adds Azure oauth to Databricks (#15117)
+  *by P Anshul Jain on 2025-11-06*
+
+- **fe4e204a26** - feat(sdk): add Tag entity to SDK v2 (#14791)
+  *by Sergio Gómez Villamor on 2025-11-06*
+
+- **860303f24b** - feat(impact): allow partial results for backwards compat (#15198)
+  *by david-leifker on 2025-11-06*
+
+- **002de4bcd8** - feat(docker) Add quickstartDebugAws gradle command for testing s3 locally (#15218)
+  *by Chris Collins on 2025-11-06*
+
+- **7f6e7aa519** - improvement(ui/file-upload): handle file previews when there's no permission to view or error occurs (#15210)
+  *by Purnima Garg on 2025-11-06*
+
+- **064a70bbb9** - feat: bring back changes from proposals cypress PR to OSS (#15224)
+  *by Purnima Garg on 2025-11-06*
+
+- **dc4c2452c2** - fix(elasticsearch): fix index template (#15227)
+  *by david-leifker on 2025-11-06*
+
+- **65616dbceb** - fix(search): improve queries index write perf (#15226)
+  *by david-leifker on 2025-11-06*
+
+- **88eb03b57e** - feat(structured-properties): implement infinite scroll with backend search for structured properties table (#14991)
+  *by Purnima Garg on 2025-11-07*
+
+- **6cc0b08f3d** - chore(build): upgrade git-properties gradle plugin (#15229)
+  *by Chakru on 2025-11-07*
+
+- **8dd6b6b8f9** - Move Ask DataHub doc into "Features"  (#15228)
+  *by John Joyce on 2025-11-06*
+
+
+## Upstream Merge Session - 2025-11-11 00:00:08
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-11-11-000007`
+- **Merge Base**: `8dd6b6b8f917d636285a3949f827f51e3653a7e9`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 9
+- **Strategy**: stacked
+- **Started**: Tue Nov 11 00:00:08 UTC 2025
+
+### Commits Included in This Merge
+- **2885c6bf8e** - fix(system-update): fix opensearch event template index creation (#15231)
+  *by david-leifker on 2025-11-06*
+
+- **4e07bfa885** - feat(ui): add model signature table for mlmodel summary tab (#15205)
+  *by Hyejin Yoon on 2025-11-07*
+
+- **d9f151e3e1** - feat(spark): Add SQLJobFacet to column-level lineage transformations (#15232)
+  *by Anush Kumar on 2025-11-07*
+
+- **3728e0cc81** - Revert "fix(ingest/dremio): Fix platform_instance URN generation" (#15236)
+  *by Tamas Nemeth on 2025-11-07*
+
+- **e85f87679f** - security: Update GPG Key (#15239)
+  *by Esteban Gutierrez on 2025-11-07*
+
+- **e67f02c4e3** - fix(irc): add endpoints field in /v1/config response (#15245)
+  *by Chakru on 2025-11-08*
+
+- **860d758a78** - feat(ci): allow PRs from repo forks to use depot (#15243)
+  *by Chakru on 2025-11-08*
+
+- **390f0d834c** - Improve datahub-web-react build caching (#15256)
+  *by Chakru on 2025-11-10*
+
+- **84fe389fc8** - feat(dataset-summary): add summary tab on dataset entities (#15238)
+  *by Purnima Garg on 2025-11-10*
+
+
+## Upstream Merge Session - 2025-11-12 00:00:07
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-11-12-000005`
+- **Merge Base**: `84fe389fc8ce1ff889e13b818695cc9702de0f97`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 12
+- **Strategy**: stacked
+- **Started**: Wed Nov 12 00:00:07 UTC 2025
+
+### Commits Included in This Merge
+- **ba63450f5e** - fix(cypress): fix summary tab tests (#15267)
+  *by v-tarasevich-blitz-brain on 2025-11-11*
+
+- **522d8e79b4** - fix(kafka-setup): skip schema registry config setup when kafka setup is disabled (#15268)
+  *by Chakru on 2025-11-11*
+
+- **bbe3909f0a** - fix(cypresS): fix cypress flakiness in ingestionV2/sources.js (#15260)
+  *by Purnima Garg on 2025-11-11*
+
+- **c21af0e29a** - fix(upgrade): add missed configs for lineage reprocessing (#15266)
+  *by Aseem Bansal on 2025-11-11*
+
+- **0553f28e2a** - fix(python): correct Literal type comparison bugs in assertion classes (#15269)
+  *by Sergio Gómez Villamor on 2025-11-11*
+
+- **2557aa5296** - fix(ingest/bigquery): Fix bigquery user agent string (#15214)
+  *by Tamas Nemeth on 2025-11-11*
+
+- **c4f63f9909** - fix(ingest/vertex): Vertex null start date fix (#15258)
+  *by Tamas Nemeth on 2025-11-11*
+
+- **0d95bf299a** - fix(ingest/transformer): Preserve manually set domains in PatternAddDatasetDomain with PATCH semantics (#15259)
+  *by Tamas Nemeth on 2025-11-11*
+
+- **b25fdf5abf** - Modify announcement bar for context webinar removing UTMs (#15265)
+  *by Gray Ayer on 2025-11-11*
+
+- **db65ea5fd5** - feat(metadata-integration/openlineage): support env and orchestrator in openlineage event emission (#15251)
+  *by Jonny Dixon on 2025-11-11*
+
+- **a526b877fa** - feat(ingest/snowflake): add Streamlit apps ingestion support (#15272)
+  *by kyungsoo-datahub on 2025-11-11*
+
+- **c911621ede** - fix(ui) Add followup tweaks to updated analytics page (#15142)
+  *by Chris Collins on 2025-11-11*
+

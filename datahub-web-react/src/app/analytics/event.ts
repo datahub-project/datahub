@@ -1886,6 +1886,9 @@ export interface CreateDataHubChatMessageEvent extends BaseEvent {
     messageLength: number;
     hasEntityMentions: boolean;
     entityMentionCount?: number;
+    userMessageIndex: number; // 0 = first user message (new conversation), N = Nth user message (reply)
+    totalMessageCount: number; // total number of all messages (user + agent) in the conversation before this message
+    messagePreview: string; // first 200 characters of the message
 }
 
 export interface DeleteDataHubChatEvent extends BaseEvent {
@@ -1900,6 +1903,7 @@ export interface DataHubChatResponseErrorEvent extends BaseEvent {
     errorMessage: string;
     errorType?: string; // e.g., 'connection_interrupted', 'server_error', 'parse_error'
     statusCode?: number;
+    messagePreview?: string; // first 200 characters of the message that caused the error
 }
 
 export interface StopDataHubChatResponseEvent extends BaseEvent {

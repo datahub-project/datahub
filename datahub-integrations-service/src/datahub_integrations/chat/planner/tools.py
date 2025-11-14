@@ -19,7 +19,7 @@ from datahub_integrations.chat.planner.models import Constraints, OnFail, Plan, 
 from datahub_integrations.chat.planner.recipes import get_recipe_guidance
 from datahub_integrations.gen_ai.bedrock import BedrockModel, get_bedrock_client
 from datahub_integrations.mcp.mcp_server import get_datahub_client
-from datahub_integrations.mcp.tool import ToolWrapper, async_background
+from datahub_integrations.mcp_integration.tool import ToolWrapper, async_background
 
 if TYPE_CHECKING:
     from datahub_integrations.chat.chat_session import ChatSession

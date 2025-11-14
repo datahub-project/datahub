@@ -37,13 +37,16 @@ from loguru import logger
 from pydantic import BaseModel
 
 from datahub_integrations.chat.context_reducer import TokenCountEstimator
-from datahub_integrations.mcp.tool import TOOL_RESPONSE_TOKEN_LIMIT
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
 T = TypeVar("T")
 DESCRIPTION_LENGTH_HARD_LIMIT = 1000
 QUERY_LENGTH_HARD_LIMIT = 5000
+
+# Maximum token count for tool responses to prevent context window issues
+# As per telemetry tool result length goes upto
+TOOL_RESPONSE_TOKEN_LIMIT = int(os.getenv("TOOL_RESPONSE_TOKEN_LIMIT", 80000))
 
 # Per-entity schema token budget for field truncation
 # Assumes ~5 entities per response: 80K total / 5 = 16K per entity
@@ -523,6 +526,7 @@ entity_details_fragment_gql = (
 ).read_text()
 
 queries_gql = (pathlib.Path(__file__).parent / "gql/queries.gql").read_text()
+query_entity_gql = (pathlib.Path(__file__).parent / "gql/query_entity.gql").read_text()
 
 
 def _is_semantic_search_enabled() -> bool:
@@ -987,14 +991,25 @@ def get_entities(urns: List[str] | str) -> List[dict] | dict:
                 results.append({"error": f"Entity {urn} not found", "urn": urn})
                 continue
 
-            # Execute the GraphQL query
+            # Special handling for Query entities (not part of Entity union type)
+            is_query = urn.startswith("urn:li:query:")
+
+            # Execute the appropriate GraphQL query
             variables = {"urn": urn}
-            result = _execute_graphql(
-                client._graph,
-                query=entity_details_fragment_gql,
-                variables=variables,
-                operation_name="GetEntity",
-            )["entity"]
+            if is_query:
+                result = _execute_graphql(
+                    client._graph,
+                    query=query_entity_gql,
+                    variables=variables,
+                    operation_name="GetQueryEntity",
+                )["entity"]
+            else:
+                result = _execute_graphql(
+                    client._graph,
+                    query=entity_details_fragment_gql,
+                    variables=variables,
+                    operation_name="GetEntity",
+                )["entity"]
 
             # Check if entity data was returned
             if result is None:
@@ -1272,9 +1287,13 @@ def _search_implementation(
     search_strategy: Optional[Literal["semantic", "keyword", "ersatz_semantic"]] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[Literal["asc", "desc"]] = "desc",
+    offset: int = 0,
 ) -> dict:
     """Core search implementation that can use semantic, keyword, or ersatz_semantic search."""
     client = get_datahub_client()
+
+    # Cap num_results at 50 to prevent excessive requests
+    num_results = min(num_results, 50)
 
     # As of 2025-07-25: Our Filter type is a tagged/discriminated union.
     #
@@ -1312,6 +1331,7 @@ def _search_implementation(
         "types": types,
         "orFilters": compiled_filters,
         "count": max(num_results, 1),  # 0 is not a valid value for count.
+        "start": offset,
         "viewUrn": view_urn,  # Will be None if disabled or not set
     }
 
@@ -1331,15 +1351,12 @@ def _search_implementation(
         # Smart search: keyword search with rich entity details for reranking
         gql_query = smart_search_gql
         operation_name = "smartSearch"
-        response_key = "scrollAcrossEntities"
-        variables["scrollId"] = None
+        response_key = "searchAcrossEntities"
     else:
         # Default: keyword search
         gql_query = search_gql
         operation_name = "search"
-        response_key = "scrollAcrossEntities"
-        # Add scrollId for keyword search (maintaining compatibility)
-        variables["scrollId"] = None
+        response_key = "searchAcrossEntities"
 
     response = _execute_graphql(
         client._graph,
@@ -1363,6 +1380,7 @@ def enhanced_search(
     search_strategy: Optional[Literal["semantic", "keyword"]] = None,
     filters: Optional[Filter | str] = None,
     num_results: int = 10,
+    offset: int = 0,
 ) -> dict:
     """Enhanced search across DataHub entities with semantic and keyword capabilities.
     Results are ordered by relevance and importance - examine top results first.
@@ -1393,6 +1411,14 @@ def enhanced_search(
     - Use semantic when: user asks conceptual questions ("show me sales data", "find customer information")
     - Use keyword when: user provides specific names (/q user_events, /q revenue_jan_2024)
     - Use keyword when: searching for technical terms, boolean logic, or exact identifiers
+
+    PAGINATION:
+    - num_results: Number of results to return per page (max: 50)
+    - offset: Starting position in results (default: 0)
+    - Examples:
+      • First page: offset=0, num_results=10
+      • Second page: offset=10, num_results=10
+      • Third page: offset=20, num_results=10
 
     FACET EXPLORATION - Discover metadata without returning results:
     - Set num_results=0 to get ONLY facets (no search results)
@@ -1448,7 +1474,9 @@ def enhanced_search(
     high-usage entities appear first. For "most important tables", search by
     importance tags/terms or use the top-ranked results from a broad search.
     """
-    return _search_implementation(query, filters, num_results, search_strategy)
+    return _search_implementation(
+        query, filters, num_results, search_strategy, offset=offset
+    )
 
 
 # Define original search tool for backward compatibility
@@ -1458,6 +1486,7 @@ def search(
     num_results: int = 10,
     sort_by: Optional[str] = None,
     sort_order: Optional[Literal["asc", "desc"]] = "desc",
+    offset: int = 0,
 ) -> dict:
     """Search across DataHub entities using structured full-text search.
     Results are ordered by relevance and importance - examine top results first.
@@ -1476,6 +1505,14 @@ def search(
       • /q (sales OR revenue) AND quarterly → complex boolean combinations
     - Fast and precise for exact matching, technical terms, and complex queries
     - Best for: entity names, identifiers, column names, or any search needing boolean logic
+
+    PAGINATION:
+    - num_results: Number of results to return per page (max: 50)
+    - offset: Starting position in results (default: 0)
+    - Examples:
+      • First page: offset=0, num_results=10
+      • Second page: offset=10, num_results=10
+      • Third page: offset=20, num_results=10
 
     FACET EXPLORATION - Discover metadata without returning results:
     - Set num_results=0 to get ONLY facets (no search results)
@@ -1561,7 +1598,7 @@ def search(
     importance. When using sort_by, results are strictly ordered by that field.
     """
     return _search_implementation(
-        query, filters, num_results, "keyword", sort_by, sort_order
+        query, filters, num_results, "keyword", sort_by, sort_order, offset
     )
 
 
@@ -2063,6 +2100,372 @@ def get_lineage(
     return lineage
 
 
+def get_lineage_paths_between(
+    source_urn: str,
+    target_urn: str,
+    source_column: Optional[str] = None,
+    target_column: Optional[str] = None,
+    direction: Optional[Literal["upstream", "downstream"]] = None,
+) -> dict:
+    """Get detailed lineage path(s) between two specific entities or columns.
+
+    Returns the paths array from searchAcrossLineage, showing the exact transformation
+    chain(s) including intermediate entities, columns, and transformation query URNs.
+
+    Unlike get_lineage() which returns all lineage targets with compact lineageColumns,
+    this tool focuses on ONE specific target and returns detailed path information.
+
+    Args:
+        source_urn: URN of the source dataset
+        target_urn: URN of the target dataset
+        source_column: Optional column name in source dataset
+        target_column: Optional column name in target dataset (required if source_column provided)
+        direction: Optional direction to search. If None (default), automatically discovers
+                  the path by trying downstream first, then upstream. Specify "downstream" or
+                  "upstream" explicitly for better performance if you know the direction.
+
+    Returns:
+        Dictionary with:
+        - source: Source entity/column info
+        - target: Target entity/column info
+        - paths: Array of path objects from GraphQL (with QUERY URNs)
+        - pathCount: Number of paths found
+
+    Examples:
+        # Column-level paths
+        paths_result = get_lineage_paths_between(
+            source_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.base_table,PROD)",
+            target_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.final_table,PROD)",
+            source_column="user_id",
+            target_column="customer_id"
+        )
+        # Returns paths with QUERY URNs showing transformation chain
+
+        # Fetch SQL for specific query of interest
+        query_details = get_entities(paths_result["paths"][0]["path"][1]["urn"])
+
+        # Dataset-level paths (auto-discover direction)
+        get_lineage_paths_between(
+            source_urn="urn:li:dataset:(...):base_table",
+            target_urn="urn:li:dataset:(...):final_table"
+        )
+
+        # Explicit direction for better performance
+        get_lineage_paths_between(
+            source_urn="urn:li:dataset:(...):base_table",
+            target_urn="urn:li:dataset:(...):final_table",
+            direction="downstream"
+        )
+    """
+    # Normalize column parameters
+    if source_column == "null" or source_column == "":
+        source_column = None
+    if target_column == "null" or target_column == "":
+        target_column = None
+
+    # Validate: if either column is specified, must be column-level lineage
+    if (source_column is None) != (target_column is None):
+        raise ValueError(
+            "Both source_column and target_column must be provided for column-level lineage, "
+            "or both must be None for dataset-level lineage"
+        )
+
+    client = get_datahub_client()
+
+    # Convert to schema field URN if column specified
+    query_urn = maybe_convert_to_schema_field_urn(source_urn, source_column)
+    target_full_urn = maybe_convert_to_schema_field_urn(target_urn, target_column)
+
+    # Auto-discover direction if not specified
+    if direction is None:
+        # Try downstream first (more common use case)
+        try:
+            result = _find_lineage_path(
+                client=client,
+                query_urn=query_urn,
+                target_full_urn=target_full_urn,
+                source_urn=source_urn,
+                target_urn=target_urn,
+                source_column=source_column,
+                target_column=target_column,
+                direction="downstream",
+            )
+            result["metadata"]["direction"] = "auto-discovered-downstream"
+            result["metadata"]["note"] = (
+                "Direction was automatically discovered. Specify direction='downstream' or 'upstream' explicitly for better performance."
+            )
+            return result
+        except ItemNotFoundError:
+            # Try upstream as fallback
+            try:
+                result = _find_lineage_path(
+                    client=client,
+                    query_urn=query_urn,
+                    target_full_urn=target_full_urn,
+                    source_urn=source_urn,
+                    target_urn=target_urn,
+                    source_column=source_column,
+                    target_column=target_column,
+                    direction="upstream",
+                )
+                result["metadata"]["direction"] = "auto-discovered-upstream"
+                result["metadata"]["note"] = (
+                    "Direction was automatically discovered. Specify direction='downstream' or 'upstream' explicitly for better performance."
+                )
+                return result
+            except ItemNotFoundError:
+                # Not found in either direction
+                raise ItemNotFoundError(
+                    f"No lineage path found between {source_urn}"
+                    + (f".{source_column}" if source_column else "")
+                    + f" and {target_urn}"
+                    + (f".{target_column}" if target_column else "")
+                    + " in either upstream or downstream direction"
+                ) from None
+    else:
+        # User specified direction explicitly
+        return _find_lineage_path(
+            client=client,
+            query_urn=query_urn,
+            target_full_urn=target_full_urn,
+            source_urn=source_urn,
+            target_urn=target_urn,
+            source_column=source_column,
+            target_column=target_column,
+            direction=direction,
+        )
+
+
+def _find_lineage_path(
+    client: DataHubClient,
+    query_urn: str,
+    target_full_urn: str,
+    source_urn: str,
+    target_urn: str,
+    source_column: Optional[str],
+    target_column: Optional[str],
+    direction: Literal["upstream", "downstream"],
+) -> dict:
+    """
+    Internal helper to find lineage path in a specific direction.
+
+    Always queries upstream internally (more efficient), but maintains the
+    semantic direction in the API. For downstream queries, swaps source/target
+    and reverses the path.
+
+    Separated from main function to support auto-discovery logic.
+    """
+
+    if direction == "downstream":
+        # User semantic: source flows TO target (source → target)
+        # Implementation: Query target's upstream to find source
+        # Then reverse the path to show source → target
+        result = _find_upstream_lineage_path(
+            client=client,
+            query_urn=target_full_urn,  # Query from target
+            search_for_urn=query_urn,  # Search for source
+            source_urn=source_urn,
+            target_urn=target_urn,
+            source_column=source_column,
+            target_column=target_column,
+            semantic_direction=direction,
+        )
+
+        # Reverse paths to show source → target order
+        # Structure: result["paths"] = [{"path": [entity1, entity2, ...]}, ...]
+        # Each path is an array of entities (SCHEMA_FIELD/DATASET/QUERY)
+        # Upstream query returns: [target, query, intermediate, query, source]
+        # We reverse to: [source, query, intermediate, query, target]
+        for path_obj in result.get("paths", []):
+            if path_obj and "path" in path_obj:
+                path_obj["path"] = list(reversed(path_obj["path"]))
+
+        return result
+    else:
+        # User semantic: source depends ON target (target → source)
+        # Implementation: Query source's upstream to find target
+        # Path is already in correct order (target → source)
+        return _find_upstream_lineage_path(
+            client=client,
+            query_urn=query_urn,  # Query from source
+            search_for_urn=target_full_urn,  # Search for target
+            source_urn=source_urn,
+            target_urn=target_urn,
+            source_column=source_column,
+            target_column=target_column,
+            semantic_direction=direction,
+        )
+
+
+def _find_result_with_target_urn(
+    search_results: List[dict],
+    target_urn: str,
+    is_column_level: bool,
+) -> Optional[dict]:
+    """
+    Find the search result that contains the target URN.
+
+    For column-level lineage: Searches paths to find one ending with target column URN
+    For dataset-level lineage: Matches entity URN directly
+
+    Args:
+        search_results: List of lineage search results
+        target_urn: URN to search for (dataset or schemaField)
+        is_column_level: Whether this is column-level lineage
+
+    Returns:
+        The search result containing the target, or None if not found
+    """
+    for result in search_results:
+        if is_column_level:
+            # Column-level: Check if any path ends with target column URN
+            paths = result.get("paths") or []
+            for path_obj in paths:
+                if not path_obj:
+                    continue
+                path = path_obj.get("path") or []
+                if path and path[-1].get("urn") == target_urn:
+                    return result
+        else:
+            # Dataset-level: Match entity URN directly
+            if result.get("entity", {}).get("urn") == target_urn:
+                return result
+
+    return None
+
+
+def _find_upstream_lineage_path(
+    client: DataHubClient,
+    query_urn: str,
+    search_for_urn: str,
+    source_urn: str,
+    target_urn: str,
+    source_column: Optional[str],
+    target_column: Optional[str],
+    semantic_direction: Literal["upstream", "downstream"],
+) -> dict:
+    """
+    Internal helper to find upstream lineage path.
+
+    Always queries upstream lineage (more bounded than downstream).
+
+    KEY INSIGHT: Lineage is isotropic (symmetric):
+    - If B is in A's downstream, then A is in B's upstream
+    - The path is the same, just viewed from different ends
+    - Therefore, we can always query upstream and reverse the path for downstream queries
+
+    This optimization significantly reduces response sizes:
+    - Upstream: Typically 10-100 results (bounded by data sources)
+    - Downstream: Can be 1000s of results (unlimited consumers)
+
+    Args:
+        query_urn: URN to query lineage from (could be source or target depending on semantic direction)
+        search_for_urn: URN to search for in results
+        source_urn: Original source URN (for response metadata)
+        target_urn: Original target URN (for response metadata)
+        source_column: Original source column (for response metadata)
+        target_column: Original target column (for response metadata)
+        semantic_direction: User's requested direction (for metadata, not query direction)
+    """
+
+    # Get lineage with paths using the API directly (always upstream)
+    lineage_api = AssetLineageAPI(client._graph)
+    asset_lineage_directive = AssetLineageDirective(
+        urn=query_urn,
+        upstream=True,  # Always upstream
+        downstream=False,
+        max_hops=10,  # Higher to ensure we find target
+        extra_filters=None,
+        max_results=100,  # Need enough results to find target
+    )
+    lineage = lineage_api.get_lineage(asset_lineage_directive, query="*")
+
+    # Clean up the response
+    inject_urls_for_urns(client._graph, lineage, ["*.searchResults[].entity"])
+    truncate_descriptions(lineage)
+
+    # Get upstream results (always querying upstream)
+    search_results = lineage.get("upstreams", {}).get("searchResults", [])
+
+    if not search_results:
+        raise ItemNotFoundError(
+            f"No lineage found from {source_urn}"
+            + (f".{source_column}" if source_column else "")
+        )
+
+    # Find the result containing the target URN
+    target_result = _find_result_with_target_urn(
+        search_results=search_results,
+        target_urn=search_for_urn,
+        is_column_level=(target_column is not None),
+    )
+
+    if not target_result:
+        raise ItemNotFoundError(
+            f"No lineage path found from {source_urn}"
+            + (f".{source_column}" if source_column else "")
+            + f" to {target_urn}"
+            + (f".{target_column}" if target_column else "")
+        )
+
+    # Extract paths array (with QUERY URNs as-is)
+    paths = target_result.get("paths", [])
+    if not paths:
+        raise ValueError(
+            "Target found but no path information available. "
+            "This may indicate the entities are directly connected without intermediate steps."
+        )
+
+    # Clean the paths response
+    cleaned_paths = clean_gql_response(paths)
+
+    # Check if any paths contain QUERY entities (with safe null handling)
+    has_queries = any(
+        any(
+            entity.get("type") == "QUERY"
+            for entity in (path_obj.get("path") or [])
+            if entity  # Skip None entities
+        )
+        for path_obj in cleaned_paths
+        if path_obj  # Skip None path objects
+    )
+
+    # Build metadata
+    paths_metadata: dict[str, str] = {
+        "description": "Array of lineage paths showing transformation chains from source to target",
+        "structure": "Each path contains alternating entities (SCHEMA_FIELD or DATASET) and optional transformation QUERY entities",
+    }
+
+    # Add query enrichment note only when queries are present
+    if has_queries:
+        paths_metadata["queryEntities"] = (
+            "QUERY entities are returned as URNs only. "
+            "Use get_entities(query_urn) to fetch SQL statement and other query details."
+        )
+
+    metadata = {
+        "queryType": "lineage-path-trace",
+        "direction": semantic_direction,
+        "pathType": "column-level" if source_column else "dataset-level",
+        "fields": {"paths": paths_metadata},
+    }
+
+    # Build response with metadata
+    return {
+        "metadata": metadata,
+        "source": {
+            "urn": source_urn,
+            **({"column": source_column} if source_column else {}),
+        },
+        "target": {
+            "urn": target_urn,
+            **({"column": target_column} if target_column else {}),
+        },
+        "pathCount": len(cleaned_paths),
+        "paths": cleaned_paths,
+    }
+
+
 def register_search_tools(mcp_instance: FastMCP) -> None:
     """Register the appropriate search tool based on environment configuration."""
     if _is_semantic_search_enabled():
@@ -2103,3 +2506,8 @@ mcp.tool(name="get_entities", description=get_entities.__doc__)(
 mcp.tool(name="list_schema_fields", description=list_schema_fields.__doc__)(
     async_background(list_schema_fields)
 )
+
+# Register get_lineage_paths_between tool
+mcp.tool(
+    name="get_lineage_paths_between", description=get_lineage_paths_between.__doc__
+)(async_background(get_lineage_paths_between))

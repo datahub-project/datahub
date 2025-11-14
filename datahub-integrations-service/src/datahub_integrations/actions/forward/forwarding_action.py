@@ -266,7 +266,7 @@ class ForwardingAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        action_config = ForwardingActionConfig.parse_obj(config_dict or {})
+        action_config = ForwardingActionConfig.model_validate(config_dict or {})
         return cls(action_config, ctx)
 
     def __init__(self, config: ForwardingActionConfig, ctx: PipelineContext) -> None:

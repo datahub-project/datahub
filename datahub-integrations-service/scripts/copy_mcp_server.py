@@ -1,5 +1,23 @@
 #! /usr/bin/env python3
 
+"""
+OBSOLETE: This script copies only selected files from mcp-server-datahub.
+
+For syncing improvements, it's now simpler to just copy the entire mcp/ folder:
+    
+    # Sync source code
+    cp -r /path/to/datahub-fork/datahub-integrations-service/src/datahub_integrations/mcp/* \
+          /path/to/mcp-server-datahub/src/mcp_server_datahub/
+    
+    # Sync tests
+    cp -r /path/to/datahub-fork/datahub-integrations-service/tests/mcp/* \
+          /path/to/mcp-server-datahub/tests/
+
+See docs/mcp-syncing.md for the complete syncing guide.
+
+This script is kept for backwards compatibility but may be removed in the future.
+"""
+
 import pathlib
 import subprocess
 

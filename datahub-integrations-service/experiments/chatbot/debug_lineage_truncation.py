@@ -39,6 +39,7 @@ def main():
 
     # Table with known lineage
     table_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,banking.public.account_transactions,PROD)"
+    another_table_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,smoke_test_db.public.base_table,PROD)"
     print(f"=== Testing get_lineage Entity-Level Truncation ===")
     print(f"Table: {table_urn}")
     print(f"\n" + "="*80 + "\n")
@@ -49,8 +50,8 @@ def main():
     
     with with_datahub_client(client):
         result = get_lineage(
-            urn=table_urn,
-            column="transaction_type",
+            urn=another_table_urn,
+            column="revenue", #"transaction_type",
             upstream=False,  # False = downstream lineage
             max_hops=3,
             max_results=50,

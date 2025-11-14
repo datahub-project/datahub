@@ -68,12 +68,7 @@ class TestLegacyCompatibility:
         )
 
         # Verify the config class has the expected fields
-        # Use model_fields (Pydantic V2) or __fields__ (Pydantic V1) for compatibility
-        fields = getattr(
-            SnowflakeTagPropagatorConfig,
-            "model_fields",
-            getattr(SnowflakeTagPropagatorConfig, "__fields__", {}),
-        )
+        fields = SnowflakeTagPropagatorConfig.model_fields
 
         # Check for key fields that old automations would use
         assert "snowflake" in fields

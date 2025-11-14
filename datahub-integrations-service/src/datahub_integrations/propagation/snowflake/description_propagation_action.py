@@ -43,7 +43,7 @@ class DescriptionPropagationAction(ExtendedAction[str]):
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "DescriptionPropagationAction":
         """Factory method to create an instance of DescriptionPropagationAction."""
-        config = DescriptionPropagationConfig.parse_obj(config_dict or {})
+        config = DescriptionPropagationConfig.model_validate(config_dict or {})
         return cls(config, ctx)
 
     def name(self) -> str:

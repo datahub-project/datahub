@@ -173,7 +173,7 @@ def test_form_reporting_actual_use_case():
     ]
 
     # Convert to DataFrame (simulating what happens in production)
-    df = pd.DataFrame([row.dict() for row in rows])
+    df = pd.DataFrame([row.model_dump() for row in rows])
 
     print("\n=== Form Reporting Data ===")
     print(f"Rows: {len(rows)}")

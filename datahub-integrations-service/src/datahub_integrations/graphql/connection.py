@@ -68,7 +68,7 @@ def save_connection_json(
     name: Optional[str] = None,
 ) -> None:
     if isinstance(config, ConnectionModel):
-        blob = config.json()
+        blob = config.model_dump_json()
     else:
         blob = json.dumps(config)
 

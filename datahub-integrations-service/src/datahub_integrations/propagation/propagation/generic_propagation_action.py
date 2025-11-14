@@ -249,7 +249,7 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
         """Create an instance of the action from a config dictionary."""
 
-        action_config = PropertyPropagationConfig.parse_obj(config_dict or {})
+        action_config = PropertyPropagationConfig.model_validate(config_dict or {})
         logger.info(f"Generic Propagation Action configured with {action_config}")
         return cls(action_config, ctx)
 

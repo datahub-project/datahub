@@ -91,6 +91,7 @@ query appConfig {
         }
         dataHubConfig {
             serverEnv
+            isFreeTrialInstance
         }
         classificationConfig {
             enabled
@@ -169,6 +170,7 @@ query appConfig {
             inviteUsersEnabled
             showAskDataHub
             teamsNotificationsEnabled
+            datasetSummaryPageV1
             documentationFileUploadV1
         }
         chromeExtensionConfig {
@@ -239,9 +241,21 @@ query getLatestProductUpdate {
         enabled
         id
         title
+        header
+        requiredVersion
         description
         image
+        primaryCtaText
+        primaryCtaLink
+        secondaryCtaText
+        secondaryCtaLink
         ctaText
         ctaLink
+        features {
+            title
+            description
+            icon
+            availability
+        }
     }
 }

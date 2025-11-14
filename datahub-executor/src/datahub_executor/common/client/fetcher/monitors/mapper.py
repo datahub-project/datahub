@@ -123,7 +123,7 @@ def generate_assertion_tasks(monitor: Monitor) -> List[ExecutionRequestSchedule]
 
     for assertion_spec_raw in assertion_specs:
         assertion_spec = _truncate_assertion_spec_for_execution_request(
-            assertion_spec_raw.copy(deep=True)
+            assertion_spec_raw.model_copy(deep=True)
         )
         context = AssertionEvaluationContext(
             dry_run=dry_run,
