@@ -549,7 +549,7 @@ def set_metadata(
 
 
 def merge_allof_schemas(
-    schema: Dict, sw_dict: Dict, resolving_refs: bool = False
+    schema: Dict, sw_dict: Dict, resolving_refs: bool = False, max_depth: int = 10
 ) -> Dict:
     """
     Merge allOf schemas into a single schema object.
@@ -561,6 +561,7 @@ def merge_allof_schemas(
         schema: Schema dictionary that may contain allOf
         sw_dict: Complete OpenAPI specification for resolving references
         resolving_refs: Flag to prevent infinite recursion when called from resolve_schema_references
+        max_depth: Maximum recursion depth for resolving schema references (default: 10)
 
     Returns:
         Merged schema with all allOf entries combined
@@ -587,7 +588,9 @@ def merge_allof_schemas(
             # If we're already resolving refs, just resolve $ref directly
             resolved_allof = _resolve_ref_directly(allof_schema, sw_dict)
         else:
-            resolved_allof = resolve_schema_references(allof_schema, sw_dict)
+            resolved_allof = resolve_schema_references(
+                allof_schema, sw_dict, max_depth=max_depth
+            )
 
         # Merge properties
         if "properties" in resolved_allof:
@@ -630,6 +633,7 @@ def merge_allof_schemas(
                     {"allOf": [merged_schema["items"], resolved_allof["items"]]},
                     sw_dict,
                     resolving_refs=True,
+                    max_depth=max_depth,
                 )
 
         # Merge additionalProperties
@@ -651,12 +655,15 @@ def merge_allof_schemas(
                     },
                     sw_dict,
                     resolving_refs=True,
+                    max_depth=max_depth,
                 )
 
     # Recursively handle any nested allOf in the merged result
     # But don't call resolve_schema_references again to avoid recursion
     if "allOf" in merged_schema:
-        merged_schema = merge_allof_schemas(merged_schema, sw_dict, resolving_refs=True)
+        merged_schema = merge_allof_schemas(
+            merged_schema, sw_dict, resolving_refs=True, max_depth=max_depth
+        )
 
     return merged_schema
 
@@ -750,12 +757,33 @@ def enhance_schema_with_titles(
     return enhanced_schema
 
 
-def resolve_schema_references(schema: Dict, sw_dict: Dict) -> Dict:
+def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
     """
     Recursively resolve all schema references in a Swagger v2 or OpenAPI v3 spec.
     This ensures that all $ref references are resolved before passing to json_schema_util.py.
+
+    Args:
+        schema: Schema dictionary to resolve
+        sw_dict: Complete OpenAPI specification for resolving references
+        max_depth: Maximum recursion depth (default: 10) to prevent infinite recursion
+
+    Returns:
+        Resolved schema dictionary with all $ref references expanded
+
+    Note:
+        If max_depth is exceeded, returns partially resolved schema and logs a warning.
+        This prevents infinite recursion from deeply nested or circular references.
     """
     if not isinstance(schema, dict):
+        return schema
+
+    # Check recursion depth
+    if max_depth <= 0:
+        logger.warning(
+            "Maximum recursion depth exceeded while resolving schema references. "
+            "Schema may be deeply nested or contain circular references. "
+            "Returning partially resolved schema."
+        )
         return schema
 
     resolved_schema = schema.copy()
@@ -771,7 +799,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict) -> Dict:
             if referenced_schema:
                 # Recursively resolve references in the referenced schema
                 resolved_referenced = resolve_schema_references(
-                    referenced_schema, sw_dict
+                    referenced_schema, sw_dict, max_depth=max_depth - 1
                 )
                 # Don't add title - let json_schema_util use the schema structure directly
                 # Titles cause definition names to appear in field paths
@@ -786,7 +814,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict) -> Dict:
             if referenced_schema:
                 # Recursively resolve references in the referenced schema
                 resolved_referenced = resolve_schema_references(
-                    referenced_schema, sw_dict
+                    referenced_schema, sw_dict, max_depth=max_depth - 1
                 )
                 # Don't add title - let json_schema_util use the schema structure directly
                 # Titles cause definition names to appear in field paths
@@ -796,13 +824,13 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict) -> Dict:
     if "properties" in resolved_schema:
         for prop_name, prop_schema in resolved_schema["properties"].items():
             resolved_schema["properties"][prop_name] = resolve_schema_references(
-                prop_schema, sw_dict
+                prop_schema, sw_dict, max_depth=max_depth - 1
             )
 
     # Recursively resolve references in array items
     if "items" in resolved_schema:
         resolved_schema["items"] = resolve_schema_references(
-            resolved_schema["items"], sw_dict
+            resolved_schema["items"], sw_dict, max_depth=max_depth - 1
         )
 
     # Recursively resolve references in additionalProperties
@@ -810,20 +838,22 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict) -> Dict:
         resolved_schema["additionalProperties"], dict
     ):
         resolved_schema["additionalProperties"] = resolve_schema_references(
-            resolved_schema["additionalProperties"], sw_dict
+            resolved_schema["additionalProperties"], sw_dict, max_depth=max_depth - 1
         )
 
     # Handle allOf by merging schemas (before treating as union)
     if "allOf" in resolved_schema:
         resolved_schema = merge_allof_schemas(
-            resolved_schema, sw_dict, resolving_refs=True
+            resolved_schema, sw_dict, resolving_refs=True, max_depth=max_depth
         )
 
     # Handle union types (oneOf, anyOf) - allOf is already handled above
     for union_key in ["oneOf", "anyOf"]:
         if union_key in resolved_schema:
             resolved_schema[union_key] = [
-                resolve_schema_references(union_schema, sw_dict)
+                resolve_schema_references(
+                    union_schema, sw_dict, max_depth=max_depth - 1
+                )
                 for union_schema in resolved_schema[union_key]
             ]
 
@@ -852,10 +882,17 @@ def extract_schema_from_response_schema(
     return response_schema
 
 
-def get_schema_from_response(response_schema: Dict, sw_dict: Dict) -> Optional[Dict]:
+def get_schema_from_response(
+    response_schema: Dict, sw_dict: Dict, max_depth: int = 10
+) -> Optional[Dict]:
     """
     Extract the actual schema definition from a response schema.
     Handles both direct schemas and references.
+
+    Args:
+        response_schema: Schema dictionary from response
+        sw_dict: Complete OpenAPI specification for resolving references
+        max_depth: Maximum recursion depth for resolving schema references (default: 10)
     """
     if not response_schema:
         return None
@@ -867,16 +904,16 @@ def get_schema_from_response(response_schema: Dict, sw_dict: Dict) -> Optional[D
             items_schema, sw_dict
         )
         # Resolve all references in the schema
-        return resolve_schema_references(resolved_items_schema, sw_dict)
+        return resolve_schema_references(resolved_items_schema, sw_dict, max_depth)
 
     # Handle direct object schemas
     elif response_schema.get("type") == "object":
-        return resolve_schema_references(response_schema, sw_dict)
+        return resolve_schema_references(response_schema, sw_dict, max_depth)
 
     # Handle references
     elif "$ref" in response_schema:
         resolved_schema = extract_schema_from_response_schema(response_schema, sw_dict)
         # Resolve all references in the schema
-        return resolve_schema_references(resolved_schema, sw_dict)
+        return resolve_schema_references(resolved_schema, sw_dict, max_depth)
 
     return None

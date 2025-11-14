@@ -130,6 +130,12 @@ class OpenApiConfig(ConfigModel):
         "Requires credentials (username/password, token, or bearer_token). "
         "Only applicable for GET methods.",
     )
+    schema_resolution_max_depth: int = Field(
+        default=10,
+        description="Maximum recursion depth for resolving schema references. "
+        "Prevents infinite recursion from deeply nested or circular references. "
+        "Default is 10 levels.",
+    )
 
     @model_validator(mode="after")
     def ensure_only_one_token(self) -> "OpenApiConfig":
@@ -346,11 +352,17 @@ class APISource(Source, ABC):
                     if content_type in content:
                         schema = content[content_type].get("schema")
                         if schema:
-                            return get_schema_from_response(schema, sw_dict)
+                            return get_schema_from_response(
+                                schema,
+                                sw_dict,
+                                max_depth=self.config.schema_resolution_max_depth,
+                            )
             elif "schema" in success_response:
                 # Swagger v2 format
                 schema = success_response["schema"]
-                return get_schema_from_response(schema, sw_dict)
+                return get_schema_from_response(
+                    schema, sw_dict, max_depth=self.config.schema_resolution_max_depth
+                )
 
             return None
         except (KeyError, TypeError, AttributeError) as e:
@@ -375,7 +387,11 @@ class APISource(Source, ABC):
                         if content_type in content:
                             schema = content[content_type].get("schema")
                             if schema:
-                                return get_schema_from_response(schema, sw_dict)
+                                return get_schema_from_response(
+                                    schema,
+                                    sw_dict,
+                                    max_depth=self.config.schema_resolution_max_depth,
+                                )
 
             # Check for parameters (both v2 and v3)
             parameters = endpoint_spec.get("parameters", [])

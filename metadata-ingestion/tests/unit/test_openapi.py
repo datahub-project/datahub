@@ -931,7 +931,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             "datahub.ingestion.source.openapi.get_schema_from_response"
         ) as mock_get_schema:
             # Mock to return different schemas for GET vs POST
-            def side_effect(schema, sw_dict):
+            def side_effect(schema, sw_dict, **kwargs):
                 if "id" in str(schema):
                     return {"type": "object", "properties": {"id": {"type": "integer"}}}
                 return {"type": "object", "properties": {"name": {"type": "string"}}}
@@ -998,7 +998,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             "datahub.ingestion.source.openapi.get_schema_from_response"
         ) as mock_get_schema:
 
-            def side_effect(schema, sw_dict):
+            def side_effect(schema, sw_dict, **kwargs):
                 return schema  # Return schema as-is
 
             mock_get_schema.side_effect = side_effect
@@ -1034,7 +1034,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             "datahub.ingestion.source.openapi.get_schema_from_response"
         ) as mock_get_schema:
 
-            def side_effect(schema, sw_dict):
+            def side_effect(schema, sw_dict, **kwargs):
                 return schema
 
             mock_get_schema.side_effect = side_effect
@@ -1348,12 +1348,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIn("id", resolved["required"])
 
     def test_resolve_schema_references_circular(self):
-        """Test that circular references in schema are detected and handled.
-
-        Note: Currently, circular references cause RecursionError.
-        This test documents the current limitation. In the future,
-        the implementation should detect circular references and handle them gracefully.
-        """
+        """Test that circular references are handled by max_depth limit."""
         sw_dict = {
             "swagger": "2.0",
             "definitions": {
@@ -1379,10 +1374,49 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
         schema = {"$ref": "#/definitions/Pet"}
 
-        # Currently, circular references cause RecursionError
-        # This documents the current behavior - in the future this should be handled gracefully
-        with self.assertRaises(RecursionError):
-            resolve_schema_references(schema, sw_dict)
+        # With max_depth=10, circular references will hit the depth limit
+        # and return partially resolved schema instead of RecursionError
+        resolved = resolve_schema_references(schema, sw_dict, max_depth=10)
+
+        # Should return partially resolved schema when depth limit is reached
+        self.assertIsNotNone(resolved)
+        # Should have resolved at least some levels before hitting max_depth
+        self.assertIn("properties", resolved)
+
+    def test_resolve_schema_references_max_depth(self):
+        """Test that max depth limit prevents infinite recursion."""
+        # Create a deeply nested schema
+        sw_dict = {
+            "swagger": "2.0",
+            "definitions": {},
+        }
+
+        # Create nested references up to level 20 (exceeds default max_depth of 10)
+        for i in range(0, 20):
+            if i < 19:
+                sw_dict["definitions"][f"Level{i}"] = {
+                    "type": "object",
+                    "properties": {
+                        f"level{i + 1}": {"$ref": f"#/definitions/Level{i + 1}"},
+                    },
+                }
+            else:
+                # Last level has no reference
+                sw_dict["definitions"][f"Level{i}"] = {
+                    "type": "object",
+                    "properties": {
+                        "value": {"type": "string"},
+                    },
+                }
+
+        schema = {"$ref": "#/definitions/Level0"}
+
+        # Should handle max depth gracefully without RecursionError
+        # With max_depth=10, it should stop before reaching Level10
+        resolved = resolve_schema_references(schema, sw_dict, max_depth=10)
+
+        # Should return partially resolved schema when depth limit is reached
+        self.assertIsNotNone(resolved)
 
     def test_extract_response_schema_malformed_no_content_type(self):
         """Test handling of response with content but no application/json."""
@@ -1477,7 +1511,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             "datahub.ingestion.source.openapi.get_schema_from_response"
         ) as mock_get_schema:
 
-            def side_effect(schema, sw_dict):
+            def side_effect(schema, sw_dict, **kwargs):
                 return schema
 
             mock_get_schema.side_effect = side_effect
@@ -1524,7 +1558,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             "datahub.ingestion.source.openapi.get_schema_from_response"
         ) as mock_get_schema:
 
-            def side_effect(schema, sw_dict):
+            def side_effect(schema, sw_dict, **kwargs):
                 return schema
 
             mock_get_schema.side_effect = side_effect
