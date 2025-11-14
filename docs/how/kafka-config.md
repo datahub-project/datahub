@@ -286,6 +286,7 @@ KAFKA_SETUP_APPLY_SCHEMA_REGISTRY_CLEANUP_POLICY=false
 ```
 
 This configuration is useful in enterprise environments where:
+
 - Schema Registry and its topics are managed separately
 - DataHub's Kafka user has restricted permissions
 - The `_schemas` topic cleanup policy is already configured by your Kafka administrators
