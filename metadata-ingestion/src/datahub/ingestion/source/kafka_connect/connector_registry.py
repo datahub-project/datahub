@@ -124,6 +124,10 @@ class ConnectorRegistry:
         """
         connector_class_value = manifest.config.get("connector.class", "")
 
+        logger.info(
+            f"Processing connector '{manifest.name}' - type={manifest.type}, class={connector_class_value}"
+        )
+
         # Create connector instance first
         if manifest.type == SOURCE:
             connector = ConnectorRegistry._get_source_connector(
@@ -134,15 +138,29 @@ class ConnectorRegistry:
                 connector_class_value, manifest, config, report
             )
         else:
+            logger.warning(
+                f"Unknown connector type '{manifest.type}' for connector '{manifest.name}'"
+            )
             return None
 
-        # Create and attach schema resolver using connector's platform
         if connector:
+            # Log which handler was selected
+            handler_name = connector.__class__.__name__
+            platform = connector.get_platform()
+            logger.info(
+                f"Connector '{manifest.name}' will be handled by {handler_name} (platform={platform})"
+            )
+
+            # Create and attach schema resolver using connector's platform
             schema_resolver = ConnectorRegistry.create_schema_resolver(
                 ctx, config, connector
             )
             if schema_resolver:
                 connector.schema_resolver = schema_resolver
+        else:
+            logger.debug(
+                f"No handler found for connector '{manifest.name}' with class '{connector_class_value}'"
+            )
 
         return connector
 

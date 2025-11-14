@@ -611,9 +611,13 @@ def get_platform_instance(
             )
     elif config.platform_instance_map and config.platform_instance_map.get(platform):
         instance_name = config.platform_instance_map[platform]
-    logger.info(
-        f"Instance name assigned is: {instance_name} for Connector Name {connector_name} and platform {platform}"
-    )
+
+    # Only log when a platform instance is actually assigned (non-None)
+    if instance_name:
+        logger.debug(
+            f"Platform instance '{instance_name}' assigned for connector '{connector_name}' platform '{platform}'"
+        )
+
     return instance_name
 
 
