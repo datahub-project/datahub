@@ -17,4 +17,14 @@ public class EntityTypeMapperTest {
   public void testGetName() throws Exception {
     assertEquals(EntityTypeMapper.getName(EntityType.DATASET), Constants.DATASET_ENTITY_NAME);
   }
+
+  @Test
+  public void testGetTypeForDocument() throws Exception {
+    assertEquals(EntityTypeMapper.getType(Constants.DOCUMENT_ENTITY_NAME), EntityType.DOCUMENT);
+  }
+
+  @Test
+  public void testGetNameForDocument() throws Exception {
+    assertEquals(EntityTypeMapper.getName(EntityType.DOCUMENT), Constants.DOCUMENT_ENTITY_NAME);
+  }
 }

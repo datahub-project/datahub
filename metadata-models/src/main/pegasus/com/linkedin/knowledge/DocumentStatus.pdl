@@ -1,0 +1,15 @@
+namespace com.linkedin.knowledge
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Visibility status information for a document
+ */
+record DocumentStatus {
+  /**
+   * The current visibility state of the document
+   */
+  @Searchable = {}
+  state: DocumentState
+}
+

@@ -1,0 +1,17 @@
+namespace com.linkedin.knowledge
+
+/**
+ * The state of a document
+ */
+enum DocumentState {
+  /**
+   * Document is published and visible to users
+   */
+  PUBLISHED
+
+  /**
+   * Document is not published publically. 
+   */
+  UNPUBLISHED
+}
+

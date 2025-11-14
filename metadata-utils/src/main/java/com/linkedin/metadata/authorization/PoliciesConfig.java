@@ -184,6 +184,9 @@ public class PoliciesConfig {
           "Manage Structured Properties",
           "Manage structured properties in your instance.");
 
+  public static final Privilege MANAGE_DOCUMENTS_PRIVILEGE =
+      Privilege.of("MANAGE_DOCUMENTS", "Manage Documents", "Manage documents in DataHub");
+
   public static final Privilege VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE =
       Privilege.of(
           "VIEW_STRUCTURED_PROPERTIES_PAGE",
@@ -257,6 +260,7 @@ public class PoliciesConfig {
           MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_CONNECTIONS_PRIVILEGE,
           MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
+          MANAGE_DOCUMENTS_PRIVILEGE,
           VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
@@ -267,7 +271,7 @@ public class PoliciesConfig {
 
   // Resource Privileges //
 
-  static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE =
+  public static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE =
       Privilege.of("VIEW_ENTITY_PAGE", "View Entity Page", "The ability to view the entity page.");
 
   static final Privilege EXISTS_ENTITY_PRIVILEGE =
@@ -834,6 +838,24 @@ public class PoliciesConfig {
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
+  // Knowledge Article Privileges
+  public static final ResourcePrivileges DOCUMENT_PRIVILEGES =
+      ResourcePrivileges.of(
+          "document",
+          "Documents",
+          "Documents created on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_DOMAINS_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              MANAGE_DOCUMENTS_PRIVILEGE));
+
   // Group Privileges
   public static final ResourcePrivileges CORP_GROUP_PRIVILEGES =
       ResourcePrivileges.of(
@@ -940,6 +962,7 @@ public class PoliciesConfig {
           DOMAIN_PRIVILEGES,
           GLOSSARY_TERM_PRIVILEGES,
           GLOSSARY_NODE_PRIVILEGES,
+          DOCUMENT_PRIVILEGES,
           CORP_GROUP_PRIVILEGES,
           CORP_USER_PRIVILEGES,
           NOTEBOOK_PRIVILEGES,
