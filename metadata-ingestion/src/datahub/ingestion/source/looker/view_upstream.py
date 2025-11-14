@@ -511,7 +511,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
     def _parse_sql_response(
         self, sql_response: str, allow_partial: bool = True
-    ) -> tuple[SqlParsingResult, bool]:
+    ) -> Tuple[SqlParsingResult, bool]:
         """
         Parse SQL response to extract lineage information.
 
@@ -654,7 +654,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
     def _process_individual_fields(
         self, field_chunk: List[str], explore_name: str
-    ) -> tuple[set, list, int, int]:
+    ) -> Tuple[set, list, int, int]:
         """
         Process individual fields when a chunk fails to isolate problematic fields.
 
