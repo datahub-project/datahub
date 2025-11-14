@@ -101,6 +101,7 @@ export const ChatInput: React.FC<Props> = ({
     const userContext = useUserContext();
     const viewUrn = userContext.localState?.selectedViewUrn;
     const [getAutoComplete, { data: autocompleteData, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const shouldBlurOnClearRef = React.useRef(false);
 
     // Use the mention input hook
     const {
@@ -125,8 +126,9 @@ export const ChatInput: React.FC<Props> = ({
 
     // Blur input when value is cleared after sending
     useEffect(() => {
-        if (value === '' && contentEditableRef.current === document.activeElement) {
+        if (value === '' && shouldBlurOnClearRef.current && contentEditableRef.current === document.activeElement) {
             contentEditableRef.current?.blur();
+            shouldBlurOnClearRef.current = false;
         }
     }, [value, contentEditableRef]);
 
@@ -147,6 +149,7 @@ export const ChatInput: React.FC<Props> = ({
             if (!mentionState.isActive && e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 if (!isStreaming && value.trim()) {
+                    shouldBlurOnClearRef.current = true;
                     onSubmit();
                 }
             }
@@ -163,6 +166,7 @@ export const ChatInput: React.FC<Props> = ({
         if (isStreaming && onStop) {
             onStop();
         } else if (!isStreaming && !isSubmitDisabled) {
+            shouldBlurOnClearRef.current = true;
             onSubmit();
         }
     }, [isStreaming, onStop, isSubmitDisabled, onSubmit]);

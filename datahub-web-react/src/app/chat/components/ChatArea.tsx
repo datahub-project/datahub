@@ -55,7 +55,7 @@ const MessagesContainer = styled.div`
 const MessagesContent = styled.div`
     width: 100%;
     max-width: 60%;
-    padding: 24px 0;
+    padding: 24px 12px;
     min-height: 100%;
     display: flex;
     flex-direction: column;
@@ -80,7 +80,7 @@ const MessagesContent = styled.div`
 const InputContainer = styled.div`
     display: flex;
     justify-content: center;
-    padding: 16px 24px;
+    padding: 16px 0;
 `;
 
 const InputContent = styled.div`
