@@ -10,7 +10,7 @@ from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
-from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -512,7 +512,11 @@ class APISource(Source, ABC):
         # Clean config name for URN (replace spaces with underscores)
         config_name_urn = config.name.replace(" ", "_")
 
-        dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{config_name_urn}.{dataset_name_urn},PROD)"
+        dataset_urn = make_dataset_urn(
+            platform=self.platform,
+            name=f"{config_name_urn}.{dataset_name_urn}",
+            env="PROD",
+        )
 
         # Create dataset properties aspect with display name (keeping braces)
         properties = DatasetPropertiesClass(
