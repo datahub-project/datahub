@@ -199,6 +199,7 @@ const allowed_broken_links = [
   "docs/how/graph-onboarding.md",
   "docs/how/search-onboarding.md",
   "docs/how/build-metadata-service.md",
+  "docs/learn-datahub/overview.md",
 ];
 
 function markdown_guess_title(

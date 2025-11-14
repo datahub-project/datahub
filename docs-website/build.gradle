@@ -110,7 +110,38 @@ task yarnInstall(type: YarnTask) {
   outputs.dir('node_modules')
 }
 
-task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
+// Sync tutorial component styles with DataHub UI at build time
+task syncDataHubStyles(type: YarnTask, dependsOn: [yarnInstall]) {
+  description = 'Sync tutorial component styles with actual DataHub UI design tokens'
+  
+  // Input: DataHub design token files
+  inputs.files(
+    file('../datahub-web-react/src/alchemy-components/theme/foundations/colors.ts'),
+    file('../datahub-web-react/src/alchemy-components/theme/semantic-tokens.ts'),
+    file('scripts/sync-datahub-styles.js')
+  )
+  
+  // Output: Component style files
+  outputs.files(
+    file('src/components/DataHubEntityCard/styles.module.css'),
+    file('src/components/DataHubLineageNode/styles.module.css')
+  )
+  
+  // Cache the sync result for performance
+  outputs.cacheIf { true }
+  
+  args = ['run', 'sync-datahub-styles']
+  
+  doFirst {
+    logger.info('🎨 Syncing tutorial component styles with DataHub UI...')
+  }
+  
+  doLast {
+    logger.info('✅ Tutorial component styles synced successfully')
+  }
+}
+
+task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, syncDataHubStyles,
     generateGraphQLSchema, generateJsonSchema,
     ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen',
     ]) {
@@ -142,8 +173,9 @@ task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall]) {
   args = ['run', 'lint-fix']
 }
 
-task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
-  args = ['run', 'serve']
+// Development server with hot reloads (recommended for development)
+task dev(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, downloadHistoricalVersions]) {
+  args = ['run', 'start']
 }
 
 
@@ -167,6 +199,12 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate, downloadHisto
   args = ['run', 'build']
 
 }
+
+// Serve built site (requires build first)
+task serve(type: YarnTask, dependsOn: [yarnBuild] ) {
+  args = ['run', 'serve']
+}
+
 task yarnClear(type: YarnTask) {
   args = ['run','clear']
 }

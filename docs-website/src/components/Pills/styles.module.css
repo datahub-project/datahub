@@ -1,0 +1,63 @@
+.tagPill {
+  display: flex;
+  align-items: center;
+  background: var(--ifm-background-color, #fff);
+  border: 1px solid var(--ifm-color-emphasis-300, #e9eaee);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--ifm-color-content, #374066);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tagColorDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.tagText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.termPill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: #f8f8f8;
+  border: 1px solid #ccd1dd;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #565657;
+  max-width: 200px;
+  overflow: hidden;
+  cursor: pointer;
+  margin-left: 8px; /* Make room for ribbon */
+}
+
+.termRibbon {
+  position: absolute;
+  left: -20px;
+  top: 4px;
+  width: 50px;
+  transform: rotate(-45deg);
+  padding: 4px;
+  opacity: 1;
+  background: var(--pill-color, #1890ff);
+}
+
+.termText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: 8px;
+}

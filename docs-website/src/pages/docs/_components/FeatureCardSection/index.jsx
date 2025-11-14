@@ -1,5 +1,5 @@
 import React from "react";
-import FeatureCard from '../FeatureCard'
+import FeatureCard from "../FeatureCard";
 import {
   EyeTwoTone,
   HeartTwoTone,
@@ -9,49 +9,54 @@ import {
   ProfileTwoTone,
 } from "@ant-design/icons";
 
-const featureCardContent =  [
-{
+const featureCardContent = [
+  {
     title: "Data Discovery",
-    description: "Search your entire data ecosystem, including dashboards, datasets, ML models, and raw files.",
+    description:
+      "Search your entire data ecosystem, including dashboards, datasets, ML models, and raw files.",
     to: "docs/how/search",
-    icon: <EyeTwoTone />
+    icon: <EyeTwoTone />,
   },
-{
+  {
     title: "Data Governance",
     description: "Define ownership and track PII.",
     to: "https://medium.com/datahub-project/the-3-must-haves-of-metadata-management-part-2-35a649f2e2fb?utm_source=datahub&utm_medium=referral&utm_content=blog",
-    icon: <CompassTwoTone />
+    icon: <CompassTwoTone />,
   },
-{
+  {
     title: "Data Quality Control",
-    description: "Improve data quality through metadata tests, assertions, data freshness checks, and data contracts.",
+    description:
+      "Improve data quality through metadata tests, assertions, data freshness checks, and data contracts.",
     to: "https://www.acryldata.io/blog/data-contracts-in-datahub-combining-verifiability-with-holistic-data-management?utm_source=datahub&utm_medium=referral&utm_content=blog",
-    icon: <AlertTwoTone />
+    icon: <AlertTwoTone />,
   },
-{
-  title: "UI-based Ingestion",
-  description: "Easily set up integrations in minutes using DataHub's intuitive UI-based ingestion feature.",
-  to: "docs/ui-ingestion",
-  icon: <ProfileTwoTone />
-},
-{
-  title: "APIs and SDKs",
-  description: "For users who prefer programmatic control, DataHub offers a comprehensive set of APIs and SDKs.",
-  to: "docs/api/datahub-apis",
-  icon: <ApiTwoTone />
-},
-{
-  title: "Vibrant Community",
-  description: "Our community provides support through office hours, workshops, and a Slack channel.",
-  to: "docs/slack",
-  icon: <HeartTwoTone />
-}
-]
+  {
+    title: "UI-based Ingestion",
+    description:
+      "Easily set up integrations in minutes using DataHub's intuitive UI-based ingestion feature.",
+    to: "docs/ui-ingestion",
+    icon: <ProfileTwoTone />,
+  },
+  {
+    title: "APIs and SDKs",
+    description:
+      "For users who prefer programmatic control, DataHub offers a comprehensive set of APIs and SDKs.",
+    to: "docs/api/datahub-apis",
+    icon: <ApiTwoTone />,
+  },
+  {
+    title: "Vibrant Community",
+    description:
+      "Our community provides support through office hours, workshops, and a Slack channel.",
+    to: "docs/slack",
+    icon: <HeartTwoTone />,
+  },
+];
 
 const FeatureCards = () => {
-return (
+  return (
     <div style={{ padding: "2vh 0" }}>
-      <div className="container" style={{ padding: "0"}}>
+      <div className="container" style={{ padding: "0" }}>
         <div className="row row--no-gutters">
           {featureCardContent.map((props, idx) => (
             <FeatureCard key={idx} {...props} />
