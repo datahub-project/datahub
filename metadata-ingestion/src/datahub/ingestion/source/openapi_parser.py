@@ -543,50 +543,203 @@ def set_metadata(
     return schema_metadata
 
 
+def merge_allof_schemas(
+    schema: Dict, sw_dict: Dict, resolving_refs: bool = False
+) -> Dict:
+    """
+    Merge allOf schemas into a single schema object.
+
+    According to JSON Schema, allOf means all schemas must be valid, which means
+    we should merge their properties, required fields, and other attributes.
+
+    Args:
+        schema: Schema dictionary that may contain allOf
+        sw_dict: Complete OpenAPI specification for resolving references
+        resolving_refs: Flag to prevent infinite recursion when called from resolve_schema_references
+
+    Returns:
+        Merged schema with all allOf entries combined
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    # If no allOf, return as-is
+    if "allOf" not in schema:
+        return schema
+
+    allof_schemas = schema.get("allOf", [])
+    if not allof_schemas:
+        return schema
+
+    # Start with a base schema (copy everything except allOf)
+    merged_schema = {k: v for k, v in schema.items() if k != "allOf"}
+
+    # Merge each schema in allOf
+    for allof_schema in allof_schemas:
+        # Resolve any references in the allOf entry first
+        # Use resolving_refs flag to prevent infinite recursion
+        if resolving_refs:
+            # If we're already resolving refs, just resolve $ref directly
+            resolved_allof = _resolve_ref_directly(allof_schema, sw_dict)
+        else:
+            resolved_allof = resolve_schema_references(allof_schema, sw_dict)
+
+        # Merge properties
+        if "properties" in resolved_allof:
+            if "properties" not in merged_schema:
+                merged_schema["properties"] = {}
+            merged_schema["properties"].update(resolved_allof["properties"])
+
+        # Merge required fields (union of all required lists)
+        if "required" in resolved_allof:
+            if "required" not in merged_schema:
+                merged_schema["required"] = []
+            # Combine required lists and remove duplicates while preserving order
+            existing_required = merged_schema.get("required", [])
+            new_required = resolved_allof.get("required", [])
+            merged_schema["required"] = list(
+                dict.fromkeys(existing_required + new_required)
+            )
+
+        # Merge other schema attributes (type, format, description, etc.)
+        # Only merge if not already present in merged_schema
+        for key in [
+            "type",
+            "format",
+            "description",
+            "title",
+            "enum",
+            "default",
+            "example",
+        ]:
+            if key in resolved_allof and key not in merged_schema:
+                merged_schema[key] = resolved_allof[key]
+
+        # Merge items (for arrays)
+        if "items" in resolved_allof:
+            if "items" not in merged_schema:
+                merged_schema["items"] = resolved_allof["items"]
+            else:
+                # Recursively merge nested items
+                merged_schema["items"] = merge_allof_schemas(
+                    {"allOf": [merged_schema["items"], resolved_allof["items"]]},
+                    sw_dict,
+                    resolving_refs=True,
+                )
+
+        # Merge additionalProperties
+        if "additionalProperties" in resolved_allof:
+            if "additionalProperties" not in merged_schema:
+                merged_schema["additionalProperties"] = resolved_allof[
+                    "additionalProperties"
+                ]
+            elif isinstance(merged_schema["additionalProperties"], dict) and isinstance(
+                resolved_allof["additionalProperties"], dict
+            ):
+                # Recursively merge nested additionalProperties
+                merged_schema["additionalProperties"] = merge_allof_schemas(
+                    {
+                        "allOf": [
+                            merged_schema["additionalProperties"],
+                            resolved_allof["additionalProperties"],
+                        ]
+                    },
+                    sw_dict,
+                    resolving_refs=True,
+                )
+
+    # Recursively handle any nested allOf in the merged result
+    # But don't call resolve_schema_references again to avoid recursion
+    if "allOf" in merged_schema:
+        merged_schema = merge_allof_schemas(merged_schema, sw_dict, resolving_refs=True)
+
+    return merged_schema
+
+
+def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
+    """
+    Resolve a direct $ref reference without full schema resolution.
+    Used internally to avoid infinite recursion.
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    if "$ref" in schema:
+        ref_path = schema["$ref"]
+
+        # Handle v2 references (e.g., "#/definitions/Pet")
+        if ref_path.startswith("#/definitions/"):
+            schema_name = ref_path.split("/")[-1]
+            referenced_schema = sw_dict.get("definitions", {}).get(schema_name, {})
+            if referenced_schema:
+                return referenced_schema.copy()
+
+        # Handle v3 references (e.g., "#/components/schemas/Pet")
+        elif ref_path.startswith("#/components/schemas/"):
+            schema_name = ref_path.split("/")[-1]
+            referenced_schema = (
+                sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
+            )
+            if referenced_schema:
+                return referenced_schema.copy()
+
+    return schema
+
+
 def enhance_schema_with_titles(
-    schema: Dict, sw_dict: Dict, schema_name: str = ""
+    schema: Dict, sw_dict: Dict, schema_name: str = "", is_top_level: bool = True
 ) -> Dict:
     """
     Enhance schemas with title fields so that json_schema_util.py uses schema names instead of 'object'.
     This is done without modifying json_schema_util.py itself.
+
+    Args:
+        schema: Schema dictionary to enhance
+        sw_dict: Complete OpenAPI specification
+        schema_name: Name to use as title (only for top-level schemas)
+        is_top_level: Whether this is a top-level schema (not a nested property)
     """
     if not isinstance(schema, dict):
         return schema
 
     enhanced_schema = schema.copy()
 
-    # Add title if it doesn't exist and we have a schema name
-    if "title" not in enhanced_schema and schema_name:
+    # Only add title to top-level schemas to avoid definition names in field paths
+    # Only add if schema doesn't already have a title and we have a schema name
+    if is_top_level and "title" not in enhanced_schema and schema_name:
         enhanced_schema["title"] = schema_name
 
-    # Recursively enhance nested schemas
+    # Recursively enhance nested schemas, but don't add titles to nested properties
+    # This prevents definition names from appearing in field paths
     if "properties" in enhanced_schema:
         for prop_name, prop_schema in enhanced_schema["properties"].items():
-            # Use property name as schema name for nested objects
+            # Don't add titles to nested properties - just resolve references
             enhanced_schema["properties"][prop_name] = enhance_schema_with_titles(
-                prop_schema, sw_dict, prop_name
+                prop_schema, sw_dict, "", is_top_level=False
             )
 
-    # Enhance array items
+    # Enhance array items without adding titles
     if "items" in enhanced_schema:
         enhanced_schema["items"] = enhance_schema_with_titles(
-            enhanced_schema["items"], sw_dict, "item"
+            enhanced_schema["items"], sw_dict, "", is_top_level=False
         )
 
-    # Enhance additionalProperties
+    # Enhance additionalProperties without adding titles
     if "additionalProperties" in enhanced_schema and isinstance(
         enhanced_schema["additionalProperties"], dict
     ):
         enhanced_schema["additionalProperties"] = enhance_schema_with_titles(
-            enhanced_schema["additionalProperties"], sw_dict, "value"
+            enhanced_schema["additionalProperties"], sw_dict, "", is_top_level=False
         )
 
-    # Handle union types
+    # Handle union types - don't add titles to union members
     for union_key in ["oneOf", "anyOf", "allOf"]:
         if union_key in enhanced_schema:
             enhanced_schema[union_key] = [
-                enhance_schema_with_titles(union_schema, sw_dict, f"{union_key}_{i}")
-                for i, union_schema in enumerate(enhanced_schema[union_key])
+                enhance_schema_with_titles(
+                    union_schema, sw_dict, "", is_top_level=False
+                )
+                for union_schema in enhanced_schema[union_key]
             ]
 
     return enhanced_schema
@@ -615,10 +768,9 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict) -> Dict:
                 resolved_referenced = resolve_schema_references(
                     referenced_schema, sw_dict
                 )
-                # Enhance with title using the schema name
-                return enhance_schema_with_titles(
-                    resolved_referenced, sw_dict, schema_name
-                )
+                # Don't add title - let json_schema_util use the schema structure directly
+                # Titles cause definition names to appear in field paths
+                return resolved_referenced
 
         # Handle v3 references (e.g., "#/components/schemas/Pet")
         elif ref_path.startswith("#/components/schemas/"):
@@ -631,10 +783,9 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict) -> Dict:
                 resolved_referenced = resolve_schema_references(
                     referenced_schema, sw_dict
                 )
-                # Enhance with title using the schema name
-                return enhance_schema_with_titles(
-                    resolved_referenced, sw_dict, schema_name
-                )
+                # Don't add title - let json_schema_util use the schema structure directly
+                # Titles cause definition names to appear in field paths
+                return resolved_referenced
 
     # Recursively resolve references in properties
     if "properties" in resolved_schema:
@@ -657,8 +808,14 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict) -> Dict:
             resolved_schema["additionalProperties"], sw_dict
         )
 
-    # Handle union types (oneOf, anyOf, allOf)
-    for union_key in ["oneOf", "anyOf", "allOf"]:
+    # Handle allOf by merging schemas (before treating as union)
+    if "allOf" in resolved_schema:
+        resolved_schema = merge_allof_schemas(
+            resolved_schema, sw_dict, resolving_refs=True
+        )
+
+    # Handle union types (oneOf, anyOf) - allOf is already handled above
+    for union_key in ["oneOf", "anyOf"]:
         if union_key in resolved_schema:
             resolved_schema[union_key] = [
                 resolve_schema_references(union_schema, sw_dict)
