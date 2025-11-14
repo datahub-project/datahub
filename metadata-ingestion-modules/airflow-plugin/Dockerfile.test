@@ -1,0 +1,67 @@
+# Generic Dockerfile for running Airflow plugin tests via tox
+# Tox handles all dependency installation including Airflow, constraints, and providers
+#
+# Usage:
+#   docker build -f Dockerfile.test -t airflow-plugin-test .
+#   docker run airflow-plugin-test [TOX_ENV] [-- PYTEST_ARGS]
+#
+# Examples:
+#   # Run all tests with Airflow 3.1 (default)
+#   docker run airflow-plugin-test
+#
+#   # Run tests with Airflow 2.9
+#   docker run airflow-plugin-test py311-airflow29
+#
+#   # Run specific test with Airflow 3.1
+#   docker run airflow-plugin-test py311-airflow31 -- tests/integration/test_plugin.py::test_v2_basic_dag -v
+#
+#   # Update golden files
+#   docker run airflow-plugin-test py311-airflow31 -- --update-golden-files
+#
+#   # Run with different Python version (requires rebuilding image)
+#   docker build -f Dockerfile.test --build-arg PYTHON_VERSION=3.10 -t airflow-plugin-test:py310 .
+#   docker run airflow-plugin-test:py310 py310-airflow28
+
+ARG PYTHON_VERSION=3.11
+FROM python:${PYTHON_VERSION}-slim
+
+# Install system dependencies required for building Python packages
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set initial working directory
+WORKDIR /app
+
+# Copy the entire repository context (needed for tox to install ../../metadata-ingestion)
+# Note: This expects to be run from the repository root with -f metadata-ingestion-modules/airflow-plugin/Dockerfile.test
+COPY . /app/
+
+# Change to the airflow-plugin directory where tox.ini is located
+WORKDIR /app/metadata-ingestion-modules/airflow-plugin
+
+# Install tox and uv (tox uses uv for faster installations)
+RUN pip install --no-cache-dir tox uv
+
+# Set default tox environment
+ENV TOX_ENV=py311-airflow31
+
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+if [ $# -eq 0 ]; then\n\
+  # No args: run default tox env\n\
+  exec tox -e "$TOX_ENV"\n\
+elif [[ "$1" == py* ]]; then\n\
+  # First arg is a tox env (starts with py): pass all args to tox\n\
+  exec tox -e "$@"\n\
+else\n\
+  # First arg is not a tox env: assume pytest args\n\
+  exec tox -e "$TOX_ENV" -- "$@"\n\
+fi' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+# Default command: run tox with the default environment
+ENTRYPOINT ["/entrypoint.sh"]

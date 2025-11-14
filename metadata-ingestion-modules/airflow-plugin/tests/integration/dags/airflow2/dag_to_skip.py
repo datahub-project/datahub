@@ -6,16 +6,15 @@ from airflow.operators.bash import BashOperator
 from datahub_airflow_plugin.entities import Dataset, Urn
 
 with DAG(
-    "simple_dag",
+    "dag_to_skip",
     start_date=datetime(2023, 1, 1),
-    schedule_interval=None,
+    schedule=None,
     catchup=False,
-    description="A simple DAG that runs a few fake data tasks.",
 ) as dag:
     task1 = BashOperator(
-        task_id="task_1",
+        task_id="dag_to_skip_task_1",
         dag=dag,
-        bash_command="echo 'task 1'",
+        bash_command="echo 'dag_to_skip_task_1'",
         inlets=[
             Dataset(platform="snowflake", name="mydb.schema.tableA"),
             Urn(
@@ -29,9 +28,9 @@ with DAG(
     )
 
     task2 = BashOperator(
-        task_id="run_another_data_task",
+        task_id="dag_to_skip_task_2",
         dag=dag,
-        bash_command="echo 'task 2'",
+        bash_command="echo 'dag_to_skip_task_2'",
     )
 
     task1 >> task2
