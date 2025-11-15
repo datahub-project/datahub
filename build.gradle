@@ -485,6 +485,11 @@ subprojects {
   apply plugin: 'maven-publish'
   apply plugin: 'com.diffplug.spotless'
 
+  // Enable dependency locking for all configurations
+  dependencyLocking {
+    lockAllConfigurations()
+  }
+
   def gitPropertiesTask = tasks.register("copyGitProperties", Copy) {
     dependsOn rootProject.tasks.named("generateGitPropertiesGlobal")
     def sourceFile = file("${rootProject.buildDir}/git.properties")
@@ -621,4 +626,22 @@ tasks.register('formatChanged') {
   dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
   dependsOn(':datahub-web-react:mdPrettierWriteChanged')
   dependsOn('spotlessApply')
+}
+
+tasks.register('resolveAndLockAll') {
+  description = 'Resolves all configurations to generate complete dependency lock files'
+  group = 'dependency locking'
+  doLast {
+    allprojects.each { project ->
+      project.configurations.findAll { config ->
+        config.canBeResolved && !config.name.toLowerCase().contains('detached')
+      }.each { config ->
+        try {
+          config.resolve()
+        } catch (Exception e) {
+          logger.warn("Could not resolve configuration ${project.path}:${config.name}: ${e.message}")
+        }
+      }
+    }
+  }
 }
