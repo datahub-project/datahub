@@ -37,7 +37,7 @@ import qlikLogo from '@images/qliklogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
-import snaplogic from '@images/snaplogic.png';
+import snaplogicLogo from '@images/snaplogic.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
@@ -205,7 +205,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
     [VERTEXAI_URN]: vertexAI,
-    [SNAPLOGIC_URN]: snaplogic,
+    [SNAPLOGIC_URN]: snaplogicLogo,
     [GOOGLE_SHEETS_URN]: googleSheetsLogo,
     [STREAMLIT_URN]: streamlitLogo,
 };

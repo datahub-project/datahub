@@ -35,6 +35,7 @@ import qlikLogo from '@images/qliklogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
+import snaplogicLogo from '@images/snaplogic.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
@@ -148,6 +149,8 @@ export const NEO4J = 'neo4j';
 export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
 export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
+export const SNAPLOGIC = 'snaplogic';
+export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -195,6 +198,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
     [VERTEXAI_URN]: vertexAI,
+    [SNAPLOGIC_URN]: snaplogicLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
