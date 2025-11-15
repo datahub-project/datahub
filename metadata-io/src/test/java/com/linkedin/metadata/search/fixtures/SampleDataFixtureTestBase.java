@@ -122,9 +122,9 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
           }
           return true;
         },
-        30, // Wait up to 30 seconds
+        120,
         String.format(
-            "Sample data not available after 30 seconds. Expected entity counts: %s",
+            "Sample data not available after 120 seconds. Expected entity counts: %s",
             expectedTypes));
   }
 

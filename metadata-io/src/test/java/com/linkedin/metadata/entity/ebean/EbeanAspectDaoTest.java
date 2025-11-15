@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -46,11 +47,18 @@ public class EbeanAspectDaoTest {
 
   private EbeanAspectDao testDao;
   private OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+  private Database server;
 
   @BeforeMethod
   public void setupTest() {
-    Database server = EbeanTestUtils.createTestServer(EbeanAspectDaoTest.class.getSimpleName());
+    server = EbeanTestUtils.createTestServer(EbeanAspectDaoTest.class.getSimpleName());
     testDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, mock(MetricUtils.class));
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown Database instance to prevent thread pool and connection leaks
+    EbeanTestUtils.shutdownDatabase(server);
   }
 
   @Test

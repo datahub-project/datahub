@@ -9,12 +9,15 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.ResponseException;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.CreateIndexResponse;
 import org.opensearch.client.indices.GetIndexRequest;
+import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.core.rest.RestStatus;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -26,6 +29,7 @@ public class UsageEventIndexUtilsTest {
   @Mock private SearchClientShim searchClient;
   @Mock private RawResponse rawResponse;
   @Mock private CreateIndexResponse createIndexResponse;
+  @Mock private GetAliasesResponse getAliasesResponse;
   @Mock private ResponseException responseException;
   @Mock private OpenSearchStatusException openSearchStatusException;
   @Mock private OperationContext operationContext;
@@ -916,17 +920,25 @@ public class UsageEventIndexUtilsTest {
                 Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
+    Mockito.when(
             searchClient.createIndex(
                 Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(createIndexResponse);
     Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(true);
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndex(esComponents, indexName, prefix);
+    String aliasName = prefix + "datahub_usage_event";
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
 
     // Assert
     Mockito.verify(searchClient)
         .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+    Mockito.verify(searchClient)
+        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
         .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
   }
@@ -941,17 +953,25 @@ public class UsageEventIndexUtilsTest {
                 Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
+    Mockito.when(
             searchClient.createIndex(
                 Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(createIndexResponse);
     Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(false); // Not acknowledged
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndex(esComponents, indexName, prefix);
+    String aliasName = prefix + "datahub_usage_event";
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
 
     // Assert
     Mockito.verify(searchClient)
         .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+    Mockito.verify(searchClient)
+        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
         .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
     // The method should complete without throwing an exception, but log a warning
@@ -968,7 +988,8 @@ public class UsageEventIndexUtilsTest {
         .thenReturn(true);
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndex(esComponents, indexName, prefix);
+    String aliasName = prefix + "datahub_usage_event";
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
 
     // Assert
     Mockito.verify(searchClient)
@@ -987,6 +1008,11 @@ public class UsageEventIndexUtilsTest {
                 Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
+    Mockito.when(
             searchClient.createIndex(
                 Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenThrow(openSearchStatusException);
@@ -994,11 +1020,14 @@ public class UsageEventIndexUtilsTest {
         .thenReturn("resource_already_exists_exception");
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndex(esComponents, indexName, prefix);
+    String aliasName = prefix + "datahub_usage_event";
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
 
     // Assert - Should not throw exception
     Mockito.verify(searchClient)
         .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+    Mockito.verify(searchClient)
+        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
         .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
   }
@@ -1013,6 +1042,11 @@ public class UsageEventIndexUtilsTest {
                 Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
+    Mockito.when(
             searchClient.createIndex(
                 Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenThrow(openSearchStatusException);
@@ -1020,7 +1054,45 @@ public class UsageEventIndexUtilsTest {
     Mockito.when(openSearchStatusException.status()).thenReturn(RestStatus.INTERNAL_SERVER_ERROR);
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndex(esComponents, indexName, prefix);
+    String aliasName = prefix + "datahub_usage_event";
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
+  }
+
+  @Test
+  public void testCreateOpenSearchUsageEventIndex_AliasExistsButIndexDoesNot() throws IOException {
+    // Arrange
+    String indexName = "test_index-000001";
+    String aliasName = "test_datahub_usage_event";
+    String existingIndexName = "test_index-000002";
+
+    // Index doesn't exist
+    Mockito.when(
+            searchClient.indexExists(
+                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(false);
+
+    // But alias exists pointing to a different index
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, java.util.Set<AliasMetadata>> aliasMap =
+        Mockito.mock(java.util.Map.class);
+    Mockito.when(aliasMap.isEmpty()).thenReturn(false);
+    Mockito.when(aliasMap.keySet()).thenReturn(java.util.Collections.singleton(existingIndexName));
+    Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(aliasMap);
+
+    // Act
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
+
+    // Assert - Should skip creation because alias already exists (map is not empty)
+    Mockito.verify(searchClient)
+        .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+    Mockito.verify(searchClient)
+        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
+    Mockito.verify(searchClient, Mockito.never())
+        .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
   }
 
   @Test

@@ -36,6 +36,7 @@ import redshiftLogo from '@images/redshiftlogo.png';
 import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
+import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.png';
 import trinoLogo from '@images/trinologo.png';
@@ -108,6 +109,8 @@ export const SNOWFLAKE_BETA = 'snowflake-beta';
 export const SNOWFLAKE_USAGE = 'snowflake-usage';
 export const SNOWFLAKE_URN = `urn:li:dataPlatform:${SNOWFLAKE}`;
 export const STARBURST_TRINO_USAGE = 'starburst-trino-usage';
+export const STREAMLIT = 'streamlit';
+export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
 export const SUPERSET = 'superset';
 export const SUPERSET_URN = `urn:li:dataPlatform:${SUPERSET}`;
 export const TABLEAU = 'tableau';
@@ -176,6 +179,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [PRESET_URN]: presetLogo,
     [REDSHIFT_URN]: redshiftLogo,
     [SNOWFLAKE_URN]: snowflakeLogo,
+    [STREAMLIT_URN]: streamlitLogo,
     [TABLEAU_URN]: tableauLogo,
     [TRINO_URN]: trinoLogo,
     [SUPERSET_URN]: supersetLogo,
