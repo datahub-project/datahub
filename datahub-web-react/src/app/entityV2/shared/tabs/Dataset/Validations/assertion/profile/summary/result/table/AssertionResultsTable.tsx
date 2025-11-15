@@ -62,6 +62,16 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
         };
     });
 
+    if (loading) {
+        return (
+            <Container>
+                <StyledTimeline>
+                    <AssertionResultsLoadingItems />
+                </StyledTimeline>
+            </Container>
+        );
+    }
+
     if (visibleRuns.length === 0) {
         return <NoResultsSummary />;
     }
@@ -69,12 +79,11 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
     return (
         <Container>
             <StyledTimeline>
-                {(loading && <AssertionResultsLoadingItems />) ||
-                    timelineItems.map((item) => (
-                        <Timeline.Item key={item.key} dot={item.dot} color={item.color}>
-                            {item.children}
-                        </Timeline.Item>
-                    ))}
+                {timelineItems.map((item) => (
+                    <Timeline.Item key={item.key} dot={item.dot} color={item.color}>
+                        {item.children}
+                    </Timeline.Item>
+                ))}
             </StyledTimeline>
             {showMore && (
                 <ShowMoreButton

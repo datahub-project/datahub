@@ -37,6 +37,7 @@ export type AssertionListFilter = {
 };
 
 export type AssertionListTableRow = {
+    key: string;
     type?: AssertionType | string;
     lastUpdated?: AuditStamp;
     tags: TagAssociation[];
@@ -90,11 +91,11 @@ export type AssertionTable = {
 
 export type AssertionFilterOptions = {
     filterGroupOptions: {
-        type: AssertionType[];
-        status: AssertionResultType[];
-        column: string[];
-        tags: string[];
-        source: AssertionSourceType[];
+        type: AssertionRecommendedFilter[];
+        status: AssertionRecommendedFilter[];
+        column: AssertionRecommendedFilter[];
+        tags: AssertionRecommendedFilter[];
+        source: AssertionRecommendedFilter[];
     };
     recommendedFilters: AssertionRecommendedFilter[];
 };

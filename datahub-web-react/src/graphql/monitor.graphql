@@ -1,0 +1,63 @@
+#import "./assertion.graphql"
+#import "./fragments.graphql"
+
+query searchAssertions(
+    $input: SearchAcrossEntitiesInput!
+    $runEventsStart: Long
+    $runEventsEnd: Long
+    $runEventsLimit: Int
+) {
+    searchAcrossEntities(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Assertion {
+                    ...assertionDetails
+                    runEvents(
+                        status: COMPLETE
+                        startTimeMillis: $runEventsStart
+                        endTimeMillis: $runEventsEnd
+                        limit: $runEventsLimit
+                    ) {
+                        total
+                        failed
+                        succeeded
+                        runEvents {
+                            ...assertionRunEventDetails
+                        }
+                    }
+                    monitor: relationships(
+                        input: { types: ["HasMonitor"], direction: OUTGOING, start: 0, count: 100 }
+                    ) {
+                        relationships {
+                            entity {
+                                urn
+                                type
+                            }
+                        }
+                    }
+                }
+            }
+            matchedFields {
+                name
+                value
+            }
+        }
+        facets {
+            field
+            displayName
+            aggregations {
+                value
+                count
+                entity {
+                    urn
+                    type
+                }
+            }
+        }
+    }
+}

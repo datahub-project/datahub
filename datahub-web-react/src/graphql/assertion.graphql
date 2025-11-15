@@ -352,3 +352,10 @@ query getAssertionWithRunEvents($assertionUrn: String!) {
         ...assertionDetailsWithRunEvents
     }
 }
+
+query getAssertion($assertionUrn: String!) {
+    assertion(urn: $assertionUrn) {
+        urn
+        ...assertionDetails
+    }
+}

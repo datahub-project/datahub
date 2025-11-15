@@ -118,6 +118,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // System update properties
           "systemUpdate.*.enabled",
           "systemUpdate.*.batchSize",
+          "systemUpdate.*.delayMs",
+          "systemUpdate.*.limit",
 
           // Kafka topic Configs
           "kafka.topics.*.name",
@@ -736,6 +738,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.ingestionIndices.delayMs",
           "systemUpdate.ingestionIndices.enabled",
           "systemUpdate.ingestionIndices.limit",
+          "systemUpdate.assertionEntityField.batchSize",
+          "systemUpdate.assertionEntityField.delayMs",
+          "systemUpdate.assertionEntityField.enabled",
+          "systemUpdate.assertionEntityField.limit",
           "systemUpdate.initialBackOffMs",
           "systemUpdate.maxBackOffs",
           "systemUpdate.ownershipTypes.batchSize",

@@ -19,6 +19,7 @@ type PlatformIconProps = {
     title?: string;
     imageStyles?: CSSObject | undefined;
     className?: string;
+    customLogoUrl?: string;
     onError?: () => void;
 };
 
@@ -52,12 +53,13 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     styles,
     imageStyles,
     className,
+    customLogoUrl,
     onError,
 }) => {
     const [background, setBackground] = useState<string | undefined>(undefined);
     const imgRef = useRef<HTMLImageElement>(null);
     const entityRegistry = useEntityRegistry();
-    const logoUrl = platform?.properties?.logoUrl;
+    const logoUrl = customLogoUrl ?? platform?.properties?.logoUrl;
 
     const handleError = useCallback(() => {
         const img = imgRef.current;

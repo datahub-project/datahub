@@ -57,7 +57,8 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
                         title={
                             status.resultType && (
                                 <>
-                                    {group.name} {status.text} Assertions{' '}
+                                    {group.summary[key]} {status.text} {group.name} Assertion
+                                    {group.summary[key] > 1 ? 's' : ''}{' '}
                                     <Link
                                         to={url}
                                         style={{ color: REDESIGN_COLORS.BLUE }}

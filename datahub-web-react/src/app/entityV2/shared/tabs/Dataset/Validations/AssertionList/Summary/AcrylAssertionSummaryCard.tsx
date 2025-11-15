@@ -105,11 +105,9 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
     const name = getAssertionGroupName(group.name);
     const icon = ASSERTION_TYPE_TO_ICON_MAP[group.type];
 
-    const visibleStatuses: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
-    // add No running state if there is no running state assertions
-    if (visibleStatuses.length === 0) {
-        visibleStatuses.push(NO_RUNNING_STATE);
-    }
+    const visibleStatuses: string[] = ['passing', 'failing', 'erroring', 'initializing', 'notRunning'].filter(
+        (status) => group.summary?.[status],
+    );
 
     const status = ASSERTION_SUMMARY_CARD_STATUSES.find((key) => group.summary[key]) || NO_RUNNING_STATE;
     const headerTitle = status ? ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS[status].headerComponent : null;

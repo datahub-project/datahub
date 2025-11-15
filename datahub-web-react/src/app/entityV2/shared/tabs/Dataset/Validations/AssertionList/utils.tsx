@@ -19,15 +19,21 @@ import {
     AssertionTable,
     AssertionWithDescription,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     ASSERTION_INFO,
+    AssertionWithMonitorDetails,
     createAssertionGroups,
     getAssertionGroupName,
     getAssertionType,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
-import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
+import {
+    ASSERTION_SOURCE_FILTER_NAME,
+    ASSERTION_STATUS_FILTER_NAME,
+    ASSERTION_TYPE_FILTER_NAME,
+} from '@app/searchV2/utils/constants';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 import {
@@ -40,6 +46,7 @@ import {
     AssertionType,
     AuditStamp,
     EntityType,
+    FacetMetadata,
     TagAssociation,
 } from '@src/types.generated';
 
@@ -157,14 +164,19 @@ export const useSiblingOptionsForAssertionBuilder = (
     return optionsToAuthorOn;
 };
 
-// transform assertions into table data
-const mapAssertionData = (assertions: Assertion[]): AssertionListTableRow[] => {
-    return assertions.map((assertion: Assertion) => {
+/**
+ * Transform data into {@link AssertionListTableRow }  data
+ */
+export const mapAssertionDataToTableProperties = (
+    assertions: AssertionWithMonitorDetails[] | Assertion[],
+): AssertionListTableRow[] => {
+    return assertions.map((assertion: AssertionWithMonitorDetails) => {
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
 
         const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo);
         const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
         const rowData: AssertionListTableRow = {
+            key: assertion.urn,
             type: getAssertionType(assertion),
             lastUpdated: assertion.info?.lastUpdated as AuditStamp,
             tags: assertion.tags?.tags as TagAssociation[],
@@ -209,7 +221,7 @@ const generateAssertionGroupByStatus = (assertions: Assertion[]): AssertionStatu
             });
             const group: AssertionStatusGroup = {
                 name: status,
-                assertions: mapAssertionData(filteredAssertions),
+                assertions: mapAssertionDataToTableProperties(filteredAssertions),
                 summary,
             };
             assertionGroup.push({ ...group, groupName: getGroupNameBySummary(group) });
@@ -270,7 +282,10 @@ const getColumnIdFromAssertion = (assertion: Assertion): string | null => {
  * 
  * 
 */
-const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
+export const extractFilterOptionListFromAssertions = (
+    assertions: AssertionWithMonitorDetails[],
+    facets?: FacetMetadata[],
+) => {
     const filterOptions: AssertionFilterOptions = {
         filterGroupOptions: {
             type: [],
@@ -290,31 +305,105 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
         source: {} as Record<string, number>,
     };
 
+    // Extract counts from facets if available
+    if (facets) {
+        const typeFacet = facets.find((facet) => facet.field === ASSERTION_TYPE_FILTER_NAME);
+        if (typeFacet?.aggregations) {
+            typeFacet.aggregations.forEach((agg) => {
+                if (agg.value && agg.count !== undefined) {
+                    filterGroupCounts.type[agg.value] = agg.count;
+                }
+            });
+        }
+
+        const statusFacet = facets.find((facet) => facet.field === ASSERTION_STATUS_FILTER_NAME);
+        if (statusFacet?.aggregations) {
+            statusFacet.aggregations.forEach((agg) => {
+                if (agg.value && agg.count !== undefined) {
+                    filterGroupCounts.status[agg.value] = agg.count;
+                }
+            });
+        }
+
+        const sourceFacet = facets.find((facet) => facet.field === ASSERTION_SOURCE_FILTER_NAME);
+        if (sourceFacet?.aggregations) {
+            sourceFacet.aggregations.forEach((agg) => {
+                if (agg.value && agg.count !== undefined) {
+                    filterGroupCounts.source[agg.value] = agg.count;
+                }
+            });
+        }
+    }
+
     // maintain array to show all the Assertion Type count even if it is not present
     const remainingAssertionTypes = ASSERTION_INFO.map((item) => item.type);
     const remainingAssertionStatus = [...CORE_STATUSES];
     const remainingAssertionSources = [...ASSERTION_SOURCES];
 
-    assertions.forEach((assertion: Assertion) => {
-        // filter out tracked types
-        const type = (getAssertionType(assertion) || '') as AssertionType;
-        const index = remainingAssertionTypes.indexOf(type);
-        if (index > -1) {
-            remainingAssertionTypes.splice(index, 1);
+    // When facets are provided, filter out types and statuses that are in the facets
+    if (facets) {
+        const typeFacet = facets.find((facet) => facet.field === ASSERTION_TYPE_FILTER_NAME);
+        if (typeFacet?.aggregations) {
+            typeFacet.aggregations.forEach((agg) => {
+                if (agg.value) {
+                    const index = remainingAssertionTypes.indexOf(agg.value as AssertionType);
+                    if (index > -1) {
+                        remainingAssertionTypes.splice(index, 1);
+                    }
+                }
+            });
         }
 
-        filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
+        const statusFacet = facets.find((facet) => facet.field === ASSERTION_STATUS_FILTER_NAME);
+        if (statusFacet?.aggregations) {
+            statusFacet.aggregations.forEach((agg) => {
+                if (agg.value) {
+                    const index = remainingAssertionStatus.indexOf(agg.value as AssertionResultType);
+                    if (index > -1) {
+                        remainingAssertionStatus.splice(index, 1);
+                    }
+                }
+            });
+        }
 
-        // filter out tracked statuses
-        const mostRecentRun = assertion.runEvents?.runEvents?.[0];
-        const resultType = mostRecentRun?.result?.type || '';
-        if (resultType) {
-            const statusIndex = remainingAssertionStatus.indexOf(resultType);
-            if (statusIndex > -1) {
-                remainingAssertionStatus.splice(statusIndex, 1);
+        const sourceFacet = facets.find((facet) => facet.field === ASSERTION_SOURCE_FILTER_NAME);
+        if (sourceFacet?.aggregations) {
+            sourceFacet.aggregations.forEach((agg) => {
+                if (agg.value) {
+                    const index = remainingAssertionSources.indexOf(agg.value as AssertionSourceType);
+                    if (index > -1) {
+                        remainingAssertionSources.splice(index, 1);
+                    }
+                }
+            });
+        }
+    }
+
+    // Only count from assertions if facets weren't provided or for fields not available in facets
+    const shouldCountFromAssertions = !facets;
+
+    assertions.forEach((assertion: Assertion) => {
+        // filter out tracked types (only needed when not using facets)
+        if (shouldCountFromAssertions) {
+            const type = (getAssertionType(assertion) || '') as AssertionType;
+            const index = remainingAssertionTypes.indexOf(type);
+            if (index > -1) {
+                remainingAssertionTypes.splice(index, 1);
             }
+            filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
+        }
 
-            filterGroupCounts.status[resultType] = (filterGroupCounts.status[resultType] || 0) + 1;
+        // filter out tracked statuses (only needed when not using facets)
+        if (shouldCountFromAssertions) {
+            const mostRecentRun = assertion.runEvents?.runEvents?.[0];
+            const resultType = mostRecentRun?.result?.type || '';
+            if (resultType) {
+                const statusIndex = remainingAssertionStatus.indexOf(resultType);
+                if (statusIndex > -1) {
+                    remainingAssertionStatus.splice(statusIndex, 1);
+                }
+                filterGroupCounts.status[resultType] = (filterGroupCounts.status[resultType] || 0) + 1;
+            }
         }
 
         const tags = assertion.tags?.tags || [];
@@ -329,18 +418,20 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
             filterGroupCounts.column[columnId] = (filterGroupCounts.column[columnId] || 0) + 1;
         }
 
-        // count source type assertion
-        let sourceType = assertion.info?.source?.type as AssertionSourceType;
-        if (isExternalAssertion(assertion)) {
-            filterGroupCounts.source[AssertionSourceType.External] =
-                (filterGroupCounts.source[AssertionSourceType.External] || 0) + 1;
-            sourceType = AssertionSourceType.External;
-        } else {
-            filterGroupCounts.source[sourceType] = (filterGroupCounts.source[sourceType] || 0) + 1;
-        }
-        const sourceTypeIndex = remainingAssertionSources.indexOf(sourceType);
-        if (sourceTypeIndex > -1) {
-            remainingAssertionSources.splice(index, 1);
+        // count source type assertion (only needed when not using facets)
+        if (shouldCountFromAssertions) {
+            let sourceType = assertion.info?.source?.type as AssertionSourceType;
+            if (isExternalAssertion(assertion)) {
+                filterGroupCounts.source[AssertionSourceType.External] =
+                    (filterGroupCounts.source[AssertionSourceType.External] || 0) + 1;
+                sourceType = AssertionSourceType.External;
+            } else {
+                filterGroupCounts.source[sourceType] = (filterGroupCounts.source[sourceType] || 0) + 1;
+            }
+            const sourceTypeIndex = remainingAssertionSources.indexOf(sourceType);
+            if (sourceTypeIndex > -1) {
+                remainingAssertionSources.splice(sourceTypeIndex, 1);
+            }
         }
     });
 
@@ -383,7 +474,7 @@ const groupColumnAssertions = (assertions: Assertion[]): AssertionColumnGroup[] 
     columnIdToAssertionMap.forEach((columnAssertions: Assertion[], columnId: string) => {
         const assertionColumnGroup: AssertionColumnGroup = {
             name: columnId,
-            assertions: mapAssertionData(columnAssertions),
+            assertions: mapAssertionDataToTableProperties(columnAssertions),
         };
         columnIdGroups.push(assertionColumnGroup);
     });
@@ -395,7 +486,7 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
     const assertionRawData: AssertionTable = {
         ...ASSERTION_DEFAULT_RAW_DATA,
     };
-    assertionRawData.assertions = mapAssertionData(filteredAssertions);
+    assertionRawData.assertions = mapAssertionDataToTableProperties(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
     assertionRawData.groupBy.type = getAssertionGroupsByDisplayOrder(assertionsByType);
     // separate out column assertion list for filter
@@ -403,7 +494,7 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
         assertionRawData.groupBy.type?.find((item) => item.type === AssertionType.Field)?.assertions || [];
 
     assertionRawData.groupBy.type?.forEach((item) => {
-        const transformedData = mapAssertionData(item.assertions);
+        const transformedData = mapAssertionDataToTableProperties(item.assertions);
         // eslint-disable-next-line  no-param-reassign
         item.assertions = transformedData;
         // eslint-disable-next-line  no-param-reassign

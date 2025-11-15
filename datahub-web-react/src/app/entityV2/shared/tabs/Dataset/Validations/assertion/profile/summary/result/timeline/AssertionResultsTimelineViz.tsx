@@ -15,9 +15,9 @@ import { Assertion, AssertionRunEventsResult, AssertionRunStatus } from '@types'
 
 const VIZ_CONTAINER_TITLE_HEIGHT = 36;
 
-const getVisualizationContainer = (height: number) => styled.div`
+const VizContainer = styled.div<{ height: number }>`
     border-radius: 4px;
-    height: ${height}px;
+    height: ${({ height }) => height}px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -83,6 +83,9 @@ export const AssertionResultsTimelineViz = ({
         );
     };
 
-    const VisualizationContainer = getVisualizationContainer(parentDimensions.height);
-    return <VisualizationContainer style={{ opacity: isInitializing ? 0 : 1 }}>{renderChart()}</VisualizationContainer>;
+    return (
+        <VizContainer height={parentDimensions.height} style={{ opacity: isInitializing ? 0 : 1 }}>
+            {renderChart()}
+        </VizContainer>
+    );
 };

@@ -45,7 +45,6 @@ export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
     useEffect(() => {
         if (assertionUrnParam) {
             const decodedAssertionUrn = decodeURIComponent(assertionUrnParam);
-
             setFocusAssertionUrn(decodedAssertionUrn);
 
             // Remove the query parameter from the URL

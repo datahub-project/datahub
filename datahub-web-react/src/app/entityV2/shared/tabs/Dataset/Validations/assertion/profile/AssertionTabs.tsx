@@ -1,6 +1,6 @@
 import { Tooltip } from '@components';
 import { Divider } from 'antd';
-import React, { useState } from 'react';
+import React, { memo, useCallback } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
@@ -41,7 +41,8 @@ const StyledDivider = styled(Divider)`
 `;
 
 type Props = {
-    defaultSelectedTab: string;
+    selectedTab: string;
+    setSelectedTab: (tab: string) => void;
     tabs: {
         key: string;
         label: React.ReactNode;
@@ -51,20 +52,27 @@ type Props = {
     }[];
 };
 
-export const AssertionTabs = ({ defaultSelectedTab, tabs }: Props) => {
-    const [selectedTab, setSelectedTab] = useState<string>(defaultSelectedTab);
+export const AssertionTabs = memo(({ selectedTab, setSelectedTab, tabs }: Props) => {
+    const handleTabClick = useCallback(
+        (tabKey: string, disabled?: boolean) => {
+            if (!disabled) {
+                setSelectedTab(tabKey);
+            }
+        },
+        [setSelectedTab],
+    );
+
     return (
         <>
             {tabs.length > 1 && (
                 <>
                     <Tabs>
                         {tabs.map((tab) => (
-                            <Tooltip title={tab.tooltip} placement="bottom" showArrow={false}>
+                            <Tooltip key={tab.key} title={tab.tooltip} placement="bottom" showArrow={false}>
                                 <TabButton
                                     selected={selectedTab === tab.key}
                                     disabled={tab.disabled}
-                                    key={tab.key}
-                                    onClick={() => (!tab.disabled ? setSelectedTab(tab.key) : null)}
+                                    onClick={() => handleTabClick(tab.key, tab.disabled)}
                                 >
                                     {tab.label}
                                 </TabButton>
@@ -77,4 +85,4 @@ export const AssertionTabs = ({ defaultSelectedTab, tabs }: Props) => {
             <TabContent>{tabs.find((tab) => tab.key === selectedTab)?.content}</TabContent>
         </>
     );
-};
+});

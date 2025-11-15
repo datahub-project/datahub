@@ -1,4 +1,4 @@
-import { CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { CheckOutlined, ClockCircleOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -28,6 +28,18 @@ export const ASSERTION_TYPE_TO_HEADER_SUBTITLE: Record<AssertionType, string> = 
 };
 
 export const ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS = {
+    initializing: {
+        color: '#2F54EB',
+        backgroundColor: '#E6F4FF',
+        resultType: AssertionResultType.Init,
+        icon: <ClockCircleOutlined />,
+        text: 'Initializing',
+        headerComponent: (
+            <StyledCardTitle background="#E6F4FF" color="#2F54EB">
+                <ClockCircleOutlined /> Initializing
+            </StyledCardTitle>
+        ),
+    },
     passing: {
         color: '#548239',
         backgroundColor: '#F1F8EE',
@@ -57,7 +69,7 @@ export const ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS = {
         backgroundColor: '#FEF9ED',
         resultType: AssertionResultType.Error,
         icon: <InfoCircleOutlined />,
-        text: 'Errors',
+        text: 'Erroring',
         headerComponent: (
             <StyledCardTitle background="#FEF9ED" color="#EEAE09">
                 <InfoCircleOutlined /> Error
@@ -69,10 +81,10 @@ export const ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS = {
         backgroundColor: '#e0e0e0',
         resultType: null,
         icon: <InfoCircleOutlined />,
-        text: '0 Running',
+        text: 'Not Yet Run',
         headerComponent: (
             <StyledCardTitle background="#F6F6F6" color="#8D95B1">
-                <InfoCircleOutlined /> No runs
+                <InfoCircleOutlined /> Not Yet Run
             </StyledCardTitle>
         ),
     },

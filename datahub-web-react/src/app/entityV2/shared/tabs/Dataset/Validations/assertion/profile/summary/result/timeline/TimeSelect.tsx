@@ -32,6 +32,7 @@ export const TimeSelect = ({ lookbackWindow, setLookbackWindow }: Props) => {
         <TimeWindowPills>
             {Object.values(LOOKBACK_WINDOWS).map((window) => (
                 <SelectablePill
+                    key={window.text}
                     text={window.text}
                     selected={lookbackWindow === window}
                     onSelect={() => onChangeLookbackWindow(window.text)}
