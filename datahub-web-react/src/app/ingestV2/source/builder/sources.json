@@ -112,6 +112,14 @@
         "recipe": "source: \n    type: hive\n    config:\n        # Coordinates\n        host_port: # Your Hive host and port, e.g. hive:10000\n        database: # Your Hive database name, e.g. SampleDatabase (Optional, if not specified, ingests from all databases)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Hive username, e.g. admin\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:hbase",
+        "name": "hbase",
+        "displayName": "HBase",
+        "description": "Import Namespaces, Tables, Column Families, and metadata from Apache HBase.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hbase/",
+        "recipe": "source: \n    type: hbase\n    config:\n        # Coordinates\n        host: localhost # Your HBase Thrift server hostname\n        port: 9090 # Your HBase Thrift server port\n\n        # Optional configurations\n        use_ssl: false\n        auth_mechanism: null # Options: null, KERBEROS, or custom\n\n        # Schema extraction\n        include_column_families: true\n        max_column_qualifiers: 100\n\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:presto",
         "name": "presto",
         "displayName": "Presto",
