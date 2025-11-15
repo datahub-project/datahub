@@ -16,6 +16,8 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.file.BucketStorageLocation;
+import com.linkedin.file.DataHubFileInfo;
 import com.linkedin.form.FormInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
@@ -34,6 +36,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
@@ -61,6 +64,7 @@ public class DeleteEntityService {
   private final EntityService<?> _entityService;
   private final GraphService _graphService;
   private final EntitySearchService _searchService;
+  private final S3Util _s3Util;
 
   private static final Integer ELASTIC_BATCH_DELETE_SLEEP_SEC = 5;
   private static final Integer BATCH_SIZE = 1000;
@@ -80,6 +84,9 @@ public class DeleteEntityService {
     // TODO: update DeleteReferencesResponse to have searchAspects and provide more helpful comment
     // in CLI
     final DeleteReferencesResponse result = new DeleteReferencesResponse();
+
+    // Delete file references first (before other references are cleaned up)
+    int totalFileCount = deleteFileReferences(opContext, urn, dryRun);
 
     // Delete references for entities referencing the deleted urn with searchables.
     // Only works for Form deletion for now
@@ -110,7 +117,7 @@ public class DeleteEntityService {
             .collect(Collectors.toList());
 
     result.setRelatedAspects(new RelatedAspectArray(relatedAspects));
-    result.setTotal(relatedEntities.getTotal() + totalSearchAssetCount);
+    result.setTotal(relatedEntities.getTotal() + totalSearchAssetCount + totalFileCount);
 
     if (dryRun) {
       return result;
@@ -591,6 +598,11 @@ public class DeleteEntityService {
             "5m",
             dryRun ? 1 : BATCH_SIZE); // need to pass in 1 for count otherwise get index error
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
+      // Initialize assets to empty list and count to 0 if no results
+      if (result.assets == null) {
+        result.assets = new ArrayList<>();
+      }
+      result.totalAssetCount = 0;
       return result;
     }
     result.scrollId = scrollResult.getScrollId();
@@ -708,6 +720,121 @@ public class DeleteEntityService {
     return new AuditStamp()
         .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
         .setTime(System.currentTimeMillis());
+  }
+
+  /**
+   * Find and delete files from S3 when their referenced entity is being deleted. This method finds
+   * all DataHub file entities that reference the deleted entity via the referencedByAsset field,
+   * deletes them from S3, and soft-deletes the file entities.
+   *
+   * @param opContext the operation context
+   * @param deletedUrn the URN of the entity being deleted
+   * @param dryRun if true, only count files without deleting them
+   * @return the number of files processed
+   */
+  private int deleteFileReferences(
+      @Nonnull OperationContext opContext, @Nonnull final Urn deletedUrn, final boolean dryRun) {
+
+    Filter filter = DeleteEntityUtils.getFilterForFileDeletion(deletedUrn);
+    List<String> entityNames = ImmutableList.of(Constants.DATAHUB_FILE_ENTITY_NAME);
+
+    int totalFileCount = 0;
+    String scrollId = null;
+
+    do {
+      AssetScrollResult result =
+          scrollForAssets(
+              opContext, new AssetScrollResult(), filter, entityNames, scrollId, dryRun);
+
+      totalFileCount += result.totalAssetCount;
+      scrollId = dryRun ? null : result.scrollId;
+
+      if (!dryRun) {
+        result.assets.forEach(
+            fileUrn -> {
+              try {
+                deleteFileAndS3Object(opContext, fileUrn, deletedUrn);
+              } catch (Exception e) {
+                log.error(
+                    "Failed to process file deletion for urn: {} referenced by deleted entity: {}",
+                    fileUrn,
+                    deletedUrn,
+                    e);
+              }
+            });
+      }
+    } while (scrollId != null);
+
+    if (totalFileCount > 0) {
+      log.info("Processed {} file(s) referencing deleted entity: {}", totalFileCount, deletedUrn);
+    }
+
+    return totalFileCount;
+  }
+
+  /**
+   * Delete a file from S3 and soft-delete the DataHub file entity. This ensures the file is removed
+   * from storage and marked as deleted in DataHub for audit purposes.
+   *
+   * @param opContext the operation context
+   * @param fileUrn the URN of the file to delete
+   * @param deletedEntityUrn the URN of the entity being deleted (for logging)
+   */
+  private void deleteFileAndS3Object(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn fileUrn,
+      @Nonnull final Urn deletedEntityUrn) {
+
+    log.info(
+        "Processing file cleanup for file: {} (referenced by deleted entity: {})",
+        fileUrn,
+        deletedEntityUrn);
+
+    try {
+      // Get file info to retrieve S3 location
+      RecordTemplate record =
+          _entityService.getLatestAspect(
+              opContext, fileUrn, Constants.DATAHUB_FILE_INFO_ASPECT_NAME);
+
+      if (record == null) {
+        log.warn("Could not retrieve file info for urn: {}, skipping cleanup", fileUrn);
+        return;
+      }
+
+      DataHubFileInfo fileInfo = new DataHubFileInfo(record.data());
+
+      // Delete from S3 if S3Util is available and file has storage location
+      if (_s3Util != null && fileInfo.hasBucketStorageLocation()) {
+        BucketStorageLocation location = fileInfo.getBucketStorageLocation();
+        String bucket = location.getStorageBucket();
+        String key = location.getStorageKey();
+
+        try {
+          _s3Util.deleteObject(bucket, key);
+          log.info(
+              "Successfully deleted file from S3: bucket={}, key={}, urn={}", bucket, key, fileUrn);
+        } catch (Exception e) {
+          log.error(
+              "Failed to delete file from S3 for urn: {}. Will continue with soft-delete to avoid "
+                  + "leaving entity in inconsistent state. Manual S3 cleanup may be required.",
+              fileUrn,
+              e);
+        }
+      } else {
+        log.warn(
+            "S3Util not configured or file has no storage location, skipping S3 deletion for file: {}",
+            fileUrn);
+      }
+
+      // Soft delete the file entity
+      MetadataChangeProposal softDeleteMcp = DeleteEntityUtils.buildSoftDeleteProposal(fileUrn);
+      _entityService.ingestProposal(opContext, softDeleteMcp, createAuditStamp(), true);
+      log.info("Soft-deleted DataHub file entity: {}", fileUrn);
+
+    } catch (Exception e) {
+      log.error("Failed to process file deletion for urn: {}", fileUrn, e);
+      throw new RuntimeException("Failed to delete file: " + fileUrn, e);
+    }
   }
 
   @AllArgsConstructor

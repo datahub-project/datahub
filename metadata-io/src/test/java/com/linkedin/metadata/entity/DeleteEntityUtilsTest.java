@@ -22,6 +22,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.schema.SchemaMetadata;
 import java.util.ArrayList;
 import java.util.List;
@@ -431,5 +432,35 @@ public class DeleteEntityUtilsTest extends TestCase {
   public void testEntityNamesForStructuredPropDeletion() {
     assertEquals(
         DeleteEntityUtils.getEntityNamesForStructuredPropertyDeletion(), ImmutableList.of("form"));
+  }
+
+  @Test
+  public void testGetFilterForFileDeletion() {
+    Urn deletedEntityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,Test,PROD)");
+
+    final CriterionArray criterionArray = new CriterionArray();
+    criterionArray.add(
+        CriterionUtils.buildCriterion(
+            "referencedByAsset", Condition.EQUAL, deletedEntityUrn.toString()));
+
+    Filter expectedFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criterionArray)));
+
+    assertEquals(DeleteEntityUtils.getFilterForFileDeletion(deletedEntityUrn), expectedFilter);
+  }
+
+  @Test
+  public void testBuildSoftDeleteProposal() {
+    Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-id");
+
+    var proposal = DeleteEntityUtils.buildSoftDeleteProposal(fileUrn);
+
+    assertEquals(proposal.getEntityUrn(), fileUrn);
+    assertEquals(proposal.getEntityType(), "dataHubFile");
+    assertEquals(proposal.getAspectName(), "status");
+    assertEquals(proposal.getChangeType(), com.linkedin.events.metadata.ChangeType.UPSERT);
+    assertNotNull(proposal.getAspect());
   }
 }
