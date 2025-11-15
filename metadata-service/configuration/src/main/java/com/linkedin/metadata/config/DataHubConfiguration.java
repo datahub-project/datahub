@@ -16,6 +16,11 @@ public class DataHubConfiguration {
   /** The base path for the URL where DataHub will be deployed */
   private String basePath;
 
+  /** Deployment mode where DataHub will drop writes to the system blindly.
+   * Intended as a special deployment mode for pointing to read replicas as an offline analytics tool.
+   **/
+  private boolean readOnly = false;
+
   /** GMS (Graph Metadata Service) configuration */
   private GMSConfiguration gms;
 

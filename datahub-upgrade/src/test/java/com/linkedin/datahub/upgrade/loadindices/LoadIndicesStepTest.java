@@ -46,7 +46,6 @@ public class LoadIndicesStepTest {
 
   private LoadIndicesStep loadIndicesStep;
   private Database database;
-  @Mock private EntityService<?> mockEntityService;
   @Mock private UpdateIndicesService mockUpdateIndicesService;
   @Mock private LoadIndicesIndexManager mockIndexManager;
   @Mock private UpgradeContext mockUpgradeContext;
@@ -69,7 +68,7 @@ public class LoadIndicesStepTest {
 
     loadIndicesStep =
         new LoadIndicesStep(
-            database, mockEntityService, mockUpdateIndicesService, mockIndexManager);
+            database, mockUpdateIndicesService, mockIndexManager);
 
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
     when(mockUpgradeContext.opContext()).thenReturn(mockOperationContext);

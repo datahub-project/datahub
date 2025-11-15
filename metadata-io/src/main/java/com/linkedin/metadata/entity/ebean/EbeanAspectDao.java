@@ -64,6 +64,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -76,6 +77,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   /** -- GETTER -- Return the server instance used for customized queries. Only used in tests. */
   @Getter private final Database server;
 
+  @Setter
   private boolean connectionValidated = false;
 
   // Flag used to make sure the dao isn't writing aspects
@@ -107,11 +109,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   public void setWritable(boolean canWrite) {
     this.canWrite = canWrite;
-  }
-
-  public void setConnectionValidated(boolean validated) {
-    connectionValidated = validated;
-    canWrite = validated;
   }
 
   private boolean validateConnection() {
@@ -250,6 +247,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   public void deleteAspect(
       @Nonnull final Urn urn, @Nonnull final String aspect, @Nonnull final Long version) {
     validateConnection();
+    if (!canWrite) {
+      return;
+    }
     server
         .createQuery(EbeanAspectV2.class)
         .where()
@@ -265,6 +265,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable TransactionContext txContext,
       @Nonnull final String urn) {
     validateConnection();
+    if (!canWrite) {
+      return 0;
+    }
 
     Urn urnObj = UrnUtils.getUrn(urn);
     String keyAspectName = opContext.getKeyAspectName(urnObj);
@@ -1020,50 +1023,5 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         .stream()
         .map(e -> Map.entry(e.getKey(), toAspectMap(entityRegistry, e.getValue())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-
-  private static String buildMetricName(
-      EntitySpec entitySpec, AspectSpec aspectSpec, String status) {
-    return String.join(
-        MetricUtils.DELIMITER,
-        List.of(entitySpec.getName(), aspectSpec.getName(), status.toLowerCase()));
-  }
-
-  /**
-   * Split batches by the set of Urns, all remaining items go into an `other` batch in the second of
-   * the pair
-   *
-   * @param batch the input batch
-   * @param urns urns for batch
-   * @return separated batches
-   */
-  // TODO: Remove? No usages of private method
-  private static Pair<List<AspectsBatch>, AspectsBatch> splitByUrn(
-      AspectsBatch batch, Set<Urn> urns, RetrieverContext retrieverContext) {
-    Map<Urn, List<MCPItem>> itemsByUrn =
-        batch.getMCPItems().stream().collect(Collectors.groupingBy(MCPItem::getUrn));
-
-    AspectsBatch other =
-        AspectsBatchImpl.builder()
-            .retrieverContext(retrieverContext)
-            .items(
-                itemsByUrn.entrySet().stream()
-                    .filter(entry -> !urns.contains(entry.getKey()))
-                    .flatMap(entry -> entry.getValue().stream())
-                    .collect(Collectors.toList()))
-            .build(null);
-
-    List<AspectsBatch> nonEmptyBatches =
-        urns.stream()
-            .map(
-                urn ->
-                    AspectsBatchImpl.builder()
-                        .retrieverContext(retrieverContext)
-                        .items(itemsByUrn.get(urn))
-                        .build(null))
-            .filter(b -> !b.getItems().isEmpty())
-            .collect(Collectors.toList());
-
-    return Pair.of(nonEmptyBatches, other);
   }
 }

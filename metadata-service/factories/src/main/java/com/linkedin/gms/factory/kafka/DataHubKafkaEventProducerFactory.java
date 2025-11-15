@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.kafka;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
@@ -26,7 +27,13 @@ public class DataHubKafkaEventProducerFactory {
   @Autowired private KafkaHealthChecker kafkaHealthChecker;
 
   @Bean(name = "kafkaEventProducer")
-  protected KafkaEventProducer createInstance(MetricUtils metricUtils) {
-    return new KafkaEventProducer(kafkaProducer, topicConvention, kafkaHealthChecker, metricUtils);
+  protected KafkaEventProducer createInstance(MetricUtils metricUtils, ConfigurationProvider configurationProvider) {
+    KafkaEventProducer kafkaEventProducer =
+        new KafkaEventProducer(kafkaProducer, topicConvention, kafkaHealthChecker, metricUtils);
+    if (configurationProvider.getDatahub().isReadOnly()) {
+      kafkaEventProducer.setWritable(false);
+    }
+
+    return kafkaEventProducer;
   }
 }

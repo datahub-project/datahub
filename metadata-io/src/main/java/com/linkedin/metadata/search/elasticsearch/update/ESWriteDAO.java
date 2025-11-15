@@ -24,6 +24,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.RequestOptions;
@@ -47,6 +48,11 @@ public class ESWriteDAO {
   private final ElasticSearchConfiguration config;
   private final SearchClientShim<?> searchClient;
   @Getter private final ESBulkProcessor bulkProcessor;
+  private boolean canWrite = true;
+
+  public void setWritable(boolean writable) {
+    canWrite = writable;
+  }
 
   /** Result of a delete by query operation */
   @Data
@@ -72,6 +78,9 @@ public class ESWriteDAO {
       @Nonnull String entityName,
       @Nonnull String document,
       @Nonnull String docId) {
+    if (!canWrite) {
+      return;
+    }
     final UpdateRequest updateRequest =
         new UpdateRequest(toIndexName(opContext, entityName), docId)
             .detectNoop(false)
@@ -92,6 +101,9 @@ public class ESWriteDAO {
    */
   public void upsertDocumentByIndexName(
       @Nonnull String indexName, @Nonnull String document, @Nonnull String docId) {
+    if (!canWrite) {
+      return;
+    }
     final UpdateRequest updateRequest =
         new UpdateRequest(indexName, docId)
             .detectNoop(false)
@@ -110,6 +122,9 @@ public class ESWriteDAO {
    */
   public void deleteDocument(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
+    if (!canWrite) {
+      return;
+    }
     bulkProcessor.add(new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
   }
 
@@ -121,6 +136,9 @@ public class ESWriteDAO {
    * @param docId the ID of the document to delete
    */
   public void deleteDocumentByIndexName(@Nonnull String indexName, @Nonnull String docId) {
+    if (!canWrite) {
+      return;
+    }
     bulkProcessor.add(new DeleteRequest(indexName).id(docId));
   }
 
@@ -138,6 +156,9 @@ public class ESWriteDAO {
       @Nonnull String searchGroup,
       @Nonnull String document,
       @Nonnull String docId) {
+    if (!canWrite) {
+      return;
+    }
     final UpdateRequest updateRequest =
         new UpdateRequest(toIndexNameV3(opContext, searchGroup), docId)
             .detectNoop(false)
@@ -159,6 +180,9 @@ public class ESWriteDAO {
    */
   public void deleteDocumentBySearchGroup(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
+    if (!canWrite) {
+      return;
+    }
     // Use URN-aware routing for entity document consistency
     bulkProcessor.add(new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
   }
@@ -171,6 +195,9 @@ public class ESWriteDAO {
       @Nonnull String scriptSource,
       @Nonnull Map<String, Object> scriptParams,
       Map<String, Object> upsert) {
+    if (!canWrite) {
+      return;
+    }
     // Create a properly parameterized script
     Script script =
         new Script(
@@ -191,6 +218,9 @@ public class ESWriteDAO {
 
   /** Clear all documents in all the indices */
   public void clear(@Nonnull OperationContext opContext) {
+    if (!canWrite) {
+      return;
+    }
     List<String> patterns =
         opContext
             .getSearchContext()
@@ -223,6 +253,9 @@ public class ESWriteDAO {
       @Nonnull String indexName,
       @Nonnull QueryBuilder query,
       @Nullable BulkDeleteConfiguration overrideConfig) {
+    if (!canWrite) {
+      return CompletableFuture.completedFuture(StringUtils.EMPTY);
+    }
 
     final BulkDeleteConfiguration finalConfig =
         overrideConfig != null ? overrideConfig : config.getBulkDelete();
@@ -255,6 +288,9 @@ public class ESWriteDAO {
       @Nonnull QueryBuilder query,
       @Nullable BulkDeleteConfiguration overrideConfig) {
 
+    if (!canWrite) {
+      return DeleteByQueryResult.builder().build();
+    }
     final BulkDeleteConfiguration finalConfig =
         overrideConfig != null ? overrideConfig : config.getBulkDelete();
 

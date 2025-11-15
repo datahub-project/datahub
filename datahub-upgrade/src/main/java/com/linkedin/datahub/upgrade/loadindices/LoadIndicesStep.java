@@ -41,17 +41,14 @@ import lombok.extern.slf4j.Slf4j;
 public class LoadIndicesStep implements UpgradeStep {
 
   private final Database server;
-  private final EntityService<?> entityService;
   private final UpdateIndicesService updateIndicesService;
   private final LoadIndicesIndexManager indexManager;
 
   public LoadIndicesStep(
       final Database server,
-      final EntityService<?> entityService,
       final UpdateIndicesService updateIndicesService,
       final LoadIndicesIndexManager indexManager) {
     this.server = server;
-    this.entityService = entityService;
     this.updateIndicesService = updateIndicesService;
     this.indexManager = indexManager;
   }

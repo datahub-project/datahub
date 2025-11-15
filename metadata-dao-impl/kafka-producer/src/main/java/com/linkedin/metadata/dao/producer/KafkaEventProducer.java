@@ -16,6 +16,7 @@ import com.linkedin.mxe.TopicConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -40,6 +41,7 @@ public class KafkaEventProducer extends EventProducer {
   private final TopicConvention _topicConvention;
   private final KafkaHealthChecker _kafkaHealthChecker;
   private final MetricUtils metricUtils;
+  private boolean canWrite = true;
 
   @Override
   public void flush() {
@@ -64,12 +66,19 @@ public class KafkaEventProducer extends EventProducer {
     this.metricUtils = metricUtils;
   }
 
+  public void setWritable(boolean writable) {
+    canWrite = writable;
+  }
+
   @Override
   @WithSpan
   public Future<?> produceMetadataChangeLog(
       @Nonnull final Urn urn,
       @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
+    if (!canWrite) {
+      return CompletableFuture.completedFuture(Optional.empty());
+    }
     GenericRecord record;
     try {
       log.debug(
@@ -101,6 +110,9 @@ public class KafkaEventProducer extends EventProducer {
   @WithSpan
   public Future<?> produceMetadataChangeProposal(
       @Nonnull final Urn urn, @Nonnull final MetadataChangeProposal metadataChangeProposal) {
+    if (!canWrite) {
+      return CompletableFuture.completedFuture(Optional.empty());
+    }
     GenericRecord record;
 
     try {
@@ -131,6 +143,9 @@ public class KafkaEventProducer extends EventProducer {
       @Nonnull OperationContext opContext,
       @Nonnull MetadataChangeProposal mcp,
       @Nonnull Set<Throwable> throwables) {
+    if (!canWrite) {
+      return CompletableFuture.completedFuture(Optional.empty());
+    }
 
     try {
       String topic = _topicConvention.getFailedMetadataChangeProposalTopicName();
@@ -160,6 +175,9 @@ public class KafkaEventProducer extends EventProducer {
   @Override
   public Future<?> producePlatformEvent(
       @Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event) {
+    if (!canWrite) {
+      return CompletableFuture.completedFuture(Optional.empty());
+    }
     GenericRecord record;
     try {
       log.debug(
@@ -183,6 +201,7 @@ public class KafkaEventProducer extends EventProducer {
 
   @Override
   public void produceDataHubUpgradeHistoryEvent(@Nonnull DataHubUpgradeHistoryEvent event) {
+    // We allow this to write even when in not writable mode to allow DH to start up
     GenericRecord record;
     try {
       log.debug(String.format("Converting Pegasus Event to Avro Event\nEvent: %s", event));

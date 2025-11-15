@@ -36,7 +36,6 @@ public class LoadIndices implements Upgrade {
 
   public LoadIndices(
       @Nullable final Database server,
-      final EntityService<?> entityService,
       final UpdateIndicesService updateIndicesService,
       @Nullable final LoadIndicesIndexManager indexManager,
       @Nullable final SystemMetadataService systemMetadataService,
@@ -48,7 +47,6 @@ public class LoadIndices implements Upgrade {
       _steps =
           buildSteps(
               server,
-              entityService,
               updateIndicesService,
               indexManager,
               systemMetadataService,
@@ -73,7 +71,6 @@ public class LoadIndices implements Upgrade {
 
   private List<UpgradeStep> buildSteps(
       final Database server,
-      final EntityService<?> entityService,
       final UpdateIndicesService updateIndicesService,
       final LoadIndicesIndexManager indexManager,
       final SystemMetadataService systemMetadataService,
@@ -99,7 +96,7 @@ public class LoadIndices implements Upgrade {
       steps.add(new BuildIndicesStep(indexedServices, structuredProperties));
     }
 
-    steps.add(new LoadIndicesStep(server, entityService, updateIndicesService, indexManager));
+    steps.add(new LoadIndicesStep(server, updateIndicesService, indexManager));
     return steps;
   }
 

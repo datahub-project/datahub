@@ -2610,25 +2610,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     String keyAspectName = opContext.getKeyAspectName(urn);
 
-    SystemAspect latestKey = null;
-    try {
-      latestKey = aspectDao.getLatestAspect(opContext, urn.toString(), keyAspectName, false);
-    } catch (EntityNotFoundException e) {
-      log.warn("Entity to delete does not exist. {}", urn);
-    }
-    if (latestKey == null || latestKey.getSystemMetadata() == null) {
-      return new RollbackRunResult(
-          removedAspects, rowsDeletedFromEntityDeletion, removedAspectResults);
-    }
-
-    SystemMetadata latestKeySystemMetadata = latestKey.getSystemMetadata();
-
     RollbackResult result =
         deleteAspectWithoutMCL(
             opContext,
             urn.toString(),
             keyAspectName,
-            Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()),
+            Collections.emptyMap(),
             true);
 
     if (result != null) {
@@ -2637,7 +2624,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       summary.setKeyAspect(true);
       summary.setAspectName(keyAspectName);
       summary.setVersion(0);
-      summary.setTimestamp(latestKey.getCreatedOn().getTime());
+      long aspectTime = result.getOldSystemMetadata() != null
+          && result.getOldSystemMetadata().getAspectCreated() != null ?
+          result.getOldSystemMetadata().getAspectCreated().getTime() : System.currentTimeMillis();
+      summary.setTimestamp(aspectTime);
 
       rowsDeletedFromEntityDeletion = result.additionalRowsAffected;
       removedAspects.add(summary);
