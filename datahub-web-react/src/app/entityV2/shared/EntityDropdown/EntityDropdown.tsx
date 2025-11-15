@@ -108,6 +108,7 @@ const EntityDropdown = (props: Props) => {
 
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
+    const [isCloneEntityModalVisible, setIsCloneEntityModalVisible] = useState(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isEntityAnnouncementModalVisible, setIsEntityAnnouncementModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
@@ -288,6 +289,18 @@ const EntityDropdown = (props: Props) => {
         });
     }
 
+    if (menuItems.has(EntityMenuItems.CLONE)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '10',
+            title: 'Clone',
+            icon: 'Copy',
+            disabled: !entityData?.privileges?.canManageEntity,
+            onClick: () => setIsCloneEntityModalVisible(true),
+            'data-testid': 'entity-menu-clone-button',
+        });
+    }
+
     if (menuItems.has(EntityMenuItems.RAISE_INCIDENT)) {
         menuItemsList.push({
             type: 'item' as const,
@@ -461,6 +474,15 @@ const EntityDropdown = (props: Props) => {
                     canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
+                />
+            )}
+            {isCloneEntityModalVisible && (
+                <CreateGlossaryEntityModal
+                    entityType={entityType}
+                    canCreateGlossaryEntity
+                    onClose={() => setIsCloneEntityModalVisible(false)}
+                    refetchData={entityType === EntityType.GlossaryTerm ? refetchForTerms : refetchForNodes}
+                    isCloning
                 />
             )}
             {isDeprecationModalVisible && (

@@ -28,6 +28,7 @@ import { EntityType, GlossaryNode, SearchResult } from '@types';
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
+    EntityMenuItems.CLONE,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
 ]);
