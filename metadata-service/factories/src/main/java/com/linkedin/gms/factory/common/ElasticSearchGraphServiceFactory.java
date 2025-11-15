@@ -32,11 +32,12 @@ public class ElasticSearchGraphServiceFactory {
   @Bean
   @Nonnull
   protected ESGraphWriteDAO esGraphWriteDAO(final ConfigurationProvider configurationProvider) {
-    ESGraphWriteDAO esGraphWriteDAO = new ESGraphWriteDAO(
-        components.getIndexConvention(),
-        components.getBulkProcessor(),
-        components.getConfig().getBulkProcessor().getNumRetries(),
-        configurationProvider.getElasticSearch().getSearch().getGraph());
+    ESGraphWriteDAO esGraphWriteDAO =
+        new ESGraphWriteDAO(
+            components.getIndexConvention(),
+            components.getBulkProcessor(),
+            components.getConfig().getBulkProcessor().getNumRetries(),
+            configurationProvider.getElasticSearch().getSearch().getGraph());
     if (configurationProvider.getDatahub().isReadOnly()) {
       esGraphWriteDAO.setWritable(false);
     }

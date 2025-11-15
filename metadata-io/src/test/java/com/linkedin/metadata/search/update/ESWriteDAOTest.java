@@ -845,8 +845,8 @@ public class ESWriteDAOTest {
   @DataProvider(name = "writabilityConfig")
   public Object[][] writabilityConfigProvider() {
     return new Object[][] {
-        {true, "Writable"}, // canWrite = true, description
-        {false, "ReadOnly"} // canWrite = false, description
+      {true, "Writable"}, // canWrite = true, description
+      {false, "ReadOnly"} // canWrite = false, description
     };
   }
 
@@ -999,7 +999,7 @@ public class ESWriteDAOTest {
     QueryBuilder query = QueryBuilders.termQuery("status", "deleted_" + description);
 
     when(mockSearchClient.submitDeleteByQueryTask(
-        any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     CompletableFuture<String> future =
@@ -1143,7 +1143,8 @@ public class ESWriteDAOTest {
   }
 
   @Test
-  public void testWritabilityDuringMigration() throws IOException, ExecutionException, InterruptedException {
+  public void testWritabilityDuringMigration()
+      throws IOException, ExecutionException, InterruptedException {
     esWriteDAO.setWritable(false);
 
     String document = "{\"migration\":\"test\"}";

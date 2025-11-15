@@ -32,11 +32,12 @@ public class Neo4jGraphServiceFactory {
   protected GraphService getInstance(
       final EntityRegistry entityRegistry, final ConfigurationProvider configurationProvider) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
-    Neo4jGraphService neo4jGraphService = new Neo4jGraphService(
-        lineageRegistry,
-        neo4jDriver,
-        SessionConfig.forDatabase(neo4jDatabase),
-        configurationProvider.getGraphService());
+    Neo4jGraphService neo4jGraphService =
+        new Neo4jGraphService(
+            lineageRegistry,
+            neo4jDriver,
+            SessionConfig.forDatabase(neo4jDatabase),
+            configurationProvider.getGraphService());
 
     if (configurationProvider.getDatahub().isReadOnly()) {
       neo4jGraphService.setWritable(false);

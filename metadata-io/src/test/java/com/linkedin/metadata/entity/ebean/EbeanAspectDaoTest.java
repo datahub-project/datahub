@@ -212,8 +212,8 @@ public class EbeanAspectDaoTest {
   @DataProvider(name = "writabilityConfig")
   public Object[][] writabilityConfigProvider() {
     return new Object[][] {
-        {true, "Writable"}, // canWrite = true, description
-        {false, "ReadOnly"} // canWrite = false, description
+      {true, "Writable"}, // canWrite = true, description
+      {false, "ReadOnly"} // canWrite = false, description
     };
   }
 
@@ -222,9 +222,16 @@ public class EbeanAspectDaoTest {
     // Set writability
     testDao.setWritable(canWrite);
 
-    SystemAspect systemAspect = new EbeanSystemAspect(null, UrnUtils.getUrn("urn:li:corpuser:testUpdateAspect" + description), STATUS_ASPECT_NAME,
-        opContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME), opContext.getEntityRegistry().getAspectSpecs().get(STATUS_ASPECT_NAME),
-        new Status(), new SystemMetadata(), AuditStampUtils.createDefaultAuditStamp());
+    SystemAspect systemAspect =
+        new EbeanSystemAspect(
+            null,
+            UrnUtils.getUrn("urn:li:corpuser:testUpdateAspect" + description),
+            STATUS_ASPECT_NAME,
+            opContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME),
+            opContext.getEntityRegistry().getAspectSpecs().get(STATUS_ASPECT_NAME),
+            new Status(),
+            new SystemMetadata(),
+            AuditStampUtils.createDefaultAuditStamp());
 
     // Try to update aspect
     Optional<com.linkedin.metadata.aspect.EntityAspect> result =
@@ -306,8 +313,7 @@ public class EbeanAspectDaoTest {
   }
 
   @Test(dataProvider = "writabilityConfig")
-  public void testDeleteUrnWithWritability(boolean canWrite, String description)
-      throws Exception {
+  public void testDeleteUrnWithWritability(boolean canWrite, String description) throws Exception {
     // Set writability
     testDao.setWritable(canWrite);
 
@@ -326,7 +332,8 @@ public class EbeanAspectDaoTest {
           testDao.getAspect(urnString, "status", ASPECT_LATEST_VERSION);
       com.linkedin.metadata.aspect.EntityAspect keyAspect =
           testDao.getAspect(urnString, "corpUserKey", ASPECT_LATEST_VERSION);
-      assertTrue(aspect1 != null && aspect2 != null && keyAspect != null,
+      assertTrue(
+          aspect1 != null && aspect2 != null && keyAspect != null,
           "All aspects should exist before deletion");
 
       // Delete the URN
@@ -345,7 +352,8 @@ public class EbeanAspectDaoTest {
           testDao.getAspect(urnString, "status", ASPECT_LATEST_VERSION);
       com.linkedin.metadata.aspect.EntityAspect afterKeyAspect =
           testDao.getAspect(urnString, "corpUserKey", ASPECT_LATEST_VERSION);
-      assertTrue(afterAspect1 == null && afterAspect2 == null && afterKeyAspect == null,
+      assertTrue(
+          afterAspect1 == null && afterAspect2 == null && afterKeyAspect == null,
           "All aspects should be deleted");
     } else {
       // When not writable, delete should return 0
@@ -415,9 +423,7 @@ public class EbeanAspectDaoTest {
     // Batch get should work
     Map<EntityAspectIdentifier, com.linkedin.metadata.aspect.EntityAspect> batchResult =
         testDao.batchGet(
-            Set.of(new EntityAspectIdentifier(urnString, "status", ASPECT_LATEST_VERSION)),
-            false
-        );
+            Set.of(new EntityAspectIdentifier(urnString, "status", ASPECT_LATEST_VERSION)), false);
     assertEquals(batchResult.size(), 1, "Batch get should work when not writable");
 
     // Count should work
@@ -444,8 +450,7 @@ public class EbeanAspectDaoTest {
         testDao.updateAspect(null, mockAspect);
     assertFalse(updateResult.isPresent(), "Update blocked during migration");
 
-    Optional<EntityAspect> insertResult =
-        testDao.insertAspect(null, mockAspect, 1L);
+    Optional<EntityAspect> insertResult = testDao.insertAspect(null, mockAspect, 1L);
     assertFalse(insertResult.isPresent(), "Insert blocked during migration");
 
     Urn urn = UrnUtils.getUrn("urn:li:corpuser:migration");

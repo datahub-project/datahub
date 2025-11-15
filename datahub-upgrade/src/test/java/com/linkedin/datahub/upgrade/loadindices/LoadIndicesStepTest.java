@@ -13,7 +13,6 @@ import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EbeanTestUtils;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.models.AspectSpec;
@@ -66,9 +65,7 @@ public class LoadIndicesStepTest {
     // Setup test database with some sample data
     setupTestDatabase();
 
-    loadIndicesStep =
-        new LoadIndicesStep(
-            database, mockUpdateIndicesService, mockIndexManager);
+    loadIndicesStep = new LoadIndicesStep(database, mockUpdateIndicesService, mockIndexManager);
 
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
     when(mockUpgradeContext.opContext()).thenReturn(mockOperationContext);

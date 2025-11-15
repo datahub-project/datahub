@@ -60,8 +60,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   private final CqlSession _cqlSession;
   private boolean canWrite = true;
-  @Setter
-  private boolean connectionValidated = false;
+  @Setter private boolean connectionValidated = false;
 
   public CassandraAspectDao(@Nonnull final CqlSession cqlSession) {
     _cqlSession = cqlSession;

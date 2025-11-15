@@ -27,7 +27,8 @@ public class DataHubKafkaEventProducerFactory {
   @Autowired private KafkaHealthChecker kafkaHealthChecker;
 
   @Bean(name = "kafkaEventProducer")
-  protected KafkaEventProducer createInstance(MetricUtils metricUtils, ConfigurationProvider configurationProvider) {
+  protected KafkaEventProducer createInstance(
+      MetricUtils metricUtils, ConfigurationProvider configurationProvider) {
     KafkaEventProducer kafkaEventProducer =
         new KafkaEventProducer(kafkaProducer, topicConvention, kafkaHealthChecker, metricUtils);
     if (configurationProvider.getDatahub().isReadOnly()) {

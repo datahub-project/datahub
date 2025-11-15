@@ -85,20 +85,20 @@ public class KafkaEventProducerTest {
         .thenReturn(mockCallback);
 
     // Setup producer to return a completed future
-    RecordMetadata mockMetadata = new RecordMetadata(new TopicPartition("", 1),
-        0L, 0, 0L, 0, 0);
+    RecordMetadata mockMetadata = new RecordMetadata(new TopicPartition("", 1), 0L, 0, 0L, 0, 0);
     Future<RecordMetadata> mockFuture = CompletableFuture.completedFuture(mockMetadata);
     when(mockProducer.send(any(ProducerRecord.class), any(Callback.class))).thenReturn(mockFuture);
 
     eventProducer =
-        new KafkaEventProducer(mockProducer, mockTopicConvention, mockHealthChecker, mockMetricUtils);
+        new KafkaEventProducer(
+            mockProducer, mockTopicConvention, mockHealthChecker, mockMetricUtils);
   }
 
   @DataProvider(name = "writabilityConfig")
   public Object[][] writabilityConfigProvider() {
     return new Object[][] {
-        {true, "Writable"}, // canWrite = true, description
-        {false, "ReadOnly"} // canWrite = false, description
+      {true, "Writable"}, // canWrite = true, description
+      {false, "ReadOnly"} // canWrite = false, description
     };
   }
 
@@ -207,7 +207,8 @@ public class KafkaEventProducerTest {
     Set<Throwable> throwables = new HashSet<>();
     throwables.add(new RuntimeException("Test error"));
 
-    Future<?> result = eventProducer.produceFailedMetadataChangeProposalAsync(opContext, mcp, throwables);
+    Future<?> result =
+        eventProducer.produceFailedMetadataChangeProposalAsync(opContext, mcp, throwables);
 
     assertNotNull(result);
 
@@ -322,7 +323,6 @@ public class KafkaEventProducerTest {
     mcp1.setEntityUrn(urn);
     mcp1.setEntityType(CORP_USER_ENTITY_NAME);
     mcp1.setChangeType(ChangeType.UPSERT);
-
 
     eventProducer.produceMetadataChangeProposal(urn, mcp1);
     verify(mockProducer, times(1)).send(any(ProducerRecord.class), any(Callback.class));

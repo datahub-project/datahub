@@ -2612,11 +2612,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     RollbackResult result =
         deleteAspectWithoutMCL(
-            opContext,
-            urn.toString(),
-            keyAspectName,
-            Collections.emptyMap(),
-            true);
+            opContext, urn.toString(), keyAspectName, Collections.emptyMap(), true);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
@@ -2624,9 +2620,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       summary.setKeyAspect(true);
       summary.setAspectName(keyAspectName);
       summary.setVersion(0);
-      long aspectTime = result.getOldSystemMetadata() != null
-          && result.getOldSystemMetadata().getAspectCreated() != null ?
-          result.getOldSystemMetadata().getAspectCreated().getTime() : System.currentTimeMillis();
+      long aspectTime =
+          result.getOldSystemMetadata() != null
+                  && result.getOldSystemMetadata().getAspectCreated() != null
+              ? result.getOldSystemMetadata().getAspectCreated().getTime()
+              : System.currentTimeMillis();
       summary.setTimestamp(aspectTime);
 
       rowsDeletedFromEntityDeletion = result.additionalRowsAffected;

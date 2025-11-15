@@ -73,8 +73,9 @@ public class ElasticSearchServiceFactory {
 
   @Bean
   protected ESWriteDAO esWriteDAO(final ConfigurationProvider configurationProvider) {
-    ESWriteDAO esWriteDAO = new ESWriteDAO(
-        components.getConfig(), components.getSearchClient(), components.getBulkProcessor());
+    ESWriteDAO esWriteDAO =
+        new ESWriteDAO(
+            components.getConfig(), components.getSearchClient(), components.getBulkProcessor());
     if (configurationProvider.getDatahub().isReadOnly()) {
       esWriteDAO.setWritable(false);
     }

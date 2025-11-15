@@ -40,7 +40,6 @@ public class CassandraAspectDaoTest {
   private CqlSession mockSession;
   private OperationContext opContext = TestOperationContexts.systemContextNoValidate();
 
-
   @BeforeMethod
   public void setupTest() {
     mockSession = mock(CqlSession.class);
@@ -51,8 +50,8 @@ public class CassandraAspectDaoTest {
   @DataProvider(name = "writabilityConfig")
   public Object[][] writabilityConfigProvider() {
     return new Object[][] {
-        {true, "Writable"}, // canWrite = true, description
-        {false, "ReadOnly"} // canWrite = false, description
+      {true, "Writable"}, // canWrite = true, description
+      {false, "ReadOnly"} // canWrite = false, description
     };
   }
 
@@ -210,8 +209,7 @@ public class CassandraAspectDaoTest {
     when(mockEntityAspect2.getAspect()).thenReturn("status");
     when(mockEntityAspect2.getVersion()).thenReturn(ASPECT_LATEST_VERSION);
 
-    Optional<EntityAspect> result2 =
-        testDao.insertAspect(null, mockAspect2, ASPECT_LATEST_VERSION);
+    Optional<EntityAspect> result2 = testDao.insertAspect(null, mockAspect2, ASPECT_LATEST_VERSION);
     assertFalse(result2.isPresent(), "Insert should fail when not writable");
     // Still only 1 execute call from before
     verify(mockSession, times(1)).execute(any(SimpleStatement.class));
@@ -231,8 +229,7 @@ public class CassandraAspectDaoTest {
     when(mockEntityAspect3.getCreatedFor()).thenReturn(null);
     when(mockEntityAspect3.getCreatedOn()).thenReturn(new Timestamp(System.currentTimeMillis()));
 
-    Optional<EntityAspect> result3 =
-        testDao.insertAspect(null, mockAspect3, ASPECT_LATEST_VERSION);
+    Optional<EntityAspect> result3 = testDao.insertAspect(null, mockAspect3, ASPECT_LATEST_VERSION);
     assertTrue(result3.isPresent(), "Insert should work again after re-enabling write");
     verify(mockSession, times(2)).execute(any(SimpleStatement.class));
   }
@@ -252,8 +249,7 @@ public class CassandraAspectDaoTest {
     when(mockRow.getString(CassandraAspect.SYSTEM_METADATA_COLUMN)).thenReturn(null);
     when(mockRow.getString(CassandraAspect.CREATED_BY_COLUMN)).thenReturn("urn:li:corpuser:test");
     when(mockRow.getString(CassandraAspect.CREATED_FOR_COLUMN)).thenReturn(null);
-    when(mockRow.getLong(CassandraAspect.CREATED_ON_COLUMN))
-        .thenReturn(System.currentTimeMillis());
+    when(mockRow.getLong(CassandraAspect.CREATED_ON_COLUMN)).thenReturn(System.currentTimeMillis());
 
     ResultSet mockResultSet = mock(ResultSet.class);
     when(mockResultSet.one()).thenReturn(mockRow);

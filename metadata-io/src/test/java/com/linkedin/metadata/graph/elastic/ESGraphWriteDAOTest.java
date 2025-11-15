@@ -48,8 +48,8 @@ public class ESGraphWriteDAOTest {
   @DataProvider(name = "writabilityConfig")
   public Object[][] writabilityConfigProvider() {
     return new Object[][] {
-        {true, "Writable"}, // canWrite = true, description
-        {false, "ReadOnly"} // canWrite = false, description
+      {true, "Writable"}, // canWrite = true, description
+      {false, "ReadOnly"} // canWrite = false, description
     };
   }
 
@@ -114,8 +114,7 @@ public class ESGraphWriteDAOTest {
     GraphFilters mockFilters = mock(GraphFilters.class);
     BulkByScrollResponse mockResponse = mock(BulkByScrollResponse.class);
 
-    when(mockBulkProcessor.deleteByQuery(any(), any()))
-        .thenReturn(Optional.of(mockResponse));
+    when(mockBulkProcessor.deleteByQuery(any(), any())).thenReturn(Optional.of(mockResponse));
 
     BulkByScrollResponse result = testDao.deleteByQuery(opContext, mockFilters);
 
@@ -131,16 +130,14 @@ public class ESGraphWriteDAOTest {
   }
 
   @Test(dataProvider = "writabilityConfig")
-  public void testDeleteByQueryWithLifecycleOwnerWritability(
-      boolean canWrite, String description) {
+  public void testDeleteByQueryWithLifecycleOwnerWritability(boolean canWrite, String description) {
     testDao.setWritable(canWrite);
 
     GraphFilters mockFilters = mock(GraphFilters.class);
     String lifecycleOwner = "testOwner";
     BulkByScrollResponse mockResponse = mock(BulkByScrollResponse.class);
 
-    when(mockBulkProcessor.deleteByQuery(any(), any()))
-        .thenReturn(Optional.of(mockResponse));
+    when(mockBulkProcessor.deleteByQuery(any(), any())).thenReturn(Optional.of(mockResponse));
 
     BulkByScrollResponse result = testDao.deleteByQuery(opContext, mockFilters, lifecycleOwner);
 
@@ -330,8 +327,7 @@ public class ESGraphWriteDAOTest {
     GraphFilters mockFilters = mock(GraphFilters.class);
     BulkByScrollResponse mockResponse = mock(BulkByScrollResponse.class);
 
-    when(mockBulkProcessor.deleteByQuery(any(), any()))
-        .thenReturn(Optional.of(mockResponse));
+    when(mockBulkProcessor.deleteByQuery(any(), any())).thenReturn(Optional.of(mockResponse));
 
     BulkByScrollResponse result = testDao.deleteByQuery(opContext, mockFilters);
 

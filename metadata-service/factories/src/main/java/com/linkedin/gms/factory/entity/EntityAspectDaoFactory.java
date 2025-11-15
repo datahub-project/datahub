@@ -24,7 +24,8 @@ public class EntityAspectDaoFactory {
       @Qualifier("ebeanServer") final Database server,
       final ConfigurationProvider configurationProvider,
       final MetricUtils metricUtils) {
-    EbeanAspectDao ebeanAspectDao = new EbeanAspectDao(server, configurationProvider.getEbean(), metricUtils);
+    EbeanAspectDao ebeanAspectDao =
+        new EbeanAspectDao(server, configurationProvider.getEbean(), metricUtils);
     if (configurationProvider.getDatahub().isReadOnly()) {
       ebeanAspectDao.setWritable(false);
     }
@@ -35,8 +36,9 @@ public class EntityAspectDaoFactory {
   @DependsOn({"cassandraSession"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "cassandra")
   @Nonnull
-  protected AspectDao createCassandraInstance(CqlSession session, final ConfigurationProvider configurationProvider) {
-    CassandraAspectDao cassandraAspectDao =  new CassandraAspectDao(session);
+  protected AspectDao createCassandraInstance(
+      CqlSession session, final ConfigurationProvider configurationProvider) {
+    CassandraAspectDao cassandraAspectDao = new CassandraAspectDao(session);
     if (configurationProvider.getDatahub().isReadOnly()) {
       cassandraAspectDao.setWritable(false);
     }
