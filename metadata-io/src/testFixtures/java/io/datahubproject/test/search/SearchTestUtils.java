@@ -155,17 +155,19 @@ public class SearchTestUtils {
           .build();
 
   // Configuration with PIT enabled for search entities (for tests that specifically need PIT)
-  public static ElasticSearchConfiguration TEST_OS_SEARCH_CONFIG_WITH_PIT =
-      BASE_TEST_CONFIG.toBuilder()
-          .search(
-              BASE_TEST_CONFIG.getSearch().toBuilder()
-                  .pointInTimeCreationEnabled(true) // Enable PIT for search entities
-                  .graph(
-                      BASE_TEST_CONFIG.getSearch().getGraph().toBuilder()
-                          .pointInTimeCreationEnabled(true) // Enable graph PIT
-                          .build())
-                  .build())
-          .build();
+  public static ElasticSearchConfiguration getTestOsSearchConfigWithPit(
+      SearchConfiguration searchConfiguration) {
+    return BASE_TEST_CONFIG.toBuilder()
+        .search(
+            searchConfiguration.toBuilder()
+                .pointInTimeCreationEnabled(true) // Enable PIT for search entities
+                .graph(
+                    searchConfiguration.getGraph().toBuilder()
+                        .pointInTimeCreationEnabled(true) // Enable graph PIT
+                        .build())
+                .build())
+        .build();
+  }
 
   public static ElasticSearchConfiguration TEST_ES_SEARCH_CONFIG =
       TEST_OS_SEARCH_CONFIG.toBuilder().build();
