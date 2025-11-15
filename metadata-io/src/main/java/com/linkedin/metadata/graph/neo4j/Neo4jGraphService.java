@@ -73,6 +73,7 @@ public class Neo4jGraphService implements GraphService {
   private final Driver driver;
   private final SessionConfig sessionConfig;
   @Getter private final GraphServiceConfiguration graphServiceConfig;
+  private boolean canWrite = true;
 
   public Neo4jGraphService(
       @Nonnull LineageRegistry lineageRegistry,
@@ -85,6 +86,10 @@ public class Neo4jGraphService implements GraphService {
     this.graphServiceConfig = graphServiceConfig;
   }
 
+  public void setWritable(boolean writable) {
+    canWrite = writable;
+  }
+
   @Override
   public LineageRegistry getLineageRegistry() {
     return lineageRegistry;
@@ -92,6 +97,9 @@ public class Neo4jGraphService implements GraphService {
 
   @Override
   public void addEdge(@Nonnull final Edge edge) {
+    if (!canWrite) {
+      return;
+    }
     log.debug(
         String.format(
             "Adding Edge source: %s, destination: %s, type: %s",
@@ -216,11 +224,17 @@ public class Neo4jGraphService implements GraphService {
 
   @Override
   public void upsertEdge(final Edge edge) {
+    if (!canWrite) {
+      return;
+    }
     addEdge(edge);
   }
 
   @Override
   public void removeEdge(final Edge edge) {
+    if (!canWrite) {
+      return;
+    }
     log.debug(
         String.format(
             "Deleting Edge source: %s, destination: %s, type: %s",
@@ -642,6 +656,9 @@ public class Neo4jGraphService implements GraphService {
   }
 
   public void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
+    if (!canWrite) {
+      return;
+    }
 
     log.debug("Removing Neo4j node with urn: {}", urn);
     final String srcNodeLabel = urn.getEntityType();
@@ -672,6 +689,9 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull final Urn urn,
       @Nonnull final Set<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
+    if (!canWrite) {
+      return;
+    }
 
     log.debug(
         "Removing Neo4j edge types from node with urn: {}, types: {}, filter: {}",
@@ -731,6 +751,9 @@ public class Neo4jGraphService implements GraphService {
   }
 
   public void removeNodesMatchingLabel(@Nonnull String labelPattern) {
+    if (!canWrite) {
+      return;
+    }
     log.debug("Removing Neo4j nodes matching label {}", labelPattern);
     final String matchTemplate =
         "MATCH (n) WHERE any(l IN labels(n) WHERE l=~'%s') DETACH DELETE n";
@@ -743,11 +766,17 @@ public class Neo4jGraphService implements GraphService {
 
   @Override
   public void clear() {
+    if (!canWrite) {
+      return;
+    }
     removeNodesMatchingLabel(".*");
   }
 
   @VisibleForTesting
   public void wipe() {
+    if (!canWrite) {
+      return;
+    }
     runQuery(new Statement("MATCH (n) DETACH DELETE n", Map.of())).consume();
   }
 
@@ -893,20 +922,6 @@ public class Neo4jGraphService implements GraphService {
             joiner.add(toCriterionString(criterion.getField(), criterion.getValues().get(0))));
 
     return joiner.length() <= 2 ? "" : joiner.toString();
-  }
-
-  /** Gets Node based on Urn, if not exist, creates placeholder node. */
-  @Nonnull
-  private Statement getOrInsertNode(@Nonnull Urn urn) {
-    final String nodeType = urn.getEntityType();
-
-    final String mergeTemplate = "MERGE (node:%s {urn: $urn}) RETURN node";
-    final String statement = String.format(mergeTemplate, nodeType);
-
-    final Map<String, Object> params = new HashMap<>();
-    params.put("urn", urn.toString());
-
-    return buildStatement(statement, params);
   }
 
   @Override

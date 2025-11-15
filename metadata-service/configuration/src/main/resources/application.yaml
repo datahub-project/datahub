@@ -115,6 +115,8 @@ datahub:
   serverEnv: ${DATAHUB_SERVER_ENV:core}
   # The base path for the URL where DataHub will be deployed
   basePath: ${DATAHUB_BASE_PATH:}
+  # For special deployment modes intended to point at read replicas. WARNING: THIS WILL DROP WRITE OPERATIONS WITHOUT ERRORS, intended for analytics based deploys to offload work from user serving deploys
+  readOnly: ${DATAHUB_READ_ONLY:false}
 
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}

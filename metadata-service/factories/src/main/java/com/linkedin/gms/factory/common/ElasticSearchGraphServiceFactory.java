@@ -29,10 +29,26 @@ public class ElasticSearchGraphServiceFactory {
   @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
+  @Bean
+  @Nonnull
+  protected ESGraphWriteDAO esGraphWriteDAO(final ConfigurationProvider configurationProvider) {
+    ESGraphWriteDAO esGraphWriteDAO =
+        new ESGraphWriteDAO(
+            components.getIndexConvention(),
+            components.getBulkProcessor(),
+            components.getConfig().getBulkProcessor().getNumRetries(),
+            configurationProvider.getElasticSearch().getSearch().getGraph());
+    if (configurationProvider.getDatahub().isReadOnly()) {
+      esGraphWriteDAO.setWritable(false);
+    }
+
+    return esGraphWriteDAO;
+  }
+
   @Bean(name = "graphService")
   @Nonnull
   protected GraphService getInstance(
-      final ConfigurationProvider configurationProvider,
+      final ESGraphWriteDAO esGraphWriteDAO,
       final EntityRegistry entityRegistry,
       @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
       MetricUtils metricUtils,
@@ -42,11 +58,7 @@ public class ElasticSearchGraphServiceFactory {
         lineageRegistry,
         components.getBulkProcessor(),
         components.getIndexConvention(),
-        new ESGraphWriteDAO(
-            components.getIndexConvention(),
-            components.getBulkProcessor(),
-            components.getConfig().getBulkProcessor().getNumRetries(),
-            configurationProvider.getElasticSearch().getSearch().getGraph()),
+        esGraphWriteDAO,
         esGraphQueryDAO,
         components.getIndexBuilder(),
         idHashAlgo);
