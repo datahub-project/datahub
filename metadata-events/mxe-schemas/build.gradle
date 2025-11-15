@@ -39,4 +39,8 @@ clean {
   delete 'bin'
 }
 
-generateTestDataTemplate.dependsOn spotlessJava
+// This project only contains generated code, so disable Spotless
+tasks.withType(com.diffplug.gradle.spotless.SpotlessTask).configureEach {
+  enabled = false
+}
+
