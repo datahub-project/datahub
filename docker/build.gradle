@@ -26,7 +26,7 @@ ext {
     loadCommonEnvFile = {
         def envFile = System.getenv("DATAHUB_LOCAL_COMMON_ENV")
         def envVars = [:]
-        
+
         if (envFile && new File(envFile).exists()) {
             logger.lifecycle("Loading environment variables from: ${envFile}")
             new File(envFile).eachLine { line ->
@@ -39,14 +39,14 @@ ext {
                 }
             }
         }
-        
+
         // Also load any environment variables that start with DATAHUB_
         System.getenv().each { key, value ->
             if (key.startsWith("DATAHUB_")) {
                 envVars[key] = value
             }
         }
-        
+
         return envVars
     }
 
@@ -539,6 +539,49 @@ tasks.register('quickstartDown') {
           profileFile.delete()
           logger.lifecycle("Deleted profile file: ${profileFile.absolutePath}")
         }
+    }
+}
+
+tasks.register('quickstartLocked') {
+    group = 'quickstart'
+    description = 'Build locked variants and run quickstart (PySpark-free, network-blocked images)'
+
+    // Build locked variants first
+    dependsOn ':datahub-actions:docker'
+    dependsOn ':docker:datahub-ingestion:docker'
+
+    // Then run quickstart
+    finalizedBy 'quickstart'
+
+    doFirst {
+        logger.lifecycle("")
+        logger.lifecycle("=" * 80)
+        logger.lifecycle("Building LOCKED variants (no PySpark, network blocked)...")
+        logger.lifecycle("=" * 80)
+
+        // Set dockerTarget property so the docker tasks build locked variants
+        rootProject.ext.dockerTarget = 'locked'
+        project.project(':datahub-actions').ext.dockerTarget = 'locked'
+        project.project(':docker:datahub-ingestion').ext.dockerTarget = 'locked'
+    }
+
+    doLast {
+        logger.lifecycle("")
+        logger.lifecycle("=" * 80)
+        logger.lifecycle("Locked images built successfully!")
+        logger.lifecycle("=" * 80)
+        logger.lifecycle("")
+        logger.lifecycle("Images:")
+        logger.lifecycle("  - datahub-actions:v${version} (locked variant)")
+        logger.lifecycle("  - datahub-ingestion:v${version} (locked variant)")
+        logger.lifecycle("")
+        logger.lifecycle("Features:")
+        logger.lifecycle("  ✓ No PySpark dependencies")
+        logger.lifecycle("  ✓ Network access to PyPI BLOCKED")
+        logger.lifecycle("  ✓ Only bundled venvs available (actions)")
+        logger.lifecycle("")
+        logger.lifecycle("Quickstart will start with these locked images...")
+        logger.lifecycle("=" * 80)
     }
 }
 

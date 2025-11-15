@@ -28,7 +28,7 @@ ext {
   docker_registry = 'acryldata'
   docker_repo = 'datahub-actions'
   docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
-  
+
   python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
 }
 
@@ -143,11 +143,17 @@ docker {
 
   additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
-  defaultVariant = "slim"
+  defaultVariant = "full"
   variants = [
-    "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]],
-    "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]]
+    "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "false"]],
+    "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]],
+    "locked": [suffix: "-locked", args: [APP_ENV: "locked", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]]
   ]
+
+  // Set build args for non-bake builds based on dockerTarget property
+  def targetVariant = docker_target ?: defaultVariant.get()
+  def variantArgs = variants.get()[targetVariant]?.args ?: variants.get()[defaultVariant.get()].args
+  buildArgs(variantArgs)
 }
 
 build.dependsOn install

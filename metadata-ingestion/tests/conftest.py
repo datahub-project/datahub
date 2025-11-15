@@ -20,6 +20,10 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 # between retries.
 os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
+# Set default Spark version for tests that use PySpark/PyDeequ
+# PyDeequ requires SPARK_VERSION to be set at import time
+os.environ.setdefault("SPARK_VERSION", "3.5")
+
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
 from datahub.testing.pytest_hooks import (  # noqa: F401,E402
