@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs_website=self.webpackChunkdocs_website||[]).push([[2676],{51741:(e,t,s)=>{s.r(t),s.d(t,{default:()=>u});var o=s(96540);function u(){return(0,o.useEffect)((()=>{window.location.href="https://www.datahub.com/adoption-stories"}),[]),null}}}]);

@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs_website=self.webpackChunkdocs_website||[]).push([[1267],{91623:a=>{a.exports=JSON.parse('{"label":"For Data Platform Leads","permalink":"/learn/tags/for-data-platform-leads","allTagsPath":"/learn/tags","count":1}')}}]);
