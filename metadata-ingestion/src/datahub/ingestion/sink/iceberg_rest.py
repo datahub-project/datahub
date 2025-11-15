@@ -108,25 +108,37 @@ class IcebergRestSinkConfig(ConfigModel):
     s3_region: Optional[str] = Field(
         default=None,
         alias="s3.region",
-        description="AWS S3 region",
+        description=(
+            "AWS S3 region. Required when the catalog delegates S3 I/O to the client. "
+            "Not needed when using DataHub catalog with vended credentials (aws_role_arn)."
+        ),
     )
 
     s3_access_key_id: Optional[str] = Field(
         default=None,
         alias="s3.access-key-id",
-        description="AWS S3 access key ID",
+        description=(
+            "AWS S3 access key ID. Required when the catalog delegates S3 I/O to the client. "
+            "Not needed when using DataHub catalog with vended credentials or AWS default credential chain."
+        ),
     )
 
     s3_secret_access_key: Optional[str] = Field(
         default=None,
         alias="s3.secret-access-key",
-        description="AWS S3 secret access key",
+        description=(
+            "AWS S3 secret access key. Required when the catalog delegates S3 I/O to the client. "
+            "Not needed when using DataHub catalog with vended credentials or AWS default credential chain."
+        ),
     )
 
     s3_endpoint: Optional[str] = Field(
         default=None,
         alias="s3.endpoint",
-        description="S3 endpoint URL (for MinIO or custom S3-compatible storage)",
+        description=(
+            "S3 endpoint URL (for MinIO or custom S3-compatible storage). "
+            "Only needed when using S3-compatible storage instead of AWS S3."
+        ),
     )
 
     # Allow additional catalog configuration
