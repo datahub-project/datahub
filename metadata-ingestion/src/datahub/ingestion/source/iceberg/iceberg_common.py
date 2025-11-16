@@ -202,20 +202,23 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
             logger.debug(
                 f"Authenticated as {identity['Arn']}, attempting to assume a role: {role_to_assume}"
             )
-            current_role_name = None
-            if ":assumed-role/" in identity["Arn"]:
-                current_role_name = (
-                    identity["Arn"].split(":assumed-role/")[1].split("/")[0]
-                )
 
-            maybe_target_role_name = role_to_assume.split("/")
-            if len(maybe_target_role_name) < 2:
+            current_role_arn = None
+            try:
+                if ":assumed-role/" in identity["Arn"]:
+                    current_role_arn = (
+                        "/".join(identity["Arn"].split("/")[0:-1])
+                        .replace(":assumed-role/", ":role/")
+                        .replace("arn:aws:sts", "arn:aws:iam")
+                    )
+                    logger.debug(f"Deducted current role: {current_role_arn}")
+            except Exception as e:
                 logger.warning(
-                    f"Expected target role to be proper ARN, it doesn't appear to be so: {role_to_assume}, continuing nonetheless"
+                    "We couldn't convert currently assumed role to 'role' format so that we could compare "
+                    f"it with the target role, will try to assume the target role nonetheless, exception: {e}"
                 )
-            target_role_name = maybe_target_role_name[-1]
 
-            if current_role_name == target_role_name:
+            if current_role_arn == role_to_assume:
                 logger.debug(
                     "Current role and the role we wanted to assume are the same, continuing without further assumption steps"
                 )
