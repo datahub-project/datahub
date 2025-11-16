@@ -253,9 +253,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
 
         # Retrieve the dict associated with the one catalog entry
         catalog_name, catalog_config = next(iter(self.catalog.items()))
-        logger.debug(
-            "Initializing the catalog %s with config: %s", catalog_name, catalog_config
-        )
+        logger.debug("Initializing the catalog %s", catalog_name)
 
         # workaround pyiceberg 0.10.0 issue with ignoring role assumption for glue catalog, remove this code once pyiceberg is fixed
         if catalog_config.get("type") == "glue":
