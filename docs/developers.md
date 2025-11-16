@@ -149,7 +149,7 @@ If you only changed dependencies in one sub-project:
 ./gradlew :project-name:dependencies --write-locks
 ```
 
-However, be aware this only locks configurations that get resolved by the `dependencies` task. For complete coverage, use `resolveAndLockAll` instead.
+Note: This only locks configurations that get resolved by the `dependencies` task. For complete coverage, use `resolveAndLockAll` instead.
 
 #### Common Workflows
 
