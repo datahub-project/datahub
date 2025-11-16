@@ -255,7 +255,8 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         catalog_name, catalog_config = next(iter(self.catalog.items()))
         logger.debug("Initializing the catalog %s", catalog_name)
 
-        # workaround pyiceberg 0.10.0 issue with ignoring role assumption for glue catalog, remove this code once pyiceberg is fixed
+        # workaround pyiceberg 0.10.0 issue with ignoring role assumption for glue catalog,
+        # remove this code once pyiceberg is fixed, raised issue: https://github.com/apache/iceberg-python/issues/2747
         if catalog_config.get("type") == "glue":
             self._custom_glue_catalog_handling(catalog_config)
 
