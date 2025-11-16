@@ -498,6 +498,16 @@ subprojects {
   apply plugin: 'maven-publish'
   apply plugin: 'com.diffplug.spotless'
 
+  // Disable build cache for shadowJar tasks to avoid cache corruption issues
+  // with large artifacts (see: https://github.com/gradle/gradle/issues/13490)
+  afterEvaluate {
+    // Disable cache for all tasks with 'shadowJar' in their name
+    // This covers shadowJar and any dynamically created shadow jar tasks
+    tasks.matching { it.name.contains('shadowJar') || it.name.contains('ShadowJar') }.configureEach {
+      outputs.cacheIf { false }
+    }
+  }
+
   def gitPropertiesTask = tasks.register("copyGitProperties", Copy) {
     dependsOn rootProject.tasks.named("generateGitPropertiesGlobal")
     def sourceFile = file("${rootProject.buildDir}/git.properties")
