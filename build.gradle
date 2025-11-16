@@ -79,6 +79,15 @@ buildscript {
     classpath "com.palantir.gradle.gitversion:gradle-git-version:3.0.0"
     classpath "org.gradle.playframework:gradle-playframework:0.14"
     classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.19.2"
+    // CycloneDX plugin - using buildscript to control dependency resolution
+    classpath "org.cyclonedx:cyclonedx-gradle-plugin:1.4.0"
+  }
+  
+  // Force Jackson version for cyclonedx plugin classpath
+  buildscript.configurations.classpath.resolutionStrategy {
+    force "com.fasterxml.jackson.core:jackson-core:${jacksonVersion}"
+    force "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    force "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
   }
 }
 
@@ -449,6 +458,10 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       force "org.eclipse.jetty:jetty-ee10-servlet:${jettyVersion}"
       force "org.eclipse.jetty:jetty-ee10-webapp:${jettyVersion}"
       force "org.eclipse.jetty:jetty-xml:${jettyVersion}"
+      // Force Jackson 2.18.4 for cyclonedx plugin to resolve dependency conflicts
+      force "com.fasterxml.jackson.core:jackson-core:${jacksonVersion}"
+      force "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+      force "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
     }
   }
 }
@@ -498,6 +511,69 @@ subprojects {
     }
     if (project.name == 'datahub-web-react') {
       return
+    }
+
+    // Apply cyclonedx plugin for SBOM generation
+    // Using class name since we're loading via buildscript classpath
+    apply plugin: org.cyclonedx.gradle.CycloneDxPlugin
+
+    // Force Jackson version for cyclonedx plugin classpath to resolve conflicts
+    configurations.configureEach {
+      if (it.name.contains('cyclonedx') || it.name.contains('classpath')) {
+        resolutionStrategy {
+          force "com.fasterxml.jackson.core:jackson-core:${jacksonVersion}"
+          force "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+          force "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
+        }
+      }
+    }
+
+    // Configure SBOM generation - properties are set on the task in afterEvaluate
+
+    // Attach SBOM to jar artifact
+    afterEvaluate {
+      // The cyclonedx plugin creates the cyclonedxBom task
+      def cyclonedxBomTask = tasks.findByName('cyclonedxBom')
+      def jarTask = tasks.named('jar')
+      
+      if (cyclonedxBomTask) {
+        // Configure the task
+        cyclonedxBomTask.configure {
+          includeConfigs = ['runtimeClasspath', 'compileClasspath']
+          skipConfigs = ['testCompileClasspath', 'testRuntimeClasspath']
+        }
+        
+        // Make jar depend on SBOM generation
+        jarTask.configure {
+          dependsOn cyclonedxBomTask
+        }
+
+        // Copy SBOM to jar output location and attach as artifact
+        def attachSbomTask = tasks.register('attachSbom', Copy) {
+          dependsOn cyclonedxBomTask
+          from cyclonedxBomTask.outputFile
+          into jarTask.map { it.destinationDirectory.get().asFile }
+          rename { fileName ->
+            def jarName = jarTask.map { it.archiveFileName.get() }.get()
+            def baseName = jarName.replaceAll(/\.jar$/, '')
+            "${baseName}-sbom.json"
+          }
+        }
+
+        // Make jar depend on SBOM attachment
+        jarTask.configure {
+          dependsOn attachSbomTask
+        }
+
+        // Also attach SBOM as a separate artifact for publishing
+        artifacts {
+          archives(cyclonedxBomTask.outputFile) {
+            classifier = 'sbom'
+            type = 'json'
+            builtBy cyclonedxBomTask
+          }
+        }
+      }
     }
     /* TODO: evaluate ignoring jar timestamps for increased caching (compares checksum instead)
     jar {
