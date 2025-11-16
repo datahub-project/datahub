@@ -1604,46 +1604,66 @@ def test_ingesting_namespace_properties() -> None:
         )
 
 
-def test_glue_catalog_no_role_assumption() -> None:
-    """Test that when no role ARN is provided, no role assumption occurs."""
-    catalog_config = {
-        "test_glue": {
-            "type": "glue",
-            "s3.region": "us-west-2",
-        }
-    }
-    config = IcebergSourceConfig(catalog=catalog_config)
+class TestGlueCatalogRoleAssumption:
+    """
+    This class tests logic we have to workaround PyIceberg library bug, which causes it to not assume indicated IAM role
+    when connecting to a Glue catalog
+    """
 
-    with (
-        patch("datahub.ingestion.source.iceberg.iceberg_common.boto3") as mock_boto3,
-        patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"),
-    ):
-        config.get_catalog()
+    @pytest.fixture(autouse=True)
+    def mock_load_catalog(self):
+        """
+        get_catalog function, which we are testing in this class, would call load_catalog, which would in turn
+        make a call to boto3.Session, it would bloat our tests, therefore we are mocking it for all of them
+        """
+        with patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"):
+            yield
 
-        # To assume role we first need a boto3 Session object, since we are not getting it, there is guarantee
-        # we are not assuming role neither
-        mock_boto3.Session.assert_not_called()
+    @pytest.fixture
+    def mock_boto3_session(self):
+        """Fixture to mock boto3.Session and return configured mocks.
 
-
-def test_glue_catalog_role_assumption_same_role() -> None:
-    """Test that when current role matches target role, no assumption occurs."""
-    catalog_config = {
-        "test_glue": {
-            "type": "glue",
-            "glue.role-arn": "arn:aws:iam::123456789012:role/MyRole",
-            "s3.region": "us-west-2",
-        }
-    }
-    config = IcebergSourceConfig(catalog=catalog_config)
-
-    with (
-        patch(
+        Returns:
+            tuple: (mock_boto3_session, mock_sts_client) for use in tests
+        """
+        with patch(
             "datahub.ingestion.source.iceberg.iceberg_common.boto3.Session"
-        ) as mock_boto3_session,
-        patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"),
-    ):
-        mock_session_instance = mock_boto3_session.return_value
-        mock_sts = mock_session_instance.client.return_value
+        ) as mock_boto3_session:
+            mock_session_instance = mock_boto3_session.return_value
+            mock_sts = mock_session_instance.client.return_value
+            yield mock_boto3_session, mock_sts
+
+    def test_no_role_assumption(self):
+        """Test that when no role ARN is provided, no role assumption occurs."""
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "s3.region": "us-west-2",
+            }
+        }
+        config = IcebergSourceConfig(catalog=catalog_config)
+
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg_common.boto3"
+        ) as mock_boto3:
+            config.get_catalog()
+
+            # To assume role we first need a boto3 Session object, since we are not getting it, there is guarantee
+            # we are not assuming role neither
+            mock_boto3.Session.assert_not_called()
+
+    def test_same_role_no_assumption(self, mock_boto3_session):
+        """Test that when current role matches target role, no assumption occurs."""
+        mock_session, mock_sts = mock_boto3_session
+
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "glue.role-arn": "arn:aws:iam::123456789012:role/MyRole",
+                "s3.region": "us-west-2",
+            }
+        }
+        config = IcebergSourceConfig(catalog=catalog_config)
 
         mock_sts.get_caller_identity.return_value = {
             "Arn": "arn:aws:sts::123456789012:assumed-role/MyRole/session-name",
@@ -1657,26 +1677,18 @@ def test_glue_catalog_role_assumption_same_role() -> None:
         # Should NOT call assume_role since we're already in the target role
         mock_sts.assume_role.assert_not_called()
 
+    def test_same_role_name_different_account(self, mock_boto3_session):
+        """Test that when current role name matches but account differs, assumption occurs."""
+        mock_session, mock_sts = mock_boto3_session
 
-def test_glue_catalog_role_assumption_same_role_name_different_account() -> None:
-    """Test that when current role matches target role, no assumption occurs."""
-    catalog_config = {
-        "test_glue": {
-            "type": "glue",
-            "glue.role-arn": "arn:aws:iam::123456789012:role/MyRole",
-            "s3.region": "us-west-2",
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "glue.role-arn": "arn:aws:iam::123456789012:role/MyRole",
+                "s3.region": "us-west-2",
+            }
         }
-    }
-    config = IcebergSourceConfig(catalog=catalog_config)
-
-    with (
-        patch(
-            "datahub.ingestion.source.iceberg.iceberg_common.boto3.Session"
-        ) as mock_boto3_session,
-        patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"),
-    ):
-        mock_session_instance = mock_boto3_session.return_value
-        mock_sts = mock_session_instance.client.return_value
+        config = IcebergSourceConfig(catalog=catalog_config)
 
         mock_sts.get_caller_identity.return_value = {
             "Arn": "arn:aws:sts::345678249436:assumed-role/MyRole/session",
@@ -1715,28 +1727,20 @@ def test_glue_catalog_role_assumption_same_role_name_different_account() -> None
         )
         assert updated_config["glue.session-token"] == "FwoGZXIvYXdzEBYaDH..."
 
+    def test_different_role_assumption(self, mock_boto3_session):
+        """Test successful role assumption when current role differs from target."""
+        mock_session, mock_sts = mock_boto3_session
 
-def test_glue_catalog_role_assumption_different_role() -> None:
-    """Test successful role assumption when current role differs from target."""
-    catalog_config = {
-        "test_glue": {
-            "type": "glue",
-            "glue.role-arn": "arn:aws:iam::123456789012:role/TargetRole",
-            "s3.region": "us-west-2",
-            "glue.access-key-id": "AKIAIOSFODNN7EXAMPLE",
-            "glue.secret-access-key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "glue.role-arn": "arn:aws:iam::123456789012:role/TargetRole",
+                "s3.region": "us-west-2",
+                "glue.access-key-id": "AKIAIOSFODNN7EXAMPLE",
+                "glue.secret-access-key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            }
         }
-    }
-    config = IcebergSourceConfig(catalog=catalog_config)
-
-    with (
-        patch(
-            "datahub.ingestion.source.iceberg.iceberg_common.boto3.Session"
-        ) as mock_boto3_session,
-        patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"),
-    ):
-        mock_session_instance = mock_boto3_session.return_value
-        mock_sts = mock_session_instance.client.return_value
+        config = IcebergSourceConfig(catalog=catalog_config)
 
         mock_sts.get_caller_identity.return_value = {
             "Arn": "arn:aws:sts::123456789012:assumed-role/CurrentRole/session",
@@ -1773,26 +1777,18 @@ def test_glue_catalog_role_assumption_different_role() -> None:
         )
         assert updated_config["glue.session-token"] == "FwoGZXIvYXdzEBYaDH..."
 
+    def test_fallback_duration(self, mock_boto3_session):
+        """Test role assumption falls back to default duration on ClientError."""
+        mock_session, mock_sts = mock_boto3_session
 
-def test_glue_catalog_role_assumption_fallback_duration() -> None:
-    """Test role assumption falls back to default duration on ClientError."""
-    catalog_config = {
-        "test_glue": {
-            "type": "glue",
-            "glue.role-arn": "arn:aws:iam::123456789012:role/TargetRole",
-            "s3.region": "us-west-2",
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "glue.role-arn": "arn:aws:iam::123456789012:role/TargetRole",
+                "s3.region": "us-west-2",
+            }
         }
-    }
-    config = IcebergSourceConfig(catalog=catalog_config)
-
-    with (
-        patch(
-            "datahub.ingestion.source.iceberg.iceberg_common.boto3.Session"
-        ) as mock_boto3_session,
-        patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"),
-    ):
-        mock_session_instance = mock_boto3_session.return_value
-        mock_sts = mock_session_instance.client.return_value
+        config = IcebergSourceConfig(catalog=catalog_config)
 
         mock_sts.get_caller_identity.return_value = {
             "Arn": "arn:aws:sts::123456789012:assumed-role/CurrentRole/session",
@@ -1851,26 +1847,20 @@ def test_glue_catalog_role_assumption_fallback_duration() -> None:
             },
         )
 
-
-def test_glue_catalog_role_assumption_with_aws_role_arn_property() -> None:
-    """Test that client.role-arn property is also recognized for role assumption."""
-    catalog_config = {
-        "test_glue": {
-            "type": "glue",
-            "client.role-arn": "arn:aws:iam::123456789012:role/TargetRole",
-            "client.region": "us-west-2",
-        }
-    }
-    config = IcebergSourceConfig(catalog=catalog_config)
-
-    with (
-        patch(
-            "datahub.ingestion.source.iceberg.iceberg_common.boto3.Session"
-        ) as mock_boto3_session,
-        patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"),
+    def test_glue_catalog_role_assumption_with_aws_role_arn_property(
+        self, mock_boto3_session
     ):
-        mock_session_instance = mock_boto3_session.return_value
-        mock_sts = mock_session_instance.client.return_value
+        """Test that client.role-arn property is also recognized for role assumption."""
+        mock_session, mock_sts = mock_boto3_session
+
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "client.role-arn": "arn:aws:iam::123456789012:role/TargetRole",
+                "client.region": "us-west-2",
+            }
+        }
+        config = IcebergSourceConfig(catalog=catalog_config)
 
         mock_sts.get_caller_identity.return_value = {
             "Arn": "arn:aws:sts::123456789012:assumed-role/CurrentRole/session",
@@ -1893,7 +1883,6 @@ def test_glue_catalog_role_assumption_with_aws_role_arn_property() -> None:
 
         config.get_catalog()
 
-        # Should recognize client.role-arn and perform role assumption
         mock_sts.assume_role.assert_called_once()
 
         updated_config = config.catalog["test_glue"]
@@ -1904,28 +1893,21 @@ def test_glue_catalog_role_assumption_with_aws_role_arn_property() -> None:
         )
         assert updated_config["glue.session-token"] == "FwoGZXIvYXdzEBYaDH..."
 
-
-def test_glue_catalog_role_assumption_non_assumed_role_identity() -> None:
-    """Test role assumption when current identity is not an assumed role (e.g., IAM user)."""
-    catalog_config = {
-        "test_glue": {
-            "type": "glue",
-            "glue.role-arn": "arn:aws:iam::123456789012:role/TargetRole",
-            "s3.region": "us-west-2",
-        }
-    }
-    config = IcebergSourceConfig(catalog=catalog_config)
-
-    with (
-        patch(
-            "datahub.ingestion.source.iceberg.iceberg_common.boto3.Session"
-        ) as mock_boto3_session,
-        patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"),
+    def test_glue_catalog_role_assumption_non_assumed_role_identity(
+        self, mock_boto3_session
     ):
-        mock_session_instance = mock_boto3_session.return_value
-        mock_sts = mock_session_instance.client.return_value
+        """Test role assumption when current identity is not an assumed role (e.g., IAM user)."""
+        mock_session, mock_sts = mock_boto3_session
 
-        # Current identity is an IAM user, not an assumed role
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "glue.role-arn": "arn:aws:iam::123456789012:role/TargetRole",
+                "s3.region": "us-west-2",
+            }
+        }
+        config = IcebergSourceConfig(catalog=catalog_config)
+
         mock_sts.get_caller_identity.return_value = {
             "Arn": "arn:aws:iam::123456789012:user/my-user",
             "UserId": "AIDACKCEVSQ6C2EXAMPLE",
@@ -1957,32 +1939,23 @@ def test_glue_catalog_role_assumption_non_assumed_role_identity() -> None:
         )
         assert updated_config["glue.session-token"] == "FwoGZXIvYXdzEBYaDH..."
 
+    def test_glue_catalog_with_all_credential_parameters(self, mock_boto3_session):
+        """Test that all credential parameters are passed correctly to boto3 Session."""
+        mock_session, mock_sts = mock_boto3_session
+        role_to_assume = "arn:aws:iam::123456789012:role/TargetRole"
 
-def test_glue_catalog_with_all_credential_parameters() -> None:
-    """Test that all credential parameters are passed correctly to boto3 Session."""
-    role_to_assume = "arn:aws:iam::123456789012:role/TargetRole"
-
-    catalog_config = {
-        "test_glue": {
-            "type": "glue",
-            "glue.role-arn": role_to_assume,
-            "glue.region": "us-west-2",
-            "glue.profile-name": "my-profile",
-            "glue.access-key-id": "AKIAIOSFODNN7EXAMPLE",
-            "glue.secret-access-key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-            "glue.session-token": "FwoGZXIvYXdzEB...",
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "glue.role-arn": role_to_assume,
+                "glue.region": "us-west-2",
+                "glue.profile-name": "my-profile",
+                "glue.access-key-id": "AKIAIOSFODNN7EXAMPLE",
+                "glue.secret-access-key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                "glue.session-token": "FwoGZXIvYXdzEB...",
+            }
         }
-    }
-    config = IcebergSourceConfig(catalog=catalog_config)
-
-    with (
-        patch(
-            "datahub.ingestion.source.iceberg.iceberg_common.boto3.Session"
-        ) as mock_boto3_session,
-        patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"),
-    ):
-        mock_session_instance = mock_boto3_session.return_value
-        mock_sts = mock_session_instance.client.return_value
+        config = IcebergSourceConfig(catalog=catalog_config)
 
         mock_sts.get_caller_identity.return_value = {
             "Arn": "arn:aws:sts::123456789012:assumed-role/CurrentRole/session",
@@ -2005,7 +1978,7 @@ def test_glue_catalog_with_all_credential_parameters() -> None:
 
         config.get_catalog()
 
-        mock_boto3_session.assert_called_once_with(
+        mock_session.assert_called_once_with(
             profile_name="my-profile",
             region_name="us-west-2",
             botocore_session=None,
