@@ -685,14 +685,18 @@ class BaseConnector:
         self, database_name: str, platform: str
     ) -> List[str]:
         """
-        Discover all tables in a database using SchemaResolver.
+        Discover all tables in a database by querying DataHub.
 
         This method queries DataHub for all tables in the specified database and platform.
         It's used when connectors don't have table.include.list configured, meaning they
         capture ALL tables from the database.
 
+        The method first tries to use cached URNs from SchemaResolver (populated from
+        previous ingestion runs or lineage resolution). If the cache is empty, it queries
+        DataHub's GraphQL API directly using the graph client's get_urns_by_filter() method.
+
         Args:
-            database_name: The database name (e.g., "appdb", "testdb")
+            database_name: The database name (e.g., "mydb", "testdb")
             platform: The platform name (e.g., "postgres", "mysql")
 
         Returns:
@@ -703,18 +707,46 @@ class BaseConnector:
             return []
 
         try:
-            # Get all URNs from schema resolver
+            # First try to get URNs from cache (fast path)
             all_urns = self.schema_resolver.get_urns()
 
+            # If cache is empty, query DataHub directly
             if not all_urns:
-                logger.warning(
-                    f"No cached schemas available in SchemaResolver for platform={platform}. "
-                    f"Make sure you've ingested {platform} datasets into DataHub before running Kafka Connect ingestion."
+                if not self.schema_resolver.graph:
+                    logger.warning(
+                        "Cannot discover tables - no DataHub graph connection available"
+                    )
+                    return []
+
+                logger.info(
+                    f"SchemaResolver cache is empty. Querying DataHub for datasets "
+                    f"with platform={platform}, env={self.schema_resolver.env}"
                 )
-                return []
+
+                # Use graph.get_urns_by_filter() to get all datasets for this platform
+                # This is more efficient than a search query and uses the proper filtering API
+                all_urns = set(
+                    self.schema_resolver.graph.get_urns_by_filter(
+                        entity_types=["dataset"],
+                        platform=platform,
+                        platform_instance=self.schema_resolver.platform_instance,
+                        env=self.schema_resolver.env,
+                    )
+                )
+
+                if not all_urns:
+                    logger.warning(
+                        f"No datasets found in DataHub for platform={platform}, env={self.schema_resolver.env}. "
+                        f"Make sure you've ingested {platform} datasets into DataHub before running Kafka Connect ingestion."
+                    )
+                    return []
+
+                logger.info(
+                    f"Found {len(all_urns)} datasets in DataHub for platform={platform}"
+                )
 
             logger.debug(
-                f"SchemaResolver has {len(all_urns)} cached URNs, filtering for platform={platform}, database={database_name}"
+                f"Processing {len(all_urns)} URNs for platform={platform}, database={database_name}"
             )
 
             discovered_tables = []
@@ -726,12 +758,12 @@ class BaseConnector:
                     continue
 
                 # Filter by platform
-                if f"dataplatform:{platform.lower()}" not in urn.lower():
+                if f"dataPlatform:{platform}" not in urn:
                     continue
 
                 # Filter by database - check if table_name starts with database prefix
                 if database_name:
-                    if table_name.startswith(f"{database_name.lower()}."):
+                    if table_name.lower().startswith(f"{database_name.lower()}."):
                         # Remove database prefix to get "schema.table"
                         schema_table = table_name[len(database_name) + 1 :]
                         discovered_tables.append(schema_table)

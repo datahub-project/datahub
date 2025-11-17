@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Final, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Final, Iterable, List, Optional, Tuple
 
 from sqlalchemy.engine.url import make_url
 
@@ -2168,7 +2168,14 @@ class DebeziumSourceConnector(BaseConnector):
         )
 
     def get_topics_from_config(self) -> List[str]:
-        """Extract expected topics from Debezium connector configuration."""
+        """Extract expected topics from Debezium connector configuration.
+
+        This method orchestrates the process of determining which Kafka topics
+        are produced by a Debezium connector by:
+        1. Discovering tables from database or config
+        2. Applying schema and table filters
+        3. Deriving topic names from filtered tables
+        """
         logger.debug(
             f"DebeziumSourceConnector.get_topics_from_config called for '{self.connector_manifest.name}'"
         )
@@ -2189,155 +2196,30 @@ class DebeziumSourceConnector(BaseConnector):
                 f"database='{database_name}', platform='{source_platform}', server_name='{server_name}'"
             )
 
-            # Step 1: Get all tables from database using SchemaResolver
-            # This gives us the complete set of tables in the database
-            table_names: List[str] = []
+            # Step 1: Get initial set of tables
+            table_names = self._get_table_names_from_config_or_discovery(
+                config, database_name, source_platform
+            )
+            if not table_names:
+                return []
 
-            if not self.schema_resolver or not self.config.use_schema_resolver:
-                # SchemaResolver not available - fall back to table.include.list only
-                table_config = config.get("table.include.list") or config.get(
-                    "table.whitelist"
-                )
-                if not table_config:
-                    logger.info(
-                        f"No table.include.list found and SchemaResolver not available for connector '{self.connector_manifest.name}' - "
-                        f"cannot derive topics from config"
-                    )
+            # Step 2: Apply schema filters (if tables were discovered from database)
+            if (
+                self.schema_resolver
+                and self.config.use_schema_resolver
+                and database_name
+            ):
+                table_names = self._apply_schema_filters(config, table_names)
+                if not table_names:
                     return []
 
-                table_names = parse_comma_separated_list(table_config)
-                logger.debug(
-                    f"Using {len(table_names)} tables from config (SchemaResolver not available): {table_names[:5]}"
-                )
-            else:
-                # SchemaResolver is available - use database.dbname to discover tables
-                if not database_name:
-                    logger.warning(
-                        f"Cannot discover tables for connector '{self.connector_manifest.name}' - "
-                        f"database.dbname not configured"
-                    )
-                    # Fall back to table.include.list if no database name
-                    table_config = config.get("table.include.list") or config.get(
-                        "table.whitelist"
-                    )
-                    if not table_config:
-                        logger.info(
-                            f"No database.dbname and no table.include.list for connector '{self.connector_manifest.name}'"
-                        )
-                        return []
-                    table_names = parse_comma_separated_list(table_config)
-                else:
-                    # Discover all tables from database
-                    logger.info(
-                        f"Discovering tables from database '{database_name}' using SchemaResolver for connector '{self.connector_manifest.name}'"
-                    )
+            # Step 3: Apply table filters
+            table_names = self._apply_table_filters(config, table_names)
+            if not table_names:
+                return []
 
-                    discovered_tables = self._discover_tables_from_database(
-                        database_name, source_platform
-                    )
-
-                    if not discovered_tables:
-                        logger.warning(
-                            f"No tables found in database '{database_name}' from SchemaResolver. "
-                            f"Make sure you've ingested {source_platform} datasets for database '{database_name}' "
-                            f"into DataHub before running Kafka Connect ingestion."
-                        )
-                        return []
-
-                    logger.info(
-                        f"Discovered {len(discovered_tables)} tables from database '{database_name}': "
-                        f"{discovered_tables[:10]}"
-                        + (
-                            f"... ({len(discovered_tables)} total)"
-                            if len(discovered_tables) > 10
-                            else ""
-                        )
-                    )
-
-                    # Step 2: Apply table.include.list filter if it exists
-                    table_config = config.get("table.include.list") or config.get(
-                        "table.whitelist"
-                    )
-
-                    if table_config:
-                        # Parse patterns from config
-                        table_patterns = parse_comma_separated_list(table_config)
-                        logger.info(
-                            f"Applying table.include.list filter with {len(table_patterns)} patterns: {table_patterns}"
-                        )
-
-                        # Filter discovered tables using patterns
-                        table_names = self._filter_tables_by_patterns(
-                            discovered_tables, table_patterns
-                        )
-
-                        logger.info(
-                            f"After include filtering, {len(table_names)} tables match the patterns: "
-                            f"{table_names[:10]}"
-                            + (
-                                f"... ({len(table_names)} total)"
-                                if len(table_names) > 10
-                                else ""
-                            )
-                        )
-
-                        if not table_names:
-                            logger.warning(
-                                f"No tables matched the include patterns for connector '{self.connector_manifest.name}'"
-                            )
-                            return []
-                    else:
-                        # No filter - use all discovered tables
-                        table_names = discovered_tables
-                        logger.info(
-                            f"No table.include.list filter - using all {len(table_names)} discovered tables"
-                        )
-
-                    # Step 3: Apply table.exclude.list filter if it exists
-                    exclude_config = config.get("table.exclude.list") or config.get(
-                        "table.blacklist"
-                    )
-
-                    if exclude_config:
-                        exclude_patterns = parse_comma_separated_list(exclude_config)
-                        logger.info(
-                            f"Applying table.exclude.list filter with {len(exclude_patterns)} patterns: {exclude_patterns}"
-                        )
-
-                        excluded_tables = self._filter_tables_by_patterns(
-                            table_names, exclude_patterns
-                        )
-
-                        table_names = [
-                            t for t in table_names if t not in excluded_tables
-                        ]
-
-                        logger.info(
-                            f"After exclude filtering, {len(table_names)} tables remain: "
-                            f"{table_names[:10]}"
-                            + (
-                                f"... ({len(table_names)} total)"
-                                if len(table_names) > 10
-                                else ""
-                            )
-                        )
-
-                        if not table_names:
-                            logger.warning(
-                                f"All tables were excluded by table.exclude.list for connector '{self.connector_manifest.name}'"
-                            )
-                            return []
-
-            # Step 4: Derive topics from table names
-            # Debezium topics follow pattern: {server_name}.{schema.table}
-            topics = []
-            for table_name in table_names:
-                if server_name:
-                    # Table name already includes schema prefix (e.g., "public.users")
-                    topic_name = f"{server_name}.{table_name}"
-                else:
-                    topic_name = table_name
-                topics.append(topic_name)
+            # Step 4: Derive topics from filtered tables
+            topics = self._derive_topics_from_tables(table_names, server_name)
 
             logger.info(
                 f"Derived {len(topics)} topics from Debezium connector '{self.connector_manifest.name}' config: "
@@ -2350,6 +2232,259 @@ class DebeziumSourceConnector(BaseConnector):
                 exc_info=True,
             )
             return []
+
+    def _get_table_names_from_config_or_discovery(
+        self, config: Dict[str, Any], database_name: Optional[str], source_platform: str
+    ) -> List[str]:
+        """Get table names either from config or by discovering from database.
+
+        Args:
+            config: Connector configuration
+            database_name: Database name from connector config
+            source_platform: Source platform (e.g., "postgres", "mysql")
+
+        Returns:
+            List of table names in "schema.table" format, or empty list if none found
+        """
+        if not self.schema_resolver or not self.config.use_schema_resolver:
+            # SchemaResolver not available - fall back to table.include.list only
+            table_config = config.get("table.include.list") or config.get(
+                "table.whitelist"
+            )
+            if not table_config:
+                logger.info(
+                    f"No table.include.list found and SchemaResolver not available for connector '{self.connector_manifest.name}' - "
+                    f"cannot derive topics from config"
+                )
+                return []
+
+            table_names = parse_comma_separated_list(table_config)
+            logger.debug(
+                f"Using {len(table_names)} tables from config (SchemaResolver not available): {table_names[:5]}"
+            )
+            return table_names
+
+        # SchemaResolver is available - use database.dbname to discover tables
+        if not database_name:
+            logger.warning(
+                f"Cannot discover tables for connector '{self.connector_manifest.name}' - "
+                f"database.dbname not configured"
+            )
+            # Fall back to table.include.list if no database name
+            table_config = config.get("table.include.list") or config.get(
+                "table.whitelist"
+            )
+            if not table_config:
+                logger.info(
+                    f"No database.dbname and no table.include.list for connector '{self.connector_manifest.name}'"
+                )
+                return []
+            return parse_comma_separated_list(table_config)
+
+        # Discover all tables from database
+        logger.info(
+            f"Discovering tables from database '{database_name}' using SchemaResolver for connector '{self.connector_manifest.name}'"
+        )
+
+        discovered_tables = self._discover_tables_from_database(
+            database_name, source_platform
+        )
+
+        if not discovered_tables:
+            logger.warning(
+                f"No tables found in database '{database_name}' from SchemaResolver. "
+                f"Make sure you've ingested {source_platform} datasets for database '{database_name}' "
+                f"into DataHub before running Kafka Connect ingestion."
+            )
+            return []
+
+        logger.info(
+            f"Discovered {len(discovered_tables)} tables from database '{database_name}': "
+            f"{discovered_tables[:10]}"
+            + (
+                f"... ({len(discovered_tables)} total)"
+                if len(discovered_tables) > 10
+                else ""
+            )
+        )
+
+        return discovered_tables
+
+    def _apply_schema_filters(
+        self, config: Dict[str, Any], tables: List[str]
+    ) -> List[str]:
+        """Apply schema.include.list and schema.exclude.list filters to tables.
+
+        Args:
+            config: Connector configuration
+            tables: List of table names in "schema.table" format
+
+        Returns:
+            Filtered list of table names
+        """
+        # Apply schema.include.list filter if it exists
+        schema_include_config = config.get("schema.include.list")
+        if schema_include_config:
+            schema_include_patterns = parse_comma_separated_list(schema_include_config)
+            logger.info(
+                f"Applying schema.include.list filter with {len(schema_include_patterns)} patterns: {schema_include_patterns}"
+            )
+
+            # Filter by schema name (first part of "schema.table")
+            filtered_tables = []
+            for table in tables:
+                # Extract schema name from "schema.table" format
+                if "." in table:
+                    schema_name = table.split(".")[0]
+                    if self._matches_any_pattern(schema_name, schema_include_patterns):
+                        filtered_tables.append(table)
+
+            tables = filtered_tables
+            logger.info(
+                f"After schema.include.list filtering, {len(tables)} tables remain"
+            )
+
+            if not tables:
+                logger.warning(
+                    f"No tables matched schema.include.list patterns for connector '{self.connector_manifest.name}'"
+                )
+                return []
+
+        # Apply schema.exclude.list filter if it exists
+        schema_exclude_config = config.get("schema.exclude.list")
+        if schema_exclude_config:
+            schema_exclude_patterns = parse_comma_separated_list(schema_exclude_config)
+            logger.info(
+                f"Applying schema.exclude.list filter with {len(schema_exclude_patterns)} patterns: {schema_exclude_patterns}"
+            )
+
+            # Filter out tables whose schema matches exclude patterns
+            before_count = len(tables)
+            filtered_tables = []
+            for table in tables:
+                # Extract schema name from "schema.table" format
+                if "." in table:
+                    schema_name = table.split(".")[0]
+                    if not self._matches_any_pattern(
+                        schema_name, schema_exclude_patterns
+                    ):
+                        filtered_tables.append(table)
+                else:
+                    # Keep tables without schema separator
+                    filtered_tables.append(table)
+
+            tables = filtered_tables
+            excluded_count = before_count - len(tables)
+            logger.info(
+                f"After schema.exclude.list filtering, excluded {excluded_count} tables, {len(tables)} tables remain"
+            )
+
+            if not tables:
+                logger.warning(
+                    f"All tables were excluded by schema.exclude.list for connector '{self.connector_manifest.name}'"
+                )
+                return []
+
+        return tables
+
+    def _apply_table_filters(
+        self, config: Dict[str, Any], tables: List[str]
+    ) -> List[str]:
+        """Apply table.include.list and table.exclude.list filters to tables.
+
+        Args:
+            config: Connector configuration
+            tables: List of table names in "schema.table" format
+
+        Returns:
+            Filtered list of table names
+        """
+        # Apply table.include.list filter if it exists
+        table_config = config.get("table.include.list") or config.get("table.whitelist")
+
+        if table_config:
+            # Parse patterns from config
+            table_patterns = parse_comma_separated_list(table_config)
+            logger.info(
+                f"Applying table.include.list filter with {len(table_patterns)} patterns: {table_patterns}"
+            )
+
+            # Filter tables using patterns
+            filtered_tables = self._filter_tables_by_patterns(tables, table_patterns)
+
+            logger.info(
+                f"After include filtering, {len(filtered_tables)} tables match the patterns: "
+                f"{filtered_tables[:10]}"
+                + (
+                    f"... ({len(filtered_tables)} total)"
+                    if len(filtered_tables) > 10
+                    else ""
+                )
+            )
+
+            if not filtered_tables:
+                logger.warning(
+                    f"No tables matched the include patterns for connector '{self.connector_manifest.name}'"
+                )
+                return []
+
+            tables = filtered_tables
+        else:
+            # No filter - use all tables
+            logger.info(
+                f"No table.include.list filter - using all {len(tables)} tables"
+            )
+
+        # Apply table.exclude.list filter if it exists
+        exclude_config = config.get("table.exclude.list") or config.get(
+            "table.blacklist"
+        )
+
+        if exclude_config:
+            exclude_patterns = parse_comma_separated_list(exclude_config)
+            logger.info(
+                f"Applying table.exclude.list filter with {len(exclude_patterns)} patterns: {exclude_patterns}"
+            )
+
+            excluded_tables = self._filter_tables_by_patterns(tables, exclude_patterns)
+
+            tables = [t for t in tables if t not in excluded_tables]
+
+            logger.info(
+                f"After exclude filtering, {len(tables)} tables remain: "
+                f"{tables[:10]}"
+                + (f"... ({len(tables)} total)" if len(tables) > 10 else "")
+            )
+
+            if not tables:
+                logger.warning(
+                    f"All tables were excluded by table.exclude.list for connector '{self.connector_manifest.name}'"
+                )
+                return []
+
+        return tables
+
+    def _derive_topics_from_tables(
+        self, table_names: List[str], server_name: Optional[str]
+    ) -> List[str]:
+        """Derive Kafka topic names from table names.
+
+        Debezium topics follow pattern: {server_name}.{schema.table}
+
+        Args:
+            table_names: List of table names in "schema.table" format
+            server_name: Server name from connector config
+
+        Returns:
+            List of derived topic names
+        """
+        topics = []
+        for table_name in table_names:
+            # Table name already includes schema prefix (e.g., "public.users")
+            topic_name = f"{server_name}.{table_name}" if server_name else table_name
+            topics.append(topic_name)
+
+        return topics
 
     def _filter_tables_by_patterns(
         self, tables: List[str], patterns: List[str]
@@ -2372,6 +2507,20 @@ class DebeziumSourceConnector(BaseConnector):
 
         # Use the matcher's filter_matches method
         return matcher.filter_matches(patterns, tables)
+
+    def _matches_any_pattern(self, text: str, patterns: List[str]) -> bool:
+        """
+        Check if text matches any of the given patterns using the connector's pattern matcher.
+
+        Args:
+            text: Text to check (e.g., schema name like "public")
+            patterns: List of patterns to match against (Java regex for Debezium)
+
+        Returns:
+            True if text matches at least one pattern, False otherwise
+        """
+        matcher = self.get_pattern_matcher()
+        return any(matcher.matches(pattern, text) for pattern in patterns)
 
     def _get_database_name_for_platform(
         self, platform: str, config: Dict[str, str]
