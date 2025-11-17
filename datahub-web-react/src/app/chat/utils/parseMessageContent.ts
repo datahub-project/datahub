@@ -42,9 +42,12 @@ export interface MessagePart {
 export function parseMessageContent(text: string): MessagePart[] {
     const parts: MessagePart[] = [];
 
-    // Uses non-greedy matching ([\s\S]*?) to handle multiple code blocks correctly.
-    // Alternative approaches (split, line-by-line parsing) would be more complex and harder to maintain.
-    // Limitation: doesn't support nested backticks or escaped delimiters, but AI responses don't require this.
+    // Regex-based parsing was chosen because it provides the simplest solution for extracting code blocks
+    // from AI-generated markdown, which follows predictable patterns. Alternative approaches like split()
+    // or line-by-line parsing would require significantly more code and state management.
+    // This pattern uses non-greedy matching so that multiple code blocks in a single message are
+    // correctly identified as separate blocks rather than treating everything between the first
+    // opening ``` and last closing ``` as one giant block.
     const codeBlockRegex = /```(\w+)?[\s\n]*([\s\S]*?)```/g;
     let lastIndex = 0;
     let match = codeBlockRegex.exec(text);
