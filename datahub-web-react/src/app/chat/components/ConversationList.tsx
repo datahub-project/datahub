@@ -1,10 +1,20 @@
-import { Button, Loader, Text, Tooltip, colors } from '@components';
-import { Chat } from '@phosphor-icons/react';
+import { Button, Loader, Text, colors } from '@components';
+import { CaretDown, Chat, ChatsTeardrop } from '@phosphor-icons/react';
 import { message as antMessage } from 'antd';
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import analytics, { EventType } from '@app/analytics';
+import { AskDataHubIcon } from '@app/chat/components/AskDataHubIcon';
+import {
+    NAV_ITEM_HOVER_BOX_SHADOW,
+    NAV_ITEM_HOVER_GRADIENT,
+    NAV_ITEM_SELECTED_BOX_SHADOW,
+    NAV_ITEM_SELECTED_GRADIENT,
+} from '@app/shared/styleUtils';
+import { getTimeFromNow } from '@app/shared/time/timeUtils';
 
 import { useDeleteDataHubAiConversationMutation } from '@graphql/aiChat.generated';
 import { DataHubAiConversation } from '@types';
@@ -18,36 +28,72 @@ const Container = styled.div`
 `;
 
 const Header = styled.div`
-    padding: 16px;
-    border-bottom: 1px solid ${colors.gray[100]};
+    padding: 8px;
+`;
+
+const HeaderItem = styled.div<{ $clickable?: boolean }>`
+    padding: 8px;
+    height: 40px;
+    border-radius: 6px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    cursor: ${(props) => (props.$clickable ? 'pointer' : 'default')};
 `;
 
-const ConversationsList = styled.div`
+const HeaderContent = styled.div<{ $clickable?: boolean }>`
     flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: ${(props) => (props.$clickable === false ? 'default' : 'pointer')};
+`;
+
+const HeaderTitle = styled.div`
+    font-family: Mulish;
+    font-weight: 600;
+    font-size: 14px;
+    color: ${colors.gray[600]};
+    line-height: 20px;
+`;
+
+const ConversationsSection = styled.div`
+    padding: 0px 8px 8px 8px;
+`;
+
+const ConversationsList = styled.div<{ $isCollapsed?: boolean }>`
+    flex: ${(props) => (props.$isCollapsed ? '0' : '1')};
     min-height: 0;
-    overflow-y: auto;
-    padding: 8px;
+    overflow-y: ${(props) => (props.$isCollapsed ? 'hidden' : 'auto')};
+    padding: ${(props) => (props.$isCollapsed ? '0 8px' : '8px 8px 8px 8px')};
+    max-height: ${(props) => (props.$isCollapsed ? '0' : '100%')};
+    opacity: ${(props) => (props.$isCollapsed ? '0' : '1')};
+    transition: all 0.3s ease;
+`;
+
+const CaretIcon = styled(CaretDown)<{ $isCollapsed?: boolean }>`
+    transition: transform 0.2s ease;
+    transform: ${(props) => (props.$isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)')};
 `;
 
 const DeleteButton = styled(Button)``;
 
 const ConversationItem = styled.div<{ selected?: boolean }>`
-    padding: 12px;
+    padding: 8px 0px 8px 8px;
     margin-bottom: 4px;
+    height: 40px;
     border-radius: 6px;
     cursor: pointer;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: background-color 0.2s;
-    background-color: ${(props) => (props.selected ? colors.primary[0] : 'transparent')};
+    transition: all 0.2s;
+    background: ${(props) => (props.selected ? NAV_ITEM_SELECTED_GRADIENT : 'transparent')};
+    box-shadow: ${(props) => (props.selected ? NAV_ITEM_SELECTED_BOX_SHADOW : 'none')};
 
     &:hover {
-        background-color: ${(props) => (props.selected ? colors.primary[0] : colors.gray[100])};
-        opacity: 0.8;
+        background: ${(props) => (props.selected ? NAV_ITEM_SELECTED_GRADIENT : NAV_ITEM_HOVER_GRADIENT)};
+        box-shadow: ${(props) => (props.selected ? NAV_ITEM_SELECTED_BOX_SHADOW : NAV_ITEM_HOVER_BOX_SHADOW)};
     }
 
     /* Hide delete button by default */
@@ -62,26 +108,62 @@ const ConversationItem = styled.div<{ selected?: boolean }>`
     }
 `;
 
-const ConversationContent = styled.div`
-    flex: 1;
+const ActionsContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 0px;
+    margin-left: 4px;
+    max-width: 0;
     overflow: hidden;
+    opacity: 0;
+    transition:
+        max-width 0.2s ease,
+        opacity 0.2s ease;
+
+    ${ConversationItem}:hover & {
+        max-width: 200px;
+        opacity: 1;
+    }
 `;
 
-const ConversationTitle = styled.div`
-    font-weight: 500;
+const ConversationContent = styled.div`
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+`;
+
+const ConversationTitle = styled.div<{ $isSelected?: boolean }>`
+    font-family: Mulish;
+    font-weight: ${(props) => (props.$isSelected ? '700' : '500')};
     font-size: 14px;
-    color: #262626;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 4px;
+    line-height: 20px;
+
+    ${(props) =>
+        props.$isSelected
+            ? `
+        background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor(
+            'primary',
+            500,
+            props.theme,
+        )} 99%);
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    `
+            : `color: ${colors.gray[600]};`}
 `;
 
 const ConversationMeta = styled.div`
+    font-family: Mulish;
     font-size: 12px;
-    color: #8c8c8c;
-    display: flex;
-    gap: 8px;
+    color: ${colors.gray[1800]};
+    line-height: 16px;
+    white-space: nowrap;
 `;
 
 const EmptyState = styled.div`
@@ -121,6 +203,18 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     creatingConversation,
 }) => {
     const [deleteConversation] = useDeleteDataHubAiConversationMutation();
+    const [isConversationsCollapsed, setIsConversationsCollapsed] = useState(false);
+
+    // Sort conversations by most recent activity to show active conversations at the top.
+    // This provides better UX as users typically want to continue recent conversations.
+    // Backend sorts by createdAt, so we re-sort by lastUpdated.time on the frontend.
+    const sortedConversations = useMemo(() => {
+        return [...conversations].sort((a, b) => {
+            const aTime = a.lastUpdated?.time || a.created?.time || 0;
+            const bTime = b.lastUpdated?.time || b.created?.time || 0;
+            return bTime - aTime;
+        });
+    }, [conversations]);
 
     const handleDelete = async (e: React.MouseEvent, conversation: DataHubAiConversation) => {
         e.stopPropagation();
@@ -145,30 +239,14 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         }
     };
 
-    const formatDate = (timestamp: number) => {
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diffInMs = now.getTime() - date.getTime();
-        const diffInHours = diffInMs / (1000 * 60 * 60);
-
-        if (diffInHours < 24) {
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    };
-
-    // Sort conversations by lastUpdated time (most recent first)
-    const sortedConversations = [...conversations].sort((a, b) => {
-        return b.lastUpdated.time - a.lastUpdated.time;
-    });
-
     return (
         <Container>
             <Header>
-                <Text weight="bold" size="lg">
-                    Your Chats
-                </Text>
-                <Tooltip title="Start a new chat" placement="bottom">
+                <HeaderItem $clickable onClick={onCreateConversation}>
+                    <HeaderContent>
+                        <AskDataHubIcon />
+                        <HeaderTitle>Ask DataHub</HeaderTitle>
+                    </HeaderContent>
                     <Button
                         variant="text"
                         icon={{
@@ -176,14 +254,36 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                             source: 'phosphor',
                             size: 'lg',
                         }}
-                        onClick={onCreateConversation}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onCreateConversation();
+                        }}
                         isLoading={creatingConversation}
                         size="sm"
                         style={{ padding: 4 }}
                     />
-                </Tooltip>
+                </HeaderItem>
             </Header>
-            <ConversationsList>
+            <ConversationsSection>
+                <HeaderItem $clickable onClick={() => setIsConversationsCollapsed(!isConversationsCollapsed)}>
+                    <HeaderContent $clickable={false}>
+                        <ChatsTeardrop size={20} weight="regular" color={colors.gray[1800]} />
+                        <HeaderTitle>Recents</HeaderTitle>
+                    </HeaderContent>
+                    <Button
+                        variant="text"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsConversationsCollapsed(!isConversationsCollapsed);
+                        }}
+                        size="sm"
+                        style={{ padding: 4 }}
+                    >
+                        <CaretIcon size={16} $isCollapsed={isConversationsCollapsed} color={colors.gray[1800]} />
+                    </Button>
+                </HeaderItem>
+            </ConversationsSection>
+            <ConversationsList $isCollapsed={isConversationsCollapsed}>
                 {(() => {
                     // Only show loading on initial load (when there's no data yet)
                     // This prevents jitter during refetches
@@ -207,28 +307,33 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                             </EmptyState>
                         );
                     }
-                    return sortedConversations.map((conversation) => (
-                        <ConversationItem
-                            key={conversation.urn}
-                            selected={conversation.urn === selectedConversationUrn}
-                            onClick={() => onSelectConversation(conversation.urn)}
-                        >
-                            <ConversationContent>
-                                <ConversationTitle>{conversation.title || 'New Chat'}</ConversationTitle>
-                                <ConversationMeta>
-                                    <span>{conversation.messageCount || 0} messages</span>
-                                    <span>•</span>
-                                    <span>{formatDate(conversation.lastUpdated.time)}</span>
-                                </ConversationMeta>
-                            </ConversationContent>
-                            <DeleteButton
-                                variant="text"
-                                color="red"
-                                icon={{ icon: 'Trash', source: 'phosphor', size: 'lg' }}
-                                onClick={(e) => handleDelete(e, conversation)}
-                            />
-                        </ConversationItem>
-                    ));
+                    return sortedConversations.map((conversation) => {
+                        const isSelected = conversation.urn === selectedConversationUrn;
+                        return (
+                            <ConversationItem
+                                key={conversation.urn}
+                                selected={isSelected}
+                                onClick={() => onSelectConversation(conversation.urn)}
+                            >
+                                <ConversationContent>
+                                    <ConversationTitle $isSelected={isSelected}>
+                                        {conversation.title || 'New Chat'}
+                                    </ConversationTitle>
+                                </ConversationContent>
+                                <ActionsContainer>
+                                    <ConversationMeta>
+                                        {getTimeFromNow(conversation.lastUpdated?.time || conversation.created?.time)}
+                                    </ConversationMeta>
+                                    <DeleteButton
+                                        variant="text"
+                                        color="red"
+                                        icon={{ icon: 'Trash', source: 'phosphor', size: 'lg' }}
+                                        onClick={(e) => handleDelete(e, conversation)}
+                                    />
+                                </ActionsContainer>
+                            </ConversationItem>
+                        );
+                    });
                 })()}
             </ConversationsList>
         </Container>
