@@ -70,6 +70,7 @@ class DataplexConnectorTester:
             "projects": [],
             "lakes": [],
             "zones": [],
+            "assets": [],
             "entities": [],
             "workunits_generated": 0,
             "errors": [],
@@ -88,6 +89,7 @@ class DataplexConnectorTester:
             ("Project Listing", self.test_projects),
             ("Lake Extraction", self.test_lakes),
             ("Zone Extraction", self.test_zones),
+            ("Asset Extraction", self.test_assets),
             ("Entity Extraction", self.test_entities),
             ("Workunit Generation", self.test_workunit_generation),
         ]
@@ -305,6 +307,95 @@ class DataplexConnectorTester:
             logger.error(f"Zone extraction test failed: {e}")
             return False
 
+    def test_assets(self) -> bool:
+        """Test asset extraction."""
+        if not self.source:
+            logger.error("Source not initialized")
+            return False
+
+        try:
+            total_assets = 0
+            for project_id in self.source.config.project_ids:
+                logger.info(f"\nScanning assets in project: {project_id}")
+
+                parent = (
+                    f"projects/{project_id}/locations/{self.source.config.location}"
+                )
+                lakes_request = self.source.dataplex_client.list_lakes(parent=parent)
+
+                for lake in lakes_request:
+                    lake_id = lake.name.split("/")[-1]
+
+                    if not self.source.config.filter_config.lake_pattern.allowed(
+                        lake_id
+                    ):
+                        continue
+
+                    zones_parent = f"projects/{project_id}/locations/{self.source.config.location}/lakes/{lake_id}"
+                    zones_request = self.source.dataplex_client.list_zones(
+                        parent=zones_parent
+                    )
+
+                    for zone in zones_request:
+                        zone_id = zone.name.split("/")[-1]
+
+                        if not self.source.config.filter_config.zone_pattern.allowed(
+                            zone_id
+                        ):
+                            continue
+
+                        logger.info(f"\n  Lake: {lake_id} / Zone: {zone_id}")
+
+                        assets_parent = f"projects/{project_id}/locations/{self.source.config.location}/lakes/{lake_id}/zones/{zone_id}"
+                        assets_request = self.source.dataplex_client.list_assets(
+                            parent=assets_parent
+                        )
+
+                        for asset in assets_request:
+                            asset_id = asset.display_name
+                            filtered = not self.source.config.filter_config.asset_pattern.allowed(
+                                asset_id
+                            )
+
+                            asset_info = {
+                                "id": asset_id,
+                                "lake_id": lake_id,
+                                "zone_id": zone_id,
+                                "display_name": asset.display_name,
+                                "description": asset.description,
+                                "state": str(asset.state),
+                                "resource_spec": (
+                                    asset.resource_spec.type_.name
+                                    if asset.resource_spec and asset.resource_spec.type_
+                                    else None
+                                ),
+                                "filtered": filtered,
+                            }
+
+                            status = "🚫 FILTERED" if filtered else "✅ INCLUDED"
+                            resource_type = (
+                                asset.resource_spec.type_.name
+                                if asset.resource_spec and asset.resource_spec.type_
+                                else "UNKNOWN"
+                            )
+                            logger.info(
+                                f"    {status} Asset: {asset_id} ({resource_type}) - State: {asset.state}"
+                            )
+                            self.results["assets"].append(asset_info)
+                            total_assets += 1
+
+            logger.info(f"\n✓ Total assets found: {total_assets}")
+            return True
+        except exceptions.PermissionDenied as e:
+            logger.error(f"Permission denied accessing assets: {e}")
+            logger.error(
+                "Make sure your service account has 'dataplex.assets.list' permission"
+            )
+            return False
+        except Exception as e:
+            logger.error(f"Asset extraction test failed: {e}")
+            return False
+
     def test_entities(self) -> bool:
         """Test entity extraction."""
         if not self.source:
@@ -434,6 +525,7 @@ class DataplexConnectorTester:
         logger.info(f"Projects Scanned: {len(self.results['projects'])}")
         logger.info(f"Lakes Found: {len(self.results['lakes'])}")
         logger.info(f"Zones Found: {len(self.results['zones'])}")
+        logger.info(f"Assets Found: {len(self.results['assets'])}")
         logger.info(f"Entities Found: {len(self.results['entities'])}")
         logger.info(f"Workunits Generated: {self.results['workunits_generated']}")
 
