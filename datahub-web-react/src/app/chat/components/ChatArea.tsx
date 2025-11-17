@@ -454,19 +454,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         );
     }
 
-    const truncateTitle = (title: string, maxLength = 40) => {
-        if (title.length <= maxLength) return title;
-        return `${title.substring(0, maxLength)}...`;
-    };
-
-    const displayTitle = truncateTitle(conversation.title || 'New Chat');
-
     return (
         <Container>
             <Header>
                 <HeaderTitle>
                     <Text size="md" weight="bold" style={{ color: colors.gray[600] }}>
-                        {displayTitle}
+                        {conversation.title || 'New Chat'}
                     </Text>
                 </HeaderTitle>
             </Header>
