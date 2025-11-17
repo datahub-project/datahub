@@ -37,11 +37,16 @@ const Header = styled.div`
     align-items: center;
 `;
 
+const HeaderTitle = styled.div`
+    max-width: 100%;
+`;
+
 const ContentWrapper = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    overflow: hidden;
 `;
 
 const MessagesContainer = styled.div`
@@ -452,9 +457,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     return (
         <Container>
             <Header>
-                <Text size="lg" weight="bold">
-                    {conversation.title || 'New Conversation'}
-                </Text>
+                <HeaderTitle>
+                    <Text size="md" weight="bold" style={{ color: colors.gray[600] }}>
+                        {conversation.title || 'New Chat'}
+                    </Text>
+                </HeaderTitle>
             </Header>
             <ContentWrapper>
                 <MessagesContainer>
