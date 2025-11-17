@@ -495,7 +495,9 @@ class DataplexSource(Source):
                                     )
 
                                 if entity_full.system:
-                                    custom_properties["system"] = entity_full.system
+                                    custom_properties["system"] = (
+                                        entity_full.system.name
+                                    )
 
                                 if entity_full.format:
                                     custom_properties["format"] = (
@@ -519,7 +521,10 @@ class DataplexSource(Source):
                                         platform=str(DataPlatformUrn(platform))
                                     ),
                                     SubTypesClass(
-                                        typeNames=["Dataplex Entity", entity_full.type_]
+                                        typeNames=[
+                                            "Dataplex Entity",
+                                            entity_full.type_.name,
+                                        ]
                                     ),
                                 ]
 
