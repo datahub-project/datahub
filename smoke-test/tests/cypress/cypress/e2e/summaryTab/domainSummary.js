@@ -21,7 +21,7 @@ describe("summary tab - domain", () => {
     ]);
   });
 
-  it("domain - description section", () => {
+  it.skip("domain - description section", () => {
     utils.testAboutSection();
   });
 

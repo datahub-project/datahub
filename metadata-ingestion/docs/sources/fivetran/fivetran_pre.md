@@ -27,11 +27,23 @@ Source and destination are mapped to Dataset as an Input and Output of Connector
 
 ## Current limitations
 
-Works only for
+### Supported Destinations
+
+Works only for:
 
 - Snowflake destination
 - Bigquery destination
 - Databricks destination
+
+### Ingestion Limits
+
+To prevent excessive data ingestion, the following limits apply per connector:
+
+- **Sync History**: Maximum of 500 sync runs per connector (controlled by `history_sync_lookback_period`)
+- **Table Lineage**: Maximum of 120 table lineage entries per connector
+- **Column Lineage**: Maximum of 1000 column lineage entries per connector
+
+When these limits are exceeded, only the most recent entries are ingested. Warnings will be logged during ingestion to notify you when truncation occurs.
 
 ## Snowflake destination Configuration Guide
 
@@ -75,6 +87,73 @@ grant role fivetran_datahub to user snowflake_user;
    4. [Ownership documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/ownership.html)
    5. [Privileges documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/privileges.html)
 5. Check the starter recipe below and replace `workspace_url` and `token` with your information from the previous steps.
+
+## Configuration Options
+
+### Fivetran REST API Configuration
+
+The Fivetran REST API configuration is **required** for Google Sheets connectors and optional for other use cases. It provides access to connection details that aren't available in the Platform Connector logs.
+
+To obtain API credentials:
+
+1. Log in to your Fivetran account
+2. Go to **Settings** → **API Config**
+3. Create or use an existing API key and secret
+
+```yaml
+api_config:
+  api_key: "your_api_key"
+  api_secret: "your_api_secret"
+  base_url: "https://api.fivetran.com" # Optional, defaults to this
+  request_timeout_sec: 30 # Optional, defaults to 30 seconds
+```
+
+**Note**: If you're using Google Sheets connectors, you must provide `api_config`. Without it, Google Sheets connectors will be skipped with a warning.
+
+## Google Sheets Connector Support
+
+Google Sheets connectors require special handling because Google Sheets is not yet natively supported as a DataHub source. As a workaround, the Fivetran source creates Dataset entities for Google Sheets and includes them in the lineage.
+
+### Requirements
+
+- **Fivetran REST API configuration** (`api_config`) is required for Google Sheets connectors
+- The API is used to fetch connection details that aren't available in Platform Connector logs
+
+### What Gets Created
+
+For each Google Sheets connector, two Dataset entities are created:
+
+1. **Google Sheet Dataset**: Represents the entire Google Sheet
+
+   - Platform: `google_sheets`
+   - Subtype: `GOOGLE_SHEETS`
+   - Contains the sheet ID extracted from the Google Sheets URL
+
+2. **Named Range Dataset**: Represents the specific named range being synced
+   - Platform: `google_sheets`
+   - Subtype: `GOOGLE_SHEETS_NAMED_RANGE`
+   - Contains the named range identifier
+   - Has upstream lineage to the Google Sheet Dataset
+
+### Limitations
+
+- **Column lineage is disabled** for Google Sheets connectors due to stale metadata issues in the Fivetran Platform Connector (as of October 2025)
+- This is a workaround that will be removed once DataHub natively supports Google Sheets as a source
+- If the Fivetran API is unavailable or the connector details can't be fetched, the connector will be skipped with a warning
+
+### Example Configuration
+
+```yaml
+source:
+  type: fivetran
+  config:
+    # Required for Google Sheets connectors
+    api_config:
+      api_key: "your_api_key"
+      api_secret: "your_api_secret"
+
+    # ... other configuration ...
+```
 
 ## Advanced Configurations
 
