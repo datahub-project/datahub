@@ -12,6 +12,7 @@ import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
+import com.linkedin.datahub.upgrade.system.semanticsearch.CopyDocumentsToSemanticIndices;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -183,5 +185,22 @@ public class NonBlockingConfigs {
   public NonBlockingSystemUpgrade kafkaSetupNonBlocking(
       final ConfigurationProvider configurationProvider, KafkaProperties properties) {
     return new KafkaNonBlockingSetup(opContext, configurationProvider.getKafka(), properties);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade copyDocumentsToSemanticIndices(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final SearchClientShim<?> searchClient,
+      final EntityService<?> entityService,
+      final ConfigurationProvider configurationProvider,
+      final IndexConvention indexConvention,
+      @Value("${systemUpdate.copyDocumentsToSemanticIndex.enabled}") final boolean enabled) {
+    return new CopyDocumentsToSemanticIndices(
+        opContext,
+        searchClient,
+        entityService,
+        configurationProvider.getElasticSearch().getEntityIndex().getSemanticSearch(),
+        indexConvention,
+        enabled);
   }
 }

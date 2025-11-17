@@ -1006,6 +1006,8 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_BATCH_SIZE:1000}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_REPROCESS:false}
+  copyDocumentsToSemanticIndex:
+    enabled: ${SYSTEM_UPDATE_COPY_DOCUMENTS_TO_SEMANTIC_INDEX_ENABLED:false}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
