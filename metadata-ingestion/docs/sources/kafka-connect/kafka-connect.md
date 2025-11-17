@@ -112,12 +112,14 @@ DataHub now provides intelligent topic resolution that works reliably across all
 #### How It Works
 
 **Source Connectors** (Debezium, Snowflake CDC, JDBC):
+
 - Always derive expected topics from connector configuration (`table.include.list`, `database.include.list`)
 - Apply configured transforms (RegexRouter, EventRouter, etc.) to predict final topic names
 - When Kafka API is available: Filter to only topics that exist in Kafka
 - When Kafka API is unavailable (Confluent Cloud): Create lineages for all configured tables without filtering
 
 **Sink Connectors** (S3, Snowflake, BigQuery, JDBC):
+
 - Support both explicit topic lists (`topics` field) and regex patterns (`topics.regex` field)
 - When `topics.regex` is used:
   - Priority 1: Match against `manifest.topic_names` from Kafka API (if available)
@@ -127,6 +129,7 @@ DataHub now provides intelligent topic resolution that works reliably across all
 #### Configuration Examples
 
 **Source Connector with Pattern Expansion:**
+
 ```yml
 # Debezium PostgreSQL source with wildcard tables
 connector.config:
@@ -139,10 +142,11 @@ connector.config:
 ```
 
 **Sink Connector with topics.regex (Confluent Cloud):**
+
 ```yml
 # S3 sink connector consuming from pattern-matched topics
 connector.config:
-  topics.regex: "analytics\\..*"  # Match topics like analytics.users, analytics.orders
+  topics.regex: "analytics\\..*" # Match topics like analytics.users, analytics.orders
   # When Kafka API unavailable, DataHub will:
   # 1. Query DataHub for all Kafka topics (requires use_schema_resolver: true)
   # 2. Match topics against the regex pattern
@@ -150,6 +154,7 @@ connector.config:
 ```
 
 **Enable DataHub Topic Querying for Sink Connectors:**
+
 ```yml
 source:
   type: kafka-connect
@@ -159,10 +164,10 @@ source:
     password: "your-connect-api-secret"
 
     # Enable DataHub schema resolver for topic pattern expansion
-    use_schema_resolver: true  # Required for topics.regex fallback
+    use_schema_resolver: true # Required for topics.regex fallback
 
     # Configure graph connection for DataHub queries
-    datahub_gms_url: "http://localhost:8080"  # Your DataHub GMS endpoint
+    datahub_gms_url: "http://localhost:8080" # Your DataHub GMS endpoint
 ```
 
 #### Key Benefits
@@ -178,15 +183,18 @@ source:
 DataHub will query for topics in these scenarios:
 
 **Source Connectors:**
+
 - When expanding wildcard patterns in `table.include.list` (e.g., `ANALYTICS.PUBLIC.*`)
 - Queries source platform (PostgreSQL, MySQL, etc.) for tables matching the pattern
 
 **Sink Connectors:**
+
 - When `topics.regex` is used AND Kafka API is unavailable (Confluent Cloud)
 - Queries DataHub's Kafka platform for topics matching the regex pattern
 - Requires `use_schema_resolver: true` in configuration
 
 **Important Notes:**
+
 - DataHub never queries "all tables" to create lineages - config is always the source of truth
 - Source connectors query source platforms (databases) to expand table patterns
 - Sink connectors query Kafka platform to expand topic regex patterns
@@ -213,13 +221,13 @@ source:
     use_schema_resolver: true
 
     # Control which features to use (both default to true when schema resolver enabled)
-    schema_resolver_expand_patterns: true        # Expand wildcard patterns
-    schema_resolver_finegrained_lineage: true    # Generate column-level lineage
+    schema_resolver_expand_patterns: true # Expand wildcard patterns
+    schema_resolver_finegrained_lineage: true # Generate column-level lineage
 
     # DataHub connection (required when use_schema_resolver=true)
     datahub_api:
       server: "http://localhost:8080"
-      token: "your-datahub-token"  # Optional
+      token: "your-datahub-token" # Optional
 ```
 
 #### Pattern Expansion
@@ -231,7 +239,7 @@ Converts wildcard patterns in connector configurations into actual table names b
 ```yml
 # Connector config contains pattern
 connector.config:
-  table.include.list: "analytics.user_*"  # Pattern: matches user_events, user_profiles, etc.
+  table.include.list: "analytics.user_*" # Pattern: matches user_events, user_profiles, etc.
 
 # DataHub config
 source:
@@ -239,7 +247,6 @@ source:
   config:
     use_schema_resolver: true
     schema_resolver_expand_patterns: true
-
 # Result: DataHub queries for MySQL tables matching "analytics.user_*"
 # Finds: user_events, user_profiles, user_sessions
 # Creates lineage:
@@ -249,11 +256,13 @@ source:
 ```
 
 **When to use:**
+
 - Connector configs have wildcard patterns (`database.*`, `schema.table_*`)
 - You want accurate lineage without manually listing every table
 - Source metadata exists in DataHub from database ingestion
 
 **When to skip:**
+
 - Connector configs use explicit table lists (no patterns)
 - Source metadata not yet in DataHub
 - Want faster ingestion without DataHub API calls
@@ -265,7 +274,8 @@ source:
   type: kafka-connect
   config:
     use_schema_resolver: true
-    schema_resolver_expand_patterns: true  # Enable pattern expansion
+    schema_resolver_expand_patterns: true # Enable pattern expansion
+
 
     # If you only want column-level lineage but NOT pattern expansion:
     # schema_resolver_expand_patterns: false
@@ -286,7 +296,6 @@ source:
   config:
     use_schema_resolver: true
     schema_resolver_finegrained_lineage: true
-
 # Source table schema in DataHub:
 # postgres.public.users: [user_id, email, created_at, updated_at]
 
@@ -301,11 +310,13 @@ source:
 ```
 
 **Requirements:**
+
 - Source table schema exists in DataHub (from database ingestion)
 - Kafka topic schema exists in DataHub (from schema registry or Kafka ingestion)
 - Column names match between source and target (case-insensitive matching)
 
 **Benefits:**
+
 - **Impact Analysis**: See which fields are affected by schema changes
 - **Data Tracing**: Track specific data elements through pipelines
 - **Schema Understanding**: Visualize how data flows at the field level
@@ -320,7 +331,6 @@ connector.config:
   transforms: "removeFields"
   transforms.removeFields.type: "org.apache.kafka.connect.transforms.ReplaceField$Value"
   transforms.removeFields.exclude: "internal_id,temp_column"
-
 # DataHub behavior:
 # Source schema: [user_id, email, internal_id, temp_column]
 # After transform: [user_id, email]
@@ -334,7 +344,8 @@ source:
   type: kafka-connect
   config:
     use_schema_resolver: true
-    schema_resolver_finegrained_lineage: true  # Enable column-level lineage
+    schema_resolver_finegrained_lineage: true # Enable column-level lineage
+
 
     # If you only want pattern expansion but NOT column-level lineage:
     # schema_resolver_finegrained_lineage: false
@@ -355,8 +366,8 @@ source:
 
     # Enable schema resolver features
     use_schema_resolver: true
-    schema_resolver_expand_patterns: true        # Expand wildcard patterns
-    schema_resolver_finegrained_lineage: true    # Generate column-level lineage
+    schema_resolver_expand_patterns: true # Expand wildcard patterns
+    schema_resolver_finegrained_lineage: true # Generate column-level lineage
 
     # DataHub connection
     datahub_api:
@@ -372,11 +383,13 @@ source:
 #### Performance Impact
 
 **API Calls per Connector:**
+
 - Pattern expansion: 1 GraphQL query per unique wildcard pattern
 - Column-level lineage: 2 GraphQL queries (source schema + target schema)
 - Results cached for ingestion run duration
 
 **Optimization:**
+
 ```yml
 # Minimal configuration - no schema resolver
 source:
@@ -407,14 +420,16 @@ Run database and Kafka schema ingestion before Kafka Connect ingestion to pre-po
 
 #### Troubleshooting
 
-**"Pattern expansion found no matches for: analytics.*"**
+**"Pattern expansion found no matches for: analytics.\*"**
 
 Causes:
+
 - Source database metadata not in DataHub
 - Pattern syntax doesn't match DataHub dataset names
 - Platform instance mismatch
 
 Solutions:
+
 1. Run database ingestion first to populate DataHub
 2. Verify pattern matches table naming in source system
 3. Check `platform_instance_map` matches database ingestion config
@@ -423,23 +438,26 @@ Solutions:
 **"SchemaResolver not available: DataHub graph connection is not available"**
 
 Causes:
+
 - Missing `datahub_api` configuration
 - DataHub GMS not accessible
 
 Solutions:
+
 ```yml
 source:
   type: kafka-connect
   config:
     use_schema_resolver: true
     datahub_api:
-      server: "http://localhost:8080"  # Add DataHub GMS URL
-      token: "your-token"                # Add if authentication enabled
+      server: "http://localhost:8080" # Add DataHub GMS URL
+      token: "your-token" # Add if authentication enabled
 ```
 
 **Column-level lineage not appearing**
 
 Check:
+
 1. Source table schema exists: Search for table in DataHub UI
 2. Kafka topic schema exists: Search for topic in DataHub UI
 3. Column names match (case differences are handled automatically)
@@ -448,10 +466,12 @@ Check:
 **Slow ingestion with schema resolver enabled**
 
 Profile:
+
 - Check logs for "Schema resolver cache hits: X, misses: Y"
 - High misses indicate missing metadata in DataHub
 
 Temporarily disable to compare:
+
 ```yml
 use_schema_resolver: false
 ```

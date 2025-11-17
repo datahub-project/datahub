@@ -1843,7 +1843,8 @@ class SnowflakeSourceConnector(BaseConnector):
         This method always uses table.include.list from config as the source of truth.
         When manifest.topic_names is available (Kafka API accessible), it filters
         lineages to only topics that exist in Kafka. When unavailable (Confluent Cloud,
-        air-gapped), it creates lineages for all configured tables without filtering.
+        air-gapped), it creates lineages for all configured tables without validating
+        that derived topic names actually exist in Kafka.
         """
         parser = self.get_parser(self.connector_manifest)
         lineages: List[KafkaConnectLineage] = []
@@ -1912,8 +1913,9 @@ class SnowflakeSourceConnector(BaseConnector):
 
         if not has_kafka_topics:
             logger.info(
-                f"No Kafka topics available from API for connector '{self.connector_manifest.name}' - "
-                f"creating lineages for all {len(table_names)} configured tables without filtering"
+                f"Kafka topics API not available for connector '{self.connector_manifest.name}' - "
+                f"creating lineages for all {len(table_names)} configured tables without validating "
+                f"that derived topic names actually exist in Kafka"
             )
 
         # Derive expected topics and apply transforms
@@ -2242,7 +2244,8 @@ class DebeziumSourceConnector(BaseConnector):
         This method always uses table.include.list from config as the source of truth.
         When manifest.topic_names is available (Kafka API accessible), it filters
         lineages to only topics that exist in Kafka. When unavailable (Confluent Cloud,
-        air-gapped), it creates lineages for all configured tables without filtering.
+        air-gapped), it creates lineages for all configured tables without validating
+        that derived topic names actually exist in Kafka.
         """
         lineages: List[KafkaConnectLineage] = list()
 
@@ -2306,8 +2309,9 @@ class DebeziumSourceConnector(BaseConnector):
 
             if not has_kafka_topics:
                 logger.info(
-                    f"No Kafka topics available from API for connector '{self.connector_manifest.name}' - "
-                    f"creating lineages for all {len(table_names)} configured tables without filtering"
+                    f"Kafka topics API not available for connector '{self.connector_manifest.name}' - "
+                    f"creating lineages for all {len(table_names)} configured tables without validating "
+                    f"that derived topic names actually exist in Kafka"
                 )
 
             # Handle connectors with 2-level container (database + schema) in topic pattern
