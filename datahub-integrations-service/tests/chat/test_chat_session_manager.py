@@ -37,12 +37,16 @@ def mock_conversation_manager(mock_datahub_client: Mock) -> Mock:
 
 
 def test_create_manager_instance(mock_datahub_client: Mock) -> None:
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
     assert isinstance(manager, ChatSessionManager)
 
 
 def test_create_default_session(mock_datahub_client: Mock) -> None:
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
     session = manager.create_default_session()
     assert session is not None
 
@@ -60,7 +64,9 @@ def test_chat_session_manager_loads_history(mock_datahub_client: Mock) -> None:
             Mock(),
         )
 
-        manager = ChatSessionManager(client=mock_datahub_client)
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
         manager.load_chat_session("urn:li:dataHubAiConversation:test")
         instance.load_conversation_with_metadata.assert_called_once()
 
@@ -75,14 +81,19 @@ def test_chat_session_manager_with_empty_history(mock_datahub_client: Mock) -> N
             ChatHistory(messages=[]),
             Mock(),
         )
-        manager = ChatSessionManager(client=mock_datahub_client)
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
         session = manager.load_chat_session("urn:li:dataHubAiConversation:test")
         assert session is not None
 
 
 def test_chat_session_manager_client_reference(mock_conversation_manager: Mock) -> None:
     """Test that session manager maintains reference to client through conversation client."""
-    manager = ChatSessionManager(client=mock_conversation_manager.client)
+    manager = ChatSessionManager(
+        system_client=mock_conversation_manager.client,
+        tools_client=mock_conversation_manager.client,
+    )
     assert manager.conversation_manager is not None
     assert manager.conversation_manager.client is not None
 
@@ -97,7 +108,9 @@ def test_load_session_handles_any_urn() -> None:
             ChatHistory(messages=[]),
             Mock(),
         )
-        manager = ChatSessionManager(client=mock_client)
+        manager = ChatSessionManager(
+            system_client=mock_client, tools_client=mock_client
+        )
         session = manager.load_chat_session("urn:li:dataHubAiConversation:test")
         assert session is not None
 
@@ -107,12 +120,14 @@ def test_chat_session_manager_uses_composition() -> None:
     # Verify that ChatSessionManager has the expected instance attributes for composition
     mock_client = Mock()
 
-    manager = ChatSessionManager(client=mock_client)
+    manager = ChatSessionManager(system_client=mock_client, tools_client=mock_client)
     assert hasattr(manager, "conversation_manager")
 
 
 def test_add_user_message(mock_datahub_client: Mock) -> None:
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
     session = manager.create_default_session()
     initial = len(session.history.messages)
     manager.add_user_message(session, "hello")
@@ -134,7 +149,9 @@ def test_chat_session_manager_set_progress_callback(mock_datahub_client: Mock) -
         )
         mock_conversation_manager_class.return_value = mock_conversation_manager
 
-        manager = ChatSessionManager(client=mock_datahub_client)
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
         session = manager.create_default_session()
         test_callback = Mock()
         # Ensure _generate_with_progress wires the callback and calls generate_next_message
@@ -150,7 +167,9 @@ def test_chat_session_manager_set_progress_callback(mock_datahub_client: Mock) -
 
 def test_generate_with_progress_without_callback(mock_datahub_client: Mock) -> None:
     """Test that _generate_with_progress works without a progress callback."""
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
     session = manager.create_default_session()
 
     # Mock generate_next_message to return a response
@@ -167,7 +186,9 @@ def test_generate_with_progress_without_callback(mock_datahub_client: Mock) -> N
 
 def test_generate_with_progress_with_callback(mock_datahub_client: Mock) -> None:
     """Test that _generate_with_progress properly wires up progress callback."""
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
     session = manager.create_default_session()
 
     from contextlib import nullcontext
@@ -207,7 +228,9 @@ def test_send_message_loads_existing_session(
         )
         mock_instance.save_message_to_conversation = Mock()
 
-        manager = ChatSessionManager(client=mock_datahub_client)
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
 
         with patch.object(manager, "load_chat_session") as mock_load:
             mock_session = Mock()
@@ -236,7 +259,9 @@ def test_send_message_loads_existing_session(
 
 def test_send_message_yields_progress_updates(mock_datahub_client: Mock) -> None:
     """Test send_message yields progress updates from the callback."""
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
 
     # Capture the progress callback
     captured_callback = None
@@ -290,7 +315,9 @@ def test_send_message_yields_progress_updates(mock_datahub_client: Mock) -> None
 
 def test_send_message_handles_errors_gracefully(mock_datahub_client: Mock) -> None:
     """Test send_message yields error event when generation fails."""
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
 
     def mock_generate_error(session, progress_callback=None):
         raise ValueError("Test error during generation")
@@ -330,7 +357,9 @@ def test_send_message_avoids_duplicate_progress_updates(
     mock_datahub_client: Mock,
 ) -> None:
     """Test that send_message doesn't send duplicate progress updates."""
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
 
     captured_callback = None
 
@@ -397,7 +426,9 @@ def test_send_message_yields_final_assistant_message(
     mock_datahub_client: Mock,
 ) -> None:
     """Test send_message yields the final assistant message."""
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
 
     with patch(
         "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
@@ -477,7 +508,9 @@ def test_load_chat_session_with_different_chat_types(mock_datahub_client: Mock) 
             ChatType.SLACK,
         )
 
-        manager = ChatSessionManager(client=mock_datahub_client)
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
         session = manager.load_chat_session("urn:li:dataHubAiConversation:123")
 
         assert session.chat_type == ChatType.SLACK
@@ -522,7 +555,9 @@ def test_save_message_to_conversation(mock_datahub_client: Mock) -> None:
     mock_graph.get_aspect = Mock(return_value=existing_conversation)
     mock_graph.emit = Mock()
 
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
 
     # Call save_message_to_conversation via conversation_manager
     manager.conversation_manager.save_message_to_conversation(
@@ -575,7 +610,9 @@ def test_save_message_to_conversation_nonexistent_urn(
     mock_graph.get_aspect = Mock(return_value=None)
     mock_graph.emit = Mock()
 
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
 
     # Should not raise, but should log error (error is caught internally)
     manager.conversation_manager.save_message_to_conversation(
@@ -623,7 +660,9 @@ def test_save_message_initializes_empty_messages_list(
     mock_graph.get_aspect = Mock(return_value=existing_conversation)
     mock_graph.emit = Mock()
 
-    manager = ChatSessionManager(client=mock_datahub_client)
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
 
     manager.conversation_manager.save_message_to_conversation(
         conversation_urn="urn:li:dataHubAiConversation:123",
@@ -676,7 +715,9 @@ def test_send_message_saves_messages(
         # Need to set up save_message_to_conversation to do nothing (not raise)
         mock_instance.save_message_to_conversation = Mock()
 
-        manager = ChatSessionManager(client=mock_datahub_client)
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
 
         with patch.object(manager, "_generate_with_progress") as mock_generate:
             mock_generate.return_value = NextMessage(text="AI response", suggestions=[])
@@ -725,7 +766,9 @@ def test_send_message_saves_thinking_messages(
         # Mock save_message_to_conversation
         mock_instance.save_message_to_conversation = Mock()
 
-        manager = ChatSessionManager(client=mock_datahub_client)
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
 
         # Mock _generate_with_progress to return progress updates with THINKING messages
         def mock_generate_with_thinking(session, callback):
@@ -799,7 +842,9 @@ def test_send_message_stops_saving_on_early_exit(
         # Mock save_message_to_conversation
         mock_instance.save_message_to_conversation = Mock()
 
-        manager = ChatSessionManager(client=mock_datahub_client)
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
 
         # Mock _generate_with_progress to return progress updates
         def mock_generate_with_slow_thinking(session, callback):

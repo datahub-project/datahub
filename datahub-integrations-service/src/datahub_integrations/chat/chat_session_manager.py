@@ -47,6 +47,10 @@ class ChatSessionManager:
     """
     Manager/factory for chat sessions and persistence.
 
+    This manager uses two separate DataHub clients:
+    - system_client: Used for conversation persistence (system-level operations)
+    - tools_client: Used for tool execution (user-level permissions)
+
     Clean API:
       - create_default_session()
       - load_chat_session(conversation_urn)
@@ -54,23 +58,34 @@ class ChatSessionManager:
       - send_message(text, user_urn, conversation_urn) - High-level streaming API
     """
 
-    def __init__(self, client: DataHubClient):
-        self.client = client
-        self.conversation_manager = DataHubAiConversationClient(client)
-        logger.info("Initialized ChatSessionManager")
+    def __init__(self, system_client: DataHubClient, tools_client: DataHubClient):
+        self.system_client = system_client
+        self.tools_client = tools_client
+        # Conversation management uses system credentials
+        self.conversation_manager = DataHubAiConversationClient(system_client)
+        logger.info("Initialized ChatSessionManager with system and tools clients")
 
     def create_default_session(
         self, chat_type: ChatType = ChatType.DATAHUB_UI
     ) -> ChatSession:
-        """Create a new chat session with default tools and type."""
-        return ChatSession(tools=[mcp], client=self.client, chat_type=chat_type)
+        """Create a new chat session with default tools and type.
+
+        Uses tools_client for tool execution with user permissions.
+        """
+        return ChatSession(tools=[mcp], client=self.tools_client, chat_type=chat_type)
 
     def load_chat_session(self, conversation_urn: str) -> ChatSession:
-        """Load a chat session from GraphQL using conversation originType and history."""
+        """Load a chat session from GraphQL using conversation originType and history.
+
+        Conversation history is loaded with system_client, but tool execution
+        uses tools_client for user permissions.
+        """
         history, chat_type = self.conversation_manager.load_conversation_with_metadata(
             conversation_urn
         )
-        session = ChatSession(tools=[mcp], client=self.client, chat_type=chat_type)
+        session = ChatSession(
+            tools=[mcp], client=self.tools_client, chat_type=chat_type
+        )
         session.history = history
         return session
 

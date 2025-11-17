@@ -8,7 +8,7 @@ import { DataHubAiConversationMessage, DataHubAiConversationMessageType } from '
 
 const ThinkingContainer = styled.div`
     display: flex;
-    padding: 4px 24px 0px 24px;
+    padding: 4px 0px 0px 0px;
     justify-content: flex-start;
 `;
 

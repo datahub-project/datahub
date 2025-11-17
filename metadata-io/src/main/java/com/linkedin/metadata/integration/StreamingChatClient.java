@@ -1,5 +1,6 @@
 package com.linkedin.metadata.integration;
 
+import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -45,15 +46,11 @@ public class StreamingChatClient {
   private final String chatServiceUrl;
   private final ObjectMapper objectMapper;
   private final ExecutorService executorService;
-  private final String authToken;
 
   public StreamingChatClient(
-      @Nonnull final CloseableHttpClient httpClient,
-      @Nonnull final String chatServiceUrl,
-      @Nonnull final String authToken) {
+      @Nonnull final CloseableHttpClient httpClient, @Nonnull final String chatServiceUrl) {
     this.httpClient = httpClient;
     this.chatServiceUrl = chatServiceUrl;
-    this.authToken = authToken;
     this.objectMapper = new ObjectMapper();
     this.executorService = Executors.newCachedThreadPool();
   }
@@ -78,33 +75,52 @@ public class StreamingChatClient {
   }
 
   /**
-   * Send a streaming chat message and forward SSE events to the callback.
+   * Send a streaming chat message with user authentication and forward SSE events to the callback.
    *
    * <p>The Python service handles message persistence and returns SSE events that are forwarded to
    * the callback with both event name and data preserved.
    *
+   * <p>User authentication is required and forwarded to the Python integrations service in the
+   * Authorization header. The integrations service uses these credentials for all operations
+   * including conversation management and tool calls, ensuring proper authorization throughout.
+   *
    * @param conversationUrn The conversation URN
-   * @param userUrn The user URN
    * @param messageText The message text
+   * @param authentication The user's authentication object containing actor and credentials
    * @param progressCallback Callback that receives SSE events with event name and data
    * @return CompletableFuture that completes when streaming is done
    */
   public CompletableFuture<Void> sendStreamingMessage(
       @Nonnull final String conversationUrn,
-      @Nonnull final String userUrn,
       @Nonnull final String messageText,
+      @Nonnull final Authentication authentication,
       @Nullable final Consumer<SseEvent> progressCallback) {
 
     return CompletableFuture.supplyAsync(
         () -> {
           try {
+            // Extract user URN and credentials from authentication
+            final String userUrn = authentication.getActor().toUrnStr();
+            final String userCredentials = authentication.getCredentials();
+
             // Send the message to the Python service via streaming endpoint
             final HttpPost messageRequest =
                 new HttpPost(chatServiceUrl + STREAMING_MESSAGE_ENDPOINT);
             messageRequest.setHeader("Content-Type", CONTENT_TYPE_JSON);
             messageRequest.setHeader("Accept", ACCEPT_SSE);
             messageRequest.setHeader("Cache-Control", CACHE_CONTROL_NO_CACHE);
-            messageRequest.setHeader(AUTHORIZATION_HEADER, BEARER_PREFIX + authToken);
+
+            // Forward user credentials in Authorization header
+            // User credentials might already have Bearer prefix
+            String authValue =
+                userCredentials.startsWith(BEARER_PREFIX)
+                    ? userCredentials
+                    : BEARER_PREFIX + userCredentials;
+            messageRequest.setHeader(AUTHORIZATION_HEADER, authValue);
+            log.debug(
+                "Forwarding user credentials for chat request to conversation: {}, user: {}",
+                conversationUrn,
+                userUrn);
 
             // Build request body
             final Map<String, String> requestBody = new HashMap<>();

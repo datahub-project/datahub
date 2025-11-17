@@ -36,7 +36,9 @@ class TestLoadChatSession:
         mock_chat_session_class.return_value = mock_chat_session
 
         # Test
-        manager = ChatSessionManager(client=mock_client)
+        manager = ChatSessionManager(
+            system_client=mock_client, tools_client=mock_client
+        )
         result = manager.load_chat_session(
             "urn:li:dataHubAiConversation:test123",
         )
@@ -84,7 +86,9 @@ class TestLoadChatSession:
         mock_chat_session_class.return_value = mock_chat_session
 
         # Test
-        manager = ChatSessionManager(client=mock_client)
+        manager = ChatSessionManager(
+            system_client=mock_client, tools_client=mock_client
+        )
         result = manager.load_chat_session(
             "urn:li:dataHubAiConversation:slack123",
         )
@@ -123,7 +127,9 @@ class TestLoadChatSession:
         mock_chat_session_class.return_value = mock_chat_session
 
         # Test
-        manager = ChatSessionManager(client=mock_client)
+        manager = ChatSessionManager(
+            system_client=mock_client, tools_client=mock_client
+        )
         result = manager.load_chat_session(
             "urn:li:dataHubAiConversation:unknown123",
         )

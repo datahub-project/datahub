@@ -19,7 +19,7 @@ const Container = styled.div`
 
 const Header = styled.div`
     padding: 16px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid ${colors.gray[100]};
     display: flex;
     justify-content: space-between;
     align-items: center;
