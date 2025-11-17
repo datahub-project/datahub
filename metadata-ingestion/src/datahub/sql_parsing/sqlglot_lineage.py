@@ -157,7 +157,7 @@ class DownstreamColumnRef(_ParserBaseModel):
     def _serialize_column_type(
         self, value: Optional[SchemaFieldDataTypeClass]
     ) -> Optional[dict]:
-        """Pydantic v2 replacement for json_encoders={SchemaFieldDataTypeClass: lambda v: v.to_obj()}"""
+        """Pydantic v2 replacement for json_encoders={SchemaFieldDataTypeClass: lambda v: v.to_obj()} in _ParserBaseModel"""
         if value is None:
             return None
         return value.to_obj()
