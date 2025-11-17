@@ -54,6 +54,13 @@ def make_zone_domain_urn(project_id: str, lake_id: str, zone_id: str) -> str:
     return builder.make_domain_urn(f"{project_id}.{lake_id}.{zone_id}")
 
 
+def make_asset_data_product_urn(
+    project_id: str, lake_id: str, zone_id: str, asset_id: str
+) -> str:
+    """Create URN for a assewt as a data product."""
+    return builder.make_data_product_urn(f"{project_id}.{lake_id}.{zone_id}.{asset_id}")
+
+
 def make_entity_dataset_urn(
     entity_id: str, platform: str, project_id: str, env: str
 ) -> str:

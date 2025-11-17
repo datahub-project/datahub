@@ -66,7 +66,7 @@ The connector maps Dataplex resources to DataHub entities as follows:
 
    ```bash
    pip install google-cloud-dataplex>=1.0.0
-   pip install google-cloud-datacatalog-lineage>=1.0.0
+   pip install google-cloud-datacatalog-lineage>=0.3.0
    ```
 
 ## Configuration

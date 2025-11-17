@@ -33,6 +33,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
     determine_entity_platform,
+    make_asset_data_product_urn,
     make_audit_stamp,
     make_entity_dataset_urn,
     make_lake_domain_urn,
@@ -45,8 +46,10 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
+    DataProductPropertiesClass,
     DatasetPropertiesClass,
     DomainPropertiesClass,
+    DomainsClass,
     RecordTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -288,9 +291,101 @@ class DataplexSource(Source):
         self, project_id: str
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Fetch assets from Dataplex and generate corresponding MCPs as Data Products."""
-        logger.info(f"Assets extraction not yet implemented for project {project_id}")
-        return
-        yield
+        parent = f"projects/{project_id}/locations/{self.config.location}"
+        try:
+            with self.report.dataplex_api_timer:
+                lakes_request = dataplex_v1.ListLakesRequest(parent=parent)
+                lakes = self.dataplex_client.list_lakes(request=lakes_request)
+
+            for lake in lakes:
+                lake_id = lake.name.split("/")[-1]
+
+                if not self.config.filter_config.lake_pattern.allowed(lake_id):
+                    continue
+
+                zones_parent = f"projects/{project_id}/locations/{self.config.location}/lakes/{lake_id}"
+                zones_request = dataplex_v1.ListZonesRequest(parent=zones_parent)
+
+                try:
+                    zones = self.dataplex_client.list_zones(request=zones_request)
+
+                    for zone in zones:
+                        zone_id = zone.name.split("/")[-1]
+
+                        if not self.config.filter_config.zone_pattern.allowed(zone_id):
+                            continue
+
+                        # List assets in this zone
+                        assets_parent = f"projects/{project_id}/locations/{self.config.location}/lakes/{lake_id}/zones/{zone_id}"
+                        assets_request = dataplex_v1.ListAssetsRequest(
+                            parent=assets_parent
+                        )
+
+                        try:
+                            assets = self.dataplex_client.list_assets(
+                                request=assets_request
+                            )
+
+                            for asset in assets:
+                                asset_id = asset.display_name
+
+                                if not self.config.filter_config.asset_pattern.allowed(
+                                    asset_id
+                                ):
+                                    logger.debug(
+                                        f"Asset {asset_id} filtered out by pattern"
+                                    )
+                                    self.report.report_asset_scanned(
+                                        asset_id, filtered=True
+                                    )
+                                    continue
+
+                                self.report.report_asset_scanned(asset_id)
+                                logger.info(
+                                    f"Processing asset: {asset_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
+                                )
+
+                                # Generate data product URN
+                                data_product_urn = make_asset_data_product_urn(
+                                    project_id, lake_id, zone_id, asset_id
+                                )
+
+                                # Link to parent zone domain
+                                zone_domain_urn = make_zone_domain_urn(
+                                    project_id, lake_id, zone_id
+                                )
+
+                                yield from MetadataChangeProposalWrapper.construct_many(
+                                    entityUrn=data_product_urn,
+                                    aspects=[
+                                        DataProductPropertiesClass(
+                                            name=asset_id,
+                                            description=asset.description or "",
+                                        ),
+                                        DomainsClass(domains=[zone_domain_urn]),
+                                    ],
+                                )
+
+                        except exceptions.GoogleAPICallError as e:
+                            self.report.report_failure(
+                                title=f"Failed to list assets in zone {zone_id}",
+                                message=f"Error listing assets in project {project_id}, lake {lake_id}, zone {zone_id}",
+                                exc=e,
+                            )
+
+                except exceptions.GoogleAPICallError as e:
+                    self.report.report_failure(
+                        title=f"Failed to list zones in lake {lake_id}",
+                        message=f"Error listing zones for asset extraction in project {project_id}",
+                        exc=e,
+                    )
+
+        except exceptions.GoogleAPICallError as e:
+            self.report.report_failure(
+                title="Failed to list lakes for asset extraction",
+                message=f"Error listing lakes in project {project_id}",
+                exc=e,
+            )
 
     def _get_entities_mcps(
         self, project_id: str
@@ -400,7 +495,9 @@ class DataplexSource(Source):
                                     )
 
                                 if entity_full.system:
-                                    custom_properties["system"] = entity_full.system
+                                    custom_properties["system"] = (
+                                        entity_full.system.name
+                                    )
 
                                 if entity_full.format:
                                     custom_properties["format"] = (
@@ -424,7 +521,10 @@ class DataplexSource(Source):
                                         platform=str(DataPlatformUrn(platform))
                                     ),
                                     SubTypesClass(
-                                        typeNames=["Dataplex Entity", entity_full.type_]
+                                        typeNames=[
+                                            "Dataplex Entity",
+                                            entity_full.type_.name,
+                                        ]
                                     ),
                                 ]
 
