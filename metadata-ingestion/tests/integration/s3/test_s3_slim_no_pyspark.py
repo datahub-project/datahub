@@ -72,10 +72,10 @@ class TestS3SlimNoPySpark:
     @requires_no_pyspark
     def test_s3_source_loads_as_plugin(self):
         """Verify that S3 source is registered and loadable as a plugin."""
-        from datahub.ingestion.api.source import Source
+        from datahub.ingestion.source.source_registry import source_registry
 
-        # Get the source registry (the actual global registry, not an empty one)
-        s3_class = Source.get_class_from_name("s3")
+        # Get the source class from the registry
+        s3_class = source_registry.get("s3")
         assert s3_class is not None
 
         # Verify it's the right class
