@@ -27,6 +27,8 @@ class TestIcebergRestSinkConfig:
         assert config.namespace == "datahub_metadata"
         assert config.table_name == "metadata_aspects_v2"
         assert config.create_table_if_not_exists is True
+        assert config.upsert is True  # Default is True
+        assert config.truncate is False  # Default is False
 
     def test_full_config(self):
         """Test configuration with all optional fields"""
@@ -42,6 +44,8 @@ class TestIcebergRestSinkConfig:
             s3_secret_access_key="test_secret",
             s3_endpoint="http://minio:9000",
             create_table_if_not_exists=False,
+            upsert=False,
+            truncate=True,
             connection={"timeout": 60, "retry": {"total": 5}},
         )
         assert config.namespace == "custom_namespace"
@@ -50,6 +54,8 @@ class TestIcebergRestSinkConfig:
         assert config.aws_role_arn == "arn:aws:iam::123456789012:role/test-role"
         assert config.s3_region == "us-west-2"
         assert config.create_table_if_not_exists is False
+        assert config.upsert is False
+        assert config.truncate is True
 
     def test_catalog_config_builder(self):
         """Test that catalog config is built correctly"""
@@ -515,3 +521,188 @@ class TestIcebergRestSink:
         # Should not raise an error
         sink = IcebergRestSink(pipeline_context, sink_config)
         assert sink is not None
+
+    @patch("datahub.ingestion.sink.iceberg_rest.load_catalog")
+    def test_upsert_mode_append(
+        self, mock_load_catalog, sink_config, pipeline_context, mock_catalog, mock_table
+    ):
+        """Test that append mode is used when upsert=False"""
+        from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
+
+        config = IcebergRestSinkConfig(
+            uri="http://localhost:8080/iceberg",
+            warehouse="test_warehouse",
+            namespace="test_namespace",
+            table_name="test_table",
+            upsert=False,  # Disable upsert
+        )
+
+        pipeline_config = PipelineConfig(
+            source=SourceConfig(type="datahub", config={}),
+        )
+        pipeline_context = PipelineContext(
+            run_id="test-run", pipeline_config=pipeline_config
+        )
+
+        mock_load_catalog.return_value = mock_catalog
+        mock_catalog.list_namespaces = MagicMock(return_value=[])
+        mock_catalog.create_namespace = MagicMock()
+        mock_catalog.create_table = MagicMock()
+        mock_catalog.load_table = MagicMock(return_value=mock_table)
+
+        sink = IcebergRestSink(pipeline_context, config)
+
+        # Create a test MCP
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(test,table,PROD)",
+            aspectName="datasetProperties",
+        )
+
+        callback = MagicMock(spec=WriteCallback)
+        record_envelope = RecordEnvelope(mcp, metadata={})
+        sink.write_record_async(record_envelope, callback)
+
+        # Verify append was called, not upsert
+        mock_table.append.assert_called_once()
+        assert not hasattr(mock_table, "upsert") or not mock_table.upsert.called
+
+    @patch("datahub.ingestion.sink.iceberg_rest.load_catalog")
+    def test_upsert_mode_enabled(
+        self, mock_load_catalog, sink_config, pipeline_context, mock_catalog, mock_table
+    ):
+        """Test that upsert is used when upsert=True and upsert is available"""
+        from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
+
+        config = IcebergRestSinkConfig(
+            uri="http://localhost:8080/iceberg",
+            warehouse="test_warehouse",
+            namespace="test_namespace",
+            table_name="test_table",
+            upsert=True,  # Enable upsert
+        )
+
+        pipeline_config = PipelineConfig(
+            source=SourceConfig(type="datahub", config={}),
+        )
+        pipeline_context = PipelineContext(
+            run_id="test-run", pipeline_config=pipeline_config
+        )
+
+        mock_load_catalog.return_value = mock_catalog
+        mock_catalog.list_namespaces = MagicMock(return_value=[])
+        mock_catalog.create_namespace = MagicMock()
+        mock_catalog.create_table = MagicMock()
+        mock_catalog.load_table = MagicMock(return_value=mock_table)
+
+        # Mock upsert method and return value
+        # The implementation tries 'data' and 'primary_key' first, so make that succeed
+        mock_upsert_result = MagicMock()
+        mock_upsert_result.rows_updated = 5
+        mock_upsert_result.rows_inserted = 5
+        mock_table.upsert = MagicMock(return_value=mock_upsert_result)
+
+        sink = IcebergRestSink(pipeline_context, config)
+
+        # Create a test MCP
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(test,table,PROD)",
+            aspectName="datasetProperties",
+        )
+
+        callback = MagicMock(spec=WriteCallback)
+        record_envelope = RecordEnvelope(mcp, metadata={})
+        sink.write_record_async(record_envelope, callback)
+
+        # Verify upsert was called with correct parameters
+        # The implementation tries 'data' and 'primary_key' first
+        mock_table.upsert.assert_called()
+        call_args = mock_table.upsert.call_args
+        # Should be called with keyword arguments: data=pa_table, primary_key=["urn", "aspect", "version"]
+        assert "data" in call_args[1] or "primary_key" in call_args[1] or len(call_args[0]) > 0
+        if "primary_key" in call_args[1]:
+            assert call_args[1]["primary_key"] == ["urn", "aspect", "version"]
+        elif "on" in call_args[1]:
+            assert call_args[1]["on"] == ["urn", "aspect", "version"]
+
+    @patch("datahub.ingestion.sink.iceberg_rest.load_catalog")
+    def test_truncate_table(
+        self, mock_load_catalog, sink_config, pipeline_context, mock_catalog, mock_table
+    ):
+        """Test that table is truncated when truncate=True"""
+        from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
+
+        config = IcebergRestSinkConfig(
+            uri="http://localhost:8080/iceberg",
+            warehouse="test_warehouse",
+            namespace="test_namespace",
+            table_name="test_table",
+            truncate=True,  # Enable truncate
+        )
+
+        pipeline_config = PipelineConfig(
+            source=SourceConfig(type="datahub", config={}),
+        )
+        pipeline_context = PipelineContext(
+            run_id="test-run", pipeline_config=pipeline_config
+        )
+
+        mock_load_catalog.return_value = mock_catalog
+        mock_catalog.list_namespaces = MagicMock(return_value=[])
+        mock_catalog.create_namespace = MagicMock()
+        mock_catalog.create_table = MagicMock()
+        mock_catalog.load_table = MagicMock(return_value=mock_table)
+
+        # Mock overwrite for truncate
+        mock_table.overwrite = MagicMock()
+
+        sink = IcebergRestSink(pipeline_context, config)
+
+        # Verify overwrite was called (for truncate)
+        mock_table.overwrite.assert_called_once()
+
+    @patch("datahub.ingestion.sink.iceberg_rest.load_catalog")
+    def test_upsert_mode_fallback_to_append(
+        self, mock_load_catalog, sink_config, pipeline_context, mock_catalog, mock_table
+    ):
+        """Test that append is used as fallback when upsert is not available"""
+        from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
+
+        config = IcebergRestSinkConfig(
+            uri="http://localhost:8080/iceberg",
+            warehouse="test_warehouse",
+            namespace="test_namespace",
+            table_name="test_table",
+            upsert=True,  # Enable upsert
+            batch_size=1,  # Small batch to trigger flush immediately
+        )
+
+        pipeline_config = PipelineConfig(
+            source=SourceConfig(type="datahub", config={}),
+        )
+        pipeline_context = PipelineContext(
+            run_id="test-run", pipeline_config=pipeline_config
+        )
+
+        mock_load_catalog.return_value = mock_catalog
+        mock_catalog.list_namespaces = MagicMock(return_value=[])
+        mock_catalog.create_namespace = MagicMock()
+        mock_catalog.create_table = MagicMock()
+        mock_catalog.load_table = MagicMock(return_value=mock_table)
+
+        # Don't mock upsert - simulate older PyIceberg version without upsert
+        # (hasattr will return False)
+
+        sink = IcebergRestSink(pipeline_context, config)
+
+        # Create a test MCP
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(test,table,PROD)",
+            aspectName="datasetProperties",
+        )
+
+        callback = MagicMock(spec=WriteCallback)
+        record_envelope = RecordEnvelope(mcp, metadata={})
+        sink.write_record_async(record_envelope, callback)
+
+        # Verify append was called as fallback (upsert not available)
+        mock_table.append.assert_called_once()

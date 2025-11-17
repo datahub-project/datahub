@@ -52,6 +52,8 @@ The table is partitioned by `entity_type` for efficient querying by entity type 
 | s3.endpoint                  | string  |          |                          | S3 endpoint (for MinIO or custom S3-compatible storage)                     |
 | create_table_if_not_exists   | boolean |          | `true`                   | Create table and namespace if they don't exist                              |
 | verify_warehouse             | boolean |          | `true`                   | Verify warehouse exists before writing (requires pre-created warehouse)     |
+| upsert                       | boolean |          | `true`                   | Use PyIceberg's native upsert operation (requires PyIceberg 0.9.0+) to update existing records based on (urn, aspect, version) primary key. Falls back to append if upsert unavailable |
+| truncate                     | boolean |          | `false`                  | Truncate table before writing (removes all existing data). Use with caution |
 | batch_size                   | integer |          | `10000`                  | Number of records to batch before writing (10k-50k recommended)             |
 | connection.timeout           | integer |          | `120`                    | Connection timeout in seconds                                               |
 | connection.retry.total       | integer |          | `3`                      | Total number of retry attempts                                              |
@@ -239,6 +241,44 @@ sink:
     token: "${DATAHUB_PAT}"
     s3.region: "us-west-2"
 ```
+
+### Example 6: Using Upsert and Truncate Options
+
+Configure upsert and truncate behavior:
+
+```yaml
+source:
+  type: datahub
+  config:
+    database_connection:
+      host_port: "source-postgres:5432"
+      database: "datahub"
+      username: "datahub"
+      password: "${DB_PASSWORD}"
+
+sink:
+  type: iceberg-rest
+  config:
+    uri: "http://localhost:8080/iceberg/"
+    warehouse: "datahub_warehouse"
+    token: "${DATAHUB_PAT}"
+    s3.region: "us-west-2"
+    
+    # Upsert mode (default: true) - updates existing records, prevents duplicates
+    upsert: true
+    
+    # Truncate mode (default: false) - only use for full reloads
+    # WARNING: This will delete all existing data!
+    truncate: false
+```
+
+**Upsert Mode Options:**
+- `upsert: true` (default): Uses PyIceberg's native `upsert()` operation (PyIceberg 0.9.0+) to update existing records based on primary key `(urn, aspect, version)`. Prevents duplicates and is optimized for incremental updates. Falls back to append if upsert unavailable.
+- `upsert: false`: Uses append-only mode. Faster writes but creates duplicate rows when the same (urn, aspect, version) is updated. Use for one-time exports.
+
+**Truncate Option:**
+- `truncate: true`: Removes all existing data before writing. Use only for full reloads or testing.
+- `truncate: false` (default): Preserves existing data.
 
 ## Querying Metadata
 
@@ -485,10 +525,17 @@ datahub ingest -c backup-iceberg-sink.yaml
 - **Storage Format**: Data is stored as Parquet files, providing efficient compression and columnar access.
 - **Catalog Overhead**: REST catalog operations add latency; use connection pooling and retries for reliability.
 - **Memory Usage**: Approximate memory per batch = `batch_size × average_record_size`. Typical DataHub records are 1-10 KB.
+- **Upsert vs Append**: 
+  - **Upsert mode (default: `true`)**: Uses PyIceberg's native `upsert()` operation (PyIceberg 0.9.0+) to update existing records based on primary key `(urn, aspect, version)`. This prevents duplicates and is faster than SQL-based merge operations. Falls back to append mode if upsert is not available.
+  - **Append mode (`upsert: false`)**: Faster writes but creates duplicate rows when the same (urn, aspect, version) is updated. Use for one-time exports or when you can deduplicate in queries.
+  - **Primary Key**: The sink matches on `(urn, aspect, version)` for upsert operations, matching the primary key from the source DataHub table `metadata_aspect_v2` which has `PRIMARY KEY (urn, aspect, version)`.
+- **Truncate**: When enabled, removes all existing data before writing. Use only for full reloads or testing. **Warning**: This will delete all data in the table!
 
 ## Compatibility
 
 - **PyIceberg**: Requires version 0.8.0 or higher
+  - **Upsert support**: Native `upsert()` method requires PyIceberg 0.9.0 or higher
+  - **Fallback**: If upsert is not available, the sink falls back to append mode with a warning
 - **Iceberg REST Catalogs**: Compatible with any REST catalog implementing the Iceberg REST specification
   - DataHub (1.0.0+)
   - Snowflake Polaris

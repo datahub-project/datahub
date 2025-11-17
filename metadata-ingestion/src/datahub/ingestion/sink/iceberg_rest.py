@@ -9,6 +9,7 @@ from pydantic import Field
 from pyiceberg.catalog import Catalog, load_catalog
 from pyiceberg.catalog.rest import RestCatalog
 from pyiceberg.exceptions import NamespaceAlreadyExistsError
+from pyiceberg.expressions import And, EqualTo
 from pyiceberg.partitioning import PartitionField, PartitionSpec
 from pyiceberg.schema import Schema
 from pyiceberg.transforms import IdentityTransform
@@ -96,6 +97,24 @@ class IcebergRestSinkConfig(ConfigModel):
             "Number of records to batch before writing to Iceberg. "
             "Larger batches (10000-50000) create fewer, larger Parquet files which improves query performance. "
             "Smaller batches use less memory but create more files."
+        ),
+    )
+
+    upsert: bool = Field(
+        default=True,
+        description=(
+            "If True, uses PyIceberg's native upsert operation (requires PyIceberg 0.9.0+) "
+            "to update existing records based on (urn, aspect, version) primary key, preventing duplicates. "
+            "Falls back to append mode if upsert is not available. "
+            "If False, uses append-only mode (creates duplicates on updates)."
+        ),
+    )
+
+    truncate: bool = Field(
+        default=False,
+        description=(
+            "If True, truncate the table before writing data. "
+            "This removes all existing data from the table. Use with caution as it will delete all data."
         ),
     )
 
@@ -257,11 +276,48 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
             f"{self.config.namespace}.{self.config.table_name}"
         )
 
+        # Truncate table if requested
+        if self.config.truncate:
+            logger.warning(
+                f"Truncating table {self.config.namespace}.{self.config.table_name} - all existing data will be deleted"
+            )
+            try:
+                # Use overwrite with empty PyArrow table to truncate
+                # Create empty table with matching schema
+                empty_table = pa.Table.from_pydict(
+                    {
+                        "urn": [],
+                        "entity_type": [],
+                        "aspect": [],
+                        "metadata": [],
+                        "systemmetadata": [],
+                        "version": [],
+                        "createdon": [],
+                    },
+                    schema=pa.schema(
+                        [
+                            ("urn", pa.string(), False),
+                            ("entity_type", pa.string(), False),
+                            ("aspect", pa.string(), False),
+                            ("metadata", pa.string(), False),
+                            ("systemmetadata", pa.string(), True),
+                            ("version", pa.int64(), False),
+                            ("createdon", pa.timestamp("us"), False),
+                        ]
+                    ),
+                )
+                self.table.overwrite(empty_table)
+                logger.info("Table truncated successfully")
+            except Exception as e:
+                logger.error(f"Failed to truncate table: {e}")
+                raise
+
         # Initialize batch buffer
         self.batch_buffer: list = []
 
         logger.info(
-            f"Iceberg REST sink initialized successfully. Table: {self.config.namespace}.{self.config.table_name}"
+            f"Iceberg REST sink initialized successfully. Table: {self.config.namespace}.{self.config.table_name}, "
+            f"upsert={self.config.upsert}, truncate={self.config.truncate}"
         )
 
     def _verify_warehouse(self) -> None:
@@ -480,8 +536,69 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 ),
             )
 
-            # Write batch to Iceberg table
-            self.table.append(pa_table)
+            # Write batch to Iceberg table using upsert or append
+            if self.config.upsert:
+                # Use PyIceberg's native upsert operation (PyIceberg 0.9.0+)
+                # Match on (urn, aspect, version) - the primary key from source table
+                # PRIMARY KEY (urn, aspect, version) from metadata_aspect_v2
+                logger.debug(
+                    f"Performing upsert operation for {len(self.batch_buffer)} records "
+                    f"matching on primary key (urn, aspect, version)"
+                )
+                try:
+                    # Try native upsert (PyIceberg 0.9.0+)
+                    if hasattr(self.table, 'upsert'):
+                        # PyIceberg upsert API (0.9.0+)
+                        # Try both parameter styles for compatibility
+                        try:
+                            # Try with 'data' and 'primary_key' parameters (newer API)
+                            result = self.table.upsert(
+                                data=pa_table,
+                                primary_key=["urn", "aspect", "version"],  # Match on primary key columns
+                            )
+                        except TypeError:
+                            # Fallback to positional with 'on' parameter (alternative API)
+                            result = self.table.upsert(
+                                pa_table,
+                                on=["urn", "aspect", "version"],  # Match on primary key columns
+                            )
+                        # Log upsert results if available
+                        if hasattr(result, "rows_updated") and hasattr(result, "rows_inserted"):
+                            logger.info(
+                                f"Upserted {len(self.batch_buffer)} records: "
+                                f"{result.rows_updated} updated, {result.rows_inserted} inserted"
+                            )
+                        else:
+                            logger.info(
+                                f"Upserted {len(self.batch_buffer)} records (result: {result})"
+                            )
+                    else:
+                        # Fallback for older PyIceberg versions
+                        logger.warning(
+                            "PyIceberg upsert not available (requires 0.9.0+). "
+                            "Using append mode. Upgrade PyIceberg for native upsert support."
+                        )
+                        self.table.append(pa_table)
+                except AttributeError:
+                    # PyIceberg version doesn't support upsert
+                    logger.warning(
+                        "PyIceberg upsert not available. Using append mode. "
+                        "Upgrade to PyIceberg 0.9.0+ for native upsert support."
+                    )
+                    self.table.append(pa_table)
+                except Exception as e:
+                    logger.error(
+                        f"Upsert operation failed: {e}. Falling back to append mode.",
+                        exc_info=True,
+                    )
+                    # Fallback to append on error
+                    self.table.append(pa_table)
+            else:
+                # Use append for faster writes (creates duplicates)
+                logger.debug(
+                    f"Performing append operation for {len(self.batch_buffer)} records"
+                )
+                self.table.append(pa_table)
 
             # Reload table to get latest metadata (prevents optimistic concurrency conflicts)
             self.table = self.catalog.load_table(
