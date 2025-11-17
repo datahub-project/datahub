@@ -1,4 +1,4 @@
-import { Button, Loader, Text, colors } from '@components';
+import { Loader, Text, colors } from '@components';
 import { ChatCircle } from '@phosphor-icons/react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
@@ -42,6 +42,14 @@ const HeaderTitle = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+`;
+
+const ContentWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 `;
 
 const MessagesContainer = styled.div`

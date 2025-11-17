@@ -5,19 +5,11 @@ import styled from 'styled-components';
 const SuggestionsContainer = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-top: 16px;
-    margin-left: 4px;
+    gap: 4px;
+    margin-top: 24px;
     justify-content: start;
-    align-items: start;
+    align-items: center;
     width: 100%;
-`;
-
-const SuggestionsLabel = styled.div`
-    font-size: 13px;
-    font-weight: 500;
-    color: #8c8c8c;
-    margin-bottom: 4px;
 `;
 
 const PillsWrapper = styled.div`
@@ -34,20 +26,19 @@ interface SuggestedQuestionsProps {
 const DEFAULT_QUESTIONS = [
     'Show the most highly used tables',
     'Find reports related to sales',
-    'Help me build a new dashboard...',
+    'Help me build a new dashboard',
 ];
 
 export const SuggestedQuestions: React.FC<SuggestedQuestionsProps> = ({ onQuestionSelect }) => {
     return (
         <SuggestionsContainer>
-            <SuggestionsLabel>Suggested</SuggestionsLabel>
             <PillsWrapper>
                 {DEFAULT_QUESTIONS.map((question) => (
                     <Pill
                         key={question}
                         label={question}
-                        variant="outline"
-                        color="gray"
+                        variant="filled"
+                        color="violet"
                         clickable
                         onPillClick={() => onQuestionSelect(question)}
                     />
