@@ -6,6 +6,10 @@ The Iceberg REST sink allows you to write DataHub metadata to an Apache Iceberg 
 - Integrate DataHub metadata with your existing Iceberg-based analytics infrastructure
 - Query metadata using Spark, DuckDB, or other Iceberg-compatible engines
 
+## Important: Source Compatibility
+
+**This sink is only compatible with the `datahub` source.** It is designed to replicate DataHub's internal metadata structure and requires metadata in the exact format produced by the DataHub source. Using this sink with other sources will result in an error during initialization.
+
 ## Installation
 
 To use the Iceberg REST sink, install the `iceberg-rest-sink` extra:

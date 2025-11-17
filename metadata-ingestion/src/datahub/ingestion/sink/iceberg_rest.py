@@ -195,6 +195,21 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
     """Sink that writes DataHub metadata to an Iceberg REST Catalog"""
 
     def __post_init__(self) -> None:
+        # Validate that this sink is only used with the datahub source
+        if (
+            self.ctx.pipeline_config
+            and hasattr(self.ctx.pipeline_config, "source")
+            and self.ctx.pipeline_config.source is not None
+        ):
+            source_type = getattr(self.ctx.pipeline_config.source, "type", None)
+            if source_type is not None and source_type != "datahub":
+                raise ValueError(
+                    f"The iceberg-rest sink is only compatible with the 'datahub' source. "
+                    f"Current source type: '{source_type}'. "
+                    f"This sink is designed to replicate DataHub's internal metadata structure "
+                    f"and requires metadata in the format produced by the datahub source."
+                )
+
         logger.info(f"Initializing Iceberg REST sink with URI: {self.config.uri}")
 
         # Initialize catalog

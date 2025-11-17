@@ -126,8 +126,13 @@ class TestIcebergRestSink:
 
     @pytest.fixture
     def pipeline_context(self):
-        """Create a pipeline context"""
-        return PipelineContext(run_id="test-run")
+        """Create a pipeline context with datahub source"""
+        from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
+
+        pipeline_config = PipelineConfig(
+            source=SourceConfig(type="datahub", config={}),
+        )
+        return PipelineContext(run_id="test-run", pipeline_config=pipeline_config)
 
     @patch("datahub.ingestion.sink.iceberg_rest.load_catalog")
     def test_sink_initialization(
@@ -462,3 +467,51 @@ class TestIcebergRestSink:
                 f"Expected entity_type '{expected_entity_type}' for URN '{urn}', "
                 f"got '{record_data['entity_type']}'"
             )
+
+    @patch("datahub.ingestion.sink.iceberg_rest.load_catalog")
+    def test_sink_requires_datahub_source(
+        self, mock_load_catalog, sink_config, mock_catalog
+    ):
+        """Test that sink raises error when used with non-datahub source"""
+        from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
+
+        # Test with different source types
+        invalid_sources = ["snowflake", "bigquery", "mysql", "postgres"]
+
+        for source_type in invalid_sources:
+            pipeline_config = PipelineConfig(
+                source=SourceConfig(type=source_type, config={}),
+            )
+            pipeline_context = PipelineContext(
+                run_id="test-run", pipeline_config=pipeline_config
+            )
+
+            with pytest.raises(ValueError) as exc_info:
+                IcebergRestSink(pipeline_context, sink_config)
+
+            assert "only compatible with the 'datahub' source" in str(exc_info.value)
+            assert source_type in str(exc_info.value)
+
+    @patch("datahub.ingestion.sink.iceberg_rest.load_catalog")
+    def test_sink_allows_datahub_source(
+        self, mock_load_catalog, sink_config, mock_catalog, mock_table
+    ):
+        """Test that sink works correctly with datahub source"""
+        from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
+
+        pipeline_config = PipelineConfig(
+            source=SourceConfig(type="datahub", config={}),
+        )
+        pipeline_context = PipelineContext(
+            run_id="test-run", pipeline_config=pipeline_config
+        )
+
+        mock_load_catalog.return_value = mock_catalog
+        mock_catalog.list_namespaces = MagicMock(return_value=[])
+        mock_catalog.create_namespace = MagicMock()
+        mock_catalog.create_table = MagicMock()
+        mock_catalog.load_table = MagicMock(return_value=mock_table)
+
+        # Should not raise an error
+        sink = IcebergRestSink(pipeline_context, sink_config)
+        assert sink is not None
