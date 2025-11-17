@@ -109,7 +109,7 @@ Expected Response:
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/delete_dataset.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataset_delete.py show_path_as_comment }}
 ```
 
 </TabItem>

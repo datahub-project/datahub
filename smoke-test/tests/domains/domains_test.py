@@ -1,12 +1,9 @@
 from typing import Any, Dict
 
 import pytest
-import tenacity
 
 from conftest import _ingest_cleanup_data_impl
-from tests.utils import delete_entity, execute_graphql, get_sleep_info
-
-sleep_sec, sleep_times = get_sleep_info()
+from tests.utils import delete_entity, execute_graphql, with_test_retry
 
 
 @pytest.fixture(scope="module", autouse=False)
@@ -16,9 +13,7 @@ def ingest_cleanup_data(auth_session, graph_client):
     )
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_more_domains(
     auth_session, query: str, variables: Dict[str, Any], before_count: int
 ) -> None:

@@ -1,13 +1,10 @@
 from typing import Any, Dict
 
 import pytest
-import tenacity
 
-from tests.utils import execute_graphql, get_root_urn, get_sleep_info
+from tests.utils import execute_graphql, get_root_urn, with_test_retry
 
 TEST_POLICY_NAME = "Updated Platform Policy"
-
-sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -47,9 +44,7 @@ def test_frontend_list_policies(auth_session):
     assert len(list(result)) == 0
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_policy_present(auth_session, new_urn):
     res_data = listPolicies(auth_session)
 

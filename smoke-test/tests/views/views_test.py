@@ -1,16 +1,11 @@
 from typing import Any, Dict
 
 import pytest
-import tenacity
 
-from tests.utils import execute_graphql, get_sleep_info
-
-sleep_sec, sleep_times = get_sleep_info()
+from tests.utils import execute_graphql, with_test_retry
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_more_views(
     auth_session,
     query: str,
@@ -28,9 +23,7 @@ def _ensure_more_views(
     return after_count
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_less_views(
     auth_session,
     query: str,

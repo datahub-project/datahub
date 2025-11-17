@@ -575,6 +575,13 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Nonnull
+  @Override
+  public Integer countAspect(final RestoreIndicesArgs args) {
+    // Not implemented
+    return -1;
+  }
+
+  @Nonnull
   public PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args) {
     // Not implemented
     return null;

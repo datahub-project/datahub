@@ -57,7 +57,13 @@ export default function useStructuredPropertiesMenuItems(onClick: (property: Ass
             type: 'item',
             key: 'search',
             title: 'Search',
-            render: () => <MenuSearchBar value={query} onChange={(value) => setQuery(value)} />,
+            render: () => (
+                <MenuSearchBar
+                    value={query}
+                    onChange={(value) => setQuery(value)}
+                    dataTestId="structured-property-search"
+                />
+            ),
         }),
         [query],
     );

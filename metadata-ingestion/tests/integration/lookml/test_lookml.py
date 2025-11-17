@@ -59,6 +59,14 @@ def get_default_recipe(output_file_path, base_folder_path):
                 "tag_measures_and_dimensions": False,
                 "project_name": "lkml_samples",
                 "model_pattern": {"deny": ["data2"]},
+                "view_pattern": {
+                    "deny": [
+                        "large_view",
+                        "problematic_view",
+                        "parallel_view",
+                        "partial_view",
+                    ]
+                },  # Exclude views used for field splitting tests
                 "emit_reachable_views_only": False,
                 "liquid_variable": {"order_region": "ap-south-1"},
             },
@@ -185,7 +193,7 @@ def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
         looker_model=looker_model,
         looker_viewfile_loader=None,  # type: ignore
         reporter=None,  # type: ignore
-        source_config=LookMLSourceConfig.parse_obj(
+        source_config=LookMLSourceConfig.model_validate(
             {
                 "process_refinements": "True",
                 "base_folder": ".",
@@ -332,6 +340,14 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "view_pattern": {
+                        "deny": [
+                            "large_view",
+                            "problematic_view",
+                            "parallel_view",
+                            "partial_view",
+                        ]
+                    },  # Exclude views used for field splitting tests
                     "emit_reachable_views_only": False,
                     "process_refinements": False,
                 },
@@ -426,6 +442,14 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "view_pattern": {
+                        "deny": [
+                            "large_view",
+                            "problematic_view",
+                            "parallel_view",
+                            "partial_view",
+                        ]
+                    },  # Exclude views used for field splitting tests
                     "emit_reachable_views_only": False,
                     "process_refinements": False,
                 },
@@ -507,6 +531,14 @@ def ingestion_test(
                         },
                         "parse_table_names_from_sql": True,
                         "model_pattern": {"deny": ["data2"]},
+                        "view_pattern": {
+                            "deny": [
+                                "large_view",
+                                "problematic_view",
+                                "parallel_view",
+                                "partial_view",
+                            ]
+                        },  # Exclude views used for field splitting tests
                         "emit_reachable_views_only": False,
                         "process_refinements": False,
                         "liquid_variable": {
@@ -556,6 +588,14 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "view_pattern": {
+                        "deny": [
+                            "large_view",
+                            "problematic_view",
+                            "parallel_view",
+                            "partial_view",
+                        ]
+                    },  # Exclude views used for field splitting tests
                     "git_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
                     "process_refinements": False,
@@ -611,6 +651,14 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
                     },
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
+                    "view_pattern": {
+                        "deny": [
+                            "large_view",
+                            "problematic_view",
+                            "parallel_view",
+                            "partial_view",
+                        ]
+                    },  # Exclude views used for field splitting tests
                     "emit_reachable_views_only": True,
                     "process_refinements": False,
                 },
@@ -724,6 +772,14 @@ def test_lookml_stateful_ingestion(pytestconfig, tmp_path, mock_time):
                 "tag_measures_and_dimensions": False,
                 "project_name": "lkml_samples",
                 "model_pattern": {"deny": ["data2"]},
+                "view_pattern": {
+                    "deny": [
+                        "large_view",
+                        "problematic_view",
+                        "parallel_view",
+                        "partial_view",
+                    ]
+                },  # Exclude views used for field splitting tests
                 "emit_reachable_views_only": False,
                 "stateful_ingestion": {
                     "enabled": True,
@@ -769,7 +825,7 @@ def test_lookml_base_folder():
         "client_secret": "this-is-also-fake",
     }
 
-    LookMLSourceConfig.parse_obj(
+    LookMLSourceConfig.model_validate(
         {
             "git_info": {
                 "repo": "acryldata/long-tail-companions-looker",
@@ -782,7 +838,7 @@ def test_lookml_base_folder():
     with pytest.raises(
         pydantic.ValidationError, match=r"base_folder.+nor.+git_info.+provided"
     ):
-        LookMLSourceConfig.parse_obj({"api": fake_api})
+        LookMLSourceConfig.model_validate({"api": fake_api})
 
 
 @freeze_time(FROZEN_TIME)
@@ -1263,7 +1319,7 @@ def test_unreachable_views(pytestconfig):
     }
 
     source = LookMLSource(
-        LookMLSourceConfig.parse_obj(config),
+        LookMLSourceConfig.model_validate(config),
         ctx=PipelineContext(run_id="lookml-source-test"),
     )
     workunits: List[Union[MetadataWorkUnit, Entity]] = [

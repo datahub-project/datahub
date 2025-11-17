@@ -75,6 +75,7 @@ services:
       NEO4J_URI: bolt://neo4j
       NEO4J_USERNAME: neo4j
       PE_CONSUMER_ENABLED: 'true'
+      POLICY_CACHE_REFRESH_INTERVAL_SECONDS: '120'
       SCHEMA_REGISTRY_TYPE: INTERNAL
       SEARCH_BAR_API_VARIANT: SEARCH_ACROSS_ENTITIES
       SHOW_HAS_SIBLINGS_FILTER: 'true'
@@ -335,7 +336,7 @@ services:
       interval: 5s
       retries: 10
       start_period: 1m0s
-    image: opensearchproject/opensearch:2.17.0
+    image: opensearchproject/opensearch:2.19.3
     networks:
       default: null
     ports:
@@ -410,6 +411,7 @@ services:
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_PRECREATE_TOPICS: 'true'
+      DATAHUB_SQL_SETUP_ENABLED: 'true'
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub

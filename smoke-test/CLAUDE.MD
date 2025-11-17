@@ -16,7 +16,8 @@
 - **`ingest_file_via_rest(auth_session, file_path)`** - Ingest metadata from JSON file
 - **`delete_urns_from_file(graph_client, file_path)`** - Clean up entities from JSON file
 - **`delete_urns(graph_client, urns)`** - Delete specific URNs from DataHub
-- **`get_sleep_info()`** - Get retry timing for eventual consistency
+- **`get_sleep_info()`** - Get retry timing for eventual consistency (advanced usage; prefer `with_test_retry()`)
+- **`with_test_retry()`** - Decorator for retrying functions with environment-based sleep settings
 - **`wait_for_writes_to_sync()`** - Wait for async operations to complete
 - **`_ingest_cleanup_data_impl(auth_session, graph_client, data_file, test_name, to_delete_urns=None)`** - Helper for ingesting test data with automatic cleanup (in `conftest.py`)
 
@@ -29,6 +30,42 @@ Common operations for adding/removing tags, terms, and updating descriptions:
 - **`add_term(auth_session, resource_urn, term_urn, sub_resource=None, sub_resource_type=None)`** - Add a glossary term to a resource
 - **`remove_term(auth_session, resource_urn, term_urn, sub_resource=None, sub_resource_type=None)`** - Remove a glossary term from a resource
 - **`update_description(auth_session, resource_urn, description, sub_resource=None, sub_resource_type=None)`** - Update resource description
+
+### Concurrent Test Runner (`tests/utilities/concurrent_test_runner.py`)
+
+Execute test functions in parallel using ThreadPoolExecutor:
+
+- **`run_concurrent_tests(test_cases, test_fn, num_workers=3, test_name="test")`** - Run test function for each test case concurrently
+- **`run_concurrent_tests_with_args(test_cases, test_fn, num_workers=3, test_name="test")`** - Run test function with tuple arguments concurrently
+
+### Concurrent OpenAPI (`tests/utilities/concurrent_openapi.py`)
+
+Execute JSON fixture-based OpenAPI tests with multi-step request/response validation:
+
+- **`run_tests(auth_session, fixture_globs, num_workers=3)`** - Run JSON fixture tests concurrently
+- **When to use**: Multi-step API integration tests with JSON fixtures, DeepDiff validation, complex response verification
+
+**JSON Fixture Format**: Array of objects with `request` and optional `response` fields:
+- Request: `url`, `method` (default: post), `json`, `params`, `description`, `wait` (sleep seconds)
+- Response: `json` (expected response), `status_codes`, `exclude_regex_paths` (for DeepDiff)
+
+### Retry Pattern
+
+Use `with_test_retry()` for functions that need to retry for eventual consistency:
+
+```python
+from tests.utils import with_test_retry
+
+@with_test_retry()
+def check_eventual_consistency(auth_session):
+    # This function will retry with environment-based sleep settings
+    res_data = execute_graphql(auth_session, query, variables)
+    assert res_data["data"]["dataset"]["name"] == "expected"
+
+check_eventual_consistency(auth_session)
+```
+
+The decorator reads `DATAHUB_TEST_SLEEP_BETWEEN` and `DATAHUB_TEST_SLEEP_TIMES` environment variables.
 
 ### GraphQL Pattern
 
@@ -76,6 +113,61 @@ def ingest_cleanup_data(auth_session, graph_client):
         "my_test",
         to_delete_urns=["urn:li:dataset:additional1", "urn:li:dataset:additional2"]
     )
+```
+
+### Concurrent Test Patterns
+
+**Function-based parameterized tests** (`concurrent_test_runner`):
+
+```python
+from tests.utilities.concurrent_test_runner import run_concurrent_tests, run_concurrent_tests_with_args
+
+# Single argument per test case
+def test_entity(entity_type: str) -> None:
+    result = get_search_results(auth_session, entity_type)
+    assert result["total"] > 0
+
+run_concurrent_tests(["dataset", "dashboard"], test_entity)
+
+# Multiple arguments per test case
+def test_entity(entity_type: str, api_name: str) -> None:
+    result = search(auth_session, entity_type, api_name)
+    assert result["total"] > 0
+
+run_concurrent_tests_with_args([("dataset", "dataset"), ("dashboard", "dashboard")], test_entity)
+```
+
+**JSON fixture-based API tests** (`concurrent_openapi`):
+
+```python
+from tests.utilities.concurrent_openapi import run_tests
+
+def test_openapi_endpoints(auth_session):
+    run_tests(auth_session, fixture_globs=["tests/openapi/v3/*.json"], num_workers=10)
+```
+
+Example JSON fixture (`tests/openapi/v3/example.json`):
+```json
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset",
+      "description": "Create dataset",
+      "json": [{"urn": "urn:li:dataset:(...)"}]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A...",
+      "method": "get",
+      "description": "Get created dataset"
+    },
+    "response": {
+      "json": {"urn": "urn:li:dataset:(...)"},
+      "exclude_regex_paths": ["root\\['scrollId'\\]"]
+    }
+  }
+]
 ```
 
 ### Metadata Operations Pattern

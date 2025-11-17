@@ -13,6 +13,7 @@ from tests.setup.lineage.ingest_time_lineage import (
     get_time_lineage_urns,
     ingest_time_lineage,
 )
+from tests.utilities import env_vars
 from tests.utils import (
     create_datahub_step_state_aspects,
     delete_urns,
@@ -234,15 +235,15 @@ def _get_cypress_tests_batch():
         else:
             tests_with_weights.append(test)
 
-    test_batches = bin_pack_tasks(tests_with_weights, int(os.getenv("BATCH_COUNT", 1)))
-    return test_batches[int(os.getenv("BATCH_NUMBER", 0))]
+    test_batches = bin_pack_tasks(tests_with_weights, env_vars.get_batch_count())
+    return test_batches[env_vars.get_batch_number()]
 
 
 def test_run_cypress(auth_session):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
-    record_key = os.getenv("CYPRESS_RECORD_KEY")
+    record_key = env_vars.get_cypress_record_key()
     tag_arg = ""
-    test_strategy = os.getenv("TEST_STRATEGY", None)
+    test_strategy = env_vars.get_test_strategy()
     if record_key:
         record_arg = " --record "
         batch_number = os.getenv("BATCH_NUMBER")
@@ -261,8 +262,9 @@ def test_run_cypress(auth_session):
     test_spec_arg = f" --spec '{specs_str}' "
 
     print("Running Cypress tests with command")
-    node_options = "--max-old-space-size=6000"
-    command = f'NO_COLOR=1 NODE_OPTIONS="{node_options}" npx cypress run {record_arg} {test_spec_arg} {tag_arg} --config numTestsKeptInMemory=2'
+    node_options = "--max-old-space-size=500"
+    electron_args = 'ELECTRON_EXTRA_LAUNCH_ARGS="--js-flags=\'--max-old-space-size=4096 --disable-dev-shm-usage --disable-gpu --no-sandbox"'
+    command = f'{electron_args} NO_COLOR=1 NODE_OPTIONS="{node_options}" npx cypress run {record_arg} {test_spec_arg} {tag_arg} --config numTestsKeptInMemory=2'
     print(command)
     # Add --headed --spec '**/mutations/mutations.js' (change spec name)
     # in case you want to see the browser for debugging

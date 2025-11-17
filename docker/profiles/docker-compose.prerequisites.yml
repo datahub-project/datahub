@@ -12,8 +12,9 @@ x-mysql-profiles-quickstart: &mysql-profiles-quickstart
   - quickstart-frontend
   - quickstart-storage
   - quickstart-consumers
-x-mysql-profiles-dev: &mysql-profiles-dev
-  - debug
+
+# Which profiles to run mysql setup
+x-mysql-setup-profiles-dev: &mysql-setup-profiles-dev
   - debug-min
   - debug-frontend
   - debug-backend
@@ -22,6 +23,7 @@ x-mysql-profiles-dev: &mysql-profiles-dev
   - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
+
 x-mysql-profiles: &mysql-profiles
   - quickstart
   - quickstart-backend
@@ -77,8 +79,7 @@ x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart-postgres-cdc
   - quickstart-consumers
   - quickstart-consumers-cdc
-x-opensearch-profiles-dev: &opensearch-profiles-dev
-  - debug
+x-opensearch-setup-profiles-dev: &opensearch-setup-profiles-dev
   - debug-min
   - debug-datahub-actions
   - debug-frontend
@@ -197,7 +198,7 @@ services:
       - quickstart-consumers-cdc
   mysql-setup-dev:
     <<: *mysql-setup-common
-    profiles: *mysql-profiles-dev
+    profiles: *mysql-setup-profiles-dev
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-debug}
   mysql-setup-dev-cdc:
     <<: *mysql-setup-common
@@ -397,7 +398,7 @@ services:
   opensearch:
     profiles: *opensearch-profiles
     hostname: search
-    image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-2.17.0}
+    image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-2.19.3}
     ports:
       - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     env_file: elasticsearch/env/docker.env
@@ -432,7 +433,7 @@ services:
       datahub_setup_job: true
   opensearch-setup-dev:
     <<: *opensearch-setup
-    profiles: *opensearch-profiles-dev
+    profiles: *opensearch-setup-profiles-dev
     hostname: opensearch-setup-dev
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
     environment:

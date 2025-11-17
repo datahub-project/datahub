@@ -1,18 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.application;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.application.ApplicationAuthorizationUtils.verifyResourcesExistAndAuthorized;
 
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchSetApplicationInput;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.ApplicationService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -63,29 +58,7 @@ public class BatchSetApplicationResolver implements DataFetcher<CompletableFutur
   }
 
   private void verifyResources(List<String> resources, QueryContext context) {
-    for (String resource : resources) {
-      if (!applicationService.verifyEntityExists(
-          context.getOperationContext(), UrnUtils.getUrn(resource))) {
-        throw new RuntimeException(
-            String.format(
-                "Failed to batch set Application, %s in resources does not exist", resource));
-      }
-      Urn resourceUrn = UrnUtils.getUrn(resource);
-      if (!AuthorizationUtils.isAuthorized(
-          context,
-          resourceUrn.getEntityType(),
-          resourceUrn.toString(),
-          new DisjunctivePrivilegeGroup(
-              ImmutableList.of(
-                  new ConjunctivePrivilegeGroup(
-                      ImmutableList.of(
-                          PoliciesConfig.EDIT_ENTITY_APPLICATIONS_PRIVILEGE.getType())),
-                  new ConjunctivePrivilegeGroup(
-                      ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())))))) {
-        throw new AuthorizationException(
-            "Unauthorized to perform this action. Please contact your DataHub administrator.");
-      }
-    }
+    verifyResourcesExistAndAuthorized(resources, applicationService, context, "set_application");
   }
 
   private void verifyApplication(String maybeApplicationUrn, QueryContext context) {

@@ -60,7 +60,7 @@ pytest tests/path/to/file.py::TestClass::test_method  # Single test
 ## Code Style Guidelines
 
 - **Formatting**: Uses ruff, 88 character line length
-- **Imports**: Sorted with ruff.lint.isort, no relative imports
+- **Imports**: Sorted with ruff.lint.isort, no relative imports, Imports are always put at the top of the file, just after any module comments and docstrings, and before module globals and constants.
 - **Types**: Always use type annotations, prefer Protocol for interfaces
   - Avoid `Any` type - use specific types (`Dict[str, int]`, `TypedDict`, or typevars)
   - Use `isinstance` checks instead of `hasattr`
