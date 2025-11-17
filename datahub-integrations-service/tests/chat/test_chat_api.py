@@ -9,7 +9,8 @@ from datahub_integrations.chat.chat_api import (
     ChatMessageRequest,
     event_to_sse,
     get_auth_token,
-    get_datahub_client,
+    get_system_client,
+    get_tools_client,
 )
 from datahub_integrations.chat.chat_session_manager import ChatMessageEvent
 
@@ -28,18 +29,80 @@ def test_chat_message_request_validation() -> None:
     assert request.text == "Hello, AI!"
 
 
-def test_get_datahub_client() -> None:
-    """Test that get_datahub_client returns a DataHubClient."""
-    with patch(
-        "datahub_integrations.chat.chat_api.DataHubClient.from_env"
-    ) as mock_from_env:
-        mock_client = Mock()
-        mock_from_env.return_value = mock_client
+def test_get_tools_client_with_bearer_token() -> None:
+    """Test that get_tools_client creates a client with user token from Bearer header."""
+    with patch("datahub_integrations.chat.chat_api.DataHubGraph") as mock_graph_class:
+        with patch(
+            "datahub_integrations.chat.chat_api.DataHubClient"
+        ) as mock_client_class:
+            mock_graph = Mock()
+            mock_graph_class.return_value = mock_graph
+            mock_client = Mock()
+            mock_client_class.return_value = mock_client
 
-        client = get_datahub_client()
+            client = get_tools_client(authorization="Bearer test_token_123")
 
-        assert client is mock_client
-        mock_from_env.assert_called_once()
+            assert client is mock_client
+            # Verify DataHubGraph was created with the token
+            mock_graph_class.assert_called_once()
+            config_arg = mock_graph_class.call_args[0][0]
+            assert config_arg.token == "test_token_123"
+
+            # Verify DataHubClient was created with the graph
+            mock_client_class.assert_called_once_with(graph=mock_graph)
+
+
+def test_get_tools_client_token_without_bearer_prefix() -> None:
+    """Test that get_tools_client handles token without Bearer prefix."""
+    with patch("datahub_integrations.chat.chat_api.DataHubGraph") as mock_graph_class:
+        with patch(
+            "datahub_integrations.chat.chat_api.DataHubClient"
+        ) as mock_client_class:
+            mock_graph = Mock()
+            mock_graph_class.return_value = mock_graph
+            mock_client = Mock()
+            mock_client_class.return_value = mock_client
+
+            client = get_tools_client(authorization="just_a_token")
+
+            assert client is mock_client
+            # Verify token was used correctly (without Bearer prefix)
+            config_arg = mock_graph_class.call_args[0][0]
+            assert config_arg.token == "just_a_token"
+
+
+def test_get_tools_client_missing_authorization() -> None:
+    """Test that get_tools_client raises HTTPException when authorization is missing."""
+    with pytest.raises(HTTPException) as exc_info:
+        get_tools_client(authorization=None)  # type: ignore[arg-type]
+
+    assert exc_info.value.status_code == 401
+    assert "Missing Authorization header" in exc_info.value.detail
+
+
+def test_get_tools_client_empty_token() -> None:
+    """Test that get_tools_client raises HTTPException when token is empty."""
+    with pytest.raises(HTTPException) as exc_info:
+        get_tools_client(authorization="Bearer ")
+
+    assert exc_info.value.status_code == 401
+    assert "Empty token" in exc_info.value.detail
+
+
+def test_get_system_client() -> None:
+    """Test that get_system_client creates a client with system credentials."""
+    with patch("datahub_integrations.app.graph") as mock_graph:
+        with patch(
+            "datahub_integrations.chat.chat_api.DataHubClient"
+        ) as mock_client_class:
+            mock_client = Mock()
+            mock_client_class.return_value = mock_client
+
+            client = get_system_client()
+
+            assert client is mock_client
+            # Verify DataHubClient was created with the system graph
+            mock_client_class.assert_called_once_with(graph=mock_graph)
 
 
 def test_chat_message_request_urns() -> None:
@@ -210,42 +273,49 @@ async def test_send_streaming_message_endpoint_structure() -> None:
 
     # Mock the manager and its methods
     with patch(
-        "datahub_integrations.chat.chat_api.get_datahub_client"
-    ) as mock_get_client:
+        "datahub_integrations.chat.chat_api.get_system_client"
+    ) as mock_get_system_client:
         with patch(
-            "datahub_integrations.chat.chat_api.ChatSessionManager"
-        ) as mock_manager_class:
-            mock_client = Mock()
-            mock_get_client.return_value = mock_client
+            "datahub_integrations.chat.chat_api.get_tools_client"
+        ) as mock_get_tools_client:
+            with patch(
+                "datahub_integrations.chat.chat_api.ChatSessionManager"
+            ) as mock_manager_class:
+                mock_system_client = Mock()
+                mock_tools_client = Mock()
+                mock_get_system_client.return_value = mock_system_client
+                mock_get_tools_client.return_value = mock_tools_client
 
-            mock_manager = Mock()
-            mock_manager_class.return_value = mock_manager
+                mock_manager = Mock()
+                mock_manager_class.return_value = mock_manager
 
-            # Mock send_message to return some events
-            mock_manager.send_message.return_value = iter(
-                [
-                    ChatMessageEvent(
-                        message_type="TEXT",
-                        text="Test",
-                        conversation_urn="urn:li:dataHubAiConversation:123",
-                        timestamp=1234567890,
-                        user_urn="urn:li:corpuser:test",
-                    ),
-                    ChatMessageEvent(
-                        message_type="TEXT",
-                        text="Response",
-                        conversation_urn="urn:li:dataHubAiConversation:123",
-                        timestamp=1234567891,
-                    ),
-                ]
-            )
+                # Mock send_message to return some events
+                mock_manager.send_message.return_value = iter(
+                    [
+                        ChatMessageEvent(
+                            message_type="TEXT",
+                            text="Test",
+                            conversation_urn="urn:li:dataHubAiConversation:123",
+                            timestamp=1234567890,
+                            user_urn="urn:li:corpuser:test",
+                        ),
+                        ChatMessageEvent(
+                            message_type="TEXT",
+                            text="Response",
+                            conversation_urn="urn:li:dataHubAiConversation:123",
+                            timestamp=1234567891,
+                        ),
+                    ]
+                )
 
-            response = send_streaming_message(request)
+                response = send_streaming_message(
+                    request, authorization="Bearer test_token"
+                )
 
-            # Verify response is a StreamingResponse
-            assert response.media_type == "text/event-stream"
-            assert response.headers["Cache-Control"] == "no-cache"
-            assert response.headers["Connection"] == "keep-alive"
+                # Verify response is a StreamingResponse
+                assert response.media_type == "text/event-stream"
+                assert response.headers["Cache-Control"] == "no-cache"
+                assert response.headers["Connection"] == "keep-alive"
 
 
 @pytest.mark.asyncio
@@ -260,34 +330,43 @@ async def test_send_streaming_message_calls_manager_correctly() -> None:
     )
 
     with patch(
-        "datahub_integrations.chat.chat_api.get_datahub_client"
-    ) as mock_get_client:
+        "datahub_integrations.chat.chat_api.get_system_client"
+    ) as mock_get_system_client:
         with patch(
-            "datahub_integrations.chat.chat_api.ChatSessionManager"
-        ) as mock_manager_class:
-            mock_client = Mock()
-            mock_get_client.return_value = mock_client
+            "datahub_integrations.chat.chat_api.get_tools_client"
+        ) as mock_get_tools_client:
+            with patch(
+                "datahub_integrations.chat.chat_api.ChatSessionManager"
+            ) as mock_manager_class:
+                mock_system_client = Mock()
+                mock_tools_client = Mock()
+                mock_get_system_client.return_value = mock_system_client
+                mock_get_tools_client.return_value = mock_tools_client
 
-            mock_manager = Mock()
-            mock_manager_class.return_value = mock_manager
-            mock_manager.send_message.return_value = iter([])
+                mock_manager = Mock()
+                mock_manager_class.return_value = mock_manager
+                mock_manager.send_message.return_value = iter([])
 
-            response = send_streaming_message(request)
+                response = send_streaming_message(
+                    request, authorization="Bearer test_token"
+                )
 
-            # Consume the stream to actually execute the generator
-            chunks = []
-            async for chunk in response.body_iterator:
-                chunks.append(chunk)
+                # Consume the stream to actually execute the generator
+                chunks = []
+                async for chunk in response.body_iterator:
+                    chunks.append(chunk)
 
-            # Verify manager was created with client
-            mock_manager_class.assert_called_once_with(client=mock_client)
+                # Verify manager was created with both clients
+                mock_manager_class.assert_called_once_with(
+                    system_client=mock_system_client, tools_client=mock_tools_client
+                )
 
-            # Verify send_message was called with correct args
-            mock_manager.send_message.assert_called_once_with(
-                text="Hello AI",
-                user_urn="urn:li:corpuser:test",
-                conversation_urn="urn:li:dataHubAiConversation:123",
-            )
+                # Verify send_message was called with correct args
+                mock_manager.send_message.assert_called_once_with(
+                    text="Hello AI",
+                    user_urn="urn:li:corpuser:test",
+                    conversation_urn="urn:li:dataHubAiConversation:123",
+                )
 
 
 @pytest.mark.asyncio
@@ -302,12 +381,12 @@ async def test_send_streaming_message_handles_errors() -> None:
     )
 
     with patch(
-        "datahub_integrations.chat.chat_api.get_datahub_client"
-    ) as mock_get_client:
+        "datahub_integrations.chat.chat_api.get_tools_client"
+    ) as mock_get_tools_client:
         # Simulate an error during client creation
-        mock_get_client.side_effect = Exception("Connection failed")
+        mock_get_tools_client.side_effect = Exception("Connection failed")
 
-        response = send_streaming_message(request)
+        response = send_streaming_message(request, authorization="Bearer test_token")
 
         # Response should still be a StreamingResponse
         assert response.media_type == "text/event-stream"
@@ -342,46 +421,55 @@ async def test_send_streaming_message_sends_completion_event() -> None:
     )
 
     with patch(
-        "datahub_integrations.chat.chat_api.get_datahub_client"
-    ) as mock_get_client:
+        "datahub_integrations.chat.chat_api.get_system_client"
+    ) as mock_get_system_client:
         with patch(
-            "datahub_integrations.chat.chat_api.ChatSessionManager"
-        ) as mock_manager_class:
-            mock_client = Mock()
-            mock_get_client.return_value = mock_client
+            "datahub_integrations.chat.chat_api.get_tools_client"
+        ) as mock_get_tools_client:
+            with patch(
+                "datahub_integrations.chat.chat_api.ChatSessionManager"
+            ) as mock_manager_class:
+                mock_system_client = Mock()
+                mock_tools_client = Mock()
+                mock_get_system_client.return_value = mock_system_client
+                mock_get_tools_client.return_value = mock_tools_client
 
-            mock_manager = Mock()
-            mock_manager_class.return_value = mock_manager
-            mock_manager.send_message.return_value = iter(
-                [
-                    ChatMessageEvent(
-                        message_type="TEXT",
-                        text="Response",
-                        conversation_urn="urn:li:dataHubAiConversation:123",
-                        timestamp=1234567890,
-                    )
-                ]
-            )
+                mock_manager = Mock()
+                mock_manager_class.return_value = mock_manager
+                mock_manager.send_message.return_value = iter(
+                    [
+                        ChatMessageEvent(
+                            message_type="TEXT",
+                            text="Response",
+                            conversation_urn="urn:li:dataHubAiConversation:123",
+                            timestamp=1234567890,
+                        )
+                    ]
+                )
 
-            response = send_streaming_message(request)
+                response = send_streaming_message(
+                    request, authorization="Bearer test_token"
+                )
 
-            # Collect stream content
-            chunks = []
-            async for chunk in response.body_iterator:
-                # Ensure chunk is decoded to string if it's bytes or memoryview
-                if isinstance(chunk, bytes):
-                    chunks.append(chunk.decode("utf-8"))
-                elif isinstance(chunk, memoryview):
-                    chunks.append(bytes(chunk).decode("utf-8"))
-                else:
-                    chunks.append(chunk)
+                # Collect stream content
+                chunks = []
+                async for chunk in response.body_iterator:
+                    # Ensure chunk is decoded to string if it's bytes or memoryview
+                    if isinstance(chunk, bytes):
+                        chunks.append(chunk.decode("utf-8"))
+                    elif isinstance(chunk, memoryview):
+                        chunks.append(bytes(chunk).decode("utf-8"))
+                    else:
+                        chunks.append(chunk)
 
-            content = "".join(chunks)  # Already strings from SSE
+                content = "".join(chunks)  # Already strings from SSE
 
-            # Should contain a completion event (in the event: line, not the data)
-            assert "event: complete" in content
-            # Should contain the conversation_urn in the completion data
-            assert '"conversation_urn": "urn:li:dataHubAiConversation:123"' in content
+                # Should contain a completion event (in the event: line, not the data)
+                assert "event: complete" in content
+                # Should contain the conversation_urn in the completion data
+                assert (
+                    '"conversation_urn": "urn:li:dataHubAiConversation:123"' in content
+                )
 
 
 def test_message_length_limit_enforced():
@@ -420,21 +508,28 @@ def test_message_at_length_limit_accepted():
     )
 
     with patch(
-        "datahub_integrations.chat.chat_api.get_datahub_client"
-    ) as mock_get_client:
+        "datahub_integrations.chat.chat_api.get_system_client"
+    ) as mock_get_system_client:
         with patch(
-            "datahub_integrations.chat.chat_api.ChatSessionManager"
-        ) as mock_manager_class:
-            mock_client = Mock()
-            mock_get_client.return_value = mock_client
+            "datahub_integrations.chat.chat_api.get_tools_client"
+        ) as mock_get_tools_client:
+            with patch(
+                "datahub_integrations.chat.chat_api.ChatSessionManager"
+            ) as mock_manager_class:
+                mock_system_client = Mock()
+                mock_tools_client = Mock()
+                mock_get_system_client.return_value = mock_system_client
+                mock_get_tools_client.return_value = mock_tools_client
 
-            mock_manager = Mock()
-            mock_manager_class.return_value = mock_manager
-            mock_manager.send_message.return_value = iter([])
+                mock_manager = Mock()
+                mock_manager_class.return_value = mock_manager
+                mock_manager.send_message.return_value = iter([])
 
-            # Should not raise an exception
-            response = send_streaming_message(request)
-            assert response is not None
+                # Should not raise an exception
+                response = send_streaming_message(
+                    request, authorization="Bearer test_token"
+                )
+                assert response is not None
 
 
 def test_empty_message_accepted():
@@ -448,21 +543,28 @@ def test_empty_message_accepted():
     )
 
     with patch(
-        "datahub_integrations.chat.chat_api.get_datahub_client"
-    ) as mock_get_client:
+        "datahub_integrations.chat.chat_api.get_system_client"
+    ) as mock_get_system_client:
         with patch(
-            "datahub_integrations.chat.chat_api.ChatSessionManager"
-        ) as mock_manager_class:
-            mock_client = Mock()
-            mock_get_client.return_value = mock_client
+            "datahub_integrations.chat.chat_api.get_tools_client"
+        ) as mock_get_tools_client:
+            with patch(
+                "datahub_integrations.chat.chat_api.ChatSessionManager"
+            ) as mock_manager_class:
+                mock_system_client = Mock()
+                mock_tools_client = Mock()
+                mock_get_system_client.return_value = mock_system_client
+                mock_get_tools_client.return_value = mock_tools_client
 
-            mock_manager = Mock()
-            mock_manager_class.return_value = mock_manager
-            mock_manager.send_message.return_value = iter([])
+                mock_manager = Mock()
+                mock_manager_class.return_value = mock_manager
+                mock_manager.send_message.return_value = iter([])
 
-            # Should not raise an exception
-            response = send_streaming_message(request)
-            assert response is not None
+                # Should not raise an exception
+                response = send_streaming_message(
+                    request, authorization="Bearer test_token"
+                )
+                assert response is not None
 
 
 if __name__ == "__main__":

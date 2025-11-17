@@ -71,6 +71,12 @@ public class DataHubAiConversationController {
    * <p><strong>Security Note:</strong> The user URN is extracted from the authenticated session
    * context and is NOT accepted from the client request to prevent impersonation attacks.
    *
+   * <p><strong>Authentication Forwarding:</strong> The user's complete authentication object
+   * (containing actor and credentials) is forwarded to the Python integrations service. This allows
+   * the integrations service to make authenticated calls back to DataHub (e.g., for search
+   * operations, conversation management) on behalf of the user, ensuring proper authorization
+   * throughout the request lifecycle.
+   *
    * @param request The chat request containing conversation URN and text
    * @return SSE emitter that streams the AI response
    */
@@ -126,8 +132,8 @@ public class DataHubAiConversationController {
                 streamingClient
                     .sendStreamingMessage(
                         request.getConversationUrn(),
-                        authenticatedUserUrn,
                         request.getText(),
+                        authentication, // Forward user's authentication to integrations service
                         (sseEvent) -> {
                           try {
                             // Forward SSE event with proper event name from Python service

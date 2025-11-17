@@ -403,6 +403,13 @@ class DataHubAiConversationClient:
             logger.info(
                 f"Emitting conversation aspect to DataHub for {conversation_urn}"
             )
+            try:
+                logger.info(
+                    f"authorization request headers: {dict(self.client._graph._session.headers)}"
+                )
+            except Exception:
+                # Silently skip header logging if it fails (e.g., in tests with mocks)
+                pass
             self.client._graph.emit(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
             logger.info(
                 f"Successfully saved {actor_type} message to conversation {conversation_urn}. "

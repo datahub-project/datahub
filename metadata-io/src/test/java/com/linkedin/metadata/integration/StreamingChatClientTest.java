@@ -4,6 +4,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -24,19 +27,21 @@ import org.testng.annotations.Test;
 public class StreamingChatClientTest {
 
   private static final String TEST_CHAT_SERVICE_URL = "http://localhost:8080";
-  private static final String TEST_AUTH_TOKEN = "test-auth-token";
+  private static final String TEST_USER_CREDENTIALS = "test-user-token-12345";
   private static final String TEST_CONVERSATION_URN = "urn:li:dataHubAiConversation:test123";
   private static final String TEST_USER_URN = "urn:li:corpuser:testUser";
   private static final String TEST_MESSAGE_TEXT = "Hello, AI!";
 
   private CloseableHttpClient mockHttpClient;
   private StreamingChatClient streamingChatClient;
+  private Authentication testAuthentication;
 
   @BeforeMethod
   public void setUp() {
     mockHttpClient = mock(CloseableHttpClient.class);
-    streamingChatClient =
-        new StreamingChatClient(mockHttpClient, TEST_CHAT_SERVICE_URL, TEST_AUTH_TOKEN);
+    streamingChatClient = new StreamingChatClient(mockHttpClient, TEST_CHAT_SERVICE_URL);
+    testAuthentication =
+        new Authentication(new Actor(ActorType.USER, TEST_USER_URN), TEST_USER_CREDENTIALS);
   }
 
   @Test
@@ -80,7 +85,7 @@ public class StreamingChatClientTest {
     // Execute
     CompletableFuture<Void> future =
         streamingChatClient.sendStreamingMessage(
-            TEST_CONVERSATION_URN, TEST_USER_URN, TEST_MESSAGE_TEXT, callback);
+            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, testAuthentication, callback);
 
     // Wait for completion
     future.get();
@@ -114,7 +119,7 @@ public class StreamingChatClientTest {
     // Execute without callback (should not throw)
     CompletableFuture<Void> future =
         streamingChatClient.sendStreamingMessage(
-            TEST_CONVERSATION_URN, TEST_USER_URN, TEST_MESSAGE_TEXT, null);
+            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, testAuthentication, null);
 
     future.get(); // Should complete successfully
   }
@@ -133,7 +138,7 @@ public class StreamingChatClientTest {
     // Execute - should throw
     CompletableFuture<Void> future =
         streamingChatClient.sendStreamingMessage(
-            TEST_CONVERSATION_URN, TEST_USER_URN, TEST_MESSAGE_TEXT, null);
+            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, testAuthentication, null);
 
     try {
       future.get();
@@ -181,7 +186,7 @@ public class StreamingChatClientTest {
 
     CompletableFuture<Void> future =
         streamingChatClient.sendStreamingMessage(
-            TEST_CONVERSATION_URN, TEST_USER_URN, TEST_MESSAGE_TEXT, callback);
+            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, testAuthentication, callback);
 
     future.get();
 
