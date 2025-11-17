@@ -7,7 +7,7 @@ source:
 
     # Optional configurations
     use_ssl: false
-    auth_mechanism: null  # Options: null, KERBEROS, or custom
+    timeout: 30000  # connection timeout in milliseconds
 
     # Filtering patterns
     namespace_pattern:
@@ -23,7 +23,6 @@ source:
 
     # Schema extraction options
     include_column_families: true
-    max_column_qualifiers: 100
 
     # Environment and platform instance
     env: "PROD"

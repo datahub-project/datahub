@@ -5,7 +5,7 @@ HBase Source for DataHub Metadata Ingestion
 import logging
 from typing import Dict, Iterable, List, Optional, Union
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mcp_builder import ContainerKey
@@ -31,12 +31,12 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
     NumberTypeClass,
-    SchemaField,
     SchemaFieldDataTypeClass,
     StringTypeClass,
 )
@@ -59,15 +59,15 @@ class HBaseSourceConfig(StatefulIngestionConfigBase):
     )
     port: int = Field(
         default=9090,
-        description="HBase Thrift server port (default: 9090 for Thrift1)",
+        description="HBase Thrift server port (default: 9090)",
     )
     use_ssl: bool = Field(
         default=False,
         description="Whether to use SSL/TLS for connection",
     )
-    auth_mechanism: Optional[str] = Field(
-        default=None,
-        description="Authentication mechanism (None, KERBEROS, or custom)",
+    timeout: Optional[int] = Field(
+        default=30000,
+        description="Connection timeout in milliseconds (default: 30000)",
     )
     namespace_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -81,10 +81,6 @@ class HBaseSourceConfig(StatefulIngestionConfigBase):
         default=True,
         description="Include column families as schema metadata",
     )
-    max_column_qualifiers: int = Field(
-        default=100,
-        description="Maximum number of column qualifiers to sample per column family",
-    )
     env: str = Field(
         default="PROD",
         description="Environment to use in namespace when constructing URNs",
@@ -93,6 +89,20 @@ class HBaseSourceConfig(StatefulIngestionConfigBase):
         default=None,
         description="Platform instance to use in namespace when constructing URNs",
     )
+
+    @field_validator("port")
+    @classmethod
+    def validate_port(cls, v: int) -> int:
+        if not 1 <= v <= 65535:
+            raise ValueError("Port must be between 1 and 65535")
+        return v
+
+    @field_validator("timeout")
+    @classmethod
+    def validate_timeout(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v <= 0:
+            raise ValueError("Timeout must be positive")
+        return v
 
 
 class HBaseSourceReport(ConfigModel):
@@ -107,6 +117,10 @@ class HBaseSourceReport(ConfigModel):
     dropped_tables: List[str] = []
     failures: List[Dict[str, str]] = []
     warnings: List[Dict[str, str]] = []
+
+    def close(self) -> None:
+        """Optional close method for report cleanup"""
+        pass
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         if ent_type == "namespace":
@@ -169,7 +183,11 @@ class HBaseSource(StatefulIngestionSourceBase):
     - Table properties and configuration
 
     HBase is a distributed, scalable, big data store built on top of Hadoop.
-    This connector uses the HBase Thrift API to extract metadata.
+    This connector uses the HBase Thrift API via the happybase library to extract metadata.
+
+    Requirements:
+    - HBase Thrift server must be running and accessible
+    - Install the happybase library: pip install happybase
     """
 
     config: HBaseSourceConfig
@@ -202,29 +220,25 @@ class HBaseSource(StatefulIngestionSourceBase):
 
     def _connect(self) -> bool:
         """
-        Establish connection to HBase via Thrift
+        Establish connection to HBase via happybase (Thrift)
         """
         try:
-            # Import HBase Thrift libraries
-            # Note: This requires happybase or similar HBase Python client
-            from hbase import Hbase
-            from thrift.protocol import TBinaryProtocol
-            from thrift.transport import TSocket, TTransport
+            # Import happybase library
+            import happybase
 
-            # Create socket
-            transport = TSocket.TSocket(self.config.host, self.config.port)
+            logger.info(f"Connecting to HBase at {self.config.host}:{self.config.port}")
 
-            # Wrap in buffered transport
-            transport = TTransport.TBufferedTransport(transport)
+            # Create connection using happybase
+            self.connection = happybase.Connection(
+                host=self.config.host,
+                port=self.config.port,
+                timeout=self.config.timeout,
+                transport="framed" if not self.config.use_ssl else "framed",
+                protocol="binary",
+            )
 
-            # Use binary protocol
-            protocol = TBinaryProtocol.TBinaryProtocol(transport)
-
-            # Create client
-            self.connection = Hbase.Client(protocol)
-
-            # Open connection
-            transport.open()
+            # Test connection by listing tables
+            _ = self.connection.tables()
 
             logger.info(
                 f"Successfully connected to HBase at {self.config.host}:{self.config.port}"
@@ -233,14 +247,24 @@ class HBaseSource(StatefulIngestionSourceBase):
 
         except ImportError:
             self.report.failure(
-                message="Failed to import HBase Thrift libraries. Please install 'happybase' or 'hbase-thrift' package.",
+                message="Failed to import happybase library. Please install it with: pip install happybase",
                 context="connection",
             )
             logger.error(
-                "HBase Thrift libraries not found. Install with: pip install happybase"
+                "happybase library not found. Install with: pip install happybase"
             )
             return False
         except Exception as e:
+            # Clean up connection on failure
+            if self.connection:
+                try:
+                    self.connection.close()
+                    logger.debug("Closed failed connection attempt")
+                except Exception as close_error:
+                    logger.debug(f"Error closing failed connection: {close_error}")
+                finally:
+                    self.connection = None
+
             self.report.failure(
                 message="Failed to connect to HBase",
                 context=f"{self.config.host}:{self.config.port}",
@@ -248,22 +272,33 @@ class HBaseSource(StatefulIngestionSourceBase):
             )
             return False
 
+    def _close_connection(self) -> None:
+        """
+        Internal method to safely close the HBase connection
+        """
+        if self.connection:
+            try:
+                self.connection.close()
+                logger.info("HBase connection closed successfully")
+            except Exception as e:
+                logger.warning(f"Error closing HBase connection: {e}")
+            finally:
+                self.connection = None
+
     def _get_namespaces(self) -> List[str]:
         """
         Get list of namespaces from HBase
         """
         try:
-            # HBase Thrift1 doesn't have direct namespace support
-            # We'll get all tables and extract namespaces from table names
-            # Table names in HBase can be namespace:table or just table (default namespace)
-            tables = self.connection.getTableNames()
+            # Get all tables including their namespaces
+            tables = self.connection.tables()
 
             namespaces = set()
             for table in tables:
                 table_str = (
                     table.decode("utf-8") if isinstance(table, bytes) else str(table)
                 )
-                if ":" in table_str:
+                if b":" in table or ":" in table_str:
                     namespace = table_str.split(":", 1)[0]
                     namespaces.add(namespace)
                 else:
@@ -280,7 +315,7 @@ class HBaseSource(StatefulIngestionSourceBase):
         Get all tables in a given namespace
         """
         try:
-            all_tables = self.connection.getTableNames()
+            all_tables = self.connection.tables()
             namespace_tables = []
 
             for table in all_tables:
@@ -309,23 +344,26 @@ class HBaseSource(StatefulIngestionSourceBase):
 
     def _get_table_descriptor(self, full_table_name: str) -> Optional[Dict]:
         """
-        Get table descriptor including column families
+        Get table descriptor including column families using happybase
         """
         try:
-            # Convert to bytes if string
-            table_bytes = (
+            # Convert to bytes if string (happybase expects bytes for table names)
+            table_name_bytes = (
                 full_table_name.encode("utf-8")
                 if isinstance(full_table_name, str)
                 else full_table_name
             )
 
-            # Get column descriptors
-            descriptors = self.connection.getColumnDescriptors(table_bytes)
+            # Get table object
+            table = self.connection.table(table_name_bytes)
+
+            # Get column families from table
+            families = table.families()
 
             # Convert to dict structure
             result = {"column_families": {}}
 
-            for cf_name, cf_descriptor in descriptors.items():
+            for cf_name, cf_descriptor in families.items():
                 cf_name_str = (
                     cf_name.decode("utf-8")
                     if isinstance(cf_name, bytes)
@@ -336,13 +374,29 @@ class HBaseSource(StatefulIngestionSourceBase):
 
                 result["column_families"][cf_name_str] = {
                     "name": cf_name_str,
-                    "maxVersions": getattr(cf_descriptor, "maxVersions", 1),
-                    "compression": getattr(cf_descriptor, "compression", "NONE"),
-                    "inMemory": getattr(cf_descriptor, "inMemory", False),
-                    "blockCacheEnabled": getattr(
-                        cf_descriptor, "blockCacheEnabled", True
-                    ),
-                    "timeToLive": getattr(cf_descriptor, "timeToLive", -1),
+                    "maxVersions": cf_descriptor.get(b"VERSIONS", b"1").decode("utf-8")
+                    if isinstance(cf_descriptor.get(b"VERSIONS"), bytes)
+                    else str(cf_descriptor.get("VERSIONS", "1")),
+                    "compression": cf_descriptor.get(b"COMPRESSION", b"NONE").decode(
+                        "utf-8"
+                    )
+                    if isinstance(cf_descriptor.get(b"COMPRESSION"), bytes)
+                    else str(cf_descriptor.get("COMPRESSION", "NONE")),
+                    "inMemory": cf_descriptor.get(b"IN_MEMORY", b"false").decode(
+                        "utf-8"
+                    )
+                    == "true"
+                    if isinstance(cf_descriptor.get(b"IN_MEMORY"), bytes)
+                    else cf_descriptor.get("IN_MEMORY", "false") == "true",
+                    "blockCacheEnabled": cf_descriptor.get(
+                        b"BLOCKCACHE", b"true"
+                    ).decode("utf-8")
+                    == "true"
+                    if isinstance(cf_descriptor.get(b"BLOCKCACHE"), bytes)
+                    else cf_descriptor.get("BLOCKCACHE", "true") == "true",
+                    "timeToLive": cf_descriptor.get(b"TTL", b"FOREVER").decode("utf-8")
+                    if isinstance(cf_descriptor.get(b"TTL"), bytes)
+                    else str(cf_descriptor.get("TTL", "FOREVER")),
                 }
 
             return result
@@ -499,49 +553,53 @@ class HBaseSource(StatefulIngestionSourceBase):
         if not self._connect():
             return
 
-        # Get all namespaces
-        namespaces = self._get_namespaces()
+        try:
+            # Get all namespaces
+            namespaces = self._get_namespaces()
 
-        for namespace in namespaces:
-            # Check if namespace matches pattern
-            if not self.config.namespace_pattern.allowed(namespace):
-                self.report.report_dropped(namespace)
-                continue
+            for namespace in namespaces:
+                # Check if namespace matches pattern
+                if not self.config.namespace_pattern.allowed(namespace):
+                    self.report.report_dropped(namespace)
+                    continue
 
-            self.report.report_entity_scanned(namespace, ent_type="namespace")
+                self.report.report_entity_scanned(namespace, ent_type="namespace")
 
-            # Generate namespace container
-            yield self._generate_namespace_container(namespace)
+                # Generate namespace container
+                yield self._generate_namespace_container(namespace)
 
-            # Get tables in namespace
-            tables = self._get_tables_in_namespace(namespace)
+                # Get tables in namespace
+                tables = self._get_tables_in_namespace(namespace)
 
-            for table_name in tables:
-                try:
-                    # Get full table name for HBase API
-                    if namespace == "default":
-                        full_table_name = table_name
-                    else:
-                        full_table_name = f"{namespace}:{table_name}"
+                for table_name in tables:
+                    try:
+                        # Get full table name for HBase API
+                        if namespace == "default":
+                            full_table_name = table_name
+                        else:
+                            full_table_name = f"{namespace}:{table_name}"
 
-                    # Get table descriptor
-                    table_descriptor = self._get_table_descriptor(full_table_name)
+                        # Get table descriptor
+                        table_descriptor = self._get_table_descriptor(full_table_name)
 
-                    # Generate table dataset
-                    dataset = self._generate_table_dataset(
-                        namespace, table_name, table_descriptor
-                    )
+                        # Generate table dataset
+                        dataset = self._generate_table_dataset(
+                            namespace, table_name, table_descriptor
+                        )
 
-                    if dataset:
-                        yield dataset
+                        if dataset:
+                            yield dataset
 
-                except Exception as e:
-                    self.report.num_tables_failed += 1
-                    self.report.failure(
-                        message="Failed to process table",
-                        context=f"{namespace}:{table_name}",
-                        exc=e,
-                    )
+                    except Exception as e:
+                        self.report.num_tables_failed += 1
+                        self.report.failure(
+                            message="Failed to process table",
+                            context=f"{namespace}:{table_name}",
+                            exc=e,
+                        )
+        finally:
+            # Always close connection after processing, even if errors occurred
+            self._close_connection()
 
     def get_report(self) -> HBaseSourceReport:
         """
@@ -551,14 +609,7 @@ class HBaseSource(StatefulIngestionSourceBase):
 
     def close(self) -> None:
         """
-        Clean up resources
+        Clean up resources and close HBase connection
         """
-        if self.connection:
-            try:
-                # Close connection if it has a close method
-                if hasattr(self.connection, "close"):
-                    self.connection.close()
-            except Exception as e:
-                logger.warning(f"Error closing HBase connection: {e}")
-
+        self._close_connection()
         super().close()

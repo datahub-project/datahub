@@ -1,6 +1,6 @@
 ### Setup
 
-This integration extracts metadata from Apache HBase via the Thrift API, including information about:
+This integration extracts metadata from Apache HBase via the Thrift API using the `happybase` Python library, including information about:
 
 - Namespaces
 - Tables
@@ -17,7 +17,7 @@ You'll need to have HBase Thrift server running and accessible with appropriate 
    pip install 'acryl-datahub[hbase]'
    ```
 
-   This will install `happybase` and `thrift` packages required for connecting to HBase.
+   This will install the `happybase` package required for connecting to HBase.
 
 2. **HBase Thrift Server**:
 
@@ -42,18 +42,16 @@ You'll need to have HBase Thrift server running and accessible with appropriate 
 
 #### Authentication
 
-- **No Authentication**: By default, the connector uses no authentication.
-- **Kerberos**: Set `auth_mechanism: "KERBEROS"` in the configuration.
-- **Custom Authentication**: Specify your authentication mechanism in the `auth_mechanism` field.
+The current implementation supports unauthenticated connections to HBase Thrift server.
 
 :::note
 
-For production deployments, it's recommended to use secure authentication mechanisms and SSL/TLS connections.
+For production deployments, it's recommended to use secure connections and ensure your HBase Thrift server is properly secured with network-level access controls.
 
 :::
 
-:::caution
+:::info
 
-The connector samples column qualifiers to extract schema information. For tables with many column qualifiers, adjust the `max_column_qualifiers` parameter to control the sampling size and avoid performance issues.
+The connector extracts column family metadata but does not sample individual column qualifiers. This ensures efficient metadata extraction without impacting HBase performance.
 
 :::
