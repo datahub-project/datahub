@@ -488,7 +488,7 @@ export DATAHUB_GMS_URL=http://localhost:8080
 datahub init
 ```
 
-For more information on configuration, see the [DataHub CLI documentation](/docs/cli).
+For more information on configuration, see the [DataHub CLI documentation](/docs/cli.md).
 
 ## See Also
 
