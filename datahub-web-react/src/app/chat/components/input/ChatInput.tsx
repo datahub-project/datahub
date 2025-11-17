@@ -1,4 +1,4 @@
-import { colors } from '@components';
+import { Button, colors } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -14,17 +14,18 @@ const InputContainer = styled.div`
     flex: 1;
 `;
 
-const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $disabled?: boolean }>`
+const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $isWelcomeState?: boolean; $isStreaming?: boolean }>`
     width: 100%;
-    min-height: 40px;
-    max-height: 84px; /* 3 lines: (3 * 20px line-height) + (12px * 2 padding) = 84px */
-    padding: 12px 16px;
+    min-height: ${(props) => (props.$isWelcomeState ? '120px' : '44px')};
+    max-height: 120px; /* Grows up to 120px, then scrolls */
+    padding: 12px 56px 12px 16px; /* Extra right padding for send button */
     border: 1px solid
         ${(props) => {
-            if (props.$isFocused) return colors.violet[200];
+            if (props.$isFocused && !props.$isStreaming) return colors.violet[200];
             return colors.gray[100];
         }};
-    border-radius: 8px;
+    border-radius: ${(props) => (props.$isWelcomeState ? '16px' : '12px')};
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     font-size: 14px;
     font-family: inherit;
     line-height: 20px;
@@ -36,18 +37,10 @@ const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $disabled?: boolea
     outline: none;
     transition: all 0.2s;
     background-color: white;
-    cursor: text;
+    cursor: ${(props) => (props.$isStreaming ? 'default' : 'text')};
+    pointer-events: ${(props) => (props.$isStreaming ? 'none' : 'auto')};
 
-    ${(props) => props.$isFocused && `outline: 1px solid ${colors.violet[200]};`}
-
-    ${(props) =>
-        props.$disabled &&
-        `
-        background-color: ${colors.gray[1500]};
-        cursor: not-allowed;
-        opacity: 0.6;
-        pointer-events: none;
-    `}
+    ${(props) => props.$isFocused && !props.$isStreaming && `outline: 1px solid ${colors.violet[200]};`}
 
     &:empty:before {
         content: attr(data-placeholder);
@@ -77,25 +70,38 @@ const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $disabled?: boolea
     }
 `;
 
+const SendButtonWrapper = styled.div`
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    cursor: pointer;
+    pointer-events: auto;
+`;
+
 interface Props {
     value: string;
     onChange: (value: string) => void;
     onSubmit: () => void;
+    onStop?: () => void;
     placeholder?: string;
-    disabled?: boolean;
+    isStreaming?: boolean;
+    isWelcomeState?: boolean;
 }
 
 export const ChatInput: React.FC<Props> = ({
     value,
     onChange,
     onSubmit,
+    onStop,
     placeholder = 'Type a message...',
-    disabled = false,
+    isStreaming = false,
+    isWelcomeState = false,
 }) => {
     const [isFocused, setIsFocused] = useState(false);
     const userContext = useUserContext();
     const viewUrn = userContext.localState?.selectedViewUrn;
     const [getAutoComplete, { data: autocompleteData, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const shouldBlurOnClearRef = React.useRef(false);
 
     // Use the mention input hook
     const {
@@ -118,6 +124,21 @@ export const ChatInput: React.FC<Props> = ({
         }
     }, [mentionState.isActive, mentionState.query, getAutoComplete, viewUrn]);
 
+    // Blur input when value is cleared after sending
+    useEffect(() => {
+        if (value === '' && shouldBlurOnClearRef.current && contentEditableRef.current === document.activeElement) {
+            contentEditableRef.current?.blur();
+            shouldBlurOnClearRef.current = false;
+        }
+    }, [value, contentEditableRef]);
+
+    // Blur input when streaming starts
+    useEffect(() => {
+        if (isStreaming && contentEditableRef.current === document.activeElement) {
+            contentEditableRef.current?.blur();
+        }
+    }, [isStreaming, contentEditableRef]);
+
     // Handle keyboard events including submit
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -127,22 +148,34 @@ export const ChatInput: React.FC<Props> = ({
             // Handle submit
             if (!mentionState.isActive && e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                if (!disabled && value.trim()) {
+                if (!isStreaming && value.trim()) {
+                    shouldBlurOnClearRef.current = true;
                     onSubmit();
                 }
             }
         },
-        [handleMentionKeyDown, mentionState.isActive, disabled, value, onSubmit],
+        [handleMentionKeyDown, mentionState.isActive, isStreaming, value, onSubmit],
     );
 
     const suggestions = autocompleteData?.autoCompleteForMultiple?.suggestions || [];
     const entities = flattenAutocompleteSuggestions(suggestions);
 
+    const isSubmitDisabled = !isStreaming && !value.trim();
+
+    const handleButtonClick = useCallback(() => {
+        if (isStreaming && onStop) {
+            onStop();
+        } else if (!isStreaming && !isSubmitDisabled) {
+            shouldBlurOnClearRef.current = true;
+            onSubmit();
+        }
+    }, [isStreaming, onStop, isSubmitDisabled, onSubmit]);
+
     return (
         <InputContainer>
             <ContentEditableDiv
                 ref={contentEditableRef}
-                contentEditable={!disabled}
+                contentEditable={!isStreaming}
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
                 onFocus={() => setIsFocused(true)}
@@ -152,9 +185,26 @@ export const ChatInput: React.FC<Props> = ({
                 }}
                 data-placeholder={placeholder}
                 $isFocused={isFocused}
-                $disabled={disabled}
+                $isWelcomeState={isWelcomeState}
+                $isStreaming={isStreaming}
                 suppressContentEditableWarning
             />
+            <SendButtonWrapper>
+                <Button
+                    onClick={handleButtonClick}
+                    isDisabled={isSubmitDisabled}
+                    isCircle
+                    icon={{
+                        icon: isStreaming ? 'Stop' : 'PaperPlaneRight',
+                        source: 'phosphor',
+                        weight: 'fill',
+                    }}
+                    size="md"
+                    variant="filled"
+                    color="violet"
+                    aria-label={isStreaming ? 'Stop generating' : 'Send message'}
+                />
+            </SendButtonWrapper>
             {mentionState.isActive && (
                 <ChatMentionsDropdown
                     query={mentionState.query}
