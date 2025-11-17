@@ -9,6 +9,16 @@ import { useGetEntities } from '@app/sharedV2/useGetEntities';
 
 import { Entity } from '@types';
 
+// Shared style object for References button (avoids recreating on every render)
+const REFERENCES_BUTTON_STYLE = {
+    minWidth: 'auto',
+    fontSize: '14px',
+    fontWeight: 500,
+    gap: '8px',
+    paddingLeft: 0,
+    paddingRight: 0,
+};
+
 const Container = styled.div`
     width: 100%;
 `;
@@ -80,19 +90,7 @@ export const MessageReferences: React.FC<Props> = ({ messageText, selectedEntity
     return (
         <Container>
             <Header onClick={handleToggle}>
-                <Button
-                    variant="text"
-                    color="gray"
-                    size="sm"
-                    style={{
-                        minWidth: 'auto',
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        gap: '8px',
-                        paddingLeft: 0,
-                        paddingRight: 0,
-                    }}
-                >
+                <Button variant="text" color="gray" size="sm" style={REFERENCES_BUTTON_STYLE}>
                     References ({entities.length})
                     {isExpanded ? <CaretDown size={16} weight="bold" /> : <CaretRight size={16} weight="bold" />}
                 </Button>

@@ -53,7 +53,8 @@ export function parseMessageContent(text: string): MessagePart[] {
     let match = codeBlockRegex.exec(text);
 
     while (match !== null) {
-        // Add markdown content before code block
+        // Preserve any text between code blocks (explanations, instructions) so it can be
+        // rendered as regular markdown alongside the custom-styled code blocks
         if (match.index > lastIndex) {
             const markdownText = text.substring(lastIndex, match.index);
             if (markdownText.trim()) {
@@ -61,7 +62,7 @@ export function parseMessageContent(text: string): MessagePart[] {
             }
         }
 
-        // Add complete code block
+        // Extract code block for custom rendering (with header, copy button, truncation handling)
         parts.push({
             type: 'code',
             language: match[1] || 'code',
