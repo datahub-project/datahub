@@ -1,0 +1,69 @@
+name: Release Tests
+# This workflow runs release tests against a remote DataHub instance
+# These tests do not require building images or running quickstart locally
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run tests from"
+        required: false
+        default: "acryl-main"
+      remote_instance_url:
+        description: "Remote DataHub instance URL"
+        required: true
+        default: "https://deploy-auto.acryl.io"
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+
+jobs:
+  release-tests:
+    name: Run Release Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install uv
+        uses: astral-sh/uv@v7.1.3
+        with:
+          version: "0.9.9"
+
+      - name: Load secrets
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          RELEASE_TEST_ADMIN_USERNAME: op://Engineering/Shared Accounts for dev0x/admin email
+          RELEASE_TEST_ADMIN_PASSWORD: op://Engineering/Shared Accounts for dev0x/admin pass
+
+      - name: Run release tests
+        env:
+          RELEASE_TEST_FRONTEND_URL: ${{ github.event.inputs.remote_instance_url }}
+        run: |
+          cd smoke-test
+          uv venv venv --python 3.11
+          source venv/bin/activate
+          uv pip install -r ./requirements-release-test.txt
+          ../docker/smoke-test/release-tests.sh
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Test Results (release tests)
+          path: |
+            **/junit.*.xml
+            **/build/test-results/test/**
+            smoke-test/build/test-results/
+          retention-days: 5

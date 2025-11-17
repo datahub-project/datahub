@@ -261,3 +261,32 @@ def get_notify_customers() -> str:
 def get_test_identifier() -> str:
     """Test run identifier for notifications."""
     return os.getenv("TEST_IDENTIFIER", "LOCAL_TEST")
+
+
+# ========================================================================================
+# Env variables for release tests running against deploy-auto or an outside deployment
+# ========================================================================================
+
+
+def get_release_test_gms_url() -> Optional[str]:
+    """GMS URL for release tests."""
+    frontend_url = get_release_test_frontend_url()
+    if frontend_url:
+        return f"{frontend_url}/gms"
+    return os.getenv("RELEASE_TEST_GMS_URL")
+
+
+def get_release_test_frontend_url() -> str:
+    """Frontend URL for release tests."""
+    return os.getenv("RELEASE_TEST_FRONTEND_URL", "https://deploy-auto.acryl.io")
+
+
+def get_release_test_admin_username() -> str:
+    """Admin username for release tests."""
+    return os.getenv("RELEASE_TEST_ADMIN_USERNAME", "shared_admin_user@acryl.io")
+
+
+def get_release_test_admin_password() -> Optional[str]:
+    """Admin password for release tests."""
+    # TODO Move this to a secret
+    return os.getenv("RELEASE_TEST_ADMIN_PASSWORD")
