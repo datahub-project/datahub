@@ -121,22 +121,12 @@ export const ChatPage = () => {
     const conversations = useMemo(() => {
         const baseConversations = conversationsData?.listDataHubAiConversations?.conversations || [];
 
-        // Sort conversations by most recent activity to show active conversations at the top.
-        // This provides better UX as users typically want to continue recent conversations.
-        // Note: Relies on backend updating lastUpdated timestamp when messages are sent.
-        // Fallback to created.time ensures new conversations without messages sort correctly.
-        const sortedConversations = [...baseConversations].sort((a, b) => {
-            const aTime = a.lastUpdated?.time || a.created?.time || 0;
-            const bTime = b.lastUpdated?.time || b.created?.time || 0;
-            return bTime - aTime;
-        });
-
         // If we have an optimistic conversation and it's not in the list yet, add it
-        if (optimisticConversation && !sortedConversations.some((c) => c.urn === optimisticConversation.urn)) {
-            return [optimisticConversation, ...sortedConversations];
+        if (optimisticConversation && !baseConversations.some((c) => c.urn === optimisticConversation.urn)) {
+            return [optimisticConversation, ...baseConversations];
         }
 
-        return sortedConversations;
+        return baseConversations;
     }, [conversationsData, optimisticConversation]);
 
     // Handle creating a new conversation
@@ -199,7 +189,7 @@ export const ChatPage = () => {
             // If we have an initialMessage (from "Ask DataHub"), always create a new conversation
             if (initialMessageRef.current) {
                 setHasAutoCreated(true);
-                handleCreateConversation(true); // silent = true for auto-creation
+                handleCreateConversation(true);
                 return;
             }
 
@@ -214,7 +204,7 @@ export const ChatPage = () => {
 
             // Otherwise, auto-create a new conversation
             setHasAutoCreated(true);
-            handleCreateConversation(true); // silent = true for auto-creation
+            handleCreateConversation(true);
         }
     }, [
         selectedConversationUrn,
