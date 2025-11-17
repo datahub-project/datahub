@@ -140,49 +140,44 @@ export const ChatPage = () => {
     }, [conversationsData, optimisticConversation]);
 
     // Handle creating a new conversation
-    const handleCreateConversation = useCallback(
-        async (silent = false) => {
-            try {
-                const result = await createConversation({
-                    variables: {
-                        input: {
-                            title: null, // Title will be set from first message
-                        },
+    const handleCreateConversation = useCallback(async () => {
+        try {
+            const result = await createConversation({
+                variables: {
+                    input: {
+                        title: null, // Title will be set from first message
                     },
+                },
+            });
+
+            if (result.data?.createDataHubAiConversation) {
+                const newConversation = result.data.createDataHubAiConversation;
+
+                // Add optimistic conversation immediately
+                setOptimisticConversation(newConversation);
+
+                // Emit analytics event for chat creation
+                // Origin is 'search_bar' if there's an initialMessage, otherwise 'manual'
+                analytics.event({
+                    type: EventType.CreateDataHubChatEvent,
+                    origin: initialMessageRef.current ? 'search_bar' : 'manual',
+                    conversationUrn: newConversation.urn,
                 });
 
-                if (result.data?.createDataHubAiConversation) {
-                    const newConversation = result.data.createDataHubAiConversation;
+                // Navigate to the new conversation
+                history.push(`${PageRoutes.AI_CHAT}?conversation=${newConversation.urn}`);
 
-                    // Add optimistic conversation immediately
-                    setOptimisticConversation(newConversation);
-
-                    // Emit analytics event for chat creation
-                    // Origin is 'search_bar' if there's an initialMessage, otherwise 'manual'
-                    analytics.event({
-                        type: EventType.CreateDataHubChatEvent,
-                        origin: initialMessageRef.current ? 'search_bar' : 'manual',
-                        conversationUrn: newConversation.urn,
-                    });
-
-                    // Navigate to the new conversation
-                    history.push(`${PageRoutes.AI_CHAT}?conversation=${newConversation.urn}`);
-
-                    // Refetch in background to ensure consistency (wait for eventual consistency)
-                    setTimeout(() => {
-                        refetchConversations();
-                        setOptimisticConversation(null); // Clear optimistic state after refetch
-                    }, 10000);
-                }
-            } catch (error) {
-                console.error('Failed to create conversation:', error);
-                if (!silent) {
-                    antMessage.error('Failed to create new conversation');
-                }
+                // Refetch in background to ensure consistency (wait for eventual consistency)
+                setTimeout(() => {
+                    refetchConversations();
+                    setOptimisticConversation(null); // Clear optimistic state after refetch
+                }, 10000);
             }
-        },
-        [createConversation, history, refetchConversations],
-    );
+        } catch (error) {
+            console.error('Failed to create conversation:', error);
+            antMessage.error('Failed to create new conversation');
+        }
+    }, [createConversation, history, refetchConversations]);
 
     // Auto-create or select conversation on mount
     useEffect(() => {
@@ -195,7 +190,7 @@ export const ChatPage = () => {
             // If we have an initialMessage (from "Ask DataHub"), always create a new conversation
             if (initialMessageRef.current) {
                 setHasAutoCreated(true);
-                handleCreateConversation(true);
+                handleCreateConversation();
                 return;
             }
 
@@ -210,7 +205,7 @@ export const ChatPage = () => {
 
             // Otherwise, auto-create a new conversation
             setHasAutoCreated(true);
-            handleCreateConversation(true);
+            handleCreateConversation();
         }
     }, [
         selectedConversationUrn,
