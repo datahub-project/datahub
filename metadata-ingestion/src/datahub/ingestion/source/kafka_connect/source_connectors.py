@@ -2833,12 +2833,13 @@ class DebeziumSourceConnector(BaseConnector):
                     continue
 
                 # Try direct match first (handles patterns like "mydb.schema.*")
-                if use_java_regex:
-                    matches = regex_pattern.matcher(table_name).matches()
-                else:
-                    matches = regex_pattern.fullmatch(table_name) is not None
+                full_name_matches = (
+                    regex_pattern.matcher(table_name).matches()
+                    if use_java_regex
+                    else regex_pattern.fullmatch(table_name) is not None
+                )
 
-                if matches:
+                if full_name_matches:
                     matched_tables.append(table_name)
                     continue
 
@@ -2848,17 +2849,14 @@ class DebeziumSourceConnector(BaseConnector):
                 # - PostgreSQL: "public.*" matches "testdb.public.users" (3-tier URN)
                 # - MySQL: "mydb.*" matches "mydb.table1" (2-tier URN, already matched above)
                 if "." in table_name:
-                    table_without_first = table_name.split(".", 1)[1]
-                    if use_java_regex:
-                        matches_without_first = regex_pattern.matcher(
-                            table_without_first
-                        ).matches()
-                    else:
-                        matches_without_first = (
-                            regex_pattern.fullmatch(table_without_first) is not None
-                        )
+                    table_without_database = table_name.split(".", 1)[1]
+                    schema_name_matches = (
+                        regex_pattern.matcher(table_without_database).matches()
+                        if use_java_regex
+                        else regex_pattern.fullmatch(table_without_database) is not None
+                    )
 
-                    if matches_without_first:
+                    if schema_name_matches:
                         matched_tables.append(table_name)
 
             logger.debug(
