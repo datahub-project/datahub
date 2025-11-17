@@ -1,5 +1,5 @@
 import functools
-from typing import Optional
+from typing import Any, Optional
 
 import sqlglot
 from pydantic import BaseModel
@@ -9,7 +9,8 @@ class _ParserBaseModel(
     BaseModel,
     arbitrary_types_allowed=True,
 ):
-    pass
+    def json(self, *args: Any, **kwargs: Any) -> str:
+        return super().model_dump_json(*args, **kwargs)  # type: ignore
 
 
 @functools.total_ordering
