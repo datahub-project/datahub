@@ -18,18 +18,19 @@ This installs PyIceberg and all required dependencies, including PyArrow.
 
 ## Configuration
 
-The sink stores all DataHub metadata aspects in a single Iceberg table with the following schema (column names match the DataHub database exactly):
+The sink stores all DataHub metadata aspects in a single Iceberg table with the following schema:
 
 | Column          | Type      | Description                                              |
 |-----------------|-----------|----------------------------------------------------------|
 | urn             | string    | Entity URN (e.g., dataset, dashboard URN)                |
+| entity_type     | string    | Entity type extracted from URN (e.g., dataset, chart, dashboard) |
 | aspect          | string    | Name of the aspect (e.g., datasetProperties, ownership)  |
 | metadata        | string    | JSON-serialized aspect value (the actual metadata)       |
 | systemmetadata  | string    | JSON-serialized system metadata (optional)               |
 | version         | long      | Aspect version (0 = latest version)                      |
 | createdon       | timestamp | Timestamp when the record was written                    |
 
-The table is partitioned by `aspect` for efficient querying of specific aspect types.
+The table is partitioned by `entity_type` for efficient querying by entity type (e.g., all datasets, all charts).
 
 ### Configuration Options
 
@@ -476,7 +477,7 @@ datahub ingest -c backup-iceberg-sink.yaml
   - **Large batches (20,000-50,000)**: Best query performance, higher memory usage
 - **File Size**: Each batch creates one Parquet file. Target 100-500 MB per file for optimal performance.
 - **Table Metadata Refresh**: After each batch write, the sink automatically reloads the table metadata to prevent Iceberg optimistic concurrency conflicts. This adds minimal latency (~100-200ms per batch) but ensures reliable multi-batch writes.
-- **Partition Pruning**: Queries filtering by `aspect` will benefit from partition pruning.
+- **Partition Pruning**: Queries filtering by `entity_type` will benefit from partition pruning.
 - **Storage Format**: Data is stored as Parquet files, providing efficient compression and columnar access.
 - **Catalog Overhead**: REST catalog operations add latency; use connection pooling and retries for reliability.
 - **Memory Usage**: Approximate memory per batch = `batch_size × average_record_size`. Typical DataHub records are 1-10 KB.

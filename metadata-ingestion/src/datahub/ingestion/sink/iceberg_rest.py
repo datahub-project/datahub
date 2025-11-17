@@ -333,20 +333,21 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
 
             schema = Schema(
                 NestedField(1, "urn", StringType(), required=True),
-                NestedField(2, "aspect", StringType(), required=True),
-                NestedField(3, "metadata", StringType(), required=True),
-                NestedField(4, "systemmetadata", StringType(), required=False),
-                NestedField(5, "version", LongType(), required=True),
-                NestedField(6, "createdon", TimestampType(), required=True),
+                NestedField(2, "entity_type", StringType(), required=True),
+                NestedField(3, "aspect", StringType(), required=True),
+                NestedField(4, "metadata", StringType(), required=True),
+                NestedField(5, "systemmetadata", StringType(), required=False),
+                NestedField(6, "version", LongType(), required=True),
+                NestedField(7, "createdon", TimestampType(), required=True),
             )
 
-            # Partition by aspect for query performance
+            # Partition by entity_type for query performance
             partition_spec = PartitionSpec(
                 PartitionField(
                     source_id=2,
                     field_id=1000,
                     transform=IdentityTransform(),
-                    name="aspect",
+                    name="entity_type",
                 )
             )
 
@@ -385,6 +386,14 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
 
         # Extract fields matching DataHub database columns
         urn = str(mcp.entityUrn) if mcp.entityUrn else ""
+        
+        # Extract entity type from URN (e.g., "urn:li:dataset:..." -> "dataset")
+        entity_type = "unknown"
+        if urn:
+            urn_parts = urn.split(":")
+            if len(urn_parts) >= 3 and urn_parts[0] == "urn" and urn_parts[1] == "li":
+                entity_type = urn_parts[2]
+        
         aspect = mcp.aspectName or ""
 
         # Serialize aspect to JSON (this is the "metadata" column in database)
@@ -414,6 +423,7 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
 
         return {
             "urn": urn,
+            "entity_type": entity_type,
             "aspect": aspect,
             "metadata": metadata,
             "systemmetadata": systemmetadata,
@@ -435,6 +445,7 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
             pa_table = pa.Table.from_pydict(
                 {
                     "urn": [r["urn"] for r in self.batch_buffer],
+                    "entity_type": [r["entity_type"] for r in self.batch_buffer],
                     "aspect": [r["aspect"] for r in self.batch_buffer],
                     "metadata": [r["metadata"] for r in self.batch_buffer],
                     "systemmetadata": [r["systemmetadata"] for r in self.batch_buffer],
@@ -444,6 +455,7 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 schema=pa.schema(
                     [
                         ("urn", pa.string(), False),
+                        ("entity_type", pa.string(), False),
                         ("aspect", pa.string(), False),
                         ("metadata", pa.string(), False),
                         ("systemmetadata", pa.string(), True),

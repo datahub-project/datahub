@@ -260,13 +260,22 @@ class TestIcebergRestSink:
         call_args = mock_catalog.create_table.call_args
         assert call_args[0][0] == "test_namespace.test_table"
         schema = call_args[0][1]
-        assert len(schema.fields) == 6
+        assert len(schema.fields) == 7
         assert schema.fields[0].name == "urn"
-        assert schema.fields[1].name == "aspect_name"
-        assert schema.fields[2].name == "aspect_value"
-        assert schema.fields[3].name == "system_metadata"
-        assert schema.fields[4].name == "change_type"
-        assert schema.fields[5].name == "created_on"
+        assert schema.fields[1].name == "entity_type"
+        assert schema.fields[2].name == "aspect"
+        assert schema.fields[3].name == "metadata"
+        assert schema.fields[4].name == "systemmetadata"
+        assert schema.fields[5].name == "version"
+        assert schema.fields[6].name == "createdon"
+        
+        # Verify partition spec
+        partition_spec = call_args[1]["partition_spec"]
+        assert partition_spec is not None
+        assert len(partition_spec.fields) == 1
+        assert partition_spec.fields[0].source_id == 2  # entity_type field
+        assert partition_spec.fields[0].name == "entity_type"
+        
         assert sink.report.table_created is True
 
     @patch("datahub.ingestion.sink.iceberg_rest.load_catalog")
@@ -377,23 +386,25 @@ class TestIcebergRestSink:
 
         # Verify the PyArrow table structure
         assert "urn" in pa_table.column_names
-        assert "aspect_name" in pa_table.column_names
-        assert "aspect_value" in pa_table.column_names
-        assert "system_metadata" in pa_table.column_names
-        assert "change_type" in pa_table.column_names
-        assert "created_on" in pa_table.column_names
+        assert "entity_type" in pa_table.column_names
+        assert "aspect" in pa_table.column_names
+        assert "metadata" in pa_table.column_names
+        assert "systemmetadata" in pa_table.column_names
+        assert "version" in pa_table.column_names
+        assert "createdon" in pa_table.column_names
 
         # Verify the values
         assert (
             pa_table["urn"][0].as_py()
             == "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)"
         )
-        assert pa_table["aspect_name"][0].as_py() == "ownership"
-        assert pa_table["change_type"][0].as_py() == "UPSERT"
+        assert pa_table["entity_type"][0].as_py() == "dataset"
+        assert pa_table["aspect"][0].as_py() == "ownership"
+        assert pa_table["version"][0].as_py() == 0
 
-        # Verify aspect_value is valid JSON
-        aspect_value = pa_table["aspect_value"][0].as_py()
-        aspect_obj = json.loads(aspect_value)
+        # Verify metadata is valid JSON
+        metadata = pa_table["metadata"][0].as_py()
+        aspect_obj = json.loads(metadata)
         assert "owners" in aspect_obj
 
     @patch("datahub.ingestion.sink.iceberg_rest.load_catalog")
@@ -414,3 +425,40 @@ class TestIcebergRestSink:
         assert "test_warehouse" in configured_str
         assert "test_namespace" in configured_str
         assert "test_table" in configured_str
+
+    @patch("datahub.ingestion.sink.iceberg_rest.load_catalog")
+    def test_entity_type_extraction(
+        self, mock_load_catalog, sink_config, pipeline_context, mock_catalog, mock_table
+    ):
+        """Test that entity type is correctly extracted from URN"""
+        mock_load_catalog.return_value = mock_catalog
+        mock_catalog.list_namespaces = MagicMock(return_value=[])
+        mock_catalog.create_namespace = MagicMock()
+        mock_catalog.create_table = MagicMock()
+        mock_catalog.load_table = MagicMock(return_value=mock_table)
+
+        sink = IcebergRestSink(pipeline_context, sink_config)
+
+        # Test different entity types
+        test_cases = [
+            ("urn:li:dataset:(test,table,PROD)", "dataset"),
+            ("urn:li:chart:test-chart", "chart"),
+            ("urn:li:dashboard:test-dashboard", "dashboard"),
+            ("urn:li:corpuser:test-user", "corpuser"),
+            ("urn:li:dataFlow:test-flow", "dataFlow"),
+            ("invalid-urn", "unknown"),
+            ("", "unknown"),
+        ]
+
+        for urn, expected_entity_type in test_cases:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspectName="testAspect",
+            )
+            record_envelope = RecordEnvelope(mcp, metadata={})
+            record_data = sink._process_record(record_envelope)
+            assert record_data is not None
+            assert record_data["entity_type"] == expected_entity_type, (
+                f"Expected entity_type '{expected_entity_type}' for URN '{urn}', "
+                f"got '{record_data['entity_type']}'"
+            )
