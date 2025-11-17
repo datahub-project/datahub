@@ -143,9 +143,7 @@ class DataplexSource(Source):
         if self.config.extract_entries:
             yield from auto_workunit(self._get_entries_mcps(project_id))
 
-    def _gen_project_workunits(
-        self, project_id: str
-    ) -> Iterable[MetadataChangeProposalWrapper]:
+    def _gen_project_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """Generate workunits for GCP Project as a Container."""
         container_urn = make_project_container_urn(project_id)
 
