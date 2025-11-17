@@ -353,10 +353,9 @@ class KafkaConnectSourceConfig(
                 and self.schema_resolver_finegrained_lineage is False
             ):
                 logger.warning(
-                    "Schema resolver is enabled (use_schema_resolver=True) but both "
-                    "schema_resolver_expand_patterns and schema_resolver_finegrained_lineage are explicitly disabled. "
-                    "This configuration will query DataHub but not use any enhanced features. "
-                    "Consider enabling at least one feature or disabling use_schema_resolver."
+                    "Schema resolver is enabled but all features are disabled. "
+                    "To fix: Either enable schema_resolver_expand_patterns=True or schema_resolver_finegrained_lineage=True, "
+                    "or set use_schema_resolver=False to avoid unnecessary DataHub queries."
                 )
 
         return self
