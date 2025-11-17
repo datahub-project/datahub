@@ -39,9 +39,6 @@ const Header = styled.div`
 
 const HeaderTitle = styled.div`
     max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 `;
 
 const ContentWrapper = styled.div`
