@@ -116,7 +116,11 @@ Writing metadata to a locally running DataHub instance with its Iceberg catalog:
 source:
   type: datahub
   config:
-    pull_from_datahub_api: true
+    database_connection:
+      host_port: "source-postgres:5432"
+      database: "datahub"
+      username: "datahub"
+      password: "${DB_PASSWORD}"
 
 sink:
   type: iceberg-rest
@@ -142,9 +146,11 @@ Using an external Iceberg REST catalog like Snowflake Polaris:
 source:
   type: datahub
   config:
-    kafka_connection:
-      bootstrap: "kafka:9092"
-      schema_registry_url: "http://schema-registry:8081"
+    database_connection:
+      host_port: "source-postgres:5432"
+      database: "datahub"
+      username: "datahub"
+      password: "${DB_PASSWORD}"
 
 sink:
   type: iceberg-rest
@@ -176,8 +182,10 @@ source:
   type: datahub
   config:
     database_connection:
-      host_port: "postgres:5432"
+      host_port: "source-postgres:5432"
       database: "datahub"
+      username: "datahub"
+      password: "${DB_PASSWORD}"
 
 sink:
   type: iceberg-rest
@@ -201,8 +209,10 @@ source:
   type: datahub
   config:
     database_connection:
-      host_port: "postgres:5432"
+      host_port: "source-postgres:5432"
       database: "datahub"
+      username: "datahub"
+      password: "${DB_PASSWORD}"
     
     # Only ingest specific aspects
     exclude_aspects:
