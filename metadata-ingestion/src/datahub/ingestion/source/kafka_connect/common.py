@@ -13,6 +13,7 @@ from datahub.configuration.source_common import (
 from datahub.ingestion.source.kafka_connect.config_constants import (
     parse_comma_separated_list,
 )
+from datahub.ingestion.source.kafka_connect.pattern_matchers import JavaRegexMatcher
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
 )
@@ -729,18 +730,11 @@ class BaseConnector:
                     continue
 
                 # Filter by database - check if table_name starts with database prefix
-                # Table name format: "database.schema.table" or "schema.table"
                 if database_name:
-                    # Case 1: Table name includes database (e.g., "appdb.public.users")
                     if table_name.startswith(f"{database_name.lower()}."):
                         # Remove database prefix to get "schema.table"
                         schema_table = table_name[len(database_name) + 1 :]
                         discovered_tables.append(schema_table)
-                    # Case 2: Table name is just schema.table (database not in URN)
-                    # This happens for some platforms where database is implicit
-                    elif "." in table_name:
-                        # Assume this table belongs to the database (no way to verify without database in URN)
-                        discovered_tables.append(table_name)
                 else:
                     # No database filtering - include all tables
                     discovered_tables.append(table_name)
@@ -1087,7 +1081,7 @@ class BaseConnector:
         available_topics: Optional[List[str]] = None,
     ) -> List[str]:
         """
-        Expand topics.regex pattern against available Kafka topics.
+        Expand topics.regex pattern against available Kafka topics using JavaRegexMatcher.
 
         This helper method is used by sink connectors to resolve topics.regex patterns
         when the Kafka API is unavailable (e.g., Confluent Cloud).
@@ -1104,43 +1098,20 @@ class BaseConnector:
         Returns:
             List of topics matching the regex pattern
         """
-        # Use Java regex for exact Kafka Connect compatibility
-        try:
-            from java.util.regex import Pattern as JavaPattern
-
-            java_pattern = JavaPattern.compile(topics_regex)
-            logger.debug(
-                f"Using Java regex for topics.regex pattern '{topics_regex}' (exact Kafka Connect compatibility)"
-            )
-        except (ImportError, RuntimeError) as e:
-            logger.error(
-                f"Java regex library not available for topics.regex pattern '{topics_regex}': {e}. "
-                f"Cannot expand pattern without Java regex support. "
-                f"Kafka Connect uses Java regex and Python regex is not fully compatible."
-            )
-            self.report.report_warning(
-                self.connector_manifest.name,
-                f"Java regex not available - cannot expand topics.regex pattern '{topics_regex}'",
-            )
-            return []
-        except Exception as e:
-            logger.warning(
-                f"Failed to compile Java regex pattern '{topics_regex}' for connector "
-                f"'{self.connector_manifest.name}': {e}"
-            )
-            return []
+        matcher = JavaRegexMatcher()
 
         # Priority 1: Use provided available_topics (from Kafka API)
         if available_topics:
-            matched_topics = [
-                topic
-                for topic in available_topics
-                if java_pattern.matcher(topic).matches()
-            ]
-            logger.info(
-                f"Expanded topics.regex '{topics_regex}' to {len(matched_topics)} topics "
-                f"from {len(available_topics)} available Kafka topics"
-            )
+            matched_topics = matcher.filter_matches([topics_regex], available_topics)
+            if matched_topics:
+                logger.info(
+                    f"Expanded topics.regex '{topics_regex}' to {len(matched_topics)} topics "
+                    f"from {len(available_topics)} available Kafka topics"
+                )
+            elif not matched_topics:
+                logger.warning(
+                    f"Java regex pattern '{topics_regex}' did not match any of the {len(available_topics)} available topics"
+                )
             return matched_topics
 
         # Priority 2: Query DataHub for Kafka topics
@@ -1165,11 +1136,7 @@ class BaseConnector:
                     if topic_name:
                         datahub_topics.append(topic_name)
 
-                matched_topics = [
-                    topic
-                    for topic in datahub_topics
-                    if java_pattern.matcher(topic).matches()
-                ]
+                matched_topics = matcher.filter_matches([topics_regex], datahub_topics)
 
                 logger.info(
                     f"Found {len(matched_topics)} Kafka topics in DataHub matching pattern '{topics_regex}' "

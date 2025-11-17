@@ -23,6 +23,10 @@ from datahub.ingestion.source.kafka_connect.common import (
     unquote,
     validate_jdbc_url,
 )
+from datahub.ingestion.source.kafka_connect.pattern_matchers import (
+    JavaRegexMatcher,
+    PatternMatcher,
+)
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
 )
@@ -1669,12 +1673,24 @@ class SnowflakeSourceConnector(BaseConnector):
 
     def _is_pattern(self, table_name: str) -> bool:
         """
-        Check if table name contains regex pattern characters.
+        Check if table name contains wildcard pattern characters.
 
-        Snowflake connector may support patterns in table.include.list,
-        but without DataHub schema resolver, we cannot expand them.
+        IMPORTANT: Snowflake Source connector uses SIMPLE WILDCARD MATCHING, not Java regex.
+        Supported wildcards:
+        - "*" matches any sequence of characters (zero or more)
+        - "?" matches any single character
+
+        This is DIFFERENT from Debezium connectors which use full Java regex.
+
+        Examples:
+        - "ANALYTICS.PUBLIC.*" matches all tables in ANALYTICS.PUBLIC schema
+        - "*.PUBLIC.TABLE1" matches TABLE1 in PUBLIC schema across all databases
+        - "DB.SCHEMA.USER?" matches USER1, USERS, etc.
+
+        Note: Without DataHub schema resolver, we cannot expand these patterns.
         """
-        # Check for common regex special characters
+        # Check for wildcard characters (simple patterns only, not full regex)
+        # We check for all regex chars to detect if user accidentally used Java regex syntax
         pattern_chars = [
             "*",
             "+",
@@ -2096,6 +2112,18 @@ class DebeziumSourceConnector(BaseConnector):
         database_name: Optional[str]
         transforms: List[Dict[str, str]]
 
+    def get_pattern_matcher(self) -> PatternMatcher:
+        """
+        Get the pattern matcher for this connector type.
+
+        Debezium connectors use Java regex for table.include.list and table.exclude.list,
+        which provides full regex capabilities including character classes, alternation,
+        quantifiers, etc.
+
+        This differs from Snowflake Source connectors which use simple wildcard matching.
+        """
+        return JavaRegexMatcher()
+
     def get_server_name(self, connector_manifest: ConnectorManifest) -> str:
         if "topic.prefix" in connector_manifest.config:
             return connector_manifest.config["topic.prefix"]
@@ -2327,53 +2355,23 @@ class DebeziumSourceConnector(BaseConnector):
         self, tables: List[str], patterns: List[str]
     ) -> List[str]:
         """
-        Filter tables by matching against table.include.list patterns.
+        Filter tables by matching against patterns using the connector's pattern matcher.
 
-        Debezium uses Java regex for table.include.list patterns.
+        This method uses the connector-specific pattern matcher (Java regex for Debezium)
+        to filter table names.
 
         Args:
             tables: List of table names to filter (e.g., ["public.users", "public.orders"])
-            patterns: List of regex patterns from table.include.list
+            patterns: List of patterns from table.include.list or table.exclude.list
 
         Returns:
             List of tables that match at least one pattern
         """
-        matched_tables = []
+        # Get the appropriate pattern matcher for this connector type
+        matcher = self.get_pattern_matcher()
 
-        # Try to use Java regex for exact compatibility with Debezium
-        try:
-            from java.util.regex import Pattern as JavaPattern
-
-            use_java_regex = True
-            logger.debug("Using Java regex for table pattern matching")
-        except (ImportError, RuntimeError):
-            use_java_regex = False
-            logger.debug("Java regex not available, falling back to Python re module")
-
-        for pattern in patterns:
-            try:
-                if use_java_regex:
-                    regex_pattern = JavaPattern.compile(pattern)
-                else:
-                    # Convert Java regex to Python regex (mostly compatible)
-                    python_pattern = pattern.replace(r"\\.", r"\.")
-                    regex_pattern = re.compile(python_pattern)
-
-                for table in tables:
-                    # Try to match the pattern against the table name
-                    matches = (
-                        regex_pattern.matcher(table).matches()
-                        if use_java_regex
-                        else regex_pattern.fullmatch(table) is not None
-                    )
-
-                    if matches and table not in matched_tables:
-                        matched_tables.append(table)
-
-            except Exception as e:
-                logger.warning(f"Failed to compile or match pattern '{pattern}': {e}")
-
-        return matched_tables
+        # Use the matcher's filter_matches method
+        return matcher.filter_matches(patterns, tables)
 
     def _get_database_name_for_platform(
         self, platform: str, config: Dict[str, str]

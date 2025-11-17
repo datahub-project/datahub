@@ -404,12 +404,15 @@ class BigQuerySinkConnector(BaseConnector):
                 logger.warning(f"Failed to parse mapping entry '{entry}': {e}")
 
     def get_dataset_for_topic_v1(self, topic: str, parser: BQParser) -> Optional[str]:
+        from datahub.ingestion.source.kafka_connect.pattern_matchers import (
+            JavaRegexMatcher,
+        )
+
         topicregex_dataset_map: Dict[str, str] = dict(self.get_list(parser.datasets))  # type: ignore
-        from java.util.regex import Pattern
+        matcher = JavaRegexMatcher()
 
         for pattern, dataset in topicregex_dataset_map.items():
-            patternMatcher = Pattern.compile(pattern).matcher(topic)
-            if patternMatcher.matches():
+            if matcher.matches(pattern, topic):
                 return dataset
         return None
 
@@ -441,14 +444,17 @@ class BigQuerySinkConnector(BaseConnector):
 
             table = topic
             if parser.topicsToTables:
+                from datahub.ingestion.source.kafka_connect.pattern_matchers import (
+                    JavaRegexMatcher,
+                )
+
                 topicregex_table_map: Dict[str, str] = dict(
                     self.get_list(parser.topicsToTables)  # type: ignore
                 )
-                from java.util.regex import Pattern
+                matcher = JavaRegexMatcher()
 
                 for pattern, tbl in topicregex_table_map.items():
-                    patternMatcher = Pattern.compile(pattern).matcher(topic)
-                    if patternMatcher.matches():
+                    if matcher.matches(pattern, topic):
                         table = tbl
                         break
 
