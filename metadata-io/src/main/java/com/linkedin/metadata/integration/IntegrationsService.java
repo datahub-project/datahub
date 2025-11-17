@@ -159,8 +159,7 @@ public class IntegrationsService {
     // Initialize streaming chat client
     final String chatServiceUrl =
         String.format("%s://%s:%d", protocol, integrationsServiceHost, integrationsServicePort);
-    this.streamingChatClient =
-        new StreamingChatClient(httpClient, chatServiceUrl, systemAuthentication.getCredentials());
+    this.streamingChatClient = new StreamingChatClient(httpClient, chatServiceUrl);
   }
 
   /** Calls the integration service to refresh their connection settings on demand. */

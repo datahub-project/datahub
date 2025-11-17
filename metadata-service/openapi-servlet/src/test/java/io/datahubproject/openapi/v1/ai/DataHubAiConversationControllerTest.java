@@ -73,7 +73,7 @@ public class DataHubAiConversationControllerTest {
   public void testStreamChatSuccess() throws Exception {
     // Mock the streaming client to call the callback with SSE events
     when(mockStreamingClient.sendStreamingMessage(
-            any(String.class), any(String.class), any(String.class), any(Consumer.class)))
+            any(String.class), any(String.class), any(Authentication.class), any(Consumer.class)))
         .thenAnswer(
             invocation -> {
               // Simulate Python service returning SSE events with event names
@@ -129,7 +129,7 @@ public class DataHubAiConversationControllerTest {
   public void testStreamChatWithError() throws Exception {
     // Mock streaming client to throw an exception
     when(mockStreamingClient.sendStreamingMessage(
-            any(String.class), any(String.class), any(String.class), any(Consumer.class)))
+            any(String.class), any(String.class), any(Authentication.class), any(Consumer.class)))
         .thenReturn(
             CompletableFuture.failedFuture(new RuntimeException("Integration service error")));
 
@@ -153,7 +153,7 @@ public class DataHubAiConversationControllerTest {
     final String testSseData2 = "{\"message_type\":\"TEXT\",\"text\":\"Final response\"}";
 
     when(mockStreamingClient.sendStreamingMessage(
-            any(String.class), any(String.class), any(String.class), any(Consumer.class)))
+            any(String.class), any(String.class), any(Authentication.class), any(Consumer.class)))
         .thenAnswer(
             invocation -> {
               Consumer<SseEvent> callback = invocation.getArgument(3);
@@ -181,7 +181,7 @@ public class DataHubAiConversationControllerTest {
   public void testStreamChatWithErrorEvent() throws Exception {
     // Verify that error events are properly forwarded with "error" event name
     when(mockStreamingClient.sendStreamingMessage(
-            any(String.class), any(String.class), any(String.class), any(Consumer.class)))
+            any(String.class), any(String.class), any(Authentication.class), any(Consumer.class)))
         .thenAnswer(
             invocation -> {
               Consumer<SseEvent> callback = invocation.getArgument(3);

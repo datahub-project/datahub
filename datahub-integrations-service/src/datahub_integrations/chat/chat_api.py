@@ -8,12 +8,15 @@ by the Java GraphQL service.
 import json
 from typing import Any, Dict, Iterator
 
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.sdk.main_client import DataHubClient
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel
 
+from datahub_integrations.app import DATAHUB_SERVER
 from datahub_integrations.chat.chat_session_manager import (
     ChatMessageEvent,
     ChatSessionManager,
@@ -32,9 +35,65 @@ class ChatMessageRequest(BaseModel):
     user_urn: str
 
 
-def get_datahub_client() -> DataHubClient:
-    """Get DataHub client instance."""
-    return DataHubClient.from_env()
+def get_system_client() -> DataHubClient:
+    """
+    Get DataHub client instance with system credentials for conversation management.
+
+    This client uses system authentication (via DATAHUB_SYSTEM_CLIENT_ID/SECRET
+    or DATAHUB_GMS_API_TOKEN) and is used for conversation persistence operations
+    that don't require user-specific permissions.
+
+    Returns:
+        DataHubClient configured with system credentials
+    """
+    from datahub_integrations.app import graph
+
+    logger.info("Creating DataHub client with system credentials")
+    return DataHubClient(graph=graph)
+
+
+def get_tools_client(authorization: str) -> DataHubClient:
+    """
+    Get DataHub client instance with user credentials for tool execution.
+
+    Creates a DataHubClient configured with the user's credentials from the
+    Authorization header. This client is specifically used for tool calls where
+    user-level permissions must be enforced.
+
+    Args:
+        authorization: Authorization header value (e.g., "Bearer <token>")
+
+    Returns:
+        DataHubClient configured with user credentials
+
+    Raises:
+        HTTPException: If authorization header is missing or invalid
+    """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+    # Extract token from authorization header
+    if authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+    else:
+        # If it doesn't have Bearer prefix, assume it's already just the token
+        token = authorization
+
+    if not token:
+        raise HTTPException(
+            status_code=401, detail="Empty token in Authorization header"
+        )
+
+    logger.info("Creating DataHub tools client with user credentials")
+
+    # Create DataHub graph with user's token
+    graph = DataHubGraph(
+        DatahubClientConfig(
+            server=DATAHUB_SERVER,
+            token=token,
+        )
+    )
+    return DataHubClient(graph=graph)
 
 
 def get_auth_token(authorization: str | None = Header(None)) -> str:
@@ -86,10 +145,24 @@ def event_to_sse(event: ChatMessageEvent) -> Dict[str, Any]:
 
 
 @router.post("/message")
-def send_streaming_message(request: ChatMessageRequest) -> StreamingResponse:
+def send_streaming_message(
+    request: ChatMessageRequest,
+    authorization: str = Header(...),
+) -> StreamingResponse:
     """
     Send a message to a chat conversation with streaming progress updates.
     Returns a Server-Sent Events (SSE) stream with progress updates.
+
+    This endpoint requires user credentials via the Authorization header. The user's
+    credentials are specifically used for tool execution, ensuring that tool calls
+    respect user permissions. Conversation management uses system credentials.
+
+    Args:
+        request: Chat message request containing conversation URN, user URN, and text
+        authorization: Required Authorization header with user's Bearer token
+
+    Returns:
+        StreamingResponse with Server-Sent Events
 
     Note: Client disconnect detection is not reliable in the current architecture
     because requests pass through a Java intermediate server that continues
@@ -104,9 +177,15 @@ def send_streaming_message(request: ChatMessageRequest) -> StreamingResponse:
 
     def generate_stream() -> Iterator[str]:
         try:
-            # Get DataHub client and create manager
-            client = get_datahub_client()
-            manager = ChatSessionManager(client=client)
+            # Get system client for conversation management
+            system_client = get_system_client()
+
+            # Get tools client with user credentials for tool execution
+            tools_client = get_tools_client(authorization=authorization)
+
+            manager = ChatSessionManager(
+                system_client=system_client, tools_client=tools_client
+            )
 
             logger.info(
                 f"Starting message stream for conversation: {request.conversation_urn}"
