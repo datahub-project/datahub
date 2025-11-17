@@ -1,7 +1,7 @@
 import { Button, Loader, Text, colors } from '@components';
 import { CaretDown, Chat, ChatsTeardrop } from '@phosphor-icons/react';
 import { message as antMessage } from 'antd';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { getColor } from '@components/theme/utils';
@@ -205,6 +205,17 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     const [deleteConversation] = useDeleteDataHubAiConversationMutation();
     const [isConversationsCollapsed, setIsConversationsCollapsed] = useState(false);
 
+    // Sort conversations by most recent activity to show active conversations at the top.
+    // This provides better UX as users typically want to continue recent conversations.
+    // Backend sorts by createdAt, so we re-sort by lastUpdated.time on the frontend.
+    const sortedConversations = useMemo(() => {
+        return [...conversations].sort((a, b) => {
+            const aTime = a.lastUpdated?.time || a.created?.time || 0;
+            const bTime = b.lastUpdated?.time || b.created?.time || 0;
+            return bTime - aTime;
+        });
+    }, [conversations]);
+
     const handleDelete = async (e: React.MouseEvent, conversation: DataHubAiConversation) => {
         e.stopPropagation();
 
@@ -296,7 +307,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                             </EmptyState>
                         );
                     }
-                    return conversations.map((conversation) => {
+                    return sortedConversations.map((conversation) => {
                         const isSelected = conversation.urn === selectedConversationUrn;
                         return (
                             <ConversationItem
