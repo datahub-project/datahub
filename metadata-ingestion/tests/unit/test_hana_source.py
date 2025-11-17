@@ -23,7 +23,7 @@ def test_platform_correctly_set_hana():
     reason="The hdbcli dependency is not available for aarch64",
 )
 def test_hana_uri_native():
-    config = HanaConfig.parse_obj(
+    config = HanaConfig.model_validate(
         {
             "username": "user",
             "password": "password",
@@ -39,7 +39,7 @@ def test_hana_uri_native():
     reason="The hdbcli dependency is not available for aarch64",
 )
 def test_hana_uri_native_db():
-    config = HanaConfig.parse_obj(
+    config = HanaConfig.model_validate(
         {
             "username": "user",
             "password": "password",

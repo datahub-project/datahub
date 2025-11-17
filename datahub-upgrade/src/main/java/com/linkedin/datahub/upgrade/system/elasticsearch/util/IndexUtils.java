@@ -206,7 +206,7 @@ public class IndexUtils {
             }
           });
     } catch (Exception e) {
-      log.error("All {} attempts failed", maxAttempts);
+      log.error("All {} attempts failed", maxAttempts, e);
       return false;
     }
   }

@@ -22,6 +22,7 @@ module.exports = defineConfig({
     baseUrl: "http://localhost:9002/",
     specPattern: "cypress/e2e/**/*.{js,jsx,ts,tsx}",
     experimentalStudio: true,
+    experimentalMemoryManagement: true,
   },
   reporter: "cypress-junit-reporter",
   reporterOptions: {
