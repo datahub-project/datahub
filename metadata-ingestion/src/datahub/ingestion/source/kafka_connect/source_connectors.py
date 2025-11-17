@@ -1532,6 +1532,7 @@ class SnowflakeSourceConnector(BaseConnector):
         database_name: Optional[str]
         topic_prefix: str
         table_names: List[str]
+        transforms: List[Dict[str, str]]
 
     def get_parser(
         self,
@@ -1554,11 +1555,26 @@ class SnowflakeSourceConnector(BaseConnector):
         # Topic prefix (used in topic naming pattern)
         topic_prefix = config.get("topic.prefix", "")
 
+        # Parse transforms
+        transforms_config = config.get("transforms", "")
+        transform_names = (
+            parse_comma_separated_list(transforms_config) if transforms_config else []
+        )
+
+        transforms = []
+        for name in transform_names:
+            transform = {"name": name}
+            transforms.append(transform)
+            for key in config:
+                if key.startswith(f"transforms.{name}."):
+                    transform[key.replace(f"transforms.{name}.", "")] = config[key]
+
         parser = self.SnowflakeSourceParser(
             source_platform="snowflake",
             database_name=database_name,
             topic_prefix=topic_prefix,
             table_names=table_names,
+            transforms=transforms,
         )
 
         return parser
@@ -1625,6 +1641,24 @@ class SnowflakeSourceConnector(BaseConnector):
                 else:
                     topic_name = table_name
                 topics.append(topic_name)
+
+            # Apply transforms if configured
+            if parser.transforms:
+                logger.debug(
+                    f"Applying {len(parser.transforms)} transforms to {len(topics)} derived topics for connector '{self.connector_manifest.name}'"
+                )
+                result = get_transform_pipeline().apply_forward(
+                    topics, self.connector_manifest.config
+                )
+                if result.warnings:
+                    for warning in result.warnings:
+                        logger.warning(
+                            f"Transform warning for {self.connector_manifest.name}: {warning}"
+                        )
+                topics = result.topics
+                logger.info(
+                    f"Topics after transforms for '{self.connector_manifest.name}': {topics[:10] if len(topics) <= 10 else f'{topics[:10]}... ({len(topics)} total)'}"
+                )
 
             return topics
         except Exception as e:
@@ -1806,9 +1840,10 @@ class SnowflakeSourceConnector(BaseConnector):
         """
         Extract lineage mappings from Snowflake tables to Kafka topics.
 
-        This method reuses expanded tables cached by get_topics_from_config() to avoid
-        redundant pattern expansion and ensure consistency between topic derivation
-        and lineage extraction.
+        This method always uses table.include.list from config as the source of truth.
+        When manifest.topic_names is available (Kafka API accessible), it filters
+        lineages to only topics that exist in Kafka. When unavailable (Confluent Cloud,
+        air-gapped), it creates lineages for all configured tables without filtering.
         """
         parser = self.get_parser(self.connector_manifest)
         lineages: List[KafkaConnectLineage] = []
@@ -1818,12 +1853,7 @@ class SnowflakeSourceConnector(BaseConnector):
             f"platform={parser.source_platform}, database={parser.database_name}"
         )
 
-        # Early return if no topics
-        if not self.connector_manifest.topic_names:
-            logger.debug("No topics found in manifest for Snowflake Source connector")
-            return []
-
-        # Check if we have cached expanded tables from get_topics_from_config()
+        # Get table names from config (cached from get_topics_from_config if available)
         if self._cached_expanded_tables is not None:
             table_names = self._cached_expanded_tables
             if not table_names:
@@ -1835,7 +1865,7 @@ class SnowflakeSourceConnector(BaseConnector):
                 f"Reusing {len(table_names)} cached expanded tables from get_topics_from_config()"
             )
         else:
-            # Fallback: expand patterns if not already cached (shouldn't happen in normal flow)
+            # Expand patterns if not already cached
             table_names = parser.table_names
             if not table_names:
                 logger.debug(
@@ -1863,7 +1893,7 @@ class SnowflakeSourceConnector(BaseConnector):
             # If patterns exist and schema resolver is available, expand them
             if has_patterns and self.schema_resolver:
                 logger.info(
-                    f"Expanding table patterns for Snowflake Source connector '{self.connector_manifest.name}' (fallback path)"
+                    f"Expanding table patterns for Snowflake Source connector '{self.connector_manifest.name}'"
                 )
                 table_names = self._expand_table_patterns(
                     table_names, parser.source_platform, parser.database_name
@@ -1878,41 +1908,67 @@ class SnowflakeSourceConnector(BaseConnector):
                 table_names = [table.lower() for table in table_names]
 
         topic_prefix = parser.topic_prefix
+        has_kafka_topics = bool(self.connector_manifest.topic_names)
 
-        # Match tables to topics
-        # Snowflake topic naming: {topic_prefix}{database.schema.table}
+        if not has_kafka_topics:
+            logger.info(
+                f"No Kafka topics available from API for connector '{self.connector_manifest.name}' - "
+                f"creating lineages for all {len(table_names)} configured tables without filtering"
+            )
+
+        # Derive expected topics and apply transforms
         for table_name in table_names:
-            # Build expected topic name
+            # Build expected base topic name
             if topic_prefix:
                 expected_topic = f"{topic_prefix}{table_name}"
             else:
                 expected_topic = table_name
 
-            # Check if expected topic exists in actual topics
-            if expected_topic in self.connector_manifest.topic_names:
-                # Extract column-level lineage if enabled (uses base class method)
-                fine_grained = self._extract_fine_grained_lineage(
-                    source_dataset=table_name,
-                    source_platform=parser.source_platform,
-                    target_dataset=expected_topic,
-                    target_platform=KAFKA,
+            # Apply transforms if configured
+            if parser.transforms:
+                result = get_transform_pipeline().apply_forward(
+                    [expected_topic], self.connector_manifest.config
                 )
+                if result.warnings:
+                    for warning in result.warnings:
+                        logger.warning(
+                            f"Transform warning for {self.connector_manifest.name}: {warning}"
+                        )
+                if result.topics and len(result.topics) > 0:
+                    expected_topic = result.topics[0]
 
-                # Create lineage mapping
-                lineage = KafkaConnectLineage(
-                    source_dataset=table_name,
-                    source_platform=parser.source_platform,
-                    target_dataset=expected_topic,
-                    target_platform=KAFKA,
-                    fine_grained_lineages=fine_grained,
-                )
-                lineages.append(lineage)
-                logger.debug(f"Created lineage: {table_name} -> {expected_topic}")
-            else:
+            # Filter by Kafka topics if available
+            if (
+                has_kafka_topics
+                and expected_topic not in self.connector_manifest.topic_names
+            ):
                 logger.debug(
-                    f"Expected topic '{expected_topic}' not found in manifest topics for table '{table_name}'"
+                    f"Expected topic '{expected_topic}' not found in Kafka - skipping lineage for table '{table_name}'"
                 )
+                continue
 
+            # Extract column-level lineage if enabled
+            fine_grained = self._extract_fine_grained_lineage(
+                source_dataset=table_name,
+                source_platform=parser.source_platform,
+                target_dataset=expected_topic,
+                target_platform=KAFKA,
+            )
+
+            # Create lineage mapping
+            lineage = KafkaConnectLineage(
+                source_dataset=table_name,
+                source_platform=parser.source_platform,
+                target_dataset=expected_topic,
+                target_platform=KAFKA,
+                fine_grained_lineages=fine_grained,
+            )
+            lineages.append(lineage)
+            logger.debug(f"Created lineage: {table_name} -> {expected_topic}")
+
+        logger.info(
+            f"Created {len(lineages)} lineages for Snowflake connector '{self.connector_manifest.name}'"
+        )
         return lineages
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
@@ -2033,6 +2089,7 @@ class DebeziumSourceConnector(BaseConnector):
         source_platform: str
         server_name: Optional[str]
         database_name: Optional[str]
+        transforms: List[Dict[str, str]]
 
     def get_server_name(self, connector_manifest: ConnectorManifest) -> str:
         if "topic.prefix" in connector_manifest.config:
@@ -2055,28 +2112,64 @@ class DebeziumSourceConnector(BaseConnector):
             platform, connector_manifest.config
         )
 
+        # Parse transforms
+        config = connector_manifest.config
+        transforms_config = config.get("transforms", "")
+        transform_names = (
+            parse_comma_separated_list(transforms_config) if transforms_config else []
+        )
+
+        transforms = []
+        for name in transform_names:
+            transform = {"name": name}
+            transforms.append(transform)
+            for key in config:
+                if key.startswith(f"transforms.{name}."):
+                    transform[key.replace(f"transforms.{name}.", "")] = config[key]
+
         return self.DebeziumParser(
             source_platform=parser_platform,
             server_name=self.get_server_name(connector_manifest),
             database_name=database_name,
+            transforms=transforms,
         )
 
     def get_topics_from_config(self) -> List[str]:
         """Extract expected topics from Debezium connector configuration."""
+        logger.debug(
+            f"DebeziumSourceConnector.get_topics_from_config called for '{self.connector_manifest.name}'"
+        )
         try:
-            parser = self.get_parser(self.connector_manifest)
             config = self.connector_manifest.config
-            server_name = parser.server_name or ""
+            logger.debug(
+                f"Debezium connector '{self.connector_manifest.name}' config keys: {list(config.keys())}"
+            )
 
-            # Extract table names from configuration
+            # Extract table names from configuration first (before parser creation)
             table_config = config.get("table.include.list") or config.get(
                 "table.whitelist"
             )
             if not table_config:
-                logger.debug("No table configuration found in Debezium connector")
+                logger.info(
+                    f"No table.include.list or table.whitelist found for Debezium connector '{self.connector_manifest.name}' - "
+                    f"cannot derive topics from config. Available config keys: {list(config.keys())[:20]}"
+                )
                 return []
 
             table_names = parse_comma_separated_list(table_config)
+            logger.debug(
+                f"Debezium connector '{self.connector_manifest.name}' has {len(table_names)} tables configured: {table_names[:5]}"
+            )
+
+            # Get server name - use direct config lookup to avoid parser issues
+            server_name = (
+                config.get("database.server.name")
+                or config.get("topic.prefix")
+                or config.get("database.hostname", "")
+            )
+            logger.debug(
+                f"Debezium connector '{self.connector_manifest.name}' server_name='{server_name}'"
+            )
 
             # Debezium topics follow pattern: {server_name}.{table} where table includes schema
             topics = []
@@ -2088,9 +2181,16 @@ class DebeziumSourceConnector(BaseConnector):
                     topic_name = table_name
                 topics.append(topic_name)
 
+            logger.info(
+                f"Derived {len(topics)} topics from Debezium connector '{self.connector_manifest.name}' config: "
+                f"{topics[:10] if len(topics) <= 10 else f'{topics[:10]}... ({len(topics)} total)'}"
+            )
             return topics
         except Exception as e:
-            logger.debug(f"Failed to derive topics from Debezium connector config: {e}")
+            logger.warning(
+                f"Failed to derive topics from Debezium connector '{self.connector_manifest.name}' config: {e}",
+                exc_info=True,
+            )
             return []
 
     def _get_database_name_for_platform(
@@ -2136,6 +2236,14 @@ class DebeziumSourceConnector(BaseConnector):
             return "unknown"
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
+        """
+        Extract lineage mappings from Debezium source tables to Kafka topics.
+
+        This method always uses table.include.list from config as the source of truth.
+        When manifest.topic_names is available (Kafka API accessible), it filters
+        lineages to only topics that exist in Kafka. When unavailable (Confluent Cloud,
+        air-gapped), it creates lineages for all configured tables without filtering.
+        """
         lineages: List[KafkaConnectLineage] = list()
 
         try:
@@ -2143,9 +2251,6 @@ class DebeziumSourceConnector(BaseConnector):
             source_platform = parser.source_platform
             server_name = parser.server_name
             database_name = parser.database_name
-
-            if not self.connector_manifest.topic_names:
-                return lineages
 
             # Check for EventRouter transform - requires special handling
             if self._has_event_router_transform():
@@ -2156,57 +2261,132 @@ class DebeziumSourceConnector(BaseConnector):
                     source_platform, database_name
                 )
 
-            # Standard Debezium topic processing
-            # Escape server_name to handle cases where topic.prefix contains dots
-            # Some users configure topic.prefix like "my.server" which breaks the regex
-            server_name = server_name or ""
-            # Regex pattern (\w+\.\w+(?:\.\w+)?) supports BOTH 2-part and 3-part table names
-            topic_naming_pattern = rf"({re.escape(server_name)})\.(\w+\.\w+(?:\.\w+)?)"
+            # Get table names from config
+            table_config = self.connector_manifest.config.get(
+                "table.include.list"
+            ) or self.connector_manifest.config.get("table.whitelist")
+
+            has_kafka_topics = bool(self.connector_manifest.topic_names)
+
+            # When table.include.list is not specified, Debezium captures ALL tables from the database
+            # In this case, we use the actual topic names from Kafka API to reverse-engineer which tables are being captured
+            if not table_config:
+                if not has_kafka_topics:
+                    logger.warning(
+                        f"Debezium connector {self.connector_manifest.name} has no table.include.list config "
+                        f"and no topics available from Kafka API - cannot extract lineages"
+                    )
+                    return lineages
+
+                if not server_name:
+                    logger.warning(
+                        f"Debezium connector {self.connector_manifest.name} has no server_name - cannot extract lineages from topics"
+                    )
+                    return lineages
+
+                # Use standard Debezium topic processing to extract table names from topics
+                logger.info(
+                    f"Debezium connector {self.connector_manifest.name} has no table.include.list config - "
+                    f"deriving table names from {len(self.connector_manifest.topic_names)} Kafka topics"
+                )
+                return self._extract_lineages_from_topics(
+                    source_platform, server_name, database_name
+                )
+
+            # Expand patterns if needed (requires SchemaResolver)
+            table_names = self._expand_table_patterns(
+                table_config, source_platform, database_name
+            )
+
+            if not table_names:
+                logger.warning(
+                    f"No tables found after expanding patterns for connector '{self.connector_manifest.name}'"
+                )
+                return lineages
+
+            if not has_kafka_topics:
+                logger.info(
+                    f"No Kafka topics available from API for connector '{self.connector_manifest.name}' - "
+                    f"creating lineages for all {len(table_names)} configured tables without filtering"
+                )
 
             # Handle connectors with 2-level container (database + schema) in topic pattern
             connector_class = self.connector_manifest.config.get(CONNECTOR_CLASS, "")
-            maybe_duplicated_database_name = (
+            includes_database_in_topic = (
                 connector_class
                 in self.DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER_IN_PATTERN
             )
 
-            for topic in self.connector_manifest.topic_names:
-                found = re.search(re.compile(topic_naming_pattern), topic)
-                logger.debug(
-                    f"Processing topic: '{topic}' with regex pattern '{topic_naming_pattern}', found: {found}"
+            # Derive expected topics and apply transforms
+            for table_name in table_names:
+                # For Debezium, derive expected topic name: {server_name}.{schema.table}
+                # Table name may include schema (e.g., "public.users") or database.schema (e.g., "testdb.public.users")
+                # SQL Server special case: {server_name}.{database}.{schema.table}
+
+                # Extract schema.table part (remove database if present for 3-tier platforms)
+                if database_name and table_name.startswith(f"{database_name}."):
+                    # Remove database prefix: "testdb.public.users" -> "public.users"
+                    schema_table = table_name[len(database_name) + 1 :]
+                else:
+                    schema_table = table_name
+
+                # Build full dataset name with database
+                dataset_name = get_dataset_name(database_name, schema_table)
+
+                # Generate expected Debezium topic name
+                if includes_database_in_topic and database_name:
+                    # SQL Server: server.database.schema.table
+                    if server_name:
+                        expected_topic = f"{server_name}.{database_name}.{schema_table}"
+                    else:
+                        expected_topic = f"{database_name}.{schema_table}"
+                elif server_name:
+                    # Standard: server.schema.table
+                    expected_topic = f"{server_name}.{schema_table}"
+                else:
+                    expected_topic = schema_table
+
+                # Apply transforms if configured
+                if parser.transforms:
+                    result = get_transform_pipeline().apply_forward(
+                        [expected_topic], self.connector_manifest.config
+                    )
+                    if result.warnings:
+                        for warning in result.warnings:
+                            logger.warning(
+                                f"Transform warning for {self.connector_manifest.name}: {warning}"
+                            )
+                    if result.topics and len(result.topics) > 0:
+                        expected_topic = result.topics[0]
+
+                # Filter by Kafka topics if available
+                if (
+                    has_kafka_topics
+                    and expected_topic not in self.connector_manifest.topic_names
+                ):
+                    logger.debug(
+                        f"Expected topic '{expected_topic}' not found in Kafka - skipping lineage for table '{table_name}'"
+                    )
+                    continue
+
+                # Extract fine-grained lineage if enabled
+                fine_grained = self._extract_fine_grained_lineage(
+                    dataset_name, source_platform, expected_topic, KAFKA
                 )
 
-                if found:
-                    # Extract the table part after server_name
-                    table_part = found.group(2)
+                # Create lineage mapping
+                lineage = KafkaConnectLineage(
+                    source_dataset=dataset_name,
+                    source_platform=source_platform,
+                    target_dataset=expected_topic,
+                    target_platform=KAFKA,
+                    fine_grained_lineages=fine_grained,
+                )
+                lineages.append(lineage)
 
-                    if (
-                        maybe_duplicated_database_name
-                        and database_name
-                        and table_part.startswith(f"{database_name}.")
-                    ):
-                        table_part = table_part[len(database_name) + 1 :]
-
-                    logger.debug(
-                        f"Extracted table part: '{table_part}' from topic '{topic}'"
-                    )
-                    # Apply database name to create final dataset name
-                    table_name = get_dataset_name(database_name, table_part)
-                    logger.debug(f"Final table name: '{table_name}'")
-
-                    # Extract fine-grained lineage if enabled
-                    fine_grained = self._extract_fine_grained_lineage(
-                        table_name, source_platform, topic, KAFKA
-                    )
-
-                    lineage = KafkaConnectLineage(
-                        source_dataset=table_name,
-                        source_platform=source_platform,
-                        target_dataset=topic,
-                        target_platform=KAFKA,
-                        fine_grained_lineages=fine_grained,
-                    )
-                    lineages.append(lineage)
+            logger.info(
+                f"Created {len(lineages)} lineages for Debezium connector '{self.connector_manifest.name}' from config"
+            )
             return lineages
         except Exception as e:
             self.report.warning(
@@ -2350,6 +2530,142 @@ class DebeziumSourceConnector(BaseConnector):
             f"EventRouter connector {self.connector_manifest.name} has no RegexRouter - cannot filter topics accurately"
         )
         return list(self.connector_manifest.topic_names)
+
+    def _extract_lineages_from_topics(
+        self,
+        source_platform: str,
+        server_name: str,
+        database_name: Optional[str],
+    ) -> List[KafkaConnectLineage]:
+        """
+        Extract lineages by reverse-engineering table names from Kafka topic names.
+
+        This is used when table.include.list is not configured, meaning Debezium captures
+        ALL tables from the database. We parse the actual topic names from Kafka API to
+        determine which tables are being captured.
+
+        Debezium topic naming patterns:
+        - MySQL: {server_name}.{database}.{table}
+        - PostgreSQL: {server_name}.{schema}.{table}
+        - SQL Server: {server_name}.{database}.{schema}.{table}
+        - Oracle: {server_name}.{schema}.{table}
+        """
+        lineages: List[KafkaConnectLineage] = []
+
+        if not self.connector_manifest.topic_names:
+            return lineages
+
+        connector_class = self.connector_manifest.config.get(CONNECTOR_CLASS, "")
+        includes_database_in_topic = (
+            connector_class
+            in self.DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER_IN_PATTERN
+        )
+
+        for topic in self.connector_manifest.topic_names:
+            # Skip internal Debezium topics (schema history, transaction metadata, etc.)
+            if any(
+                internal in topic
+                for internal in [
+                    ".schema-changes",
+                    ".transaction",
+                    "dbhistory",
+                    "__debezium",
+                ]
+            ):
+                logger.debug(f"Skipping internal Debezium topic: {topic}")
+                continue
+
+            # Parse topic name to extract table information
+            # Expected format: {server_name}.{container}.{table} or {server_name}.{table}
+            parts = topic.split(".")
+
+            # Skip topics that don't match expected Debezium format
+            if len(parts) < 2:
+                logger.debug(
+                    f"Skipping topic '{topic}' - does not match Debezium naming pattern"
+                )
+                continue
+
+            # Try to match server_name prefix
+            if server_name and topic.startswith(f"{server_name}."):
+                # Remove server_name prefix
+                remaining = topic[len(server_name) + 1 :]
+                remaining_parts = remaining.split(".")
+
+                # Extract table information based on connector type
+                if includes_database_in_topic:
+                    # SQL Server: {server}.{database}.{schema}.{table}
+                    if len(remaining_parts) >= 3:
+                        db_name = remaining_parts[0]
+                        schema_table = ".".join(remaining_parts[1:])
+                    elif len(remaining_parts) == 2:
+                        # Fallback: {database}.{table}
+                        db_name = remaining_parts[0]
+                        schema_table = remaining_parts[1]
+                    else:
+                        logger.debug(
+                            f"Skipping topic '{topic}' - unexpected format for 2-level container connector"
+                        )
+                        continue
+
+                    # Use database from topic if available, otherwise use configured database
+                    if database_name and db_name != database_name:
+                        logger.debug(
+                            f"Skipping topic '{topic}' - database '{db_name}' does not match configured '{database_name}'"
+                        )
+                        continue
+
+                    dataset_name = get_dataset_name(db_name, schema_table)
+                else:
+                    # Standard: {server}.{schema}.{table} or {server}.{table}
+                    schema_table = remaining
+
+                    # Build dataset name
+                    if database_name:
+                        dataset_name = get_dataset_name(database_name, schema_table)
+                    else:
+                        dataset_name = schema_table
+            else:
+                # No server_name prefix or doesn't match - try best effort parsing
+                logger.debug(
+                    f"Topic '{topic}' does not start with expected server_name '{server_name}' - attempting best-effort parsing"
+                )
+
+                if includes_database_in_topic:
+                    # Assume format: {database}.{schema}.{table}
+                    if len(parts) >= 2:
+                        db_name = parts[0]
+                        schema_table = ".".join(parts[1:])
+                        dataset_name = get_dataset_name(db_name, schema_table)
+                    else:
+                        continue
+                else:
+                    # Assume format: {schema}.{table} or just {table}
+                    if database_name:
+                        dataset_name = get_dataset_name(database_name, topic)
+                    else:
+                        dataset_name = topic
+
+            # Extract fine-grained lineage if enabled
+            fine_grained = self._extract_fine_grained_lineage(
+                dataset_name, source_platform, topic, KAFKA
+            )
+
+            # Create lineage mapping
+            lineage = KafkaConnectLineage(
+                source_dataset=dataset_name,
+                source_platform=source_platform,
+                target_dataset=topic,
+                target_platform=KAFKA,
+                fine_grained_lineages=fine_grained,
+            )
+            lineages.append(lineage)
+
+        logger.info(
+            f"Extracted {len(lineages)} lineages from {len(self.connector_manifest.topic_names)} topics "
+            f"for connector '{self.connector_manifest.name}'"
+        )
+        return lineages
 
     def _expand_table_patterns(
         self,

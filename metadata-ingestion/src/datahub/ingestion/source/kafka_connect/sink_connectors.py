@@ -8,16 +8,18 @@ from sqlalchemy.engine.url import URL, make_url
 from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     BaseConnector,
-    ConnectorConfigKeys,
     ConnectorManifest,
     KafkaConnectLineage,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
     get_dataset_name,
     has_three_level_hierarchy,
-    parse_comma_separated_list,
     remove_prefix,
     validate_jdbc_url,
+)
+from datahub.ingestion.source.kafka_connect.config_constants import (
+    ConnectorConfigKeys,
+    parse_comma_separated_list,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
@@ -57,13 +59,30 @@ class ConfluentS3SinkConnector(BaseConnector):
         )
 
     def get_topics_from_config(self) -> List[str]:
-        """Extract topics from S3 sink connector configuration."""
+        """
+        Extract topics from S3 sink connector configuration.
+
+        Supports both explicit topic lists and regex patterns:
+        - topics: Comma-separated list of topic names
+        - topics.regex: Java regex pattern to match topics dynamically
+        """
         config = self.connector_manifest.config
 
-        # S3 sink connectors use 'topics' field
+        # Priority 1: Explicit 'topics' field
         topics = config.get(ConnectorConfigKeys.TOPICS, "")
         if topics:
             return parse_comma_separated_list(topics)
+
+        # Priority 2: 'topics.regex' pattern
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            # Expand pattern using available sources
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
 
         return []
 
@@ -220,13 +239,30 @@ class SnowflakeSinkConnector(BaseConnector):
         )
 
     def get_topics_from_config(self) -> List[str]:
-        """Extract topics from Snowflake sink connector configuration."""
+        """
+        Extract topics from Snowflake sink connector configuration.
+
+        Supports both explicit topic lists and regex patterns:
+        - topics: Comma-separated list of topic names
+        - topics.regex: Java regex pattern to match topics dynamically
+        """
         config = self.connector_manifest.config
 
-        # Snowflake sink connectors use 'topics' field
+        # Priority 1: Explicit 'topics' field
         topics = config.get(ConnectorConfigKeys.TOPICS, "")
         if topics:
             return parse_comma_separated_list(topics)
+
+        # Priority 2: 'topics.regex' pattern
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            # Expand pattern using available sources
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
 
         return []
 
@@ -421,13 +457,30 @@ class BigQuerySinkConnector(BaseConnector):
         return f"{dataset}.{table}"
 
     def get_topics_from_config(self) -> List[str]:
-        """Extract topics from BigQuery sink connector configuration."""
+        """
+        Extract topics from BigQuery sink connector configuration.
+
+        Supports both explicit topic lists and regex patterns:
+        - topics: Comma-separated list of topic names
+        - topics.regex: Java regex pattern to match topics dynamically
+        """
         config = self.connector_manifest.config
 
-        # BigQuery sink connectors use 'topics' field
+        # Priority 1: Explicit 'topics' field
         topics = config.get(ConnectorConfigKeys.TOPICS, "")
         if topics:
             return parse_comma_separated_list(topics)
+
+        # Priority 2: 'topics.regex' pattern
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            # Expand pattern using available sources
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
 
         return []
 
@@ -795,13 +848,30 @@ class JdbcSinkConnector(BaseConnector):
         return table_format
 
     def get_topics_from_config(self) -> List[str]:
-        """Extract topics from JDBC sink connector configuration."""
+        """
+        Extract topics from JDBC sink connector configuration.
+
+        Supports both explicit topic lists and regex patterns:
+        - topics: Comma-separated list of topic names
+        - topics.regex: Java regex pattern to match topics dynamically
+        """
         config = self.connector_manifest.config
 
-        # JDBC sink connectors use 'topics' field
+        # Priority 1: Explicit 'topics' field
         topics = config.get(ConnectorConfigKeys.TOPICS, "")
         if topics:
             return parse_comma_separated_list(topics)
+
+        # Priority 2: 'topics.regex' pattern
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            # Expand pattern using available sources
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
 
         return []
 

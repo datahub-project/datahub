@@ -607,3 +607,47 @@ def test_snowflake_source_pattern_expansion_empty_datahub_response(config, repor
 
     # Verify that cached expanded tables is set to empty list
     assert connector._cached_expanded_tables == []
+
+
+def test_snowflake_source_parser_extracts_transforms(config, report):
+    """Test that parser correctly extracts transform configuration."""
+    manifest = ConnectorManifest(
+        name="snowflake-source-test",
+        type="source",
+        config={
+            "connector.class": SNOWFLAKE_SOURCE_CLOUD,
+            "snowflake.database.name": "ANALYTICS",
+            "table.include.list": "ANALYTICS.PUBLIC.USERS",
+            "transforms": "route,timestamp",
+            "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.route.regex": "snowflake_(.*)",
+            "transforms.route.replacement": "prod_$1",
+            "transforms.timestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter",
+            "transforms.timestamp.field": "updated_at",
+        },
+        tasks=[],
+        topic_names=[],
+        lineages=[],
+    )
+
+    connector = SnowflakeSourceConnector(manifest, config, report)
+    parser = connector.get_parser(manifest)
+
+    # Verify transforms are parsed
+    assert len(parser.transforms) == 2
+
+    # Verify first transform (route)
+    route_transform = parser.transforms[0]
+    assert route_transform["name"] == "route"
+    assert route_transform["type"] == "org.apache.kafka.connect.transforms.RegexRouter"
+    assert route_transform["regex"] == "snowflake_(.*)"
+    assert route_transform["replacement"] == "prod_$1"
+
+    # Verify second transform (timestamp)
+    timestamp_transform = parser.transforms[1]
+    assert timestamp_transform["name"] == "timestamp"
+    assert (
+        timestamp_transform["type"]
+        == "org.apache.kafka.connect.transforms.TimestampConverter"
+    )
+    assert timestamp_transform["field"] == "updated_at"

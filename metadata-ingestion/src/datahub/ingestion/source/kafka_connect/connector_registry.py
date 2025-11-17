@@ -87,7 +87,7 @@ class ConnectorRegistry:
 
             logger.info(
                 f"Creating SchemaResolver for connector {connector.connector_manifest.name} "
-                f"with platform={platform}, instance={platform_instance}"
+                f"with platform={platform}, platform_instance={platform_instance}"
             )
 
             return SchemaResolver(
@@ -254,11 +254,28 @@ class ConnectorRegistry:
         ctx: Optional["PipelineContext"] = None,
     ) -> List[str]:
         """Extract topics from config using the appropriate connector."""
+        logger.debug(
+            f"get_topics_from_config called for connector '{manifest.name}' "
+            f"(type={manifest.type}, class={manifest.config.get('connector.class', 'unknown')})"
+        )
+
         connector = ConnectorRegistry.get_connector_for_manifest(
             manifest, config, report, ctx
         )
         if connector:
-            return connector.get_topics_from_config()
+            logger.debug(
+                f"Calling get_topics_from_config on {connector.__class__.__name__} for '{manifest.name}'"
+            )
+            topics = connector.get_topics_from_config()
+            logger.info(
+                f"get_topics_from_config returned {len(topics)} topics for connector '{manifest.name}': "
+                f"{topics[:10] if topics else '[]'}"
+            )
+            return topics
+        else:
+            logger.warning(
+                f"No connector handler found for '{manifest.name}' - cannot derive topics from config"
+            )
         return []
 
 

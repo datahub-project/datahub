@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Dict, List, Optional
 
-from datahub.ingestion.source.kafka_connect.common import (
+from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
 )

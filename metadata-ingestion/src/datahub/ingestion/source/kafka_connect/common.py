@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, Final, List, Optional, TypedDict
+from typing import TYPE_CHECKING, Callable, Dict, Final, List, Optional, TypedDict
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -9,6 +9,12 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel, LaxStr
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     PlatformInstanceConfigMixin,
+)
+from datahub.ingestion.source.kafka_connect.config_constants import (
+    parse_comma_separated_list,
+)
+from datahub.ingestion.source.kafka_connect.transform_plugins import (
+    get_transform_pipeline,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -68,72 +74,6 @@ class FineGrainedLineageDict(TypedDict):
     downstreamType: str
     upstreams: List[str]
     downstreams: List[str]
-
-
-class ConnectorConfigKeys:
-    """Centralized configuration keys to avoid magic strings throughout the codebase."""
-
-    # Core connector configuration
-    CONNECTOR_CLASS: Final[str] = "connector.class"
-
-    # Topic configuration
-    TOPICS: Final[str] = "topics"
-    TOPICS_REGEX: Final[str] = "topics.regex"
-    KAFKA_TOPIC: Final[str] = "kafka.topic"
-    TOPIC: Final[str] = "topic"
-    TOPIC_PREFIX: Final[str] = "topic.prefix"
-
-    # JDBC configuration
-    CONNECTION_URL: Final[str] = "connection.url"
-    TABLE_INCLUDE_LIST: Final[str] = "table.include.list"
-    TABLE_WHITELIST: Final[str] = "table.whitelist"
-    QUERY: Final[str] = "query"
-    MODE: Final[str] = "mode"
-
-    # Debezium/CDC configuration
-    DATABASE_SERVER_NAME: Final[str] = "database.server.name"
-    DATABASE_HOSTNAME: Final[str] = "database.hostname"
-    DATABASE_PORT: Final[str] = "database.port"
-    DATABASE_DBNAME: Final[str] = "database.dbname"
-    DATABASE_INCLUDE_LIST: Final[str] = "database.include.list"
-
-    # Kafka configuration
-    KAFKA_ENDPOINT: Final[str] = "kafka.endpoint"
-    BOOTSTRAP_SERVERS: Final[str] = "bootstrap.servers"
-    KAFKA_BOOTSTRAP_SERVERS: Final[str] = "kafka.bootstrap.servers"
-
-    # BigQuery configuration
-    PROJECT: Final[str] = "project"
-    DEFAULT_DATASET: Final[str] = "defaultDataset"
-    DATASETS: Final[str] = "datasets"
-    TOPICS_TO_TABLES: Final[str] = "topicsToTables"
-    SANITIZE_TOPICS: Final[str] = "sanitizeTopics"
-    KEYFILE: Final[str] = "keyfile"
-
-    # Snowflake configuration
-    SNOWFLAKE_DATABASE_NAME: Final[str] = "snowflake.database.name"
-    SNOWFLAKE_SCHEMA_NAME: Final[str] = "snowflake.schema.name"
-    SNOWFLAKE_TOPIC2TABLE_MAP: Final[str] = "snowflake.topic2table.map"
-    SNOWFLAKE_PRIVATE_KEY: Final[str] = "snowflake.private.key"
-    SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: Final[str] = "snowflake.private.key.passphrase"
-
-    # S3 configuration
-    S3_BUCKET_NAME: Final[str] = "s3.bucket.name"
-    TOPICS_DIR: Final[str] = "topics.dir"
-    AWS_ACCESS_KEY_ID: Final[str] = "aws.access.key.id"
-    AWS_SECRET_ACCESS_KEY: Final[str] = "aws.secret.access.key"
-    S3_SSE_CUSTOMER_KEY: Final[str] = "s3.sse.customer.key"
-    S3_PROXY_PASSWORD: Final[str] = "s3.proxy.password"
-
-    # MongoDB configuration
-
-    # Transform configuration
-    TRANSFORMS: Final[str] = "transforms"
-
-    # Authentication configuration
-    VALUE_CONVERTER_BASIC_AUTH_USER_INFO: Final[str] = (
-        "value.converter.basic.auth.user.info"
-    )
 
 
 # Confluent Cloud connector class names
@@ -282,18 +222,20 @@ class KafkaConnectSourceConfig(
         "Disabled by default to maintain backward compatibility.",
     )
 
-    schema_resolver_expand_patterns: bool = Field(
-        default=True,
+    schema_resolver_expand_patterns: Optional[bool] = Field(
+        default=None,
         description="Enable table pattern expansion using DataHub schema metadata. "
         "When use_schema_resolver=True, this controls whether to expand patterns like 'database.*' "
-        "to actual table names by querying DataHub. Only applies when use_schema_resolver is enabled.",
+        "to actual table names by querying DataHub. Only applies when use_schema_resolver is enabled. "
+        "Defaults to True when use_schema_resolver is enabled.",
     )
 
-    schema_resolver_finegrained_lineage: bool = Field(
-        default=True,
+    schema_resolver_finegrained_lineage: Optional[bool] = Field(
+        default=None,
         description="Enable fine-grained (column-level) lineage extraction using DataHub schema metadata. "
         "When use_schema_resolver=True, this controls whether to generate column-level lineage "
-        "by matching schemas between source tables and Kafka topics. Only applies when use_schema_resolver is enabled.",
+        "by matching schemas between source tables and Kafka topics. Only applies when use_schema_resolver is enabled. "
+        "Defaults to True when use_schema_resolver is enabled.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -329,6 +271,95 @@ class KafkaConnectSourceConfig(
             )
 
         return values
+
+    @model_validator(mode="after")
+    def validate_configuration_interdependencies(self) -> "KafkaConnectSourceConfig":
+        """
+        Validate configuration field interdependencies and provide clear error messages.
+
+        Checks:
+        1. Schema resolver dependent fields require use_schema_resolver=True
+        2. Kafka API credentials are complete (key + secret)
+        3. Confluent Cloud IDs are complete (environment + cluster)
+        4. Warn if conflicting configurations are provided
+        """
+        # 1. Set schema resolver defaults if not explicitly configured
+        if self.use_schema_resolver:
+            # Schema resolver is enabled - set sensible defaults for sub-features
+            if self.schema_resolver_expand_patterns is None:
+                self.schema_resolver_expand_patterns = True
+            if self.schema_resolver_finegrained_lineage is None:
+                self.schema_resolver_finegrained_lineage = True
+        else:
+            # Schema resolver is disabled - set defaults to False
+            if self.schema_resolver_expand_patterns is None:
+                self.schema_resolver_expand_patterns = False
+            if self.schema_resolver_finegrained_lineage is None:
+                self.schema_resolver_finegrained_lineage = False
+
+        # 2. Validate Kafka API credentials are complete
+        kafka_api_key_provided = self.kafka_api_key is not None
+        kafka_api_secret_provided = self.kafka_api_secret is not None
+
+        if kafka_api_key_provided != kafka_api_secret_provided:
+            raise ValueError(
+                "Configuration error: Both 'kafka_api_key' and 'kafka_api_secret' must be provided together. "
+                f"Currently kafka_api_key={'set' if kafka_api_key_provided else 'not set'}, "
+                f"kafka_api_secret={'set' if kafka_api_secret_provided else 'not set'}."
+            )
+
+        # 3. Validate Confluent Cloud IDs are complete
+        env_id_provided = self.confluent_cloud_environment_id is not None
+        cluster_id_provided = self.confluent_cloud_cluster_id is not None
+
+        if env_id_provided != cluster_id_provided:
+            raise ValueError(
+                "Configuration error: Both 'confluent_cloud_environment_id' and 'confluent_cloud_cluster_id' "
+                "must be provided together for automatic URI construction. "
+                f"Currently environment_id={'set' if env_id_provided else 'not set'}, "
+                f"cluster_id={'set' if cluster_id_provided else 'not set'}."
+            )
+
+        # 4. Warn if conflicting configurations (informational, not error)
+        if env_id_provided and cluster_id_provided:
+            # Confluent Cloud IDs provided - check for potential conflicts
+            if self.connect_uri and self.connect_uri != DEFAULT_CONNECT_URI:
+                # User explicitly set connect_uri AND provided Cloud IDs
+                constructed_uri = self.construct_confluent_cloud_uri(
+                    self.confluent_cloud_environment_id,  # type: ignore[arg-type]
+                    self.confluent_cloud_cluster_id,  # type: ignore[arg-type]
+                )
+                if self.connect_uri != constructed_uri:
+                    logger.warning(
+                        f"Configuration conflict: Both 'connect_uri' and Confluent Cloud IDs are set. "
+                        f"Using connect_uri='{self.connect_uri}' (ignoring environment/cluster IDs). "
+                        f"Expected URI from IDs would be: '{constructed_uri}'. "
+                        f"Remove connect_uri to use automatic URI construction."
+                    )
+
+        # 5. Validate kafka_rest_endpoint format if provided
+        if self.kafka_rest_endpoint:
+            if not self.kafka_rest_endpoint.startswith(("http://", "https://")):
+                raise ValueError(
+                    f"Configuration error: 'kafka_rest_endpoint' must be a valid HTTP(S) URL. "
+                    f"Got: '{self.kafka_rest_endpoint}'. "
+                    f"Expected format: https://pkc-xxxxx.region.provider.confluent.cloud"
+                )
+
+        # 6. Warn if schema resolver enabled but all features explicitly disabled
+        if self.use_schema_resolver:
+            if (
+                self.schema_resolver_expand_patterns is False
+                and self.schema_resolver_finegrained_lineage is False
+            ):
+                logger.warning(
+                    "Schema resolver is enabled (use_schema_resolver=True) but both "
+                    "schema_resolver_expand_patterns and schema_resolver_finegrained_lineage are explicitly disabled. "
+                    "This configuration will query DataHub but not use any enhanced features. "
+                    "Consider enabling at least one feature or disabling use_schema_resolver."
+                )
+
+        return self
 
     def get_connect_credentials(self) -> tuple[Optional[str], Optional[str]]:
         """Get the appropriate credentials for Connect API access."""
@@ -442,35 +473,6 @@ def unquote(
     if string.startswith(leading_quote) and string.endswith(trailing_quote):
         string = string[1:-1]
     return string
-
-
-def parse_comma_separated_list(value: str) -> List[str]:
-    """
-    Safely parse a comma-separated list with robust error handling.
-
-    Args:
-        value: Comma-separated string to parse
-
-    Returns:
-        List of non-empty stripped items
-
-    Handles edge cases:
-    - Empty/None values
-    - Leading/trailing commas
-    - Multiple consecutive commas
-    - Whitespace-only items
-    """
-    if not value or not value.strip():
-        return []
-
-    # Split on comma and clean up each item
-    items = []
-    for item in value.split(","):
-        cleaned_item = item.strip()
-        if cleaned_item:  # Only add non-empty items
-            items.append(cleaned_item)
-
-    return items
 
 
 def validate_jdbc_url(url: str) -> bool:
@@ -795,6 +797,15 @@ class BaseConnector:
         if not self.schema_resolver:
             return None
 
+        # Skip fine-grained lineage for Kafka source platform
+        # SchemaResolver is designed for database platforms, not Kafka topics
+        if source_platform.lower() == "kafka":
+            logger.debug(
+                f"Skipping fine-grained lineage extraction for Kafka topic {source_dataset} "
+                "- schema resolver only supports database platforms"
+            )
+            return None
+
         try:
             from datahub.emitter.mce_builder import make_schema_field_urn
             from datahub.sql_parsing._models import _TableName
@@ -883,5 +894,223 @@ class BaseConnector:
             logger.debug(f"Failed to extract table name from URN {urn}: {e}")
             return None
 
+    def _extract_lineages_from_schema_resolver(
+        self,
+        source_platform: str,
+        topic_namer: Callable[[str], str],
+        transforms: List[Dict[str, str]],
+        connector_type: str = "connector",
+    ) -> List[KafkaConnectLineage]:
+        """
+        Common helper to extract lineages using SchemaResolver.
 
-# Removed: TopicResolver and ConnectorTopicHandlerRegistry - logic moved directly to BaseConnector subclasses
+        This unified implementation eliminates code duplication between Snowflake, Debezium,
+        and other source connectors that derive topic names from table names.
+
+        Args:
+            source_platform: Source database platform (postgres, snowflake, mysql, etc.)
+            topic_namer: Callback function that converts table_name → base_topic_name
+                        Example for Snowflake: lambda table: f"prefix{table}"
+                        Example for Debezium: lambda table: f"server.{table}"
+            transforms: List of transform configurations to apply to derived topics
+            connector_type: Connector type name for logging (default: "connector")
+
+        Returns:
+            List of lineage mappings from database tables to expected Kafka topics
+        """
+        lineages: List[KafkaConnectLineage] = []
+
+        if not self.schema_resolver:
+            logger.debug(
+                "SchemaResolver not available, cannot derive topics from DataHub"
+            )
+            return lineages
+
+        try:
+            # Get all URNs from schema resolver and filter for the source platform
+            # The cache may contain URNs from other platforms if shared across runs
+            all_urns = self.schema_resolver.get_urns()
+
+            # Filter URNs by platform using DatasetUrn parser
+            platform_urns = []
+            for urn in all_urns:
+                try:
+                    dataset_urn = DatasetUrn.from_string(urn)
+                    if dataset_urn.platform == source_platform:
+                        platform_urns.append(urn)
+                except Exception as e:
+                    logger.debug(f"Failed to parse URN {urn}: {e}")
+                    continue
+
+            logger.info(
+                f"SchemaResolver returned {len(platform_urns)} URNs for platform={source_platform}, "
+                f"platform_instance={self.schema_resolver.platform_instance or 'None'}, "
+                f"will derive {connector_type} topics for connector '{self.connector_manifest.name}'"
+            )
+
+            if not platform_urns:
+                logger.warning(
+                    f"No {source_platform} datasets found in DataHub SchemaResolver cache "
+                    f"for platform_instance={self.schema_resolver.platform_instance or 'None'}. "
+                    f"Make sure you've ingested {source_platform} datasets into DataHub before running Kafka Connect ingestion."
+                )
+                return lineages
+
+            # Process each table and generate expected topic name
+            for urn in platform_urns:
+                table_name = self._extract_table_name_from_urn(urn)
+                if not table_name:
+                    continue
+
+                # Generate base topic name using connector-specific naming logic
+                expected_topic = topic_namer(table_name)
+
+                # Apply transforms if configured
+                if transforms:
+                    result = get_transform_pipeline().apply_forward(
+                        [expected_topic], self.connector_manifest.config
+                    )
+                    if result.warnings:
+                        for warning in result.warnings:
+                            logger.warning(
+                                f"Transform warning for {self.connector_manifest.name}: {warning}"
+                            )
+                    if result.topics and len(result.topics) > 0:
+                        expected_topic = result.topics[0]
+
+                # Extract fine-grained lineage if enabled
+                fine_grained = self._extract_fine_grained_lineage(
+                    table_name, source_platform, expected_topic, KAFKA
+                )
+
+                # Create lineage mapping
+                lineage = KafkaConnectLineage(
+                    source_dataset=table_name,
+                    source_platform=source_platform,
+                    target_dataset=expected_topic,
+                    target_platform=KAFKA,
+                    fine_grained_lineages=fine_grained,
+                )
+                lineages.append(lineage)
+
+            logger.info(
+                f"Created {len(lineages)} lineages from DataHub schemas for {connector_type} '{self.connector_manifest.name}'"
+            )
+            return lineages
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to extract lineages from DataHub schemas for connector '{self.connector_manifest.name}': {e}",
+                exc_info=True,
+            )
+            return []
+
+    def _expand_topic_regex_patterns(
+        self,
+        topics_regex: str,
+        available_topics: Optional[List[str]] = None,
+    ) -> List[str]:
+        """
+        Expand topics.regex pattern against available Kafka topics.
+
+        This helper method is used by sink connectors to resolve topics.regex patterns
+        when the Kafka API is unavailable (e.g., Confluent Cloud).
+
+        Priority order for topic sources:
+        1. Use provided available_topics (from manifest.topic_names if Kafka API worked)
+        2. Query DataHub for Kafka topics (if schema_resolver enabled)
+        3. Return empty list and warn (can't expand without topic list)
+
+        Args:
+            topics_regex: Java regex pattern from topics.regex config
+            available_topics: Optional list of available topics (from Kafka API)
+
+        Returns:
+            List of topics matching the regex pattern
+        """
+        # Use Java regex for exact Kafka Connect compatibility
+        try:
+            from java.util.regex import Pattern as JavaPattern
+
+            java_pattern = JavaPattern.compile(topics_regex)
+            logger.debug(
+                f"Using Java regex for topics.regex pattern '{topics_regex}' (exact Kafka Connect compatibility)"
+            )
+        except (ImportError, RuntimeError) as e:
+            logger.error(
+                f"Java regex library not available for topics.regex pattern '{topics_regex}': {e}. "
+                f"Cannot expand pattern without Java regex support. "
+                f"Kafka Connect uses Java regex and Python regex is not fully compatible."
+            )
+            self.report.report_warning(
+                self.connector_manifest.name,
+                f"Java regex not available - cannot expand topics.regex pattern '{topics_regex}'",
+            )
+            return []
+        except Exception as e:
+            logger.warning(
+                f"Failed to compile Java regex pattern '{topics_regex}' for connector "
+                f"'{self.connector_manifest.name}': {e}"
+            )
+            return []
+
+        # Priority 1: Use provided available_topics (from Kafka API)
+        if available_topics:
+            matched_topics = [
+                topic
+                for topic in available_topics
+                if java_pattern.matcher(topic).matches()
+            ]
+            logger.info(
+                f"Expanded topics.regex '{topics_regex}' to {len(matched_topics)} topics "
+                f"from {len(available_topics)} available Kafka topics"
+            )
+            return matched_topics
+
+        # Priority 2: Query DataHub for Kafka topics
+        if self.schema_resolver and self.schema_resolver.graph:
+            logger.info(
+                f"Kafka API unavailable for connector '{self.connector_manifest.name}' - "
+                f"querying DataHub for Kafka topics to expand pattern '{topics_regex}'"
+            )
+            try:
+                # Query DataHub for all Kafka topics
+                kafka_topic_urns = list(
+                    self.schema_resolver.graph.get_urns_by_filter(
+                        platform="kafka",
+                        env=self.schema_resolver.env,
+                        entity_types=["dataset"],
+                    )
+                )
+
+                datahub_topics = []
+                for urn in kafka_topic_urns:
+                    topic_name = self._extract_table_name_from_urn(urn)
+                    if topic_name:
+                        datahub_topics.append(topic_name)
+
+                matched_topics = [
+                    topic
+                    for topic in datahub_topics
+                    if java_pattern.matcher(topic).matches()
+                ]
+
+                logger.info(
+                    f"Found {len(matched_topics)} Kafka topics in DataHub matching pattern '{topics_regex}' "
+                    f"(out of {len(datahub_topics)} total Kafka topics)"
+                )
+                return matched_topics
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to query DataHub for Kafka topics to expand pattern '{topics_regex}': {e}",
+                    exc_info=True,
+                )
+
+        # Priority 3: No topic sources available - warn and return empty
+        logger.warning(
+            f"Cannot expand topics.regex '{topics_regex}' for connector '{self.connector_manifest.name}' - "
+            f"Kafka API unavailable and DataHub query not available. "
+            f"Enable 'use_schema_resolver' in config to query DataHub for Kafka topics."
+        )
+        return []
