@@ -279,14 +279,14 @@ class TestIcebergRestSink:
         assert schema.fields[4].name == "systemmetadata"
         assert schema.fields[5].name == "version"
         assert schema.fields[6].name == "createdon"
-        
+
         # Verify partition spec
         partition_spec = call_args[1]["partition_spec"]
         assert partition_spec is not None
         assert len(partition_spec.fields) == 1
         assert partition_spec.fields[0].source_id == 2  # entity_type field
         assert partition_spec.fields[0].name == "entity_type"
-        
+
         assert sink.report.table_created is True
 
     @patch("datahub.ingestion.sink.iceberg_rest.load_catalog")
@@ -618,7 +618,11 @@ class TestIcebergRestSink:
         mock_table.upsert.assert_called()
         call_args = mock_table.upsert.call_args
         # Should be called with keyword arguments: data=pa_table, primary_key=["urn", "aspect", "version"]
-        assert "data" in call_args[1] or "primary_key" in call_args[1] or len(call_args[0]) > 0
+        assert (
+            "data" in call_args[1]
+            or "primary_key" in call_args[1]
+            or len(call_args[0]) > 0
+        )
         if "primary_key" in call_args[1]:
             assert call_args[1]["primary_key"] == ["urn", "aspect", "version"]
         elif "on" in call_args[1]:
@@ -655,7 +659,7 @@ class TestIcebergRestSink:
         # Mock overwrite for truncate
         mock_table.overwrite = MagicMock()
 
-        sink = IcebergRestSink(pipeline_context, config)
+        IcebergRestSink(pipeline_context, config)
 
         # Verify overwrite was called (for truncate)
         mock_table.overwrite.assert_called_once()

@@ -9,7 +9,6 @@ from pydantic import Field
 from pyiceberg.catalog import Catalog, load_catalog
 from pyiceberg.catalog.rest import RestCatalog
 from pyiceberg.exceptions import NamespaceAlreadyExistsError
-from pyiceberg.expressions import And, EqualTo
 from pyiceberg.partitioning import PartitionField, PartitionSpec
 from pyiceberg.schema import Schema
 from pyiceberg.transforms import IdentityTransform
@@ -166,7 +165,6 @@ class IcebergRestSinkConfig(ConfigModel):
 
     @pydantic.model_validator(mode="after")
     def _build_catalog_config(self):
-        """Build catalog configuration dict for pyiceberg"""
         catalog_config: Dict[str, Any] = {
             "type": "rest",
             "uri": self.uri,
@@ -231,7 +229,6 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
 
         logger.info(f"Initializing Iceberg REST sink with URI: {self.config.uri}")
 
-        # Initialize catalog
         self.catalog: Catalog = load_catalog(
             name="datahub_sink",
             warehouse=self.config.warehouse,
@@ -259,31 +256,25 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 "https://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
             )
 
-        # Store report metadata
         self.report.catalog_uri = self.config.uri
         self.report.warehouse_location = self.config.warehouse
 
-        # Verify warehouse exists and is accessible
         if self.config.verify_warehouse:
             self._verify_warehouse()
 
-        # Create namespace and table if needed
         if self.config.create_table_if_not_exists:
             self._ensure_table_exists()
 
-        # Load the table
         self.table = self.catalog.load_table(
             f"{self.config.namespace}.{self.config.table_name}"
         )
 
-        # Truncate table if requested
         if self.config.truncate:
             logger.warning(
                 f"Truncating table {self.config.namespace}.{self.config.table_name} - all existing data will be deleted"
             )
             try:
                 # Use overwrite with empty PyArrow table to truncate
-                # Create empty table with matching schema
                 empty_table = pa.Table.from_pydict(
                     {
                         "urn": [],
@@ -312,35 +303,29 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 logger.error(f"Failed to truncate table: {e}")
                 raise
 
-        # Determine if we should use deferred upsert (collect all, then upsert once)
-        # This is more efficient for incremental runs (stateful ingestion enabled)
-        # as it avoids reading the table multiple times
+        # Use deferred upsert for incremental runs (stateful ingestion enabled)
+        # to avoid reading the table multiple times
         self._use_deferred_upsert = False
         if self.config.upsert:
-            # Check if source has stateful ingestion enabled (indicates incremental run)
             if (
                 self.ctx.pipeline_config
                 and hasattr(self.ctx.pipeline_config, "source")
                 and self.ctx.pipeline_config.source is not None
             ):
                 source_config = self.ctx.pipeline_config.source.config
-                # Handle both dict and object configs
                 si_config = None
                 if isinstance(source_config, dict):
                     si_config = source_config.get("stateful_ingestion")
                 elif hasattr(source_config, "stateful_ingestion"):
                     si_config = source_config.stateful_ingestion
-                
-                # Check if stateful ingestion is enabled
+
                 si_enabled = False
                 if isinstance(si_config, dict):
                     si_enabled = si_config.get("enabled", False)
                 elif hasattr(si_config, "enabled"):
                     si_enabled = si_config.enabled
-                
+
                 if si_enabled:
-                    # Stateful ingestion enabled = incremental run
-                    # Use deferred upsert for better performance
                     self._use_deferred_upsert = True
                     logger.info(
                         "Stateful ingestion enabled - using deferred upsert strategy "
@@ -348,12 +333,10 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                         "This is more efficient for incremental updates."
                     )
 
-        # Initialize deferred buffer if using deferred upsert
         if self._use_deferred_upsert:
             self.deferred_buffer: list = []
             logger.debug("Initialized deferred buffer for single upsert operation")
-        
-        # Initialize batch buffer (used for full loads or when deferred upsert is disabled)
+
         self.batch_buffer: list = []
 
         logger.info(
@@ -394,7 +377,6 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
 
     def _ensure_table_exists(self) -> None:
         """Create namespace and table if they don't exist"""
-        # Check if namespace exists, create if not
         try:
             existing_namespaces = self.catalog.list_namespaces()
             namespace_tuple = (self.config.namespace,)
@@ -409,7 +391,6 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                     logger.debug(f"Namespace already exists: {self.config.namespace}")
                     self.report.namespace_created = False
                 except Exception as e:
-                    # Handle other errors (like DataHub validation errors)
                     error_msg = str(e).lower()
                     if "already exists" in error_msg or "already exist" in error_msg:
                         logger.info(
@@ -430,15 +411,12 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
             )
             raise
 
-        # Check if table exists, create if not
         try:
             table_identifier = f"{self.config.namespace}.{self.config.table_name}"
 
-            # Try to load the table to see if it exists
             try:
                 existing_table = self.catalog.load_table(table_identifier)
                 logger.info(f"Table {table_identifier} already exists")
-                # Check if table has identifier-field-ids property for upsert support
                 if self.config.upsert:
                     props = existing_table.properties()
                     if "identifier-field-ids" not in props:
@@ -449,7 +427,6 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 self.report.table_created = False
                 return
             except Exception:
-                # Table doesn't exist, create it
                 pass
 
             schema = Schema(
@@ -462,7 +439,6 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 NestedField(7, "createdon", TimestampType(), required=True),
             )
 
-            # Partition by entity_type for query performance
             partition_spec = PartitionSpec(
                 PartitionField(
                     source_id=2,
@@ -472,7 +448,6 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 )
             )
 
-            # Set table properties to enable upsert with primary key
             # identifier-field-ids specifies which fields are used for upsert matching
             table_properties = {
                 "identifier-field-ids": "1,3,6",  # urn (1), aspect (3), version (6)
@@ -502,7 +477,6 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
         """Process a single record and return its data as a dict"""
         record = record_envelope.record
 
-        # Convert MCP/MCE to MCP wrapper for consistent handling
         if isinstance(record, MetadataChangeProposalWrapper):
             mcp = record
         elif isinstance(record, MetadataChangeProposal):
@@ -514,19 +488,16 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
             logger.warning(f"Unknown record type: {type(record)}, skipping")
             return None
 
-        # Extract fields matching DataHub database columns
         urn = str(mcp.entityUrn) if mcp.entityUrn else ""
-        
-        # Extract entity type from URN (e.g., "urn:li:dataset:..." -> "dataset")
+
         entity_type = "unknown"
         if urn:
             urn_parts = urn.split(":")
             if len(urn_parts) >= 3 and urn_parts[0] == "urn" and urn_parts[1] == "li":
                 entity_type = urn_parts[2]
-        
+
         aspect = mcp.aspectName or ""
 
-        # Serialize aspect to JSON (this is the "metadata" column in database)
         metadata = ""
         if mcp.aspect:
             try:
@@ -536,7 +507,6 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 logger.warning(f"Failed to serialize aspect: {e}")
                 metadata = str(mcp.aspect)
 
-        # Serialize system metadata
         systemmetadata = ""
         if mcp.systemMetadata:
             try:
@@ -545,10 +515,8 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 logger.warning(f"Failed to serialize system metadata: {e}")
                 systemmetadata = str(mcp.systemMetadata)
 
-        # Version 0 represents the latest version in DataHub
         version = 0
 
-        # Use timezone-naive timestamp to match Iceberg schema
         createdon = datetime.now(tz=timezone.utc).replace(tzinfo=None)
 
         return {
@@ -562,196 +530,187 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
             "envelope": record_envelope,
         }
 
+    def _deduplicate_batch(self) -> None:
+        """Deduplicate batch by (urn, aspect, version), keeping latest record"""
+        if not self.batch_buffer:
+            return
+
+        unique_records = {}
+        for record in self.batch_buffer:
+            key = (record["urn"], record["aspect"], record["version"])
+            if key not in unique_records:
+                unique_records[key] = record
+            else:
+                # Safety checks to prevent bus errors from invalid datetime comparisons
+                current_createdon = record.get("createdon")
+                existing_createdon = unique_records[key].get("createdon")
+
+                if current_createdon is not None and existing_createdon is not None:
+                    try:
+                        if current_createdon > existing_createdon:
+                            unique_records[key] = record
+                    except (TypeError, ValueError) as e:
+                        logger.warning(
+                            f"Error comparing timestamps: {e}. Keeping existing record."
+                        )
+                elif current_createdon is not None:
+                    unique_records[key] = record
+
+        if len(unique_records) < len(self.batch_buffer):
+            logger.debug(
+                f"Deduplicated batch: {len(self.batch_buffer)} -> {len(unique_records)} records"
+            )
+            self.batch_buffer = list(unique_records.values())
+
+    def _create_pyarrow_table(self) -> pa.Table:
+        """Create PyArrow table from batch buffer"""
+        try:
+            return pa.Table.from_pydict(
+                {
+                    "urn": [r["urn"] for r in self.batch_buffer],
+                    "entity_type": [r["entity_type"] for r in self.batch_buffer],
+                    "aspect": [r["aspect"] for r in self.batch_buffer],
+                    "metadata": [r["metadata"] for r in self.batch_buffer],
+                    "systemmetadata": [r["systemmetadata"] for r in self.batch_buffer],
+                    "version": [r["version"] for r in self.batch_buffer],
+                    "createdon": [r["createdon"] for r in self.batch_buffer],
+                },
+                schema=pa.schema(
+                    [
+                        ("urn", pa.string(), False),
+                        ("entity_type", pa.string(), False),
+                        ("aspect", pa.string(), False),
+                        ("metadata", pa.string(), False),
+                        ("systemmetadata", pa.string(), True),
+                        ("version", pa.int64(), False),
+                        ("createdon", pa.timestamp("us"), False),
+                    ]
+                ),
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to create PyArrow table: {e}. "
+                f"Batch size: {len(self.batch_buffer)}. "
+                f"Sample record keys: {list(self.batch_buffer[0].keys()) if self.batch_buffer else 'empty'}"
+            )
+            raise
+
+    def _perform_upsert(self, pa_table: pa.Table) -> None:
+        """Perform upsert operation on Iceberg table"""
+        # Reload table before upsert to avoid optimistic concurrency conflicts
+        try:
+            self.table = self.catalog.load_table(
+                f"{self.config.namespace}.{self.config.table_name}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to reload table before upsert: {e}")
+
+        logger.debug(
+            f"Performing upsert operation for {len(self.batch_buffer)} records "
+            f"matching on primary key (urn, aspect, version)"
+        )
+        try:
+            if hasattr(self.table, "upsert"):
+                # Try with join columns first, fall back to identifier-field-ids if that fails
+                try:
+                    result = self.table.upsert(
+                        pa_table,
+                        ["urn", "aspect", "version"],  # Join columns
+                    )
+                except (TypeError, ValueError) as e:
+                    # If that fails, try without join columns (using identifier-field-ids from table)
+                    logger.debug(
+                        f"Upsert with join columns failed: {e}, trying without"
+                    )
+                    try:
+                        result = self.table.upsert(pa_table)
+                    except Exception as e2:
+                        # If all attempts fail, log and fall back to append
+                        logger.warning(
+                            f"Upsert failed: {e2}. Falling back to append mode. "
+                            f"Ensure table has identifier-field-ids property set."
+                        )
+                        raise
+                if hasattr(result, "rows_updated") and hasattr(result, "rows_inserted"):
+                    logger.info(
+                        f"Upserted {len(self.batch_buffer)} records: "
+                        f"{result.rows_updated} updated, {result.rows_inserted} inserted"
+                    )
+                else:
+                    logger.info(
+                        f"Upserted {len(self.batch_buffer)} records (result: {result})"
+                    )
+            else:
+                logger.warning(
+                    "PyIceberg upsert not available (requires 0.9.0+). "
+                    "Using append mode. Upgrade PyIceberg for native upsert support."
+                )
+                self.table.append(pa_table)
+        except AttributeError:
+            logger.warning(
+                "PyIceberg upsert not available. Using append mode. "
+                "Upgrade to PyIceberg 0.9.0+ for native upsert support."
+            )
+            self.table.append(pa_table)
+        except Exception as e:
+            error_type = type(e).__name__
+            if "CommitFailedException" in error_type or "409" in str(e):
+                logger.warning(
+                    f"Optimistic concurrency conflict during upsert: {e}. "
+                    f"Reloading table and retrying with append mode."
+                )
+                self.table = self.catalog.load_table(
+                    f"{self.config.namespace}.{self.config.table_name}"
+                )
+                self.table.append(pa_table)
+            else:
+                logger.error(
+                    f"Upsert operation failed: {e}. Falling back to append mode.",
+                    exc_info=True,
+                )
+                self.table.append(pa_table)
+
+    def _perform_append(self, pa_table: pa.Table) -> None:
+        """Perform append operation on Iceberg table"""
+        logger.debug(
+            f"Performing append (INSERT) operation for {len(self.batch_buffer)} records. "
+            f"This is a first run or stateful_ingestion is disabled, so using insert instead of upsert."
+        )
+        self.table.append(pa_table)
+
+    def _reload_table(self) -> None:
+        """Reload table to get latest metadata (prevents optimistic concurrency conflicts)"""
+        try:
+            self.table = self.catalog.load_table(
+                f"{self.config.namespace}.{self.config.table_name}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to reload table after batch write: {e}")
+            # Continue anyway - table will be reloaded on next access
+
     def _flush_batch(self) -> None:
         """Flush the current batch of records to Iceberg"""
         if not self.batch_buffer:
             return
 
         try:
-            # Separate envelopes from data
             envelopes = [record.pop("envelope") for record in self.batch_buffer]
 
-            # Deduplicate batch by (urn, aspect, version) to avoid duplicate row errors
-            # Keep the latest record (highest createdon) for each unique key
-            # Do this BEFORE creating PyArrow table to avoid memory issues and bus errors
-            # Only deduplicate if we're doing upsert (incremental runs)
-            # For first runs or full loads, we use append so deduplication isn't needed
-            should_upsert = self.config.upsert and self._use_deferred_upsert
-            if should_upsert and len(self.batch_buffer) > 0:
-                # Create a dict to track unique keys, keeping the latest record
-                unique_records = {}
-                for record in self.batch_buffer:
-                    key = (record["urn"], record["aspect"], record["version"])
-                    if key not in unique_records:
-                        unique_records[key] = record
-                    else:
-                        # Keep the record with the latest createdon timestamp
-                        # Add safety checks to prevent bus errors from invalid datetime comparisons
-                        current_createdon = record.get("createdon")
-                        existing_createdon = unique_records[key].get("createdon")
-                        
-                        if current_createdon is not None and existing_createdon is not None:
-                            try:
-                                if current_createdon > existing_createdon:
-                                    unique_records[key] = record
-                            except (TypeError, ValueError) as e:
-                                logger.warning(
-                                    f"Error comparing timestamps: {e}. Keeping existing record."
-                                )
-                        elif current_createdon is not None:
-                            # If existing is None but current is not, use current
-                            unique_records[key] = record
-                        # If both are None or current is None, keep existing
-                
-                if len(unique_records) < len(self.batch_buffer):
-                    logger.debug(
-                        f"Deduplicated batch: {len(self.batch_buffer)} -> {len(unique_records)} records"
-                    )
-                    # Rebuild batch buffer with deduplicated records
-                    self.batch_buffer = list(unique_records.values())
-
-            # Create PyArrow table from batch (only once, after deduplication)
-            # Validate all required fields are present and not None
-            try:
-                pa_table = pa.Table.from_pydict(
-                    {
-                        "urn": [r["urn"] for r in self.batch_buffer],
-                        "entity_type": [r["entity_type"] for r in self.batch_buffer],
-                        "aspect": [r["aspect"] for r in self.batch_buffer],
-                        "metadata": [r["metadata"] for r in self.batch_buffer],
-                        "systemmetadata": [r["systemmetadata"] for r in self.batch_buffer],
-                        "version": [r["version"] for r in self.batch_buffer],
-                        "createdon": [r["createdon"] for r in self.batch_buffer],
-                    },
-                    schema=pa.schema(
-                        [
-                            ("urn", pa.string(), False),
-                            ("entity_type", pa.string(), False),
-                            ("aspect", pa.string(), False),
-                            ("metadata", pa.string(), False),
-                            ("systemmetadata", pa.string(), True),
-                            ("version", pa.int64(), False),
-                            ("createdon", pa.timestamp("us"), False),
-                        ]
-                    ),
-                )
-            except Exception as e:
-                logger.error(
-                    f"Failed to create PyArrow table: {e}. "
-                    f"Batch size: {len(self.batch_buffer)}. "
-                    f"Sample record keys: {list(self.batch_buffer[0].keys()) if self.batch_buffer else 'empty'}"
-                )
-                raise
-
-            # Write batch to Iceberg table using upsert or append
-            # For first runs or when stateful_ingestion is disabled, use append (insert)
-            # For incremental runs (stateful_ingestion enabled), use upsert
+            # Deduplicate before creating PyArrow table to avoid memory issues
+            # Only needed for upsert (incremental runs), not for append (first runs)
             should_upsert = self.config.upsert and self._use_deferred_upsert
             if should_upsert:
-                # Reload table before upsert to get latest metadata and avoid conflicts
-                try:
-                    self.table = self.catalog.load_table(
-                        f"{self.config.namespace}.{self.config.table_name}"
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to reload table before upsert: {e}")
+                self._deduplicate_batch()
 
-                # Use PyIceberg's native upsert operation (PyIceberg 0.9.0+)
-                # Match on (urn, aspect, version) - the primary key from source table
-                # PRIMARY KEY (urn, aspect, version) from metadata_aspect_v2
-                # identifier-field-ids should be set in table properties: "1,3,6"
-                logger.debug(
-                    f"Performing upsert operation for {len(self.batch_buffer)} records "
-                    f"matching on primary key (urn, aspect, version)"
-                )
-                try:
-                    # Try native upsert (PyIceberg 0.9.0+)
-                    if hasattr(self.table, 'upsert'):
-                        # PyIceberg upsert API: upsert(data) where identifier-field-ids
-                        # are set in table properties, or upsert(data, join_columns)
-                        # Try with join columns as positional argument
-                        try:
-                            result = self.table.upsert(
-                                pa_table,
-                                ["urn", "aspect", "version"],  # Join columns
-                            )
-                        except (TypeError, ValueError) as e:
-                            # If that fails, try without join columns (using identifier-field-ids from table)
-                            logger.debug(f"Upsert with join columns failed: {e}, trying without")
-                            try:
-                                result = self.table.upsert(pa_table)
-                            except Exception as e2:
-                                # If all attempts fail, log and fall back to append
-                                logger.warning(
-                                    f"Upsert failed: {e2}. Falling back to append mode. "
-                                    f"Ensure table has identifier-field-ids property set."
-                                )
-                                raise
-                        # Log upsert results if available
-                        if hasattr(result, "rows_updated") and hasattr(result, "rows_inserted"):
-                            logger.info(
-                                f"Upserted {len(self.batch_buffer)} records: "
-                                f"{result.rows_updated} updated, {result.rows_inserted} inserted"
-                            )
-                        else:
-                            logger.info(
-                                f"Upserted {len(self.batch_buffer)} records (result: {result})"
-                            )
-                    else:
-                        # Fallback for older PyIceberg versions
-                        logger.warning(
-                            "PyIceberg upsert not available (requires 0.9.0+). "
-                            "Using append mode. Upgrade PyIceberg for native upsert support."
-                        )
-                        self.table.append(pa_table)
-                except AttributeError:
-                    # PyIceberg version doesn't support upsert
-                    logger.warning(
-                        "PyIceberg upsert not available. Using append mode. "
-                        "Upgrade to PyIceberg 0.9.0+ for native upsert support."
-                    )
-                    self.table.append(pa_table)
-                except Exception as e:
-                    # Check if it's a CommitFailedException (optimistic concurrency conflict)
-                    error_type = type(e).__name__
-                    if "CommitFailedException" in error_type or "409" in str(e):
-                        logger.warning(
-                            f"Optimistic concurrency conflict during upsert: {e}. "
-                            f"Reloading table and retrying with append mode."
-                        )
-                        # Reload table to get latest metadata
-                        self.table = self.catalog.load_table(
-                            f"{self.config.namespace}.{self.config.table_name}"
-                        )
-                        # Fall back to append mode
-                        self.table.append(pa_table)
-                    else:
-                        logger.error(
-                            f"Upsert operation failed: {e}. Falling back to append mode.",
-                            exc_info=True,
-                        )
-                        # Fallback to append on error
-                        self.table.append(pa_table)
+            pa_table = self._create_pyarrow_table()
+
+            if should_upsert:
+                self._perform_upsert(pa_table)
             else:
-                # Use append (INSERT) for first runs or when stateful_ingestion is disabled
-                # This is faster than upsert when there's no existing data to check
-                logger.debug(
-                    f"Performing append (INSERT) operation for {len(self.batch_buffer)} records. "
-                    f"This is a first run or stateful_ingestion is disabled, so using insert instead of upsert."
-                )
-                self.table.append(pa_table)
+                self._perform_append(pa_table)
 
-            # Reload table to get latest metadata (prevents optimistic concurrency conflicts)
-            # This ensures we have the latest table state for the next batch
-            try:
-                self.table = self.catalog.load_table(
-                    f"{self.config.namespace}.{self.config.table_name}"
-                )
-            except Exception as e:
-                logger.warning(f"Failed to reload table after batch write: {e}")
-                # Continue anyway - table will be reloaded on next access
+            self._reload_table()
 
-            # Report success for all records in batch
             for envelope in envelopes:
                 self.report.report_record_written(envelope)
 
@@ -762,12 +721,10 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 f"Failed to flush batch of {len(self.batch_buffer)} records: {e}",
                 exc_info=True,
             )
-            # Report errors for all records in batch
             for _ in self.batch_buffer:
                 self.report.report_write_error()
             raise
         finally:
-            # Clear the buffer
             self.batch_buffer.clear()
 
     def write_record_async(
@@ -783,25 +740,19 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
     ) -> None:
         """Write a DataHub metadata record to the Iceberg table (batched or deferred)"""
         try:
-            # Process the record
             record_data = self._process_record(record_envelope)
 
             if record_data is None:
-                # Unsupported record type, skip it
                 write_callback.on_success(record_envelope, {})
                 return
 
             if self._use_deferred_upsert:
-                # For incremental runs, collect all records for single upsert at the end
                 self.deferred_buffer.append(record_data)
             else:
-                # For full loads, use batching
                 self.batch_buffer.append(record_data)
-                # Flush if batch is full
                 if len(self.batch_buffer) >= self.config.batch_size:
                     self._flush_batch()
 
-            # Always report success immediately (actual write happens in flush)
             write_callback.on_success(record_envelope, {})
 
         except Exception as e:
@@ -819,18 +770,14 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
         )
 
         try:
-            # Separate envelopes from data
             envelopes = [record.pop("envelope") for record in self.deferred_buffer]
 
-            # Deduplicate all records by (urn, aspect, version)
-            # Keep the latest record (highest createdon) for each unique key
             unique_records = {}
             for record in self.deferred_buffer:
                 key = (record["urn"], record["aspect"], record["version"])
                 if key not in unique_records:
                     unique_records[key] = record
                 else:
-                    # Keep the record with the latest createdon timestamp
                     current_createdon = record.get("createdon")
                     existing_createdon = unique_records[key].get("createdon")
 
@@ -843,23 +790,22 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                                 f"Error comparing timestamps: {e}. Keeping existing record."
                             )
                     elif current_createdon is not None:
-                        # If existing is None but current is not, use current
                         unique_records[key] = record
-                    # If both are None or current is None, keep existing
 
             if len(unique_records) < len(self.deferred_buffer):
                 logger.debug(
                     f"Deduplicated deferred records: {len(self.deferred_buffer)} -> {len(unique_records)}"
                 )
 
-            # Create PyArrow table from all deduplicated records
             pa_table = pa.Table.from_pydict(
                 {
                     "urn": [r["urn"] for r in unique_records.values()],
                     "entity_type": [r["entity_type"] for r in unique_records.values()],
                     "aspect": [r["aspect"] for r in unique_records.values()],
                     "metadata": [r["metadata"] for r in unique_records.values()],
-                    "systemmetadata": [r["systemmetadata"] for r in unique_records.values()],
+                    "systemmetadata": [
+                        r["systemmetadata"] for r in unique_records.values()
+                    ],
                     "version": [r["version"] for r in unique_records.values()],
                     "createdon": [r["createdon"] for r in unique_records.values()],
                 },
@@ -876,7 +822,7 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 ),
             )
 
-            # Reload table before upsert to get latest metadata
+            # Reload table before upsert to avoid optimistic concurrency conflicts
             try:
                 self.table = self.catalog.load_table(
                     f"{self.config.namespace}.{self.config.table_name}"
@@ -884,17 +830,17 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
             except Exception as e:
                 logger.warning(f"Failed to reload table before deferred upsert: {e}")
 
-            # Single upsert operation for all records
             if hasattr(self.table, "upsert"):
                 try:
-                    # Try with join columns as positional argument
                     result = self.table.upsert(
                         pa_table,
                         ["urn", "aspect", "version"],  # Join columns
                     )
                 except (TypeError, ValueError) as e:
                     # If that fails, try without join columns (using identifier-field-ids from table)
-                    logger.debug(f"Upsert with join columns failed: {e}, trying without")
+                    logger.debug(
+                        f"Upsert with join columns failed: {e}, trying without"
+                    )
                     try:
                         result = self.table.upsert(pa_table)
                     except Exception as e2:
@@ -906,23 +852,26 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                         self.table.append(pa_table)
                         result = None
 
-                # Log upsert results if available
-                if result and hasattr(result, "rows_updated") and hasattr(result, "rows_inserted"):
+                if (
+                    result
+                    and hasattr(result, "rows_updated")
+                    and hasattr(result, "rows_inserted")
+                ):
                     logger.info(
                         f"Upserted {len(unique_records)} records: "
                         f"{result.rows_updated} updated, {result.rows_inserted} inserted"
                     )
                 else:
-                    logger.info(f"Upserted {len(unique_records)} records (result: {result})")
+                    logger.info(
+                        f"Upserted {len(unique_records)} records (result: {result})"
+                    )
             else:
-                # Fallback to append if upsert not available
                 logger.warning(
                     "PyIceberg upsert not available. Using append mode. "
                     "Upgrade to PyIceberg 0.9.0+ for native upsert support."
                 )
                 self.table.append(pa_table)
 
-            # Report success for all records
             for envelope in envelopes:
                 self.report.report_record_written(envelope)
 
@@ -935,24 +884,20 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
                 f"Failed to flush deferred upsert: {e}",
                 exc_info=True,
             )
-            # Report errors for all records
             for _ in self.deferred_buffer:
                 self.report.report_write_error()
             raise
         finally:
-            # Clear the deferred buffer
             self.deferred_buffer.clear()
 
     def close(self) -> None:
         """Cleanup resources and flush remaining records"""
-        # Flush deferred records if using deferred upsert
         if self._use_deferred_upsert and self.deferred_buffer:
             try:
                 self._flush_deferred_upsert()
             except Exception as e:
                 logger.error(f"Failed to flush deferred records on close: {e}")
 
-        # Flush any remaining records in the batch (for full loads)
         if self.batch_buffer:
             logger.info(
                 f"Flushing {len(self.batch_buffer)} remaining records before close"

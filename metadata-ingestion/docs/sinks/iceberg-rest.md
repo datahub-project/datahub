@@ -548,5 +548,5 @@ datahub ingest -c backup-iceberg-sink.yaml
 - [Apache Iceberg Documentation](https://iceberg.apache.org/)
 - [PyIceberg Documentation](https://py.iceberg.apache.org/)
 - [DataHub Iceberg Catalog](https://docs.datahub.com/docs/iceberg-catalog)
-- [DataHub Source Documentation](../sources/datahub/datahub.md)
+- [DataHub Source Documentation](https://docs.datahub.com/docs/generated/ingestion/sources/datahub)
 
