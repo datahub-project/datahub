@@ -11,6 +11,9 @@ record DocumentSource {
   /**
    * The type of the source (e.g., "Confluence", "Notion", "Google Docs", "SharePoint", "Slack")
    */
+  @Searchable = {
+    "queryByDefault": false
+  }
   sourceType: enum DocumentSourceType {
     /**
      * Created via the DataHub UI or API
@@ -26,13 +29,17 @@ record DocumentSource {
   /**
    * URL to the external source where this document originated
    */
-  @Searchable = {}
+  @Searchable = {
+    "queryByDefault": false
+  }
   externalUrl: optional string
 
   /**
    * Unique identifier in the external system. Searchable in case we need to find ingested docs via filtering.
    */
-  @Searchable = {}
+  @Searchable = {
+    "queryByDefault": false
+  }
   externalId: optional string
 }
 

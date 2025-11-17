@@ -39,7 +39,8 @@ record DocumentInfo includes CustomProperties {
     @Searchable = {
       "/actor": {
         "fieldName": "creator",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false
       },
       "/time": {
         "fieldName": "createdAt",
@@ -54,7 +55,8 @@ record DocumentInfo includes CustomProperties {
     @Searchable = {
       "/actor": {
         "fieldName": "lastModifiedBy",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false
       },
       "/time": {
         "fieldName": "lastModifiedAt",
