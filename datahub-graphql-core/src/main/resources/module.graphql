@@ -252,6 +252,10 @@ enum DataHubPageModuleType {
   """
   PLATFORMS
   """
+  Module displaying the lineage of an asset
+  """
+  LINEAGE
+  """
   Unknown module type - this can occur with corrupted data or rolling back to versions without new modules
   """
   UNKNOWN

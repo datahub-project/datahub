@@ -42,7 +42,11 @@ const MAIN_Y_SEP_RATIO = 0.5;
 const MINI_Y_SEP_RATIO = MAIN_Y_SEP_RATIO / 2;
 const TRANSFORMATIONAL_LEAF_OFFSET = 25;
 
-export type LineageVisualizationNode = Node<LineageEntity | LineageFilter | LineageBoundingBox>;
+export interface LineageAnnotationNode {
+    label: string;
+}
+
+export type LineageVisualizationNode = Node<LineageEntity | LineageFilter | LineageBoundingBox | LineageAnnotationNode>;
 export type LineageVisualizationEdgeData = LineageTableEdgeData | DataJobInputOutputEdgeData;
 
 export function getNodePriority(node: LineageVisualizationNode) {
