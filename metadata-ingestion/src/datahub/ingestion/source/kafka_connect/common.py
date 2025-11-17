@@ -680,6 +680,83 @@ class BaseConnector:
         """Get the platform for this connector instance. Override in subclasses."""
         return "unknown"
 
+    def _discover_tables_from_database(
+        self, database_name: str, platform: str
+    ) -> List[str]:
+        """
+        Discover all tables in a database using SchemaResolver.
+
+        This method queries DataHub for all tables in the specified database and platform.
+        It's used when connectors don't have table.include.list configured, meaning they
+        capture ALL tables from the database.
+
+        Args:
+            database_name: The database name (e.g., "appdb", "testdb")
+            platform: The platform name (e.g., "postgres", "mysql")
+
+        Returns:
+            List of table names in schema.table format (e.g., ["public.users", "public.orders"])
+        """
+        if not self.schema_resolver:
+            logger.warning("SchemaResolver not available for table discovery")
+            return []
+
+        try:
+            # Get all URNs from schema resolver
+            all_urns = self.schema_resolver.get_urns()
+
+            if not all_urns:
+                logger.warning(
+                    f"No cached schemas available in SchemaResolver for platform={platform}. "
+                    f"Make sure you've ingested {platform} datasets into DataHub before running Kafka Connect ingestion."
+                )
+                return []
+
+            logger.debug(
+                f"SchemaResolver has {len(all_urns)} cached URNs, filtering for platform={platform}, database={database_name}"
+            )
+
+            discovered_tables = []
+
+            for urn in all_urns:
+                # URN format: urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)
+                table_name = self._extract_table_name_from_urn(urn)
+                if not table_name:
+                    continue
+
+                # Filter by platform
+                if f"dataplatform:{platform.lower()}" not in urn.lower():
+                    continue
+
+                # Filter by database - check if table_name starts with database prefix
+                # Table name format: "database.schema.table" or "schema.table"
+                if database_name:
+                    # Case 1: Table name includes database (e.g., "appdb.public.users")
+                    if table_name.startswith(f"{database_name.lower()}."):
+                        # Remove database prefix to get "schema.table"
+                        schema_table = table_name[len(database_name) + 1 :]
+                        discovered_tables.append(schema_table)
+                    # Case 2: Table name is just schema.table (database not in URN)
+                    # This happens for some platforms where database is implicit
+                    elif "." in table_name:
+                        # Assume this table belongs to the database (no way to verify without database in URN)
+                        discovered_tables.append(table_name)
+                else:
+                    # No database filtering - include all tables
+                    discovered_tables.append(table_name)
+
+            logger.info(
+                f"Discovered {len(discovered_tables)} tables from database '{database_name}' for platform '{platform}'"
+            )
+            return discovered_tables
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to discover tables from database '{database_name}': {e}",
+                exc_info=True,
+            )
+            return []
+
     def _apply_replace_field_transform(
         self, source_columns: List[str]
     ) -> Dict[str, Optional[str]]:

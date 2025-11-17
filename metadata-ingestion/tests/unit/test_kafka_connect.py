@@ -3234,6 +3234,293 @@ class TestDebeziumConnectors:
         assert lineages[0].target_dataset == "my-prefix.public.events"
 
 
+class TestDebeziumDatabaseDiscovery:
+    """Test Debezium database discovery via SchemaResolver and filtering."""
+
+    def test_database_discovery_without_table_include_list(self) -> None:
+        """Test discovering tables from database.dbname when table.include.list is not configured."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "appdb",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-discovery",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = True
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        mock_schema_resolver = Mock()
+        mock_schema_resolver.get_urns.return_value = [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.users,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.products,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,other_db.table1,PROD)",
+        ]
+
+        connector = DebeziumSourceConnector(
+            manifest, config, report, schema_resolver=mock_schema_resolver
+        )
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 3
+        assert "myserver.public.users" in topics
+        assert "myserver.public.orders" in topics
+        assert "myserver.public.products" in topics
+
+    def test_database_discovery_with_include_filter(self) -> None:
+        """Test discovering tables from database then filtering with table.include.list."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "appdb",
+            "table.include.list": "public.users,public.orders",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-filtered",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = True
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        mock_schema_resolver = Mock()
+        mock_schema_resolver.get_urns.return_value = [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.users,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.products,PROD)",
+        ]
+
+        connector = DebeziumSourceConnector(
+            manifest, config, report, schema_resolver=mock_schema_resolver
+        )
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 2
+        assert "myserver.public.users" in topics
+        assert "myserver.public.orders" in topics
+        assert "myserver.public.products" not in topics
+
+    def test_database_discovery_with_exclude_filter(self) -> None:
+        """Test discovering tables from database then filtering with table.exclude.list."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "appdb",
+            "table.exclude.list": "public.products",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-excluded",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = True
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        mock_schema_resolver = Mock()
+        mock_schema_resolver.get_urns.return_value = [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.users,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.products,PROD)",
+        ]
+
+        connector = DebeziumSourceConnector(
+            manifest, config, report, schema_resolver=mock_schema_resolver
+        )
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 2
+        assert "myserver.public.users" in topics
+        assert "myserver.public.orders" in topics
+        assert "myserver.public.products" not in topics
+
+    def test_database_discovery_with_include_and_exclude_filters(self) -> None:
+        """Test include filter followed by exclude filter."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "testdb",
+            "table.include.list": "public.test_.*",
+            "table.exclude.list": "public.test_temp_.*",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-both-filters",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = True
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        mock_schema_resolver = Mock()
+        mock_schema_resolver.get_urns.return_value = [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.test_users,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.test_orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.test_temp_data,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.production_users,PROD)",
+        ]
+
+        connector = DebeziumSourceConnector(
+            manifest, config, report, schema_resolver=mock_schema_resolver
+        )
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 2
+        assert "myserver.public.test_users" in topics
+        assert "myserver.public.test_orders" in topics
+        assert "myserver.public.test_temp_data" not in topics
+        assert "myserver.public.production_users" not in topics
+
+    def test_pattern_matching_with_java_regex(self) -> None:
+        """Test pattern matching uses Java regex for compatibility with Debezium."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "testdb",
+            "table.include.list": "public\\.users,schema_.*\\.orders",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-regex",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = True
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        mock_schema_resolver = Mock()
+        mock_schema_resolver.get_urns.return_value = [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.users,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.schema_v1.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.schema_v2.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.products,PROD)",
+        ]
+
+        connector = DebeziumSourceConnector(
+            manifest, config, report, schema_resolver=mock_schema_resolver
+        )
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 3
+        assert "myserver.public.users" in topics
+        assert "myserver.schema_v1.orders" in topics
+        assert "myserver.schema_v2.orders" in topics
+        assert "myserver.public.products" not in topics
+
+    def test_fallback_when_schema_resolver_unavailable(self) -> None:
+        """Test fallback to table.include.list only when SchemaResolver is not available."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "appdb",
+            "table.include.list": "public.users,public.orders",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-no-resolver",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = False
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 2
+        assert "myserver.public.users" in topics
+        assert "myserver.public.orders" in topics
+
+    def test_no_topics_when_no_config_and_no_resolver(self) -> None:
+        """Test returns empty list when no table.include.list and no SchemaResolver."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "appdb",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-no-config",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = False
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 0
+
+
 class TestErrorHandling:
     """Test error handling in connector parsing and lineage extraction."""
 

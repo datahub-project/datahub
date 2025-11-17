@@ -2150,33 +2150,158 @@ class DebeziumSourceConnector(BaseConnector):
                 f"Debezium connector '{self.connector_manifest.name}' config keys: {list(config.keys())}"
             )
 
-            # Extract table names from configuration first (before parser creation)
-            table_config = config.get("table.include.list") or config.get(
-                "table.whitelist"
+            # Get parser to extract database info
+            parser = self.get_parser(self.connector_manifest)
+            database_name = parser.database_name
+            source_platform = parser.source_platform
+            server_name = parser.server_name
+
+            logger.debug(
+                f"Debezium connector '{self.connector_manifest.name}' - "
+                f"database='{database_name}', platform='{source_platform}', server_name='{server_name}'"
             )
-            if not table_config:
-                logger.info(
-                    f"No table.include.list or table.whitelist found for Debezium connector '{self.connector_manifest.name}' - "
-                    f"cannot derive topics from config. Available config keys: {list(config.keys())[:20]}"
+
+            # Step 1: Get all tables from database using SchemaResolver
+            # This gives us the complete set of tables in the database
+            table_names: List[str] = []
+
+            if not self.schema_resolver or not self.config.use_schema_resolver:
+                # SchemaResolver not available - fall back to table.include.list only
+                table_config = config.get("table.include.list") or config.get(
+                    "table.whitelist"
                 )
-                return []
+                if not table_config:
+                    logger.info(
+                        f"No table.include.list found and SchemaResolver not available for connector '{self.connector_manifest.name}' - "
+                        f"cannot derive topics from config"
+                    )
+                    return []
 
-            table_names = parse_comma_separated_list(table_config)
-            logger.debug(
-                f"Debezium connector '{self.connector_manifest.name}' has {len(table_names)} tables configured: {table_names[:5]}"
-            )
+                table_names = parse_comma_separated_list(table_config)
+                logger.debug(
+                    f"Using {len(table_names)} tables from config (SchemaResolver not available): {table_names[:5]}"
+                )
+            else:
+                # SchemaResolver is available - use database.dbname to discover tables
+                if not database_name:
+                    logger.warning(
+                        f"Cannot discover tables for connector '{self.connector_manifest.name}' - "
+                        f"database.dbname not configured"
+                    )
+                    # Fall back to table.include.list if no database name
+                    table_config = config.get("table.include.list") or config.get(
+                        "table.whitelist"
+                    )
+                    if not table_config:
+                        logger.info(
+                            f"No database.dbname and no table.include.list for connector '{self.connector_manifest.name}'"
+                        )
+                        return []
+                    table_names = parse_comma_separated_list(table_config)
+                else:
+                    # Discover all tables from database
+                    logger.info(
+                        f"Discovering tables from database '{database_name}' using SchemaResolver for connector '{self.connector_manifest.name}'"
+                    )
 
-            # Get server name - use direct config lookup to avoid parser issues
-            server_name = (
-                config.get("database.server.name")
-                or config.get("topic.prefix")
-                or config.get("database.hostname", "")
-            )
-            logger.debug(
-                f"Debezium connector '{self.connector_manifest.name}' server_name='{server_name}'"
-            )
+                    discovered_tables = self._discover_tables_from_database(
+                        database_name, source_platform
+                    )
 
-            # Debezium topics follow pattern: {server_name}.{table} where table includes schema
+                    if not discovered_tables:
+                        logger.warning(
+                            f"No tables found in database '{database_name}' from SchemaResolver. "
+                            f"Make sure you've ingested {source_platform} datasets for database '{database_name}' "
+                            f"into DataHub before running Kafka Connect ingestion."
+                        )
+                        return []
+
+                    logger.info(
+                        f"Discovered {len(discovered_tables)} tables from database '{database_name}': "
+                        f"{discovered_tables[:10]}"
+                        + (
+                            f"... ({len(discovered_tables)} total)"
+                            if len(discovered_tables) > 10
+                            else ""
+                        )
+                    )
+
+                    # Step 2: Apply table.include.list filter if it exists
+                    table_config = config.get("table.include.list") or config.get(
+                        "table.whitelist"
+                    )
+
+                    if table_config:
+                        # Parse patterns from config
+                        table_patterns = parse_comma_separated_list(table_config)
+                        logger.info(
+                            f"Applying table.include.list filter with {len(table_patterns)} patterns: {table_patterns}"
+                        )
+
+                        # Filter discovered tables using patterns
+                        table_names = self._filter_tables_by_patterns(
+                            discovered_tables, table_patterns
+                        )
+
+                        logger.info(
+                            f"After include filtering, {len(table_names)} tables match the patterns: "
+                            f"{table_names[:10]}"
+                            + (
+                                f"... ({len(table_names)} total)"
+                                if len(table_names) > 10
+                                else ""
+                            )
+                        )
+
+                        if not table_names:
+                            logger.warning(
+                                f"No tables matched the include patterns for connector '{self.connector_manifest.name}'"
+                            )
+                            return []
+                    else:
+                        # No filter - use all discovered tables
+                        table_names = discovered_tables
+                        logger.info(
+                            f"No table.include.list filter - using all {len(table_names)} discovered tables"
+                        )
+
+                    # Step 3: Apply table.exclude.list filter if it exists
+                    exclude_config = config.get("table.exclude.list") or config.get(
+                        "table.blacklist"
+                    )
+
+                    if exclude_config:
+                        exclude_patterns = parse_comma_separated_list(exclude_config)
+                        logger.info(
+                            f"Applying table.exclude.list filter with {len(exclude_patterns)} patterns: {exclude_patterns}"
+                        )
+
+                        excluded_tables = self._filter_tables_by_patterns(
+                            table_names, exclude_patterns
+                        )
+
+                        table_names = [
+                            t for t in table_names if t not in excluded_tables
+                        ]
+
+                        logger.info(
+                            f"After exclude filtering, {len(table_names)} tables remain: "
+                            f"{table_names[:10]}"
+                            + (
+                                f"... ({len(table_names)} total)"
+                                if len(table_names) > 10
+                                else ""
+                            )
+                        )
+
+                        if not table_names:
+                            logger.warning(
+                                f"All tables were excluded by table.exclude.list for connector '{self.connector_manifest.name}'"
+                            )
+                            return []
+
+            # Step 4: Derive topics from table names
+            # Debezium topics follow pattern: {server_name}.{schema.table}
             topics = []
             for table_name in table_names:
                 if server_name:
@@ -2197,6 +2322,58 @@ class DebeziumSourceConnector(BaseConnector):
                 exc_info=True,
             )
             return []
+
+    def _filter_tables_by_patterns(
+        self, tables: List[str], patterns: List[str]
+    ) -> List[str]:
+        """
+        Filter tables by matching against table.include.list patterns.
+
+        Debezium uses Java regex for table.include.list patterns.
+
+        Args:
+            tables: List of table names to filter (e.g., ["public.users", "public.orders"])
+            patterns: List of regex patterns from table.include.list
+
+        Returns:
+            List of tables that match at least one pattern
+        """
+        matched_tables = []
+
+        # Try to use Java regex for exact compatibility with Debezium
+        try:
+            from java.util.regex import Pattern as JavaPattern
+
+            use_java_regex = True
+            logger.debug("Using Java regex for table pattern matching")
+        except (ImportError, RuntimeError):
+            use_java_regex = False
+            logger.debug("Java regex not available, falling back to Python re module")
+
+        for pattern in patterns:
+            try:
+                if use_java_regex:
+                    regex_pattern = JavaPattern.compile(pattern)
+                else:
+                    # Convert Java regex to Python regex (mostly compatible)
+                    python_pattern = pattern.replace(r"\\.", r"\.")
+                    regex_pattern = re.compile(python_pattern)
+
+                for table in tables:
+                    # Try to match the pattern against the table name
+                    matches = (
+                        regex_pattern.matcher(table).matches()
+                        if use_java_regex
+                        else regex_pattern.fullmatch(table) is not None
+                    )
+
+                    if matches and table not in matched_tables:
+                        matched_tables.append(table)
+
+            except Exception as e:
+                logger.warning(f"Failed to compile or match pattern '{pattern}': {e}")
+
+        return matched_tables
 
     def _get_database_name_for_platform(
         self, platform: str, config: Dict[str, str]
