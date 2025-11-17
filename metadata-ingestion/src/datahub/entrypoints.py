@@ -19,6 +19,7 @@ from datahub.cli.config_utils import DATAHUB_CONFIG_PATH, write_gms_config
 from datahub.cli.container_cli import container
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
+from datahub.cli.document_cli import document
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.cli.exists_cli import exists
 from datahub.cli.get_cli import get
@@ -185,6 +186,7 @@ datahub.add_command(forms)
 datahub.add_command(datacontract)
 datahub.add_command(assertions)
 datahub.add_command(container)
+datahub.add_command(document)
 
 try:
     from datahub.cli.iceberg_cli import iceberg
