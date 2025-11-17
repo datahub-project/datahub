@@ -18,7 +18,8 @@ record DraftOf {
     }
     @Searchable = {
         "fieldName": "draftOf",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false
     }
     document: Urn
 }

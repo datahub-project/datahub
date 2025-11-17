@@ -9,7 +9,9 @@ record DocumentStatus {
   /**
    * The current visibility state of the document
    */
-  @Searchable = {}
+  @Searchable = {
+    "queryByDefault": false
+  }
   state: DocumentState
 }
 
