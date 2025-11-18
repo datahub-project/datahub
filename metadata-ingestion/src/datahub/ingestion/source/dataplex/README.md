@@ -1,319 +1,134 @@
-# Google Dataplex Source
+# Google Dataplex Source - Developer Guide
 
-This DataHub connector extracts metadata from Google Dataplex and ingests it into DataHub.
+This directory contains the DataHub connector for Google Dataplex.
 
-## Overview
+**For user documentation, setup instructions, and configuration examples, see:**
 
-Google Dataplex is a data management service that enables organizations to centrally discover, manage, monitor, and govern their data across data lakes, data warehouses, and data marts. This connector extracts metadata from Dataplex and maps it to DataHub's metadata model.
+- [Dataplex Connector Documentation](../../../docs/sources/dataplex/dataplex_pre.md)
 
-## Entity Mapping
+## Implementation Overview
 
-The connector maps Dataplex resources to DataHub entities as follows:
+This connector extracts metadata from Google Dataplex and maps it to DataHub's metadata model.
 
-| Dataplex Resource | DataHub Entity Type | Description                                 |
-| ----------------- | ------------------- | ------------------------------------------- |
-| Project           | Container           | GCP Project containing Dataplex resources   |
-| Lake              | Domain              | Business domain representing a data lake    |
-| Zone              | Sub-domain          | Sub-domain under a Lake (RAW or CURATED)    |
-| Asset             | Data Product        | Data asset (BigQuery dataset or GCS bucket) |
-| Entity            | Dataset             | Discovered table or fileset                 |
-| Entry Group       | Container           | Universal Catalog entry group (Phase 2)     |
-| Entry             | Dataset/Container   | Universal Catalog entry (Phase 2)           |
+### Architecture
 
-## Setup
+The connector follows the pattern established by the `vertexai` and `bigquery_v2` sources:
+
+- Uses Google Cloud client libraries (`google-cloud-dataplex`)
+- Supports both service account credentials and Application Default Credentials
+- Implements hierarchical container relationships
+- Supports schema metadata extraction and sibling relationships
+
+### Entity Mapping
+
+| Dataplex Resource | DataHub Entity Type | Container Hierarchy Level |
+| ----------------- | ------------------- | ------------------------- |
+| Project           | Container           | Level 1 (root)            |
+| Lake              | Container           | Level 2                   |
+| Zone              | Container           | Level 3                   |
+| Asset             | Container           | Level 4                   |
+| Entity            | Dataset             | Leaf node                 |
+
+### Key Components
+
+- **[dataplex.py](dataplex.py)**: Main source implementation with extraction logic
+- **[dataplex_config.py](dataplex_config.py)**: Configuration models using Pydantic
+- **[dataplex_report.py](dataplex_report.py)**: Reporting and metrics tracking
+- **[dataplex_helpers.py](dataplex_helpers.py)**: Helper functions for URN generation and type mapping
+
+### Capabilities
+
+The connector implements the following DataHub capabilities:
+
+- `CONTAINERS`: Hierarchical container extraction for Projects, Lakes, Zones, and Assets
+- `SCHEMA_METADATA`: Schema information from discovered entities
+- `LINEAGE_COARSE`: Lineage extraction via Dataplex Lineage API (when enabled)
+
+## Development Setup
 
 ### Prerequisites
 
-1. **GCP Project with Dataplex enabled**
+1. Python 3.8+
+2. DataHub development environment set up
+3. Access to a GCP project with Dataplex enabled
 
-   - Ensure Dataplex API is enabled in your GCP project
-
-2. **Service Account with appropriate permissions**
-
-   Required IAM roles:
-
-   ```
-   roles/dataplex.viewer
-   roles/datacatalog.viewer (if using Universal Catalog)
-   roles/datalineage.viewer (if extracting lineage)
-   ```
-
-   Or specific permissions:
-
-   ```
-   # Dataplex permissions
-   dataplex.lakes.get
-   dataplex.lakes.list
-   dataplex.zones.get
-   dataplex.zones.list
-   dataplex.assets.get
-   dataplex.assets.list
-   dataplex.entities.get
-   dataplex.entities.list
-
-   # Optional: For lineage extraction
-   datalineage.links.get
-   datalineage.links.search
-
-   # Optional: For BigQuery schema details
-   bigquery.tables.get
-   bigquery.tables.list
-   ```
-
-3. **Python Dependencies**
-
-   Install required packages:
-
-   ```bash
-   pip install google-cloud-dataplex>=1.0.0
-   pip install google-cloud-datacatalog-lineage>=0.3.0
-   ```
-
-## Configuration
-
-### Basic Configuration
-
-```yaml
-source:
-  type: dataplex
-  config:
-    # Required
-    project_id: "my-gcp-project"
-
-    # Optional: GCP credentials
-    credential:
-      project_id: "my-gcp-project"
-      private_key_id: "d0121d0000882411234e11166c6aaa23ed5d74e0"
-      private_key: "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----\n"
-      client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
-      client_id: "123456678890"
-
-    # Optional: Location (default: us-central1)
-    location: "us-central1"
-
-    # Optional: Environment (default: PROD)
-    env: "PROD"
-```
-
-### Advanced Configuration
-
-```yaml
-source:
-  type: dataplex
-  config:
-    project_id: "my-gcp-project"
-    location: "us-central1"
-
-    # Filtering
-    filter_config:
-      lake_pattern:
-        allow:
-          - "retail-.*"
-          - "finance-.*"
-        deny:
-          - ".*-test"
-
-      zone_pattern:
-        allow:
-          - ".*"
-        deny:
-          - "deprecated-.*"
-
-      asset_pattern:
-        allow:
-          - ".*"
-        deny:
-          - "temp-.*"
-
-    # Feature flags
-    extract_lakes: true
-    extract_zones: true
-    extract_assets: true
-    extract_entities: true
-    extract_entry_groups: false # Phase 2
-    extract_entries: false # Phase 2
-    extract_lineage: true
-
-    # Relationship creation
-    create_sibling_relationships: true
-
-    # Tagging
-    apply_zone_type_tags: true
-    apply_label_tags: true
-
-    # Performance
-    max_workers: 10
-```
-
-## Authentication
-
-The connector supports multiple authentication methods:
-
-### 1. Service Account Key (Recommended for Production)
-
-```yaml
-credential:
-  project_id: "my-gcp-project"
-  private_key_id: "key-id"
-  private_key: "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-  client_email: "service-account@project.iam.gserviceaccount.com"
-  client_id: "123456789"
-```
-
-### 2. Application Default Credentials (ADC)
-
-If `credential` is not specified, the connector uses Application Default Credentials:
-
-- On GCE/GKE: Uses the instance/pod service account
-- Local development: Uses `gcloud auth application-default login`
+### Install Development Dependencies
 
 ```bash
-# Set up ADC locally
-gcloud auth application-default login
+cd metadata-ingestion
+./scripts/install_deps.sh
 ```
 
-## Features
-
-### Phase 1 (Current Implementation)
-
-- ✅ Extract Projects as Containers
-- ✅ Extract Lakes as Domains
-- ✅ Extract Zones as Sub-domains
-- ⏳ Extract Assets as Data Products (in progress)
-- ⏳ Extract Entities as Datasets (in progress)
-- ⏳ Extract lineage relationships (in progress)
-- ⏳ Create sibling relationships with native datasets (in progress)
-
-### Phase 2 (Future)
-
-- ⬜ Extract Entry Groups from Universal Catalog
-- ⬜ Extract Entries from Universal Catalog
-- ⬜ Support Custom Aspects
-- ⬜ Incremental ingestion
-- ⬜ Data quality metrics
-- ⬜ Data profiling statistics
-
-## Usage Examples
-
-### Running the Ingestion
+### Run Linting
 
 ```bash
-# Using a recipe file
-datahub ingest -c dataplex_recipe.yml
-
-# Or directly
-datahub ingest -c '
-source:
-  type: dataplex
-  config:
-    project_id: my-project
-    location: us-central1
-
-sink:
-  type: datahub-rest
-  config:
-    server: http://localhost:8080
-'
+./gradlew :metadata-ingestion:lintFix
 ```
 
-### Test Connection
+### Run Tests
 
 ```bash
-datahub check source-connection -c dataplex_recipe.yml
+./gradlew :metadata-ingestion:testQuick
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Authentication Errors**
-
-   ```
-   Error: 403 Permission denied on resource
-   ```
-
-   Solution: Verify that your service account has the required IAM permissions.
-
-2. **API Not Enabled**
-
-   ```
-   Error: Dataplex API has not been used in project
-   ```
-
-   Solution: Enable the Dataplex API in your GCP project:
-
-   ```bash
-   gcloud services enable dataplex.googleapis.com --project=PROJECT_ID
-   ```
-
-3. **No Resources Found**
-   ```
-   Warning: No lakes found in project
-   ```
-   Solution: Check that:
-   - You have Dataplex resources in the specified location
-   - Your filter patterns are not too restrictive
-   - Your service account has list permissions
-
-### Debug Mode
-
-Enable debug logging for troubleshooting:
-
-```yaml
-source:
-  type: dataplex
-  config:
-    # ... your config ...
-
-# Add this to enable debug logs
-pipeline_name: dataplex_ingestion
-debug_mode: true
-```
-
-## Development
-
-### Project Structure
+## Project Structure
 
 ```
 dataplex/
-├── __init__.py              # Package exports
-├── dataplex.py              # Main source implementation
-├── dataplex_config.py       # Configuration classes
-├── dataplex_report.py       # Reporting and metrics
-├── README.md                # This file
-├── dataplex_implementation.md  # Detailed spec
-└── example_code/            # Reference examples
+├── __init__.py                   # Package exports
+├── dataplex.py                   # Main source implementation
+├── dataplex_config.py            # Configuration classes
+├── dataplex_report.py            # Reporting and metrics
+├── dataplex_helpers.py           # Helper functions and utilities
+├── README.md                     # This file (developer guide)
+├── TEST_GUIDE.md                 # Testing documentation
+├── TESTING.md                    # Test implementation details
+└── example_code/                 # Reference examples and experiments
+    ├── README.md
     ├── dataplex_client.py
-    └── ...
+    └── dataplex_implementation.md
 ```
 
-### Contributing
+## Implementation Notes
+
+### Container Key Hierarchy
+
+The connector uses custom `ContainerKey` classes to represent the hierarchical structure:
+
+```python
+ProjectIdKey                    # Base container for GCP project
+└── DataplexLakeKey            # Lake within project
+    └── DataplexZoneKey        # Zone within lake
+        └── DataplexAssetKey   # Asset within zone
+```
+
+### URN Generation
+
+- **Dataplex Entities**: `urn:li:dataset:(urn:li:dataPlatform:dataplex,{project_id}.{entity_id},{env})`
+- **Source Platform Entities**: `urn:li:dataset:(urn:li:dataPlatform:{platform},{project_id}.{entity_id},{env})`
+- **Containers**: Generated using `gen_containers()` with hierarchical relationships
+
+### Sibling Relationship Logic
+
+When `create_sibling_relationships=True`:
+
+- Dataplex entity determines its source platform (BigQuery/GCS) by querying the asset
+- Creates bidirectional sibling links between Dataplex and source platform URNs
+- Primary sibling designation controlled by `dataplex_is_primary_sibling` config
+
+## Contributing
 
 When contributing to this connector:
 
-1. Follow the patterns established in `vertexai` and `bigquery_v2` sources
-2. Add appropriate type hints to all functions
-3. Update the README with new features
+1. Follow patterns from `vertexai` and `bigquery_v2` sources
+2. Add type hints to all functions
+3. Update both developer README (this file) and user docs (`../../../docs/sources/dataplex/`)
 4. Add unit tests for new functionality
-5. Run linting before committing:
-   ```bash
-   ./gradlew :metadata-ingestion:lintFix
-   ```
+5. Run linting: `./gradlew :metadata-ingestion:lintFix`
+6. Follow the [DataHub code standards](../../../../CLAUDE.md)
 
 ## References
 
-- [Dataplex Documentation](https://cloud.google.com/dataplex/docs)
-- [Dataplex API Reference](https://cloud.google.com/dataplex/docs/reference/rest)
-- [DataHub Documentation](https://datahubproject.io/docs/)
-- [Implementation Spec](./dataplex_implementation.md)
-
-## Support
-
-For issues or questions:
-
-- GitHub Issues: [datahub/issues](https://github.com/datahub-project/datahub/issues)
-- Slack: [DataHub Community](https://slack.datahubproject.io/)
-
-## License
-
-This connector is part of the DataHub project and follows the same Apache 2.0 license.
+- [User Documentation](../../../docs/sources/dataplex/dataplex_pre.md)
+- [Dataplex API Documentation](https://cloud.google.com/dataplex/docs)
+- [DataHub Developer Guide](https://datahubproject.io/docs/developers)

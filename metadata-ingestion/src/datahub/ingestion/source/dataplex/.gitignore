@@ -1,6 +1,9 @@
 # Ignore example code directory
 # example_code/
 
+# Ignore recipes
+*.yaml
+
 # Python cache files
 __pycache__/
 *.pyc
