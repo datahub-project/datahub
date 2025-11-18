@@ -3,41 +3,15 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.s3.source import S3Source
+from datahub.metadata._internal_schema_classes import MetadataChangeProposalClass
 
 
 @pytest.mark.integration
 class TestS3ProfilingCoverage:
     """Integration tests to cover all profiling code paths with different data types."""
-
-    @pytest.fixture(autouse=True)
-    def reset_spark_session(self):
-        try:
-            from pyspark import SparkContext
-            from pyspark.sql import SparkSession
-
-            # Stop any active SparkContext
-            if SparkContext._active_spark_context is not None:
-                SparkContext._active_spark_context.stop()
-
-            # Clear the active SparkSession reference
-            SparkSession._instantiatedSession = None
-        except Exception:
-            pass
-
-        yield
-
-        try:
-            from pyspark import SparkContext
-            from pyspark.sql import SparkSession
-
-            if SparkContext._active_spark_context is not None:
-                SparkContext._active_spark_context.stop()
-
-            SparkSession._instantiatedSession = None
-        except Exception:
-            pass
 
     def test_profiling_with_numeric_types(self, tmp_path: Path) -> None:
         """Test profiling with various numeric column types (int, float, double).
@@ -111,7 +85,13 @@ class TestS3ProfilingCoverage:
 
         assert len(workunits) > 0
         profile_workunits = [
-            wu for wu in workunits if wu.metadata.aspectName == "datasetProfile"
+            wu
+            for wu in workunits
+            if isinstance(
+                wu.metadata,
+                (MetadataChangeProposalClass, MetadataChangeProposalWrapper),
+            )
+            and wu.metadata.aspectName == "datasetProfile"
         ]
         assert len(profile_workunits) > 0
 
@@ -159,7 +139,13 @@ class TestS3ProfilingCoverage:
 
         assert len(workunits) > 0
         profile_workunits = [
-            wu for wu in workunits if wu.metadata.aspectName == "datasetProfile"
+            wu
+            for wu in workunits
+            if isinstance(
+                wu.metadata,
+                (MetadataChangeProposalClass, MetadataChangeProposalWrapper),
+            )
+            and wu.metadata.aspectName == "datasetProfile"
         ]
         assert len(profile_workunits) > 0
 
@@ -696,7 +682,13 @@ class TestS3ProfilingCoverage:
 
         assert len(workunits) > 0
         profile_workunits = [
-            wu for wu in workunits if wu.metadata.aspectName == "datasetProfile"
+            wu
+            for wu in workunits
+            if isinstance(
+                wu.metadata,
+                (MetadataChangeProposalClass, MetadataChangeProposalWrapper),
+            )
+            and wu.metadata.aspectName == "datasetProfile"
         ]
         assert len(profile_workunits) > 0
 
