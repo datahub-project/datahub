@@ -3,8 +3,8 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
-import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import ColumnsModule from '@app/entityV2/summary/modules/schemaTable/ColumnsModule';
+import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps, ModuleSize } from '@app/homeV3/module/types';
 
 import { useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
