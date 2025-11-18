@@ -7,6 +7,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.Builder;
@@ -33,7 +34,9 @@ public interface MappingsBuilder {
    *
    * @return mappings
    */
-  Collection<IndexMapping> getIndexMappings(@Nonnull OperationContext opContext);
+  default Collection<IndexMapping> getIndexMappings(@Nonnull OperationContext opContext) {
+    return getIndexMappings(opContext, List.of());
+  }
 
   Collection<IndexMapping> getIndexMappingsWithNewStructuredProperty(
       @Nonnull OperationContext opContext,

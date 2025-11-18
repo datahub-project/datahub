@@ -159,7 +159,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.algorithm",
           "authentication.authenticators[*].configs.discoveryUri",
           // Shim properties
-          "elasticsearch.shim.*");
+          "elasticsearch.shim.*",
+          // Semantic search configuration
+          "elasticsearch.entityIndex.semanticSearch.enabledEntities",
+          "elasticsearch.entityIndex.semanticSearch.models.*.vectorDimension",
+          "elasticsearch.entityIndex.semanticSearch.models.*.spaceType",
+          "elasticsearch.entityIndex.semanticSearch.models.*.m",
+          "elasticsearch.entityIndex.semanticSearch.models.*.knnEngine",
+          "elasticsearch.entityIndex.semanticSearch.models.*.efConstruction");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
