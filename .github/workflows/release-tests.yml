@@ -47,14 +47,14 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          RELEASE_TEST_ADMIN_USERNAME: op://Engineering/Shared Accounts for dev0x/admin email
-          RELEASE_TEST_ADMIN_PASSWORD: op://Engineering/Shared Accounts for dev0x/admin pass
+          ADMIN_USERNAME: op://Engineering/Shared Accounts for dev0x/admin email
+          ADMIN_PASSWORD: op://Engineering/Shared Accounts for dev0x/admin pass
           RELEASE_TEST_NOTIFICATION_CHANNEL: op://Engineering/slack tokens for release test of deploy-auto/slack channel deploy-auto notification
           RELEASE_TEST_NOTIFICATION_TOKEN: op://Engineering/slack tokens for release test of deploy-auto/slack token deploy-auto
 
       - name: Run release tests
         env:
-          RELEASE_TEST_FRONTEND_URL: ${{ github.event_name == 'schedule' && 'https://deploy-auto.acryl.io' || github.event.inputs.remote_instance_url }}
+          DATAHUB_FRONTEND_URL: ${{ github.event_name == 'schedule' && 'https://deploy-auto.acryl.io' || github.event.inputs.remote_instance_url }}
           USE_STATIC_SLEEP: "true"
         run: |
           cd smoke-test

@@ -57,16 +57,7 @@ def get_cypress_credentials():
     )
 
 
-def get_release_test_credentials():
-    return (
-        env_vars.get_release_test_admin_username(),
-        env_vars.get_release_test_admin_password(),
-    )
-
-
 def get_admin_credentials():
-    if env_vars.get_release_test_enabled():
-        return get_release_test_credentials()
     cypress_creds = get_cypress_credentials()
     if cypress_creds[1] is not None:
         logger.info(f"Using cypress credentials for user: {cypress_creds[0]}")

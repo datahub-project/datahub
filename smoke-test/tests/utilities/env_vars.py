@@ -21,9 +21,13 @@ def get_suppress_logging_manager() -> Optional[str]:
 
 def get_gms_url() -> Optional[str]:
     """GMS URL."""
-    if get_release_test_enabled():
-        return get_release_test_gms_url()
-    return os.getenv("DATAHUB_GMS_URL")
+    result = os.getenv("DATAHUB_GMS_URL")
+    if result:
+        return result
+    frontend_url = get_frontend_url()
+    if frontend_url:
+        return f"{frontend_url}/gms"
+    return None
 
 
 def get_base_path() -> str:
@@ -38,8 +42,6 @@ def get_gms_base_path() -> str:
 
 def get_frontend_url() -> Optional[str]:
     """DataHub frontend URL."""
-    if get_release_test_enabled():
-        return get_release_test_frontend_url()
     return os.getenv("DATAHUB_FRONTEND_URL")
 
 
@@ -270,34 +272,6 @@ def get_test_identifier() -> str:
 # ========================================================================================
 # Env variables for release tests running against deploy-auto or an outside deployment
 # ========================================================================================
-
-
-def get_release_test_enabled() -> bool:
-    release_test_frontend_url = get_release_test_frontend_url()
-    return bool(release_test_frontend_url)
-
-
-def get_release_test_gms_url() -> Optional[str]:
-    """GMS URL for release tests."""
-    frontend_url = get_release_test_frontend_url()
-    if frontend_url:
-        return f"{frontend_url}/gms"
-    return os.getenv("RELEASE_TEST_GMS_URL")
-
-
-def get_release_test_frontend_url() -> Optional[str]:
-    """Frontend URL for release tests."""
-    return os.getenv("RELEASE_TEST_FRONTEND_URL")
-
-
-def get_release_test_admin_username() -> str:
-    """Admin username for release tests."""
-    return os.getenv("RELEASE_TEST_ADMIN_USERNAME", "shared_admin_user@acryl.io")
-
-
-def get_release_test_admin_password() -> Optional[str]:
-    """Admin password for release tests."""
-    return os.getenv("RELEASE_TEST_ADMIN_PASSWORD")
 
 
 def get_release_test_notification_channel() -> Optional[str]:
