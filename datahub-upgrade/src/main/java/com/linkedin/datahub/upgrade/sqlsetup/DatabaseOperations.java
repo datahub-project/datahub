@@ -88,13 +88,14 @@ public interface DatabaseOperations {
   String createCdcUserSql(String cdcUser, String cdcPassword);
 
   /**
-   * Generate SQL for granting CDC privileges to a user.
+   * Generate SQL statements for granting CDC privileges to a user. Returns a list of individual SQL
+   * statements that can be executed separately.
    *
    * @param cdcUser the CDC username
    * @param databaseName the database name
-   * @return the SQL statement for granting CDC privileges
+   * @return list of SQL statements for granting CDC privileges
    */
-  String grantCdcPrivilegesSql(String cdcUser, String databaseName);
+  java.util.List<String> grantCdcPrivilegesSql(String cdcUser, String databaseName);
 
   /**
    * Generate SQL statements for creating the metadata_aspect_v2 table and its indexes. Returns a
