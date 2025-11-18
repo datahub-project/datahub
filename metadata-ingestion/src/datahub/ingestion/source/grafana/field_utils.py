@@ -295,7 +295,8 @@ def get_fields_from_field_config(
             )
         )
 
-    for override in field_config.get("overrides", []):
+    overrides = field_config.get("overrides") or []
+    for override in overrides:
         if override.get("matcher", {}).get("id") == "byName":
             field_name = override.get("matcher", {}).get("options")
             if field_name:
