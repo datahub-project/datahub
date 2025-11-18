@@ -257,6 +257,41 @@ def test_panel_with_string_datasource():
     assert panel.title == "Sent records"
 
 
+def test_panel_with_missing_id():
+    """Test that panels with missing id field get a generated fallback ID."""
+    panel_data = {
+        # No id field - common in some text panels
+        "type": "text",
+        "title": "Performance Testing (k6)",
+        "options": {"content": "# Performance Testing", "mode": "markdown"},
+        "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0},
+    }
+
+    # Should validate successfully with generated ID
+    panel = Panel.model_validate(panel_data)
+    assert panel.id is not None  # ID was generated
+    assert panel.id.startswith("text_")  # Generated based on type
+    assert panel.type == "text"
+    assert panel.title == "Performance Testing (k6)"
+
+
+def test_panel_with_null_id():
+    """Test that panels with explicit None id field get a generated fallback ID."""
+    panel_data = {
+        "id": None,  # Explicit None
+        "type": "text",
+        "title": "Test Panel",
+        "options": {"content": "Test content"},
+    }
+
+    # Should validate successfully with generated ID
+    panel = Panel.model_validate(panel_data)
+    assert panel.id is not None  # ID was generated
+    assert panel.id.startswith("text_")  # Generated based on type
+    assert panel.type == "text"
+    assert panel.title == "Test Panel"
+
+
 def test_realistic_grafana_api_response():
     """Test validation with a realistic Grafana API response format."""
     # Simulates a typical Grafana API response with some optional fields missing

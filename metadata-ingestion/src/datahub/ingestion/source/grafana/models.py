@@ -92,8 +92,15 @@ class Panel(_GrafanaBaseModel):
 
     @staticmethod
     def _normalize_id_field(data: Dict[str, Any]) -> None:
-        """Convert integer ID to string for consistency."""
-        if "id" in data and isinstance(data["id"], int):
+        """Convert integer ID to string and generate fallback ID if missing."""
+        if "id" not in data or data["id"] is None:
+            # Generate a fallback ID based on panel type and title
+            panel_type = data.get("type", "unknown")
+            title = data.get("title", "untitled")
+            # Create a simple hash-like ID from type and title
+            fallback_id = f"{panel_type}_{hash(title) % 10000}"
+            data["id"] = fallback_id
+        elif isinstance(data["id"], int):
             data["id"] = str(data["id"])
 
     @model_validator(mode="before")

@@ -130,7 +130,7 @@ def test_dashboard_with_text_panel():
 
 
 def test_dashboard_with_invalid_panel_skips():
-    """Test that invalid panels are skipped with a warning instead of failing."""
+    """Test that panels with missing IDs get generated fallback IDs."""
     dashboard_data = {
         "dashboard": {
             "uid": "dash1",
@@ -139,7 +139,7 @@ def test_dashboard_with_invalid_panel_skips():
             "version": "1",
             "panels": [
                 {"id": "1", "title": "Valid Panel", "type": "graph"},
-                # Missing required 'id' field - should be skipped
+                # Missing 'id' field - should get generated ID
                 {"title": "Invalid Panel", "type": "graph"},
                 {"id": "3", "title": "Another Valid Panel", "type": "table"},
             ],
@@ -148,10 +148,14 @@ def test_dashboard_with_invalid_panel_skips():
     }
 
     dashboard = Dashboard.model_validate(dashboard_data)
-    # Should have 2 panels (invalid one is skipped)
-    assert len(dashboard.panels) == 2
+    # Should have 3 panels (missing ID gets generated)
+    assert len(dashboard.panels) == 3
     assert dashboard.panels[0].title == "Valid Panel"
-    assert dashboard.panels[1].title == "Another Valid Panel"
+    assert dashboard.panels[0].id == "1"
+    assert dashboard.panels[1].title == "Invalid Panel"
+    assert dashboard.panels[1].id.startswith("graph_")  # Generated ID
+    assert dashboard.panels[2].title == "Another Valid Panel"
+    assert dashboard.panels[2].id == "3"
 
 
 def test_dashboard_skip_text_panels():
