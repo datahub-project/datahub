@@ -92,6 +92,13 @@ class SecretRegistry:
                 if repr_value != raw_value and repr_value not in new_secrets:
                     new_secrets[repr_value] = variable_name
 
+            # Register quoted versions to catch secrets in error messages
+            # that format values with quotes (e.g., "Role '8080' not found")
+            for quote_char in ['"', "'"]:
+                quoted_value = f"{quote_char}{raw_value}{quote_char}"
+                if quoted_value not in new_secrets:
+                    new_secrets[quoted_value] = variable_name
+
             self._secrets = new_secrets
             self._name_to_value = new_name_to_value
             self._version += 1
@@ -150,6 +157,12 @@ class SecretRegistry:
                     repr_value = repr(raw_value)[1:-1]
                     if repr_value != raw_value and repr_value not in new_secrets:
                         new_secrets[repr_value] = variable_name
+
+                # Register quoted versions to catch secrets in error messages
+                for quote_char in ['"', "'"]:
+                    quoted_value = f"{quote_char}{raw_value}{quote_char}"
+                    if quoted_value not in new_secrets:
+                        new_secrets[quoted_value] = variable_name
 
             if added_count > 0:
                 # Atomic swaps - single version increment for entire batch

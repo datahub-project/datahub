@@ -155,10 +155,12 @@ class TestSecretRegistryInvalidInputs:
 
         secrets = registry.get_all_secrets()
 
-        # Should have only one entry
-        assert len(secrets) == 1
-        # Should use the first name
+        # Should have 3 entries: original + 2 quoted versions
+        assert len(secrets) == 3
+        # Should use the first name for all versions
         assert secrets["same_value"] == "KEY1"
+        assert secrets['"same_value"'] == "KEY1"
+        assert secrets["'same_value'"] == "KEY1"
 
     def test_register_duplicate_with_different_case_treats_as_different(self):
         """Secret values are case-sensitive."""
@@ -170,10 +172,14 @@ class TestSecretRegistryInvalidInputs:
 
         secrets = registry.get_all_secrets()
 
-        # Should have two entries
-        assert len(secrets) == 2
+        # Should have 6 entries: 2 originals + 4 quoted versions
+        assert len(secrets) == 6
         assert "secret" in secrets
         assert "SECRET" in secrets
+        assert '"secret"' in secrets
+        assert "'secret'" in secrets
+        assert '"SECRET"' in secrets
+        assert "'SECRET'" in secrets
 
 
 class TestSecretRegistryMaxSecrets:
@@ -244,9 +250,147 @@ class TestRegisterSecretsBatch:
 
         all_secrets = registry.get_all_secrets()
 
-        # Only valid should be registered
+        # Only valid should be registered with its quoted versions
         assert "valid_value" in all_secrets
-        assert len(all_secrets) == 1
+        assert '"valid_value"' in all_secrets
+        assert "'valid_value'" in all_secrets
+        assert len(all_secrets) == 3
+
+
+class TestSecretRegistryQuotedVersions:
+    """Test registration of quoted versions of secrets."""
+
+    def test_register_secret_creates_quoted_versions(self):
+        """Registering a secret should also register quoted versions."""
+        registry = SecretRegistry()
+        registry.clear()
+
+        registry.register_secret("PASSWORD", "my_secret")
+
+        secrets = registry.get_all_secrets()
+
+        # Should have the original value
+        assert "my_secret" in secrets
+
+        # Should have double-quoted version
+        assert '"my_secret"' in secrets
+
+        # Should have single-quoted version
+        assert "'my_secret'" in secrets
+
+        # All should map to the same variable name
+        assert secrets["my_secret"] == "PASSWORD"
+        assert secrets['"my_secret"'] == "PASSWORD"
+        assert secrets["'my_secret'"] == "PASSWORD"
+
+    def test_register_secret_with_special_chars_creates_quoted_versions(self):
+        """Secrets with special characters should register quoted versions."""
+        registry = SecretRegistry()
+        registry.clear()
+
+        registry.register_secret("API_KEY", "key_with_special!@#")
+
+        secrets = registry.get_all_secrets()
+
+        assert "key_with_special!@#" in secrets
+        assert '"key_with_special!@#"' in secrets
+        assert "'key_with_special!@#'" in secrets
+
+    def test_register_secrets_batch_creates_quoted_versions(self):
+        """Batch registration should create quoted versions for all secrets."""
+        registry = SecretRegistry()
+        registry.clear()
+
+        registry.register_secrets_batch(
+            {"KEY1": "secret1", "KEY2": "secret2", "KEY3": "secret3"}
+        )
+
+        secrets = registry.get_all_secrets()
+
+        # Verify all originals and their quoted versions exist
+        for value in ["secret1", "secret2", "secret3"]:
+            assert value in secrets
+            assert f'"{value}"' in secrets
+            assert f"'{value}'" in secrets
+
+    def test_quoted_versions_help_mask_error_messages(self):
+        """Quoted versions should help mask secrets in error messages.
+
+        Registers a secret that might appear in error messages like:
+        - "Role '8080' not found"
+        - 'Port "8080" is already in use'
+        """
+        registry = SecretRegistry()
+        registry.clear()
+
+        registry.register_secret("DB_PORT", "8080")
+
+        secrets = registry.get_all_secrets()
+
+        # Verify quoted versions exist that could mask secrets in error messages
+        assert "'8080'" in secrets
+        assert '"8080"' in secrets
+
+    def test_quoted_versions_not_created_for_short_values(self):
+        """Quoted versions should not be created for values too short to register."""
+        registry = SecretRegistry()
+        registry.clear()
+
+        registry.register_secret("SHORT", "ab")
+
+        secrets = registry.get_all_secrets()
+
+        # No secrets should be registered for values < 3 chars
+        assert len(secrets) == 0
+        assert "ab" not in secrets
+        assert '"ab"' not in secrets
+        assert "'ab'" not in secrets
+
+    def test_quoted_versions_for_numeric_string_values(self):
+        """Numeric string values should also get quoted versions."""
+        registry = SecretRegistry()
+        registry.clear()
+
+        registry.register_secret("PORT", "8080")
+
+        secrets = registry.get_all_secrets()
+
+        assert "8080" in secrets
+        assert '"8080"' in secrets
+        assert "'8080'" in secrets
+
+    def test_quoted_versions_already_exist_not_duplicated(self):
+        """If a quoted version is already registered, it should not be duplicated."""
+        registry = SecretRegistry()
+        registry.clear()
+
+        # Register a secret and its manually quoted version
+        registry.register_secret("KEY1", "secret")
+        registry.register_secret("KEY2", '"secret"')
+
+        secrets = registry.get_all_secrets()
+
+        # The quoted version should exist but map to the first registration (KEY1)
+        # since it's registered automatically with the original
+        assert '"secret"' in secrets
+        assert secrets['"secret"'] == "KEY1"
+
+    def test_mixed_quotes_in_secret_value(self):
+        """Secrets containing quotes should still get additional quoted versions."""
+        registry = SecretRegistry()
+        registry.clear()
+
+        # Secret value that already contains quotes
+        registry.register_secret("API_KEY", 'my"secret')
+
+        secrets = registry.get_all_secrets()
+
+        # Original should be registered
+        assert 'my"secret' in secrets
+
+        # Quoted versions should also be registered
+        assert '"my"secret"' in secrets
+        assert "'my\"secret'" in secrets
 
 
 class TestClearRegistry:
@@ -260,7 +404,8 @@ class TestClearRegistry:
         registry.register_secret("KEY1", "value1")
         registry.register_secret("KEY2", "value2")
 
-        assert len(registry.get_all_secrets()) == 2
+        # Should have 6 entries: 2 originals + 4 quoted versions
+        assert len(registry.get_all_secrets()) == 6
 
         registry.clear()
 
