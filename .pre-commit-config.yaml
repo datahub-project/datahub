@@ -18,15 +18,6 @@ repos:
         files: ^\.github/.*\.(yml|yaml)$
         pass_filenames: false
 
-      - id: contrib-metadata-model-extensions-datahub-demo-dataset-governance-validator-spotless
-        name: contrib/metadata-model-extensions/datahub-demo-dataset-governance-validator
-          Spotless Apply
-        entry: ./gradlew :contrib:metadata-model-extensions:datahub-demo-dataset-governance-validator:spotlessApply
-          -x generateGitPropertiesGlobal
-        language: system
-        files: ^contrib/metadata-model-extensions/datahub-demo-dataset-governance-validator/.*\.java$
-        pass_filenames: false
-
       - id: datahub-actions-lint-fix
         name: datahub-actions Lint Fix
         entry: ./gradlew :datahub-actions:lintFix -x generateGitPropertiesGlobal
