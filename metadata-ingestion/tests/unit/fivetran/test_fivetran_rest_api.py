@@ -46,6 +46,7 @@ class TestFivetranAPIClient(TestCase):
                 "succeeded_at": "2025-01-01T01:00:00Z",
                 "paused": False,
                 "sync_frequency": 360,
+                # Extra field that should be filtered out
                 "status": {
                     "setup_state": "connected",
                     "schema_status": "ready",
@@ -65,7 +66,11 @@ class TestFivetranAPIClient(TestCase):
                     "sheet_id": "https://docs.google.com/spreadsheets/d/1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo/edit?gid=0#gid=0",
                     "named_range": "Test_Range",
                 },
+                # Extra fields that should be filtered out
                 "source_sync_details": {"last_synced": "2025-01-01T01:00:00Z"},
+                "service_version": 1,
+                "schema": "test_schema",
+                "connected_by": "test_user",
             },
         }
 
@@ -177,6 +182,7 @@ class TestFivetranAPIClient(TestCase):
                 "succeeded_at": "2025-01-01T01:00:00Z",
                 "paused": False,
                 "sync_frequency": 360,
+                # Extra field that should be filtered out
                 "status": {
                     "setup_state": "connected",
                     "schema_status": "ready",
@@ -190,7 +196,9 @@ class TestFivetranAPIClient(TestCase):
                     "sheet_id": "https://docs.google.com/spreadsheets/d/test123/edit",
                     "named_range": "Test_Range",
                 },
+                # Extra fields that should be filtered out
                 "source_sync_details": {"last_synced": "2025-01-01T01:00:00Z"},
+                "service_version": 1,
             },
         }
 
@@ -236,3 +244,100 @@ class TestFivetranAPIClient(TestCase):
         with self.assertRaises(ValueError) as context:
             self.client.get_connection_details_by_id("test_connection_id")
         assert "Failed to parse FivetranConnectionDetails" in str(context.exception)
+
+    @patch("requests.Session.get")
+    def test_get_connection_details_by_id_filters_extra_fields(self, mock_get):
+        """Test that extra fields in API response are properly filtered out."""
+        mock_response_data = {
+            "code": "Success",
+            "data": {
+                "id": "test_connection_id",
+                "group_id": "test_group_id",
+                "service": "google_sheets",
+                "created_at": "2025-01-01T00:00:00Z",
+                "succeeded_at": "2025-01-01T01:00:00Z",
+                "paused": False,
+                "sync_frequency": 360,
+                # Extra field that should be filtered out
+                "status": {
+                    "setup_state": "connected",
+                    "schema_status": "ready",
+                    "sync_state": "paused",
+                    "update_state": "on_schedule",
+                    "is_historical_sync": False,
+                    "warnings": [],
+                    "tasks": ["task1", "task2"],
+                },
+                "config": {
+                    "auth_type": "ServiceAccount",
+                    "sheet_id": "https://docs.google.com/spreadsheets/d/test123/edit",
+                    "named_range": "Test_Range",
+                    # Extra field in config that should be filtered
+                    "authorization_method": "User OAuth",
+                },
+                # Extra top-level fields that should be filtered
+                "source_sync_details": {"last_synced": "2025-01-01T01:00:00Z"},
+                "service_version": 1,
+                "schema": "test_schema",
+                "connected_by": "test_user",
+                "failed_at": None,
+                "pause_after_trial": False,
+            },
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = mock_response_data
+        mock_get.return_value = mock_response
+
+        # Should succeed and filter out extra fields
+        result = self.client.get_connection_details_by_id("test_connection_id")
+        assert isinstance(result, FivetranConnectionDetails)
+        assert result.id == "test_connection_id"
+        # Verify that extra fields are not accessible (they were filtered out)
+        assert not hasattr(result, "source_sync_details")
+        assert not hasattr(result, "service_version")
+        assert not hasattr(result, "status")
+        assert not hasattr(result.config, "authorization_method")
+
+    @patch("requests.Session.get")
+    def test_get_connection_details_by_id_with_null_succeeded_at(self, mock_get):
+        """Test handling of null succeeded_at field."""
+        mock_response_data = {
+            "code": "Success",
+            "data": {
+                "id": "test_connection_id",
+                "group_id": "test_group_id",
+                "service": "google_sheets",
+                "created_at": "2025-01-01T00:00:00Z",
+                "succeeded_at": None,  # Null succeeded_at
+                "paused": False,
+                "sync_frequency": 360,
+                # Extra field that should be filtered out
+                "status": {
+                    "setup_state": "connected",
+                    "schema_status": "ready",
+                    "sync_state": "paused",
+                    "update_state": "on_schedule",
+                    "is_historical_sync": False,
+                    "warnings": [],
+                },
+                "config": {
+                    "auth_type": "ServiceAccount",
+                    "sheet_id": "https://docs.google.com/spreadsheets/d/test123/edit",
+                    "named_range": "Test_Range",
+                },
+            },
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = mock_response_data
+        mock_get.return_value = mock_response
+
+        # Should succeed with None succeeded_at
+        result = self.client.get_connection_details_by_id("test_connection_id")
+        assert isinstance(result, FivetranConnectionDetails)
+        assert result.succeeded_at is None

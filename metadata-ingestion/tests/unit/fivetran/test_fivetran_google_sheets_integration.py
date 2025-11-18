@@ -20,8 +20,6 @@ from datahub.ingestion.source.fivetran.fivetran import FivetranSource
 from datahub.ingestion.source.fivetran.response_models import (
     FivetranConnectionConfig,
     FivetranConnectionDetails,
-    FivetranConnectionSourceSyncDetails,
-    FivetranConnectionStatus,
 )
 
 
@@ -92,21 +90,10 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
             succeeded_at=datetime.datetime(2025, 1, 1, 1, 0, 0),
             paused=False,
             sync_frequency=360,
-            status=FivetranConnectionStatus(
-                setup_state="connected",
-                schema_status="ready",
-                sync_state="paused",
-                update_state="on_schedule",
-                is_historical_sync=False,
-                warnings=[],
-            ),
             config=FivetranConnectionConfig(
                 auth_type="ServiceAccount",
                 sheet_id="https://docs.google.com/spreadsheets/d/1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo/edit?gid=0#gid=0",
                 named_range="Test_Range",
-            ),
-            source_sync_details=FivetranConnectionSourceSyncDetails(
-                last_synced=datetime.datetime(2025, 1, 1, 1, 0, 0)
             ),
         )
 
@@ -167,21 +154,10 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
             succeeded_at=datetime.datetime(2025, 1, 1, 1, 0, 0),
             paused=False,
             sync_frequency=360,
-            status=FivetranConnectionStatus(
-                setup_state="connected",
-                schema_status="ready",
-                sync_state="paused",
-                update_state="on_schedule",
-                is_historical_sync=False,
-                warnings=[],
-            ),
             config=FivetranConnectionConfig(
                 auth_type="ServiceAccount",
                 sheet_id="https://docs.google.com/spreadsheets/d/1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo/edit?gid=0#gid=0",
                 named_range="Test_Range",
-            ),
-            source_sync_details=FivetranConnectionSourceSyncDetails(
-                last_synced=datetime.datetime(2025, 1, 1, 1, 0, 0)
             ),
         )
 
@@ -214,21 +190,10 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
             succeeded_at=datetime.datetime(2025, 1, 1, 1, 0, 0),
             paused=False,
             sync_frequency=360,
-            status=FivetranConnectionStatus(
-                setup_state="connected",
-                schema_status="ready",
-                sync_state="paused",
-                update_state="on_schedule",
-                is_historical_sync=False,
-                warnings=[],
-            ),
             config=FivetranConnectionConfig(
                 auth_type="ServiceAccount",
                 sheet_id="https://docs.google.com/spreadsheets/d/1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo/edit?gid=0#gid=0",
                 named_range="Test_Range",
-            ),
-            source_sync_details=FivetranConnectionSourceSyncDetails(
-                last_synced=datetime.datetime(2025, 1, 1, 1, 0, 0)
             ),
         )
 
@@ -245,21 +210,10 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
             succeeded_at=datetime.datetime(2025, 1, 1, 1, 0, 0),
             paused=False,
             sync_frequency=360,
-            status=FivetranConnectionStatus(
-                setup_state="connected",
-                schema_status="ready",
-                sync_state="paused",
-                update_state="on_schedule",
-                is_historical_sync=False,
-                warnings=[],
-            ),
             config=FivetranConnectionConfig(
                 auth_type="ServiceAccount",
                 sheet_id="13aoqK7hn75-_fckhgfw10tU4yPTLwyrB8t_HkqnBG_A",
                 named_range="Test_Range",
-            ),
-            source_sync_details=FivetranConnectionSourceSyncDetails(
-                last_synced=datetime.datetime(2025, 1, 1, 1, 0, 0)
             ),
         )
 
@@ -276,21 +230,10 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
             succeeded_at=datetime.datetime(2025, 1, 1, 1, 0, 0),
             paused=False,
             sync_frequency=360,
-            status=FivetranConnectionStatus(
-                setup_state="connected",
-                schema_status="ready",
-                sync_state="paused",
-                update_state="on_schedule",
-                is_historical_sync=False,
-                warnings=[],
-            ),
             config=FivetranConnectionConfig(
                 auth_type="ServiceAccount",
                 sheet_id="1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo",
                 named_range="Test_Range",
-            ),
-            source_sync_details=FivetranConnectionSourceSyncDetails(
-                last_synced=datetime.datetime(2025, 1, 1, 1, 0, 0)
             ),
         )
 
@@ -324,21 +267,10 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
             succeeded_at=datetime.datetime(2025, 1, 1, 1, 0, 0),
             paused=False,
             sync_frequency=360,
-            status=FivetranConnectionStatus(
-                setup_state="connected",
-                schema_status="ready",
-                sync_state="paused",
-                update_state="on_schedule",
-                is_historical_sync=False,
-                warnings=[],
-            ),
             config=FivetranConnectionConfig(
                 auth_type="ServiceAccount",
                 sheet_id="test_sheet_id",
                 named_range="Test_Range",
-            ),
-            source_sync_details=FivetranConnectionSourceSyncDetails(
-                last_synced=datetime.datetime(2025, 1, 1, 1, 0, 0)
             ),
         )
 
@@ -355,3 +287,29 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
         result2 = self.source._get_connection_details_by_id("test_connector")
         assert result2 == gsheets_conn_details
         assert mock_api_client.get_connection_details_by_id.call_count == 1  # Still 1
+
+    def test_get_connection_details_by_id_with_null_succeeded_at(self):
+        """Test handling of connection details with null succeeded_at."""
+        gsheets_conn_details = FivetranConnectionDetails(
+            id="test_connector",
+            group_id="test_group",
+            service="google_sheets",
+            created_at=datetime.datetime(2025, 1, 1, 0, 0, 0),
+            succeeded_at=None,  # Null succeeded_at
+            paused=False,
+            sync_frequency=360,
+            config=FivetranConnectionConfig(
+                auth_type="ServiceAccount",
+                sheet_id="test_sheet_id",
+                named_range="Test_Range",
+            ),
+        )
+
+        mock_api_client = Mock()
+        mock_api_client.get_connection_details_by_id.return_value = gsheets_conn_details
+        self.source.api_client = mock_api_client
+
+        # Should handle null succeeded_at gracefully
+        result = self.source._get_connection_details_by_id("test_connector")
+        assert result == gsheets_conn_details
+        assert result.succeeded_at is None

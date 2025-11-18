@@ -460,7 +460,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                     ),
                     external_url=gsheets_conn_details.config.sheet_id,
                     created=gsheets_conn_details.created_at,
-                    last_modified=gsheets_conn_details.source_sync_details.last_synced,
+                    last_modified=gsheets_conn_details.succeeded_at,
                     subtype=DatasetSubTypes.GOOGLE_SHEETS,
                     custom_properties={
                         "ingested_by": "fivetran source",
@@ -475,7 +475,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                     display_name=gsheets_conn_details.config.named_range,
                     external_url=gsheets_conn_details.config.sheet_id,
                     created=gsheets_conn_details.created_at,
-                    last_modified=gsheets_conn_details.source_sync_details.last_synced,
+                    last_modified=gsheets_conn_details.succeeded_at,
                     subtype=DatasetSubTypes.GOOGLE_SHEETS_NAMED_RANGE,
                     custom_properties={
                         "ingested_by": "fivetran source",

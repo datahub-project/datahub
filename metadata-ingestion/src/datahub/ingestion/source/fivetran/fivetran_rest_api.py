@@ -7,7 +7,10 @@ from urllib3.util import Retry
 from datahub.ingestion.source.fivetran.config import (
     FivetranAPIConfig,
 )
-from datahub.ingestion.source.fivetran.response_models import FivetranConnectionDetails
+from datahub.ingestion.source.fivetran.response_models import (
+    FivetranConnectionConfig,
+    FivetranConnectionDetails,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +96,26 @@ class FivetranAPIClient:
                     f"Response missing 'data' field for connection_id {connection_id}"
                 )
 
-            # Parse into FivetranConnectionDetails
+            # Manually extract and construct nested models with only required fields
             try:
-                return FivetranConnectionDetails(**data)
+                config_data = data.get("config", {})
+                config = FivetranConnectionConfig(
+                    auth_type=config_data.get("auth_type"),
+                    sheet_id=config_data.get("sheet_id"),
+                    named_range=config_data.get("named_range"),
+                )
+
+                # Parse into FivetranConnectionDetails with manually extracted fields
+                return FivetranConnectionDetails(
+                    id=data.get("id"),
+                    group_id=data.get("group_id"),
+                    service=data.get("service"),
+                    created_at=data.get("created_at"),
+                    succeeded_at=data.get("succeeded_at"),
+                    paused=data.get("paused"),
+                    sync_frequency=data.get("sync_frequency"),
+                    config=config,
+                )
             except Exception as e:
                 logger.debug(
                     f"Failed to parse FivetranConnectionDetails for connection_id: {connection_id}. "
@@ -104,7 +124,7 @@ class FivetranAPIClient:
                 )
                 # The error message is in the data field
                 raise ValueError(
-                    f"Failed to parse FivetranConnectionDetails for connection_id {connection_id}. Error: {data}"
+                    f"Failed to parse FivetranConnectionDetails for connection_id {connection_id}. Data: {data}"
                 ) from e
 
         except Exception as e:
