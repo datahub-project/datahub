@@ -9,6 +9,7 @@ from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.abs.datalake_profiler_config import DataLakeProfilerConfig
+from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
@@ -108,14 +109,14 @@ class DataLakeSourceConfig(
     @field_validator("path_specs", mode="before")
     @classmethod
     def check_path_specs_and_infer_platform(
-        cls, path_specs: List[PathSpec], info: ValidationInfo
-    ) -> List[PathSpec]:
+        cls, path_specs: List[Any], info: ValidationInfo
+    ) -> List[Any]:
         if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
 
         # Check that all path specs have the same platform.
         guessed_platforms = set(
-            "abs" if path_spec.is_abs else "file" for path_spec in path_specs
+            cls._infer_platform_from_path_spec(path_spec) for path_spec in path_specs
         )
         if len(guessed_platforms) > 1:
             raise ValueError(
@@ -143,6 +144,27 @@ class DataLakeSourceConfig(
             info.data["platform"] = guessed_platform
 
         return path_specs
+
+    @staticmethod
+    def _infer_platform_from_path_spec(path_spec: Any) -> str:
+        """
+        Determine the platform represented by a PathSpec or its raw dict form.
+
+        Validators running in `mode="before"` receive the raw dictionary input, so
+        we need to gracefully handle both dicts and already-instantiated PathSpec
+        objects.
+        """
+        if isinstance(path_spec, PathSpec):
+            return "abs" if path_spec.is_abs else "file"
+
+        include = None
+        if isinstance(path_spec, dict):
+            include = path_spec.get("include")
+
+        if not include:
+            raise ValueError("Each path_spec must specify a non-empty include path.")
+
+        return "abs" if is_abs_uri(include) else "file"
 
     @field_validator("platform", mode="before")
     @classmethod
