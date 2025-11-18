@@ -283,14 +283,6 @@ def get_fields_from_field_config(
     field_config: Dict[str, Any],
 ) -> List[SchemaFieldClass]:
     """Extract fields from field configuration."""
-    # Ultimate safety check - this should never happen but let's catch it with detailed info
-    if field_config is None:
-        logger.error(
-            f"CRITICAL: get_fields_from_field_config received None field_config. "
-            f"This indicates a serious bug. Type: {type(field_config)}, Value: {field_config}"
-        )
-        return []
-
     fields = []
     defaults = field_config.get("defaults", {})
     unit = defaults.get("unit")
@@ -303,16 +295,7 @@ def get_fields_from_field_config(
             )
         )
 
-    # Additional safety check before iterating
-    overrides = field_config.get("overrides", [])
-    if overrides is None:
-        logger.error(
-            f"CRITICAL: field_config.get('overrides', []) returned None. "
-            f"field_config type: {type(field_config)}, field_config: {field_config}"
-        )
-        overrides = []
-
-    for override in overrides:
+    for override in field_config.get("overrides", []):
         if override.get("matcher", {}).get("id") == "byName":
             field_name = override.get("matcher", {}).get("options")
             if field_name:
