@@ -104,6 +104,14 @@ class DataplexConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         description="Whether to create sibling relationships between Dataplex entities and native platform datasets (BigQuery/GCS).",
     )
 
+    dataplex_is_primary_sibling: bool = Field(
+        default=False,
+        description="Controls sibling relationship primary designation between Dataplex entities and source platform entities. "
+        "When False (default), source platform entities (BigQuery/GCS) are primary and Dataplex entities are secondary. "
+        "When True, Dataplex entities are primary and source platform entities are secondary. "
+        "Default is False since source platforms are typically the canonical data source.",
+    )
+
     apply_zone_type_tags: bool = Field(
         default=True,
         description="Whether to apply tags based on zone types (RAW, CURATED).",

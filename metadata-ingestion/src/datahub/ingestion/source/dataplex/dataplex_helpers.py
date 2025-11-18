@@ -6,6 +6,7 @@ from google.api_core import exceptions
 from google.cloud import dataplex_v1
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -39,19 +40,53 @@ DATAPLEX_TYPE_MAPPING = {
 }
 
 
-def make_project_container_urn(project_id: str) -> str:
-    """Create URN for the GCP project container."""
-    return builder.make_container_urn(project_id)
+# Container Key classes for Dataplex hierarchy
+class DataplexLakeKey(ProjectIdKey):
+    """Container key for Dataplex Lake."""
+
+    lake_id: str
 
 
-def make_lake_domain_urn(project_id: str, lake_id: str) -> str:
-    """Create URN for a lake as a domain."""
-    return builder.make_domain_urn(f"{project_id}.{lake_id}")
+class DataplexZoneKey(DataplexLakeKey):
+    """Container key for Dataplex Zone (sub-container of Lake)."""
+
+    zone_id: str
 
 
-def make_zone_domain_urn(project_id: str, lake_id: str, zone_id: str) -> str:
-    """Create URN for a zone as a sub-domain."""
-    return builder.make_domain_urn(f"{project_id}.{lake_id}.{zone_id}")
+def make_project_container_key(
+    project_id: str, platform: str, env: str
+) -> ProjectIdKey:
+    """Create container key for the GCP project."""
+    return ProjectIdKey(
+        project_id=project_id,
+        platform=platform,
+        env=env,
+    )
+
+
+def make_lake_container_key(
+    project_id: str, lake_id: str, platform: str, env: str
+) -> DataplexLakeKey:
+    """Create container key for a Dataplex lake."""
+    return DataplexLakeKey(
+        project_id=project_id,
+        lake_id=lake_id,
+        platform=platform,
+        env=env,
+    )
+
+
+def make_zone_container_key(
+    project_id: str, lake_id: str, zone_id: str, platform: str, env: str
+) -> DataplexZoneKey:
+    """Create container key for a Dataplex zone."""
+    return DataplexZoneKey(
+        project_id=project_id,
+        lake_id=lake_id,
+        zone_id=zone_id,
+        platform=platform,
+        env=env,
+    )
 
 
 def make_asset_data_product_urn(
@@ -62,12 +97,47 @@ def make_asset_data_product_urn(
 
 
 def make_entity_dataset_urn(
-    entity_id: str, platform: str, project_id: str, env: str
+    entity_id: str, project_id: str, env: str, platform: str = "dataplex"
 ) -> str:
-    """Create dataset URN for a Dataplex entity."""
+    """Create dataset URN for a Dataplex entity.
+
+    Args:
+        entity_id: The entity ID from Dataplex
+        project_id: The GCP project ID
+        env: The environment (PROD, DEV, etc.)
+        platform: The platform to use (defaults to "dataplex")
+
+    Returns:
+        The dataset URN
+    """
     dataset_name = f"{project_id}.{entity_id}"
     return builder.make_dataset_urn_with_platform_instance(
         platform=platform,
+        name=dataset_name,
+        platform_instance=None,
+        env=env,
+    )
+
+
+def make_source_dataset_urn(
+    entity_id: str, project_id: str, source_platform: str, env: str
+) -> str:
+    """Create dataset URN for the source platform entity (BigQuery, GCS, etc.).
+
+    This creates a sibling URN that represents the same data in the source system.
+
+    Args:
+        entity_id: The entity ID from Dataplex
+        project_id: The GCP project ID
+        source_platform: The source platform (bigquery, gcs, etc.)
+        env: The environment (PROD, DEV, etc.)
+
+    Returns:
+        The source dataset URN
+    """
+    dataset_name = f"{project_id}.{entity_id}"
+    return builder.make_dataset_urn_with_platform_instance(
+        platform=source_platform,
         name=dataset_name,
         platform_instance=None,
         env=env,

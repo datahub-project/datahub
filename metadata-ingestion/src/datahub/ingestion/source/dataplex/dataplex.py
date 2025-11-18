@@ -2,10 +2,10 @@
 
 This source extracts metadata from Google Dataplex, including:
 - Projects as Containers
-- Lakes as Domains
-- Zones as Sub-domains
-- Assets as Data Products
-- Entities (discovered tables/filesets) as Datasets
+- Lakes as Containers (sub-containers of Projects)
+- Zones as Containers (sub-containers of Lakes)
+- Assets as Data Products (linked to Zone containers)
+- Entities (discovered tables/filesets) as Datasets (linked to Zone containers)
 
 Reference implementation based on VertexAI and BigQuery V2 sources.
 """
@@ -19,6 +19,7 @@ from google.cloud.datacatalog.lineage_v1 import LineageClient
 from google.oauth2 import service_account
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -36,20 +37,20 @@ from datahub.ingestion.source.dataplex.dataplex_helpers import (
     make_asset_data_product_urn,
     make_audit_stamp,
     make_entity_dataset_urn,
-    make_lake_domain_urn,
-    make_project_container_urn,
-    make_zone_domain_urn,
+    make_lake_container_key,
+    make_project_container_key,
+    make_source_dataset_urn,
+    make_zone_container_key,
     map_dataplex_field_to_datahub,
 )
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
+from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.schema_classes import (
     ContainerClass,
-    ContainerPropertiesClass,
     DataPlatformInstanceClass,
     DataProductPropertiesClass,
     DatasetPropertiesClass,
-    DomainPropertiesClass,
-    DomainsClass,
+    OtherSchemaClass,
     RecordTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -65,12 +66,8 @@ logger = logging.getLogger(__name__)
 @config_class(DataplexConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(
-    SourceCapability.DOMAINS,
-    "Maps Dataplex Lakes to Domains and Zones to Sub-domains",
-)
-@capability(
     SourceCapability.CONTAINERS,
-    "Maps Projects to Containers and Assets to Data Products",
+    "Maps Projects, Lakes, and Zones to hierarchical Containers",
 )
 @capability(
     SourceCapability.SCHEMA_METADATA,
@@ -145,27 +142,26 @@ class DataplexSource(Source):
 
     def _gen_project_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """Generate workunits for GCP Project as a Container."""
-        container_urn = make_project_container_urn(project_id)
+        project_container_key = make_project_container_key(
+            project_id=project_id,
+            platform=self.platform,
+            env=self.config.env,
+        )
 
-        yield from MetadataChangeProposalWrapper.construct_many(
-            entityUrn=container_urn,
-            aspects=[
-                ContainerPropertiesClass(
-                    name=project_id,
-                    description=f"Google Cloud Project: {project_id}",
-                    customProperties={
-                        "location": self.config.location,
-                    },
-                ),
-                SubTypesClass(typeNames=["GCP Project"]),
-                DataPlatformInstanceClass(platform=str(DataPlatformUrn(self.platform))),
-            ],
+        yield from gen_containers(
+            container_key=project_container_key,
+            name=project_id,
+            description=f"Google Cloud Project: {project_id}",
+            sub_types=["GCP Project"],
+            extra_properties={
+                "location": self.config.location,
+            },
         )
 
     def _get_lakes_mcps(
         self, project_id: str
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Fetch lakes from Dataplex and generate corresponding MCPs as Domains."""
+        """Fetch lakes from Dataplex and generate corresponding MCPs as Containers."""
         parent = f"projects/{project_id}/locations/{self.config.location}"
 
         try:
@@ -184,22 +180,41 @@ class DataplexSource(Source):
                 self.report.report_lake_scanned(lake_id)
                 logger.info(f"Processing lake: {lake_id} in project: {project_id}")
 
-                # Use project-scoped domain name to avoid conflicts across projects
-                domain_urn = make_lake_domain_urn(project_id, lake_id)
+                # Create lake container key
+                lake_container_key = make_lake_container_key(
+                    project_id=project_id,
+                    lake_id=lake_id,
+                    platform=self.platform,
+                    env=self.config.env,
+                )
 
-                yield from MetadataChangeProposalWrapper.construct_many(
-                    entityUrn=domain_urn,
-                    aspects=[
-                        DomainPropertiesClass(
-                            name=lake.display_name or lake_id,
-                            description=lake.description or "",
-                            created=make_audit_stamp(lake.create_time),
-                        ),
-                        ContainerClass(
-                            container=make_project_container_urn(project_id)
-                        ),
-                        SubTypesClass(typeNames=["Dataplex Lake"]),
-                    ],
+                # Create parent project container key
+                project_container_key = make_project_container_key(
+                    project_id=project_id,
+                    platform=self.platform,
+                    env=self.config.env,
+                )
+
+                # Convert timestamps to milliseconds
+                created_ts = (
+                    int(lake.create_time.timestamp() * 1000)
+                    if lake.create_time
+                    else None
+                )
+                modified_ts = (
+                    int(lake.update_time.timestamp() * 1000)
+                    if lake.update_time
+                    else None
+                )
+
+                yield from gen_containers(
+                    container_key=lake_container_key,
+                    name=lake.display_name or lake_id,
+                    description=lake.description or "",
+                    sub_types=["Dataplex Lake"],
+                    parent_container_key=project_container_key,
+                    created=created_ts,
+                    last_modified=modified_ts,
                 )
 
         except exceptions.GoogleAPICallError as e:
@@ -212,7 +227,7 @@ class DataplexSource(Source):
     def _get_zones_mcps(
         self, project_id: str
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Fetch zones from Dataplex and generate corresponding MCPs as Sub-domains."""
+        """Fetch zones from Dataplex and generate corresponding MCPs as Sub-containers."""
         parent = f"projects/{project_id}/locations/{self.config.location}"
 
         try:
@@ -245,9 +260,22 @@ class DataplexSource(Source):
                             f"Processing zone: {zone_id} in lake: {lake_id}, project: {project_id}"
                         )
 
-                        # Use project-scoped names to avoid conflicts across projects
-                        domain_urn = make_zone_domain_urn(project_id, lake_id, zone_id)
-                        parent_domain_urn = make_lake_domain_urn(project_id, lake_id)
+                        # Create zone container key
+                        zone_container_key = make_zone_container_key(
+                            project_id=project_id,
+                            lake_id=lake_id,
+                            zone_id=zone_id,
+                            platform=self.platform,
+                            env=self.config.env,
+                        )
+
+                        # Create parent lake container key
+                        lake_container_key = make_lake_container_key(
+                            project_id=project_id,
+                            lake_id=lake_id,
+                            platform=self.platform,
+                            env=self.config.env,
+                        )
 
                         zone_type_tag = (
                             "Raw Data Zone"
@@ -255,22 +283,26 @@ class DataplexSource(Source):
                             else "Curated Data Zone"
                         )
 
-                        yield from MetadataChangeProposalWrapper.construct_many(
-                            entityUrn=domain_urn,
-                            aspects=[
-                                DomainPropertiesClass(
-                                    name=zone.display_name or zone_id,
-                                    description=zone.description or "",
-                                    parentDomain=parent_domain_urn,
-                                    created=make_audit_stamp(zone.create_time),
-                                ),
-                                ContainerClass(
-                                    container=make_project_container_urn(project_id)
-                                ),
-                                SubTypesClass(
-                                    typeNames=["Dataplex Zone", zone_type_tag]
-                                ),
-                            ],
+                        # Convert timestamps to milliseconds
+                        created_ts = (
+                            int(zone.create_time.timestamp() * 1000)
+                            if zone.create_time
+                            else None
+                        )
+                        modified_ts = (
+                            int(zone.update_time.timestamp() * 1000)
+                            if zone.update_time
+                            else None
+                        )
+
+                        yield from gen_containers(
+                            container_key=zone_container_key,
+                            name=zone.display_name or zone_id,
+                            description=zone.description or "",
+                            sub_types=["Dataplex Zone", zone_type_tag],
+                            parent_container_key=lake_container_key,
+                            created=created_ts,
+                            last_modified=modified_ts,
                         )
 
                 except exceptions.GoogleAPICallError as e:
@@ -350,10 +382,15 @@ class DataplexSource(Source):
                                     project_id, lake_id, zone_id, asset_id
                                 )
 
-                                # Link to parent zone domain
-                                zone_domain_urn = make_zone_domain_urn(
-                                    project_id, lake_id, zone_id
+                                # Link to parent zone container
+                                zone_container_key = make_zone_container_key(
+                                    project_id=project_id,
+                                    lake_id=lake_id,
+                                    zone_id=zone_id,
+                                    platform=self.platform,
+                                    env=self.config.env,
                                 )
+                                zone_container_urn = zone_container_key.as_urn()
 
                                 yield from MetadataChangeProposalWrapper.construct_many(
                                     entityUrn=data_product_urn,
@@ -362,7 +399,7 @@ class DataplexSource(Source):
                                             name=asset_id,
                                             description=asset.description or "",
                                         ),
-                                        DomainsClass(domains=[zone_domain_urn]),
+                                        ContainerClass(container=zone_container_urn),
                                     ],
                                 )
 
@@ -461,8 +498,8 @@ class DataplexSource(Source):
                                     )
                                     entity_full = entity
 
-                                # Determine platform from asset
-                                platform = determine_entity_platform(
+                                # Determine source platform from asset (bigquery, gcs, etc.)
+                                source_platform = determine_entity_platform(
                                     entity_full,
                                     project_id,
                                     lake_id,
@@ -471,9 +508,12 @@ class DataplexSource(Source):
                                     self.dataplex_client,
                                 )
 
-                                # Generate dataset URN
+                                # Generate dataset URN with dataplex platform
                                 dataset_urn = make_entity_dataset_urn(
-                                    entity_id, platform, project_id, self.config.env
+                                    entity_id,
+                                    project_id,
+                                    self.config.env,
+                                    platform="dataplex",
                                 )
 
                                 # Extract schema metadata
@@ -486,7 +526,7 @@ class DataplexSource(Source):
                                     "lake": lake_id,
                                     "zone": zone_id,
                                     "entity_id": entity_id,
-                                    "platform": platform,
+                                    "source_platform": source_platform,
                                 }
 
                                 if entity_full.data_path:
@@ -518,7 +558,7 @@ class DataplexSource(Source):
                                         ),
                                     ),
                                     DataPlatformInstanceClass(
-                                        platform=str(DataPlatformUrn(platform))
+                                        platform=str(DataPlatformUrn(self.platform))
                                     ),
                                     SubTypesClass(
                                         typeNames=[
@@ -532,16 +572,35 @@ class DataplexSource(Source):
                                 if schema_metadata:
                                     aspects.append(schema_metadata)
 
-                                # Link to parent zone domain
-                                domain_urn = make_zone_domain_urn(
-                                    project_id, lake_id, zone_id
+                                # Link to parent zone container
+                                zone_container_key = make_zone_container_key(
+                                    project_id=project_id,
+                                    lake_id=lake_id,
+                                    zone_id=zone_id,
+                                    platform=self.platform,
+                                    env=self.config.env,
                                 )
-                                aspects.append(ContainerClass(container=domain_urn))
+                                zone_container_urn = zone_container_key.as_urn()
+                                aspects.append(
+                                    ContainerClass(container=zone_container_urn)
+                                )
 
                                 yield from MetadataChangeProposalWrapper.construct_many(
                                     entityUrn=dataset_urn,
                                     aspects=aspects,
                                 )
+
+                                # Create sibling relationship if enabled and source platform is different
+                                if (
+                                    self.config.create_sibling_relationships
+                                    and source_platform != "dataplex"
+                                ):
+                                    yield from self._gen_sibling_workunits(
+                                        dataset_urn,
+                                        entity_id,
+                                        project_id,
+                                        source_platform,
+                                    )
 
                         except exceptions.GoogleAPICallError as e:
                             self.report.report_failure(
@@ -632,9 +691,54 @@ class DataplexSource(Source):
             platform=str(DataPlatformUrn(self.platform)),
             version=0,
             hash="",
-            platformSchema=None,
+            platformSchema=OtherSchemaClass(rawSchema=""),
             fields=fields,
         )
+
+    def _gen_sibling_workunits(
+        self,
+        dataplex_dataset_urn: str,
+        entity_id: str,
+        project_id: str,
+        source_platform: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate sibling workunits linking Dataplex entity to source platform entity.
+
+        This creates bidirectional sibling relationships based on the dataplex_is_primary_sibling config:
+        - When dataplex_is_primary_sibling=False (default):
+          - Dataplex entity (primary=False) -> Source platform entity
+          - Source platform entity (primary=True) -> Dataplex entity
+        - When dataplex_is_primary_sibling=True:
+          - Dataplex entity (primary=True) -> Source platform entity
+          - Source platform entity (primary=False) -> Dataplex entity
+
+        By default, the source platform entity is marked as primary since it's the canonical representation.
+        """
+        # Create source dataset URN (e.g., bigquery://project.entity)
+        source_dataset_urn = make_source_dataset_urn(
+            entity_id, project_id, source_platform, self.config.env
+        )
+
+        # Dataplex entity sibling aspect
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataplex_dataset_urn,
+            aspect=Siblings(
+                primary=self.config.dataplex_is_primary_sibling,
+                siblings=[source_dataset_urn],
+            ),
+        ).as_workunit()
+
+        # Source entity sibling aspect (inverse of Dataplex primary setting)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=source_dataset_urn,
+            aspect=Siblings(
+                primary=not self.config.dataplex_is_primary_sibling,
+                siblings=[dataplex_dataset_urn],
+            ),
+        ).as_workunit(is_primary_source=False)
+
+        # Track that we created a sibling relationship
+        self.report.report_sibling_relationship_created()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DataplexSource":
