@@ -36,6 +36,13 @@ const ThinkingLabelContent = styled.div`
     font-size: 12px;
     font-weight: 400;
     padding: 4px 0;
+
+    /* Apply gradient to lightning icon per design requirements.
+       The gradient creates a visual distinction for AI thinking states,
+       transitioning from #7565d6 to #5340cc to match brand styling. */
+    && svg {
+        fill: url(#thinking-gradient) #533fd1;
+    }
 `;
 
 const LiveThinkingContainer = styled.div`
@@ -156,6 +163,18 @@ const MarkdownContent = styled.div`
         padding: 0;
     }
 `;
+
+// Gradient definition for the lightning icon
+const GradientDefs = () => (
+    <svg width="0" height="0" style={{ position: 'absolute' }}>
+        <defs>
+            <linearGradient id="thinking-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="20%" stopColor="#7565d6" />
+                <stop offset="80%" stopColor="#5340cc" />
+            </linearGradient>
+        </defs>
+    </svg>
+);
 
 interface ThinkingGroupProps {
     messages: DataHubAiConversationMessage[];
@@ -286,26 +305,29 @@ export const ThinkingGroup: React.FC<ThinkingGroupProps> = ({ messages, verboseM
     };
 
     return (
-        <ThinkingContainer>
-            <ThinkingContent>
-                {!isComplete ? (
-                    // Live thinking - show spinner with last message
-                    renderLiveThinking()
-                ) : (
-                    // Completed thinking - show collapsible header and content
-                    <>
-                        <ThinkingHeader>
-                            {renderLabel()}
-                            {isExpanded && (
-                                <Button variant="text" size="sm" color="gray" onClick={() => setIsExpanded(false)}>
-                                    Hide
-                                </Button>
-                            )}
-                        </ThinkingHeader>
-                        {showExpandedContent && renderCompletedThinking()}
-                    </>
-                )}
-            </ThinkingContent>
-        </ThinkingContainer>
+        <>
+            <GradientDefs />
+            <ThinkingContainer>
+                <ThinkingContent>
+                    {!isComplete ? (
+                        // Live thinking - show spinner with last message
+                        renderLiveThinking()
+                    ) : (
+                        // Completed thinking - show collapsible header and content
+                        <>
+                            <ThinkingHeader>
+                                {renderLabel()}
+                                {isExpanded && (
+                                    <Button variant="text" size="sm" color="gray" onClick={() => setIsExpanded(false)}>
+                                        Hide
+                                    </Button>
+                                )}
+                            </ThinkingHeader>
+                            {showExpandedContent && renderCompletedThinking()}
+                        </>
+                    )}
+                </ThinkingContent>
+            </ThinkingContainer>
+        </>
     );
 };
