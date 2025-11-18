@@ -34,7 +34,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
     determine_entity_platform,
-    make_asset_data_product_urn,
+    make_asset_container_key,
     make_audit_stamp,
     make_entity_dataset_urn,
     make_lake_container_key,
@@ -48,7 +48,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DataPlatformInstanceClass,
-    DataProductPropertiesClass,
     DatasetPropertiesClass,
     OtherSchemaClass,
     RecordTypeClass,
@@ -322,7 +321,7 @@ class DataplexSource(Source):
     def _get_assets_mcps(
         self, project_id: str
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Fetch assets from Dataplex and generate corresponding MCPs as Data Products."""
+        """Fetch assets from Dataplex and generate corresponding MCPs as Asset Containers."""
         parent = f"projects/{project_id}/locations/{self.config.location}"
         try:
             with self.report.dataplex_api_timer:
@@ -359,6 +358,9 @@ class DataplexSource(Source):
                             )
 
                             for asset in assets:
+                                logger.info(
+                                    f"Processing asset: {asset.display_name} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
+                                )
                                 asset_id = asset.display_name
 
                                 if not self.config.filter_config.asset_pattern.allowed(
@@ -377,12 +379,7 @@ class DataplexSource(Source):
                                     f"Processing asset: {asset_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
                                 )
 
-                                # Generate data product URN
-                                data_product_urn = make_asset_data_product_urn(
-                                    project_id, lake_id, zone_id, asset_id
-                                )
-
-                                # Link to parent zone container
+                                # Create zone container key
                                 zone_container_key = make_zone_container_key(
                                     project_id=project_id,
                                     lake_id=lake_id,
@@ -390,17 +387,37 @@ class DataplexSource(Source):
                                     platform=self.platform,
                                     env=self.config.env,
                                 )
-                                zone_container_urn = zone_container_key.as_urn()
 
-                                yield from MetadataChangeProposalWrapper.construct_many(
-                                    entityUrn=data_product_urn,
-                                    aspects=[
-                                        DataProductPropertiesClass(
-                                            name=asset_id,
-                                            description=asset.description or "",
-                                        ),
-                                        ContainerClass(container=zone_container_urn),
-                                    ],
+                                # Create asset container key (child of zone)
+                                asset_container_key = make_asset_container_key(
+                                    project_id=project_id,
+                                    lake_id=lake_id,
+                                    zone_id=zone_id,
+                                    asset_id=asset_id,
+                                    platform=self.platform,
+                                    env=self.config.env,
+                                )
+
+                                # Convert timestamps to milliseconds
+                                created_ts = (
+                                    int(asset.create_time.timestamp() * 1000)
+                                    if asset.create_time
+                                    else None
+                                )
+                                modified_ts = (
+                                    int(zone.update_time.timestamp() * 1000)
+                                    if asset.update_time
+                                    else None
+                                )
+
+                                yield from gen_containers(
+                                    container_key=asset_container_key,
+                                    name=asset_id,
+                                    description=asset.description or "",
+                                    sub_types=["Dataplex Asset"],
+                                    parent_container_key=zone_container_key,
+                                    created=created_ts,
+                                    last_modified=modified_ts,
                                 )
 
                         except exceptions.GoogleAPICallError as e:
@@ -572,17 +589,17 @@ class DataplexSource(Source):
                                 if schema_metadata:
                                     aspects.append(schema_metadata)
 
-                                # Link to parent zone container
-                                zone_container_key = make_zone_container_key(
+                                asset_container_key = make_asset_container_key(
                                     project_id=project_id,
                                     lake_id=lake_id,
                                     zone_id=zone_id,
+                                    asset_id=entity.asset,
                                     platform=self.platform,
                                     env=self.config.env,
                                 )
-                                zone_container_urn = zone_container_key.as_urn()
+                                asset_container_urn = asset_container_key.as_urn()
                                 aspects.append(
-                                    ContainerClass(container=zone_container_urn)
+                                    ContainerClass(container=asset_container_urn)
                                 )
 
                                 yield from MetadataChangeProposalWrapper.construct_many(

@@ -53,6 +53,12 @@ class DataplexZoneKey(DataplexLakeKey):
     zone_id: str
 
 
+class DataplexAssetKey(DataplexZoneKey):
+    """Container key for Dataplex Asset (sub-container of Zone)."""
+
+    asset_id: str
+
+
 def make_project_container_key(
     project_id: str, platform: str, env: str
 ) -> ProjectIdKey:
@@ -84,6 +90,20 @@ def make_zone_container_key(
         project_id=project_id,
         lake_id=lake_id,
         zone_id=zone_id,
+        platform=platform,
+        env=env,
+    )
+
+
+def make_asset_container_key(
+    project_id: str, lake_id: str, zone_id: str, asset_id: str, platform: str, env: str
+) -> DataplexAssetKey:
+    """Create container key for a Dataplex asset."""
+    return DataplexAssetKey(
+        project_id=project_id,
+        lake_id=lake_id,
+        zone_id=zone_id,
+        asset_id=asset_id,
         platform=platform,
         env=env,
     )
