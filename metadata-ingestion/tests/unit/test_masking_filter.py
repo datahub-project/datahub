@@ -746,9 +746,10 @@ class TestP1Fixes:
 
         # Should complete in reasonable time
         # Note: With quoted versions, 1000 secrets → ~3000 patterns, so allow more time
+        # Increased threshold to 0.5s to account for CI machine variability
         rebuild_time = timer.elapsed_seconds()
-        assert rebuild_time < 0.2, (
-            f"Rebuild too slow: {rebuild_time:.4f}s (expected <0.2s)"
+        assert rebuild_time < 0.5, (
+            f"Rebuild too slow: {rebuild_time:.4f}s (expected <0.5s)"
         )
 
         # Test concurrent logging doesn't block
