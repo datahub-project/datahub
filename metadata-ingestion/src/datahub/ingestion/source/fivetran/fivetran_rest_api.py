@@ -1,4 +1,3 @@
-import json
 import logging
 
 import requests
@@ -80,35 +79,25 @@ class FivetranAPIClient:
                 timeout=self.config.request_timeout_sec,
             )
 
-            logger.debug(
-                f"API response status code: {connection_details.status_code} for connection_id: {connection_id}"
-            )
-
             # Check for HTTP errors and raise HTTPError if needed
             connection_details.raise_for_status()
 
-            # Parse JSON response
-            try:
-                response_json = connection_details.json()
-            except json.JSONDecodeError:
-                logger.debug(
-                    f"Failed to parse JSON response for connection_id: {connection_id}. "
-                    f"Status code: {connection_details.status_code}, "
-                    f"Response text: {connection_details.text[:500]}",
-                    exc_info=True,
-                )
-                raise
-
+            response_json = connection_details.json()
             data = response_json.get("data", {})
             if not data:
                 raise ValueError(
                     f"Response missing 'data' field for connection_id {connection_id}"
                 )
 
+            if data.get("code").lower() != "success":
+                raise ValueError(
+                    f"Response code is not 'success' for connection_id {connection_id}, Response: {response_json}"
+                )
+
             # Parse into FivetranConnectionDetails
             try:
                 return FivetranConnectionDetails(**data)
-            except (ValueError, TypeError) as e:
+            except Exception as e:
                 logger.debug(
                     f"Failed to parse FivetranConnectionDetails for connection_id: {connection_id}. "
                     f"Response data: {data}",
@@ -119,9 +108,9 @@ class FivetranAPIClient:
                     f"Failed to parse FivetranConnectionDetails for connection_id {connection_id}. Error: {data}"
                 ) from e
 
-        except (requests.exceptions.RequestException, requests.exceptions.HTTPError):
+        except Exception as e:
             logger.debug(
                 f"Request error occurred while fetching connection details for connection_id: {connection_id}",
                 exc_info=True,
             )
-            raise
+            raise e
