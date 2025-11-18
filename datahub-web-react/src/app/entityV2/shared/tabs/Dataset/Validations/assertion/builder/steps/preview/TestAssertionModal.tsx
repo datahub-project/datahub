@@ -1,4 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { ApolloError } from '@apollo/client';
 import { Modal, Typography } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
@@ -8,7 +9,7 @@ import { RunAssertionResult } from '@app/entityV2/shared/tabs/Dataset/Validation
 import { Button } from '@src/alchemy-components';
 
 import { useTestAssertionMutation } from '@graphql/assertion.generated';
-import { AssertionResult, AssertionResultType, TestAssertionInput } from '@types';
+import { AssertionResultType, TestAssertionInput } from '@types';
 
 const LoadingIcon = styled(LoadingOutlined)`
     font-size: 22px;
@@ -51,8 +52,12 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visible]);
 
-    const getErrorMessage = (errorData: any): string => {
-        if ((errorData?.networkError as any)?.statusCode === 503) {
+    const getErrorMessage = (errorData: ApolloError): string => {
+        if (
+            errorData.networkError &&
+            'statusCode' in errorData.networkError &&
+            errorData.networkError.statusCode === 503
+        ) {
             return 'Oops! The assertion has exceeded the real-time results timeout (30s). Create the assertion to run it to completion!';
         }
 
@@ -83,7 +88,7 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
                     )}
                     <Row>
                         <AssertionStatusTag assertionResultType={data.testAssertion.type} />
-                        <RunAssertionResult result={data.testAssertion as AssertionResult} isTest />
+                        <RunAssertionResult result={data.testAssertion} isTest expectedFromTestInput={input} />
                     </Row>
                 </>
             )}
