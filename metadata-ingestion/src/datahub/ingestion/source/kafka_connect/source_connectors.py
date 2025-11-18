@@ -2141,10 +2141,25 @@ class DebeziumSourceConnector(BaseConnector):
         return JavaRegexMatcher()
 
     def get_server_name(self, connector_manifest: ConnectorManifest) -> str:
-        if "topic.prefix" in connector_manifest.config:
-            return connector_manifest.config["topic.prefix"]
-        else:
-            return connector_manifest.config.get("database.server.name", "")
+        """Get the server name (topic prefix) for Debezium connectors.
+
+        V2 connectors (PostgresCdcSourceV2, MySqlCdcSourceV2) use topic.prefix.
+        V1 connectors use database.server.name with fallback to topic.prefix.
+
+        References:
+            - PostgresCdcSourceV2: https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source-v2-debezium/cc-postgresql-cdc-source-v2-debezium.html
+            - MySqlCdcSourceV2: https://docs.confluent.io/cloud/current/connectors/cc-mysql-source-cdc-v2-debezium/cc-mysql-source-cdc-v2-debezium.html
+        """
+        connector_class = connector_manifest.config.get("connector.class", "")
+
+        # V2 connectors use topic.prefix
+        if connector_class in (POSTGRES_CDC_SOURCE_V2_CLOUD, MYSQL_CDC_SOURCE_V2_CLOUD):
+            return connector_manifest.config.get("topic.prefix", "")
+
+        # V1 connectors use database.server.name with fallback to topic.prefix
+        return connector_manifest.config.get(
+            "database.server.name", connector_manifest.config.get("topic.prefix", "")
+        )
 
     def get_parser(
         self,
