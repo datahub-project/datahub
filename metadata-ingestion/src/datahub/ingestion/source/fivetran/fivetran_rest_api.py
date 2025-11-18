@@ -78,15 +78,19 @@ class FivetranAPIClient:
             connection_details.raise_for_status()
 
             response_json = connection_details.json()
+
+            # Check response code at top level (e.g., "code": "Success")
+            response_code = response_json.get("code")
+            if response_code.lower() != "success":
+                raise ValueError(
+                    f"Response code is not 'success' for connection_id {connection_id}. "
+                    f"Code: {response_code}, Response: {response_json}"
+                )
+
             data = response_json.get("data", {})
             if not data:
                 raise ValueError(
                     f"Response missing 'data' field for connection_id {connection_id}"
-                )
-
-            if data.get("code").lower() != "success":
-                raise ValueError(
-                    f"Response code is not 'success' for connection_id {connection_id}, Response: {response_json}"
                 )
 
             # Parse into FivetranConnectionDetails
