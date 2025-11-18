@@ -94,11 +94,31 @@ class Panel(_GrafanaBaseModel):
     def _normalize_id_field(data: Dict[str, Any]) -> None:
         """Convert integer ID to string and generate fallback ID if missing."""
         if "id" not in data or data["id"] is None:
-            # Generate a fallback ID based on panel type and title
+            # Generate a deterministic fallback ID based on multiple panel properties
             panel_type = data.get("type", "unknown")
             title = data.get("title", "untitled")
-            # Create a simple hash-like ID from type and title
-            fallback_id = f"{panel_type}_{hash(title) % 10000}"
+
+            # Include additional properties for uniqueness
+            grid_pos = data.get("gridPos", {})
+            x = grid_pos.get("x", 0)
+            y = grid_pos.get("y", 0)
+            w = grid_pos.get("w", 0)
+            h = grid_pos.get("h", 0)
+
+            # Create a deterministic identifier from multiple properties
+            # This ensures uniqueness even for panels with identical type/title
+            identifier_parts = [
+                panel_type,
+                title,
+                str(x),
+                str(y),
+                str(w),
+                str(h),  # Grid position for uniqueness
+            ]
+            identifier_string = "_".join(identifier_parts)
+
+            # Use hash for consistent ID generation across runs
+            fallback_id = f"{panel_type}_{abs(hash(identifier_string)) % 100000}"
             data["id"] = fallback_id
         elif isinstance(data["id"], int):
             data["id"] = str(data["id"])

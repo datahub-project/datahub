@@ -292,6 +292,62 @@ def test_panel_with_null_id():
     assert panel.title == "Test Panel"
 
 
+def test_multiple_panels_without_id_or_title():
+    """Test that multiple panels without ID or title get unique, deterministic IDs."""
+    # Two panels with no ID, no title, but different grid positions
+    panel1_data = {
+        "type": "text",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 4},
+        "options": {"content": "Panel 1"},
+    }
+
+    panel2_data = {
+        "type": "text",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 4},
+        "options": {"content": "Panel 2"},
+    }
+
+    # Validate both panels
+    panel1 = Panel.model_validate(panel1_data)
+    panel2 = Panel.model_validate(panel2_data)
+
+    # Both should have generated IDs
+    assert panel1.id is not None
+    assert panel2.id is not None
+    assert panel1.id.startswith("text_")
+    assert panel2.id.startswith("text_")
+
+    # IDs should be different due to different grid positions
+    assert panel1.id != panel2.id
+
+    # IDs should be deterministic - same input produces same ID
+    panel1_duplicate = Panel.model_validate(panel1_data)
+    panel2_duplicate = Panel.model_validate(panel2_data)
+    assert panel1.id == panel1_duplicate.id
+    assert panel2.id == panel2_duplicate.id
+
+
+def test_panels_identical_except_position():
+    """Test that identical panels in different positions get different IDs."""
+    base_panel_data = {
+        "type": "text",
+        "title": "Same Title",
+        "options": {"content": "Same content"},
+    }
+
+    # Same panel in different positions
+    panel1_data = {**base_panel_data, "gridPos": {"x": 0, "y": 0, "w": 12, "h": 4}}
+    panel2_data = {**base_panel_data, "gridPos": {"x": 0, "y": 4, "w": 12, "h": 4}}
+
+    panel1 = Panel.model_validate(panel1_data)
+    panel2 = Panel.model_validate(panel2_data)
+
+    # Should have different IDs due to different positions
+    assert panel1.id != panel2.id
+    assert panel1.id.startswith("text_")
+    assert panel2.id.startswith("text_")
+
+
 def test_realistic_grafana_api_response():
     """Test validation with a realistic Grafana API response format."""
     # Simulates a typical Grafana API response with some optional fields missing
