@@ -14,4 +14,5 @@ export default styled(Button)`
     line-height: 20px;
     vertical-align: top;
     border-radius: 5px;
+    color: ${(props) => props.theme.styles['primary-color']};
 `;
