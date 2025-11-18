@@ -26,6 +26,63 @@ Understand how your mission-critical data is typically queried, or build custom 
 **Works Where You Work** <br />
 Seamlessly integrates with AI-native tools like Cursor, Windsurf, Claude Desktop, and OpenAI to supercharge your workflows.
 
+## Why DataHub MCP Server?
+
+With DataHub MCP Server, you can instantly give AI agents visibility into of your entire data ecosystem. Find and understand data stored in your databases, data lake, data warehouse, and BI visualization tools. Explore data lineage, understand usage & use cases, identify the data experts, and generate SQL - all through natural language.
+
+### **Structured Search with Context Filtering**
+
+Go beyond keyword matching with powerful query & filtering syntax:
+
+- Wildcard matching: `/q revenue_*` finds `revenue_kpis`, `revenue_daily`, `revenue_forecast`
+- Field searches: `/q tag:PII` finds all PII-tagged data
+- Boolean logic: `/q (sales OR revenue) AND quarterly` for complex queries
+
+### **SQL Intelligence & Query Generation**
+
+Access popular SQL queries, and generate new ones with accuracy:
+
+- See how analysts query tables (perfect for SQL generation)
+- Understand join patterns and common filters
+- Learn from production query patterns
+
+### **Table & Column-Level Lineage**
+
+Trace data flow at both the table and column level:
+
+- Track how `user_id` becomes `customer_key` downstream
+- Understand transformation logic
+- Upstream and downstream exploration (1-3+ hops)
+- Handle enterprise-scale lineage graphs
+
+## Tools
+
+The DataHub MCP Server provides the following tools:
+
+`search`
+
+Search DataHub using structured keyword search (/q syntax) with boolean logic, filters, pagination, and optional sorting by usage metrics.
+
+`get_lineage`
+
+Retrieve upstream or downstream lineage for any entity (datasets, columns, dashboards, etc.) with filtering, query-within-lineage, pagination, and hop control.
+
+`get_dataset_queries`
+
+Fetch real SQL queries referencing a dataset or column—manual or system-generated—to understand usage patterns, joins, filters, and aggregation behavior.
+
+`get_entities`
+
+Fetch detailed metadata for one or more entities by URN; supports batch retrieval for efficient inspection of search results.
+
+`list_schema_fields`
+
+List schema fields for a dataset with keyword filtering and pagination, useful when search results truncate fields or when exploring large schemas.
+
+`get_lineage_paths_between`
+
+Retrieve the exact lineage paths between two assets or columns, including intermediate transformations and SQL query information.
+
 ## Managed MCP Server Usage
 
 For folks on DataHub Cloud v0.3.12+, you can use our hosted MCP server endpoint.
