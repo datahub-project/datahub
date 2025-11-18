@@ -14,6 +14,35 @@ This source extracts the following:
 3. Once initial sync up of your fivetran platform connector is done, you need to provide the fivetran platform connector's destination platform and its configuration in the recipe.
 4. We expect our users to enable automatic schema updates (default) in fivetran platform connector configured for DataHub, this ensures latest schema changes are applied and avoids inconsistency data syncs.
 
+### Database and Schema Name Handling
+
+The Fivetran source uses **quoted identifiers** for database and schema names to properly handle special characters and case-sensitive names. This follows Snowflake's quoted identifier convention, which is then transpiled to the target database dialect (Snowflake, BigQuery, or Databricks).
+
+**Important Notes:**
+
+- **Database names** are automatically wrapped in double quotes (e.g., `use database "my-database"`)
+- **Schema names** are automatically wrapped in double quotes (e.g., `"my-schema".table_name`)
+- This ensures proper handling of database and schema names containing:
+  - Hyphens (e.g., `my-database`)
+  - Spaces (e.g., `my database`)
+  - Special characters (e.g., `my.database`)
+  - Case-sensitive names (e.g., `MyDatabase`)
+
+**Migration Impact:**
+
+- If you have database or schema names with special characters, they will now be properly quoted in SQL queries
+- This change ensures consistent behavior across all supported destination platforms
+- No configuration changes are required - the quoting is handled automatically
+
+**Case Sensitivity Considerations:**
+
+- **Important**: In Snowflake, unquoted identifiers are automatically converted to uppercase when stored and resolved (e.g., `mydatabase` becomes `MYDATABASE`), while double-quoted identifiers preserve the exact case as entered (e.g., `"mydatabase"` stays as `mydatabase`). See [Snowflake's identifier documentation](https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers) for details.
+- If your Fivetran log database or schema was previously referenced without quotes in your configuration, it would have been resolved as uppercase. Now that database and schema names are automatically quoted, they will preserve the case as specified in your configuration.
+- **Action Required**: Ensure that the database and schema names in your Fivetran source configuration match the exact case of the objects in your Snowflake instance. For example:
+  - If your database is stored as `MYDATABASE` (uppercase) in Snowflake, use `MYDATABASE` in your configuration
+  - If your database is stored as `mydatabase` (lowercase) in Snowflake, use `mydatabase` in your configuration
+  - If you're unsure of the exact case, check your Snowflake instance or use the `SHOW DATABASES` and `SHOW SCHEMAS` commands to see the exact case
+
 ## Concept mapping
 
 | Fivetran        | Datahub                                                                                               |
@@ -57,6 +86,7 @@ create or replace role fivetran_datahub;
 grant operate, usage on warehouse "<your-warehouse>" to role fivetran_datahub;
 
 // Grant access to view database and schema in which your log and metadata tables exist
+// Note: Database and schema names are automatically quoted, so use quoted identifiers if your names contain special characters
 grant usage on DATABASE "<fivetran-log-database>" to role fivetran_datahub;
 grant usage on SCHEMA "<fivetran-log-database>"."<fivetran-log-schema>" to role fivetran_datahub;
 

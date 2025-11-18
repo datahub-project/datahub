@@ -12,6 +12,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.fivetran.config import (
     BigQueryDestinationConfig,
+    DatabricksDestinationConfig,
     FivetranLogConfig,
     FivetranSourceConfig,
     PlatformDetail,
@@ -164,7 +165,7 @@ def default_query_results(
 
 
 def test_quoted_query_transpilation():
-    """Test different schema strings and their transpilation to Bigquery"""
+    """Test different schema strings and their transpilation to Snowflake, BigQuery, and Databricks"""
     # Ref: https://github.com/datahub-project/datahub/issues/14210
 
     fivetran_log_query = FivetranLogQuery()
@@ -225,9 +226,21 @@ def test_quoted_query_transpilation():
             ),
         )
 
+        databricks_dest_config = FivetranLogConfig(
+            destination_platform="databricks",
+            databricks_destination_config=DatabricksDestinationConfig(
+                token="test-token",
+                workspace_url="https://test-workspace.cloud.databricks.com",
+                warehouse_id="test-warehouse-id",
+                catalog="test_catalog",
+                log_schema="test_schema",
+            ),
+        )
+
         # Create FivetranLogAPI instance
         snowflake_fivetran_log_api = FivetranLogAPI(snowflake_dest_config)
         bigquery_fivetran_log_api = FivetranLogAPI(bigquery_dest_config)
+        databricks_fivetran_log_api = FivetranLogAPI(databricks_dest_config)
 
         for schema in schema_name_test_cases:
             fivetran_log_query.set_schema(schema)
@@ -254,9 +267,128 @@ def test_quoted_query_transpilation():
                     f"but got {num_quotes_in_clause}: {fivetran_log_query.schema_clause!r}"
                 )
 
-            # Make sure transpilation works for both snowflake and bigquery
+            # Make sure transpilation works for snowflake, bigquery, and databricks
             snowflake_fivetran_log_api._query(fivetran_log_query.get_connectors_query())
             bigquery_fivetran_log_api._query(fivetran_log_query.get_connectors_query())
+            databricks_fivetran_log_api._query(
+                fivetran_log_query.get_connectors_query()
+            )
+
+
+def test_quoted_database_identifiers():
+    """Test different database names and their quoted identifier handling"""
+    # Ref: https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
+
+    fivetran_log_query = FivetranLogQuery()
+
+    # Test cases with different database names that might cause issues
+    database_name_test_cases = [
+        "test_database",  # Normal case
+        "test-database",  # Hyphen
+        "test_database_123",  # Underscore and numbers
+        "test.database",  # Dot
+        "test database",  # Space
+        "test'database",  # Single quote
+        'test"database',  # Double quote
+        "test`database",  # Backtick
+        "test-database-123",  # Multiple hyphens
+        "test_database-123",  # Mixed underscore and hyphen
+        "test-database_123",  # Mixed hyphen and underscore
+        "test.database-123",  # Mixed dot and hyphen
+        "test database 123",  # Multiple spaces
+        "test'database'123",  # Multiple quotes
+        'test"database"123',  # Multiple double quotes
+        "test`database`123",  # Multiple backticks
+    ]
+
+    with mock.patch(
+        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+    ) as mock_create_engine:
+        connection_magic_mock = MagicMock()
+        connection_magic_mock.execute.fetchone.side_effect = ["test-project-id"]
+
+        mock_create_engine.return_value = connection_magic_mock
+
+        snowflake_dest_config = FivetranLogConfig(
+            destination_platform="snowflake",
+            snowflake_destination_config=SnowflakeDestinationConfig(
+                account_id="TESTID",
+                warehouse="TEST_WH",
+                username="test",
+                password="test@123",
+                database="TEST_DATABASE",
+                role="TESTROLE",
+                log_schema="TEST_SCHEMA",
+            ),
+        )
+
+        bigquery_dest_config = FivetranLogConfig(
+            destination_platform="bigquery",
+            bigquery_destination_config=BigQueryDestinationConfig(
+                credential=GCPCredential(
+                    private_key_id="testprivatekey",
+                    project_id="test-project",
+                    client_email="fivetran-connector@test-project.iam.gserviceaccount.com",
+                    client_id="1234567",
+                    private_key="private-key",
+                ),
+                dataset="test_dataset",
+            ),
+        )
+
+        databricks_dest_config = FivetranLogConfig(
+            destination_platform="databricks",
+            databricks_destination_config=DatabricksDestinationConfig(
+                token="test-token",
+                workspace_url="https://test-workspace.cloud.databricks.com",
+                warehouse_id="test-warehouse-id",
+                catalog="test_catalog",
+                log_schema="test_schema",
+            ),
+        )
+
+        # Create FivetranLogAPI instance
+        snowflake_fivetran_log_api = FivetranLogAPI(snowflake_dest_config)
+        bigquery_fivetran_log_api = FivetranLogAPI(bigquery_dest_config)
+        databricks_fivetran_log_api = FivetranLogAPI(databricks_dest_config)
+
+        for db_name in database_name_test_cases:
+            use_db_query = fivetran_log_query.use_database(db_name)
+
+            # Make sure the database name is wrapped in double quotes
+            # Example: use database "test_database"
+            assert use_db_query.startswith('use database "'), (
+                f"Missing 'use database \"' at the beginning for database {db_name!r}"
+            )
+            assert use_db_query.endswith('"'), (
+                f"Missing double quote at the end for database {db_name!r}"
+            )
+
+            # Extract the database name from the query
+            # Format: use database "db_name"
+            db_name_in_query = use_db_query[14:-1]  # Remove 'use database "' and '"'
+
+            # If the database name has quotes in the string, then the query should have double the number of quotes
+            # Each quote in database name is escaped as two quotes in query, plus two for the wrapping quotes
+            num_quotes_in_db_name = db_name.count('"')
+            num_quotes_in_query = db_name_in_query.count('"')
+            if num_quotes_in_db_name > 0:
+                # Each quote in database name is escaped as two quotes in query
+                assert num_quotes_in_query == num_quotes_in_db_name * 2, (
+                    f"For database {db_name!r}, expected {num_quotes_in_db_name * 2} quotes in query (escaped), "
+                    f"but got {num_quotes_in_query}: {use_db_query!r}"
+                )
+
+            # Set a test schema and verify queries work with the database name
+            fivetran_log_query.set_schema("test_schema")
+            # Make sure transpilation works for snowflake, bigquery, and databricks
+            # Note: use_database returns a query string, it doesn't modify the query object
+            # So we test that the schema queries still work correctly
+            snowflake_fivetran_log_api._query(fivetran_log_query.get_connectors_query())
+            bigquery_fivetran_log_api._query(fivetran_log_query.get_connectors_query())
+            databricks_fivetran_log_api._query(
+                fivetran_log_query.get_connectors_query()
+            )
 
 
 @freeze_time(FROZEN_TIME)
