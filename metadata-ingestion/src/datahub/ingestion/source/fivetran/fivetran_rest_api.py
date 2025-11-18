@@ -67,11 +67,6 @@ class FivetranAPIClient:
         Returns:
             FivetranConnectionDetails: The parsed connection details.
 
-        Raises:
-            requests.exceptions.RequestException: For network/request errors.
-            requests.exceptions.HTTPError: For HTTP error responses (4xx, 5xx).
-            json.JSONDecodeError: If the response is not valid JSON.
-            ValueError: If the response data cannot be parsed into FivetranConnectionDetails.
         """
         try:
             connection_details = self._session.get(

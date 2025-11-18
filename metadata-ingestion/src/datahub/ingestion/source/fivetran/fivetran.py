@@ -163,11 +163,6 @@ class FivetranSource(StatefulIngestionSourceBase):
                 if gsheets_conn_details and self._get_gsheet_named_range_dataset_id(
                     gsheets_conn_details
                 ):
-                    logger.debug(
-                        f"Successfully retrieved connection details for Google Sheets connector: "
-                        f"connector_id={connector.connector_id}, "
-                        f"has_source_sync_details={hasattr(gsheets_conn_details, 'source_sync_details')}"
-                    )
                     input_dataset_urn = DatasetUrn.create_from_ids(
                         platform_id=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
                         table_name=self._get_gsheet_named_range_dataset_id(
@@ -177,10 +172,6 @@ class FivetranSource(StatefulIngestionSourceBase):
                         env=source_details.env,
                     )
                 else:
-                    logger.debug(
-                        f"Failed to get connection details for Google Sheets connector: "
-                        f"connector_name={connector.connector_name}, connector_id={connector.connector_id}"
-                    )
                     self.report.warning(
                         title="Failed to extract lineage for Google Sheets Connector",
                         message="Unable to extract lineage for Google Sheets Connector, as the connector details are not available from Fivetran API.",
