@@ -91,6 +91,7 @@ SNOWFLAKE_SINK_CLOUD: Final[str] = "SnowflakeSink"
 SNOWFLAKE_SOURCE_CLOUD: Final[str] = "SnowflakeSource"
 MYSQL_SOURCE_CLOUD: Final[str] = "MySqlSource"
 MYSQL_CDC_SOURCE_CLOUD: Final[str] = "MySqlCdcSource"
+MYSQL_CDC_SOURCE_V2_CLOUD: Final[str] = "MySqlCdcSourceV2"
 MYSQL_SINK_CLOUD: Final[str] = "MySqlSink"
 
 # Cloud JDBC source connector classes
@@ -99,6 +100,7 @@ CLOUD_JDBC_SOURCE_CLASSES: Final[List[str]] = [
     POSTGRES_CDC_SOURCE_V2_CLOUD,
     MYSQL_SOURCE_CLOUD,
     MYSQL_CDC_SOURCE_CLOUD,
+    MYSQL_CDC_SOURCE_V2_CLOUD,
 ]
 
 # Cloud sink connector classes

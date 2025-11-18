@@ -11,6 +11,8 @@ from datahub.ingestion.source.kafka_connect.common import (
     DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER,
     KAFKA,
     KNOWN_TOPIC_ROUTING_TRANSFORMS,
+    MYSQL_CDC_SOURCE_V2_CLOUD,
+    POSTGRES_CDC_SOURCE_V2_CLOUD,
     REGEXROUTER_TRANSFORM,
     SNOWFLAKE_SOURCE_CLOUD,
     BaseConnector,
@@ -154,8 +156,22 @@ class JdbcParserFactory:
         else:
             db_connection_url = f"{source_platform}://{hostname}:{port}/{database_name}"
 
-        # Cloud uses database.server.name as topic prefix
-        topic_prefix = connector_manifest.config.get("database.server.name", "")
+        # Cloud connector topic prefix logic:
+        # - PostgresCdcSourceV2 and MySqlCdcSourceV2 use topic.prefix (Confluent Cloud V2 managed)
+        # - PostgresCdcSource (V1) and MySqlCdcSource (V1) use database.server.name (Debezium-based)
+        # References:
+        #   - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source-v2-debezium/cc-postgresql-cdc-source-v2-debezium.html
+        #   - https://docs.confluent.io/cloud/current/connectors/cc-mysql-source-cdc-v2-debezium/cc-mysql-source-cdc-v2-debezium.html
+        if connector_class in (POSTGRES_CDC_SOURCE_V2_CLOUD, MYSQL_CDC_SOURCE_V2_CLOUD):
+            # V2 uses topic.prefix (new Cloud-native implementation)
+            topic_prefix = connector_manifest.config.get("topic.prefix", "")
+        else:
+            # V1 and other CDC connectors use database.server.name (Debezium standard)
+            # Fallback to topic.prefix if database.server.name not present
+            topic_prefix = connector_manifest.config.get(
+                "database.server.name",
+                connector_manifest.config.get("topic.prefix", ""),
+            )
 
         return self._build_parser(
             connector_manifest,

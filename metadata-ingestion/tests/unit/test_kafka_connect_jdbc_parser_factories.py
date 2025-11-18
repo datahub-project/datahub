@@ -196,6 +196,100 @@ class TestJdbcParserFactorySource:
         assert parser.topic_prefix == "mysql-server"
         assert parser.db_connection_url == "mysql://mysql.example.com:3306/mydb"
 
+    def test_create_fields_parser_postgres_cdc_v2_uses_topic_prefix(self) -> None:
+        """Test PostgresCdcSourceV2 uses topic.prefix instead of database.server.name."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSourceV2",
+                "database.hostname": "localhost",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "topic.prefix": "my-postgres-prefix",
+                "database.server.name": "should-be-ignored",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "postgres"
+        assert parser.database_name == "testdb"
+        assert parser.topic_prefix == "my-postgres-prefix"
+        assert parser.db_connection_url == "postgresql://localhost:5432/testdb"
+
+    def test_create_fields_parser_mysql_cdc_v2_uses_topic_prefix(self) -> None:
+        """Test MySqlCdcSourceV2 uses topic.prefix instead of database.server.name."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "MySqlCdcSourceV2",
+                "database.hostname": "mysql.example.com",
+                "database.port": "3306",
+                "database.dbname": "mydb",
+                "topic.prefix": "my-mysql-prefix",
+                "database.server.name": "should-be-ignored",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "mysql"
+        assert parser.database_name == "mydb"
+        assert parser.topic_prefix == "my-mysql-prefix"
+        assert parser.db_connection_url == "mysql://mysql.example.com:3306/mydb"
+
+    def test_create_fields_parser_postgres_cdc_v2_only_topic_prefix(self) -> None:
+        """Test PostgresCdcSourceV2 works with only topic.prefix (no database.server.name)."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSourceV2",
+                "database.hostname": "localhost",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "topic.prefix": "postgres",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "postgres"
+        assert parser.topic_prefix == "postgres"
+
+    def test_create_fields_parser_mysql_cdc_v2_only_topic_prefix(self) -> None:
+        """Test MySqlCdcSourceV2 works with only topic.prefix (no database.server.name)."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "MySqlCdcSourceV2",
+                "database.hostname": "mysql.example.com",
+                "database.port": "3306",
+                "database.dbname": "mydb",
+                "topic.prefix": "mysql",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "mysql"
+        assert parser.topic_prefix == "mysql"
+
     def test_create_fields_parser_postgres_lowercase(self) -> None:
         """Test fields parser recognizes lowercase postgres."""
         manifest = ConnectorManifest(
