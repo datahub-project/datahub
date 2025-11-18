@@ -118,13 +118,32 @@ def test_get_fields_from_transformations():
     assert field_paths == {"user", "value"}
 
 
-def test_get_fields_from_field_config_none():
-    """Test that get_fields_from_field_config handles None input gracefully."""
-    fields = get_fields_from_field_config(None)
-    assert fields == []
-
-
 def test_get_fields_from_field_config_empty():
     """Test that get_fields_from_field_config handles empty dict input."""
     fields = get_fields_from_field_config({})
     assert fields == []
+
+
+def test_extract_fields_from_panel_with_empty_fields():
+    """Test that extract_fields_from_panel handles panels with empty fields efficiently."""
+    from datahub.ingestion.source.grafana.field_utils import extract_fields_from_panel
+    from datahub.ingestion.source.grafana.models import Panel
+
+    # Create a text panel with no targets, fieldConfig, or transformations
+    panel_data = {
+        "id": 1,
+        "type": "text",
+        "title": "Test Panel",
+    }
+
+    panel = Panel.model_validate(panel_data)
+
+    # Verify safe properties work
+    assert panel.safe_field_config == {}
+    assert panel.safe_query_targets == []
+    assert panel.safe_transformations == []
+
+    # Should extract no fields but not crash
+    fields = extract_fields_from_panel(panel)
+    assert isinstance(fields, list)
+    assert len(fields) == 0  # No fields to extract from a text panel

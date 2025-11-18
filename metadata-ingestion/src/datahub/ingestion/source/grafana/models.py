@@ -17,8 +17,9 @@ from datahub.emitter.mcp_builder import ContainerKey
 
 logger = logging.getLogger(__name__)
 
+# Type aliases for Grafana data structures
 GrafanaQueryTarget = Dict[str, Any]
-GrafanaFieldConfig = Dict[str, Any]
+GrafanaFieldConfig = Dict[str, Any]  # Never None, always a dict (possibly empty)
 GrafanaTransformation = Dict[str, Any]
 
 
@@ -54,12 +55,28 @@ class Panel(_GrafanaBaseModel):
     field_config: GrafanaFieldConfig = Field(default_factory=dict, alias="fieldConfig")
     transformations: List[GrafanaTransformation] = Field(default_factory=list)
 
+    @property
+    def safe_field_config(self) -> GrafanaFieldConfig:
+        """Get field_config, guaranteed to be a dict (never None)."""
+        return self.field_config or {}
+
+    @property
+    def safe_query_targets(self) -> List[GrafanaQueryTarget]:
+        """Get query_targets, guaranteed to be a list (never None)."""
+        return self.query_targets or []
+
+    @property
+    def safe_transformations(self) -> List[GrafanaTransformation]:
+        """Get transformations, guaranteed to be a list (never None)."""
+        return self.transformations or []
+
     @staticmethod
     def _ensure_dict_field(
         data: Dict[str, Any], field_name: str, default: Dict[str, Any]
     ) -> None:
-        """Ensure a field is a dict, converting None to the default dict."""
-        if data.get(field_name) is None:
+        """Ensure a field is a dict, converting None/invalid types to the default dict."""
+        value = data.get(field_name)
+        if value is None or not isinstance(value, dict):
             data[field_name] = default
         else:
             data.setdefault(field_name, default)
@@ -68,8 +85,9 @@ class Panel(_GrafanaBaseModel):
     def _ensure_list_field(
         data: Dict[str, Any], field_name: str, default: List[Any]
     ) -> None:
-        """Ensure a field is a list, converting None to the default list."""
-        if data.get(field_name) is None:
+        """Ensure a field is a list, converting None/invalid types to the default list."""
+        value = data.get(field_name)
+        if value is None or not isinstance(value, list):
             data[field_name] = default
         else:
             data.setdefault(field_name, default)

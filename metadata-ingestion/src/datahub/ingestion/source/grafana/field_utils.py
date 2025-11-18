@@ -185,13 +185,15 @@ def _extract_raw_sql_fields_fallback(target: Dict[str, Any]) -> List[SchemaField
             # Clean up any remaining quotes or parentheses
             field_name = field_name.strip("\"'()")
 
-            fields.append(
-                SchemaFieldClass(
-                    fieldPath=field_name,
-                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                    nativeDataType="sql_column",
+            # Only create field if field_name is not empty
+            if field_name:
+                fields.append(
+                    SchemaFieldClass(
+                        fieldPath=field_name,
+                        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                        nativeDataType="sql_column",
+                    )
                 )
-            )
 
         return fields
 
@@ -208,13 +210,28 @@ def extract_fields_from_panel(
 ) -> List[SchemaFieldClass]:
     """Extract all fields from a panel."""
     fields = []
-    fields.extend(
-        extract_fields_from_targets(
-            panel.query_targets, panel, connection_to_platform_map, graph, report
+
+    # Extract fields from targets (only if there are targets)
+    if panel.safe_query_targets:
+        target_fields = extract_fields_from_targets(
+            panel.safe_query_targets, panel, connection_to_platform_map, graph, report
         )
-    )
-    fields.extend(get_fields_from_field_config(panel.field_config))
-    fields.extend(get_fields_from_transformations(panel.transformations))
+        if target_fields:
+            fields.extend(target_fields)
+
+    # Extract fields from field config (only if there's meaningful config)
+    if panel.safe_field_config:
+        field_config_fields = get_fields_from_field_config(panel.safe_field_config)
+        if field_config_fields:
+            fields.extend(field_config_fields)
+
+    # Extract fields from transformations (only if there are transformations)
+    if panel.safe_transformations:
+        transformation_fields = get_fields_from_transformations(
+            panel.safe_transformations
+        )
+        if transformation_fields:
+            fields.extend(transformation_fields)
 
     # Track schema field extraction
     if report:
@@ -227,15 +244,13 @@ def extract_fields_from_panel(
 
 
 def extract_fields_from_targets(
-    targets: Optional[List[Dict[str, Any]]],
+    targets: List[Dict[str, Any]],
     panel: Optional[Panel] = None,
     connection_to_platform_map: Optional[Dict[str, Any]] = None,
     graph: Optional[DataHubGraph] = None,
     report: Optional[Any] = None,
 ) -> List[SchemaFieldClass]:
     """Extract fields from panel targets."""
-    if targets is None:
-        return []
 
     fields = []
     for target in targets:
@@ -264,11 +279,9 @@ def extract_time_format_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]
 
 
 def get_fields_from_field_config(
-    field_config: Optional[Dict[str, Any]],
+    field_config: Dict[str, Any],
 ) -> List[SchemaFieldClass]:
     """Extract fields from field configuration."""
-    if field_config is None:
-        return []
 
     fields = []
     defaults = field_config.get("defaults", {})
@@ -296,21 +309,21 @@ def get_fields_from_field_config(
 
 
 def get_fields_from_transformations(
-    transformations: Optional[List[Dict[str, Any]]],
+    transformations: List[Dict[str, Any]],
 ) -> List[SchemaFieldClass]:
     """Extract fields from transformations."""
-    if transformations is None:
-        return []
 
     fields = []
     for transform in transformations:
         if transform.get("type") == "organize":
             for field_name in transform.get("options", {}).get("indexByName", {}):
-                fields.append(
-                    SchemaFieldClass(
-                        fieldPath=field_name,
-                        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                        nativeDataType="transformed",
+                # Only create field if field_name is not empty
+                if field_name and field_name.strip():
+                    fields.append(
+                        SchemaFieldClass(
+                            fieldPath=field_name.strip(),
+                            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                            nativeDataType="transformed",
+                        )
                     )
-                )
     return fields
