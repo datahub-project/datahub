@@ -462,10 +462,10 @@ class TestAskCommand:
         """Test ask command when AI API fails."""
         mock_graph = MagicMock(spec=DataHubGraph)
 
-        # Mock get_bedrock_client to simulate API failure
+        # Mock get_llm_client to simulate API failure
         with (
             patch(
-                "datahub_integrations.chat.chat_session.get_bedrock_client"
+                "datahub_integrations.chat.chat_session.get_llm_client"
             ) as mock_bedrock_fn,
             patch("datahub_integrations.teams.config.teams_config") as mock_config,
         ):
@@ -624,7 +624,7 @@ class TestAskCommand:
 
         with (
             patch(
-                "datahub_integrations.chat.chat_session.get_bedrock_client"
+                "datahub_integrations.chat.chat_session.get_llm_client"
             ) as mock_bedrock_fn,
             patch("datahub_integrations.teams.config.teams_config") as mock_config,
         ):

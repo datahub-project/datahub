@@ -43,12 +43,12 @@ class TestLLMRerankerRerank:
         )
         assert results == []
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
-    def test_rerank_basic_functionality(self, mock_get_bedrock_client):
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
+    def test_rerank_basic_functionality(self, mock_get_llm_client):
         """Test basic reranking with valid response."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         # Mock response from Bedrock
         mock_client.converse.return_value = {
@@ -111,12 +111,12 @@ class TestLLMRerankerRerank:
         assert call_args[1]["modelId"] == "test-model"
         assert call_args[1]["inferenceConfig"]["temperature"] == 0.0
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
-    def test_rerank_results_sorted_by_score(self, mock_get_bedrock_client):
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
+    def test_rerank_results_sorted_by_score(self, mock_get_llm_client):
         """Test that results are sorted by score in descending order."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         # Mock response with unsorted scores
         mock_client.converse.return_value = {
@@ -170,13 +170,13 @@ class TestLLMRerankerRerank:
         assert results[2].score == 0.5
         assert results[2].index == 0
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
     @patch("datahub_integrations.smart_search.llm_reranker.logger")
-    def test_rerank_caps_at_100_entities(self, mock_logger, mock_get_bedrock_client):
+    def test_rerank_caps_at_100_entities(self, mock_logger, mock_get_llm_client):
         """Test that reranker caps entities at 100 and logs warning."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         # Mock response with first 100 entities
         ranked_entities = [
@@ -213,12 +213,12 @@ class TestLLMRerankerRerank:
         assert "100 entities" in warning_msg
         assert "received 150" in warning_msg
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
-    def test_rerank_with_schema_metadata(self, mock_get_bedrock_client):
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
+    def test_rerank_with_schema_metadata(self, mock_get_llm_client):
         """Test that schema fields are included in entity summaries."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         mock_client.converse.return_value = {
             "output": {
@@ -271,12 +271,12 @@ class TestLLMRerankerRerank:
         assert "field2" in prompt
         assert "field3" in prompt
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
-    def test_rerank_caps_field_count_at_10(self, mock_get_bedrock_client):
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
+    def test_rerank_caps_field_count_at_10(self, mock_get_llm_client):
         """Test that only first 10 fields are included in summaries."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         mock_client.converse.return_value = {
             "output": {
@@ -322,12 +322,12 @@ class TestLLMRerankerRerank:
         assert "field9" in prompt  # 10th field
         assert "field10" not in prompt  # 11th field should not be included
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
-    def test_rerank_truncates_long_descriptions(self, mock_get_bedrock_client):
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
+    def test_rerank_truncates_long_descriptions(self, mock_get_llm_client):
         """Test that descriptions are truncated at 4000 chars."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         mock_client.converse.return_value = {
             "output": {
@@ -377,12 +377,12 @@ class TestLLMRerankerRerank:
         x_count = prompt.count("x")
         assert x_count < 4500  # Less than 4500 to account for truncation
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
-    def test_rerank_handles_missing_description(self, mock_get_bedrock_client):
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
+    def test_rerank_handles_missing_description(self, mock_get_llm_client):
         """Test that entities without descriptions get default text."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         mock_client.converse.return_value = {
             "output": {
@@ -425,15 +425,15 @@ class TestLLMRerankerRerank:
         prompt = call_args[1]["messages"][0]["content"][0]["text"]
         assert "No description" in prompt
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
     @patch("datahub_integrations.smart_search.llm_reranker.logger")
     def test_rerank_handles_unknown_urn_from_llm(
-        self, mock_logger, mock_get_bedrock_client
+        self, mock_logger, mock_get_llm_client
     ):
         """Test that unknown URNs returned by LLM are logged and ignored."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         # Mock response includes unknown URN
         mock_client.converse.return_value = {
@@ -481,15 +481,15 @@ class TestLLMRerankerRerank:
             "LLM returned unknown URN: urn:li:dataset:999"
         )
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
     @patch("datahub_integrations.smart_search.llm_reranker.logger")
     def test_rerank_handles_missing_entities_in_llm_response(
-        self, mock_logger, mock_get_bedrock_client
+        self, mock_logger, mock_get_llm_client
     ):
         """Test that entities not scored by LLM get score of 0.0."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         # Mock response only scores first entity
         mock_client.converse.return_value = {
@@ -542,12 +542,12 @@ class TestLLMRerankerRerank:
             "LLM did not score entity: urn:li:dataset:2"
         )
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
-    def test_rerank_raises_error_when_no_tool_use(self, mock_get_bedrock_client):
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
+    def test_rerank_raises_error_when_no_tool_use(self, mock_get_llm_client):
         """Test that error is raised when LLM doesn't use the tool."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         # Mock response without tool use
         mock_client.converse.return_value = {
@@ -576,12 +576,12 @@ class TestLLMRerankerRerank:
                 keyword_search_query="/q query",
             )
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
-    def test_rerank_tool_config_structure(self, mock_get_bedrock_client):
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
+    def test_rerank_tool_config_structure(self, mock_get_llm_client):
         """Test that the tool configuration has the correct structure."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         mock_client.converse.return_value = {
             "output": {
@@ -639,12 +639,12 @@ class TestLLMRerankerRerank:
         assert items["properties"]["score"]["minimum"] == 0.0
         assert items["properties"]["score"]["maximum"] == 1.0
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
-    def test_rerank_inference_config(self, mock_get_bedrock_client):
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
+    def test_rerank_inference_config(self, mock_get_llm_client):
         """Test that inference config has correct temperature and token settings."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         mock_client.converse.return_value = {
             "output": {
@@ -683,15 +683,13 @@ class TestLLMRerankerRerank:
         assert inference_config["temperature"] == 0.0
         assert inference_config["maxTokens"] == 8192
 
-    @patch("datahub_integrations.smart_search.llm_reranker.get_bedrock_client")
+    @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")
     @patch("datahub_integrations.smart_search.llm_reranker.EntityNormalizer")
-    def test_rerank_uses_entity_normalizer(
-        self, mock_normalizer, mock_get_bedrock_client
-    ):
+    def test_rerank_uses_entity_normalizer(self, mock_normalizer, mock_get_llm_client):
         """Test that EntityNormalizer is used to extract name and description."""
         # Setup mocks
         mock_client = MagicMock()
-        mock_get_bedrock_client.return_value = mock_client
+        mock_get_llm_client.return_value = mock_client
 
         mock_normalizer.get_name.return_value = "Normalized Name"
         mock_normalizer.get_description.return_value = "Normalized Description"

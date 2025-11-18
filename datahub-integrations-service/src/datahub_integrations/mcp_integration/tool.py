@@ -14,7 +14,7 @@ from fastmcp import FastMCP
 from loguru import logger
 from mcp.types import TextContent
 
-from datahub_integrations.chat.context_reducer import TokenCountEstimator
+from datahub_integrations.mcp._token_estimator import TokenCountEstimator
 from datahub_integrations.mcp.mcp_server import TOOL_RESPONSE_TOKEN_LIMIT
 
 _P = ParamSpec("_P")

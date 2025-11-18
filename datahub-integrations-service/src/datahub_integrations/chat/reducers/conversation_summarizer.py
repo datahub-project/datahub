@@ -18,9 +18,9 @@ from datahub_integrations.chat.chat_history import (
 from datahub_integrations.chat.context_reducer import (
     ChatContextReducer,
     ContextReducerConfig,
-    TokenCountEstimator,
 )
 from datahub_integrations.gen_ai.model_config import BedrockModel
+from datahub_integrations.mcp._token_estimator import TokenCountEstimator
 
 _CREATE_SUMMARY_SYSTEM_PROMPT = """\
 You are a helpful AI assistant tasked with summarizing conversations.

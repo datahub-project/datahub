@@ -3,6 +3,18 @@ MCP planning tools for ChatSession.
 
 These tools are registered with the FastMCP framework and can be called
 by the ChatSession's LLM or explicitly by code.
+
+Error Handling Philosophy:
+-------------------------
+Planning tools intentionally do NOT catch LlmExceptions (rate limits, auth errors, etc.).
+These exceptions propagate to ChatSession's tool execution handler, which converts them
+to ToolResultError messages. The LLM receives these errors and can self-recover by:
+- Skipping planning and executing tools directly
+- Retrying with different parameters
+- Informing the user about limitations
+
+This centralized error handling approach keeps code DRY and leverages the LLM's ability
+to handle failures gracefully.
 """
 
 import json
@@ -17,7 +29,8 @@ from pydantic import Field
 from datahub_integrations.chat.chat_session import get_extra_llm_instructions
 from datahub_integrations.chat.planner.models import Constraints, OnFail, Plan, Step
 from datahub_integrations.chat.planner.recipes import get_recipe_guidance
-from datahub_integrations.gen_ai.bedrock import BedrockModel, get_bedrock_client
+from datahub_integrations.gen_ai.bedrock import BedrockModel
+from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.mcp.mcp_server import get_datahub_client
 from datahub_integrations.mcp_integration.tool import ToolWrapper, async_background
 
@@ -149,7 +162,7 @@ def _call_planner_llm(prompt: str, tools_summary: str) -> dict:
     Raises:
         ValueError: If the LLM response cannot be converted to valid plan dict.
     """
-    bedrock_client = get_bedrock_client()
+    llm_client = get_llm_client(PLANNER_MODEL.value)
 
     # Build system messages: main prompt + tools + custom instructions (if any) + recipes
     system_messages = [
@@ -177,7 +190,7 @@ def _call_planner_llm(prompt: str, tools_summary: str) -> dict:
     )
 
     # Use toolConfig to enforce structured output
-    response = bedrock_client.converse(
+    response = llm_client.converse(
         modelId=PLANNER_MODEL.value,
         system=system_messages,  # type: ignore[arg-type]
         messages=[{"role": "user", "content": [{"text": prompt}]}],

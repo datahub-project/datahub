@@ -1,3 +1,14 @@
+"""DataHub MCP Server Implementation.
+
+IMPORTANT: This file is kept in sync between two repositories:
+- datahub-integrations-service: src/datahub_integrations/mcp/mcp_server.py
+- mcp-server-datahub: src/mcp_server_datahub/mcp_server.py
+
+When making changes, ensure both versions remain identical. Use relative imports
+(e.g., `from ._token_estimator import ...`) instead of absolute imports to maintain
+compatibility across both repositories.
+"""
+
 import contextlib
 import contextvars
 import functools
@@ -36,7 +47,8 @@ from fastmcp import FastMCP
 from loguru import logger
 from pydantic import BaseModel
 
-from datahub_integrations.chat.context_reducer import TokenCountEstimator
+# IMPORTANT: Use relative import to maintain compatibility across repositories
+from ._token_estimator import TokenCountEstimator
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
