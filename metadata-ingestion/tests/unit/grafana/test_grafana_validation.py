@@ -84,6 +84,64 @@ def test_panel_completely_minimal():
     assert panel.transformations == []
 
 
+def test_panel_with_null_field_config():
+    """Test panel validation when fieldConfig is explicitly null."""
+    panel_data = {
+        "id": 123,
+        "fieldConfig": None,
+    }
+
+    panel = Panel.model_validate(panel_data)
+    assert panel.id == "123"
+    assert panel.field_config == {}  # Should be converted to empty dict
+
+
+def test_panel_with_null_transformations():
+    """Test panel validation when transformations is explicitly null."""
+    panel_data = {
+        "id": 456,
+        "transformations": None,
+    }
+
+    panel = Panel.model_validate(panel_data)
+    assert panel.id == "456"
+    assert panel.transformations == []  # Should be converted to empty list
+
+
+def test_panel_with_null_targets():
+    """Test panel validation when targets is explicitly null."""
+    panel_data = {
+        "id": 789,
+        "targets": None,
+    }
+
+    panel = Panel.model_validate(panel_data)
+    assert panel.id == "789"
+    assert panel.query_targets == []  # Should be converted to empty list
+
+
+def test_panel_with_all_null_optional_fields():
+    """Test panel validation when all optional fields are null."""
+    panel_data = {
+        "id": 999,
+        "fieldConfig": None,
+        "transformations": None,
+        "targets": None,
+        "datasource": None,
+        "title": None,
+        "type": None,
+    }
+
+    panel = Panel.model_validate(panel_data)
+    assert panel.id == "999"
+    assert panel.field_config == {}
+    assert panel.transformations == []
+    assert panel.query_targets == []
+    assert panel.datasource_ref is None
+    assert panel.title is None
+    assert panel.type is None
+
+
 def test_dashboard_with_incomplete_panels():
     """Test dashboard validation containing panels with missing optional fields."""
     dashboard_data = {
@@ -131,6 +189,33 @@ def test_dashboard_with_incomplete_panels():
     assert panel3.type == "table"
     assert panel3.description == ""
     assert panel3.query_targets == []
+
+
+def test_text_panel_like_real_grafana():
+    """Test a text panel structure like those found in real Grafana dashboards."""
+    # This mimics the structure from our integration test dashboard
+    text_panel_data = {
+        "id": 1,
+        "type": "text",
+        "title": "Dashboard Information",
+        "gridPos": {"x": 0, "y": 0, "w": 24, "h": 3},
+        "options": {
+            "content": "# Test Integration Dashboard\nThis dashboard contains test panels.",
+            "mode": "markdown",
+        },
+        # Note: No fieldConfig, targets, transformations, datasource, or description
+    }
+
+    # Should validate successfully with defaults applied
+    panel = Panel.model_validate(text_panel_data)
+    assert panel.id == "1"
+    assert panel.type == "text"
+    assert panel.title == "Dashboard Information"
+    assert panel.description == ""  # Default applied
+    assert panel.field_config == {}  # Default applied
+    assert panel.query_targets == []  # Default applied
+    assert panel.transformations == []  # Default applied
+    assert panel.datasource_ref is None
 
 
 def test_realistic_grafana_api_response():

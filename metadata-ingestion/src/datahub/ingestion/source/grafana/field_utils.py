@@ -77,8 +77,8 @@ def extract_raw_sql_fields(
     schema_aware = False
 
     if panel and panel.datasource_ref and connection_to_platform_map:
-        ds_type = panel.datasource_ref.type or "unknown"
-        ds_uid = panel.datasource_ref.uid or "unknown"
+        ds_type = getattr(panel.datasource_ref, "type", None) or "unknown"
+        ds_uid = getattr(panel.datasource_ref, "uid", None) or "unknown"
 
         # Try to find mapping by datasource UID first, then by type
         platform_config = connection_to_platform_map.get(
@@ -227,13 +227,16 @@ def extract_fields_from_panel(
 
 
 def extract_fields_from_targets(
-    targets: List[Dict[str, Any]],
+    targets: Optional[List[Dict[str, Any]]],
     panel: Optional[Panel] = None,
     connection_to_platform_map: Optional[Dict[str, Any]] = None,
     graph: Optional[DataHubGraph] = None,
     report: Optional[Any] = None,
 ) -> List[SchemaFieldClass]:
     """Extract fields from panel targets."""
+    if targets is None:
+        return []
+
     fields = []
     for target in targets:
         fields.extend(extract_sql_column_fields(target))
@@ -261,9 +264,12 @@ def extract_time_format_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]
 
 
 def get_fields_from_field_config(
-    field_config: Dict[str, Any],
+    field_config: Optional[Dict[str, Any]],
 ) -> List[SchemaFieldClass]:
     """Extract fields from field configuration."""
+    if field_config is None:
+        return []
+
     fields = []
     defaults = field_config.get("defaults", {})
     unit = defaults.get("unit")
@@ -290,9 +296,12 @@ def get_fields_from_field_config(
 
 
 def get_fields_from_transformations(
-    transformations: List[Dict[str, Any]],
+    transformations: Optional[List[Dict[str, Any]]],
 ) -> List[SchemaFieldClass]:
     """Extract fields from transformations."""
+    if transformations is None:
+        return []
+
     fields = []
     for transform in transformations:
         if transform.get("type") == "organize":

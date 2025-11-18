@@ -54,19 +54,49 @@ class Panel(_GrafanaBaseModel):
     field_config: GrafanaFieldConfig = Field(default_factory=dict, alias="fieldConfig")
     transformations: List[GrafanaTransformation] = Field(default_factory=list)
 
+    @staticmethod
+    def _ensure_dict_field(
+        data: Dict[str, Any], field_name: str, default: Dict[str, Any]
+    ) -> None:
+        """Ensure a field is a dict, converting None to the default dict."""
+        if data.get(field_name) is None:
+            data[field_name] = default
+        else:
+            data.setdefault(field_name, default)
+
+    @staticmethod
+    def _ensure_list_field(
+        data: Dict[str, Any], field_name: str, default: List[Any]
+    ) -> None:
+        """Ensure a field is a list, converting None to the default list."""
+        if data.get(field_name) is None:
+            data[field_name] = default
+        else:
+            data.setdefault(field_name, default)
+
+    @staticmethod
+    def _normalize_id_field(data: Dict[str, Any]) -> None:
+        """Convert integer ID to string for consistency."""
+        if "id" in data and isinstance(data["id"], int):
+            data["id"] = str(data["id"])
+
     @model_validator(mode="before")
     @classmethod
     def ensure_panel_defaults(cls, data: Any) -> Dict[str, Any]:
         """Set defaults for optional fields and normalize data types."""
         if isinstance(data, dict):
             result = dict(data)
-            result.setdefault("description", "")
-            result.setdefault("targets", [])
-            result.setdefault("transformations", [])
-            result.setdefault("fieldConfig", {})
 
-            if "id" in result and isinstance(result["id"], int):
-                result["id"] = str(result["id"])
+            # Set basic defaults
+            result.setdefault("description", "")
+
+            # Ensure complex fields are never None
+            cls._ensure_list_field(result, "targets", [])
+            cls._ensure_list_field(result, "transformations", [])
+            cls._ensure_dict_field(result, "fieldConfig", {})
+
+            # Normalize data types
+            cls._normalize_id_field(result)
 
             return result
         return data
@@ -94,9 +124,9 @@ class Dashboard(_GrafanaBaseModel):
         """Extract panels, including nested ones, skipping invalid panels."""
         panels: List[Panel] = []
         for panel_data in panels_data:
-            if panel_data.get("type") == "row" and "panels" in panel_data:
-                for p in panel_data["panels"]:
-                    if p.get("type") != "row":
+            if panel_data.get("type") == "row" and panel_data.get("panels"):
+                for p in panel_data.get("panels", []):
+                    if p and p.get("type") != "row":
                         if skip_text_panels and p.get("type") == "text":
                             continue
                         try:
@@ -125,6 +155,22 @@ class Dashboard(_GrafanaBaseModel):
                         f"Missing or invalid fields. Enable debug logging for details."
                     )
         return panels
+
+    @staticmethod
+    def _set_dashboard_defaults(result: Dict[str, Any]) -> None:
+        """Set default values for optional dashboard fields."""
+        result.setdefault("tags", [])
+        result.setdefault("description", "")
+        result.setdefault("version", None)
+        result.setdefault("timezone", None)
+        result.setdefault("refresh", None)
+        result.setdefault("created_by", None)
+
+    @staticmethod
+    def _cleanup_dashboard_metadata(result: Dict[str, Any]) -> None:
+        """Remove internal metadata fields from dashboard data."""
+        result.pop("meta", None)
+        result.pop("_skip_text_panels", None)
 
     @field_validator("refresh", mode="before")
     @classmethod
@@ -161,16 +207,8 @@ class Dashboard(_GrafanaBaseModel):
             if folder_id is not None:
                 result["folder_id"] = folder_id
 
-            # Set defaults for optional fields that may be missing from API responses
-            result.setdefault("tags", [])
-            result.setdefault("description", "")
-            result.setdefault("version", None)
-            result.setdefault("timezone", None)
-            result.setdefault("refresh", None)
-            result.setdefault("created_by", None)
-
-            result.pop("meta", None)
-            result.pop("_skip_text_panels", None)
+            cls._set_dashboard_defaults(result)
+            cls._cleanup_dashboard_metadata(result)
 
             return result
 

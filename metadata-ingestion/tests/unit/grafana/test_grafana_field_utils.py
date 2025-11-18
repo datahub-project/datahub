@@ -116,3 +116,15 @@ def test_get_fields_from_transformations():
     assert len(fields) == 2
     field_paths = {f.fieldPath for f in fields}
     assert field_paths == {"user", "value"}
+
+
+def test_get_fields_from_field_config_none():
+    """Test that get_fields_from_field_config handles None input gracefully."""
+    fields = get_fields_from_field_config(None)
+    assert fields == []
+
+
+def test_get_fields_from_field_config_empty():
+    """Test that get_fields_from_field_config handles empty dict input."""
+    fields = get_fields_from_field_config({})
+    assert fields == []
