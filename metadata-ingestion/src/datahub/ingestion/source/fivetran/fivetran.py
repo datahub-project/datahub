@@ -150,6 +150,10 @@ class FivetranSource(StatefulIngestionSourceBase):
             input_dataset_urn: Optional[DatasetUrn] = None
             # Special Handling for Google Sheets Connectors
             if connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE:
+                logger.debug(
+                    f"Processing Google Sheets connector for lineage extraction: "
+                    f"connector_name={connector.connector_name}, connector_id={connector.connector_id}"
+                )
                 # Get Google Sheet dataset details from Fivetran API
                 # This is cached in the api_client
                 gsheets_conn_details: Optional[FivetranConnectionDetails] = (
@@ -157,6 +161,11 @@ class FivetranSource(StatefulIngestionSourceBase):
                 )
 
                 if gsheets_conn_details:
+                    logger.debug(
+                        f"Successfully retrieved connection details for Google Sheets connector: "
+                        f"connector_id={connector.connector_id}, "
+                        f"has_source_sync_details={hasattr(gsheets_conn_details, 'source_sync_details')}"
+                    )
                     input_dataset_urn = DatasetUrn.create_from_ids(
                         platform_id=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
                         table_name=self._get_gsheet_named_range_dataset_id(
@@ -165,6 +174,10 @@ class FivetranSource(StatefulIngestionSourceBase):
                         env=source_details.env,
                     )
                 else:
+                    logger.warning(
+                        f"Failed to get connection details for Google Sheets connector: "
+                        f"connector_name={connector.connector_name}, connector_id={connector.connector_id}"
+                    )
                     self.report.warning(
                         title="Failed to extract lineage for Google Sheets Connector",
                         message="Unable to extract lineage for Google Sheets Connector, as the connector details are not available from Fivetran API.",
@@ -319,14 +332,29 @@ class FivetranSource(StatefulIngestionSourceBase):
             return self._connection_details_cache[connection_id]
 
         try:
+            logger.debug(
+                f"Attempting to get connection details for connector_id: {connection_id}"
+            )
             self.report.report_fivetran_rest_api_call_count()
             conn_details = self.api_client.get_connection_details_by_id(connection_id)
             # Update Cache
             if conn_details:
+                logger.debug(
+                    f"Successfully retrieved and cached connection details for connector_id: {connection_id}"
+                )
                 self._connection_details_cache[connection_id] = conn_details
+            else:
+                logger.warning(
+                    f"get_connection_details_by_id returned None for connector_id: {connection_id}"
+                )
 
             return conn_details
         except Exception as e:
+            logger.error(
+                f"Exception occurred while getting connection details for connector_id: {connection_id}. "
+                f"Exception type: {type(e).__name__}, Exception message: {str(e)}",
+                exc_info=True,
+            )
             self.report.warning(
                 title="Failed to get connection details for Google Sheets Connector",
                 message=f"Exception occurred while getting connection details from Fivetran API. {e}",
@@ -410,12 +438,22 @@ class FivetranSource(StatefulIngestionSourceBase):
         -------------------------------------------------------
         """
         if connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE:
+            logger.debug(
+                f"Processing Google Sheets connector for workunit generation: "
+                f"connector_name={connector.connector_name}, connector_id={connector.connector_id}"
+            )
             # Get Google Sheet dataset details from Fivetran API
             gsheets_conn_details: Optional[FivetranConnectionDetails] = (
                 self._get_connection_details_by_id(connector.connector_id)
             )
 
             if gsheets_conn_details:
+                logger.debug(
+                    f"Successfully retrieved connection details for workunit generation: "
+                    f"connector_id={connector.connector_id}, "
+                    f"sheet_id={gsheets_conn_details.config.sheet_id if hasattr(gsheets_conn_details, 'config') else 'N/A'}, "
+                    f"has_source_sync_details={hasattr(gsheets_conn_details, 'source_sync_details')}"
+                )
                 gsheets_dataset = Dataset(
                     name=self._get_gsheet_sheet_id_from_url(gsheets_conn_details),
                     platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
