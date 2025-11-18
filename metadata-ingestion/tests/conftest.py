@@ -6,17 +6,6 @@ from typing import List
 
 import pytest
 
-# Initialize JPype/JVM BEFORE any modules import it
-# This must happen before any kafka_connect modules are imported
-try:
-    import jpype
-    import jpype.imports  # Required for Java imports to work
-
-    if not jpype.isJVMStarted():
-        jpype.startJVM(jpype.getDefaultJVMPath())
-except (ImportError, RuntimeError):
-    pass  # JPype not available or JVM already started
-
 os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 os.environ["DATAHUB_TEST_MODE"] = "1"
 
