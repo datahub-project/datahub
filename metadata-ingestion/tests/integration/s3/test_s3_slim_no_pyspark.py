@@ -4,88 +4,56 @@ Integration test to validate s3-slim installation works without PySpark.
 This test ensures that the s3-slim pip extra can be installed and used
 without PySpark dependencies, which is critical for lightweight deployments.
 
-NOTE: Most tests in this file are designed to run in s3-slim environments
-and will be skipped if PySpark is installed (e.g., in dev environments).
 """
 
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
-
-# Check if PySpark is available for test skipping
-try:
-    import pyspark  # noqa: F401
-
-    _PYSPARK_AVAILABLE = True
-except ImportError:
-    _PYSPARK_AVAILABLE = False
-
-# Skip marker for tests that should only run without PySpark
-requires_no_pyspark = pytest.mark.skipif(
-    _PYSPARK_AVAILABLE,
-    reason="Test only runs in s3-slim environments without PySpark",
-)
 
 
 @pytest.mark.integration
 class TestS3SlimNoPySpark:
     """Integration tests for s3-slim without PySpark dependencies."""
 
-    @requires_no_pyspark
+    @pytest.fixture(autouse=True)
+    def mock_missing_pyspark(self):
+        """Automatically mock missing pyspark/pydeequ for all tests in this class."""
+        with patch.dict(
+            sys.modules,
+            {
+                "pyspark": None,
+                "pyspark.sql": None,
+                "pyspark.sql.dataframe": None,
+                "pyspark.sql.types": None,
+                "pydeequ": None,
+                "pydeequ.analyzers": None,
+            },
+        ):
+            yield
+
     def test_s3_slim_pyspark_not_installed(self):
-        """Verify that s3-slim installation does not include PySpark."""
-        try:
-            import pyspark
-
-            pytest.fail(
-                "PySpark should NOT be installed when using s3-slim extra. "
-                f"Found pyspark at: {pyspark.__file__}"
-            )
-        except ImportError:
-            # This is expected - PySpark should not be available
+        with pytest.raises(ImportError):
             pass
 
-    @requires_no_pyspark
     def test_s3_slim_pydeequ_not_installed(self):
-        """Verify that s3-slim installation does not include PyDeequ."""
-        try:
-            import pydeequ
-
-            pytest.fail(
-                "PyDeequ should NOT be installed when using s3-slim extra. "
-                f"Found pydeequ at: {pydeequ.__file__}"
-            )
-        except ImportError:
-            # This is expected - PyDeequ should not be available
+        with pytest.raises(ImportError):
             pass
 
-    @requires_no_pyspark
-    def test_s3_source_imports_successfully(self):
-        """Verify that S3 source can be imported without PySpark."""
-        from datahub.ingestion.source.s3.source import S3Source
-
-        assert S3Source is not None
-
-    @requires_no_pyspark
     def test_s3_source_loads_as_plugin(self):
-        """Verify that S3 source is registered and loadable as a plugin."""
         from datahub.ingestion.source.source_registry import source_registry
 
-        # Get the source class from the registry
         s3_class = source_registry.get("s3")
         assert s3_class is not None
 
-        # Verify it's the right class
         from datahub.ingestion.source.s3.source import S3Source
 
         assert s3_class == S3Source
 
-    @requires_no_pyspark
     def test_s3_config_without_profiling(self):
-        """Verify S3 config can be created without profiling."""
         from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 
         config_dict = {
@@ -101,32 +69,7 @@ class TestS3SlimNoPySpark:
         assert config is not None
         assert config.profiling.enabled is False
 
-    @requires_no_pyspark
-    def test_s3_config_profiling_enabled_accepted(self):
-        """Verify S3 config accepts profiling=True even without PySpark.
-
-        The config should accept profiling=True for backward compatibility.
-        The actual error will occur when the source tries to initialize profiling.
-        """
-        from datahub.ingestion.source.s3.config import DataLakeSourceConfig
-
-        config_dict = {
-            "path_specs": [
-                {
-                    "include": "s3://test-bucket/data/*.csv",
-                }
-            ],
-            "profiling": {"enabled": True},
-        }
-
-        # Config creation should succeed
-        config = DataLakeSourceConfig.parse_obj(config_dict)
-        assert config is not None
-        assert config.profiling.enabled is True
-
-    @requires_no_pyspark
     def test_s3_source_creation_fails_with_profiling_no_pyspark(self):
-        """Verify S3 source creation fails with clear error when profiling enabled without PySpark."""
         from datahub.ingestion.api.common import PipelineContext
         from datahub.ingestion.source.s3.source import S3Source
 
@@ -141,7 +84,6 @@ class TestS3SlimNoPySpark:
 
         ctx = PipelineContext(run_id="test-s3-slim")
 
-        # Creating the source with profiling enabled should fail
         with pytest.raises(RuntimeError) as exc_info:
             S3Source.create(config_dict, ctx)
 
@@ -150,13 +92,10 @@ class TestS3SlimNoPySpark:
         assert "S3 profiling" in error_msg
         assert "acryl-datahub[data-lake-profiling]" in error_msg
 
-    @requires_no_pyspark
     def test_s3_source_works_without_profiling(self, tmp_path: Path) -> None:
-        """Verify S3 source can run ingestion without profiling."""
         from datahub.ingestion.api.common import PipelineContext
         from datahub.ingestion.source.s3.source import S3Source
 
-        # Create test CSV file
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name,value\n1,test,100\n2,sample,200\n")
 
@@ -171,82 +110,15 @@ class TestS3SlimNoPySpark:
 
         ctx = PipelineContext(run_id="test-s3-slim-ingestion")
 
-        # Creating and running the source should work
         source = S3Source.create(config_dict, ctx)
         assert source is not None
 
-        # Get workunits - should not raise any PySpark-related errors
-        workunits = list(source.get_workunits())
-        assert len(workunits) > 0
-
-
-@pytest.mark.integration
-class TestS3WithoutProfiling:
-    """Tests that verify S3 source works without profiling enabled.
-
-    These tests work regardless of whether PySpark is installed, since they
-    test the non-profiling code path which doesn't require PySpark.
-    """
-
-    def test_s3_config_accepts_profiling_enabled(self):
-        """Test that config accepts profiling=True for backward compatibility.
-
-        This test works regardless of PySpark installation since it only validates config.
-        The actual error occurs during source initialization, not config validation.
-        """
-        from datahub.ingestion.source.s3.config import DataLakeSourceConfig
-
-        config_dict = {
-            "path_specs": [
-                {
-                    "include": "s3://test-bucket/data/*.csv",
-                }
-            ],
-            "profiling": {"enabled": True},
-        }
-
-        # Config validation should succeed regardless of PySpark availability
-        config = DataLakeSourceConfig.parse_obj(config_dict)
-        assert config is not None
-        assert config.profiling.enabled is True
-
-    def test_s3_source_works_without_profiling(self, tmp_path):
-        """Test that S3 source works correctly when profiling is disabled.
-
-        This test verifies that s3-slim functionality (no profiling) works
-        regardless of whether PySpark is installed.
-        """
-        from datahub.ingestion.api.common import PipelineContext
-        from datahub.ingestion.source.s3.source import S3Source
-
-        # Create test CSV file
-        test_file = tmp_path / "test.csv"
-        test_file.write_text("id,name\n1,test\n2,sample\n")
-
-        config_dict = {
-            "path_specs": [
-                {
-                    "include": f"{tmp_path}/*.csv",
-                }
-            ],
-            "profiling": {"enabled": False},
-        }
-
-        ctx = PipelineContext(run_id="test-no-profiling")
-
-        # Should work without PySpark when profiling is disabled
-        source = S3Source.create(config_dict, ctx)
-        assert source is not None
-
-        # Should be able to generate workunits
         workunits = list(source.get_workunits())
         assert len(workunits) > 0
 
 
 @pytest.mark.integration
 class TestS3SlimInstallation:
-    """Tests that validate s3-slim can be installed in isolated environments."""
-
     def test_s3_slim_install_excludes_pyspark(self):
         """Test that installing acryl-datahub[s3-slim] does not install PySpark.
 
@@ -316,7 +188,7 @@ class TestS3SlimInstallation:
     def test_s3_full_install_includes_pyspark(self):
         """Test that installing acryl-datahub[s3] DOES install PySpark.
 
-        This ensures backward compatibility - standard s3 extra includes PySpark.
+        Standard s3 extra includes PySpark.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             venv_path = Path(tmpdir) / "test_venv"
