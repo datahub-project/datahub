@@ -443,9 +443,14 @@ def test_is_stored_procedure_with_unsupported_syntax() -> None:
         dialect,
     )
 
-    # Should NOT detect regular procedure
-    assert not _is_stored_procedure_with_unsupported_syntax(
+    # Should detect BEGIN/END (control flow)
+    assert _is_stored_procedure_with_unsupported_syntax(
         "CREATE PROCEDURE test AS BEGIN SELECT 1 END", dialect
+    )
+
+    # Should detect IF statements
+    assert _is_stored_procedure_with_unsupported_syntax(
+        "CREATE PROCEDURE test AS IF @x > 0 SELECT 1", dialect
     )
 
     # Should NOT detect non-procedure statements

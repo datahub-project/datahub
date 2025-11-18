@@ -3,16 +3,36 @@
     "query_type_props": {
         "kind": "PROCEDURE"
     },
-    "query_fingerprint": "38c421a1e3f2da9c89559c9ed508acaa75f7ed783711e32adbab220232cb5d18",
-    "in_tables": [],
+    "query_fingerprint": null,
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)"
+    ],
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.simpleupdate,PROD)"
     ],
-    "column_lineage": null,
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)",
+                "column": "last_updated",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                    }
+                },
+                "native_column_type": "DATETIME2"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "GETDATE() AS [last_updated]"
+            }
+        }
+    ],
     "joins": null,
     "debug_info": {
-        "confidence": 0.2,
-        "generalized_statement": "CREATE PROCEDURE dbo.SimpleUpdate AS BEGIN UPDATE customers SET last_updated = GETDATE() WHERE id = ?"
+        "confidence": 0.5,
+        "generalized_statement": "CREATE PROCEDURE (parsed 2 statements via fallback)"
     }
 }

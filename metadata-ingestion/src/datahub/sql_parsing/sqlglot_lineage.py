@@ -73,6 +73,37 @@ assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 
+# TSQL control flow keywords that sqlglot doesn't support
+TSQL_CONTROL_FLOW_KEYWORDS = {
+    "BEGIN",
+    "END",
+    "BEGIN TRY",
+    "END TRY",
+    "BEGIN CATCH",
+    "END CATCH",
+    "BEGIN TRANSACTION",
+    "BEGIN TRAN",
+    "COMMIT",
+    "ROLLBACK",
+    "SAVE TRANSACTION",
+    "SAVE TRAN",
+    "DECLARE",
+    "SET",
+    "IF",
+    "ELSE",
+    "WHILE",
+    "BREAK",
+    "CONTINUE",
+    "RETURN",
+    "THROW",
+    "EXECUTE",
+    "EXEC",
+    "GO",
+    "PRINT",
+    "RAISERROR",
+    "WAITFOR",
+}
+
 Urn = str
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
@@ -1373,7 +1404,6 @@ def _is_stored_procedure_with_unsupported_syntax(
 ) -> bool:
     """
     Check if the SQL is a stored procedure with control flow syntax that sqlglot doesn't support.
-    This is common in MSSQL/TSQL with TRY/CATCH blocks.
     """
     sql_upper = sql.strip().upper()
 
@@ -1384,16 +1414,8 @@ def _is_stored_procedure_with_unsupported_syntax(
     ):
         return False
 
-    # Check for TSQL-specific control flow that causes parsing failures
-    # These are common patterns that make sqlglot fall back to Command parsing
-    unsupported_patterns = [
-        "BEGIN TRY",
-        "END TRY",
-        "BEGIN CATCH",
-        "END CATCH",
-    ]
-
-    return any(pattern in sql_upper for pattern in unsupported_patterns)
+    # Check for TSQL control flow that causes parsing failures
+    return any(pattern in sql_upper for pattern in TSQL_CONTROL_FLOW_KEYWORDS)
 
 
 def _parse_stored_procedure_fallback(
@@ -1424,38 +1446,6 @@ def _parse_stored_procedure_fallback(
     # Split into individual statements
     statements = list(split_statements(sql))
 
-    # Control flow keywords to skip - these are statements that don't produce lineage
-    # and may not be supported by sqlglot
-    control_flow_keywords = {
-        "BEGIN",
-        "END",
-        "BEGIN TRY",
-        "END TRY",
-        "BEGIN CATCH",
-        "END CATCH",
-        "BEGIN TRANSACTION",
-        "BEGIN TRAN",
-        "COMMIT",
-        "ROLLBACK",
-        "SAVE TRANSACTION",
-        "SAVE TRAN",
-        "DECLARE",
-        "SET",
-        "IF",
-        "ELSE",
-        "WHILE",
-        "BREAK",
-        "CONTINUE",
-        "RETURN",
-        "THROW",
-        "EXECUTE",
-        "EXEC",
-        "GO",
-        "PRINT",
-        "RAISERROR",
-        "WAITFOR",
-    }
-
     # Collect results from all parseable statements
     all_in_tables: Set[Urn] = set()
     all_out_tables: Set[Urn] = set()
@@ -1471,7 +1461,9 @@ def _parse_stored_procedure_fallback(
         stmt_upper = stmt_stripped.upper()
 
         # Skip control flow statements that don't produce lineage
-        is_control_flow = any(stmt_upper.startswith(kw) for kw in control_flow_keywords)
+        is_control_flow = any(
+            stmt_upper.startswith(kw) for kw in TSQL_CONTROL_FLOW_KEYWORDS
+        )
         if is_control_flow:
             logger.debug(f"Skipping control flow statement: {stmt_stripped[:50]}...")
             continue
