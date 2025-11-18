@@ -286,21 +286,21 @@ class S3Source(StatefulIngestionSourceBase):
 
             try:
                 from datahub.ingestion.source.s3.profiling import SparkProfiler
+
+                self.profiler = SparkProfiler(
+                    aws_config=config.aws_config,
+                    spark_driver_memory=config.spark_driver_memory,
+                    spark_config=config.spark_config,
+                    report=self.report,
+                    profiling_times_taken=self.profiling_times_taken,
+                    profiling_config=config.profiling,
+                )
             except (ImportError, ModuleNotFoundError) as e:
                 raise RuntimeError(
                     "PySpark is not installed but is required for S3 profiling. "
                     "Please install with profiling support: "
                     "pip install 'acryl-datahub[data-lake-profiling]' or 'acryl-datahub[s3]'"
                 ) from e
-
-            self.profiler = SparkProfiler(
-                aws_config=config.aws_config,
-                spark_driver_memory=config.spark_driver_memory,
-                spark_config=config.spark_config,
-                report=self.report,
-                profiling_times_taken=self.profiling_times_taken,
-                profiling_config=config.profiling,
-            )
 
     @classmethod
     def create(cls, config_dict, ctx):
