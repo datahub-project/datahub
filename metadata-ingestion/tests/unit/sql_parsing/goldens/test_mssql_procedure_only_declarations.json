@@ -1,0 +1,17 @@
+{
+    "query_type": "CREATE_OTHER",
+    "query_type_props": {
+        "kind": "PROCEDURE"
+    },
+    "query_fingerprint": "8f92565f7d7c8bcf1365a913acd53dd9569a03fef90eb1bdf2a502244eaa9cc0",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.onlydeclarations,PROD)"
+    ],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE PROCEDURE dbo.OnlyDeclarations AS BEGIN DECLARE @var1 AS INTEGER"
+    }
+}

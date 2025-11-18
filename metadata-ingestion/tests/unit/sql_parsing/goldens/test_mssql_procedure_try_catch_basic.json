@@ -1,0 +1,34 @@
+{
+    "query_type": "CREATE_OTHER",
+    "query_type_props": {
+        "kind": "PROCEDURE"
+    },
+    "query_fingerprint": null,
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.updatecustomer,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)",
+                "column": "name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@CustomerName AS [name]"
+            }
+        }
+    ],
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.5,
+        "generalized_statement": "CREATE PROCEDURE (parsed 2 statements via fallback)"
+    }
+}
