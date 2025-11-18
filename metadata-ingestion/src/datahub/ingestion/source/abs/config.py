@@ -106,6 +106,9 @@ class DataLakeSourceConfig(
             self.profiling.operation_config
         )
 
+    # NOTE: We keep this validator in mode="before" so we can inspect raw dict
+    # path_specs before PathSpec validation runs. That prevents existing configs
+    # that rely on inferred fields (like allow_double_stars) from failing early.
     @field_validator("path_specs", mode="before")
     @classmethod
     def check_path_specs_and_infer_platform(
