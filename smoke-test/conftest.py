@@ -35,13 +35,6 @@ os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 
 
 def build_auth_session():
-    username, _ = get_admin_credentials()
-    frontend_url = get_frontend_url()
-    logger.debug(f"build_auth_session - building auth session")
-    logger.debug(f"build_auth_session - frontend URL: {frontend_url}")
-    logger.debug(f"build_auth_session - username: {username}")
-
-    wait_for_healthcheck_util(requests)
     session = TestSessionWrapper(get_frontend_session())
 
     logger.debug("build_auth_session - verifying auth session")

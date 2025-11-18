@@ -21,6 +21,8 @@ def get_suppress_logging_manager() -> Optional[str]:
 
 def get_gms_url() -> Optional[str]:
     """GMS URL."""
+    if get_release_test_enabled():
+        return get_release_test_gms_url()
     return os.getenv("DATAHUB_GMS_URL")
 
 
@@ -36,6 +38,8 @@ def get_gms_base_path() -> str:
 
 def get_frontend_url() -> Optional[str]:
     """DataHub frontend URL."""
+    if get_release_test_enabled():
+        return get_release_test_frontend_url()
     return os.getenv("DATAHUB_FRONTEND_URL")
 
 
@@ -268,6 +272,11 @@ def get_test_identifier() -> str:
 # ========================================================================================
 
 
+def get_release_test_enabled() -> bool:
+    release_test_frontend_url = get_release_test_frontend_url()
+    return bool(release_test_frontend_url)
+
+
 def get_release_test_gms_url() -> Optional[str]:
     """GMS URL for release tests."""
     frontend_url = get_release_test_frontend_url()
@@ -276,9 +285,9 @@ def get_release_test_gms_url() -> Optional[str]:
     return os.getenv("RELEASE_TEST_GMS_URL")
 
 
-def get_release_test_frontend_url() -> str:
+def get_release_test_frontend_url() -> Optional[str]:
     """Frontend URL for release tests."""
-    return os.getenv("RELEASE_TEST_FRONTEND_URL", "https://deploy-auto.acryl.io")
+    return os.getenv("RELEASE_TEST_FRONTEND_URL")
 
 
 def get_release_test_admin_username() -> str:
@@ -288,5 +297,14 @@ def get_release_test_admin_username() -> str:
 
 def get_release_test_admin_password() -> Optional[str]:
     """Admin password for release tests."""
-    # TODO Move this to a secret
     return os.getenv("RELEASE_TEST_ADMIN_PASSWORD")
+
+
+def get_release_test_notification_channel() -> Optional[str]:
+    """Notification channel for release tests."""
+    return os.getenv("RELEASE_TEST_NOTIFICATION_CHANNEL")
+
+
+def get_release_test_notification_token() -> Optional[str]:
+    """Notification token for release tests."""
+    return os.getenv("RELEASE_TEST_NOTIFICATION_TOKEN")

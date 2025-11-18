@@ -3,6 +3,8 @@ name: Release Tests
 # These tests do not require building images or running quickstart locally
 
 on:
+  schedule:
+    - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
   workflow_dispatch:
     inputs:
       branch:
@@ -27,7 +29,7 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v4
         with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
+          ref: ${{ github.event_name == 'schedule' && 'acryl-main' || github.event.inputs.branch || github.ref }}
 
       - uses: actions/setup-python@v6
         with:
@@ -35,7 +37,7 @@ jobs:
           cache: "pip"
 
       - name: Install uv
-        uses: astral-sh/uv@v7.1.3
+        uses: astral-sh/setup-uv@v7.1.3
         with:
           version: "0.9.9"
 
@@ -44,12 +46,16 @@ jobs:
         with:
           export-env: true
         env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           RELEASE_TEST_ADMIN_USERNAME: op://Engineering/Shared Accounts for dev0x/admin email
           RELEASE_TEST_ADMIN_PASSWORD: op://Engineering/Shared Accounts for dev0x/admin pass
+          RELEASE_TEST_NOTIFICATION_CHANNEL: op://Engineering/slack tokens for release test of deploy-auto/slack channel deploy-auto notification
+          RELEASE_TEST_NOTIFICATION_TOKEN: op://Engineering/slack tokens for release test of deploy-auto/slack token deploy-auto
 
       - name: Run release tests
         env:
-          RELEASE_TEST_FRONTEND_URL: ${{ github.event.inputs.remote_instance_url }}
+          RELEASE_TEST_FRONTEND_URL: ${{ github.event_name == 'schedule' && 'https://deploy-auto.acryl.io' || github.event.inputs.remote_instance_url }}
+          USE_STATIC_SLEEP: "true"
         run: |
           cd smoke-test
           uv venv venv --python 3.11

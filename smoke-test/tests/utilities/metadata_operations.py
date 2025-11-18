@@ -436,3 +436,145 @@ def get_default_channel_name(auth_session) -> str | None:
         return None
 
     return slack_settings.get("defaultChannelName")
+
+
+@with_test_retry()
+def list_incidents(
+    auth_session,
+    resource_urn: str,
+    state: str = "ACTIVE",
+    start: int = 0,
+    count: int = 10,
+) -> Dict[str, Any]:
+    """List incidents for a resource.
+
+    Args:
+        auth_session: The authenticated session
+        resource_urn: URN of the resource (e.g., dataset URN)
+        state: Incident state filter (ACTIVE, RESOLVED, or ALL)
+        start: Starting offset for pagination
+        count: Number of incidents to retrieve
+
+    Returns:
+        Dictionary containing incidents data with keys: start, count, total, incidents
+    """
+    state_filter = f"state: {state}, " if state != "ALL" else ""
+    query = f"""query dataset($urn: String!) {{
+        dataset(urn: $urn) {{
+          incidents({state_filter}start: {start}, count: {count}) {{
+            start
+            count
+            total
+            incidents {{
+              urn
+              type
+              incidentType
+              title
+              description
+              priority
+              incidentStatus {{
+                state
+                message
+                lastUpdated {{
+                  time
+                  actor
+                }}
+              }}
+              source {{
+                type
+                source {{
+                  ... on Assertion {{
+                    urn
+                    info {{
+                      type
+                    }}
+                  }}
+                }}
+              }}
+              entity {{
+                urn
+              }}
+              created {{
+                time
+                actor
+              }}
+            }}
+          }}
+        }}
+    }}"""
+    variables: Dict[str, Any] = {"urn": resource_urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataset"]["incidents"]
+
+
+def raise_incident(
+    auth_session,
+    resource_urn: str,
+    incident_type: str,
+    title: str,
+    description: str,
+    priority: str = "CRITICAL",
+) -> str:
+    """Raise a new incident on a resource.
+
+    Args:
+        auth_session: The authenticated session
+        resource_urn: URN of the resource to raise incident on
+        incident_type: Type of incident (e.g., OPERATIONAL, CUSTOM)
+        title: Incident title
+        description: Incident description
+        priority: Incident priority (CRITICAL, HIGH, MEDIUM, LOW)
+
+    Returns:
+        URN of the newly created incident
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "type": incident_type,
+            "title": title,
+            "description": description,
+            "resourceUrn": resource_urn,
+            "priority": priority,
+        }
+    }
+
+    query = """mutation raiseIncident($input: RaiseIncidentInput!) {
+        raiseIncident(input: $input)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["raiseIncident"]
+
+
+def update_incident_status(
+    auth_session,
+    incident_urn: str,
+    state: str,
+    message: str = "",
+) -> bool:
+    """Update the status of an incident.
+
+    Args:
+        auth_session: The authenticated session
+        incident_urn: URN of the incident to update
+        state: New state (ACTIVE, RESOLVED)
+        message: Optional status message
+
+    Returns:
+        True if the update was successful
+    """
+    variables: Dict[str, Any] = {
+        "urn": incident_urn,
+        "input": {
+            "state": state,
+            "message": message,
+        },
+    }
+
+    query = """mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {
+        updateIncidentStatus(urn: $urn, input: $input)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["updateIncidentStatus"]
