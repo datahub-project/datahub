@@ -174,7 +174,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                         env=source_details.env,
                     )
                 else:
-                    logger.warning(
+                    logger.debug(
                         f"Failed to get connection details for Google Sheets connector: "
                         f"connector_name={connector.connector_name}, connector_id={connector.connector_id}"
                     )
@@ -331,34 +331,20 @@ class FivetranSource(StatefulIngestionSourceBase):
         if connection_id in self._connection_details_cache:
             return self._connection_details_cache[connection_id]
 
+        self.report.report_fivetran_rest_api_call_count()
         try:
-            logger.debug(
-                f"Attempting to get connection details for connector_id: {connection_id}"
-            )
-            self.report.report_fivetran_rest_api_call_count()
             conn_details = self.api_client.get_connection_details_by_id(connection_id)
-            # Update Cache
-            if conn_details:
-                logger.debug(
-                    f"Successfully retrieved and cached connection details for connector_id: {connection_id}"
-                )
-                self._connection_details_cache[connection_id] = conn_details
-            else:
-                logger.warning(
-                    f"get_connection_details_by_id returned None for connector_id: {connection_id}"
-                )
-
+            self._connection_details_cache[connection_id] = conn_details
             return conn_details
         except Exception as e:
-            logger.error(
-                f"Exception occurred while getting connection details for connector_id: {connection_id}. "
-                f"Exception type: {type(e).__name__}, Exception message: {str(e)}",
+            logger.debug(
+                f"Failed to get connection details using rest-api for connector_id: {connection_id}. Error: {str(e)}",
                 exc_info=True,
             )
             self.report.warning(
                 title="Failed to get connection details for Google Sheets Connector",
-                message=f"Exception occurred while getting connection details from Fivetran API. {e}",
-                context=f"connector_id: {connection_id}",
+                message="Exception occurred while getting connection details from Fivetran API",
+                context=f"connector_id: {connection_id}. Error: {str(e)}",
             )
             return None
 
