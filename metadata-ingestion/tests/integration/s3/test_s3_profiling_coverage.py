@@ -6,7 +6,7 @@ import pytest
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.s3.source import S3Source
-from datahub.metadata._internal_schema_classes import MetadataChangeProposalClass
+from datahub.metadata.schema_classes import MetadataChangeProposalClass
 
 
 @pytest.mark.integration
