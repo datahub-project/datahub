@@ -221,11 +221,10 @@ def extract_fields_from_panel(
         if target_fields:
             fields.extend(target_fields)
 
-    # Extract fields from field config (only if there's meaningful config)
-    if panel.safe_field_config:
-        field_config_fields = get_fields_from_field_config(panel.safe_field_config)
-        if field_config_fields:
-            fields.extend(field_config_fields)
+    # Extract fields from field config
+    field_config_fields = get_fields_from_field_config(panel.field_config)
+    if field_config_fields:
+        fields.extend(field_config_fields)
 
     # Extract fields from transformations (only if there are transformations)
     if panel.safe_transformations:
@@ -281,9 +280,12 @@ def extract_time_format_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]
 
 
 def get_fields_from_field_config(
-    field_config: Dict[str, Any],
+    field_config: Optional[Dict[str, Any]],
 ) -> List[SchemaFieldClass]:
     """Extract fields from field configuration."""
+    if field_config is None:
+        return []
+
     fields = []
     defaults = field_config.get("defaults", {})
     unit = defaults.get("unit")
@@ -295,6 +297,7 @@ def get_fields_from_field_config(
                 nativeDataType="value",
             )
         )
+
     for override in field_config.get("overrides", []):
         if override.get("matcher", {}).get("id") == "byName":
             field_name = override.get("matcher", {}).get("options")

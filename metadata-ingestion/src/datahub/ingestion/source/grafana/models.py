@@ -103,8 +103,18 @@ class Panel(_GrafanaBaseModel):
         if isinstance(data, dict):
             result = dict(data)
 
-            # Set basic defaults
-            result.setdefault("description", "")
+            # Set basic defaults - handle None values
+            if result.get("description") is None:
+                result["description"] = ""
+
+            # Handle datasource field - convert invalid types to None
+            datasource = result.get("datasource")
+            if isinstance(datasource, str):
+                # Handle template variables like '$datasource' or other string values
+                result["datasource"] = None
+            elif datasource is not None and not isinstance(datasource, dict):
+                # Handle any other invalid types
+                result["datasource"] = None
 
             # Ensure complex fields are never None
             cls._ensure_list_field(result, "targets", [])

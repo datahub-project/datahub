@@ -124,6 +124,12 @@ def test_get_fields_from_field_config_empty():
     assert fields == []
 
 
+def test_get_fields_from_field_config_none():
+    """Test that get_fields_from_field_config handles None input gracefully."""
+    fields = get_fields_from_field_config(None)
+    assert fields == []
+
+
 def test_extract_fields_from_panel_with_empty_fields():
     """Test that extract_fields_from_panel handles panels with empty fields efficiently."""
     from datahub.ingestion.source.grafana.field_utils import extract_fields_from_panel

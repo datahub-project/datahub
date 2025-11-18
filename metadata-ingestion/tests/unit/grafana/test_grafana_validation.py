@@ -218,6 +218,45 @@ def test_text_panel_like_real_grafana():
     assert panel.datasource_ref is None
 
 
+def test_panel_with_null_description():
+    """Test that panels with explicit None description are handled correctly."""
+    panel_data = {
+        "id": 18,
+        "type": "timeseries",
+        "title": "Test Panel",
+        "description": None,  # Explicit None value from Grafana API
+        "datasource": {"type": "prometheus", "uid": "test-uid"},
+        "fieldConfig": {"defaults": {"unit": "short"}},
+        "targets": [{"expr": "up"}],
+    }
+
+    # Should validate successfully with None converted to empty string
+    panel = Panel.model_validate(panel_data)
+    assert panel.description == ""  # None converted to empty string
+    assert panel.id == "18"
+    assert panel.type == "timeseries"
+    assert panel.title == "Test Panel"
+
+
+def test_panel_with_string_datasource():
+    """Test that panels with string datasource (template variables) are handled correctly."""
+    panel_data = {
+        "id": 35,
+        "type": "timeseries",
+        "title": "Sent records",
+        "datasource": "$datasource",  # String template variable from Grafana
+        "fieldConfig": {"defaults": {"unit": "short"}},
+        "targets": [{"datasource": "$datasource", "expr": "up"}],
+    }
+
+    # Should validate successfully with string datasource converted to None
+    panel = Panel.model_validate(panel_data)
+    assert panel.datasource_ref is None  # String converted to None
+    assert panel.id == "35"
+    assert panel.type == "timeseries"
+    assert panel.title == "Sent records"
+
+
 def test_realistic_grafana_api_response():
     """Test validation with a realistic Grafana API response format."""
     # Simulates a typical Grafana API response with some optional fields missing
