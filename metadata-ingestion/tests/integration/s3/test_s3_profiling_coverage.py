@@ -1,30 +1,18 @@
-"""Integration tests for S3 profiling to ensure code coverage of type-ignored lines.
-
-This test file specifically targets code paths with type: ignore annotations
-that need runtime execution to achieve coverage, particularly when profiling is enabled.
-"""
-
 from pathlib import Path
 
+import pandas as pd
 import pytest
-
-# Check if profiling dependencies are available
-try:
-    import pydeequ  # noqa: F401
-    import pyspark  # noqa: F401
-
-    _PROFILING_ENABLED = True
-except ImportError:
-    _PROFILING_ENABLED = False
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.s3.source import S3Source
 
 
-@pytest.fixture(autouse=True, scope="function")
-def reset_spark_session():
-    """Reset Spark session before and after each test to ensure clean state with proper jars."""
-    if _PROFILING_ENABLED:
+@pytest.mark.integration
+class TestS3ProfilingCoverage:
+    """Integration tests to cover all profiling code paths with different data types."""
+
+    @pytest.fixture(autouse=True)
+    def reset_spark_session(self):
         try:
             from pyspark import SparkContext
             from pyspark.sql import SparkSession
@@ -38,10 +26,8 @@ def reset_spark_session():
         except Exception:
             pass
 
-    yield
+        yield
 
-    # Cleanup after test as well
-    if _PROFILING_ENABLED:
         try:
             from pyspark import SparkContext
             from pyspark.sql import SparkSession
@@ -53,24 +39,14 @@ def reset_spark_session():
         except Exception:
             pass
 
-
-@pytest.mark.integration
-@pytest.mark.skipif(
-    not _PROFILING_ENABLED,
-    reason="PySpark not available, skipping profiling integration tests",
-)
-class TestS3ProfilingCoverage:
-    """Integration tests to cover all profiling code paths with different data types."""
-
     def test_profiling_with_numeric_types(self, tmp_path: Path) -> None:
         """Test profiling with various numeric column types (int, float, double).
 
         This covers:
-        - count/when/isnan/col operations for numeric null counts (lines 164-169)
-        - isinstance checks for numeric types (lines 305-314)
-        - Cardinality-based branching for UNIQUE/FEW/MANY (lines 315-337)
+        - count/when/isnan/col operations for numeric null counts
+        - isinstance checks for numeric types
+        - Cardinality-based branching for UNIQUE/FEW/MANY
         """
-        import pandas as pd
 
         # Create test data with different numeric types
         test_file = tmp_path / "numeric_data.csv"
@@ -127,10 +103,12 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-numeric")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         # Execute profiling
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         # Verify we got profile data
         assert len(workunits) > 0
@@ -143,9 +121,9 @@ class TestS3ProfilingCoverage:
         """Test profiling with string column types.
 
         This covers:
-        - isinstance check for StringType (lines 341)
-        - String column profiling for FEW cardinality (lines 342-351)
-        - Non-numeric null count handling (lines 176-184)
+        - isinstance check for StringType
+        - String column profiling for FEW cardinality
+        - Non-numeric null count handling
         """
         import pandas as pd
 
@@ -189,8 +167,8 @@ class TestS3ProfilingCoverage:
         """Test profiling with date and timestamp column types.
 
         This covers:
-        - isinstance check for DateType/TimestampType (lines 353)
-        - Date/timestamp profiling with min/max (lines 354-367)
+        - isinstance check for DateType/TimestampType
+        - Date/timestamp profiling with min/max
         """
         import pandas as pd
 
@@ -230,9 +208,9 @@ class TestS3ProfilingCoverage:
         """Test profiling with null values in numeric and non-numeric columns.
 
         This covers:
-        - Null count calculation for numeric columns with isnan (lines 164-172)
-        - Null count calculation for non-numeric columns (lines 176-184)
-        - Null proportion calculation (lines 190-197)
+        - Null count calculation for numeric columns with isnan
+        - Null count calculation for non-numeric columns
+        - Null proportion calculation
         """
         import pandas as pd
 
@@ -280,9 +258,9 @@ class TestS3ProfilingCoverage:
         """Test profiling with sample values enabled.
 
         This covers:
-        - Sample value collection when row_count < NUM_SAMPLE_ROWS (lines 210-212)
-        - Sample value collection when row_count >= NUM_SAMPLE_ROWS (lines 214)
-        - Sample value assignment to column profiles (lines 227-229)
+        - Sample value collection when row_count < NUM_SAMPLE_ROWS
+        - Sample value collection when row_count >= NUM_SAMPLE_ROWS
+        - Sample value assignment to column profiles
         """
         import pandas as pd
 
@@ -329,7 +307,7 @@ class TestS3ProfilingCoverage:
         """Test profiling with high cardinality columns (MANY/VERY_MANY).
 
         This covers:
-        - Numeric columns with MANY cardinality (lines 325-337)
+        - Numeric columns with MANY cardinality
         - All analyzer prep methods (min, max, mean, median, stdev, quantiles, histogram)
         """
         import pandas as pd
@@ -407,7 +385,7 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-low-cardinality")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
 
@@ -417,8 +395,8 @@ class TestS3ProfilingCoverage:
         """Test profiling with allow/deny patterns for columns.
 
         This covers:
-        - Column filtering logic (lines 127-129)
-        - columns_to_profile list building (lines 131-133)
+        - Column filtering logic
+        - columns_to_profile list building
         """
         import pandas as pd
 
@@ -459,8 +437,8 @@ class TestS3ProfilingCoverage:
         """Test profiling with max_number_of_fields_to_profile limit.
 
         This covers:
-        - Field limiting logic (lines 135-149)
-        - report_file_dropped call (lines 147-149)
+        - Field limiting logic
+        - report_file_dropped call
         """
         import pandas as pd
 
@@ -494,7 +472,7 @@ class TestS3ProfilingCoverage:
         """Test profiling with profile_table_level_only enabled.
 
         This covers:
-        - Early return when profile_table_level_only is True (lines 122-123)
+        - Early return when profile_table_level_only is True
         - Table-level stats only without column profiling
         """
         import pandas as pd
@@ -533,7 +511,7 @@ class TestS3ProfilingCoverage:
         """Test extract_table_profiles with quantile data.
 
         This covers:
-        - Quantile extraction and processing (lines 446-456)
+        - Quantile extraction and processing
         - QuantileClass creation
         """
         import pandas as pd
@@ -570,7 +548,7 @@ class TestS3ProfilingCoverage:
         """Test extract_table_profiles with histogram for distinct values.
 
         This covers:
-        - Histogram processing for discrete data (lines 463-473)
+        - Histogram processing for discrete data
         - distinctValueFrequencies creation
         """
         import pandas as pd
@@ -607,7 +585,7 @@ class TestS3ProfilingCoverage:
         """Test extract_table_profiles with histogram for continuous data.
 
         This covers:
-        - Histogram processing for continuous data (lines 475-479)
+        - Histogram processing for continuous data
         - HistogramClass creation
         """
         import pandas as pd
@@ -644,7 +622,7 @@ class TestS3ProfilingCoverage:
         """Test profiling with all configuration options enabled.
 
         This is a comprehensive test that exercises all code paths to ensure
-        maximum coverage of type-ignored lines.
+        maximum coverage
         """
         import pandas as pd
 
@@ -703,7 +681,7 @@ class TestS3ProfilingCoverage:
         """Test profiling with empty dataset (row_count = 0).
 
         This covers:
-        - Division by zero handling (lines 191, 297)
+        - Division by zero handling
         - Empty dataset profiling
         """
         import pandas as pd
