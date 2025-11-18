@@ -356,7 +356,7 @@ def migrate_containers(
             if mcp.aspectName == "containerProperties":
                 assert isinstance(mcp.aspect, ContainerPropertiesClass)
                 containerProperties: ContainerPropertiesClass = mcp.aspect
-                containerProperties.customProperties = newKey.dict(
+                containerProperties.customProperties = newKey.model_dump(
                     by_alias=True, exclude_none=True
                 )
                 mcp.aspect = containerProperties

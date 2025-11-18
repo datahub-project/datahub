@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import dateutil.parser
 import requests
 from packaging import version
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from datahub.configuration.git import GitReference
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -341,8 +341,7 @@ class DBTRunTiming(BaseModel):
 
 
 class DBTRunResult(BaseModel):
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     status: str
     timing: List[DBTRunTiming] = []
