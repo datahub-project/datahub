@@ -185,8 +185,8 @@ class SecretRegistry:
             return self._version
 
     def get_count(self) -> int:
-        """Get number of registered secrets."""
-        return len(self._secrets)
+        """Get number of registered secrets (by unique name)."""
+        return len(self._name_to_value)
 
     def clear(self) -> None:
         """Clear all secrets."""

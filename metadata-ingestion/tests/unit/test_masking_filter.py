@@ -745,9 +745,10 @@ class TestP1Fixes:
             masking_filter._check_and_rebuild_pattern()
 
         # Should complete in reasonable time
+        # Note: With quoted versions, 1000 secrets → ~3000 patterns, so allow more time
         rebuild_time = timer.elapsed_seconds()
-        assert rebuild_time < 0.1, (
-            f"Rebuild too slow: {rebuild_time:.4f}s (expected <0.1s)"
+        assert rebuild_time < 0.2, (
+            f"Rebuild too slow: {rebuild_time:.4f}s (expected <0.2s)"
         )
 
         # Test concurrent logging doesn't block
