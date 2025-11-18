@@ -1,0 +1,18 @@
+{
+    "query_type": "CREATE_OTHER",
+    "query_type_props": {
+        "kind": "PROCEDURE"
+    },
+    "query_fingerprint": "38c421a1e3f2da9c89559c9ed508acaa75f7ed783711e32adbab220232cb5d18",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.simpleupdate,PROD)"
+    ],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE PROCEDURE dbo.SimpleUpdate AS BEGIN UPDATE customers SET last_updated = GETDATE() WHERE id = ?"
+    }
+}
