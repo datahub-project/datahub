@@ -77,13 +77,15 @@ def extract_raw_sql_fields(
     schema_aware = False
 
     if panel and panel.datasource_ref and connection_to_platform_map:
-        ds_type = getattr(panel.datasource_ref, "type", None) or "unknown"
-        ds_uid = getattr(panel.datasource_ref, "uid", None) or "unknown"
+        ds_type = panel.datasource_ref.type
+        ds_uid = panel.datasource_ref.uid
 
-        # Try to find mapping by datasource UID first, then by type
-        platform_config = connection_to_platform_map.get(
-            ds_uid
-        ) or connection_to_platform_map.get(ds_type)
+        # Try to find mapping by datasource UID first (if it exists), then by type
+        platform_config = None
+        if ds_uid:
+            platform_config = connection_to_platform_map.get(ds_uid)
+        if not platform_config and ds_type:
+            platform_config = connection_to_platform_map.get(ds_type)
 
         if platform_config:
             platform = platform_config.platform
@@ -282,7 +284,6 @@ def get_fields_from_field_config(
     field_config: Dict[str, Any],
 ) -> List[SchemaFieldClass]:
     """Extract fields from field configuration."""
-
     fields = []
     defaults = field_config.get("defaults", {})
     unit = defaults.get("unit")

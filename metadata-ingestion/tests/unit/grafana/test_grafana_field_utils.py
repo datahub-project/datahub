@@ -147,3 +147,80 @@ def test_extract_fields_from_panel_with_empty_fields():
     fields = extract_fields_from_panel(panel)
     assert isinstance(fields, list)
     assert len(fields) == 0  # No fields to extract from a text panel
+
+
+def test_datasource_ref_field_access():
+    """Test that datasource_ref fields are accessed correctly without getattr."""
+    from datahub.ingestion.source.grafana.models import Panel
+
+    # Test panel with datasource_ref having both type and uid
+    panel_with_datasource = Panel.model_validate(
+        {
+            "id": 1,
+            "type": "graph",
+            "datasource": {"type": "prometheus", "uid": "prometheus-uid-123"},
+        }
+    )
+
+    # Verify we can access fields directly
+    assert panel_with_datasource.datasource_ref is not None
+    assert panel_with_datasource.datasource_ref.type == "prometheus"
+    assert panel_with_datasource.datasource_ref.uid == "prometheus-uid-123"
+
+    # Test panel with partial datasource_ref (only type)
+    panel_with_partial_datasource = Panel.model_validate(
+        {
+            "id": 2,
+            "type": "graph",
+            "datasource": {
+                "type": "mysql"
+                # No uid field
+            },
+        }
+    )
+
+    assert panel_with_partial_datasource.datasource_ref is not None
+    assert panel_with_partial_datasource.datasource_ref.type == "mysql"
+    assert panel_with_partial_datasource.datasource_ref.uid is None
+
+    # Test panel with no datasource_ref
+    panel_without_datasource = Panel.model_validate(
+        {
+            "id": 3,
+            "type": "text",
+            # No datasource field
+        }
+    )
+
+    assert panel_without_datasource.datasource_ref is None
+
+
+def test_extract_raw_sql_fields_with_text_panel():
+    """Test that extract_raw_sql_fields handles text panels (no datasource) correctly."""
+    from datahub.ingestion.source.grafana.field_utils import extract_raw_sql_fields
+    from datahub.ingestion.source.grafana.models import Panel
+
+    # Create a text panel with no datasource (like in real Grafana)
+    text_panel = Panel.model_validate(
+        {
+            "id": 1,
+            "type": "text",
+            "title": "Text Panel",
+            # No datasource field - this is normal for text panels
+        }
+    )
+
+    # Should not crash when processing a target with rawSql but no datasource
+    target_with_sql = {"rawSql": "SELECT * FROM test_table"}
+
+    # This should work without error, even though panel.datasource_ref is None
+    fields = extract_raw_sql_fields(
+        target=target_with_sql,
+        panel=text_panel,
+        connection_to_platform_map={"postgres": "some_config"},
+        graph=None,
+        report=None,
+    )
+
+    # Should return some fields (fallback parsing) or empty list, but not crash
+    assert isinstance(fields, list)

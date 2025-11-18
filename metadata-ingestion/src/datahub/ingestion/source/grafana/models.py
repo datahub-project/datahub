@@ -78,8 +78,7 @@ class Panel(_GrafanaBaseModel):
         value = data.get(field_name)
         if value is None or not isinstance(value, dict):
             data[field_name] = default
-        else:
-            data.setdefault(field_name, default)
+        # If value exists and is already a dict, leave it as is
 
     @staticmethod
     def _ensure_list_field(
@@ -89,8 +88,7 @@ class Panel(_GrafanaBaseModel):
         value = data.get(field_name)
         if value is None or not isinstance(value, list):
             data[field_name] = default
-        else:
-            data.setdefault(field_name, default)
+        # If value exists and is already a list, leave it as is
 
     @staticmethod
     def _normalize_id_field(data: Dict[str, Any]) -> None:
