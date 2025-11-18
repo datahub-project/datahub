@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 import static com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils.buildQuery;
 
@@ -41,6 +42,7 @@ public class ESGraphWriteDAO {
    */
   public void upsertDocument(@Nonnull String docId, @Nonnull String document) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     final UpdateRequest updateRequest =
@@ -59,6 +61,7 @@ public class ESGraphWriteDAO {
    */
   public void deleteDocument(@Nonnull String docId) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     final DeleteRequest deleteRequest =
@@ -70,6 +73,7 @@ public class ESGraphWriteDAO {
   public BulkByScrollResponse deleteByQuery(
       @Nonnull final OperationContext opContext, @Nonnull final GraphFilters graphFilters) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return null;
     }
     return deleteByQuery(opContext, graphFilters, null);
@@ -81,6 +85,7 @@ public class ESGraphWriteDAO {
       @Nonnull final GraphFilters graphFilters,
       String lifecycleOwner) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return null;
     }
     BoolQueryBuilder finalQuery =
@@ -95,6 +100,7 @@ public class ESGraphWriteDAO {
   public BulkByScrollResponse updateByQuery(
       @Nonnull Script script, @Nonnull final QueryBuilder query) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return null;
     }
     return bulkProcessor

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.dao.producer;
 
+import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
+
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.EventUtils;
@@ -77,6 +79,7 @@ public class KafkaEventProducer extends EventProducer {
       @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return CompletableFuture.completedFuture(Optional.empty());
     }
     GenericRecord record;
@@ -111,6 +114,7 @@ public class KafkaEventProducer extends EventProducer {
   public Future<?> produceMetadataChangeProposal(
       @Nonnull final Urn urn, @Nonnull final MetadataChangeProposal metadataChangeProposal) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return CompletableFuture.completedFuture(Optional.empty());
     }
     GenericRecord record;
@@ -144,6 +148,7 @@ public class KafkaEventProducer extends EventProducer {
       @Nonnull MetadataChangeProposal mcp,
       @Nonnull Set<Throwable> throwables) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return CompletableFuture.completedFuture(Optional.empty());
     }
 
@@ -176,6 +181,7 @@ public class KafkaEventProducer extends EventProducer {
   public Future<?> producePlatformEvent(
       @Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return CompletableFuture.completedFuture(Optional.empty());
     }
     GenericRecord record;

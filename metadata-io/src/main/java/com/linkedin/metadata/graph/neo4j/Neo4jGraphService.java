@@ -1,5 +1,7 @@
 package com.linkedin.metadata.graph.neo4j;
 
+import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
+
 import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
@@ -98,6 +100,7 @@ public class Neo4jGraphService implements GraphService {
   @Override
   public void addEdge(@Nonnull final Edge edge) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     log.debug(
@@ -225,6 +228,7 @@ public class Neo4jGraphService implements GraphService {
   @Override
   public void upsertEdge(final Edge edge) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     addEdge(edge);
@@ -233,6 +237,7 @@ public class Neo4jGraphService implements GraphService {
   @Override
   public void removeEdge(final Edge edge) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     log.debug(
@@ -657,6 +662,7 @@ public class Neo4jGraphService implements GraphService {
 
   public void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
 
@@ -690,6 +696,7 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull final Set<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
 
@@ -752,6 +759,7 @@ public class Neo4jGraphService implements GraphService {
 
   public void removeNodesMatchingLabel(@Nonnull String labelPattern) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     log.debug("Removing Neo4j nodes matching label {}", labelPattern);
@@ -767,6 +775,7 @@ public class Neo4jGraphService implements GraphService {
   @Override
   public void clear() {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     removeNodesMatchingLabel(".*");
@@ -775,6 +784,7 @@ public class Neo4jGraphService implements GraphService {
   @VisibleForTesting
   public void wipe() {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     runQuery(new Statement("MATCH (n) DETACH DELETE n", Map.of())).consume();

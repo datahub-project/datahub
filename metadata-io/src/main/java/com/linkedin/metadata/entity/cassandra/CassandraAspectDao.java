@@ -208,6 +208,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect) {
     validateConnection();
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return Optional.empty();
     }
     EntityAspect updateAspect = aspect.asLatest();
@@ -222,6 +223,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect, long version) {
     validateConnection();
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return Optional.empty();
     }
     EntityAspect insertAspect = aspect.withVersion(version);
@@ -407,6 +409,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final Urn urn, @Nonnull final String aspect, @Nonnull final Long version) {
     validateConnection();
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     SimpleStatement ss =
@@ -430,6 +433,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final String urn) {
     validateConnection();
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return 0;
     }
 

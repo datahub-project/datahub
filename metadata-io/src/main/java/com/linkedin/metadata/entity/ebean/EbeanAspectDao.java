@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.ebean;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.util.exception.ModelConversionException;
@@ -127,6 +128,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect) {
     validateConnection();
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return Optional.empty();
     }
 
@@ -142,6 +144,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect, final long version) {
     validateConnection();
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return Optional.empty();
     }
 
@@ -242,6 +245,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final Urn urn, @Nonnull final String aspect, @Nonnull final Long version) {
     validateConnection();
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     server
@@ -260,6 +264,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final String urn) {
     validateConnection();
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return 0;
     }
 

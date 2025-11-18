@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.update;
 
+import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
 import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLICES;
 import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLICES_VALUE;
 
@@ -79,6 +80,7 @@ public class ESWriteDAO {
       @Nonnull String document,
       @Nonnull String docId) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     final UpdateRequest updateRequest =
@@ -102,6 +104,7 @@ public class ESWriteDAO {
   public void upsertDocumentByIndexName(
       @Nonnull String indexName, @Nonnull String document, @Nonnull String docId) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     final UpdateRequest updateRequest =
@@ -123,6 +126,7 @@ public class ESWriteDAO {
   public void deleteDocument(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     bulkProcessor.add(new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
@@ -137,6 +141,7 @@ public class ESWriteDAO {
    */
   public void deleteDocumentByIndexName(@Nonnull String indexName, @Nonnull String docId) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     bulkProcessor.add(new DeleteRequest(indexName).id(docId));
@@ -157,6 +162,7 @@ public class ESWriteDAO {
       @Nonnull String document,
       @Nonnull String docId) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     final UpdateRequest updateRequest =
@@ -181,6 +187,7 @@ public class ESWriteDAO {
   public void deleteDocumentBySearchGroup(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     // Use URN-aware routing for entity document consistency
@@ -196,6 +203,7 @@ public class ESWriteDAO {
       @Nonnull Map<String, Object> scriptParams,
       Map<String, Object> upsert) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     // Create a properly parameterized script
@@ -219,6 +227,7 @@ public class ESWriteDAO {
   /** Clear all documents in all the indices */
   public void clear(@Nonnull OperationContext opContext) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return;
     }
     List<String> patterns =
@@ -254,6 +263,7 @@ public class ESWriteDAO {
       @Nonnull QueryBuilder query,
       @Nullable BulkDeleteConfiguration overrideConfig) {
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return CompletableFuture.completedFuture(StringUtils.EMPTY);
     }
 
@@ -289,6 +299,7 @@ public class ESWriteDAO {
       @Nullable BulkDeleteConfiguration overrideConfig) {
 
     if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
       return DeleteByQueryResult.builder().build();
     }
     final BulkDeleteConfiguration finalConfig =
