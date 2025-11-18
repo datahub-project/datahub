@@ -15,4 +15,9 @@ export default styled(Button)`
     vertical-align: top;
     border-radius: 5px;
     color: ${(props) => props.theme.styles['primary-color']};
+
+    :hover {
+        color: ${(props) => props.theme.styles['primary-color-darker']};
+        background-color: transparent;
+    }
 `;
