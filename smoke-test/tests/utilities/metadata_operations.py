@@ -202,6 +202,64 @@ def list_ingestion_sources(auth_session) -> Dict[str, Any]:
 
 
 @with_test_retry()
+def list_ingestion_sources_with_filter(
+    auth_session,
+    filters: Optional[list] = None,
+    include_executions: bool = False,
+    start: int = 0,
+    count: int = 100,
+) -> Dict[str, Any]:
+    """List ingestion sources with optional filtering and execution status.
+
+    Args:
+        auth_session: The authenticated session
+        filters: Optional list of filter objects, e.g.:
+                 [{"field": "sourceType", "values": ["SYSTEM"], "negated": False}]
+        include_executions: Whether to include the latest execution status for each source
+        start: Starting offset for pagination
+        count: Number of sources to retrieve
+
+    Returns:
+        Dictionary containing total count and list of ingestion sources with their details
+    """
+    executions_field = ""
+    if include_executions:
+        executions_field = """
+            executions(start: 0, count: 1) {
+                executionRequests {
+                    urn
+                    result {
+                        status
+                        startTimeMs
+                        durationMs
+                    }
+                }
+            }
+        """
+
+    query = f"""
+        query listIngestionSources($input: ListIngestionSourcesInput!) {{
+            listIngestionSources(input: $input) {{
+                total
+                ingestionSources {{
+                    urn
+                    name
+                    type
+                    {executions_field}
+                }}
+            }}
+        }}
+    """
+
+    variables: Dict[str, Any] = {"input": {"start": start, "count": count}}
+    if filters:
+        variables["input"]["filters"] = filters
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["listIngestionSources"]
+
+
+@with_test_retry()
 def list_policies(auth_session) -> Dict[str, Any]:
     """List all policies."""
     query = """

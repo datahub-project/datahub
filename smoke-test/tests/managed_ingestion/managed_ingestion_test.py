@@ -3,24 +3,16 @@ from typing import Any, Dict
 
 import pytest
 
+from tests.utilities.metadata_operations import list_ingestion_sources_with_filter
 from tests.utils import execute_graphql, with_test_retry
 
 
 def _get_ingestionSources(auth_session):
-    query = """query listIngestionSources($input: ListIngestionSourcesInput!) {\n
-            listIngestionSources(input: $input) {\n
-              start\n
-              count\n
-              total\n
-              ingestionSources {\n
-                urn\n
-              }\n
-            }\n
-        }"""
-    variables: Dict[str, Any] = {"input": {"start": 0, "count": 20}}
-    res_data = execute_graphql(auth_session, query, variables)
-    assert res_data["data"]["listIngestionSources"]["total"] is not None
-    return res_data
+    """Get all ingestion sources."""
+    sources_data = list_ingestion_sources_with_filter(auth_session, start=0, count=20)
+    assert sources_data["total"] is not None
+    # Return in the format expected by callers
+    return {"data": {"listIngestionSources": sources_data}}
 
 
 @with_test_retry()
