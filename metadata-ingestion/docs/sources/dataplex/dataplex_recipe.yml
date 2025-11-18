@@ -1,0 +1,59 @@
+source:
+  type: dataplex
+  config:
+    # Required: GCP project ID where Dataplex resources are located
+    project_id: "my-gcp-project"
+
+    # Optional: GCP location (default: us-central1)
+    location: "us-central1"
+
+    # Optional: Environment (default: PROD)
+    env: "PROD"
+
+    # Optional: GCP credentials (if not using Application Default Credentials)
+    # credential:
+    #   project_id: "my-gcp-project"
+    #   private_key_id: "d0121d0000882411234e11166c6aaa23ed5d74e0"
+    #   private_key: "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----\n"
+    #   client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
+    #   client_id: "123456678890"
+
+    # Optional: Filtering patterns
+    # filter_config:
+    #   lake_pattern:
+    #     allow:
+    #       - "retail-.*"
+    #       - "finance-.*"
+    #     deny:
+    #       - ".*-test"
+    #
+    #   zone_pattern:
+    #     allow:
+    #       - ".*"
+    #     deny:
+    #       - "deprecated-.*"
+    #
+    #   asset_pattern:
+    #     allow:
+    #       - ".*"
+    #     deny:
+    #       - "temp-.*"
+
+    # Optional: Feature flags (all default to true)
+    # extract_lakes: true
+    # extract_zones: true
+    # extract_assets: true
+    # extract_entities: true
+    # extract_lineage: true
+
+    # Optional: Sibling relationships
+    # create_sibling_relationships: true
+    # dataplex_is_primary_sibling: false  # If true, Dataplex entity is primary
+
+    # Optional: Performance tuning
+    # max_workers: 10
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

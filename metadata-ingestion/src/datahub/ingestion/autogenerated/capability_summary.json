@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-10-23T14:26:01.879155+00:00",
+  "generated_at": "2025-11-18T18:09:49.190999+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -541,6 +541,32 @@
       "platform_id": "file-based-lineage",
       "platform_name": "File Based Lineage",
       "support_status": "CERTIFIED"
+    },
+    "dataplex": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Maps Projects, Lakes, and Zones to hierarchical Containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Extract schema information from discovered entities",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Extract lineage from Dataplex Lineage API",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.dataplex.dataplex.DataplexSource",
+      "platform_id": "dataplex",
+      "platform_name": "Dataplex",
+      "support_status": "INCUBATING"
     },
     "dbt": {
       "capabilities": [
