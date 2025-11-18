@@ -1,3 +1,4 @@
+import functools
 import logging
 from typing import Dict, Iterable, List, Optional, Union
 from urllib.parse import urlparse
@@ -17,6 +18,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
     SourceReport,
@@ -54,7 +56,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    MetadataChangeProposalWrapper,
     UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
@@ -489,6 +496,9 @@ class FivetranSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            functools.partial(
+                auto_incremental_lineage, self.config.incremental_lineage
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
@@ -508,6 +518,218 @@ class FivetranSource(StatefulIngestionSourceBase):
         for connector in connectors:
             logger.info(f"Processing connector id: {connector.connector_id}")
             yield from self._get_connector_workunits(connector)
+
+    def _create_upstream_lineage_workunits(
+        self, connector
+    ) -> Iterable[MetadataWorkUnit]:
+        """Create upstreamLineage aspects for destination datasets."""
+        # Get platform details
+        source_details = self._get_source_details(connector)
+        destination_details = self._get_destination_details(connector)
+
+        # Group lineage by destination table to avoid duplicate upstreamLineage aspects
+        dest_to_sources = {}
+
+        for lineage in connector.lineage:
+            dest_table = lineage.destination_table
+            if dest_table not in dest_to_sources:
+                dest_to_sources[dest_table] = []
+            dest_to_sources[dest_table].append(lineage)
+
+        logger.info(
+            f"Creating upstreamLineage aspects for {len(dest_to_sources)} destination tables"
+        )
+
+        # Create upstreamLineage aspect for each destination table
+        for dest_table, source_lineages in dest_to_sources.items():
+            try:
+                # Create destination URN
+                dest_urn = self._create_dataset_urn(
+                    dest_table,
+                    destination_details,
+                    is_source=False,
+                )
+
+                if not dest_urn:
+                    logger.warning(f"Failed to create destination URN for {dest_table}")
+                    continue
+
+                # Create upstream entries
+                upstreams = []
+                fine_grained_lineages = []
+
+                for lineage in source_lineages:
+                    # Create source URN
+                    source_urn = self._create_dataset_urn(
+                        lineage.source_table,
+                        source_details,
+                        is_source=True,
+                    )
+
+                    if not source_urn:
+                        logger.warning(
+                            f"Failed to create source URN for {lineage.source_table}"
+                        )
+                        continue
+
+                    # Create upstream entry
+                    upstream = UpstreamClass(
+                        dataset=str(source_urn),
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                    upstreams.append(upstream)
+
+                    # Add column-level lineage if available
+                    if self.config.include_column_lineage and lineage.column_lineage:
+                        for col_lineage in lineage.column_lineage:
+                            if (
+                                col_lineage.source_column
+                                and col_lineage.destination_column
+                            ):
+                                fine_grained_lineage = FineGrainedLineageClass(
+                                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                    upstreams=[
+                                        str(
+                                            builder.make_schema_field_urn(
+                                                str(source_urn),
+                                                col_lineage.source_column,
+                                            )
+                                        )
+                                    ],
+                                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                    downstreams=[
+                                        str(
+                                            builder.make_schema_field_urn(
+                                                str(dest_urn),
+                                                col_lineage.destination_column,
+                                            )
+                                        )
+                                    ],
+                                )
+                                fine_grained_lineages.append(fine_grained_lineage)
+
+                if not upstreams:
+                    logger.warning(
+                        f"No valid upstreams found for destination {dest_table}"
+                    )
+                    continue
+
+                # Create upstreamLineage aspect
+                upstream_lineage = UpstreamLineageClass(
+                    upstreams=upstreams,
+                    fineGrainedLineages=fine_grained_lineages
+                    if fine_grained_lineages
+                    else None,
+                )
+
+                # Create workunit
+                mcp = MetadataChangeProposalWrapper(
+                    entityUrn=str(dest_urn),
+                    aspect=upstream_lineage,
+                )
+                workunit = mcp.as_workunit()
+
+                logger.debug(
+                    f"Created upstreamLineage aspect for {dest_urn} with {len(upstreams)} upstreams"
+                )
+                yield workunit
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to create upstreamLineage for {dest_table}: {e}"
+                )
+                import traceback
+
+                logger.debug(f"Full traceback: {traceback.format_exc()}")
+                continue
+
+    def _create_datajob_upstream_lineage(
+        self,
+        datajob,
+        lineage,
+        source_details,
+        destination_details,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Create upstreamLineage aspect for the DataJob itself."""
+        try:
+            # Create source and destination URNs
+            source_urn = self._create_dataset_urn(
+                lineage.source_table,
+                source_details,
+                is_source=True,
+            )
+            dest_urn = self._create_dataset_urn(
+                lineage.destination_table,
+                destination_details,
+                is_source=False,
+            )
+
+            if not source_urn or not dest_urn:
+                logger.warning(
+                    f"Skipping DataJob upstreamLineage: Failed to create URNs for {lineage.source_table} -> {lineage.destination_table}"
+                )
+                return
+
+            # Create upstream entry for the DataJob
+            upstream = UpstreamClass(
+                dataset=str(source_urn),
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+
+            # Create column-level lineage if available
+            fine_grained_lineages = []
+            if self.config.include_column_lineage and lineage.column_lineage:
+                for col_lineage in lineage.column_lineage:
+                    if col_lineage.source_column and col_lineage.destination_column:
+                        fine_grained_lineage = FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                str(
+                                    builder.make_schema_field_urn(
+                                        str(source_urn),
+                                        col_lineage.source_column,
+                                    )
+                                )
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            downstreams=[
+                                str(
+                                    builder.make_schema_field_urn(
+                                        str(dest_urn),
+                                        col_lineage.destination_column,
+                                    )
+                                )
+                            ],
+                        )
+                        fine_grained_lineages.append(fine_grained_lineage)
+
+            # Create upstreamLineage aspect for the DataJob
+            upstream_lineage = UpstreamLineageClass(
+                upstreams=[upstream],
+                fineGrainedLineages=fine_grained_lineages
+                if fine_grained_lineages
+                else None,
+            )
+
+            # Create workunit for the DataJob's upstreamLineage aspect
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=str(datajob.urn),
+                aspect=upstream_lineage,
+            )
+            workunit = mcp.as_workunit()
+
+            logger.debug(
+                f"Created upstreamLineage aspect for DataJob {datajob.urn} with upstream {source_urn}"
+            )
+            yield workunit
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to create DataJob upstreamLineage for {lineage.source_table} -> {lineage.destination_table}: {e}"
+            )
+            import traceback
+
+            logger.debug(f"Full traceback: {traceback.format_exc()}")
 
     def get_report(self) -> SourceReport:
         return self.report

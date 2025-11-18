@@ -91,6 +91,10 @@ class FivetranLogAPI:
             raise ConfigurationError(
                 f"Destination platform '{destination_platform}' is not yet supported."
             )
+
+        # Initialize table name mappings for backward compatibility
+        fivetran_log_query.initialize_table_names(engine)
+
         return (
             engine,
             fivetran_log_query,

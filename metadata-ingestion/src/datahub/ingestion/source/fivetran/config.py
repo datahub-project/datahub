@@ -15,9 +15,16 @@ from datahub.configuration.common import (
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
+)
+from datahub.ingestion.source.fivetran.fivetran_constants import (
+    DataJobMode,
+    FivetranMode,
 )
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
@@ -222,10 +229,23 @@ class PlatformDetail(ConfigModel):
     )
 
 
-class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class FivetranSourceConfig(
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
+):
     fivetran_log_config: FivetranLogConfig = pydantic.Field(
         description="Fivetran log connector destination server configurations.",
     )
+
+    fivetran_mode: FivetranMode = Field(
+        default=FivetranMode.AUTO,
+        description="Mode for Fivetran source operation. AUTO detects based on configuration, ENTERPRISE uses log tables, STANDARD uses REST API.",
+    )
+
+    data_job_mode: DataJobMode = Field(
+        default=DataJobMode.CONSOLIDATED,
+        description="Mode for DataJob generation. CONSOLIDATED creates one DataJob per connector, PER_TABLE creates separate DataJobs for each table.",
+    )
+
     connector_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Filtering regex patterns for connector names.",
