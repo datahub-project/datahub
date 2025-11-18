@@ -62,7 +62,7 @@ def test_athena_config_staging_dir_is_set_as_query_result():
         }
     )
 
-    assert config.json() == expected_config.json()
+    assert config.model_dump_json() == expected_config.model_dump_json()
 
 
 def test_athena_uri():
