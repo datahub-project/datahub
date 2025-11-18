@@ -62,7 +62,7 @@ class Dashboard(_GrafanaBaseModel):
     title: str
     description: str = ""
     version: Optional[str] = None
-    panels: List[Panel] = Field(default_factory=list)
+    panels: List[Panel]
     tags: List[str] = Field(default_factory=list)
     timezone: Optional[str] = None
     refresh: Optional[str] = None
