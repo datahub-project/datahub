@@ -61,3 +61,7 @@ coverage:
       default:
         target: 75% # for new code added in the patch
         only_pulls: true
+
+ignore:
+  - "**/SettingsBuilderFactory.java"   # No business logic; wiring only
+  - "**/MappingsBuilderFactory.java"   # No business logic; wiring only

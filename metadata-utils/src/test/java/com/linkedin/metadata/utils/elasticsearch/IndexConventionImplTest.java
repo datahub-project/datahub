@@ -415,4 +415,169 @@ public class IndexConventionImplTest {
         allPatterns.contains("*index_v3"),
         "getAllEntityIndicesPatterns should not include v3 when disabled");
   }
+
+  @Test
+  public void testGetEntityIndexNameSemantic() {
+    EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
+    IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
+
+    assertEquals(
+        indexConvention.getEntityIndexNameSemantic("dataset"),
+        "datasetindex_v2_semantic",
+        "Should append _semantic suffix to v2 index name");
+    assertEquals(
+        indexConvention.getEntityIndexNameSemantic("chart"),
+        "chartindex_v2_semantic",
+        "Should append _semantic suffix to v2 index name");
+    assertEquals(
+        indexConvention.getEntityIndexNameSemantic("dashboard"),
+        "dashboardindex_v2_semantic",
+        "Should append _semantic suffix to v2 index name");
+  }
+
+  @Test
+  public void testGetEntityIndexNameSemanticWithPrefix() {
+    EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("test_prefix")
+                .hashIdAlgo("MD5")
+                .build(),
+            entityIndexConfiguration);
+
+    assertEquals(
+        indexConvention.getEntityIndexNameSemantic("dataset"),
+        "test_prefix_datasetindex_v2_semantic",
+        "Should append _semantic suffix to v2 index name with prefix");
+    assertEquals(
+        indexConvention.getEntityIndexNameSemantic("chart"),
+        "test_prefix_chartindex_v2_semantic",
+        "Should append _semantic suffix to v2 index name with prefix");
+  }
+
+  @Test
+  public void testGetEntityNameSemantic() {
+    EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
+    IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
+
+    assertEquals(
+        indexConvention.getEntityNameSemantic("datasetindex_v2_semantic"),
+        Optional.of("dataset"),
+        "Should extract entity name from semantic index");
+    assertEquals(
+        indexConvention.getEntityNameSemantic("chartindex_v2_semantic"),
+        Optional.of("chart"),
+        "Should extract entity name from semantic index");
+    assertEquals(
+        indexConvention.getEntityNameSemantic("dashboardindex_v2_semantic"),
+        Optional.of("dashboard"),
+        "Should extract entity name from semantic index");
+
+    // Test invalid patterns
+    assertEquals(
+        indexConvention.getEntityNameSemantic("datasetindex_v2"),
+        Optional.empty(),
+        "Should return empty for non-semantic index");
+    assertEquals(
+        indexConvention.getEntityNameSemantic("dataset_v2_semantic"),
+        Optional.empty(),
+        "Should return empty for invalid pattern");
+    assertEquals(
+        indexConvention.getEntityNameSemantic("not_an_index"),
+        Optional.empty(),
+        "Should return empty for invalid index name");
+  }
+
+  @Test
+  public void testGetEntityNameSemanticWithPrefix() {
+    EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("test_prefix")
+                .hashIdAlgo("MD5")
+                .build(),
+            entityIndexConfiguration);
+
+    assertEquals(
+        indexConvention.getEntityNameSemantic("test_prefix_datasetindex_v2_semantic"),
+        Optional.of("dataset"),
+        "Should extract entity name from semantic index with prefix");
+    assertEquals(
+        indexConvention.getEntityNameSemantic("test_prefix_chartindex_v2_semantic"),
+        Optional.of("chart"),
+        "Should extract entity name from semantic index with prefix");
+
+    // Test invalid patterns
+    assertEquals(
+        indexConvention.getEntityNameSemantic("datasetindex_v2_semantic"),
+        Optional.empty(),
+        "Should return empty for semantic index without prefix");
+    assertEquals(
+        indexConvention.getEntityNameSemantic("wrong_prefix_datasetindex_v2_semantic"),
+        Optional.empty(),
+        "Should return empty for semantic index with wrong prefix");
+  }
+
+  @Test
+  public void testIsSemanticEntityIndex() {
+    EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
+    IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
+
+    // Test valid semantic indices
+    assertTrue(
+        indexConvention.isSemanticEntityIndex("datasetindex_v2_semantic"),
+        "Should identify semantic entity index");
+    assertTrue(
+        indexConvention.isSemanticEntityIndex("chartindex_v2_semantic"),
+        "Should identify semantic entity index");
+    assertTrue(
+        indexConvention.isSemanticEntityIndex("dashboardindex_v2_semantic"),
+        "Should identify semantic entity index");
+
+    // Test invalid indices
+    assertFalse(
+        indexConvention.isSemanticEntityIndex("datasetindex_v2"),
+        "Should not identify v2 index as semantic");
+    assertFalse(
+        indexConvention.isSemanticEntityIndex("datasetindex_v3"),
+        "Should not identify v3 index as semantic");
+    assertFalse(
+        indexConvention.isSemanticEntityIndex("dataset_v2_semantic"),
+        "Should not identify invalid pattern");
+    assertFalse(
+        indexConvention.isSemanticEntityIndex("datasetindex_semantic"),
+        "Should not identify semantic index without version");
+    assertFalse(
+        indexConvention.isSemanticEntityIndex("not_an_index"), "Should not identify non-index");
+  }
+
+  @Test
+  public void testIsSemanticEntityIndexWithPrefix() {
+    EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("test_prefix")
+                .hashIdAlgo("MD5")
+                .build(),
+            entityIndexConfiguration);
+
+    // Test valid semantic indices with prefix
+    assertTrue(
+        indexConvention.isSemanticEntityIndex("test_prefix_datasetindex_v2_semantic"),
+        "Should identify semantic entity index with prefix");
+    assertTrue(
+        indexConvention.isSemanticEntityIndex("test_prefix_chartindex_v2_semantic"),
+        "Should identify semantic entity index with prefix");
+
+    // Test invalid indices
+    assertFalse(
+        indexConvention.isSemanticEntityIndex("datasetindex_v2_semantic"),
+        "Should not identify semantic index without prefix");
+    assertFalse(
+        indexConvention.isSemanticEntityIndex("wrong_prefix_datasetindex_v2_semantic"),
+        "Should not identify semantic index with wrong prefix");
+  }
 }

@@ -134,20 +134,6 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   /**
    * {@inheritDoc}
    *
-   * <p>Generates index mappings for all search groups defined in the entity registry. Each search
-   * group gets its own index with mappings that support all entities within that group.
-   *
-   * @param opContext the operation context containing entity registry and search configuration
-   * @return collection of index mappings, one per search group, or empty if v3 is disabled
-   */
-  @Override
-  public Collection<IndexMapping> getIndexMappings(@Nonnull OperationContext opContext) {
-    return getIndexMappings(opContext, null);
-  }
-
-  /**
-   * {@inheritDoc}
-   *
    * <p>Generates index mappings for all search groups with the specified structured properties.
    * This method creates mappings that include both entity fields and structured property fields for
    * comprehensive search capabilities.
