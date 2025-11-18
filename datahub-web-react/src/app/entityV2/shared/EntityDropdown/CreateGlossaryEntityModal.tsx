@@ -64,8 +64,8 @@ function CreateGlossaryEntityModal(props: Props) {
             const { properties } = entityData.entityData;
 
             if (properties?.name) {
-                setStagedName(properties.name);
-                form.setFieldValue('name', properties.name);
+                setStagedName(`${properties.name} (copy)`);
+                form.setFieldValue('name', `${properties.name} (copy)`);
             }
 
             if (properties?.description) {
