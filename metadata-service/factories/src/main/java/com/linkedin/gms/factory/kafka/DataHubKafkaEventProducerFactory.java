@@ -12,16 +12,11 @@ import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.Producer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class DataHubKafkaEventProducerFactory {
-
-  @Autowired
-  @Qualifier("kafkaProducer")
-  private Producer<String, ? extends IndexedRecord> kafkaProducer;
 
   @Autowired
   @Qualifier(TopicConventionFactory.TOPIC_CONVENTION_BEAN)
@@ -31,7 +26,9 @@ public class DataHubKafkaEventProducerFactory {
 
   @Bean(name = "kafkaEventProducer")
   protected KafkaEventProducer createInstance(
-      MetricUtils metricUtils, ConfigurationProvider configurationProvider) {
+      MetricUtils metricUtils,
+      ConfigurationProvider configurationProvider,
+      @Qualifier("kafkaProducer") Producer<String, ? extends IndexedRecord> kafkaProducer) {
     KafkaEventProducer kafkaEventProducer =
         new KafkaEventProducer(kafkaProducer, topicConvention, kafkaHealthChecker, metricUtils);
     if (configurationProvider.getDatahub().isReadOnly()) {
@@ -42,7 +39,6 @@ public class DataHubKafkaEventProducerFactory {
   }
 
   @Bean(name = "dataHubUsageEventProducer")
-  @ConditionalOnBean(name = "dataHubUsageProducer")
   protected GenericProducer<String> createUsageInstance(
       @Qualifier("dataHubUsageProducer") Producer<String, String> usageProducer,
       MetricUtils metricUtils,
