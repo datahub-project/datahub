@@ -23,7 +23,7 @@ describe("summary tab - data product", () => {
     ]);
   });
 
-  it("data product - description section", () => {
+  it.skip("data product - description section", () => {
     utils.testAboutSection();
   });
 

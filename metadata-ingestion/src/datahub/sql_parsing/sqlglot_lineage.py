@@ -28,7 +28,7 @@ import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 import sqlglot.optimizer.unnest_subqueries
-from pydantic import field_validator
+from pydantic import field_serializer, field_validator
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
@@ -152,6 +152,15 @@ class DownstreamColumnRef(_ParserBaseModel):
         if isinstance(v, SchemaFieldDataTypeClass):
             return v
         return SchemaFieldDataTypeClass.from_obj(v)
+
+    @field_serializer("column_type", when_used="json")
+    def _serialize_column_type(
+        self, value: Optional[SchemaFieldDataTypeClass]
+    ) -> Optional[dict]:
+        """Pydantic v2 replacement for json_encoders={SchemaFieldDataTypeClass: lambda v: v.to_obj()} in _ParserBaseModel"""
+        if value is None:
+            return None
+        return value.to_obj()
 
     def __hash__(self) -> int:
         return hash((self.table, self.column, self.native_column_type))

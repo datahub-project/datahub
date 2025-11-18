@@ -8,7 +8,7 @@ from functools import partial
 from typing import Any, ClassVar, Iterable, List, Optional, Union, cast
 
 import smart_open
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.datetimes import parse_user_datetime
@@ -227,7 +227,7 @@ class SqlQueriesSource(Source):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqlQueriesSource":
-        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_report(self) -> SqlQueriesSourceReport:
@@ -447,8 +447,7 @@ class QueryEntry(BaseModel):
     # Validation context for URN creation
     _validation_context: ClassVar[Optional[SqlQueriesSourceConfig]] = None
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @field_validator("timestamp", mode="before")
     @classmethod
@@ -498,6 +497,6 @@ class QueryEntry(BaseModel):
         # Set validation context for URN creation
         cls._validation_context = config
         try:
-            return cls.parse_obj(entry_dict)
+            return cls.model_validate(entry_dict)
         finally:
             cls._validation_context = None

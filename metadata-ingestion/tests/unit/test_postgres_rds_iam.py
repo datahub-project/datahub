@@ -18,7 +18,7 @@ class TestPostgresRDSIAMConfig:
             "password": "testpass",
             "database": "testdb",
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
 
         assert config.auth_mode == PostgresAuthMode.PASSWORD
         assert config.aws_config is not None  # aws_config always has default value
@@ -32,7 +32,7 @@ class TestPostgresRDSIAMConfig:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
 
         assert config.auth_mode == PostgresAuthMode.AWS_IAM
         assert config.aws_config is not None
@@ -46,7 +46,7 @@ class TestPostgresRDSIAMConfig:
             "database": "testdb",
             "auth_mode": "AWS_IAM",
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
 
         assert config.auth_mode == PostgresAuthMode.AWS_IAM
         assert config.aws_config is not None
@@ -62,7 +62,7 @@ class TestPostgresSourceRDSIAM:
             "password": "testpass",
             "database": "testdb",
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         source = PostgresSource(config, ctx)
@@ -79,7 +79,7 @@ class TestPostgresSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         source = PostgresSource(config, ctx)
@@ -101,7 +101,7 @@ class TestPostgresSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         PostgresSource(config, ctx)
@@ -121,7 +121,7 @@ class TestPostgresSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         with pytest.raises(ValueError, match="username is required"):
@@ -136,7 +136,7 @@ class TestPostgresSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         PostgresSource(config, ctx)
@@ -159,7 +159,7 @@ class TestPostgresSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         source = PostgresSource(config, ctx)

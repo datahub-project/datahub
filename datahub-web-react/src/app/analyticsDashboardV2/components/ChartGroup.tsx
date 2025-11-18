@@ -11,11 +11,7 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 24px 16px;
-`;
-
-const TitleContainer = styled.div`
-    margin-bottom: 8px;
+    margin-bottom: 24px;
 `;
 
 const ChartCol = styled(Col)`
@@ -36,11 +32,7 @@ type Props = {
 export const ChartGroup = ({ chartGroup }: Props) => {
     return (
         <Container>
-            {chartGroup.title?.length > 0 && (
-                <TitleContainer>
-                    <PageTitle title={chartGroup.title} variant="sectionHeader" />
-                </TitleContainer>
-            )}
+            {chartGroup.title?.length > 0 && <PageTitle title={chartGroup.title} variant="sectionHeader" />}
             <Row gutter={[16, 16]}>
                 {chartGroup.charts.map((chart) => (
                     <ChartCol key={chart.title} sm={24} md={24} lg={8} xl={8}>
