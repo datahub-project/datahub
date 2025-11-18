@@ -17,14 +17,6 @@ from datahub.ingestion.source.kafka_connect.transform_plugins import (
 )
 
 
-@pytest.fixture(scope="session", autouse=True)
-def ensure_jvm_started():
-    """Ensure JVM is started for all tests requiring Java regex."""
-    if not jpype.isJVMStarted():
-        jpype.startJVM(jpype.getDefaultJVMPath())
-    yield
-
-
 class TestTransformConfig:
     """Test TransformConfig dataclass."""
 
@@ -133,8 +125,8 @@ class TestRegexRouterPlugin:
 
         result = plugin.apply_forward(["test-topic"], config)
 
-        # Should return unchanged
-        assert result == ["test-topic"]
+        # With missing replacement, Java's replaceFirst uses empty string
+        assert result == [""]
 
     def test_apply_forward_invalid_regex(self) -> None:
         """Test handling invalid regex pattern."""
@@ -145,8 +137,8 @@ class TestRegexRouterPlugin:
             config={"regex": "[invalid(", "replacement": "new-topic"},
         )
 
-        # Should raise an exception for invalid regex
-        with pytest.raises((ValueError, RuntimeError)):
+        # Should raise a Java PatternSyntaxException (wrapped by JPype)
+        with pytest.raises(jpype.JException):
             plugin.apply_forward(["test-topic"], config)
 
     def test_apply_forward_no_match(self) -> None:

@@ -46,6 +46,7 @@ def create_mock_config() -> KafkaConnectSourceConfig:
     config.env = "PROD"
     config.platform_instance_map = {}
     config.generic_connectors = []
+    config.connect_to_platform_map = {}
     return config
 
 
@@ -429,7 +430,7 @@ class TestConnectorRegistrySchemaResolver:
         config = create_mock_config()
         config.use_schema_resolver = True
         # Type annotation to satisfy mypy - nested dict structure
-        config.platform_instance_map = {
+        config.connect_to_platform_map = {
             "my-connector": {"postgres": "my-instance"}  # type: ignore[dict-item]
         }
         report = create_mock_report()
