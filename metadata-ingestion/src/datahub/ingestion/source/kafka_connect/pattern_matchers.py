@@ -120,25 +120,22 @@ class JavaRegexMatcher:
             )
             return []
 
-        matched_texts = []
+        matched_texts_set = set()
 
         for pattern in patterns:
             try:
                 regex_pattern = JavaPattern.compile(pattern)
 
                 for text in texts:
-                    if (
-                        regex_pattern.matcher(text).matches()
-                        and text not in matched_texts
-                    ):
-                        matched_texts.append(text)
+                    if regex_pattern.matcher(text).matches():
+                        matched_texts_set.add(text)
 
             except Exception as e:
                 logger.warning(
                     f"Failed to compile or match Java regex pattern '{pattern}': {e}"
                 )
 
-        return matched_texts
+        return list(matched_texts_set)
 
 
 class WildcardMatcher:
@@ -185,11 +182,11 @@ class WildcardMatcher:
         Returns:
             List of texts matching at least one pattern
         """
-        matched_texts = []
+        matched_texts_set = set()
 
         for pattern in patterns:
             for text in texts:
-                if fnmatch.fnmatch(text, pattern) and text not in matched_texts:
-                    matched_texts.append(text)
+                if fnmatch.fnmatch(text, pattern):
+                    matched_texts_set.add(text)
 
-        return matched_texts
+        return list(matched_texts_set)
