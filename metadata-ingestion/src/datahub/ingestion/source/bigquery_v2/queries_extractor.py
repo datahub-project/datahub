@@ -283,7 +283,10 @@ class BigQueryQueriesExtractor(Closeable):
             table = BigqueryTableIdentifier.from_string_name(name)
             if (
                 self.discovered_tables
-                and str(BigQueryTableRef(table)) not in self.discovered_tables
+                and self.identifiers.standardize_identifier_case(
+                    str(BigQueryTableRef(table))
+                )
+                not in self.discovered_tables
             ):
                 logger.debug(f"not allowed table {name}")
                 return False
