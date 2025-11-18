@@ -37,11 +37,15 @@ class TestS3SlimNoPySpark:
 
     def test_s3_slim_pyspark_not_installed(self):
         with pytest.raises(ImportError):
-            pass
+            import pyspark
+
+            print(pyspark)  # to avoid ruff removing this import as noop
 
     def test_s3_slim_pydeequ_not_installed(self):
         with pytest.raises(ImportError):
-            pass
+            import pydeequ
+
+            print(pydeequ)  # to avoid ruff removing this import as noop
 
     def test_s3_source_loads_as_plugin(self):
         from datahub.ingestion.source.source_registry import source_registry
