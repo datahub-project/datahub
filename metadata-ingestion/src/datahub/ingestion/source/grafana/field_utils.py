@@ -64,7 +64,7 @@ def extract_raw_sql_fields(
     report: Optional[Any] = None,
 ) -> List[SchemaFieldClass]:
     """Extract fields from raw SQL queries using DataHub's SQL parsing."""
-    raw_sql = target.get("rawSql", "")
+    raw_sql = target.get("rawSql") or target.get("rawSQL")
     if not raw_sql:
         return []
 
@@ -141,7 +141,7 @@ def extract_raw_sql_fields(
 
 def _extract_raw_sql_fields_fallback(target: Dict[str, Any]) -> List[SchemaFieldClass]:
     """Fallback basic SQL parsing for when sqlglot fails."""
-    raw_sql = target.get("rawSql", "").lower()
+    raw_sql = (target.get("rawSql", "") or target.get("rawSQL", "")).lower()
     if not raw_sql:
         return []
 
