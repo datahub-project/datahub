@@ -46,7 +46,7 @@ def assert_sql_result_with_resolver(
             exc_info=res.debug_info.column_error,
         )
 
-    txt = res.json(indent=4)
+    txt = res.model_dump_json(indent=4)
     if settings.update_golden:
         expected_file.write_text(txt)
         return
@@ -57,7 +57,7 @@ def assert_sql_result_with_resolver(
             f"Missing expected golden file; run with --update-golden-files to create it: {expected_file}"
         )
 
-    expected = SqlParsingResult.parse_raw(expected_file.read_text())
+    expected = SqlParsingResult.model_validate_json(expected_file.read_text())
 
     full_diff = deepdiff.DeepDiff(
         expected.model_dump(),

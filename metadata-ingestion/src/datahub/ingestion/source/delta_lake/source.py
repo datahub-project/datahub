@@ -128,7 +128,7 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
 
         # self.profiling_times_taken = []
         config_report = {
-            config_option: config.dict().get(config_option)
+            config_option: config.model_dump().get(config_option)
             for config_option in config_options_to_report
         }
 
