@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import ColumnsModule from '@app/entityV2/summary/modules/schemaTable/ColumnsModule';
 import { ModuleProps, ModuleSize } from '@app/homeV3/module/types';
 
@@ -16,7 +17,7 @@ vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable', () => ({
 }));
 
 vi.mock('@app/homeV3/module/context/ModuleContext', () => ({
-    useModuleContext: vi.fn().mockReturnValue({ size: ModuleSize.FULL }),
+    useModuleContext: vi.fn(),
 }));
 
 vi.mock('@app/homeV3/module/components/EmptyContent', () => ({
@@ -38,6 +39,7 @@ vi.mock('@app/homeV3/module/components/LargeModule', () => ({
 
 vi.mock('@app/entity/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
+    useBaseEntity: vi.fn(),
 }));
 
 vi.mock('@app/useEntityRegistry', () => ({
@@ -90,6 +92,8 @@ describe('ColumnsModule', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        (useModuleContext as any).mockReturnValue({ size: ModuleSize.FULL });
+        (useBaseEntity as any).mockReturnValue({});
     });
 
     it('should render loading state when loading is true', () => {
