@@ -58,7 +58,7 @@ def patch_athena_operator() -> None:
             2. Enhances it with DataHub SQL parsing result for column lineage
             """
             try:
-                logger.info(
+                logger.debug(
                     f"DataHub patched Athena get_openlineage_facets_on_complete called for query: {self.query[:100]}"
                 )
 
@@ -73,7 +73,7 @@ def patch_athena_operator() -> None:
                     )
                     return operator_lineage
 
-                logger.info(
+                logger.debug(
                     f"Original Athena OpenLineage result: inputs={len(operator_lineage.inputs)}, outputs={len(operator_lineage.outputs)}"
                 )
 
@@ -85,7 +85,7 @@ def patch_athena_operator() -> None:
                         self.database if hasattr(self, "database") else None
                     )
 
-                    logger.info(
+                    logger.debug(
                         f"Running DataHub SQL parser for Athena (platform={platform}, "
                         f"default_db={default_database}): {self.query}"
                     )
@@ -105,7 +105,7 @@ def patch_athena_operator() -> None:
                         operator_lineage.run_facets["datahub_sql_parsing_result"] = (
                             sql_parsing_result
                         )
-                        logger.info(
+                        logger.debug(
                             f"Added DataHub SQL parsing result with "
                             f"{len(sql_parsing_result.column_lineage or [])} column lineages"
                         )
@@ -132,7 +132,7 @@ def patch_athena_operator() -> None:
         )
         AthenaOperator._datahub_openlineage_patched = True  # type: ignore[attr-defined]
 
-        logger.info(
+        logger.debug(
             "Patched AthenaOperator.get_openlineage_facets_on_complete to use DataHub SQL parser"
         )
 

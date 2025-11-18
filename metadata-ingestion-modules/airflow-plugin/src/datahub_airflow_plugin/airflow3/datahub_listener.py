@@ -191,7 +191,7 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
         # Debug: Log OpenLineage plugin state
         if OpenLineagePlugin is not None:
-            logger.info(
+            logger.debug(
                 f"OpenLineage plugin state: listeners={len(getattr(OpenLineagePlugin, 'listeners', []))} items, "
                 f"disable_openlineage_plugin={plugin_config.disable_openlineage_plugin}"
             )
@@ -199,7 +199,7 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
         if plugin_config.disable_openlineage_plugin and OpenLineagePlugin is not None:
             # Deactivate the OpenLineagePlugin listener to avoid conflicts/errors.
             OpenLineagePlugin.listeners = []
-            logger.info("Cleared OpenLineage plugin listeners")
+            logger.debug("Cleared OpenLineage plugin listeners")
 
     return _airflow_listener
 
@@ -314,7 +314,7 @@ class DataHubListener:
             try:
                 self._emitter = self._create_emitter_from_connection()
                 if self._emitter:
-                    logger.info(
+                    logger.debug(
                         f"DataHub plugin v2 using {repr(self._emitter)} (created via connection API)"
                     )
                 else:
@@ -636,7 +636,7 @@ class DataHubListener:
                             DATAHUB_SQL_PARSING_RESULT_KEY
                         ]  # type: ignore
                         if sql_parsing_result is not None:
-                            logger.info(
+                            logger.debug(
                                 f"✓ Found DataHub SQL parsing result for task {task.task_id} with {len(sql_parsing_result.column_lineage or [])} column lineages"
                             )
                         else:

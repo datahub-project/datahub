@@ -304,7 +304,7 @@ class SQLParserPatch:
             SQLParser.generate_openlineage_metadata_from_sql = (  # type: ignore[assignment,method-assign]
                 _datahub_generate_openlineage_metadata_from_sql  # type: ignore[assignment,method-assign]
             )
-            logger.info(
+            logger.debug(
                 "Patched SQLParser.generate_openlineage_metadata_from_sql with DataHub SQL parser"
             )
 
@@ -339,7 +339,7 @@ class SQLParserPatch:
             SQLParser.generate_openlineage_metadata_from_sql = (  # type: ignore[method-assign]
                 _original_sql_parser_method
             )
-            logger.info("Unpatched SQLParser, restored original method")
+            logger.debug("Unpatched SQLParser, restored original method")
 
         except ImportError:
             logger.debug("SQLParser not available, nothing to unpatch")

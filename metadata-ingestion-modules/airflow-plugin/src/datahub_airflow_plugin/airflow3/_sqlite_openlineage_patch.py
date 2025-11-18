@@ -78,7 +78,7 @@ def patch_sqlite_hook() -> None:
         SqliteHook.get_openlineage_database_info = get_openlineage_database_info  # type: ignore[method-assign,attr-defined]
         SqliteHook._datahub_openlineage_patched = True  # type: ignore[attr-defined]
 
-        logger.info(
+        logger.debug(
             "Patched SqliteHook.get_openlineage_database_info to provide database info for lineage extraction"
         )
 

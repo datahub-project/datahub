@@ -77,7 +77,7 @@ def patch_bigquery_insert_job_operator() -> None:
                         self, task_instance
                     )
 
-                logger.info(
+                logger.debug(
                     f"DataHub patched BigQuery get_openlineage_facets_on_complete called for query: {sql[:100]}..."
                 )
 
@@ -92,7 +92,7 @@ def patch_bigquery_insert_job_operator() -> None:
                     )
                     return operator_lineage
 
-                logger.info(
+                logger.debug(
                     f"Original BigQuery OpenLineage result: inputs={len(operator_lineage.inputs)}, outputs={len(operator_lineage.outputs)}"
                 )
 
@@ -104,7 +104,7 @@ def patch_bigquery_insert_job_operator() -> None:
                         self.project_id if hasattr(self, "project_id") else None
                     )
 
-                    logger.info(
+                    logger.debug(
                         f"Running DataHub SQL parser for BigQuery (platform={platform}, "
                         f"default_db={default_database}): {sql}"
                     )
@@ -123,7 +123,7 @@ def patch_bigquery_insert_job_operator() -> None:
                         default_schema=None,
                     )
 
-                    logger.info(
+                    logger.debug(
                         f"DataHub SQL parsing result: in_tables={len(sql_parsing_result.in_tables)}, "
                         f"out_tables={len(sql_parsing_result.out_tables)}, "
                         f"column_lineage={len(sql_parsing_result.column_lineage or [])}"
@@ -153,7 +153,7 @@ def patch_bigquery_insert_job_operator() -> None:
                                 sql_parsing_result.out_tables.append(
                                     destination_table_urn
                                 )
-                                logger.info(
+                                logger.debug(
                                     f"Added destination table to outputs: {destination_table_urn}"
                                 )
 
@@ -162,7 +162,7 @@ def patch_bigquery_insert_job_operator() -> None:
                         operator_lineage.run_facets["datahub_sql_parsing_result"] = (
                             sql_parsing_result
                         )
-                        logger.info(
+                        logger.debug(
                             f"Added DataHub SQL parsing result with "
                             f"{len(sql_parsing_result.column_lineage or [])} column lineages"
                         )
@@ -189,7 +189,7 @@ def patch_bigquery_insert_job_operator() -> None:
         )
         BigQueryInsertJobOperator._datahub_openlineage_patched = True  # type: ignore[attr-defined]
 
-        logger.info(
+        logger.debug(
             "Patched BigQueryInsertJobOperator.get_openlineage_facets_on_complete to use DataHub SQL parser"
         )
 
