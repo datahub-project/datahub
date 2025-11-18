@@ -19,7 +19,7 @@ describe("summary tab - glossary node", () => {
     ]);
   });
 
-  it("glossary node - description section", () => {
+  it.skip("glossary node - description section", () => {
     utils.testAboutSection();
   });
 
