@@ -1,0 +1,213 @@
+from typing import Any, Dict
+
+from datahub.ingestion.source.grafana.models import Dashboard, Panel
+
+
+def test_dashboard_missing_tags_validation():
+    """Test dashboard validation when tags field is missing."""
+    # Dashboard data without tags field
+    dashboard_data = {
+        "id": 450,
+        "panels": [],
+        "title": "Some Dashboard",
+        "uid": "dashboard-uid",
+        "version": 1,
+        "folder_id": None,
+    }
+
+    dashboard = Dashboard.model_validate(dashboard_data)
+    assert dashboard.uid == "dashboard-uid"
+    assert dashboard.title == "Some Dashboard"
+    assert dashboard.tags == []
+    assert dashboard.version == "1"
+    assert dashboard.folder_id is None
+
+
+def test_panel_validation_with_missing_fields():
+    """Test panel validation when optional fields are missing."""
+    panel_data_list: list[Dict[str, Any]] = [
+        {
+            "id": 1,
+            "type": "graph",
+        },
+        {
+            "id": 2,
+        },
+        {
+            "id": 3,
+            "title": "Chart with missing datasource",
+            "type": "graph",
+        },
+    ]
+
+    for panel_data in panel_data_list:
+        panel = Panel.model_validate(panel_data)
+        assert panel.id == str(panel_data["id"])
+        assert panel.description == ""
+        assert panel.query_targets == []
+        assert panel.transformations == []
+        assert panel.field_config == {}
+
+
+def test_dashboard_completely_minimal():
+    """Test dashboard with only absolutely required fields."""
+    minimal_dashboard = {
+        "uid": "minimal-dash",
+        "title": "Minimal Dashboard",
+    }
+
+    dashboard = Dashboard.model_validate(minimal_dashboard)
+    assert dashboard.uid == "minimal-dash"
+    assert dashboard.title == "Minimal Dashboard"
+    assert dashboard.tags == []
+    assert dashboard.description == ""
+    assert dashboard.panels == []
+    assert dashboard.version is None
+    assert dashboard.timezone is None
+    assert dashboard.refresh is None
+    assert dashboard.created_by is None
+    assert dashboard.folder_id is None
+
+
+def test_panel_completely_minimal():
+    """Test panel with only absolutely required fields."""
+    minimal_panel = {"id": 999}
+
+    panel = Panel.model_validate(minimal_panel)
+    assert panel.id == "999"
+    assert panel.title is None
+    assert panel.description == ""
+    assert panel.type is None
+    assert panel.query_targets == []
+    assert panel.datasource_ref is None
+    assert panel.field_config == {}
+    assert panel.transformations == []
+
+
+def test_dashboard_with_incomplete_panels():
+    """Test dashboard validation containing panels with missing optional fields."""
+    dashboard_data = {
+        "uid": "incomplete-dash",
+        "title": "Dashboard with Incomplete Panels",
+        "panels": [
+            {
+                "id": 1,
+                "type": "graph",
+            },
+            {
+                "id": 2,
+            },
+            {
+                "id": 3,
+                "title": "Panel with Some Fields",
+                "type": "table",
+            },
+        ],
+    }
+
+    dashboard = Dashboard.model_validate(dashboard_data)
+    assert dashboard.uid == "incomplete-dash"
+    assert dashboard.title == "Dashboard with Incomplete Panels"
+    assert dashboard.tags == []
+    assert dashboard.description == ""
+    assert len(dashboard.panels) == 3
+    panel1 = dashboard.panels[0]
+    assert panel1.id == "1"
+    assert panel1.type == "graph"
+    assert panel1.title is None
+    assert panel1.description == ""
+    assert panel1.query_targets == []
+
+    panel2 = dashboard.panels[1]
+    assert panel2.id == "2"
+    assert panel2.title is None
+    assert panel2.type is None  # Allowed to be None
+    assert panel2.description == ""
+    assert panel2.query_targets == []
+
+    panel3 = dashboard.panels[2]
+    assert panel3.id == "3"
+    assert panel3.title == "Panel with Some Fields"
+    assert panel3.type == "table"
+    assert panel3.description == ""
+    assert panel3.query_targets == []
+
+
+def test_realistic_grafana_api_response():
+    """Test validation with a realistic Grafana API response format."""
+    # Simulates a typical Grafana API response with some optional fields missing
+    real_response = {
+        "dashboard": {
+            "id": 450,
+            "uid": "real-dashboard",
+            "title": "Production Metrics",
+            "url": "/d/real-dashboard/production-metrics",
+            "slug": "production-metrics",
+            "type": "db",
+            "panels": [
+                {
+                    "id": 1,
+                    "title": "CPU Usage",
+                    "type": "graph",
+                    "targets": [{"expr": "cpu_usage_percent", "refId": "A"}],
+                    "datasource": {"type": "prometheus", "uid": "prometheus-uid"},
+                },
+                {
+                    "id": 2,
+                    "type": "text",
+                    # Text panel with no title - common in Grafana
+                    "datasource": {"type": "-- Grafana --", "uid": "-- Grafana --"},
+                },
+            ],
+            "time": {"from": "now-1h", "to": "now"},
+            "refresh": "30s",
+            "schemaVersion": 30,
+            "version": 5,
+            "meta": {
+                "type": "db",
+                "canSave": True,
+                "canEdit": True,
+                "slug": "production-metrics",
+                "url": "/d/real-dashboard/production-metrics",
+                "expires": "0001-01-01T00:00:00Z",
+                "created": "2024-01-01T10:00:00Z",
+                "updated": "2024-01-15T14:30:00Z",
+                "updatedBy": "admin",
+                "createdBy": "admin",
+                "version": 5,
+                "hasAcl": False,
+                "isFolder": False,
+                "folderId": 1,
+                "folderUid": "general",
+                "folderTitle": "General",
+                "folderUrl": "",
+                "provisioned": False,
+                "provisionedExternalId": "",
+            },
+            # Note: 'tags' and 'description' fields are not included
+        }
+    }
+
+    dashboard = Dashboard.model_validate(real_response)
+    assert dashboard.uid == "real-dashboard"
+    assert dashboard.title == "Production Metrics"
+    assert dashboard.tags == []  # Should default to empty list
+    assert dashboard.description == ""  # Should default to empty string
+    assert dashboard.version == "5"  # Should be converted to string
+    assert dashboard.refresh == "30s"
+    assert dashboard.folder_id == "1"  # Extracted from meta
+    assert len(dashboard.panels) == 2
+
+    # Verify panels are processed correctly
+    cpu_panel = dashboard.panels[0]
+    assert cpu_panel.id == "1"
+    assert cpu_panel.title == "CPU Usage"
+    assert cpu_panel.type == "graph"
+    assert cpu_panel.description == ""  # Default
+    assert len(cpu_panel.query_targets) == 1
+
+    text_panel = dashboard.panels[1]
+    assert text_panel.id == "2"
+    assert text_panel.title is None  # Text panels often have no title
+    assert text_panel.type == "text"
+    assert text_panel.description == ""  # Default

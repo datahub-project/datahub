@@ -54,6 +54,23 @@ class Panel(_GrafanaBaseModel):
     field_config: GrafanaFieldConfig = Field(default_factory=dict, alias="fieldConfig")
     transformations: List[GrafanaTransformation] = Field(default_factory=list)
 
+    @model_validator(mode="before")
+    @classmethod
+    def ensure_panel_defaults(cls, data: Any) -> Dict[str, Any]:
+        """Set defaults for optional fields and normalize data types."""
+        if isinstance(data, dict):
+            result = dict(data)
+            result.setdefault("description", "")
+            result.setdefault("targets", [])
+            result.setdefault("transformations", [])
+            result.setdefault("fieldConfig", {})
+
+            if "id" in result and isinstance(result["id"], int):
+                result["id"] = str(result["id"])
+
+            return result
+        return data
+
 
 class Dashboard(_GrafanaBaseModel):
     """Represents a Grafana dashboard."""
@@ -85,8 +102,13 @@ class Dashboard(_GrafanaBaseModel):
                         try:
                             panels.append(Panel.model_validate(p))
                         except Exception as e:
+                            logger.debug(
+                                f"Error parsing nested panel (id={p.get('id')}, type={p.get('type')}): {e}. "
+                                f"Panel data: {p}. Skipping this panel."
+                            )
                             logger.warning(
-                                f"Error parsing panel (id={p.get('id')}, type={p.get('type')}): {e}. Skipping this panel."
+                                f"Skipping panel with validation errors (id={p.get('id')}, type={p.get('type')}): "
+                                f"Missing or invalid fields. Enable debug logging for details."
                             )
             elif panel_data.get("type") != "row":
                 if skip_text_panels and panel_data.get("type") == "text":
@@ -94,8 +116,13 @@ class Dashboard(_GrafanaBaseModel):
                 try:
                     panels.append(Panel.model_validate(panel_data))
                 except Exception as e:
+                    logger.debug(
+                        f"Error parsing panel (id={panel_data.get('id')}, type={panel_data.get('type')}): {e}. "
+                        f"Panel data: {panel_data}. Skipping this panel."
+                    )
                     logger.warning(
-                        f"Error parsing panel (id={panel_data.get('id')}, type={panel_data.get('type')}): {e}. Skipping this panel."
+                        f"Skipping panel with validation errors (id={panel_data.get('id')}, type={panel_data.get('type')}): "
+                        f"Missing or invalid fields. Enable debug logging for details."
                     )
         return panels
 
@@ -133,6 +160,14 @@ class Dashboard(_GrafanaBaseModel):
             result = {**dashboard_data, "panels": panels}
             if folder_id is not None:
                 result["folder_id"] = folder_id
+
+            # Set defaults for optional fields that may be missing from API responses
+            result.setdefault("tags", [])
+            result.setdefault("description", "")
+            result.setdefault("version", None)
+            result.setdefault("timezone", None)
+            result.setdefault("refresh", None)
+            result.setdefault("created_by", None)
 
             result.pop("meta", None)
             result.pop("_skip_text_panels", None)
