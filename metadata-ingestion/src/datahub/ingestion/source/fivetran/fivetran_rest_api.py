@@ -1,3 +1,4 @@
+import json
 import logging
 
 import requests
@@ -58,18 +59,69 @@ class FivetranAPIClient:
     def get_connection_details_by_id(
         self, connection_id: str
     ) -> FivetranConnectionDetails:
+        """
+        Get details for a specific connection from the Fivetran API.
+
+        Args:
+            connection_id: The Fivetran connection ID to fetch details for.
+
+        Returns:
+            FivetranConnectionDetails: The parsed connection details.
+
+        Raises:
+            requests.exceptions.RequestException: For network/request errors.
+            requests.exceptions.HTTPError: For HTTP error responses (4xx, 5xx).
+            json.JSONDecodeError: If the response is not valid JSON.
+            ValueError: If the response data cannot be parsed into FivetranConnectionDetails.
+        """
         try:
             connection_details = self._session.get(
                 f"{self.config.base_url}/v1/connections/{connection_id}",
                 timeout=self.config.request_timeout_sec,
             )
 
-            response_json = connection_details.json()
-            data = response_json.get("data", {})
-            return FivetranConnectionDetails(**data)
-        except Exception as e:
             logger.debug(
-                f"Request error occurred while fetching connection details for connection_id: {connection_id}. Error: {str(e)}",
+                f"API response status code: {connection_details.status_code} for connection_id: {connection_id}"
+            )
+
+            # Check for HTTP errors and raise HTTPError if needed
+            connection_details.raise_for_status()
+
+            # Parse JSON response
+            try:
+                response_json = connection_details.json()
+            except json.JSONDecodeError:
+                logger.debug(
+                    f"Failed to parse JSON response for connection_id: {connection_id}. "
+                    f"Status code: {connection_details.status_code}, "
+                    f"Response text: {connection_details.text[:500]}",
+                    exc_info=True,
+                )
+                raise
+
+            data = response_json.get("data", {})
+            if not data:
+                raise ValueError(
+                    f"Response missing 'data' field for connection_id {connection_id}"
+                )
+
+            # Parse into FivetranConnectionDetails
+            try:
+                return FivetranConnectionDetails(**data)
+            except (ValueError, TypeError) as e:
+                logger.debug(
+                    f"Failed to parse FivetranConnectionDetails for connection_id: {connection_id}. "
+                    f"Response data: {data}",
+                    exc_info=True,
+                )
+                # The error message is in the data field
+                raise ValueError(
+                    f"Failed to parse FivetranConnectionDetails for connection_id {connection_id}. Error: {data}"
+                ) from e
+
+        except (requests.exceptions.RequestException, requests.exceptions.HTTPError):
+            logger.debug(
+                f"Request error occurred while fetching connection details for connection_id: {connection_id}",
                 exc_info=True,
             )
             raise
