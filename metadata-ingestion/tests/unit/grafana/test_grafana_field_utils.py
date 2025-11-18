@@ -125,9 +125,33 @@ def test_get_fields_from_field_config_empty():
 
 
 def test_get_fields_from_field_config_none():
-    """Test that get_fields_from_field_config handles None input gracefully."""
-    fields = get_fields_from_field_config(None)
+    """Test that get_fields_from_field_config handles empty dict input (via safe property)."""
+    # The safe_field_config property ensures we never pass None to this function
+    fields = get_fields_from_field_config({})
     assert fields == []
+
+
+def test_panel_safe_field_config_property():
+    """Test that Panel.safe_field_config always returns a dict, never None."""
+    from datahub.ingestion.source.grafana.models import Panel
+
+    # Test with explicit None field_config (should be converted by model validator)
+    panel_data = {
+        "id": "test1",
+        "type": "text",
+        "fieldConfig": None,  # This should be converted to {} by the model validator
+    }
+
+    panel = Panel.model_validate(panel_data)
+
+    # The safe_field_config property should always return a dict
+    safe_config = panel.safe_field_config
+    assert isinstance(safe_config, dict)
+    assert safe_config == {}  # Should be empty dict, not None
+
+    # The actual field_config should also be a dict after validation
+    assert isinstance(panel.field_config, dict)
+    assert panel.field_config == {}
 
 
 def test_extract_fields_from_panel_with_empty_fields():

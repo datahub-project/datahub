@@ -221,8 +221,8 @@ def extract_fields_from_panel(
         if target_fields:
             fields.extend(target_fields)
 
-    # Extract fields from field config
-    field_config_fields = get_fields_from_field_config(panel.field_config)
+    # Extract fields from field config - use safe property to ensure non-None
+    field_config_fields = get_fields_from_field_config(panel.safe_field_config)
     if field_config_fields:
         fields.extend(field_config_fields)
 
@@ -280,10 +280,15 @@ def extract_time_format_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]
 
 
 def get_fields_from_field_config(
-    field_config: Optional[Dict[str, Any]],
+    field_config: Dict[str, Any],
 ) -> List[SchemaFieldClass]:
     """Extract fields from field configuration."""
+    # Ultimate safety check - this should never happen but let's catch it with detailed info
     if field_config is None:
+        logger.error(
+            f"CRITICAL: get_fields_from_field_config received None field_config. "
+            f"This indicates a serious bug. Type: {type(field_config)}, Value: {field_config}"
+        )
         return []
 
     fields = []
@@ -298,7 +303,16 @@ def get_fields_from_field_config(
             )
         )
 
-    for override in field_config.get("overrides", []):
+    # Additional safety check before iterating
+    overrides = field_config.get("overrides", [])
+    if overrides is None:
+        logger.error(
+            f"CRITICAL: field_config.get('overrides', []) returned None. "
+            f"field_config type: {type(field_config)}, field_config: {field_config}"
+        )
+        overrides = []
+
+    for override in overrides:
         if override.get("matcher", {}).get("id") == "byName":
             field_name = override.get("matcher", {}).get("options")
             if field_name:
