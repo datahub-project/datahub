@@ -1,5 +1,8 @@
+import json
 from unittest import TestCase
 from unittest.mock import Mock, patch
+
+import requests
 
 from datahub.ingestion.source.fivetran.config import FivetranAPIConfig
 from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
@@ -89,3 +92,147 @@ class TestFivetranAPIClient(TestCase):
         mock_get.assert_called_once_with(
             "https://api.fivetran.com/v1/connections/test_connection_id", timeout=30
         )
+        mock_response.status_code = 200
+        mock_response.raise_for_status.assert_called_once()
+
+    @patch("requests.Session.get")
+    def test_get_connection_details_by_id_http_error(self, mock_get):
+        """Test handling of HTTP error responses."""
+        # Mock HTTP error response
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "404 Client Error: Not Found"
+        )
+        mock_get.return_value = mock_response
+
+        # Should raise HTTPError
+        with self.assertRaises(requests.exceptions.HTTPError):
+            self.client.get_connection_details_by_id("test_connection_id")
+
+    @patch("requests.Session.get")
+    def test_get_connection_details_by_id_json_decode_error(self, mock_get):
+        """Test handling of JSON decode errors."""
+        # Mock response with invalid JSON
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "", 0)
+        mock_get.return_value = mock_response
+
+        # Should raise JSONDecodeError
+        with self.assertRaises(json.JSONDecodeError):
+            self.client.get_connection_details_by_id("test_connection_id")
+
+    @patch("requests.Session.get")
+    def test_get_connection_details_by_id_missing_data_field(self, mock_get):
+        """Test handling of missing data field in response."""
+        mock_response_data = {
+            "code": "Success",
+            # Missing "data" field
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = mock_response_data
+        mock_get.return_value = mock_response
+
+        # Should raise ValueError
+        with self.assertRaises(ValueError) as context:
+            self.client.get_connection_details_by_id("test_connection_id")
+        assert "missing 'data' field" in str(context.exception)
+
+    @patch("requests.Session.get")
+    def test_get_connection_details_by_id_non_success_code(self, mock_get):
+        """Test handling of non-success response code."""
+        mock_response_data = {
+            "code": "Error",
+            "data": {
+                "id": "test_connection_id",
+            },
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = mock_response_data
+        mock_get.return_value = mock_response
+
+        # Should raise ValueError
+        with self.assertRaises(ValueError) as context:
+            self.client.get_connection_details_by_id("test_connection_id")
+        assert "not 'success'" in str(context.exception).lower()
+
+    @patch("requests.Session.get")
+    def test_get_connection_details_by_id_missing_code_field(self, mock_get):
+        """Test handling when code field is missing (should proceed normally)."""
+        mock_response_data = {
+            # Missing "code" field - should be allowed
+            "data": {
+                "id": "test_connection_id",
+                "group_id": "test_group_id",
+                "service": "google_sheets",
+                "created_at": "2025-01-01T00:00:00Z",
+                "succeeded_at": "2025-01-01T01:00:00Z",
+                "paused": False,
+                "sync_frequency": 360,
+                "status": {
+                    "setup_state": "connected",
+                    "schema_status": "ready",
+                    "sync_state": "paused",
+                    "update_state": "on_schedule",
+                    "is_historical_sync": False,
+                    "warnings": [],
+                },
+                "config": {
+                    "auth_type": "ServiceAccount",
+                    "sheet_id": "https://docs.google.com/spreadsheets/d/test123/edit",
+                    "named_range": "Test_Range",
+                },
+                "source_sync_details": {"last_synced": "2025-01-01T01:00:00Z"},
+            },
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = mock_response_data
+        mock_get.return_value = mock_response
+
+        # Should succeed even without code field
+        result = self.client.get_connection_details_by_id("test_connection_id")
+        assert isinstance(result, FivetranConnectionDetails)
+
+    @patch("requests.Session.get")
+    def test_get_connection_details_by_id_request_exception(self, mock_get):
+        """Test handling of request exceptions."""
+        # Mock request exception
+        mock_get.side_effect = requests.exceptions.RequestException("Connection error")
+
+        # Should raise RequestException
+        with self.assertRaises(requests.exceptions.RequestException):
+            self.client.get_connection_details_by_id("test_connection_id")
+
+    @patch("requests.Session.get")
+    def test_get_connection_details_by_id_parse_error(self, mock_get):
+        """Test handling of parsing errors when creating FivetranConnectionDetails."""
+        mock_response_data = {
+            "code": "Success",
+            "data": {
+                # Missing required fields to cause parsing error
+                "id": "test_connection_id",
+                # Missing other required fields
+            },
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = mock_response_data
+        mock_get.return_value = mock_response
+
+        # Should raise ValueError due to missing required fields
+        with self.assertRaises(ValueError) as context:
+            self.client.get_connection_details_by_id("test_connection_id")
+        assert "Failed to parse FivetranConnectionDetails" in str(context.exception)

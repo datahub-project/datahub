@@ -81,7 +81,7 @@ class FivetranAPIClient:
 
             # Check response code at top level (e.g., "code": "Success")
             response_code = response_json.get("code")
-            if response_code.lower() != "success":
+            if response_code and response_code.lower() != "success":
                 raise ValueError(
                     f"Response code is not 'success' for connection_id {connection_id}. "
                     f"Code: {response_code}, Response: {response_json}"

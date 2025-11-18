@@ -2,6 +2,8 @@ import datetime
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
+import requests
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.fivetran.config import (
     Constant,
@@ -201,3 +203,155 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
     def test_google_sheets_connector_type_constant(self):
         """Test that the Google Sheets connector type constant is correct."""
         assert Constant.GOOGLE_SHEETS_CONNECTOR_TYPE == "google_sheets"
+
+    def test_get_gsheet_sheet_id_from_url_with_full_url(self):
+        """Test extraction of sheet ID from full Google Sheets URL."""
+        gsheets_conn_details = FivetranConnectionDetails(
+            id="test_connector",
+            group_id="test_group",
+            service="google_sheets",
+            created_at=datetime.datetime(2025, 1, 1, 0, 0, 0),
+            succeeded_at=datetime.datetime(2025, 1, 1, 1, 0, 0),
+            paused=False,
+            sync_frequency=360,
+            status=FivetranConnectionStatus(
+                setup_state="connected",
+                schema_status="ready",
+                sync_state="paused",
+                update_state="on_schedule",
+                is_historical_sync=False,
+                warnings=[],
+            ),
+            config=FivetranConnectionConfig(
+                auth_type="ServiceAccount",
+                sheet_id="https://docs.google.com/spreadsheets/d/1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo/edit?gid=0#gid=0",
+                named_range="Test_Range",
+            ),
+            source_sync_details=FivetranConnectionSourceSyncDetails(
+                last_synced=datetime.datetime(2025, 1, 1, 1, 0, 0)
+            ),
+        )
+
+        sheet_id = self.source._get_gsheet_sheet_id_from_url(gsheets_conn_details)
+        assert sheet_id == "1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo"
+
+    def test_get_gsheet_sheet_id_from_url_with_plain_id(self):
+        """Test extraction of sheet ID when it's already just an ID."""
+        gsheets_conn_details = FivetranConnectionDetails(
+            id="test_connector",
+            group_id="test_group",
+            service="google_sheets",
+            created_at=datetime.datetime(2025, 1, 1, 0, 0, 0),
+            succeeded_at=datetime.datetime(2025, 1, 1, 1, 0, 0),
+            paused=False,
+            sync_frequency=360,
+            status=FivetranConnectionStatus(
+                setup_state="connected",
+                schema_status="ready",
+                sync_state="paused",
+                update_state="on_schedule",
+                is_historical_sync=False,
+                warnings=[],
+            ),
+            config=FivetranConnectionConfig(
+                auth_type="ServiceAccount",
+                sheet_id="13aoqK7hn75-_fckhgfw10tU4yPTLwyrB8t_HkqnBG_A",
+                named_range="Test_Range",
+            ),
+            source_sync_details=FivetranConnectionSourceSyncDetails(
+                last_synced=datetime.datetime(2025, 1, 1, 1, 0, 0)
+            ),
+        )
+
+        sheet_id = self.source._get_gsheet_sheet_id_from_url(gsheets_conn_details)
+        assert sheet_id == "13aoqK7hn75-_fckhgfw10tU4yPTLwyrB8t_HkqnBG_A"
+
+    def test_get_gsheet_named_range_dataset_id(self):
+        """Test generation of named range dataset ID."""
+        gsheets_conn_details = FivetranConnectionDetails(
+            id="test_connector",
+            group_id="test_group",
+            service="google_sheets",
+            created_at=datetime.datetime(2025, 1, 1, 0, 0, 0),
+            succeeded_at=datetime.datetime(2025, 1, 1, 1, 0, 0),
+            paused=False,
+            sync_frequency=360,
+            status=FivetranConnectionStatus(
+                setup_state="connected",
+                schema_status="ready",
+                sync_state="paused",
+                update_state="on_schedule",
+                is_historical_sync=False,
+                warnings=[],
+            ),
+            config=FivetranConnectionConfig(
+                auth_type="ServiceAccount",
+                sheet_id="1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo",
+                named_range="Test_Range",
+            ),
+            source_sync_details=FivetranConnectionSourceSyncDetails(
+                last_synced=datetime.datetime(2025, 1, 1, 1, 0, 0)
+            ),
+        )
+
+        named_range_id = self.source._get_gsheet_named_range_dataset_id(
+            gsheets_conn_details
+        )
+        assert (
+            named_range_id == "1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo.Test_Range"
+        )
+
+    def test_get_connection_details_by_id_api_error(self):
+        """Test handling of API errors when fetching connection details."""
+        # Mock API client to raise an exception
+        mock_api_client = Mock()
+        mock_api_client.get_connection_details_by_id.side_effect = (
+            requests.exceptions.HTTPError("404 Not Found")
+        )
+        self.source.api_client = mock_api_client
+
+        # Should handle the error gracefully and return None
+        result = self.source._get_connection_details_by_id("test_connector_id")
+        assert result is None
+
+    def test_get_connection_details_by_id_with_caching(self):
+        """Test that connection details are cached after first fetch."""
+        gsheets_conn_details = FivetranConnectionDetails(
+            id="test_connector",
+            group_id="test_group",
+            service="google_sheets",
+            created_at=datetime.datetime(2025, 1, 1, 0, 0, 0),
+            succeeded_at=datetime.datetime(2025, 1, 1, 1, 0, 0),
+            paused=False,
+            sync_frequency=360,
+            status=FivetranConnectionStatus(
+                setup_state="connected",
+                schema_status="ready",
+                sync_state="paused",
+                update_state="on_schedule",
+                is_historical_sync=False,
+                warnings=[],
+            ),
+            config=FivetranConnectionConfig(
+                auth_type="ServiceAccount",
+                sheet_id="test_sheet_id",
+                named_range="Test_Range",
+            ),
+            source_sync_details=FivetranConnectionSourceSyncDetails(
+                last_synced=datetime.datetime(2025, 1, 1, 1, 0, 0)
+            ),
+        )
+
+        mock_api_client = Mock()
+        mock_api_client.get_connection_details_by_id.return_value = gsheets_conn_details
+        self.source.api_client = mock_api_client
+
+        # First call should fetch from API
+        result1 = self.source._get_connection_details_by_id("test_connector")
+        assert result1 == gsheets_conn_details
+        assert mock_api_client.get_connection_details_by_id.call_count == 1
+
+        # Second call should use cache
+        result2 = self.source._get_connection_details_by_id("test_connector")
+        assert result2 == gsheets_conn_details
+        assert mock_api_client.get_connection_details_by_id.call_count == 1  # Still 1
