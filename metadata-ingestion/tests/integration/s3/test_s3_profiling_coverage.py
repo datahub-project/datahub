@@ -105,12 +105,10 @@ class TestS3ProfilingCoverage:
         ctx = PipelineContext(run_id="test-profiling-numeric")
         source: S3Source = S3Source.create(config_dict, ctx)
 
-        # Execute profiling
         workunits = list(source.get_workunits())
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        # Verify we got profile data
         assert len(workunits) > 0
         profile_workunits = [
             wu for wu in workunits if wu.metadata.aspectName == "datasetProfile"
@@ -153,9 +151,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-string")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
         profile_workunits = [
@@ -198,9 +198,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-date")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
 
@@ -248,9 +250,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-nulls")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
 
@@ -297,9 +301,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-samples")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
 
@@ -340,9 +346,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-high-cardinality")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
 
@@ -388,6 +396,8 @@ class TestS3ProfilingCoverage:
         source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
 
@@ -427,9 +437,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-filtered")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
 
@@ -443,7 +455,6 @@ class TestS3ProfilingCoverage:
         import pandas as pd
 
         test_file = tmp_path / "many_columns.csv"
-        # Create a dataset with 20 columns
         data = {f"col_{i}": range(1, 11) for i in range(20)}
         df = pd.DataFrame(data)
         df.to_csv(test_file, index=False)
@@ -461,9 +472,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-max-fields")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
         assert source.report.number_of_files_filtered > 0
@@ -499,9 +512,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-table-only")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
 
@@ -538,9 +553,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-quantiles")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
 
@@ -575,9 +592,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-histogram-distinct")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
 
@@ -612,9 +631,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-histogram-continuous")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
 
@@ -667,9 +688,11 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-comprehensive")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
         profile_workunits = [
@@ -707,8 +730,10 @@ class TestS3ProfilingCoverage:
         }
 
         ctx = PipelineContext(run_id="test-profiling-empty")
-        source = S3Source.create(config_dict, ctx)
+        source: S3Source = S3Source.create(config_dict, ctx)
 
         workunits = list(source.get_workunits())
+        assert len(source.report.failures) == 0
+        assert len(source.report.warnings) == 0
 
         assert len(workunits) > 0
