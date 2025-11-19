@@ -31,7 +31,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
-- **Fivetran Source - Database and Schema Identifier Quoting**: The Fivetran ingestion source now uses quoted identifiers for database and schema names following Snowflake's quoted identifier convention.Schema names were already quoted and continue to be quoted (Since v1.2.0.7). This change ensures proper handling of database and schema names containing special characters (hyphens, spaces, dots, etc.) and case-sensitive names. Now that names are quoted, they preserve the case as specified in your configuration. **Action Required**: Ensure your Fivetran source configuration uses the exact case matching your Snowflake database and schema names. If your objects are stored as uppercase in Snowflake, use uppercase in your configuration. This affects all supported destination platforms (Snowflake, BigQuery, Databricks) as queries are transpiled from Snowflake SQL to the target dialect.
 - #15005: `SqlParsingBuilder` is removed, use `SqlParsingAggregator` instead
 - #14710: LookML ingestion source migrated to SDKv2 resulting in:
   - `browsePaths` aspect replaced with `browsePathsV2`
