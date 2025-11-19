@@ -966,7 +966,7 @@ class BaseConnector:
                 fine_grained_lineages.append(fine_grained_lineage)
 
             if fine_grained_lineages:
-                logger.info(
+                logger.debug(
                     f"Generated {len(fine_grained_lineages)} fine-grained lineages "
                     f"for {source_platform} table {source_dataset} → {target_dataset}"
                 )
