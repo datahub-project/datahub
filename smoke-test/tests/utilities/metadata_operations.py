@@ -636,3 +636,59 @@ def update_incident_status(
 
     res_data = execute_graphql(auth_session, query, variables)
     return res_data["data"]["updateIncidentStatus"]
+
+
+@with_test_retry()
+def search_datasets_by_assertions(auth_session) -> Dict[str, Any]:
+    """Search for datasets filtered by assertion status.
+
+    This query mirrors the observe/datasets UI filtering logic.
+    It searches for datasets with any of:
+    - hasFailingAssertions
+    - hasPassingAssertions
+    - hasErroredAssertions
+    - hasInitializingAssertions
+
+    Returns:
+        Dictionary containing search results with keys: start, count, total, searchResults
+    """
+    query = """
+        query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {
+            searchAcrossEntities(input: $input) {
+                start
+                count
+                total
+                searchResults {
+                    entity {
+                        urn
+                        type
+                    }
+                }
+            }
+        }
+    """
+
+    variables: Dict[str, Any] = {
+        "input": {
+            "types": ["DATASET"],
+            "query": "*",
+            "start": 0,
+            "count": 25,
+            "orFilters": [
+                {"and": [{"field": "hasFailingAssertions", "values": ["true"]}]},
+                {"and": [{"field": "hasPassingAssertions", "values": ["true"]}]},
+                {"and": [{"field": "hasErroredAssertions", "values": ["true"]}]},
+                {"and": [{"field": "hasInitializingAssertions", "values": ["true"]}]},
+            ],
+            "sortInput": {
+                "sortCriterion": {
+                    "field": "lastAssertionResultAt",
+                    "sortOrder": "DESCENDING",
+                }
+            },
+            "searchFlags": {"skipCache": True},
+        }
+    }
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["searchAcrossEntities"]

@@ -7,6 +7,55 @@
     - should not depend on the order in which they run
     - should not depend on another test doing their cleanup
 
+## Read-Only Test Guidelines
+
+**Read-only tests** (`tests/read_only/`) must work against ANY deployment, including empty ones.
+
+**Key Rules:**
+1. **All helpers go in `metadata_operations.py`** - No inline GraphQL in test files
+2. **Never assume data exists** - Tests verify queries work, not that results exist
+3. **Check for errors only** - Assert on response structure, not result counts
+4. **Use `@with_test_retry()`** - Add decorator to helpers for eventual consistency
+
+**Pattern:**
+```python
+# In metadata_operations.py
+@with_test_retry()
+def my_search_operation(auth_session) -> Dict[str, Any]:
+    """Search for X with filters Y."""
+    query = """..."""
+    variables: Dict[str, Any] = {...}
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["searchResults"]
+
+# In tests/read_only/test_my_feature.py
+from tests.utilities.metadata_operations import my_search_operation
+
+@pytest.mark.read_only
+def test_my_feature(auth_session):
+    """Test X query works without errors."""
+    result = my_search_operation(auth_session)
+
+    # Check structure exists (OK if empty)
+    assert result is not None
+    assert "total" in result
+
+    # If results exist, validate them
+    for item in result.get("items", []):
+        assert "urn" in item
+```
+
+**DON'T:**
+- ❌ Inline GraphQL queries in test files
+- ❌ Assert `total > 0` or require data to exist
+- ❌ Test-specific helper functions
+
+**DO:**
+- ✅ Put all helpers in `metadata_operations.py`
+- ✅ Assert response structure only
+- ✅ Log result counts for visibility
+- ✅ Use `add_datahub_stats()` to track metrics
+
 ## Common Utilities
 
 
