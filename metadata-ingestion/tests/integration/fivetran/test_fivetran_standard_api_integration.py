@@ -12,6 +12,7 @@ import responses
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.fivetran.config import (
     FivetranAPIConfig,
+    FivetranLogConfig,
     FivetranSourceConfig,
     FivetranSourceReport,
 )
@@ -29,7 +30,6 @@ class TestFivetranStandardAPIIntegration:
             api_key="test_api_key",
             api_secret="test_api_secret",
             base_url="https://api.fivetran.com",
-            max_workers=4,
             request_timeout_sec=30,
         )
 
@@ -40,7 +40,8 @@ class TestFivetranStandardAPIIntegration:
             api_config=FivetranAPIConfig(
                 api_key="test_api_key",
                 api_secret="test_api_secret",
-            )
+            ),
+            fivetran_log_config=FivetranLogConfig(destination_platform="snowflake"),
         )
 
     @pytest.fixture

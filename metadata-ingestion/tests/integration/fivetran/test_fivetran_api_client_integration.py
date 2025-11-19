@@ -20,7 +20,6 @@ class TestFivetranSimpleIntegration:
             api_secret="test_secret",
             base_url="https://api.fivetran.com",
             request_timeout_sec=5,  # Short timeout for tests
-            max_workers=1,
         )
 
     @pytest.fixture

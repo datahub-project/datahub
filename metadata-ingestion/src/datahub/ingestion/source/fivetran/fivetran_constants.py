@@ -2,11 +2,12 @@
 Constants and mappings used across Fivetran source modules.
 """
 
-from enum import Enum
 from typing import Optional
 
+from datahub.utilities.str_enum import StrEnum
 
-class FivetranMode(Enum):
+
+class FivetranMode(StrEnum):
     """Fivetran source operation modes."""
 
     ENTERPRISE = "enterprise"
@@ -14,11 +15,22 @@ class FivetranMode(Enum):
     AUTO = "auto"
 
 
-class DataJobMode(Enum):
+class DataJobMode(StrEnum):
     """DataJob generation modes."""
 
     CONSOLIDATED = "consolidated"
     PER_TABLE = "per_table"
+
+
+class ColumnNamingPattern(StrEnum):
+    """Column naming patterns for Fivetran connectors."""
+
+    AUTO = "auto"
+    SNAKE_CASE = "snake_case"
+    CAMEL_CASE = "camel_case"
+    PASCAL_CASE = "pascal_case"
+    UPPER_CASE = "upper_case"
+    LOWER_CASE = "lower_case"
 
 
 # Lineage and job processing limits

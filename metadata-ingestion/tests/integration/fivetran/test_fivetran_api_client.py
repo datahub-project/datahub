@@ -13,6 +13,7 @@ from requests.exceptions import HTTPError
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.fivetran.config import (
     FivetranAPIConfig,
+    FivetranLogConfig,
     FivetranSourceConfig,
     FivetranSourceReport,
 )
@@ -30,7 +31,6 @@ class TestFivetranCoverageBoost:
             api_key="test_key",
             api_secret="test_secret",
             base_url="https://api.fivetran.com",
-            max_workers=2,
             request_timeout_sec=30,
         )
 
@@ -42,7 +42,21 @@ class TestFivetranCoverageBoost:
     @pytest.fixture
     def source_config(self, api_config: FivetranAPIConfig) -> FivetranSourceConfig:
         """Create source config for testing."""
-        return FivetranSourceConfig(api_config=api_config)
+        return FivetranSourceConfig(
+            api_config=api_config,
+            fivetran_log_config=FivetranLogConfig(
+                destination_platform="snowflake",
+                snowflake_destination_config={
+                    "account_id": "test",
+                    "warehouse": "test",
+                    "username": "test",
+                    "password": "test",
+                    "database": "test",
+                    "role": "test",
+                    "log_schema": "test",
+                },
+            ),
+        )
 
     @pytest.fixture
     def standard_api(
@@ -79,7 +93,6 @@ class TestFivetranCoverageBoost:
             api_key="test_key",
             api_secret="test_secret",
             base_url="https://api.fivetran.com",
-            max_workers=2,
             request_timeout_sec=30,
         )
         no_retry_client = FivetranAPIClient(no_retry_config)

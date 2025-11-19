@@ -4,11 +4,12 @@ Unit tests for fivetran_query.py
 
 import pytest
 
-from datahub.ingestion.source.fivetran.fivetran_constants import (
+from datahub.ingestion.source.fivetran.fivetran_query import (
     MAX_COLUMN_LINEAGE_PER_CONNECTOR,
     MAX_JOBS_PER_CONNECTOR,
+    MAX_TABLE_LINEAGE_PER_CONNECTOR,
+    FivetranLogQuery,
 )
-from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 
 class TestFivetranLogQuery:
@@ -50,21 +51,21 @@ class TestFivetranLogQuery:
 
         # Check that query contains expected elements
         assert "SELECT" in query
-        assert "connector_id" in query
+        assert "connection_id" in query
         assert "connecting_user_id" in query
         assert "connector_type_id" in query
-        assert "connector_name" in query
+        assert "connection_name" in query
         assert "paused" in query
         assert "sync_frequency" in query
         assert "destination_id" in query
-        assert "FROM connector" in query
+        assert "FROM connection" in query
         assert "_fivetran_deleted = FALSE" in query
         assert "QUALIFY ROW_NUMBER()" in query
 
         # Test with schema clause
         query_builder.set_schema("test_schema")
         query_with_schema = query_builder.get_connectors_query()
-        assert 'FROM "test_schema".connector' in query_with_schema
+        assert 'FROM "test_schema".connection' in query_with_schema
 
     def test_get_users_query(self, query_builder):
         """Test get_users_query method."""
@@ -92,7 +93,7 @@ class TestFivetranLogQuery:
         # Check that query contains expected elements
         assert "WITH ranked_syncs AS" in query
         assert "SELECT" in query
-        assert "connector_id" in query
+        assert "connection_id" in query
         assert "sync_id" in query
         assert "start_time" in query
         assert "end_time" in query
@@ -129,18 +130,17 @@ class TestFivetranLogQuery:
 
         # Should still generate valid query structure
         assert "WITH ranked_syncs AS" in query
-        assert "connector_id IN ()" in query
+        assert "connection_id IN ()" in query
 
     def test_get_table_lineage_query(self, query_builder):
         """Test get_table_lineage_query method."""
         connector_ids = ["connector_1", "connector_2"]
-        max_lineage = 100
 
-        query = query_builder.get_table_lineage_query(connector_ids, max_lineage)
+        query = query_builder.get_table_lineage_query(connector_ids)
 
         # Check that query contains expected elements
         assert "SELECT" in query
-        assert "connector_id" in query
+        assert "connection_id" in query
         assert "source_table_id" in query
         assert "source_table_name" in query
         assert "source_schema_name" in query
@@ -148,20 +148,19 @@ class TestFivetranLogQuery:
         assert "destination_table_name" in query
         assert "destination_schema_name" in query
         assert "table_lineage" in query
-        assert "source_table_metadata" in query
-        assert "destination_table_metadata" in query
-        assert "source_schema_metadata" in query
-        assert "destination_schema_metadata" in query
+        assert "source_table" in query
+        assert "destination_table" in query
+        assert "source_schema" in query
+        assert "destination_schema" in query
         assert "'connector_1', 'connector_2'" in query
-        assert f"<= {max_lineage}" in query
+        assert f"<= {MAX_TABLE_LINEAGE_PER_CONNECTOR}" in query
         assert "table_combo_rn = 1" in query
 
     def test_get_table_lineage_query_unlimited(self, query_builder):
         """Test get_table_lineage_query with unlimited lineage (-1)."""
         connector_ids = ["connector_1"]
-        max_lineage = -1
 
-        query = query_builder.get_table_lineage_query(connector_ids, max_lineage)
+        query = query_builder.get_table_lineage_query(connector_ids, max_lineage=-1)
 
         # Should not contain QUALIFY clause for limiting
         assert "QUALIFY ROW_NUMBER()" not in query
@@ -171,16 +170,15 @@ class TestFivetranLogQuery:
         """Test get_table_lineage_query with schema clause."""
         query_builder.set_schema("test_schema")
         connector_ids = ["connector_1"]
-        max_lineage = 50
 
-        query = query_builder.get_table_lineage_query(connector_ids, max_lineage)
+        query = query_builder.get_table_lineage_query(connector_ids)
 
         # All table references should include schema
         assert '"test_schema".table_lineage' in query
-        assert '"test_schema".source_table_metadata' in query
-        assert '"test_schema".destination_table_metadata' in query
-        assert '"test_schema".source_schema_metadata' in query
-        assert '"test_schema".destination_schema_metadata' in query
+        assert '"test_schema".source_table' in query
+        assert '"test_schema".destination_table' in query
+        assert '"test_schema".source_schema' in query
+        assert '"test_schema".destination_schema' in query
 
     def test_get_column_lineage_query(self, query_builder):
         """Test get_column_lineage_query method."""
@@ -195,9 +193,9 @@ class TestFivetranLogQuery:
         assert "source_column_name" in query
         assert "destination_column_name" in query
         assert "column_lineage" in query
-        assert "source_column_metadata" in query
-        assert "destination_column_metadata" in query
-        assert "source_table_metadata" in query
+        assert "source_column" in query
+        assert "destination_column" in query
+        assert "source_table" in query
         assert "'connector_1', 'connector_2'" in query
         assert f"<= {MAX_COLUMN_LINEAGE_PER_CONNECTOR}" in query
         assert "column_combo_rn = 1" in query
@@ -211,9 +209,9 @@ class TestFivetranLogQuery:
 
         # All table references should include schema
         assert '"test_schema".column_lineage' in query
-        assert '"test_schema".source_column_metadata' in query
-        assert '"test_schema".destination_column_metadata' in query
-        assert '"test_schema".source_table_metadata' in query
+        assert '"test_schema".source_column' in query
+        assert '"test_schema".destination_column' in query
+        assert '"test_schema".source_table' in query
 
     def test_get_column_lineage_query_single_connector(self, query_builder):
         """Test get_column_lineage_query with single connector."""
@@ -231,7 +229,7 @@ class TestFivetranLogQuery:
 
         # Should still generate valid query structure
         assert "SELECT" in query
-        assert "connector_id IN ()" in query
+        assert "connection_id IN ()" in query
 
     def test_connector_ids_formatting(self, query_builder):
         """Test that connector IDs are properly formatted in queries."""

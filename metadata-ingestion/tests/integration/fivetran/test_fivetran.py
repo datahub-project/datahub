@@ -526,6 +526,7 @@ def test_rename_destination_config():
         match="destination_config is deprecated, please use snowflake_destination_config instead.",
     ):
         config = FivetranSourceConfig.model_validate(config_dict)
+        assert config.fivetran_log_config is not None
         assert config.fivetran_log_config.snowflake_destination_config is not None
         assert (
             config.fivetran_log_config.snowflake_destination_config.account_id

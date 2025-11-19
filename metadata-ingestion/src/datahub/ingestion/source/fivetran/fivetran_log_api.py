@@ -2,7 +2,7 @@ import functools
 import json
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import sqlglot
 from sqlalchemy import create_engine
@@ -14,13 +14,13 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranLogConfig,
     FivetranSourceReport,
 )
-from datahub.ingestion.source.fivetran.data_classes import (
+from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
+from datahub.ingestion.source.fivetran.models import (
     ColumnLineage,
     Connector,
     Job,
     TableLineage,
 )
-from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -338,3 +338,34 @@ class FivetranLogAPI:
             logger.info("Fetching connector job run history")
             self._fill_connectors_jobs(connectors, syncs_interval)
         return connectors
+
+    def get_allowed_connectors_stream(
+        self,
+        connector_patterns: AllowDenyPattern,
+        destination_patterns: AllowDenyPattern,
+        report: FivetranSourceReport,
+        syncs_interval: int,
+    ) -> Iterator[Connector]:
+        """Get a stream of connectors filtered by the provided patterns, yielding one at a time."""
+        # For now, just call get_allowed_connectors_list and yield each item
+        # This can be optimized later to stream directly from the database
+        connectors = self.get_allowed_connectors_list(
+            connector_patterns, destination_patterns, report, syncs_interval
+        )
+        for connector in connectors:
+            yield connector
+
+    def test_connection(self) -> None:
+        """Test the connection to the log database for backward compatibility with factory fallback."""
+        try:
+            # Try to execute a simple query to test the connection
+            query = self.fivetran_log_query.get_connectors_query()
+            # Limit to 1 row to minimize impact
+            limited_query = f"SELECT * FROM ({query}) LIMIT 1"
+            self._query(limited_query)
+        except Exception as e:
+            from datahub.configuration.common import ConfigurationError
+
+            raise ConfigurationError(
+                f"Failed to connect to Fivetran log database: {e}"
+            ) from e

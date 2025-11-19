@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List
 
 # Safeguards to prevent fetching massive amounts of data.
 MAX_TABLE_LINEAGE_PER_CONNECTOR = 120
@@ -29,7 +29,7 @@ class FivetranLogQuery:
         # Select query db clause
         self.schema_clause: str = ""
         # Table name compatibility for schema changes
-        self._table_names = {}
+        self._table_names: Dict[str, str] = {}
         self._table_names_initialized = False
 
     def use_database(self, db_name: str) -> str:
@@ -106,11 +106,16 @@ WHERE rn <= {MAX_JOBS_PER_CONNECTOR}
 ORDER BY connection_id, end_time DESC
 """
 
-    def get_table_lineage_query(self, connector_ids: List[str]) -> str:
+    def get_table_lineage_query(
+        self,
+        connector_ids: List[str],
+        max_lineage: int = MAX_TABLE_LINEAGE_PER_CONNECTOR,
+    ) -> str:
         # Format connector_ids as a comma-separated string of quoted IDs
         formatted_connector_ids = ", ".join(f"'{id}'" for id in connector_ids)
 
-        return f"""\
+        # Build base query
+        base_query = f"""\
 SELECT
     *
 FROM (
@@ -132,10 +137,15 @@ FROM (
     WHERE stm.connection_id IN ({formatted_connector_ids})
 )
 -- Ensure that we only get back one entry per source and destination pair.
-WHERE table_combo_rn = 1
-QUALIFY ROW_NUMBER() OVER (PARTITION BY connection_id ORDER BY created_at DESC) <= {MAX_TABLE_LINEAGE_PER_CONNECTOR}
-ORDER BY connection_id, created_at DESC
-"""
+WHERE table_combo_rn = 1"""
+
+        # Add QUALIFY clause only if max_lineage is positive (not unlimited)
+        if max_lineage > 0:
+            base_query += f"\nQUALIFY ROW_NUMBER() OVER (PARTITION BY connection_id ORDER BY created_at DESC) <= {max_lineage}"
+
+        base_query += "\nORDER BY connection_id, created_at DESC"
+
+        return base_query
 
     def get_column_lineage_query(self, connector_ids: List[str]) -> str:
         # Format connector_ids as a comma-separated string of quoted IDs
@@ -172,7 +182,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY connection_id ORDER BY created_at DESC) 
 ORDER BY connection_id, created_at DESC
 """
 
-    def initialize_table_names(self, engine) -> None:
+    def initialize_table_names(self, engine: Any) -> None:
         """
         Initialize table name mappings for backward compatibility.
         Detects whether to use new table names (without _metadata suffix) or old ones.

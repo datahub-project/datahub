@@ -9,7 +9,7 @@ lineage as patches rather than full overwrites, enabling:
 """
 
 from typing import List
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -17,7 +17,9 @@ from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_li
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fivetran.config import (
     FivetranAPIConfig,
+    FivetranLogConfig,
     FivetranSourceConfig,
+    SnowflakeDestinationConfig,
 )
 from datahub.ingestion.source.fivetran.fivetran import FivetranSource
 from datahub.metadata.schema_classes import (
@@ -36,7 +38,17 @@ class TestFivetranIncrementalLineage:
             api_config=FivetranAPIConfig(
                 api_key="test_key",
                 api_secret="test_secret",
-            )
+            ),
+            fivetran_log_config=FivetranLogConfig(
+                destination_platform="snowflake",
+                snowflake_destination_config=SnowflakeDestinationConfig(
+                    account_id="test_account",
+                    username="test_user",
+                    password="test_password",
+                    database="test_db",
+                    log_schema="test_schema",
+                ),
+            ),
         )
         assert config.incremental_lineage is False
 
@@ -47,16 +59,41 @@ class TestFivetranIncrementalLineage:
                 api_key="test_key",
                 api_secret="test_secret",
             ),
+            fivetran_log_config=FivetranLogConfig(
+                destination_platform="snowflake",
+                snowflake_destination_config=SnowflakeDestinationConfig(
+                    account_id="test_account",
+                    username="test_user",
+                    password="test_password",
+                    database="test_db",
+                    log_schema="test_schema",
+                ),
+            ),
             incremental_lineage=True,
         )
         assert config.incremental_lineage is True
 
-    def test_workunit_processors_include_incremental_lineage(self):
+    @patch("datahub.ingestion.source.fivetran.fivetran.create_fivetran_access")
+    def test_workunit_processors_include_incremental_lineage(self, mock_create_access):
         """Test that get_workunit_processors includes incremental lineage processor when enabled."""
+        # Mock the access interface
+        mock_access = MagicMock()
+        mock_create_access.return_value = mock_access
+
         config = FivetranSourceConfig(
             api_config=FivetranAPIConfig(
                 api_key="test_key",
                 api_secret="test_secret",
+            ),
+            fivetran_log_config=FivetranLogConfig(
+                destination_platform="snowflake",
+                snowflake_destination_config=SnowflakeDestinationConfig(
+                    account_id="test_account",
+                    username="test_user",
+                    password="test_password",
+                    database="test_db",
+                    log_schema="test_schema",
+                ),
             ),
             incremental_lineage=True,
         )
@@ -93,12 +130,29 @@ class TestFivetranIncrementalLineage:
             "Incremental lineage processor not found in workunit processors"
         )
 
-    def test_workunit_processors_exclude_incremental_lineage_when_disabled(self):
+    @patch("datahub.ingestion.source.fivetran.fivetran.create_fivetran_access")
+    def test_workunit_processors_exclude_incremental_lineage_when_disabled(
+        self, mock_create_access
+    ):
         """Test that incremental lineage processor uses False when disabled."""
+        # Mock the access interface
+        mock_access = MagicMock()
+        mock_create_access.return_value = mock_access
+
         config = FivetranSourceConfig(
             api_config=FivetranAPIConfig(
                 api_key="test_key",
                 api_secret="test_secret",
+            ),
+            fivetran_log_config=FivetranLogConfig(
+                destination_platform="snowflake",
+                snowflake_destination_config=SnowflakeDestinationConfig(
+                    account_id="test_account",
+                    username="test_user",
+                    password="test_password",
+                    database="test_db",
+                    log_schema="test_schema",
+                ),
             ),
             incremental_lineage=False,
         )
@@ -197,12 +251,29 @@ class TestFivetranIncrementalLineage:
         assert len(processed_workunits) == 1
         assert processed_workunits[0] is workunit  # Same object reference
 
-    def test_incremental_lineage_integration_with_fivetran_source(self):
+    @patch("datahub.ingestion.source.fivetran.fivetran.create_fivetran_access")
+    def test_incremental_lineage_integration_with_fivetran_source(
+        self, mock_create_access
+    ):
         """Test that FivetranSource properly integrates incremental lineage processing."""
+        # Mock the access interface
+        mock_access = MagicMock()
+        mock_create_access.return_value = mock_access
+
         config = FivetranSourceConfig(
             api_config=FivetranAPIConfig(
                 api_key="test_key",
                 api_secret="test_secret",
+            ),
+            fivetran_log_config=FivetranLogConfig(
+                destination_platform="snowflake",
+                snowflake_destination_config=SnowflakeDestinationConfig(
+                    account_id="test_account",
+                    username="test_user",
+                    password="test_password",
+                    database="test_db",
+                    log_schema="test_schema",
+                ),
             ),
             incremental_lineage=True,
         )
