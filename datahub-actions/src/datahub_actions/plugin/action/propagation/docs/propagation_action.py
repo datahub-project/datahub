@@ -280,7 +280,7 @@ class DocPropagationAction(Action):
                     if current_documentation_instance.attribution
                     else {}
                 )
-                source_details_parsed: SourceDetails = SourceDetails.parse_obj(
+                source_details_parsed: SourceDetails = SourceDetails.model_validate(
                     source_details
                 )
                 should_stop_propagation, reason = self.should_stop_propagation(

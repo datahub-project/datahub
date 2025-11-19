@@ -1641,6 +1641,21 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     if (writeRequest instanceof UpdateRequest) {
       UpdateRequest update = (UpdateRequest) writeRequest;
       Script script = convertScript(update.script());
+
+      @SuppressWarnings("rawtypes")
+      UpdateAction.Builder actionBuilder =
+          new UpdateAction.Builder()
+              .detectNoop(update.detectNoop())
+              .docAsUpsert(update.docAsUpsert())
+              .script(script)
+              .upsert(update.upsert());
+
+      // Only set doc if it exists (not present for script-only updates)
+      if (update.doc() != null) {
+        actionBuilder.doc(
+            XContentHelper.convertToMap(update.doc().source(), true, XContentType.JSON).v2());
+      }
+
       operation =
           new BulkOperation(
               new UpdateOperation.Builder<>()
@@ -1651,17 +1666,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .requireAlias(writeRequest.isRequireAlias())
                   .index(writeRequest.index())
                   .routing(writeRequest.routing())
-                  .action(
-                      new UpdateAction.Builder<>()
-                          .doc(
-                              XContentHelper.convertToMap(
-                                      update.doc().source(), true, XContentType.JSON)
-                                  .v2())
-                          .detectNoop(update.detectNoop())
-                          .docAsUpsert(update.docAsUpsert())
-                          .script(script)
-                          .upsert(update.upsert())
-                          .build())
+                  .action(actionBuilder.build())
                   .build());
     } else if (writeRequest instanceof DeleteRequest) {
       DeleteRequest deleteRequest = (DeleteRequest) writeRequest;

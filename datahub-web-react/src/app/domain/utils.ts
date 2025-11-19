@@ -74,6 +74,7 @@ export const updateListDomainsCache = (
             entities: null,
             children: null,
             dataProducts: null,
+            applicationsInDomain: null,
             parentDomains: null,
             displayProperties: null,
             institutionalMemory: null,

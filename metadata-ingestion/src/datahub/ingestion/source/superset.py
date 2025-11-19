@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import dateutil.parser as dp
 import requests
 import sqlglot
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -242,9 +242,9 @@ class SupersetConfig(
         description="Can be used to change mapping for database names in superset to what you have in datahub",
     )
 
-    class Config:
-        # This is required to allow preset configs to get parsed
-        extra = "allow"
+    model_config = ConfigDict(
+        extra="allow"  # This is required to allow preset configs to get parsed
+    )
 
     @field_validator("connect_uri", "display_uri", mode="after")
     @classmethod

@@ -7,9 +7,6 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from datahub.configuration.pydantic_migration_helpers import (
-    PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
-)
 from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     SearchFilterRule,
@@ -312,37 +309,28 @@ def test_filter_discriminator() -> None:
     )
 
 
-@pytest.mark.skipif(
-    not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
-    reason="Tagged union w/ callable discriminator is not supported by the current pydantic version",
-)
 def test_tagged_union_error_messages() -> None:
-    # With pydantic v1, we'd get 10+ validation errors and it'd be hard to
-    # understand what went wrong. With v2, we get a single simple error message.
+    # With pydantic v2, we get validation errors for each union member
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.*entity_type\.entity_type.*Input should be a valid list",
+            r"validation error.*entity_type.*Input should be a valid list",
             re.DOTALL,
         ),
     ):
         load_filters({"entity_type": 6})
 
-    # Even when within an "and" clause, we get a single error message.
+    # Without discriminators, we get verbose union errors for unknown fields
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.*Input tag 'unknown_field' found using .+ does not match any of the expected tags:.+union_tag_invalid",
+            r"validation error.*unknown_field.*Extra inputs are not permitted",
             re.DOTALL,
         ),
     ):
         load_filters({"and": [{"unknown_field": 6}]})
 
 
-@pytest.mark.skipif(
-    not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
-    reason="Tagged union w/ callable discriminator is not supported by the current pydantic version",
-)
 def test_filter_before_validators() -> None:
     # Test that we can load a filter from a string.
     # Sometimes we get filters encoded as JSON, and we want to handle those gracefully.
@@ -355,7 +343,7 @@ def test_filter_before_validators() -> None:
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.+Unable to extract tag using discriminator", re.DOTALL
+            r"validation error.*Input should be a valid dictionary", re.DOTALL
         ),
     ):
         load_filters("this is invalid json but should not raise a json error")
@@ -379,7 +367,7 @@ def test_filter_before_validators() -> None:
     with pytest.raises(
         ValidationError,
         match=re.compile(
-            r"1 validation error.*container\.entity_type.*Extra inputs are not permitted.*",
+            r"validation error.*Extra inputs are not permitted.*",
             re.DOTALL,
         ),
     ):

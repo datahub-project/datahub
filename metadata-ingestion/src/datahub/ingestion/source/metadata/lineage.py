@@ -114,7 +114,7 @@ class EntityNodeConfig(ConfigModel):
 
 
 # https://pydantic-docs.helpmanual.io/usage/postponed_annotations/ required for when you reference a model within itself
-EntityNodeConfig.update_forward_refs()
+EntityNodeConfig.model_rebuild()
 
 
 class LineageFileSourceConfig(ConfigModel):
