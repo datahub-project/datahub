@@ -4,7 +4,9 @@ import contextlib
 import functools
 import json
 import os
+import platform
 import re
+import socket
 import uuid
 from dataclasses import dataclass
 from typing import (
@@ -48,7 +50,6 @@ from datahub_integrations.chat.chat_session_formatter import format_message
 from datahub_integrations.chat.context_reducer import (
     ChatContextReducer,
     ContextReducerConfig,
-    TokenCountEstimator,
 )
 from datahub_integrations.chat.reducers.conversation_summarizer import (
     ConversationSummarizer,
@@ -62,7 +63,10 @@ from datahub_integrations.gen_ai.bedrock import (
     get_bedrock_client,
 )
 from datahub_integrations.gen_ai.linkify import auto_fix_chat_links
+from datahub_integrations.gen_ai.llm.exceptions import LlmInputTooLongException
+from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
+from datahub_integrations.mcp._token_estimator import TokenCountEstimator
 from datahub_integrations.mcp.mcp_server import (
     get_datahub_client,
     mcp,
@@ -807,7 +811,7 @@ class ChatSession:
         return formatted_messages
 
     def _generate_tool_call(self) -> None:
-        bedrock_client = get_bedrock_client()
+        llm_client = get_llm_client(self._get_model_id())
 
         messages = self._prepare_messages()
 
@@ -816,7 +820,7 @@ class ChatSession:
             tools.append({"cachePoint": {"type": "default"}})
 
         try:
-            response = bedrock_client.converse(
+            response = llm_client.converse(
                 modelId=self._get_model_id(),
                 system=self._get_system_messages(),
                 messages=messages,  # type: ignore
@@ -828,20 +832,17 @@ class ChatSession:
                     "maxTokens": 4096,
                 },
             )
-        except bedrock_client.exceptions.ValidationException as e:
-            # Example error messages:
-            # The model returned the following errors: Input is too long for requested model.
-            # The model returned the following errors: input length and `max_tokens` exceed context limit
-            if "Input is too long" in str(e) or "exceed context limit" in str(e):
-                raise ChatSessionMaxTokensExceededError(str(e)) from e
-            else:
-                raise e
+        except LlmInputTooLongException as e:
+            # Input exceeded model's context window
+            # Each provider detects this from their specific error messages
+            raise ChatSessionMaxTokensExceededError(str(e)) from e
 
-        log_tokens_usage(response["usage"])
+        log_tokens_usage(response["usage"])  # type: ignore[arg-type]
         is_end_turn = False
         output = response["output"]
         stop_reason = response["stopReason"]
         if stop_reason == "max_tokens":
+            # Output was truncated - this is a valid stop reason, not an exception
             raise ChatOutputMaxTokensExceededError(str(response))
         elif stop_reason == "tool_use":
             # Expected - we'll handle this below.
@@ -972,7 +973,18 @@ class ChatSession:
     @mlflow.trace
     def generate_next_message(self) -> NextMessage:
         if is_mlflow_enabled():
-            mlflow.update_current_trace(tags={"session_id": self.session_id})
+            # Add session and machine/environment metadata tags for tracking and debugging
+            mlflow.update_current_trace(
+                tags={
+                    "session_id": self.session_id,
+                    "machine.hostname": socket.gethostname(),
+                    "machine.user": os.getenv("USER")
+                    or os.getenv("USERNAME")
+                    or "unknown",
+                    "machine.os": f"{platform.system()} {platform.release()}",
+                    "machine.python_version": platform.python_version(),
+                }
+            )
 
         logger.info(
             f"Generating next message for session {self.session_id}, currently have {len(self.history.messages)} messages/tool calls in chat history"

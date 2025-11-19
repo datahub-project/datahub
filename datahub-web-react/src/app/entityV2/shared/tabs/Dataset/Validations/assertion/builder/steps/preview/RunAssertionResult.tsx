@@ -4,14 +4,15 @@ import React from 'react';
 import { DatasetAssertionResultDetails } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionResultDetails';
 import { getResultErrorMessage } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
-import { AssertionResult, AssertionResultType } from '@types';
+import { AssertionResult, AssertionResultType, TestAssertionInput } from '@types';
 
 type Props = {
     result: AssertionResult;
     isTest?: boolean;
+    expectedFromTestInput?: TestAssertionInput;
 };
 
-export const RunAssertionResult = ({ result, isTest = false }: Props) => {
+export const RunAssertionResult = ({ result, isTest = false, expectedFromTestInput }: Props) => {
     if (result.type === AssertionResultType.Init) {
         return (
             <Typography.Text>
@@ -38,5 +39,5 @@ export const RunAssertionResult = ({ result, isTest = false }: Props) => {
         );
     }
 
-    return <DatasetAssertionResultDetails result={result} />;
+    return <DatasetAssertionResultDetails result={result} expectedFromTestInput={expectedFromTestInput} />;
 };

@@ -51,6 +51,7 @@ describe("create, edit and remove metadata test", () => {
     cy.clickOptionWithText("Urn");
     cy.get('[role="dialog"] [type="search"]').eq(2).click();
     cy.clickOptionWithText("Equals");
+    cy.get('[role="dialog"] [type="search"]').eq(3);
     cy.get('[role="dialog"] [type="search"]').eq(3).type(urn);
     cy.get('[data-testid="modal-next-button"]').click();
     // define conditions
@@ -61,7 +62,8 @@ describe("create, edit and remove metadata test", () => {
     cy.clickOptionWithText("Tags");
     cy.get('[role="dialog"] [type="search"]').eq(1).click();
     cy.clickOptionWithText("Contains Any");
-    cy.get('[role="dialog"] [type="search"]').eq(2).click().type("Cypress");
+    cy.get('[role="dialog"] [type="search"]').eq(2).click();
+    cy.get('[role="dialog"] [type="search"]').eq(2).type("Cypress");
     cy.get(".rc-virtual-list").find("div").contains("Cypress").click();
     // test conditions
     cy.clickOptionWithText("Test Conditions");
@@ -70,9 +72,8 @@ describe("create, edit and remove metadata test", () => {
     cy.waitTextVisible(datasetName);
     cy.clickOptionWithText("Run Test");
     cy.waitTextVisible("Passed");
-    cy.get('[role="dialog"] [data-testid="embedded-search-bar"]')
-      .clear()
-      .type("hive");
+    cy.get('[role="dialog"] [data-testid="embedded-search-bar"]').clear();
+    cy.get('[role="dialog"] [data-testid="embedded-search-bar"]').type("hive");
     cy.wait(500);
     cy.get('[href^="/dataset')
       .should("be.visible")
@@ -91,7 +92,8 @@ describe("create, edit and remove metadata test", () => {
     cy.waitTextVisible(testName);
     cy.waitTextVisible(testDescription);
     cy.reload();
-    cy.get('[data-testid="search-bar-input"]').clear().type(testName);
+    cy.get('[data-testid="search-bar-input"]').clear();
+    cy.get('[data-testid="search-bar-input"]').type(testName);
     cy.wait(500); // Wait for search results to update
     cy.get(".ant-card").first().contains("1 passing");
     // edit the test to make it fail, verify the result, save test
@@ -118,7 +120,8 @@ describe("create, edit and remove metadata test", () => {
     cy.reload();
     cy.get(".ant-card").first().should("contain", "1 failing");
     // delete a test
-    cy.get('[data-testid="search-bar-input"]').clear().type(testName);
+    cy.get('[data-testid="search-bar-input"]').clear();
+    cy.get('[data-testid="search-bar-input"]').type(testName);
     cy.wait(500); // Wait for search results to update
     cy.get('[data-testid="test-more-button-0"]').click();
     cy.clickOptionWithText("Delete");

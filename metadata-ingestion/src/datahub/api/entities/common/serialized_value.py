@@ -3,7 +3,7 @@ import logging
 from typing import Dict, Optional, Type, TypeVar, Union
 
 from avrogen.dict_wrapper import DictWrapper
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 import datahub.metadata.schema_classes as models
 from datahub.metadata.schema_classes import __SCHEMA_TYPES as SCHEMA_TYPES
@@ -17,8 +17,7 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class SerializedResourceValue(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     content_type: str
     blob: bytes

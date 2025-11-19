@@ -108,6 +108,7 @@ def test_ingestion_embedded(auth_session, graph_client):
 
 
 @pytest.mark.remote_executor
+@pytest.mark.skip(reason="SQS queue does not exist")
 def test_ingestion_remote(auth_session, graph_client):
     executor_id = os.environ.get("DATAHUB_SMOKETEST_EXECUTOR_ID", "remote-ci")
     create_ingestion_source(graph_client, "demo-data-remote", executor_id)

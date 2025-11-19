@@ -1,6 +1,8 @@
 from enum import Enum, auto
 from typing import Dict, List, Optional
 
+from pydantic import ConfigDict
+
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.env_vars import get_datahub_component
 
@@ -31,5 +33,4 @@ class DatahubClientConfig(ConfigModel):
     datahub_component: Optional[str] = None
     server_config_refresh_interval: Optional[int] = None
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")

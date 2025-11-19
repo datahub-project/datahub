@@ -116,6 +116,7 @@ public class ESWriteDAOTest {
     assertEquals(capturedRequest.id(), TEST_DOC_ID);
   }
 
+  @Test
   public void testApplyScriptUpdate() {
     String scriptSource = "ctx._source.field = params.newValue";
     Map<String, Object> scriptParams = new HashMap<>();
@@ -135,6 +136,7 @@ public class ESWriteDAOTest {
     assertFalse(capturedRequest.detectNoop());
     assertTrue(capturedRequest.scriptedUpsert());
     assertEquals(NUM_RETRIES, capturedRequest.retryOnConflict());
+    assertNull(capturedRequest.doc()); // For scripted updates, this is null
 
     // Verify script content and parameters
     Script script = capturedRequest.script();

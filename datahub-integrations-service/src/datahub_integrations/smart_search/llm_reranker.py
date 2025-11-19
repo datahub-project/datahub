@@ -10,7 +10,7 @@ from typing import Dict, List
 from datahub.utilities.perf_timer import PerfTimer
 from loguru import logger
 
-from datahub_integrations.gen_ai.bedrock import get_bedrock_client
+from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import BedrockModel
 from datahub_integrations.smart_search.entity_normalizer import (
     EntityNormalizer,
@@ -146,10 +146,11 @@ Use the rank_entities tool to return the scored results."""
             }
 
             # Call LLM with tool
-            bedrock_client = get_bedrock_client()
+            llm_client = get_llm_client(self.model_id)
 
-            response = bedrock_client.converse(
+            response = llm_client.converse(
                 modelId=self.model_id,
+                system=[],  # No system messages for reranking task
                 messages=[{"role": "user", "content": [{"text": prompt}]}],
                 toolConfig={"tools": [rank_tool]},  # type: ignore[list-item]
                 inferenceConfig={

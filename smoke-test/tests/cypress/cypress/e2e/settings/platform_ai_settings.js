@@ -93,9 +93,10 @@ describe("Platform AI Settings", () => {
     });
 
     // Add documentation AI instructions
-    cy.get('[data-testid="docs-ai-instructions-textarea"]')
-      .clear()
-      .type(DOC_AI_INSTRUCTIONS);
+    cy.get('[data-testid="docs-ai-instructions-textarea"]').clear();
+    cy.get('[data-testid="docs-ai-instructions-textarea"]').type(
+      DOC_AI_INSTRUCTIONS,
+    );
 
     // Trigger blur to save
     cy.get('[data-testid="docs-ai-instructions-textarea"]').blur();
@@ -125,9 +126,10 @@ describe("Platform AI Settings", () => {
     cy.waitTextVisible("Configure AI-powered features");
 
     // Add AI assistant instructions
-    cy.get('[data-testid="ai-assistant-instructions-textarea"]')
-      .clear()
-      .type(AI_ASSISTANT_INSTRUCTIONS);
+    cy.get('[data-testid="ai-assistant-instructions-textarea"]').clear();
+    cy.get('[data-testid="ai-assistant-instructions-textarea"]').type(
+      AI_ASSISTANT_INSTRUCTIONS,
+    );
 
     // Trigger blur to save
     cy.get('[data-testid="ai-assistant-instructions-textarea"]').blur();
@@ -164,9 +166,10 @@ Line 3 with gap above
 - Another bullet`;
 
     // Add multi-line instructions to docs AI
-    cy.get('[data-testid="docs-ai-instructions-textarea"]')
-      .clear()
-      .type(multiLineInstructions);
+    cy.get('[data-testid="docs-ai-instructions-textarea"]').clear();
+    cy.get('[data-testid="docs-ai-instructions-textarea"]').type(
+      multiLineInstructions,
+    );
 
     // Save and verify
     cy.get('[data-testid="docs-ai-instructions-textarea"]').blur();
@@ -189,9 +192,10 @@ Line 3 with gap above
     cy.waitTextVisible("Configure AI-powered features");
 
     // First add some instructions
-    cy.get('[data-testid="docs-ai-instructions-textarea"]')
-      .clear()
-      .type("Some initial instructions");
+    cy.get('[data-testid="docs-ai-instructions-textarea"]').clear();
+    cy.get('[data-testid="docs-ai-instructions-textarea"]').type(
+      "Some initial instructions",
+    );
 
     cy.get('[data-testid="docs-ai-instructions-textarea"]').blur();
     cy.waitTextVisible("Saved instructions!");

@@ -245,7 +245,7 @@ def get(urn: str, to_file: str) -> None:
         if graph.exists(urn):
             dataproduct: DataProduct = DataProduct.from_datahub(graph=graph, id=urn)
             click.secho(
-                f"{json.dumps(dataproduct.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                f"{json.dumps(dataproduct.model_dump(exclude_unset=True, exclude_none=True), indent=2)}"
             )
             if to_file:
                 dataproduct.to_yaml(Path(to_file))

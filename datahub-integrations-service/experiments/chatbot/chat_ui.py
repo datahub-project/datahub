@@ -1,9 +1,39 @@
 # Load environment variables first before any other imports
 import os
+import pathlib
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Load .env file if it exists
 load_dotenv()
+
+from loguru import logger
+
+# Setup file logging for the chat UI and all related modules
+_LOG_DIR = pathlib.Path(__file__).parent / "logs"
+_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+# Create timestamped log filename for this session
+_TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
+_LOG_FILE = _LOG_DIR / f"chat_ui_{_TIMESTAMP}.log"
+
+# Remove default logger and add file handler with DEBUG level
+logger.remove()  # Remove default handler
+logger.add(
+    _LOG_FILE,
+    level="DEBUG",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+    rotation="10 MB",  # Still rotate within session if it gets large
+    retention="7 days",
+    compression="zip",
+)
+# Also add console output for INFO and above
+logger.add(
+    lambda msg: None,  # Streamlit will capture via st.write/st.error
+    level="INFO",
+    format="{message}",
+)
+logger.info(f"Chat UI logging initialized - session log: {_LOG_FILE.name}")
 
 from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 

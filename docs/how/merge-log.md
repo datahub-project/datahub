@@ -1743,3 +1743,84 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **c911621ede** - fix(ui) Add followup tweaks to updated analytics page (#15142)
   *by Chris Collins on 2025-11-11*
 
+
+## Upstream Merge Session - 2025-11-14 17:21:55
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-11-14-172154`
+- **Merge Base**: `c911621edef5cf7d5903d8297d2c2a207058ca8a`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 22
+- **Strategy**: stacked
+- **Started**: Fri Nov 14 17:21:55 UTC 2025
+
+### Commits Included in This Merge
+- **3e4a7c4e0b** - chore(test): Update test weights from CI runs (2025-11-02) (#15173)
+  *by github-actions[bot] on 2025-11-12*
+
+- **ecc1c0c638** - chore(deps): bump actions/setup-python from 5 to 6 (#15178)
+  *by dependabot[bot] on 2025-11-12*
+
+- **22568e6805** - fix(ui) : Correct privilledge check for invite token related UI features (#15063)
+  *by DucNgoQuang on 2025-11-12*
+
+- **7fd2b40ef6** - docs(ingestion): Added documentation for Glue Cross-account Access. (#15254)
+  *by Neha Gslab on 2025-11-12*
+
+- **f3dd874824** - refactor(pydantic): remove Pydantic v1 legacy code and migrate fully to v2 (#15261)
+  *by Sergio Gómez Villamor on 2025-11-12*
+
+- **077103687c** - chore(deps): bump actions/download-artifact from 5 to 6 (#15114)
+  *by dependabot[bot] on 2025-11-12*
+
+- **f3811a14fa** - fix(ui): update hard-coded logo paths to reference theme config (#15084)
+  *by liannab on 2025-11-12*
+
+- **b2c474f4b7** - fix(ui) Reduce the download CSV count to reduce likelihood of timeouts (#14092)
+  *by Chris Collins on 2025-11-12*
+
+- **9fbbf2008b** - fix(ci): run label triggered workflows in their own group (#15277)
+  *by Chakru on 2025-11-12*
+
+- **ac20d06865** - feat: Allow users to add multiple Applications to entities (#15160)
+  *by ani-malgari on 2025-11-12*
+
+- **ae1406a3a7** - fix(ingest/ci): fix integration test failures (#15284)
+  *by kyungsoo-datahub on 2025-11-12*
+
+- **8d18f30fac** - feat(ingestion): Add secret masking framework (#15188)
+  *by kyungsoo-datahub on 2025-11-12*
+
+- **d46c767a05** - fix(ci): restore always() for smoke test step (#15286)
+  *by Chakru on 2025-11-13*
+
+- **75ee3c9017** - fix(logs): Warn instead of error on schema extract failure (#15230)
+  *by Kevin Karch on 2025-11-13*
+
+- **ee700c5efc** - fix(es): npe when applying  scripted update on elasticsearch (#15283)
+  *by Chakru on 2025-11-14*
+
+- **2f31635fdb** - feat(dbt): enhance DBTCloud integration with bulk job ingestion (#15264)
+  *by Anush Kumar on 2025-11-13*
+
+- **600e46372b** - feat(ingest/ui): Updated lookml recipe and minor ui enhancements (#15086)
+  *by Anush Kumar on 2025-11-13*
+
+- **474a880591** - feat(lookml): Use Looker API to get fields and generate SQL using field chunks with ability to emit partial results (#15060)
+  *by Anush Kumar on 2025-11-13*
+
+- **3083693275** - chore(deps): bump min-document from 2.19.0 to 2.19.1 in /datahub-web-react (#15247)
+  *by dependabot[bot] on 2025-11-14*
+
+- **9829256136** - fix(cypress): fix searchBarV2Redesign test (#15281)
+  *by v-tarasevich-blitz-brain on 2025-11-14*
+
+- **2593896166** - fix(cypress):  memory optimizations (#15290)
+  *by v-tarasevich-blitz-brain on 2025-11-14*
+
+- **95ed3ea8b7** - feat(openapi): rework to pull schemas from openapi v2 and v3 definitions (#14045)
+  *by bryanprosser-acryl on 2025-11-14*
+

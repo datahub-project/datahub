@@ -49,6 +49,10 @@ dependencies = [
 	"litellm>=1.0.0",
 	"beautifulsoup4>=4.13.5",
 	"json-repair",  # For parsing Bedrock's malformed JSON in structured output
+	# LLM provider abstractions via langchain
+	"langchain>=1.0.5",
+	"langchain-openai>=1.0.2",
+	"langchain-google-vertexai>=3.0.2",
 	# Email notifications.
 	"sendgrid",
 	# Reporting.

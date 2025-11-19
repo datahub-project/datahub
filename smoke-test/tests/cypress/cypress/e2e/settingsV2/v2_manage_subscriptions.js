@@ -125,6 +125,7 @@ describe("entity subscription test", () => {
     cy.waitTextVisible("Configure an integration with Slack");
     cy.clickOptionWithText("App Configuration Token");
     cy.clickOptionWithText("Bot Token");
+    cy.get('[data-testid="bot-token-input"]').should("be.visible");
     cy.get('[data-testid="bot-token-input"]').clear();
     cy.clickOptionWithTestId("connect-to-slack-button");
   });

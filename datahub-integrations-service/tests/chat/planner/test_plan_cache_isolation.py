@@ -151,7 +151,7 @@ class TestPlanCacheIsolation:
                 MagicMock(),
             )
             m.setattr(
-                "datahub_integrations.chat.planner.tools.get_bedrock_client",
+                "datahub_integrations.chat.planner.tools.get_llm_client",
                 MagicMock(),
             )
             m.setattr(

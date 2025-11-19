@@ -47,9 +47,12 @@ def initialize_mlflow() -> None:
 
     if "MLFLOW_TRACKING_URI" in os.environ:
         logger.debug("Initializing MLflow with tracking URI")
-        bedrock.autolog()
-        mlflow.litellm.autolog()
-        # mlflow.langchain.autolog()
+        # Enable autologging for all LLM providers
+        bedrock.autolog()  # AWS Bedrock
+        mlflow.openai.autolog()  # OpenAI direct API calls
+        mlflow.gemini.autolog()  # Google Gemini/Vertex AI direct API calls
+        mlflow.litellm.autolog()  # LiteLLM (if used)
+        mlflow.langchain.autolog()  # LangChain invoke() calls (used by OpenAI/Gemini wrappers)
         mlflow.config.enable_async_logging()
         _mlflow_enabled = True
     else:

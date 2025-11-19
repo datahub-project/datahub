@@ -1024,6 +1024,14 @@ type Mutation {
   ): Boolean
 
   """
+  Batch unset a specific Application from a list of entities
+  """
+  batchUnsetApplication(
+    "Input for batch unsetting application"
+    input: BatchUnsetApplicationInput!
+  ): Boolean
+
+  """
   Create a Custom Ownership Type. This requires the 'Manage Ownership Types' Metadata Privilege.
   """
   createOwnershipType(
@@ -1864,9 +1872,16 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the dataset
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the dataset
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The forms associated with the Dataset
@@ -2354,9 +2369,16 @@ type VersionedDataset implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Experimental! The resolved health status of the asset
@@ -2576,9 +2598,16 @@ type GlossaryTerm implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the glossary term
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the glossary term
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   References to internal resources related to the Glossary Term
@@ -3270,9 +3299,16 @@ type Container implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Incidents associated with the Dataset
@@ -6021,9 +6057,16 @@ type Notebook implements Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6333,9 +6376,16 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6696,9 +6746,16 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -7120,9 +7177,16 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -7402,9 +7466,16 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Assertions associated with the Data Job
@@ -11071,9 +11142,16 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -11258,9 +11336,16 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -11460,9 +11545,16 @@ type MLFeature implements EntityWithRelationships & Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -11764,9 +11856,16 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -11933,9 +12032,16 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -14174,9 +14280,16 @@ type DataProduct implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the data product
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the data product
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Tags used for searching Data Product
@@ -14530,6 +14643,21 @@ input BatchSetApplicationInput {
 
   """
   The urns of the entities the given application should be set on
+  """
+  resourceUrns: [String!]!
+}
+
+"""
+Input properties required for batch unsetting a specific Application from entities
+"""
+input BatchUnsetApplicationInput {
+  """
+  The urn of the application to be removed from the resources
+  """
+  applicationUrn: String!
+
+  """
+  The urns of the entities the given application should be removed from
   """
   resourceUrns: [String!]!
 }
