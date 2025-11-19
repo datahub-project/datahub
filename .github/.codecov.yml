@@ -63,5 +63,5 @@ coverage:
         only_pulls: true
 
 ignore:
-  - "**/SettingsBuilderFactory.java"   # No business logic; wiring only
-  - "**/MappingsBuilderFactory.java"   # No business logic; wiring only
+  # No business logic; wiring only
+  - "**/*Factory.java"

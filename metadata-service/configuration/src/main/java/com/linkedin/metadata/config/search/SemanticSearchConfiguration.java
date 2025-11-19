@@ -22,4 +22,7 @@ public class SemanticSearchConfiguration {
 
   /** Map of embedding model configurations keyed by model name. */
   private Map<String, ModelEmbeddingConfig> models = Map.of();
+
+  /** Configuration for semantic embeddings update operations. */
+  private EmbeddingsUpdateConfiguration embeddingsUpdate = new EmbeddingsUpdateConfiguration();
 }

@@ -106,17 +106,17 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       chunksProperties.put("vector", vectorField);
       chunksProperties.put("text", textField);
       chunksProperties.put("position", positionField);
-      chunksProperties.put("token_count", tokenCountField);
 
       Map<String, Object> chunksField = new HashMap<>();
       chunksField.put("type", "nested");
       chunksField.put("properties", chunksProperties);
 
-      // Build model-level properties (chunks, total_chunks, total_tokens)
+      // Build model-level properties
       Map<String, Object> modelLevelProperties = new HashMap<>();
       modelLevelProperties.put("chunks", chunksField);
       modelLevelProperties.put("total_chunks", ImmutableMap.of("type", "integer"));
-      modelLevelProperties.put("total_tokens", ImmutableMap.of("type", "integer"));
+      modelLevelProperties.put("model_version", ImmutableMap.of("type", "keyword"));
+      modelLevelProperties.put("generated_at", ImmutableMap.of("type", "date"));
 
       Map<String, Object> modelFieldConfig = ImmutableMap.of("properties", modelLevelProperties);
 
