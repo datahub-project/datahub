@@ -73,9 +73,10 @@ describe("ingestion source creation flow", () => {
     cy.get("button").contains("Next").click();
     cy.waitTextVisible("Configure an Ingestion Schedule");
     cy.clickOptionWithTestId("ingestion-schedule-next-button");
-    cy.get('[data-testid="source-name-input"]')
-      .clear()
-      .type(`${ingestion_source_name} EDITED`);
+    cy.get('[data-testid="source-name-input"]').clear();
+    cy.get('[data-testid="source-name-input"]').type(
+      `${ingestion_source_name} EDITED`,
+    );
     cy.clickOptionWithTestId("ingestion-source-save-button");
     cy.waitTextVisible("Successfully updated ingestion source!");
     cy.waitTextVisible(`${ingestion_source_name} EDITED`);

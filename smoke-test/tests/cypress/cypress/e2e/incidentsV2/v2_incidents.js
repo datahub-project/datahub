@@ -55,11 +55,13 @@ describe("incidents", () => {
       newIncidentNameWithTimeStamp,
     );
 
-    cy.get(".remirror-editor")
-      .should("exist")
-      .click({ force: true })
-      .type(NEW_INCIDENT_VALUES.DESCRIPTION)
-      .should("contain.text", NEW_INCIDENT_VALUES.DESCRIPTION);
+    cy.get(".remirror-editor").should("exist");
+    cy.get(".remirror-editor").click({ force: true });
+    cy.get(".remirror-editor").type(NEW_INCIDENT_VALUES.DESCRIPTION);
+    cy.get(".remirror-editor").should(
+      "contain.text",
+      NEW_INCIDENT_VALUES.DESCRIPTION,
+    );
 
     cy.get('[data-testid="category-select-input-type"]').click();
     cy.get('[data-testid="category-options-list"]')
@@ -120,15 +122,18 @@ describe("incidents", () => {
       .should("be.visible")
       .click();
 
-    cy.get('[data-testid="incident-name-input"]')
-      .clear()
-      .type(editedIncidentNameWithTimeStamp);
-    cy.get(".remirror-editor")
-      .should("exist")
-      .click()
-      .clear()
-      .type(EDITED_INCIDENT_VALUES.DESCRIPTION)
-      .should("contain.text", EDITED_INCIDENT_VALUES.DESCRIPTION);
+    cy.get('[data-testid="incident-name-input"]').clear();
+    cy.get('[data-testid="incident-name-input"]').type(
+      editedIncidentNameWithTimeStamp,
+    );
+    cy.get(".remirror-editor").should("exist");
+    cy.get(".remirror-editor").click();
+    cy.get(".remirror-editor").clear();
+    cy.get(".remirror-editor").type(EDITED_INCIDENT_VALUES.DESCRIPTION);
+    cy.get(".remirror-editor").should(
+      "contain.text",
+      EDITED_INCIDENT_VALUES.DESCRIPTION,
+    );
     cy.get('[data-testid="priority-select-input-type"]').click();
     cy.get('[data-testid="priority-options-list"]')
       .contains(EDITED_INCIDENT_VALUES.PRIORITY)
@@ -203,11 +208,11 @@ describe("incidents", () => {
       newIncidentNameWithTimeStamp,
     );
 
+    cy.get(".remirror-editor").should("exist");
+    cy.get(".remirror-editor").eq(1).click({ force: true });
+    cy.get(".remirror-editor").eq(1).type(NEW_INCIDENT_VALUES.DESCRIPTION);
     cy.get(".remirror-editor")
-      .should("exist")
       .eq(1)
-      .click({ force: true })
-      .type(NEW_INCIDENT_VALUES.DESCRIPTION)
       .should("contain.text", NEW_INCIDENT_VALUES.DESCRIPTION);
 
     cy.get('[data-testid="category-select-input-type"]').click();
@@ -227,6 +232,8 @@ describe("incidents", () => {
       .first()
       .click();
 
+    // NOTE: Brittle selector pattern (.children().first()) - consider using a more specific selector
+    // This clicks outside dropdowns to dismiss them before submitting
     cy.get('[data-testid="incident-editor-form-container"]')
       .children()
       .first()
@@ -268,11 +275,13 @@ describe("incidents", () => {
       `${newIncidentNameWithTimeStamp}-New`,
     );
 
-    cy.get(".remirror-editor")
-      .should("exist")
-      .click({ force: true })
-      .type(NEW_INCIDENT_VALUES.DESCRIPTION)
-      .should("contain.text", NEW_INCIDENT_VALUES.DESCRIPTION);
+    cy.get(".remirror-editor").should("exist");
+    cy.get(".remirror-editor").click({ force: true });
+    cy.get(".remirror-editor").type(NEW_INCIDENT_VALUES.DESCRIPTION);
+    cy.get(".remirror-editor").should(
+      "contain.text",
+      NEW_INCIDENT_VALUES.DESCRIPTION,
+    );
 
     cy.get('[data-testid="category-select-input-type"]').click();
     cy.get('[data-testid="category-options-list"]')
