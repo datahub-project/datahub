@@ -16,6 +16,7 @@ import {
     LINEAGE_HANDLE_OFFSET,
     LINEAGE_NODE_HEIGHT,
     LINEAGE_NODE_WIDTH,
+    LineageAnnotationNode,
     LineageBoundingBox,
     LineageEdgeData,
     LineageEntity,
@@ -41,10 +42,6 @@ const MINI_X_SEP_RATIO = 0.125;
 const MAIN_Y_SEP_RATIO = 0.5;
 const MINI_Y_SEP_RATIO = MAIN_Y_SEP_RATIO / 2;
 const TRANSFORMATIONAL_LEAF_OFFSET = 25;
-
-export interface LineageAnnotationNode {
-    label: string;
-}
 
 export type LineageVisualizationNode = Node<LineageEntity | LineageFilter | LineageBoundingBox | LineageAnnotationNode>;
 export type LineageVisualizationEdgeData = LineageTableEdgeData | DataJobInputOutputEdgeData;

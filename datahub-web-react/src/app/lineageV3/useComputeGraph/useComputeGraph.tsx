@@ -7,7 +7,7 @@ import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBui
 import computeDataFlowGraph from '@app/lineageV3/useComputeGraph/computeDataFlowGraph';
 import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
-import useLimitNodesPerLevel, { LevelsInfo } from '@app/lineageV3/useComputeGraph/useLimitNodesPerLevel';
+import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodesPerLevel';
 
 import { EntityType } from '@types';
 
@@ -41,7 +41,6 @@ export default function useComputeGraph(): ProcessedData {
     } = useContext(LineageNodesContext);
     const displayVersionNumber = displayVersion[0];
     const { isModuleView } = useContext(LineageGraphContext);
-    const limitNodesPerLevel = useLimitNodesPerLevel();
 
     const fineGrainedLineage = useMemo(
         () => {
@@ -64,24 +63,25 @@ export default function useComputeGraph(): ProcessedData {
                 showGhostEntities,
             };
 
-            const base =
-                rootType === EntityType.DataFlow
-                    ? computeDataFlowGraph(rootUrn, rootType, context, ignoreSchemaFieldStatus)
-                    : computeImpactAnalysisGraph(rootUrn, rootType, context, ignoreSchemaFieldStatus);
-
-            if (!isModuleView) {
-                return { ...base, levelsInfo: {} };
+            if (rootType === EntityType.DataFlow) {
+                const result = computeDataFlowGraph(rootUrn, rootType, context, ignoreSchemaFieldStatus);
+                return {
+                    ...result,
+                    levelsInfo: {},
+                    levelsMap: new Map(),
+                };
             }
 
-            const limitedGraph = limitNodesPerLevel(base.flowNodes, base.flowEdges, rootUrn, 2);
-
-            return {
-                flowNodes: limitedGraph.nodes,
-                flowEdges: limitedGraph.edges,
-                resetPositions: base.resetPositions,
-                levelsInfo: limitedGraph.levelsInfo,
-                levelsMap: limitedGraph.levelsMap,
-            };
+            return computeImpactAnalysisGraph(
+                rootUrn,
+                rootType,
+                context,
+                ignoreSchemaFieldStatus,
+                undefined,
+                new Map(),
+                undefined,
+                isModuleView,
+            );
         }, // eslint-disable-next-line react-hooks/exhaustive-deps
         [
             rootUrn,

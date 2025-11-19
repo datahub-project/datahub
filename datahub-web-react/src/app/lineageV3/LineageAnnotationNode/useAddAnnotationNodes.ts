@@ -3,7 +3,7 @@ import { Edge, Node } from 'reactflow';
 
 import { LINEAGE_ANNOTATION_NODE } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import type { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
-import { LevelsInfo } from '@app/lineageV3/useComputeGraph/useLimitNodesPerLevel';
+import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodesPerLevel';
 
 export function useAddAnnotationNodes() {
     return useCallback(
