@@ -278,6 +278,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
             .setDatasetSummaryPageV1(_featureFlags.isDatasetSummaryPageV1())
             .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
+            .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

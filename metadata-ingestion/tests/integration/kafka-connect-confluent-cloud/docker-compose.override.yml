@@ -12,7 +12,7 @@ services:
       - FLASK_ENV=production
       - PORT=8888
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import requests; requests.get(\"http://localhost:8888/health\")'"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8888/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
