@@ -64,7 +64,13 @@ def extract_raw_sql_fields(
     report: Optional[Any] = None,
 ) -> List[SchemaFieldClass]:
     """Extract fields from raw SQL queries using DataHub's SQL parsing."""
-    raw_sql = target.get("rawSql", "")
+    # Handle case variations: rawSql, rawSQL, etc.
+    raw_sql = ""
+    for key, value in target.items():
+        if key.lower() == "rawsql" and value:
+            raw_sql = value
+            break
+
     if not raw_sql:
         return []
 
@@ -143,7 +149,13 @@ def extract_raw_sql_fields(
 
 def _extract_raw_sql_fields_fallback(target: Dict[str, Any]) -> List[SchemaFieldClass]:
     """Fallback basic SQL parsing for when sqlglot fails."""
-    raw_sql = target.get("rawSql", "").lower()
+    # Handle case variations: rawSql, rawSQL, etc.
+    raw_sql = ""
+    for key, value in target.items():
+        if key.lower() == "rawsql" and value:
+            raw_sql = value
+            break
+
     if not raw_sql:
         return []
 
@@ -200,7 +212,7 @@ def _extract_raw_sql_fields_fallback(target: Dict[str, Any]) -> List[SchemaField
         return fields
 
     except (IndexError, ValueError, StopIteration) as e:
-        logger.warning(f"Failed to parse SQL: {target.get('rawSql')}", e)
+        logger.warning(f"Failed to parse SQL: {raw_sql}", e)
         return []
 
 

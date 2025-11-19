@@ -67,6 +67,29 @@ def test_extract_raw_sql_fields():
     assert fields[1].fieldPath == "request_count"
 
 
+def test_extract_raw_sql_fields_case_insensitive():
+    """Test that extract_raw_sql_fields handles different case variations of rawSql."""
+    sql_query = "SELECT name as user_name, count as request_count FROM requests"
+
+    # Test different case variations
+    target_rawSql = {"rawSql": sql_query}
+    target_rawSQL = {"rawSQL": sql_query}
+    target_mixed = {"RawSQL": sql_query}
+
+    fields1 = extract_raw_sql_fields(target_rawSql)
+    fields2 = extract_raw_sql_fields(target_rawSQL)
+    fields3 = extract_raw_sql_fields(target_mixed)
+
+    # All should extract the same fields
+    assert len(fields1) == 2
+    assert len(fields2) == 2
+    assert len(fields3) == 2
+
+    # Field names should be the same
+    assert fields1[0].fieldPath == fields2[0].fieldPath == fields3[0].fieldPath
+    assert fields1[1].fieldPath == fields2[1].fieldPath == fields3[1].fieldPath
+
+
 def test_extract_raw_sql_fields_invalid(caplog):
     # Test with completely invalid SQL
     target = {"rawSql": "INVALID SQL"}
