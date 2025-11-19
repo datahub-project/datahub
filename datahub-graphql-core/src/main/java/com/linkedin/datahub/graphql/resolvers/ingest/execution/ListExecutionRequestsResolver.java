@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
-import static com.linkedin.datahub.graphql.Constants.URN_FIELD_NAME;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.buildFilter;
 
@@ -26,7 +25,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +42,8 @@ public class ListExecutionRequestsResolver
   private static final String EXECUTION_REQUEST_INGESTION_SOURCE_FIELD = "ingestionSource";
   private static final String INGESTION_SOURCE_SOURCE_TYPE_FIELD = "sourceType";
   private static final String INGESTION_SOURCE_SOURCE_TYPE_SYSTEM = "SYSTEM";
-  private static final Integer NUMBER_OF_INGESTION_SOURCES_TO_CHECK = 1000;
+  // Assumes system sources are always < 1000
+  private static final Integer SYSTEM_INGESTION_SOURCES_LIMIT = 1000;
 
   private final EntityClient _entityClient;
 
@@ -125,80 +124,45 @@ public class ListExecutionRequestsResolver
     return results;
   }
 
+  /**
+   * Saas only: This method adds a filter based on systemSources parameter to restrict execution
+   * requests to system or non-system sources.
+   */
   private void addDefaultFilters(
       final QueryContext context,
       List<FacetFilterInput> filters,
       @Nullable final Boolean systemSources)
       throws Exception {
-    addAccessibleIngestionSourceFilter(context, filters, systemSources); // Saas only
-  }
-
-  /**
-   * Saas only: This method adds a filter to the filters list to only include ingestion sources that
-   * are accessible by the user. If the user is filtering by specific ingestion source URN(s), it
-   * will only include those sources.
-   */
-  private void addAccessibleIngestionSourceFilter(
-      QueryContext context, List<FacetFilterInput> filters, @Nullable Boolean systemSources)
-      throws Exception {
-    // Check if user is filtering by specific ingestion source URN(s)
-    Optional<FacetFilterInput> ingestionSourceFilter =
-        filters.stream()
-            .filter(f -> EXECUTION_REQUEST_INGESTION_SOURCE_FIELD.equals(f.getField()))
-            .findFirst();
-
-    List<String> requestedSourceUrns = null;
-
-    if (ingestionSourceFilter.isPresent()
-        && ingestionSourceFilter.get().getValues() != null
-        && !ingestionSourceFilter.get().getValues().isEmpty()) {
-      requestedSourceUrns = ingestionSourceFilter.get().getValues();
-      // Remove original filter which will be replaced with accessible sources only
-      filters.remove(ingestionSourceFilter.get());
+    // Only add filter when systemSources is explicitly set
+    if (systemSources == null) {
+      return;
     }
 
-    List<Urn> accessibleSourceUrns =
-        getUrnsOfIngestionSources(context, systemSources, requestedSourceUrns);
+    List<Urn> systemSourceUrns = getUrnsOfSystemSources(context);
 
-    if (requestedSourceUrns != null && accessibleSourceUrns.isEmpty()) {
-      log.warn("None of the requested ingestion sources are accessible to this user");
-    }
-
-    // Add filter with only accessible source URNs
+    // Add filter with negation flag to toggle between system and non-system sources
     filters.add(
         new FacetFilterInput(
             EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
             null,
-            accessibleSourceUrns.stream().map(Urn::toString).toList(),
-            false,
+            systemSourceUrns.stream().map(Urn::toString).toList(),
+            !systemSources,
             FilterOperator.EQUAL));
   }
 
-  private List<Urn> getUrnsOfIngestionSources(
-      final QueryContext context,
-      @Nullable final Boolean systemSources,
-      @Nullable final List<String> specificSourceUrns)
-      throws Exception {
-
+  /**
+   * Fetches all system ingestion sources.
+   */
+  private List<Urn> getUrnsOfSystemSources(final QueryContext context) throws Exception {
     List<FacetFilterInput> filters = new ArrayList<>();
 
-    // Add systemSources filter if specified
-    if (systemSources != null) {
-      filters.add(
-          new FacetFilterInput(
-              INGESTION_SOURCE_SOURCE_TYPE_FIELD,
-              null,
-              ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
-              !systemSources,
-              FilterOperator.EQUAL));
-    }
-
-    // Add specific URN filter if provided
-    if (specificSourceUrns != null && !specificSourceUrns.isEmpty()) {
-      filters.add(
-          new FacetFilterInput(
-              URN_FIELD_NAME, null, specificSourceUrns, false, FilterOperator.EQUAL));
-    }
+    filters.add(
+        new FacetFilterInput(
+            INGESTION_SOURCE_SOURCE_TYPE_FIELD,
+            null,
+            ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
+            false,
+            FilterOperator.EQUAL));
 
     final SearchResult gmsResult =
         _entityClient.search(
@@ -208,7 +172,7 @@ public class ListExecutionRequestsResolver
             buildFilter(filters, Collections.emptyList()),
             null,
             0,
-            NUMBER_OF_INGESTION_SOURCES_TO_CHECK);
+            SYSTEM_INGESTION_SOURCES_LIMIT);
 
     return gmsResult.getEntities().stream().map(SearchEntity::getEntity).toList();
   }
