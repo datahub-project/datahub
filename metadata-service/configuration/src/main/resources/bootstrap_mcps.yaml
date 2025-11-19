@@ -13,7 +13,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/root-user.yaml"
 
     - name: data-platforms
-      version: v5
+      version: v4
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/data-platforms.yaml"
