@@ -117,6 +117,11 @@ class RegexRouterPlugin(TransformPlugin):
             )
             return topics
 
+        logger.info(
+            f"Applying RegexRouter transform '{config.name}': "
+            f"regex='{regex_pattern}', replacement='{replacement}', topics={topics}"
+        )
+
         transformed_topics = []
         for topic in topics:
             try:
@@ -124,9 +129,14 @@ class RegexRouterPlugin(TransformPlugin):
                 matcher = pattern.matcher(topic)
                 transformed_topic = str(matcher.replaceFirst(replacement))
 
-                logger.debug(
-                    f"RegexRouter {config.name}: {topic} -> {transformed_topic}"
-                )
+                if transformed_topic != topic:
+                    logger.info(
+                        f"RegexRouter {config.name} transformed: '{topic}' -> '{transformed_topic}'"
+                    )
+                else:
+                    logger.info(
+                        f"RegexRouter {config.name} no change: '{topic}' (pattern did not match or replacement resulted in same value)"
+                    )
                 transformed_topics.append(transformed_topic)
             except Exception as e:
                 logger.warning(
