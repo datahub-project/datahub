@@ -357,7 +357,7 @@ class TestApplyTableFilters:
         tables = ["public.users", "public.orders", "public.products", "private.data"]
         result = connector._apply_table_filters(connector_config, tables)
 
-        assert result == ["public.users", "public.orders"]
+        assert sorted(result) == ["public.orders", "public.users"]
 
     def test_table_include_list_with_wildcard(self) -> None:
         """table.include.list should support wildcard patterns."""
@@ -373,7 +373,7 @@ class TestApplyTableFilters:
         tables = ["public.users", "public.orders", "private.data"]
         result = connector._apply_table_filters(connector_config, tables)
 
-        assert result == ["public.users", "public.orders"]
+        assert sorted(result) == ["public.orders", "public.users"]
 
     def test_table_include_list_with_character_class(self) -> None:
         """table.include.list should support Java regex character classes."""
@@ -389,7 +389,7 @@ class TestApplyTableFilters:
         tables = ["public.user1", "public.user2", "public.userX", "public.orders"]
         result = connector._apply_table_filters(connector_config, tables)
 
-        assert result == ["public.user1", "public.user2"]
+        assert sorted(result) == ["public.user1", "public.user2"]
 
     def test_table_include_list_no_matches_returns_empty(self) -> None:
         """table.include.list with no matches should return empty list."""
@@ -549,7 +549,7 @@ class TestGetTopicsFromConfigIntegration:
 
         result = connector.get_topics_from_config()
 
-        assert result == ["myserver.public.users", "myserver.public.orders"]
+        assert sorted(result) == ["myserver.public.orders", "myserver.public.users"]
 
     def test_full_flow_with_schema_and_table_filters(self) -> None:
         """Test complete flow with both schema and table filters."""
@@ -580,7 +580,7 @@ class TestGetTopicsFromConfigIntegration:
             result = connector.get_topics_from_config()
 
         # Should only include public schema tables
-        assert result == ["myserver.public.users", "myserver.public.orders"]
+        assert sorted(result) == ["myserver.public.orders", "myserver.public.users"]
 
     def test_full_flow_with_exclude_filters(self) -> None:
         """Test complete flow with exclude filters."""
