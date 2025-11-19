@@ -124,6 +124,31 @@ When `extract_lineage` is enabled and proper permissions are granted, the connec
 - Data flows between assets
 - Processing workflows
 
+**Lineage Configuration Options:**
+
+- **`extract_lineage`** (default: `true`): Enable table-level lineage extraction
+
+**Example Configuration:**
+
+```yaml
+source:
+  type: dataplex
+  config:
+    project_ids:
+      - "my-gcp-project"
+    location: "us-central1"
+
+    # Lineage settings
+    extract_lineage: true # Enable lineage extraction
+```
+
+**Lineage Limitations:**
+
+- Dataplex does not support column-level lineage extraction
+- Lineage retention period: 30 days (Dataplex limitation)
+- Cross-region lineage is not supported by Dataplex
+- Lineage is only available for entities with active lineage tracking enabled
+
 ### Python Dependencies
 
 The connector requires the following Python packages:

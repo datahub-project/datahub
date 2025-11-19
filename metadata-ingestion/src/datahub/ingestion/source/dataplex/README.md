@@ -35,6 +35,7 @@ The connector follows the pattern established by the `vertexai` and `bigquery_v2
 - **[dataplex_config.py](dataplex_config.py)**: Configuration models using Pydantic
 - **[dataplex_report.py](dataplex_report.py)**: Reporting and metrics tracking
 - **[dataplex_helpers.py](dataplex_helpers.py)**: Helper functions for URN generation and type mapping
+- **[dataplex_lineage.py](dataplex_lineage.py)**: Lineage extraction using Dataplex Lineage API
 
 ### Capabilities
 
@@ -80,12 +81,14 @@ dataplex/
 ├── dataplex_config.py            # Configuration classes
 ├── dataplex_report.py            # Reporting and metrics
 ├── dataplex_helpers.py           # Helper functions and utilities
+├── dataplex_lineage.py           # Lineage extraction
 ├── README.md                     # This file (developer guide)
 ├── TEST_GUIDE.md                 # Testing documentation
 ├── TESTING.md                    # Test implementation details
 └── example_code/                 # Reference examples and experiments
     ├── README.md
     ├── dataplex_client.py
+    ├── generate_sample_lineage.py  # Script to create sample lineage
     └── dataplex_implementation.md
 ```
 
@@ -115,6 +118,65 @@ When `create_sibling_relationships=True`:
 - Dataplex entity determines its source platform (BigQuery/GCS) by querying the asset
 - Creates bidirectional sibling links between Dataplex and source platform URNs
 - Primary sibling designation controlled by `dataplex_is_primary_sibling` config
+
+### Lineage Extraction
+
+The connector extracts lineage using Google's Data Lineage API:
+
+#### Architecture
+
+The lineage extraction follows the pattern from `bigquery_v2`:
+
+- **[dataplex_lineage.py](dataplex_lineage.py)**: `DataplexLineageExtractor` class
+- Queries Dataplex Lineage API using `LineageClient`
+- Builds internal lineage maps with `LineageEdge` data structures
+- Generates DataHub `UpstreamLineageClass` aspects
+
+#### How It Works
+
+1. **Entity Tracking**: As entities are processed, their IDs are tracked
+2. **Lineage Query**: After entity extraction, queries `search_links` API
+3. **Map Building**: Constructs lineage maps from upstream/downstream relationships
+4. **Workunit Generation**: Creates DataHub lineage workunits
+5. **Emission**: Yields workunits to be ingested into DataHub
+
+#### Configuration Options
+
+```python
+# Enable/disable lineage extraction
+extract_lineage: bool = True  # Default: True
+```
+
+#### Lineage API Integration
+
+The connector uses Google's `LineageClient` to query lineage:
+
+```python
+# Search for upstream lineage (entity is target)
+request = SearchLinksRequest(parent=parent, target=entity_reference)
+upstream_links = lineage_client.search_links(request=request)
+
+# Search for downstream lineage (entity is source)
+request = SearchLinksRequest(parent=parent, source=entity_reference)
+downstream_links = lineage_client.search_links(request=request)
+```
+
+#### Data Structures
+
+```python
+@dataclass
+class LineageEdge:
+    entity_id: str  # Upstream entity ID
+    audit_stamp: datetime
+    lineage_type: str  # TRANSFORMED, COPY, etc.
+```
+
+#### Limitations
+
+- Dataplex does not support column-level lineage extraction
+- Lineage is only available for entities with active lineage tracking
+- Retention period: 30 days (Dataplex limitation)
+- Cross-region lineage is not supported by Dataplex
 
 ## Contributing
 

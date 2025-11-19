@@ -32,6 +32,8 @@ class DataplexReport(SQLSourceReport):
 
     num_sibling_relationships_created: int = 0
     num_lineage_relationships_created: int = 0
+    num_lineage_entries_scanned: int = 0
+    num_lineage_entries_failed: int = 0
 
     lakes_scanned: Dict[str, bool] = field(default_factory=dict)
     zones_scanned: Dict[str, bool] = field(default_factory=dict)
@@ -96,3 +98,7 @@ class DataplexReport(SQLSourceReport):
     def report_lineage_relationship_created(self) -> None:
         """Report that a lineage relationship was created."""
         self.num_lineage_relationships_created += 1
+
+
+# Alias for consistency with other sources
+DataplexSourceReport = DataplexReport

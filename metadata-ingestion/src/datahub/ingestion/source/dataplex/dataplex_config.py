@@ -96,7 +96,8 @@ class DataplexConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
 
     extract_lineage: bool = Field(
         default=True,
-        description="Whether to extract lineage information using Dataplex Lineage API.",
+        description="Whether to extract lineage information using Dataplex Lineage API. "
+        "Extracts table-level lineage relationships between entities.",
     )
 
     create_sibling_relationships: bool = Field(

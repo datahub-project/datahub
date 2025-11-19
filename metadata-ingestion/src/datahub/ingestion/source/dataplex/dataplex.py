@@ -15,8 +15,15 @@ from typing import Iterable, Optional
 
 from google.api_core import exceptions
 from google.cloud import dataplex_v1
-from google.cloud.datacatalog.lineage_v1 import LineageClient
 from google.oauth2 import service_account
+
+try:
+    from google.cloud.datacatalog.lineage_v1 import LineageClient
+
+    LINEAGE_AVAILABLE = True
+except ImportError:
+    LINEAGE_AVAILABLE = False
+    LineageClient = None  # type: ignore
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import gen_containers
@@ -43,6 +50,7 @@ from datahub.ingestion.source.dataplex.dataplex_helpers import (
     make_zone_container_key,
     map_dataplex_field_to_datahub,
 )
+from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.schema_classes import (
@@ -86,6 +94,9 @@ class DataplexSource(Source):
         self.config = config
         self.report = DataplexReport()
 
+        # Track entity IDs for lineage extraction
+        self.entity_ids_by_project: dict[str, set[str]] = {}
+
         creds = self.config.get_credentials()
         credentials = (
             service_account.Credentials.from_service_account_info(creds)
@@ -102,9 +113,23 @@ class DataplexSource(Source):
         self.catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
 
         if self.config.extract_lineage:
-            self.lineage_client = LineageClient(credentials=credentials)
+            if not LINEAGE_AVAILABLE:
+                logger.warning(
+                    "Lineage extraction is enabled but google-cloud-datacatalog-lineage is not installed. "
+                    "Install it with: pip install 'google-cloud-datacatalog-lineage>=0.3.0'"
+                )
+                self.lineage_client = None
+                self.lineage_extractor = None
+            else:
+                self.lineage_client = LineageClient(credentials=credentials)
+                self.lineage_extractor = DataplexLineageExtractor(
+                    config=self.config,
+                    report=self.report,
+                    lineage_client=self.lineage_client,
+                )
         else:
             self.lineage_client = None
+            self.lineage_extractor = None
 
     def get_report(self) -> DataplexReport:
         """Return the ingestion report."""
@@ -138,6 +163,10 @@ class DataplexSource(Source):
 
         if self.config.extract_entries:
             yield from auto_workunit(self._get_entries_mcps(project_id))
+
+        # Extract lineage for entities (after entities have been processed)
+        if self.config.extract_lineage and self.lineage_extractor:
+            yield from self._get_lineage_workunits(project_id)
 
     def _gen_project_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """Generate workunits for GCP Project as a Container."""
@@ -500,6 +529,11 @@ class DataplexSource(Source):
                                     f"Processing entity: {entity_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
                                 )
 
+                                # Track entity ID for lineage extraction
+                                if project_id not in self.entity_ids_by_project:
+                                    self.entity_ids_by_project[project_id] = set()
+                                self.entity_ids_by_project[project_id].add(entity_id)
+
                                 # Fetch full entity details including schema
                                 try:
                                     get_entity_request = dataplex_v1.GetEntityRequest(
@@ -756,6 +790,39 @@ class DataplexSource(Source):
 
         # Track that we created a sibling relationship
         self.report.report_sibling_relationship_created()
+
+    def _get_lineage_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
+        """
+        Extract lineage for entities in a project.
+
+        Args:
+            project_id: GCP project ID
+
+        Yields:
+            MetadataWorkUnit objects containing lineage information
+        """
+        if not self.lineage_extractor:
+            return
+
+        # Get entity IDs that were processed for this project
+        entity_ids = self.entity_ids_by_project.get(project_id, set())
+
+        if not entity_ids:
+            logger.info(
+                f"No entities found for lineage extraction in project {project_id}"
+            )
+            return
+
+        logger.info(
+            f"Extracting lineage for {len(entity_ids)} entities in project {project_id}"
+        )
+
+        try:
+            yield from self.lineage_extractor.get_lineage_workunits(
+                project_id, entity_ids
+            )
+        except Exception as e:
+            logger.warning(f"Failed to extract lineage for project {project_id}: {e}")
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DataplexSource":
