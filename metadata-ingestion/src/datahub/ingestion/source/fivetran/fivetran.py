@@ -377,16 +377,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         if max_lineage_limit != -1 and len(connector.lineage) >= max_lineage_limit:
             self._report_lineage_truncation(connector)
 
-        # Process each table lineage entry
+        # Process each table lineage entry (already filtered by destination patterns)
         for lineage in connector.lineage:
             try:
-                if not self._is_lineage_destination_allowed(lineage, connector):
-                    logger.debug(
-                        f"Skipping lineage for {lineage.source_table} -> {lineage.destination_table}: "
-                        f"destination not allowed by patterns"
-                    )
-                    continue
-
                 # Use lineage-specific source details that include sources_to_platform_instance
                 lineage_source_details = self._build_source_details(connector, lineage)
                 lineage_destination_details = self._build_destination_details(
@@ -1624,33 +1617,12 @@ class FivetranSource(StatefulIngestionSourceBase):
     def _generate_filtered_upstream_lineage(
         self, connector: Connector
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate upstreamLineage aspects filtered by destination patterns."""
+        """Generate upstreamLineage aspects (lineage already filtered by destination patterns)."""
         if not connector.lineage:
             return
 
-        allowed_lineage = [
-            lineage
-            for lineage in connector.lineage
-            if self._is_lineage_destination_allowed(lineage, connector)
-        ]
-
-        if allowed_lineage:
-            filtered_connector = Connector(
-                connector_id=connector.connector_id,
-                connector_name=connector.connector_name,
-                connector_type=connector.connector_type,
-                destination_id=connector.destination_id,
-                paused=connector.paused,
-                sync_frequency=connector.sync_frequency,
-                user_id=connector.user_id,
-                jobs=connector.jobs,
-                lineage=allowed_lineage,
-            )
-            yield from self._create_upstream_lineage_workunits(filtered_connector)
-        else:
-            logger.info(
-                f"All lineage entries for connector {connector.connector_name} were filtered out by destination patterns"
-            )
+        # Lineage is already filtered by destination patterns at the connector level
+        yield from self._create_upstream_lineage_workunits(connector)
 
     def _create_synthetic_datajob_for_table(
         self,
@@ -1812,6 +1784,26 @@ class FivetranSource(StatefulIngestionSourceBase):
                 ingestion_stats["connectors_without_lineage"] = (
                     connectors_without_lineage + 1
                 )
+
+            # Pre-filter connector lineage by destination patterns to avoid unnecessary processing
+            original_lineage_count = len(connector.lineage) if connector.lineage else 0
+            if connector.lineage:
+                allowed_lineage = [
+                    lineage
+                    for lineage in connector.lineage
+                    if self._is_lineage_destination_allowed(lineage, connector)
+                ]
+
+                # Update connector with filtered lineage
+                connector.lineage = allowed_lineage
+                filtered_count = len(allowed_lineage)
+
+                if filtered_count < original_lineage_count:
+                    logger.info(
+                        f"Filtered connector {connector.connector_name} lineage: "
+                        f"{original_lineage_count} → {filtered_count} entries "
+                        f"({original_lineage_count - filtered_count} filtered out by destination patterns)"
+                    )
 
             # Process connector and track statistics
             for workunit in self._get_connector_workunits(connector):
