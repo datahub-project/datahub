@@ -444,7 +444,7 @@ class TestApplyTableFilters:
         result = connector._apply_table_filters(connector_config, tables)
 
         # Include public.*, then exclude public.temp.*
-        assert result == ["public.users", "public.orders"]
+        assert sorted(result) == ["public.orders", "public.users"]
 
     def test_table_whitelist_legacy_config_name(self) -> None:
         """Should support legacy 'table.whitelist' config name."""
