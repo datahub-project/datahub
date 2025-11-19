@@ -807,6 +807,10 @@ class FivetranSource(StatefulIngestionSourceBase):
             owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
 
+        # Ensure the DataJob has the correct environment from config
+        if self.config.env:
+            datajob._ensure_datajob_props().env = self.config.env
+
         # Build lineage for this specific table using the common function
         self._build_table_lineage(
             connector=connector,
@@ -1014,15 +1018,15 @@ class FivetranSource(StatefulIngestionSourceBase):
                 )
                 return
 
-            # Add URNs to datajob (avoiding duplicates)
-            if str(source_urn) not in [str(u) for u in datajob.inlets]:
-                datajob.inlets.append(source_urn)
-                # Log for debugging
+            # Add URNs to datajob using SDK aspect (avoiding duplicates)
+            inputoutput_aspect = datajob._ensure_datajob_inputoutput_props()
+
+            if str(source_urn) not in inputoutput_aspect.inputDatasets:
+                inputoutput_aspect.inputDatasets.append(str(source_urn))
                 logger.debug(f"Added source URN: {source_urn}")
 
-            if str(dest_urn) not in [str(u) for u in datajob.outlets]:
-                datajob.outlets.append(dest_urn)
-                # Log for debugging
+            if str(dest_urn) not in inputoutput_aspect.outputDatasets:
+                inputoutput_aspect.outputDatasets.append(str(dest_urn))
                 logger.debug(f"Added destination URN: {dest_urn}")
 
             # Create column lineage if enabled
@@ -1034,7 +1038,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                     dest_urn=dest_urn,
                     fine_grained_lineage=fine_grained_lineage,
                 )
-                datajob.fine_grained_lineages.extend(fine_grained_lineage)
+                datajob.set_fine_grained_lineages(fine_grained_lineage)
                 # Log for debugging
                 logger.debug(
                     f"Added {len(fine_grained_lineage)} column lineage entries"
@@ -1425,6 +1429,10 @@ class FivetranSource(StatefulIngestionSourceBase):
             description=f"Data pipeline from {connector.connector_type} to {destination_details.platform}",
             owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
+
+        # Ensure the DataJob has the correct environment from config
+        if self.config.env:
+            datajob._ensure_datajob_props().env = self.config.env
 
         # Add lineage to the datajob (inlets, outlets, fine-grained lineage)
         lineage_properties = self._extend_lineage(
