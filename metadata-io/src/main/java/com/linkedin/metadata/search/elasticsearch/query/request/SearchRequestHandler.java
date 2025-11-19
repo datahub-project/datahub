@@ -56,8 +56,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.opensearch.action.search.SearchRequest;
@@ -689,31 +689,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
    *
    * <p>This key ensures each unique configuration combination gets its own handler instance.
    */
-  @AllArgsConstructor
+  @Value
   private static class SearchHandlerKey {
     @Nonnull private final List<EntitySpec> entitySpecs;
     @Nonnull private final ElasticSearchConfiguration configs;
     @Nullable private final CustomSearchConfiguration customSearchConfiguration;
     @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
     @Nonnull private final SearchServiceConfiguration searchServiceConfiguration;
-
-    @Override
-    public int hashCode() {
-      return entitySpecs.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      SearchHandlerKey searchHandlerKey = (SearchHandlerKey) o;
-      return Objects.equals(entitySpecs, searchHandlerKey.entitySpecs)
-          && Objects.equals(configs, searchHandlerKey.configs)
-          && Objects.equals(customSearchConfiguration, searchHandlerKey.customSearchConfiguration)
-          && Objects.equals(queryFilterRewriteChain, searchHandlerKey.queryFilterRewriteChain)
-          && Objects.equals(
-              searchServiceConfiguration, searchHandlerKey.searchServiceConfiguration);
-    }
   }
 }
