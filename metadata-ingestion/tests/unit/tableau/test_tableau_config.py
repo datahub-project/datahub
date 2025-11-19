@@ -1,3 +1,4 @@
+import os
 import re
 from copy import deepcopy
 from typing import Dict
@@ -103,11 +104,17 @@ def test_ingest_hidden_assets_multiple():
 def test_ingest_hidden_assets_invalid():
     config = deepcopy(default_config)
     config["ingest_hidden_assets"] = ["worksheet", "invalid"]
-    with pytest.raises(
-        ValidationError,
-        match=re.compile(r"ingest_hidden_assets.*input_value='invalid'", re.DOTALL),
-    ):
-        TableauConfig.model_validate(config)
+
+    # Enable debug mode so input values are visible in validation errors
+    with mock.patch.dict(os.environ, {"DATAHUB_DEBUG": "true"}, clear=False):
+        # Force model rebuild to pick up the new environment variable
+        TableauConfig.model_rebuild(force=True)
+
+        with pytest.raises(
+            ValidationError,
+            match=re.compile(r"ingest_hidden_assets.*input_value='invalid'", re.DOTALL),
+        ):
+            TableauConfig.model_validate(config)
 
 
 @freeze_time(FROZEN_TIME)

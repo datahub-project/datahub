@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY confluent_cloud_mock_api.py ./
 
-RUN pip install --no-cache-dir flask
+RUN pip install --no-cache-dir flask requests
 
 EXPOSE 8888
 
