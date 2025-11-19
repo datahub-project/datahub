@@ -33,6 +33,7 @@ try:
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.dataplex.dataplex import DataplexSource
     from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
+    from datahub.ingestion.source.dataplex.dataplex_helpers import EntityDataTuple
 except ImportError as e:
     print("=" * 80)
     print("ERROR: Required packages not installed")
@@ -72,6 +73,7 @@ class DataplexConnectorTester:
             "zones": [],
             "assets": [],
             "entities": [],
+            "lineage": [],
             "workunits_generated": 0,
             "errors": [],
         }
@@ -91,6 +93,7 @@ class DataplexConnectorTester:
             ("Zone Extraction", self.test_zones),
             ("Asset Extraction", self.test_assets),
             ("Entity Extraction", self.test_entities),
+            ("Lineage Extraction", self.test_lineage),
             ("Workunit Generation", self.test_workunit_generation),
         ]
 
@@ -479,6 +482,161 @@ class DataplexConnectorTester:
             logger.error(f"Entity extraction test failed: {e}")
             return False
 
+    def test_lineage(self) -> bool:
+        """Test lineage extraction."""
+        if not self.source:
+            logger.error("Source not initialized")
+            return False
+
+        # Check if lineage extraction is enabled
+        if not self.source.config.extract_lineage:
+            logger.info("Lineage extraction is disabled in configuration")
+            return True
+
+        # Check if lineage extractor is available
+        if not self.source.lineage_extractor:
+            logger.warning(
+                "Lineage extraction is enabled but lineage extractor is not available. "
+                "This may be due to missing google-cloud-datacatalog-lineage package."
+            )
+            return True
+
+        try:
+            total_entities_with_lineage = 0
+            total_upstream_links = 0
+            total_downstream_links = 0
+
+            for project_id in self.source.config.project_ids:
+                logger.info(f"\nScanning lineage in project: {project_id}")
+
+                # Collect EntityDataTuple objects from all zones (similar to test_entities)
+                entity_data = set()
+
+                parent = (
+                    f"projects/{project_id}/locations/{self.source.config.location}"
+                )
+                lakes_request = self.source.dataplex_client.list_lakes(parent=parent)
+
+                for lake in lakes_request:
+                    lake_id = lake.name.split("/")[-1]
+
+                    if not self.source.config.filter_config.lake_pattern.allowed(
+                        lake_id
+                    ):
+                        continue
+
+                    zones_parent = f"projects/{project_id}/locations/{self.source.config.location}/lakes/{lake_id}"
+                    zones_request = self.source.dataplex_client.list_zones(
+                        parent=zones_parent
+                    )
+
+                    for zone in zones_request:
+                        zone_id = zone.name.split("/")[-1]
+
+                        if not self.source.config.filter_config.zone_pattern.allowed(
+                            zone_id
+                        ):
+                            continue
+
+                        entities_parent = f"projects/{project_id}/locations/{self.source.config.location}/lakes/{lake_id}/zones/{zone_id}"
+                        entities_request = self.source.metadata_client.list_entities(
+                            parent=entities_parent
+                        )
+
+                        for entity in entities_request:
+                            entity_id = entity.id
+
+                            # Only include non-filtered entities
+                            if self.source.config.filter_config.entity_pattern.allowed(
+                                entity_id
+                            ):
+                                # Get asset_id from entity if available
+                                asset_id = (
+                                    entity.asset
+                                    if hasattr(entity, "asset") and entity.asset
+                                    else ""
+                                )
+
+                                # Create EntityDataTuple matching the structure in dataplex.py
+                                entity_data.add(
+                                    EntityDataTuple(
+                                        lake_id=lake_id,
+                                        zone_id=zone_id,
+                                        entity_id=entity_id,
+                                        asset_id=asset_id,
+                                    )
+                                )
+
+                if not entity_data:
+                    logger.info(
+                        f"  No entities found for lineage extraction in project {project_id}"
+                    )
+                    continue
+
+                logger.info(
+                    f"  Extracting lineage for {len(entity_data)} entities in project {project_id}"
+                )
+                for entity_tuple in entity_data:
+                    try:
+                        # Get lineage information for this entity
+                        lineage_data = (
+                            self.source.lineage_extractor.get_lineage_for_entity(
+                                project_id, entity_tuple
+                            )
+                        )
+
+                        if lineage_data:
+                            upstream_count = len(lineage_data.get("upstream", []))
+                            downstream_count = len(lineage_data.get("downstream", []))
+
+                            lineage_info = {
+                                "entity_id": entity_tuple.entity_id,
+                                "project_id": project_id,
+                                "upstream_count": upstream_count,
+                                "downstream_count": downstream_count,
+                                "upstream": lineage_data.get("upstream", []),
+                                "downstream": lineage_data.get("downstream", []),
+                            }
+
+                            self.results["lineage"].append(lineage_info)
+                            total_entities_with_lineage += 1
+                            total_upstream_links += upstream_count
+                            total_downstream_links += downstream_count
+
+                            if upstream_count > 0 or downstream_count > 0:
+                                logger.info(
+                                    f"    ✓ Entity: {entity_tuple.entity_id} - "
+                                    f"Upstream: {upstream_count}, Downstream: {downstream_count}"
+                                )
+                        else:
+                            logger.debug(
+                                f"    - Entity: {entity_tuple.entity_id} - No lineage found"
+                            )
+
+                    except Exception as e:
+                        logger.warning(
+                            f"    ⚠ Failed to extract lineage for entity {entity_tuple.entity_id}: {e}"
+                        )
+                        # Continue with other entities
+                        continue
+
+            logger.info(
+                f"\n✓ Total entities with lineage: {total_entities_with_lineage}"
+            )
+            logger.info(f"✓ Total upstream links: {total_upstream_links}")
+            logger.info(f"✓ Total downstream links: {total_downstream_links}")
+
+            return True
+        except exceptions.PermissionDenied as e:
+            logger.error(f"Permission denied accessing lineage: {e}")
+            logger.error(
+                "Make sure your service account has 'datacatalog.lineage.searchLinks' permission"
+            )
+            return False
+        except Exception as e:
+            logger.error(f"Lineage extraction test failed: {e}")
+            return False
+
     def test_workunit_generation(self) -> bool:
         """Test workunit generation without writing to DataHub."""
         if not self.source:
@@ -527,6 +685,7 @@ class DataplexConnectorTester:
         logger.info(f"Zones Found: {len(self.results['zones'])}")
         logger.info(f"Assets Found: {len(self.results['assets'])}")
         logger.info(f"Entities Found: {len(self.results['entities'])}")
+        logger.info(f"Entities with Lineage: {len(self.results['lineage'])}")
         logger.info(f"Workunits Generated: {self.results['workunits_generated']}")
 
         if self.results["errors"]:
