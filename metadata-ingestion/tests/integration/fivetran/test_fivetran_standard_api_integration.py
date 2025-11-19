@@ -15,6 +15,7 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranLogConfig,
     FivetranSourceConfig,
     FivetranSourceReport,
+    SnowflakeDestinationConfig,
 )
 from datahub.ingestion.source.fivetran.fivetran_api_client import FivetranAPIClient
 from datahub.ingestion.source.fivetran.fivetran_standard_api import FivetranStandardAPI
@@ -41,7 +42,16 @@ class TestFivetranStandardAPIIntegration:
                 api_key="test_api_key",
                 api_secret="test_api_secret",
             ),
-            fivetran_log_config=FivetranLogConfig(destination_platform="snowflake"),
+            fivetran_log_config=FivetranLogConfig(
+                destination_platform="snowflake",
+                snowflake_destination_config=SnowflakeDestinationConfig(
+                    account_id="test_account",
+                    username="test_user",
+                    password="test_password",
+                    database="test_db",
+                    log_schema="test_schema",
+                ),
+            ),
         )
 
     @pytest.fixture
