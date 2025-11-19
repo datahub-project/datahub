@@ -171,7 +171,7 @@ class TestConnectorModes:
             f"FivetranMode missing expected values. Expected: {expected_modes}, Got: {actual_modes}"
         )
 
-    def test_data_job_mode_completeness(self) -> None:
+    def test_datajob_mode_completeness(self) -> None:
         """Test that all expected data job modes are available."""
         expected_modes = {"consolidated", "per_table"}
         actual_modes = {mode.value for mode in DataJobMode}

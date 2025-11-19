@@ -823,86 +823,19 @@ class FivetranSource(StatefulIngestionSourceBase):
         source_details: PlatformDetail,
         destination_details: PlatformDetail,
     ) -> Iterable[MetadataWorkUnit]:
-        """Create upstreamLineage aspect for the DataJob itself."""
-        try:
-            # Create source and destination URNs
-            source_urn = self._create_dataset_urn(
-                lineage.source_table,
-                source_details,
-                is_source=True,
-            )
-            dest_urn = self._create_dataset_urn(
-                lineage.destination_table,
-                destination_details,
-                is_source=False,
-            )
+        """DataJob lineage is handled by the SDK's set_inlets() and set_outlets() methods.
 
-            if not source_urn or not dest_urn:
-                logger.warning(
-                    f"Skipping DataJob upstreamLineage: Failed to create URNs for {lineage.source_table} -> {lineage.destination_table}"
-                )
-                return
+        DataJob entities use dataJobInputOutput aspect, not upstreamLineage aspect.
+        The lineage is already set via datajob.set_inlets() and datajob.set_outlets()
+        in the _extend_lineage method, so this method no longer creates upstreamLineage aspects.
 
-            # Create upstream entry for the DataJob
-            upstream = UpstreamClass(
-                dataset=str(source_urn),
-                type=DatasetLineageTypeClass.TRANSFORMED,
-            )
-
-            # Create column-level lineage if available
-            fine_grained_lineages = []
-            if self.config.include_column_lineage and lineage.column_lineage:
-                for col_lineage in lineage.column_lineage:
-                    if col_lineage.source_column and col_lineage.destination_column:
-                        fine_grained_lineage = FineGrainedLineageClass(
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                str(
-                                    builder.make_schema_field_urn(
-                                        str(source_urn),
-                                        col_lineage.source_column,
-                                    )
-                                )
-                            ],
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                str(
-                                    builder.make_schema_field_urn(
-                                        str(dest_urn),
-                                        col_lineage.destination_column,
-                                    )
-                                )
-                            ],
-                        )
-                        fine_grained_lineages.append(fine_grained_lineage)
-
-            # Create upstreamLineage aspect for the DataJob
-            upstream_lineage = UpstreamLineageClass(
-                upstreams=[upstream],
-                fineGrainedLineages=fine_grained_lineages
-                if fine_grained_lineages
-                else None,
-            )
-
-            # Create workunit for the DataJob's upstreamLineage aspect
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=str(datajob.urn),
-                aspect=upstream_lineage,
-            )
-            workunit = mcp.as_workunit()
-
-            logger.debug(
-                f"Created upstreamLineage aspect for DataJob {datajob.urn} with upstream {source_urn}"
-            )
-            yield workunit
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to create DataJob upstreamLineage for {lineage.source_table} -> {lineage.destination_table}: {e}"
-            )
-            import traceback
-
-            logger.debug(f"Full traceback: {traceback.format_exc()}")
+        This method is kept for backward compatibility but returns empty iterator.
+        """
+        logger.debug(
+            f"DataJob lineage for {datajob.urn} is handled by SDK's set_inlets/set_outlets methods"
+        )
+        return
+        yield  # Make this a generator function for type compatibility
 
     def _validate_lineage_data(
         self,
@@ -1550,7 +1483,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
 
             # Check if we should create one datajob per table or one per connector
-            if self.config.data_job_mode == DataJobMode.PER_TABLE:
+            if self.config.datajob_mode == DataJobMode.PER_TABLE:
                 # Create one datajob per table
                 # Get source and destination details
                 source_details = self._get_source_details(connector)
@@ -1602,7 +1535,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                         yield workunit
         else:
             # Check if we should create one datajob per table or one per connector
-            if self.config.data_job_mode == DataJobMode.PER_TABLE:
+            if self.config.datajob_mode == DataJobMode.PER_TABLE:
                 # Create one datajob per table
                 for wu in self._get_per_table_datajob_workunits(connector, dataflow):
                     # If this is a field lineage workunit, store it for later

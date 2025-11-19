@@ -241,7 +241,7 @@ class FivetranSourceConfig(
         description="Mode for Fivetran source operation. AUTO detects based on configuration, ENTERPRISE uses log tables, STANDARD uses REST API.",
     )
 
-    data_job_mode: DataJobMode = Field(
+    datajob_mode: DataJobMode = Field(
         default=DataJobMode.CONSOLIDATED,
         description="Mode for DataJob generation. CONSOLIDATED creates one DataJob per connector, PER_TABLE creates separate DataJobs for each table.",
     )
