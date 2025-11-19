@@ -98,9 +98,9 @@ const SsoWarningContainer = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: ${colors.yellow[0]};
+    background-color: ${colors.blue[0]};
     border-radius: 8px;
-    color: ${colors.yellow[1000]};
+    color: ${colors.blue[1000]};
     padding: 8px;
 `;
 
@@ -123,7 +123,7 @@ export const SsoWarningBanner = ({ onConfigureSso }: SsoWarningBannerProps) => (
     <SsoWarningContainer>
         <SsoWarningContent>
             <Icon
-                icon="WarningCircle"
+                icon="Info"
                 source="phosphor"
                 size="xl"
                 weight="fill"
@@ -140,7 +140,7 @@ export const SsoWarningBanner = ({ onConfigureSso }: SsoWarningBannerProps) => (
             variant="link"
             onClick={onConfigureSso}
             size="sm"
-            style={{ color: colors.yellow[1000], whiteSpace: 'nowrap' }}
+            style={{ color: colors.blue[1000], whiteSpace: 'nowrap' }}
         >
             Configure SSO
         </Button>
