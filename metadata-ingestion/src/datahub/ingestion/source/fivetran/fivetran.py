@@ -380,7 +380,6 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Process each table lineage entry (already filtered by destination patterns)
         for lineage in connector.lineage:
             try:
-                # Use lineage-specific source details that include sources_to_platform_instance
                 lineage_source_details = self._build_source_details(connector, lineage)
                 lineage_destination_details = self._build_destination_details(
                     connector, lineage
@@ -973,6 +972,11 @@ class FivetranSource(StatefulIngestionSourceBase):
         )
 
         try:
+            lineage_source_details = self._build_source_details(connector, lineage)
+            lineage_destination_details = self._build_destination_details(
+                connector, lineage
+            )
+
             # Create source and destination URNs with detailed error handling
             source_urn = None
             dest_urn = None
@@ -980,7 +984,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             try:
                 source_urn = self._create_dataset_urn(
                     source_table,
-                    source_details,
+                    lineage_source_details,
                     is_source=True,
                 )
             except Exception as e:
@@ -992,7 +996,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             try:
                 dest_urn = self._create_dataset_urn(
                     destination_table,
-                    destination_details,
+                    lineage_destination_details,
                     is_source=False,
                 )
             except Exception as e:
@@ -1975,7 +1979,6 @@ class FivetranSource(StatefulIngestionSourceBase):
                 fine_grained_lineages = []
 
                 for lineage in source_lineages:
-                    # Use lineage-specific source details that include sources_to_platform_instance
                     source_details = self._build_source_details(connector, lineage)
 
                     # Create source URN
