@@ -323,6 +323,8 @@ s3_base = {
     # moto 5.0.0 drops support for Python 3.7
     "moto[s3]<5.0.0",
     *path_spec_common,
+    # cachetools is used by operation_config which is imported by profiling config
+    *cachetools_lib,
 }
 
 threading_timeout_common = {
@@ -561,7 +563,11 @@ plugins: Dict[str, Set[str]] = {
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
+    # S3 includes PySpark by default for profiling support (backward compatible)
+    # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
+    # Lightweight installation: pip install 'acryl-datahub[s3-slim]' (no PySpark, no profiling)
     "s3": {*s3_base, *data_lake_profiling},
+    "s3-slim": {*s3_base},
     "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1"},
     "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
