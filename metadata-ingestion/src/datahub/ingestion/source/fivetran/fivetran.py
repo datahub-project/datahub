@@ -342,8 +342,8 @@ class FivetranSource(StatefulIngestionSourceBase):
         self,
         connector: Connector,
         datajob: DataJob,
-        source_details: PlatformDetail | None = None,
-        destination_details: PlatformDetail | None = None,
+        source_details: Union[PlatformDetail, None] = None,
+        destination_details: Union[PlatformDetail, None] = None,
     ) -> Dict[str, str]:
         """Build lineage between source and destination datasets."""
         # Initialize empty lists for dataset URNs and fine-grained lineage
@@ -942,8 +942,8 @@ class FivetranSource(StatefulIngestionSourceBase):
         connector: Connector,
         lineage: TableLineage,
         datajob: DataJob,
-        source_details: PlatformDetail | None = None,
-        destination_details: PlatformDetail | None = None,
+        source_details: Union[PlatformDetail, None] = None,
+        destination_details: Union[PlatformDetail, None] = None,
     ) -> None:
         """Build lineage between source and destination tables and add to datajob."""
         # Use metadata from TableLineage object if available
