@@ -303,9 +303,10 @@ class FivetranLogAPI:
                         f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
                     )
                     continue
-                if not destination_patterns.allowed(
-                    destination_id := connector[Constant.DESTINATION_ID]
-                ):
+                destination_id = connector[Constant.DESTINATION_ID]
+                destination_allowed = destination_patterns.allowed(destination_id)
+
+                if not destination_allowed:
                     report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
                     )

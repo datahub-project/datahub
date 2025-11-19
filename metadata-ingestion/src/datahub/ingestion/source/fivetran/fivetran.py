@@ -124,6 +124,30 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         return source_details
 
+    def _is_destination_allowed(self, destination_id: str) -> bool:
+        """Check if a destination is allowed by destination_patterns."""
+        if not destination_id:
+            return False
+        return self.config.destination_patterns.allowed(destination_id)
+
+    def _is_lineage_destination_allowed(
+        self, lineage: TableLineage, connector: Connector
+    ) -> bool:
+        """Check if a lineage entry's destination is allowed by destination_patterns."""
+        destination_id = connector.destination_id
+        destination_details = self._get_destination_details(connector)
+        destination_name = getattr(destination_details, "platform_instance", None)
+
+        if destination_id and self.config.destination_patterns.allowed(destination_id):
+            return True
+
+        if destination_name and self.config.destination_patterns.allowed(
+            destination_name
+        ):
+            return True
+
+        return False
+
     def _get_destination_details(self, connector: Connector) -> PlatformDetail:
         """Get destination platform details for a connector."""
         # Look up destination details in the configuration mapping
@@ -356,6 +380,13 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Process each table lineage entry
         for lineage in connector.lineage:
             try:
+                if not self._is_lineage_destination_allowed(lineage, connector):
+                    logger.debug(
+                        f"Skipping lineage for {lineage.source_table} -> {lineage.destination_table}: "
+                        f"destination not allowed by patterns"
+                    )
+                    continue
+
                 # Create source and destination URNs
                 source_urn = self._create_dataset_urn(
                     lineage.source_table,
@@ -1450,116 +1481,170 @@ class FivetranSource(StatefulIngestionSourceBase):
             yield workunit
 
         # Store field lineage workunits to emit after dataset workunits
-        field_lineage_workunits = []
+        field_lineage_workunits: List[MetadataWorkUnit] = []
 
-        # Check if connector has any lineage at all
+        # Handle different connector scenarios
         if not connector.lineage:
-            # Special handling for Google Sheets connectors - they may not have traditional lineage
-            # but can still create datasets from connection details
-            if connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE:
-                logger.info(
-                    f"Google Sheets connector '{connector.connector_name}' ({connector.connector_id}) "
-                    f"has no traditional lineage. Attempting to create datasets from connection details."
-                )
-                # Try to create Google Sheets datasets from connection details
-                yield from self._get_google_sheets_datasets(connector)
-                return
-
-            logger.warning(
-                f"No lineage data available for connector '{connector.connector_name}' ({connector.connector_id}). "
-                f"This connector will not contribute any lineage information to DataHub. "
-                f"If lineage is expected, check: 1) Connector has enabled tables, 2) Tables are syncing data, "
-                f"3) API permissions include lineage access, 4) Connector is properly configured."
+            yield from self._handle_connector_without_lineage(connector)
+            return
+        elif not connector.jobs:
+            yield from self._handle_synthetic_datajobs(
+                connector, dataflow, field_lineage_workunits
             )
-            # Still create the dataflow, but without lineage
+        else:
+            yield from self._handle_regular_datajobs(
+                connector, dataflow, field_lineage_workunits
+            )
+
+        # Generate filtered upstream lineage aspects
+        yield from self._generate_filtered_upstream_lineage(connector)
+
+        # Emit field lineage workunits last
+        for wu in field_lineage_workunits:
+            yield wu
+
+    def _handle_connector_without_lineage(
+        self, connector: Connector
+    ) -> Iterable[MetadataWorkUnit]:
+        """Handle connectors that have no lineage data."""
+        # Special handling for Google Sheets connectors
+        if connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE:
+            logger.info(
+                f"Google Sheets connector '{connector.connector_name}' ({connector.connector_id}) "
+                f"has no traditional lineage. Attempting to create datasets from connection details."
+            )
+            yield from self._get_google_sheets_datasets(connector)
             return
 
-        # Special handling for connectors with lineage but no job history
-        if not connector.jobs and connector.lineage:
-            logger.info(
-                f"Connector {connector.connector_name} (ID: {connector.connector_id}) "
-                f"has {len(connector.lineage)} lineage entries but no job history. "
-                f"Creating synthetic jobs for lineage."
+        logger.warning(
+            f"No lineage data available for connector '{connector.connector_name}' ({connector.connector_id}). "
+            f"This connector will not contribute any lineage information to DataHub. "
+            f"If lineage is expected, check: 1) Connector has enabled tables, 2) Tables are syncing data, "
+            f"3) API permissions include lineage access, 4) Connector is properly configured."
+        )
+
+    def _handle_synthetic_datajobs(
+        self,
+        connector: Connector,
+        dataflow: DataFlow,
+        field_lineage_workunits: List[MetadataWorkUnit],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Handle connectors with lineage but no job history by creating synthetic jobs."""
+        logger.info(
+            f"Connector {connector.connector_name} (ID: {connector.connector_id}) "
+            f"has {len(connector.lineage)} lineage entries but no job history. "
+            f"Creating synthetic jobs for lineage."
+        )
+
+        if self.config.datajob_mode == DataJobMode.PER_TABLE:
+            yield from self._create_synthetic_per_table_jobs(
+                connector, dataflow, field_lineage_workunits
+            )
+        else:
+            yield from self._create_synthetic_consolidated_job(
+                connector, dataflow, field_lineage_workunits
             )
 
-            # Check if we should create one datajob per table or one per connector
-            if self.config.datajob_mode == DataJobMode.PER_TABLE:
-                # Create one datajob per table
-                # Get source and destination details
-                source_details = self._get_source_details(connector)
-                source_details.platform = self._detect_source_platform(connector)
+    def _handle_regular_datajobs(
+        self,
+        connector: Connector,
+        dataflow: DataFlow,
+        field_lineage_workunits: List[MetadataWorkUnit],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Handle connectors with both lineage and job history."""
+        if self.config.datajob_mode == DataJobMode.PER_TABLE:
+            for wu in self._get_per_table_datajob_workunits(connector, dataflow):
+                if wu.id.endswith("-field-lineage"):
+                    field_lineage_workunits.append(wu)
+                else:
+                    yield wu
+        else:
+            for wu in self._get_consolidated_datajob_workunits(connector, dataflow):
+                if wu.id.endswith("-field-lineage"):
+                    field_lineage_workunits.append(wu)
+                else:
+                    yield wu
 
-                destination_details = self._get_destination_details(connector)
+    def _create_synthetic_per_table_jobs(
+        self,
+        connector: Connector,
+        dataflow: DataFlow,
+        field_lineage_workunits: List[MetadataWorkUnit],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Create synthetic DataJobs for per-table mode."""
+        source_details = self._get_source_details(connector)
+        source_details.platform = self._detect_source_platform(connector)
+        destination_details = self._get_destination_details(connector)
+        processed_tables = set()
 
-                dataflow_urn = dataflow.urn
+        for lineage in connector.lineage:
+            table_key = f"{lineage.source_table}:{lineage.destination_table}"
+            if table_key in processed_tables:
+                continue
+            processed_tables.add(table_key)
 
-                # Keep track of tables processed to avoid duplicates
-                processed_tables = set()
+            datajob = self._create_synthetic_datajob_for_table(
+                connector=connector,
+                lineage=lineage,
+                dataflow_urn=dataflow.urn,
+                source_details=source_details,
+                destination_details=destination_details,
+            )
 
-                # Process each table lineage entry
-                for lineage in connector.lineage:
-                    # Create a unique key to avoid duplicates
-                    table_key = f"{lineage.source_table}:{lineage.destination_table}"
-                    if table_key in processed_tables:
-                        continue
-                    processed_tables.add(table_key)
-
-                    # Generate a synthetic datajob for this table lineage
-                    datajob = self._create_synthetic_datajob_for_table(
-                        connector=connector,
-                        lineage=lineage,
-                        dataflow_urn=dataflow_urn,
-                        source_details=source_details,
-                        destination_details=destination_details,
-                    )
-
-                    if datajob:
-                        # Emit the datajob
-                        for workunit in datajob.as_workunits():
-                            if workunit.id.endswith("-field-lineage"):
-                                field_lineage_workunits.append(workunit)
-                            else:
-                                yield workunit
-            else:
-                # Default: consolidated mode - one datajob per connector
-                # Create a single synthetic datajob with all lineage
-                synthetic_datajob = self._create_synthetic_datajob_from_connector(
-                    connector, dataflow.urn
-                )
-
-                # Emit the datajob
-                for workunit in synthetic_datajob.as_workunits():
+            if datajob:
+                for workunit in datajob.as_workunits():
                     if workunit.id.endswith("-field-lineage"):
                         field_lineage_workunits.append(workunit)
                     else:
                         yield workunit
-        else:
-            # Check if we should create one datajob per table or one per connector
-            if self.config.datajob_mode == DataJobMode.PER_TABLE:
-                # Create one datajob per table
-                for wu in self._get_per_table_datajob_workunits(connector, dataflow):
-                    # If this is a field lineage workunit, store it for later
-                    if wu.id.endswith("-field-lineage"):
-                        field_lineage_workunits.append(wu)
-                    else:
-                        yield wu
+
+    def _create_synthetic_consolidated_job(
+        self,
+        connector: Connector,
+        dataflow: DataFlow,
+        field_lineage_workunits: List[MetadataWorkUnit],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Create a single synthetic DataJob for consolidated mode."""
+        synthetic_datajob = self._create_synthetic_datajob_from_connector(
+            connector, dataflow.urn
+        )
+
+        for workunit in synthetic_datajob.as_workunits():
+            if workunit.id.endswith("-field-lineage"):
+                field_lineage_workunits.append(workunit)
             else:
-                # Default: consolidated mode - one datajob per connector
-                for wu in self._get_consolidated_datajob_workunits(connector, dataflow):
-                    # If this is a field lineage workunit, store it for later
-                    if wu.id.endswith("-field-lineage"):
-                        field_lineage_workunits.append(wu)
-                    else:
-                        yield wu
+                yield workunit
 
-        # Generate upstreamLineage aspects for destination datasets
-        # This is crucial for DataHub to display lineage relationships
-        if connector.lineage:
-            yield from self._create_upstream_lineage_workunits(connector)
+    def _generate_filtered_upstream_lineage(
+        self, connector: Connector
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate upstreamLineage aspects filtered by destination patterns."""
+        if not connector.lineage:
+            return
 
-        # Now emit the field lineage workunits after all dataset workunits
-        for wu in field_lineage_workunits:
-            yield wu
+        allowed_lineage = [
+            lineage
+            for lineage in connector.lineage
+            if self._is_lineage_destination_allowed(lineage, connector)
+        ]
+
+        if allowed_lineage:
+            filtered_connector = Connector(
+                connector_id=connector.connector_id,
+                connector_name=connector.connector_name,
+                connector_type=connector.connector_type,
+                destination_id=connector.destination_id,
+                paused=connector.paused,
+                sync_frequency=connector.sync_frequency,
+                user_id=connector.user_id,
+                jobs=connector.jobs,
+                lineage=allowed_lineage,
+            )
+            yield from self._create_upstream_lineage_workunits(filtered_connector)
+        else:
+            logger.info(
+                f"All lineage entries for connector {connector.connector_name} were filtered out by destination patterns"
+            )
 
     def _create_synthetic_datajob_for_table(
         self,

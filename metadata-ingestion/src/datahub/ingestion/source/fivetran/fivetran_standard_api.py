@@ -143,7 +143,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     destination_id = connector_response.group_id
                     destination_name = self._extract_destination_name(api_connector)
 
-                    # Apply destination filter - check both ID and name for maximum flexibility
                     destination_allowed = (
                         destination_patterns.allowed(destination_id)
                         if destination_id
@@ -591,7 +590,6 @@ class FivetranStandardAPI(FivetranAccessInterface):
             )
             return None
 
-        # Apply destination filter - check both ID and name for maximum flexibility
         destination_allowed = destination_patterns.allowed(destination_id)
         if destination_name and not destination_allowed:
             destination_allowed = destination_patterns.allowed(destination_name)
