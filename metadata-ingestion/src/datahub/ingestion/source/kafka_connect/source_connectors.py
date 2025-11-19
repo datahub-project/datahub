@@ -2710,6 +2710,18 @@ class DebeziumSourceConnector(BaseConnector):
 
                 # Apply transforms if configured
                 if parser.transforms:
+                    # Log transform details for debugging
+                    for transform in parser.transforms:
+                        transform_type = transform.get("type", "unknown")
+                        transform_name = transform.get("name", "unknown")
+                        logger.info(
+                            f"Transform '{transform_name}' (type={transform_type}) "
+                            f"config: {transform}"
+                        )
+                    logger.info(
+                        f"Applying {len(parser.transforms)} transforms to topic '{expected_topic}' "
+                        f"for connector '{self.connector_manifest.name}'"
+                    )
                     result = get_transform_pipeline().apply_forward(
                         [expected_topic], self.connector_manifest.config
                     )
