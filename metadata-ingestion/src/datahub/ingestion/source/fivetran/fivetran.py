@@ -1694,27 +1694,30 @@ class FivetranSource(StatefulIngestionSourceBase):
             logger.info(f"Processing connector id: {connector.connector_id}")
             connectors_processed = ingestion_stats["connectors_processed"]
             if not isinstance(connectors_processed, int):
-                raise ValueError(
-                    f"Expected connectors_processed to be int, got {type(connectors_processed)}"
+                logger.warning(
+                    f"Internal consistency issue: connectors_processed should be int, got {type(connectors_processed)}. Resetting to 0."
                 )
+                connectors_processed = 0
             ingestion_stats["connectors_processed"] = connectors_processed + 1
 
             # Track lineage availability
             if connector.lineage:
                 connectors_with_lineage = ingestion_stats["connectors_with_lineage"]
                 if not isinstance(connectors_with_lineage, int):
-                    raise ValueError(
-                        f"Expected connectors_with_lineage to be int, got {type(connectors_with_lineage)}"
+                    logger.warning(
+                        f"Internal consistency issue: connectors_with_lineage should be int, got {type(connectors_with_lineage)}. Resetting to 0."
                     )
+                    connectors_with_lineage = 0
                 ingestion_stats["connectors_with_lineage"] = connectors_with_lineage + 1
             else:
                 connectors_without_lineage = ingestion_stats[
                     "connectors_without_lineage"
                 ]
                 if not isinstance(connectors_without_lineage, int):
-                    raise ValueError(
-                        f"Expected connectors_without_lineage to be int, got {type(connectors_without_lineage)}"
+                    logger.warning(
+                        f"Internal consistency issue: connectors_without_lineage should be int, got {type(connectors_without_lineage)}. Resetting to 0."
                     )
+                    connectors_without_lineage = 0
                 ingestion_stats["connectors_without_lineage"] = (
                     connectors_without_lineage + 1
                 )
