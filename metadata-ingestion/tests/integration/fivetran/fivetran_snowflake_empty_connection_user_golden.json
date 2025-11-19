@@ -48,7 +48,8 @@
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:fivetran"
+            "platform": "urn:li:dataPlatform:fivetran",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
         }
     },
     "systemMetadata": {
@@ -969,7 +970,8 @@
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:fivetran"
+            "platform": "urn:li:dataPlatform:fivetran",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
         }
     },
     "systemMetadata": {

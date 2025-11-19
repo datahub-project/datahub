@@ -798,18 +798,20 @@ class FivetranSource(StatefulIngestionSourceBase):
             else None
         )
 
-        # Create the DataJob instance
+        # Create the DataJob instance (pass DataFlow object to preserve environment)
+        dataflow_obj = DataFlow(
+            platform=dataflow_urn.orchestrator,
+            name=dataflow_urn.flow_id,
+            env=dataflow_urn.cluster,
+            platform_instance=self.config.platform_instance,
+        )
         datajob = DataJob(
             name=datajob_id,
-            flow_urn=dataflow_urn,
+            flow=dataflow_obj,
             display_name=job_name,
             description=job_description,
             owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
-
-        # Ensure the DataJob has the correct environment from config
-        if self.config.env:
-            datajob._ensure_datajob_props().env = self.config.env
 
         # Build lineage for this specific table using the common function
         self._build_table_lineage(
@@ -1083,10 +1085,16 @@ class FivetranSource(StatefulIngestionSourceBase):
             else None
         )
 
-        # Create the DataJob with enhanced information
+        # Create the DataJob with enhanced information (pass DataFlow object to preserve environment)
+        dataflow_obj = DataFlow(
+            platform=dataflow_urn.orchestrator,
+            name=dataflow_urn.flow_id,
+            env=dataflow_urn.cluster,
+            platform_instance=self.config.platform_instance,
+        )
         datajob = DataJob(
             name=connector.connector_id,
-            flow_urn=dataflow_urn,
+            flow=dataflow_obj,
             display_name=connector_name,
             description=description,
             owners=[CorpUserUrn(owner_email)] if owner_email else None,
@@ -1353,10 +1361,16 @@ class FivetranSource(StatefulIngestionSourceBase):
             else None
         )
 
-        # Create the DataJob with enhanced information
+        # Create the DataJob with enhanced information (pass DataFlow object to preserve environment)
+        dataflow_obj = DataFlow(
+            platform=dataflow_urn.orchestrator,
+            name=dataflow_urn.flow_id,
+            env=dataflow_urn.cluster,
+            platform_instance=self.config.platform_instance,
+        )
         datajob = DataJob(
             name=connector.connector_id,
-            flow_urn=dataflow_urn,
+            flow=dataflow_obj,
             display_name=connector_name,
             description=description,
             owners=[CorpUserUrn(owner_email)] if owner_email else None,
@@ -1424,15 +1438,11 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         datajob = DataJob(
             name=connector.connector_id,
-            flow_urn=dataflow.urn,
+            flow=dataflow,
             display_name=connector.connector_name or connector.connector_id,
             description=f"Data pipeline from {connector.connector_type} to {destination_details.platform}",
             owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
-
-        # Ensure the DataJob has the correct environment from config
-        if self.config.env:
-            datajob._ensure_datajob_props().env = self.config.env
 
         # Add lineage to the datajob (inlets, outlets, fine-grained lineage)
         lineage_properties = self._extend_lineage(
@@ -1667,10 +1677,16 @@ class FivetranSource(StatefulIngestionSourceBase):
             else None
         )
 
-        # Create the DataJob instance
+        # Create the DataJob instance (pass DataFlow object to preserve environment)
+        dataflow_obj = DataFlow(
+            platform=dataflow_urn.orchestrator,
+            name=dataflow_urn.flow_id,
+            env=dataflow_urn.cluster,
+            platform_instance=self.config.platform_instance,
+        )
         datajob = DataJob(
             name=datajob_id,
-            flow_urn=dataflow_urn,
+            flow=dataflow_obj,
             display_name=job_name,
             description=job_description,
             owners=[CorpUserUrn(owner_email)] if owner_email else None,
