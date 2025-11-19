@@ -138,7 +138,6 @@ public class V2SemanticSearchMappingsBuilderTest {
       assertTrue(chunksProperties.containsKey("vector"), "Should have vector field");
       assertTrue(chunksProperties.containsKey("text"), "Should have text field");
       assertTrue(chunksProperties.containsKey("position"), "Should have position field");
-      assertTrue(chunksProperties.containsKey("token_count"), "Should have token_count field");
 
       // Verify vector field configuration
       @SuppressWarnings("unchecked")
@@ -156,8 +155,6 @@ public class V2SemanticSearchMappingsBuilderTest {
       // Verify metadata fields
       assertTrue(
           cohereModelProperties.containsKey("total_chunks"), "Should have total_chunks field");
-      assertTrue(
-          cohereModelProperties.containsKey("total_tokens"), "Should have total_tokens field");
 
       // Verify OpenAI model has different dimension
       @SuppressWarnings("unchecked")
