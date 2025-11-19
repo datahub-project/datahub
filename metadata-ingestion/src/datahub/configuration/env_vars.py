@@ -151,6 +151,16 @@ def get_debug() -> bool:
     return os.getenv("DATAHUB_DEBUG", "").lower() == "true"
 
 
+def get_disable_secret_masking() -> bool:
+    """
+    Disable secret masking for debugging purposes.
+
+    WARNING: Only use this in development/debugging scenarios.
+    Disabling secret masking will expose sensitive information in logs.
+    """
+    return os.getenv("DATAHUB_DISABLE_SECRET_MASKING", "").lower() in ("true", "1")
+
+
 # ============================================================================
 # Data Processing Configuration
 # ============================================================================
