@@ -13,7 +13,7 @@ on:
       - releases/**
       - hotfixes/**
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
     branches:
       - "**"
   release:
@@ -38,7 +38,6 @@ env:
 
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "s0gr1cr3jd"
-  HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
@@ -51,7 +50,6 @@ permissions:
 jobs:
   setup:
     runs-on: depot-ubuntu-24.04-small
-    if: ${{ github.event_name != 'pull_request' || github.event.action != 'labeled' || github.event.label.name == 'depot' }}
     outputs:
       # TODO: Many of the vars below should not be required anymore.
       tag: ${{ steps.tag.outputs.tag }}
