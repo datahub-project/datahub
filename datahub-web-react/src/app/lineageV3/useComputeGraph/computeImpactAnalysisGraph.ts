@@ -62,25 +62,30 @@ export default function computeImpactAnalysisGraph(
     console.debug(newGraphStore);
 
     const { displayedNodes, parents } = getDisplayedNodes(urn, orderedNodes, newGraphStore);
+    const rootNode = nodes.get(urn);
 
     let limitedNodes = displayedNodes;
     let levelsInfo = {};
     let levelsMap = new Map<string, number>();
 
+    const originalNodes = [...orderedNodes.UPSTREAM, ...orderedNodes.DOWNSTREAM, rootNode].filter(
+        (entity): entity is LineageEntity => Boolean(entity),
+    );
+
     // Limit entity nodes per level in module view
     if (isModuleView) {
         const result = limitEntityNodesPerLevel({
-            nodes: displayedNodes,
+            displayedNodes,
+            originalNodes,
             rootUrn: urn,
             adjacencyList,
             maxPerLevel: 2,
         });
-        limitedNodes = result.nodes;
+        limitedNodes = result.limitedNodes;
         levelsInfo = result.levelsInfo;
         levelsMap = result.levelsMap;
     }
 
-    const rootNode = nodes.get(urn);
     const nodeBuilder = new NodeBuilder(urn, type, rootNode ? [rootNode] : [], limitedNodes, parents);
 
     const orderIndices = {

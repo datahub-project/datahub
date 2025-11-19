@@ -1,5 +1,5 @@
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
-import { LineageNode, isTransformational } from '@app/lineageV3/common';
+import { LineageEntity, LineageNode, isTransformational } from '@app/lineageV3/common';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -12,20 +12,22 @@ export interface LevelsInfo {
 }
 
 export interface LimitedGraphResult {
-    nodes: LineageNode[];
+    limitedNodes: LineageNode[];
     levelsInfo: LevelsInfo;
     levelsMap: Map<string, number>;
 }
 
 interface Props {
-    nodes: LineageNode[];
+    displayedNodes: LineageNode[];
+    originalNodes: LineageEntity[];
     rootUrn: string;
     adjacencyList: Record<LineageDirection, Map<string, Set<string>>>;
     maxPerLevel?: number;
 }
 
 export function limitEntityNodesPerLevel({
-    nodes,
+    displayedNodes,
+    originalNodes,
     rootUrn,
     adjacencyList,
     maxPerLevel = 2,
@@ -73,49 +75,65 @@ export function limitEntityNodesPerLevel({
         }
     }
 
-    // Group nodes by level
+    // Group displayed nodes by level
     const nodesByLevel: Record<number, LineageNode[]> = {};
-    nodes.forEach((node) => {
+    displayedNodes.forEach((node) => {
         const level = levelsMap.get(node.id);
         if (level === undefined) return;
         if (!nodesByLevel[level]) nodesByLevel[level] = [];
         nodesByLevel[level].push(node);
     });
 
-    const allowed = new Set<string>();
+    // Group original nodes by level
+    const originalByLevel: Record<number, LineageNode[]> = {};
+    originalNodes.forEach((node) => {
+        const level = levelsMap.get(node.id);
+        if (level === undefined) return;
+        if (!originalByLevel[level]) originalByLevel[level] = [];
+        originalByLevel[level].push(node);
+    });
+
+    const allowedUrns = new Set<string>();
     const levelsInfo: LevelsInfo = {};
 
-    Object.keys(nodesByLevel)
+    Object.keys(originalByLevel)
         .map(Number)
         .sort((a, b) => a - b)
         .forEach((level) => {
-            const allNodes = nodesByLevel[level];
+            const allOriginalNodes = originalByLevel[level] ?? [];
+            const allDisplayedNodes = nodesByLevel[level] ?? [];
 
-            // Separate nodes by type
-            const transformNodes = allNodes.filter((node) => isTransformational(node, node.type as EntityType));
-            const entityNodes = allNodes.filter(
+            const originalEntities = allOriginalNodes.filter(
+                (node) => !isTransformational(node, node.type as EntityType) && node.type !== LINEAGE_FILTER_NODE_NAME,
+            );
+
+            const displayedEntities = allDisplayedNodes.filter(
                 (node) => !isTransformational(node, node.type as EntityType) && node.type !== LINEAGE_FILTER_NODE_NAME,
             );
 
             // Limit entity nodes to max per level, keeping transform nodes and removing filter nodes
-            const shownEntities = entityNodes.slice(0, maxPerLevel);
-            const hiddenEntities = Math.max(entityNodes.length - shownEntities.length, 0);
+            const shownEntities = displayedEntities.slice(0, maxPerLevel);
+            const hiddenEntities = Math.max(originalEntities.length - shownEntities.length, 0);
 
-            transformNodes.forEach((node) => allowed.add(node.id));
-            shownEntities.forEach((node) => allowed.add(node.id));
+            const transformNodes = allDisplayedNodes.filter((node) =>
+                isTransformational(node, node.type as EntityType),
+            );
+
+            transformNodes.forEach((node) => allowedUrns.add(node.id));
+            shownEntities.forEach((node) => allowedUrns.add(node.id));
 
             levelsInfo[level] = {
-                totalEntities: entityNodes.length,
+                totalEntities: originalEntities.length,
                 shownEntities: shownEntities.length,
                 hiddenEntities,
             };
         });
 
     // Filter nodes
-    const filteredNodes = nodes.filter((node) => allowed.has(node.id));
+    const limitedNodes = displayedNodes.filter((node) => allowedUrns.has(node.id));
 
     return {
-        nodes: filteredNodes,
+        limitedNodes,
         levelsInfo,
         levelsMap,
     };
