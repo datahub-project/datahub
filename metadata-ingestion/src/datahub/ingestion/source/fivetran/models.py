@@ -63,25 +63,25 @@ class FivetranConnectionDetails(BaseModel):
 class ColumnLineage(BaseModel):
     source_column: str
     destination_column: str
-    source_column_type: str | None = None
-    destination_column_type: str | None = None
+    source_column_type: Union[str, None] = None
+    destination_column_type: Union[str, None] = None
 
 
 class TableLineage(BaseModel):
     source_table: str
     destination_table: str
     column_lineage: List[ColumnLineage]
-    source_schema: str | None = None
-    destination_schema: str | None = None
-    source_database: str | None = None
-    destination_database: str | None = None
-    source_platform: str | None = None
-    destination_platform: str | None = None
-    source_env: str | None = None
-    destination_env: str | None = None
-    connector_type_id: str | None = None
-    connector_name: str | None = None
-    destination_id: str | None = None
+    source_schema: Union[str, None] = None
+    destination_schema: Union[str, None] = None
+    source_database: Union[str, None] = None
+    destination_database: Union[str, None] = None
+    source_platform: Union[str, None] = None
+    destination_platform: Union[str, None] = None
+    source_env: Union[str, None] = None
+    destination_env: Union[str, None] = None
+    connector_type_id: Union[str, None] = None
+    connector_name: Union[str, None] = None
+    destination_id: Union[str, None] = None
 
 
 class Job(BaseModel):
@@ -100,7 +100,7 @@ class Connector(BaseModel):
     paused: bool
     sync_frequency: int
     destination_id: str
-    user_id: str | None = None
+    user_id: Union[str, None] = None
     lineage: List[TableLineage] = Field(default_factory=list)
     jobs: List[Job] = Field(default_factory=list)
     additional_properties: Dict[str, Union[str, bool, int, float, None]] = Field(
@@ -114,13 +114,13 @@ class Connector(BaseModel):
 class FivetranJobResponse(BaseModel):
     """Job response from Fivetran API."""
 
-    id: str | None = None
-    started_at: str | None = None
-    completed_at: str | None = None
-    start_time: str | None = None  # Alternative field name
-    end_time: str | None = None  # Alternative field name
-    status: str | None = None
-    end_message_data: str | None = None
+    id: Union[str, None] = None
+    started_at: Union[str, None] = None
+    completed_at: Union[str, None] = None
+    start_time: Union[str, None] = None  # Alternative field name
+    end_time: Union[str, None] = None  # Alternative field name
+    status: Union[str, None] = None
+    end_message_data: Union[str, None] = None
 
     model_config = {"extra": "allow"}
 
@@ -128,11 +128,11 @@ class FivetranJobResponse(BaseModel):
 class FivetranSyncResponse(BaseModel):
     """Sync response from Fivetran API."""
 
-    id: str | None = None
-    started_at: str | None = None
-    completed_at: str | None = None
-    finished_at: str | None = None  # Alternative field name
-    status: str | None = None
+    id: Union[str, None] = None
+    started_at: Union[str, None] = None
+    completed_at: Union[str, None] = None
+    finished_at: Union[str, None] = None  # Alternative field name
+    status: Union[str, None] = None
 
     model_config = {"extra": "allow"}
 
@@ -140,13 +140,13 @@ class FivetranSyncResponse(BaseModel):
 class FivetranDestinationConfig(BaseModel):
     """Destination configuration from Fivetran API."""
 
-    database: str | None = None
-    dataset: str | None = None
-    data_set_location: str | None = None
-    project_id: str | None = None
-    host: str | None = None
-    user: str | None = None
-    role: str | None = None
+    database: Union[str, None] = None
+    dataset: Union[str, None] = None
+    data_set_location: Union[str, None] = None
+    project_id: Union[str, None] = None
+    host: Union[str, None] = None
+    user: Union[str, None] = None
+    role: Union[str, None] = None
 
     model_config = {"extra": "allow"}
 
@@ -155,9 +155,9 @@ class FivetranDestinationResponse(BaseModel):
     """Destination response from Fivetran API."""
 
     id: str
-    service: str | None = None
-    config: FivetranDestinationConfig | None = None
-    name: str | None = None
+    service: Union[str, None] = None
+    config: Union[FivetranDestinationConfig, None] = None
+    name: Union[str, None] = None
 
     model_config = {"extra": "allow"}
 
@@ -166,9 +166,9 @@ class FivetranConnectorStatus(BaseModel):
     """Connector status from Fivetran API."""
 
     setup_state: str
-    sync_state: str | None = None
-    update_state: str | None = None
-    is_historical_sync: bool | None = None
+    sync_state: Union[str, None] = None
+    update_state: Union[str, None] = None
+    is_historical_sync: Union[bool, None] = None
 
     model_config = {"extra": "allow"}
 
@@ -177,16 +177,16 @@ class FivetranConnectorResponse(BaseModel):
     """Connector response from Fivetran API."""
 
     id: str
-    group_id: str | None = None  # Direct group_id field
-    group: Dict[str, str] | None = None  # Nested group structure
+    group_id: Union[str, None] = None  # Direct group_id field
+    group: Union[Dict[str, str], None] = None  # Nested group structure
     service: str
-    schema_: str | None = Field(None, alias="schema")
-    connector_name: str | None = Field(None, alias="name")
-    created_by: str | None = None
+    schema_: Union[str, None] = Field(None, alias="schema")
+    connector_name: Union[str, None] = Field(None, alias="name")
+    created_by: Union[str, None] = None
     paused: bool = False
     sync_frequency: int = 0
-    schedule: Dict[str, int] | None = None  # For nested sync_frequency
-    status: FivetranConnectorStatus | None = None
+    schedule: Union[Dict[str, int], None] = None  # For nested sync_frequency
+    status: Union[FivetranConnectorStatus, None] = None
 
     model_config = {"extra": "allow", "populate_by_name": True}
 
@@ -213,10 +213,10 @@ class FivetranTableColumn(BaseModel):
     """Table column from Fivetran schema API."""
 
     name: str
-    name_in_destination: str | None = None
+    name_in_destination: Union[str, None] = None
     enabled: bool = True
-    hashed: bool | None = None
-    primary_key: bool | None = None
+    hashed: Union[bool, None] = None
+    primary_key: Union[bool, None] = None
 
     model_config = {"extra": "allow"}
 
@@ -225,11 +225,11 @@ class FivetranTable(BaseModel):
     """Table from Fivetran schema API."""
 
     name: str
-    name_in_destination: str | None = None
+    name_in_destination: Union[str, None] = None
     enabled: bool = True
-    columns: (
-        Dict[str, Union[Dict[str, Union[str, bool]], FivetranTableColumn]] | None
-    ) = Field(default_factory=dict)
+    columns: Union[
+        Dict[str, Union[Dict[str, Union[str, bool]], FivetranTableColumn]], None
+    ] = Field(default_factory=dict)
 
     model_config = {"extra": "allow"}
 
@@ -238,10 +238,10 @@ class FivetranSchema(BaseModel):
     """Schema from Fivetran API."""
 
     name: str
-    name_in_destination: str | None = None
+    name_in_destination: Union[str, None] = None
     enabled: bool = True
-    tables: (
-        Dict[str, Union[Dict[str, Union[str, bool, Dict]], FivetranTable]] | None
-    ) = Field(default_factory=dict)
+    tables: Union[
+        Dict[str, Union[Dict[str, Union[str, bool, Dict]], FivetranTable]], None
+    ] = Field(default_factory=dict)
 
     model_config = {"extra": "allow"}
