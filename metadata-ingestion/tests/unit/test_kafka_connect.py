@@ -1668,7 +1668,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Should derive topics using CDC naming strategy: server.schema.table
         expected_topics = ["myserver.public.users", "myserver.public.orders"]
-        assert result == expected_topics
+        assert sorted(result) == sorted(expected_topics)
 
     @patch("requests.Session.get")
     def test_derive_source_topics_with_transforms(self, mock_get: Mock) -> None:

@@ -208,6 +208,17 @@ class JdbcParserFactory:
                         connector_manifest.config[key]
                     )
 
+        # Log transform configuration for debugging
+        if transforms:
+            logger.info(
+                f"Connector '{connector_manifest.name}' has {len(transforms)} transform(s) configured"
+            )
+            for transform in transforms:
+                transform_type = transform.get("type", "unknown")
+                logger.info(
+                    f"  Transform '{transform['name']}' (type={transform_type}): {transform}"
+                )
+
         return JdbcParser(
             db_connection_url=db_connection_url,
             source_platform=source_platform,
@@ -2201,17 +2212,23 @@ class DebeziumSourceConnector(BaseConnector):
     def get_topics_from_config(self) -> List[str]:
         """Extract expected topics from Debezium connector configuration.
 
-        This method orchestrates the process of determining which Kafka topics
-        are produced by a Debezium connector by:
-        1. Discovering tables from database or config
-        2. Applying schema and table filters
-        3. Deriving topic names from filtered tables
+        Returns base topic names derived from connector configuration (e.g., server.schema.table).
+        These are the topic names BEFORE any transforms are applied.
+
+        Note: If transforms are configured (e.g., RegexRouter), the actual Kafka topics
+        will differ from these base names. Transform application happens separately during
+        lineage extraction.
+
+        Returns:
+            List of base topic names derived from connector config.
         """
         logger.debug(
             f"DebeziumSourceConnector.get_topics_from_config called for '{self.connector_manifest.name}'"
         )
+
+        config = self.connector_manifest.config
+
         try:
-            config = self.connector_manifest.config
             logger.debug(
                 f"Debezium connector '{self.connector_manifest.name}' config keys: {list(config.keys())}"
             )
@@ -2599,177 +2616,259 @@ class DebeziumSourceConnector(BaseConnector):
         """
         Extract lineage mappings from Debezium source tables to Kafka topics.
 
-        This method always uses table.include.list from config as the source of truth.
-        When manifest.topic_names is available (Kafka API accessible), it filters
-        lineages to only topics that exist in Kafka. When unavailable (Confluent Cloud,
-        air-gapped), it creates lineages for all configured tables without validating
-        that derived topic names actually exist in Kafka.
+        Flow:
+        1. Handle EventRouter (special case - data-dependent routing)
+        2. Get table names (from config or discover from DataHub)
+        3. For each table: generate topic name -> apply transforms -> create lineage
+        4. Filter lineages by Kafka topics if available
         """
-        lineages: List[KafkaConnectLineage] = list()
-
         try:
             parser = self.get_parser(self.connector_manifest)
-            source_platform = parser.source_platform
-            server_name = parser.server_name
-            database_name = parser.database_name
 
-            # Check for EventRouter transform - requires special handling
+            # EventRouter requires special handling (data-dependent routing)
             if self._has_event_router_transform():
                 logger.debug(
-                    f"Connector {self.connector_manifest.name} uses EventRouter transform - using table-based lineage extraction"
+                    f"Connector {self.connector_manifest.name} uses EventRouter - using table-based lineage extraction"
                 )
                 return self._extract_lineages_for_event_router(
-                    source_platform, database_name
+                    parser.source_platform, parser.database_name
                 )
 
-            # Get table names from config
-            table_config = self.connector_manifest.config.get(
-                "table.include.list"
-            ) or self.connector_manifest.config.get("table.whitelist")
-
-            has_kafka_topics = bool(self.connector_manifest.topic_names)
-
-            # When table.include.list is not specified, Debezium captures ALL tables from the database
-            # In this case, we use the actual topic names from Kafka API to reverse-engineer which tables are being captured
-            if not table_config:
-                if not has_kafka_topics:
-                    logger.warning(
-                        f"Debezium connector {self.connector_manifest.name} has no table.include.list config "
-                        f"and no topics available from Kafka API - cannot extract lineages"
-                    )
-                    return lineages
-
-                if not server_name:
-                    logger.warning(
-                        f"Debezium connector {self.connector_manifest.name} has no server_name - cannot extract lineages from topics"
-                    )
-                    return lineages
-
-                # Use standard Debezium topic processing to extract table names from topics
-                logger.info(
-                    f"Debezium connector {self.connector_manifest.name} has no table.include.list config - "
-                    f"deriving table names from {len(self.connector_manifest.topic_names)} Kafka topics"
-                )
-                return self._extract_lineages_from_topics(
-                    source_platform, server_name, database_name
-                )
-
-            # Expand patterns if needed (requires SchemaResolver)
-            table_names = self._expand_table_patterns(
-                table_config, source_platform, database_name
-            )
-
+            # Step 1: Get table names to process
+            table_names = self._get_table_names_to_process(parser)
             if not table_names:
-                logger.warning(
-                    f"No tables found after expanding patterns for connector '{self.connector_manifest.name}'"
-                )
-                return lineages
+                return []
 
-            if not has_kafka_topics:
-                logger.info(
-                    f"Kafka topics API not available for connector '{self.connector_manifest.name}' - "
-                    f"creating lineages for all {len(table_names)} configured tables without validating "
-                    f"that derived topic names actually exist in Kafka"
-                )
-
-            # Handle connectors with 2-level container (database + schema) in topic pattern
-            connector_class = self.connector_manifest.config.get(CONNECTOR_CLASS, "")
-            includes_database_in_topic = (
-                connector_class
-                in self.DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER_IN_PATTERN
-            )
-
-            # Derive expected topics and apply transforms
-            for table_name in table_names:
-                # For Debezium, derive expected topic name: {server_name}.{schema.table}
-                # Table name may include schema (e.g., "public.users") or database.schema (e.g., "testdb.public.users")
-                # SQL Server special case: {server_name}.{database}.{schema.table}
-
-                # Extract schema.table part (remove database if present for 3-tier platforms)
-                if database_name and table_name.startswith(f"{database_name}."):
-                    # Remove database prefix: "testdb.public.users" -> "public.users"
-                    schema_table = table_name[len(database_name) + 1 :]
-                else:
-                    schema_table = table_name
-
-                # Build full dataset name with database
-                dataset_name = get_dataset_name(database_name, schema_table)
-
-                # Generate expected Debezium topic name
-                if includes_database_in_topic and database_name:
-                    # SQL Server: server.database.schema.table
-                    if server_name:
-                        expected_topic = f"{server_name}.{database_name}.{schema_table}"
-                    else:
-                        expected_topic = f"{database_name}.{schema_table}"
-                elif server_name:
-                    # Standard: server.schema.table
-                    expected_topic = f"{server_name}.{schema_table}"
-                else:
-                    expected_topic = schema_table
-
-                # Apply transforms if configured
-                if parser.transforms:
-                    # Log transform details for debugging
-                    for transform in parser.transforms:
-                        transform_type = transform.get("type", "unknown")
-                        transform_name = transform.get("name", "unknown")
-                        logger.info(
-                            f"Transform '{transform_name}' (type={transform_type}) "
-                            f"config: {transform}"
-                        )
-                    logger.info(
-                        f"Applying {len(parser.transforms)} transforms to topic '{expected_topic}' "
-                        f"for connector '{self.connector_manifest.name}'"
-                    )
-                    result = get_transform_pipeline().apply_forward(
-                        [expected_topic], self.connector_manifest.config
-                    )
-                    if result.warnings:
-                        for warning in result.warnings:
-                            logger.warning(
-                                f"Transform warning for {self.connector_manifest.name}: {warning}"
-                            )
-                    if result.topics and len(result.topics) > 0:
-                        expected_topic = result.topics[0]
-
-                # Filter by Kafka topics if available
-                if (
-                    has_kafka_topics
-                    and expected_topic not in self.connector_manifest.topic_names
-                ):
-                    logger.debug(
-                        f"Expected topic '{expected_topic}' not found in Kafka - skipping lineage for table '{table_name}'"
-                    )
-                    continue
-
-                # Extract fine-grained lineage if enabled
-                fine_grained = self._extract_fine_grained_lineage(
-                    dataset_name, source_platform, expected_topic, KAFKA
-                )
-
-                # Create lineage mapping
-                lineage = KafkaConnectLineage(
-                    source_dataset=dataset_name,
-                    source_platform=source_platform,
-                    target_dataset=expected_topic,
-                    target_platform=KAFKA,
-                    fine_grained_lineages=fine_grained,
-                )
-                lineages.append(lineage)
+            # Step 2: Generate lineages for each table
+            lineages = self._generate_lineages_for_tables(table_names, parser)
 
             logger.info(
-                f"Created {len(lineages)} lineages for Debezium connector '{self.connector_manifest.name}' from config"
+                f"Created {len(lineages)} lineages for Debezium connector '{self.connector_manifest.name}'"
             )
             return lineages
+
         except Exception as e:
             self.report.warning(
                 "Error resolving lineage for connector",
                 self.connector_manifest.name,
                 exc=e,
             )
+            return []
 
-        return []
+    def _get_table_names_to_process(self, parser: DebeziumParser) -> List[str]:
+        """
+        Get list of table names to process for lineage extraction.
+
+        Returns table names in schema.table format (e.g., "public.users").
+        For 3-tier platforms (e.g., SQL Server), tables may include database prefix
+        from explicit config, but discovered tables never include database prefix.
+        """
+        # Check for explicit table configuration
+        table_config = self.connector_manifest.config.get(
+            "table.include.list"
+        ) or self.connector_manifest.config.get("table.whitelist")
+
+        # If no explicit config, discover tables from DataHub
+        if not table_config:
+            return self._discover_tables_from_datahub(
+                parser.database_name, parser.source_platform
+            )
+
+        # Expand patterns if needed
+        table_names = self._expand_table_patterns(
+            table_config, parser.source_platform, parser.database_name
+        )
+
+        if not table_names:
+            logger.warning(
+                f"No tables found after expanding patterns for connector '{self.connector_manifest.name}'"
+            )
+
+        return table_names
+
+    def _discover_tables_from_datahub(
+        self, database_name: Optional[str], source_platform: str
+    ) -> List[str]:
+        """Discover tables from DataHub for the given database and platform."""
+        if not self.schema_resolver or not database_name:
+            logger.warning(
+                f"Debezium connector {self.connector_manifest.name} has no table.include.list config "
+                f"and SchemaResolver is not available (or database_name is missing). "
+                f"Cannot extract lineages. Please either: "
+                f"1) Configure table.include.list in the connector, OR "
+                f"2) Enable 'use_schema_resolver' in DataHub ingestion config"
+            )
+            return []
+
+        logger.info(
+            f"Debezium connector {self.connector_manifest.name} has no table.include.list config - "
+            f"discovering all tables from database '{database_name}' using SchemaResolver"
+        )
+
+        discovered_tables = self._discover_tables_from_database(
+            database_name, source_platform
+        )
+
+        if not discovered_tables:
+            logger.warning(
+                f"No tables discovered from database '{database_name}' for connector '{self.connector_manifest.name}'. "
+                f"Make sure you've ingested {source_platform} datasets for database '{database_name}' "
+                f"into DataHub before running Kafka Connect ingestion."
+            )
+            return []
+
+        logger.info(
+            f"Discovered {len(discovered_tables)} tables from database '{database_name}' - "
+            f"will generate expected topics and validate against Kafka"
+        )
+        return discovered_tables
+
+    def _generate_lineages_for_tables(
+        self, table_names: List[str], parser: DebeziumParser
+    ) -> List[KafkaConnectLineage]:
+        """Generate lineages for a list of table names."""
+        lineages: List[KafkaConnectLineage] = []
+        has_kafka_topics = bool(self.connector_manifest.topic_names)
+
+        if not has_kafka_topics:
+            logger.info(
+                f"Kafka topics API not available for connector '{self.connector_manifest.name}' - "
+                f"creating lineages for all {len(table_names)} configured tables without validating "
+                f"that derived topic names actually exist in Kafka"
+            )
+
+        for table_name in table_names:
+            lineage = self._create_lineage_for_table(table_name, parser)
+            if lineage:
+                # Validate against Kafka topics if available
+                if (
+                    has_kafka_topics
+                    and lineage.target_dataset
+                    not in self.connector_manifest.topic_names
+                ):
+                    logger.debug(
+                        f"Expected topic '{lineage.target_dataset}' not found in Kafka - "
+                        f"skipping lineage for table '{table_name}'"
+                    )
+                    continue
+                lineages.append(lineage)
+
+        return lineages
+
+    def _create_lineage_for_table(
+        self, table_name: str, parser: DebeziumParser
+    ) -> Optional[KafkaConnectLineage]:
+        """
+        Create a single lineage mapping for a table.
+
+        Args:
+            table_name: Table name in schema.table format (e.g., "public.users")
+            parser: Parsed connector configuration
+
+        Returns:
+            KafkaConnectLineage or None if lineage cannot be created
+        """
+        # Build source dataset URN (includes database if available)
+        source_dataset = get_dataset_name(parser.database_name, table_name)
+
+        # Generate Debezium topic name (before transforms)
+        expected_topic = self._generate_debezium_topic_name(
+            table_name, parser.server_name, parser.database_name
+        )
+
+        # Apply transforms if configured
+        expected_topic = self._apply_transforms_to_topic(expected_topic, parser)
+
+        # Extract fine-grained lineage if enabled
+        fine_grained = self._extract_fine_grained_lineage(
+            source_dataset, parser.source_platform, expected_topic, KAFKA
+        )
+
+        return KafkaConnectLineage(
+            source_dataset=source_dataset,
+            source_platform=parser.source_platform,
+            target_dataset=expected_topic,
+            target_platform=KAFKA,
+            fine_grained_lineages=fine_grained,
+        )
+
+    def _generate_debezium_topic_name(
+        self,
+        schema_table: str,
+        server_name: Optional[str],
+        database_name: Optional[str],
+    ) -> str:
+        """
+        Generate expected Debezium topic name (before transforms).
+
+        Topic naming patterns:
+        - Standard (PostgreSQL, MySQL): {server_name}.{schema}.{table}
+        - SQL Server: {server_name}.{database}.{schema}.{table}
+
+        Args:
+            schema_table: Table name in schema.table format (e.g., "public.users")
+            server_name: Server name / topic prefix
+            database_name: Database name
+
+        Returns:
+            Expected topic name before transforms
+        """
+        connector_class = self.connector_manifest.config.get(CONNECTOR_CLASS, "")
+        includes_database_in_topic = (
+            connector_class
+            in self.DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER_IN_PATTERN
+        )
+
+        if includes_database_in_topic and database_name:
+            # SQL Server: server.database.schema.table
+            if server_name:
+                return f"{server_name}.{database_name}.{schema_table}"
+            else:
+                return f"{database_name}.{schema_table}"
+        elif server_name:
+            # Standard: server.schema.table
+            return f"{server_name}.{schema_table}"
+        else:
+            # No server name (rare case)
+            return schema_table
+
+    def _apply_transforms_to_topic(
+        self, topic_name: str, parser: DebeziumParser
+    ) -> str:
+        """Apply configured transforms to topic name."""
+        if not parser.transforms:
+            return topic_name
+
+        # Log transform details for debugging (only once per connector)
+        if not hasattr(self, "_logged_transforms"):
+            for transform in parser.transforms:
+                logger.info(
+                    f"Transform '{transform.get('name', 'unknown')}' "
+                    f"(type={transform.get('type', 'unknown')}): {transform}"
+                )
+            self._logged_transforms = True
+
+        logger.info(
+            f"Applying {len(parser.transforms)} transform(s) to topic '{topic_name}' "
+            f"for connector '{self.connector_manifest.name}'"
+        )
+
+        result = get_transform_pipeline().apply_forward(
+            [topic_name], self.connector_manifest.config
+        )
+
+        if result.warnings:
+            for warning in result.warnings:
+                logger.warning(
+                    f"Transform warning for {self.connector_manifest.name}: {warning}"
+                )
+
+        if result.topics and len(result.topics) > 0:
+            transformed_topic = result.topics[0]
+            logger.debug(f"Topic transformed: '{topic_name}' -> '{transformed_topic}'")
+            return transformed_topic
+
+        return topic_name
 
     def _has_event_router_transform(self) -> bool:
         """Check if connector uses Debezium EventRouter transform."""
