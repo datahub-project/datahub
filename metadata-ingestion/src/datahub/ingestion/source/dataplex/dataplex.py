@@ -18,7 +18,7 @@ from google.cloud import dataplex_v1
 from google.oauth2 import service_account
 
 try:
-    from google.cloud.datacatalog.lineage_v1 import LineageClient
+    from google.cloud.datacatalog_lineage_v1 import LineageClient
 
     LINEAGE_AVAILABLE = True
 except ImportError:
@@ -40,6 +40,7 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
+    EntityDataTuple,
     determine_entity_platform,
     make_asset_container_key,
     make_audit_stamp,
@@ -95,7 +96,8 @@ class DataplexSource(Source):
         self.report = DataplexReport()
 
         # Track entity IDs for lineage extraction
-        self.entity_ids_by_project: dict[str, set[str]] = {}
+        # Key: project_id, Value: set of tuples (entity_id, zone_id, lake_id)
+        self.entity_ids_by_project: dict[str, set[EntityDataTuple]] = {}
 
         creds = self.config.get_credentials()
         credentials = (
@@ -126,6 +128,7 @@ class DataplexSource(Source):
                     config=self.config,
                     report=self.report,
                     lineage_client=self.lineage_client,
+                    dataplex_client=self.dataplex_client,
                 )
         else:
             self.lineage_client = None
@@ -531,8 +534,17 @@ class DataplexSource(Source):
 
                                 # Track entity ID for lineage extraction
                                 if project_id not in self.entity_ids_by_project:
-                                    self.entity_ids_by_project[project_id] = set()
-                                self.entity_ids_by_project[project_id].add(entity_id)
+                                    self.entity_ids_by_project[project_id] = set[
+                                        EntityDataTuple
+                                    ]()
+                                self.entity_ids_by_project[project_id].add(
+                                    EntityDataTuple(
+                                        lake_id=lake_id,
+                                        zone_id=zone_id,
+                                        entity_id=entity_id,
+                                        asset_id=entity.asset,
+                                    )
+                                )
 
                                 # Fetch full entity details including schema
                                 try:
@@ -805,21 +817,20 @@ class DataplexSource(Source):
             return
 
         # Get entity IDs that were processed for this project
-        entity_ids = self.entity_ids_by_project.get(project_id, set())
-
-        if not entity_ids:
+        entity_data = self.entity_ids_by_project.get(project_id, set())
+        if not entity_data:
             logger.info(
                 f"No entities found for lineage extraction in project {project_id}"
             )
             return
 
         logger.info(
-            f"Extracting lineage for {len(entity_ids)} entities in project {project_id}"
+            f"Extracting lineage for {len(entity_data)} entities in project {project_id}"
         )
 
         try:
             yield from self.lineage_extractor.get_lineage_workunits(
-                project_id, entity_ids
+                project_id, entity_data
             )
         except Exception as e:
             logger.warning(f"Failed to extract lineage for project {project_id}: {e}")

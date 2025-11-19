@@ -1,5 +1,6 @@
 """Helper functions and utilities for Dataplex source."""
 
+from collections import namedtuple
 from typing import Dict, Optional
 
 from google.api_core import exceptions
@@ -57,6 +58,11 @@ class DataplexAssetKey(DataplexZoneKey):
     """Container key for Dataplex Asset (sub-container of Zone)."""
 
     asset_id: str
+
+
+EntityDataTuple = namedtuple(
+    "EntityDataTuple", ["lake_id", "zone_id", "entity_id", "asset_id"]
+)
 
 
 def make_project_container_key(
@@ -239,3 +245,76 @@ def map_dataplex_field_to_datahub(
         return SchemaFieldDataTypeClass(type=ArrayTypeClass(nestedType=[inner_type]))
 
     return map_dataplex_type_to_datahub(type_name)
+
+
+def extract_entity_metadata(
+    project_id: str,
+    lake_id: str,
+    zone_id: str,
+    entity_id: str,
+    asset_id: str,
+    location: str,
+    dataplex_client: dataplex_v1.DataplexServiceClient,
+) -> Dict[str, str]:
+    """Extract entity metadata including platform and dataset_id.
+
+    Args:
+        entity: Dataplex entity object
+        project_id: GCP project ID
+        lake_id: Dataplex lake ID
+        zone_id: Dataplex zone ID
+        location: GCP location
+        dataplex_client: Dataplex service client
+
+    Returns:
+        Tuple with platform, dataset_id
+    """
+
+    try:
+        asset_name = f"projects/{project_id}/locations/{location}/lakes/{lake_id}/zones/{zone_id}/assets/{asset_id}"
+        asset_request = dataplex_v1.GetAssetRequest(name=asset_name)
+        asset = dataplex_client.get_asset(request=asset_request)
+
+        if asset.resource_spec:
+            resource_type = asset.resource_spec.type_.name
+            resource_name = asset.resource_spec.name
+
+            if resource_type == "BIGQUERY_DATASET":
+                platform = "bigquery"
+                # Extract dataset_id from resource_name
+                # Format: projects/{project}/datasets/{dataset} or just {dataset}
+                if resource_name:
+                    if "/datasets/" in resource_name:
+                        # Extract dataset name from full path
+                        dataset_id = resource_name.split("/datasets/")[-1]
+                    else:
+                        # Assume resource_name is the dataset name
+                        dataset_id = resource_name
+                else:
+                    # Fallback: use zone_id if resource_name is not available
+                    dataset_id = zone_id
+
+            elif resource_type == "STORAGE_BUCKET":
+                platform = "gcs"
+                # For GCS, dataset_id is the bucket name
+                if resource_name:
+                    # Extract bucket name from resource_name
+                    # Format: projects/{project}/buckets/{bucket} or gs://{bucket} or just {bucket}
+                    if "/buckets/" in resource_name:
+                        dataset_id = resource_name.split("/buckets/")[-1]
+                    elif resource_name.startswith("gs://"):
+                        dataset_id = resource_name.replace("gs://", "").split("/")[0]
+                    else:
+                        dataset_id = resource_name
+                else:
+                    # Fallback: use zone_id if resource_name is not available
+                    dataset_id = zone_id
+
+    except exceptions.GoogleAPICallError:
+        # Return default values if we can't determine from asset
+        return None, None
+    except AttributeError:
+        # Return default values if asset structure is unexpected
+        return None, None
+
+    return platform, dataset_id

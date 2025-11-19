@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Iterable, Optional, Set
 
+from google.cloud import dataplex_v1
+
 try:
     from google.cloud.datacatalog_lineage_v1 import (
         EntityReference,
@@ -24,6 +26,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
+    EntityDataTuple,
+    extract_entity_metadata,
     make_entity_dataset_urn,
 )
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
@@ -66,6 +70,7 @@ class DataplexLineageExtractor:
         config: DataplexConfig,
         report: DataplexReport,
         lineage_client: Optional[LineageClient] = None,
+        dataplex_client: Optional[dataplex_v1.DataplexServiceClient] = None,
     ):
         """
         Initialize the lineage extractor.
@@ -78,20 +83,21 @@ class DataplexLineageExtractor:
         self.config = config
         self.report = report
         self.lineage_client = lineage_client
+        self.dataplex_client = dataplex_client
         self.platform = "dataplex"
 
         # Cache for lineage information
         self.lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
 
     def get_lineage_for_entity(
-        self, project_id: str, entity_id: str
+        self, project_id: str, entity: EntityDataTuple
     ) -> Optional[Dict[str, list]]:
         """
         Get lineage information for a specific Dataplex entity.
 
         Args:
             project_id: GCP project ID
-            entity_id: Dataplex entity ID
+            entity: EntityDataTuple
 
         Returns:
             Dictionary with 'upstream' and 'downstream' lists of entity FQNs,
@@ -104,10 +110,23 @@ class DataplexLineageExtractor:
             # Construct the fully qualified name for the entity
             # The format depends on the source platform (BigQuery, GCS, etc.)
             # For now, we'll use a generic format that can be adjusted based on asset type
-            fully_qualified_name = self._construct_fqn(project_id, entity_id)
-
+            platform, dataset_id = extract_entity_metadata(
+                project_id,
+                entity.lake_id,
+                entity.zone_id,
+                entity.entity_id,
+                entity.asset_id,
+                self.config.location,
+                self.dataplex_client,
+            )
+            fully_qualified_name = self._construct_fqn(
+                platform, project_id, dataset_id, entity.entity_id
+            )
             lineage_data = {"upstream": [], "downstream": []}
-            parent = f"projects/{project_id}/locations/{self.config.location}"
+            # We only need multi-region name like US, EU, etc., specific region name like us-central1, eu-central1, etc. does not work
+            parent = (
+                f"projects/{project_id}/locations/{self.config.location.split('-')[0]}"
+            )
 
             # Get upstream lineage (where this entity is the target)
             upstream_links = self._search_links_by_target(parent, fully_qualified_name)
@@ -125,7 +144,7 @@ class DataplexLineageExtractor:
 
             if lineage_data["upstream"] or lineage_data["downstream"]:
                 logger.debug(
-                    f"Found lineage for {entity_id}: "
+                    f"Found lineage for {entity.entity_id}: "
                     f"{len(lineage_data['upstream'])} upstream, "
                     f"{len(lineage_data['downstream'])} downstream"
                 )
@@ -134,7 +153,7 @@ class DataplexLineageExtractor:
             return lineage_data
 
         except Exception as e:
-            logger.warning(f"Failed to get lineage for entity {entity_id}: {e}")
+            logger.warning(f"Failed to get lineage for entity {entity.entity_id}: {e}")
             self.report.num_lineage_entries_failed += 1
             return None
 
@@ -180,7 +199,9 @@ class DataplexLineageExtractor:
             logger.debug(f"No downstream lineage found for {fully_qualified_name}: {e}")
             return []
 
-    def _construct_fqn(self, project_id: str, entity_id: str) -> str:
+    def _construct_fqn(
+        self, platform: str, project_id: str, dataset_id: str, entity_id: str
+    ) -> str:
         """
         Construct a fully qualified name for an entity.
 
@@ -200,25 +221,25 @@ class DataplexLineageExtractor:
         # This is a simplified implementation
         # In production, we should determine the asset type and construct
         # the appropriate FQN format
-        return f"dataplex:{project_id}.{entity_id}"
+        return f"{platform}:{project_id}.{dataset_id}.{entity_id}"
 
     def build_lineage_map(
-        self, project_id: str, entity_ids: Iterable[str]
+        self, project_id: str, entity_data: Iterable[EntityDataTuple]
     ) -> Dict[str, Set[LineageEdge]]:
         """
         Build a map of entity lineage for multiple entities.
 
         Args:
             project_id: GCP project ID
-            entity_ids: Iterable of entity IDs to process
+            entity_data: Iterable of EntityDataTuple objects to process
 
         Returns:
             Dictionary mapping entity IDs to sets of LineageEdge objects
         """
         lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
 
-        for entity_id in entity_ids:
-            lineage_data = self.get_lineage_for_entity(project_id, entity_id)
+        for entity in entity_data:
+            lineage_data = self.get_lineage_for_entity(project_id, entity)
 
             if not lineage_data:
                 continue
@@ -234,7 +255,7 @@ class DataplexLineageExtractor:
                         audit_stamp=datetime.now(timezone.utc),
                         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
                     )
-                    lineage_map[entity_id].add(edge)
+                    lineage_map[entity.entity_id].add(edge)
 
         self.lineage_map = lineage_map
         return lineage_map
@@ -340,7 +361,7 @@ class DataplexLineageExtractor:
         ).as_workunit()
 
     def get_lineage_workunits(
-        self, project_id: str, entity_ids: Iterable[str]
+        self, project_id: str, entity_data: Iterable[EntityDataTuple]
     ) -> Iterable[MetadataWorkUnit]:
         """
         Main entry point to get lineage workunits for multiple entities.
@@ -359,20 +380,21 @@ class DataplexLineageExtractor:
         logger.info(f"Extracting lineage for project {project_id}")
 
         # Build lineage map for all entities
-        entity_id_list = list(entity_ids)
-        self.build_lineage_map(project_id, entity_id_list)
+        self.build_lineage_map(project_id, entity_data)
 
         # Generate workunits for each entity
-        for entity_id in entity_id_list:
+        for entity in entity_data:
             dataset_urn = make_entity_dataset_urn(
                 project_id=project_id,
-                entity_id=entity_id,
+                entity_id=entity.entity_id,
                 platform=self.platform,
                 env=self.config.env,
             )
 
             try:
-                yield from self.gen_lineage(entity_id, dataset_urn)
+                yield from self.gen_lineage(entity.entity_id, dataset_urn)
             except Exception as e:
-                logger.warning(f"Failed to generate lineage for {entity_id}: {e}")
+                logger.warning(
+                    f"Failed to generate lineage for {entity.entity_id}: {e}"
+                )
                 self.report.num_lineage_entries_failed += 1
