@@ -387,16 +387,22 @@ class FivetranSource(StatefulIngestionSourceBase):
                     )
                     continue
 
-                # Create source and destination URNs
+                # Use lineage-specific source details that include sources_to_platform_instance
+                lineage_source_details = self._build_source_details(connector, lineage)
+                lineage_destination_details = self._build_destination_details(
+                    connector, lineage
+                )
+
+                # Create source and destination URNs using lineage-specific details
                 source_urn = self._create_dataset_urn(
                     lineage.source_table,
-                    source_details,
+                    lineage_source_details,
                     is_source=True,
                 )
 
                 dest_urn = self._create_dataset_urn(
                     lineage.destination_table,
-                    destination_details,
+                    lineage_destination_details,
                     is_source=False,
                 )
 
@@ -1929,26 +1935,38 @@ class FivetranSource(StatefulIngestionSourceBase):
         self, connector: Connector
     ) -> Iterable[MetadataWorkUnit]:
         """Create upstreamLineage aspects for destination datasets."""
-        # Get platform details
-        source_details = self._get_source_details(connector)
-        destination_details = self._get_destination_details(connector)
-
-        # Group lineage by destination table to avoid duplicate upstreamLineage aspects
+        # Group lineage by destination table AND destination details to handle cases where
+        # multiple connectors write to the same table name but with different platform instances
         dest_to_sources: Dict[str, List[TableLineage]] = {}
 
         for lineage in connector.lineage:
             dest_table = lineage.destination_table
-            if dest_table not in dest_to_sources:
-                dest_to_sources[dest_table] = []
-            dest_to_sources[dest_table].append(lineage)
+
+            # Get destination details for this specific lineage to create a unique grouping key
+            destination_details = self._build_destination_details(connector, lineage)
+
+            # Create a unique key that includes table name and critical destination details
+            dest_key = f"{dest_table}|{destination_details.platform}|{destination_details.platform_instance}|{destination_details.database}|{destination_details.env}"
+
+            if dest_key not in dest_to_sources:
+                dest_to_sources[dest_key] = []
+            dest_to_sources[dest_key].append(lineage)
 
         logger.info(
-            f"Creating upstreamLineage aspects for {len(dest_to_sources)} destination tables"
+            f"Creating upstreamLineage aspects for {len(dest_to_sources)} unique destination datasets"
         )
 
-        # Create upstreamLineage aspect for each destination table
-        for dest_table, source_lineages in dest_to_sources.items():
+        # Create upstreamLineage aspect for each unique destination (table + details combination)
+        for _dest_key, source_lineages in dest_to_sources.items():
             try:
+                # All lineage entries with the same dest_key have identical destination details by design
+                # Use the first lineage entry as a representative
+                representative_lineage = source_lineages[0]
+                dest_table = representative_lineage.destination_table
+                destination_details = self._build_destination_details(
+                    connector, representative_lineage
+                )
+
                 # Create destination URN
                 dest_urn = self._create_dataset_urn(
                     dest_table,
@@ -1965,6 +1983,9 @@ class FivetranSource(StatefulIngestionSourceBase):
                 fine_grained_lineages = []
 
                 for lineage in source_lineages:
+                    # Use lineage-specific source details that include sources_to_platform_instance
+                    source_details = self._build_source_details(connector, lineage)
+
                     # Create source URN
                     source_urn = self._create_dataset_urn(
                         lineage.source_table,

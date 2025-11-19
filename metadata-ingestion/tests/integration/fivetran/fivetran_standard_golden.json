@@ -381,7 +381,7 @@
                 "source.platform": "kafka",
                 "source.env": "PROD",
                 "source.database": "kafka_prod",
-                "destination.platform": "kafka",
+                "destination.platform": "snowflake",
                 "destination.env": "PROD",
                 "destination.database": "kafka_prod",
                 "connector.api.created_by": "reapply_phone"
@@ -414,9 +414,9 @@
                 "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.company,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-source-topic,PROD)"
             ],
             "fineGrainedLineages": [
                 {
@@ -426,7 +426,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.employee,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -437,7 +437,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.employee,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -448,7 +448,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.company,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -459,7 +459,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.company,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -470,7 +470,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-source-topic,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -481,7 +481,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-source-topic,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -610,7 +610,121 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.employee,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.employee,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.employee,PROD),name)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.company,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.company,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.company,PROD),name)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-source-topic,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -633,7 +747,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-source-topic,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -644,43 +758,11 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-source-topic,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "fivetran-standard-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "fivetran-standard-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:fivetran"
         }
     },
     "systemMetadata": {
@@ -765,45 +847,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.company,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),id)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),name)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),name)"
-                    ],
-                    "confidenceScore": 1.0
-                }
-            ]
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -830,88 +879,39 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "fivetran-standard-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),id)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),name)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),name)"
-                    ],
-                    "confidenceScore": 1.0
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "fivetran-standard-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "fivetran-standard-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.employee,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-source-topic,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
