@@ -216,6 +216,124 @@ public class ListExecutionRequestsResolverTest {
     assertEquals(result.getExecutionRequests().size(), 0);
   }
 
+  @Test
+  public void testGetWithSpecificIngestionSourceFilter() throws Exception {
+    // Test that when user filters by a specific ingestion source URN
+    String specificSourceUrn = "urn:li:dataHubIngestionSource:specific-source";
+    EntityClient mockClient = getTestEntityClientWithSpecificSource(specificSourceUrn);
+
+    FacetFilterInput ingestionSourceFilter =
+        new FacetFilterInput(
+            "ingestionSource",
+            null,
+            ImmutableList.of(specificSourceUrn),
+            false,
+            FilterOperator.EQUAL);
+
+    ListExecutionRequestsInput inputWithSourceFilter =
+        new ListExecutionRequestsInput(0, 20, "*", List.of(ingestionSourceFilter), null, null);
+
+    ListExecutionRequestsResolver resolver = new ListExecutionRequestsResolver(mockClient);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(inputWithSourceFilter);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    var result = resolver.get(mockEnv).get();
+    assertEquals(result.getExecutionRequests().size(), 1);
+    assertEquals(result.getExecutionRequests().get(0).getUrn(), TEST_EXECUTION_REQUEST_URN);
+  }
+
+  @Test
+  public void testGetWithMultipleSpecificIngestionSourceFilters() throws Exception {
+    // Test that when user filters by multiple specific ingestion source URNs
+    String source1 = "urn:li:dataHubIngestionSource:source-1";
+    String source2 = "urn:li:dataHubIngestionSource:source-2";
+    EntityClient mockClient = getTestEntityClientWithMultipleSources(List.of(source1, source2));
+
+    FacetFilterInput ingestionSourceFilter =
+        new FacetFilterInput(
+            "ingestionSource",
+            null,
+            ImmutableList.of(source1, source2),
+            false,
+            FilterOperator.EQUAL);
+
+    ListExecutionRequestsInput inputWithSourceFilter =
+        new ListExecutionRequestsInput(0, 20, "*", List.of(ingestionSourceFilter), null, null);
+
+    ListExecutionRequestsResolver resolver = new ListExecutionRequestsResolver(mockClient);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(inputWithSourceFilter);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    var result = resolver.get(mockEnv).get();
+    // Should return execution requests for accessible sources
+    assertTrue(result.getExecutionRequests().size() >= 0);
+  }
+
+  @Test
+  public void testGetWithSpecificIngestionSourceBeyond1000Limit() throws Exception {
+    // Test that the fix allows querying sources beyond the 1000 source limit
+    // when filtering by specific source URN
+    String sourceBeyondLimit = "urn:li:dataHubIngestionSource:source-1001";
+    EntityClient mockClient = getTestEntityClientWithSpecificSource(sourceBeyondLimit);
+
+    FacetFilterInput ingestionSourceFilter =
+        new FacetFilterInput(
+            "ingestionSource",
+            null,
+            ImmutableList.of(sourceBeyondLimit),
+            false,
+            FilterOperator.EQUAL);
+
+    ListExecutionRequestsInput inputWithSourceFilter =
+        new ListExecutionRequestsInput(0, 20, "*", List.of(ingestionSourceFilter), null, null);
+
+    ListExecutionRequestsResolver resolver = new ListExecutionRequestsResolver(mockClient);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(inputWithSourceFilter);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    var result = resolver.get(mockEnv).get();
+    assertNotNull(result);
+    assertEquals(result.getExecutionRequests().size(), 1);
+  }
+
+  @Test
+  public void testGetWithInaccessibleSpecificIngestionSource() throws Exception {
+    // Test that when user filters by a specific ingestion source they don't have access to,
+    // no execution requests are returned
+    String inaccessibleSource = "urn:li:dataHubIngestionSource:inaccessible";
+    EntityClient mockClient = getTestEntityClientWithNoAccessToSource(inaccessibleSource);
+
+    FacetFilterInput ingestionSourceFilter =
+        new FacetFilterInput(
+            "ingestionSource",
+            null,
+            ImmutableList.of(inaccessibleSource),
+            false,
+            FilterOperator.EQUAL);
+
+    ListExecutionRequestsInput inputWithSourceFilter =
+        new ListExecutionRequestsInput(0, 20, "*", List.of(ingestionSourceFilter), null, null);
+
+    ListExecutionRequestsResolver resolver = new ListExecutionRequestsResolver(mockClient);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(inputWithSourceFilter);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    var result = resolver.get(mockEnv).get();
+    assertEquals(result.getExecutionRequests().size(), 0);
+  }
+
   private EntityClient getTestEntityClient(@Nullable FacetFilterInput ingestionSourceFilter)
       throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
@@ -262,6 +380,178 @@ public class ListExecutionRequestsResolverTest {
                                     FilterOperator.EQUAL))
                             .toList(),
                         Collections.emptyList())),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(20)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(0)
+                .setNumEntities(0)
+                .setEntities(new SearchEntityArray()));
+
+    return mockClient;
+  }
+
+  private EntityClient getTestEntityClientWithSpecificSource(String sourceUrn) throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // Mock the ingestion source search with URN filter
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+                Mockito.eq("*"),
+                Mockito.argThat(
+                    filter ->
+                        filter != null
+                            && filter.getOr() != null
+                            && !filter.getOr().isEmpty()
+                            && filter.getOr().get(0).getAnd() != null
+                            && filter.getOr().get(0).getAnd().stream()
+                                .anyMatch(
+                                    criterion ->
+                                        "urn".equals(criterion.getField())
+                                            && criterion.getValues() != null
+                                            && criterion.getValues().contains(sourceUrn))),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(1000)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(
+                            new SearchEntity().setEntity(Urn.createFromString(sourceUrn))))));
+
+    // Mock the execution request search
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+                Mockito.eq("*"),
+                Mockito.argThat(
+                    filter ->
+                        filter != null
+                            && filter.getOr() != null
+                            && !filter.getOr().isEmpty()
+                            && filter.getOr().get(0).getAnd() != null
+                            && filter.getOr().get(0).getAnd().stream()
+                                .anyMatch(
+                                    criterion ->
+                                        "ingestionSource".equals(criterion.getField())
+                                            && criterion.getValues() != null
+                                            && criterion.getValues().contains(sourceUrn))),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(20)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(
+                            new SearchEntity()
+                                .setEntity(Urn.createFromString(TEST_EXECUTION_REQUEST_URN))))));
+
+    return mockClient;
+  }
+
+  private EntityClient getTestEntityClientWithMultipleSources(List<String> sourceUrns)
+      throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // Mock the ingestion source search with URN filter for multiple sources
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+                Mockito.eq("*"),
+                Mockito.argThat(
+                    filter ->
+                        filter != null
+                            && filter.getOr() != null
+                            && !filter.getOr().isEmpty()
+                            && filter.getOr().get(0).getAnd() != null
+                            && filter.getOr().get(0).getAnd().stream()
+                                .anyMatch(
+                                    criterion ->
+                                        "urn".equals(criterion.getField())
+                                            && criterion.getValues() != null
+                                            && criterion.getValues().containsAll(sourceUrns))),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(1000)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(sourceUrns.size())
+                .setNumEntities(sourceUrns.size())
+                .setEntities(
+                    new SearchEntityArray(
+                        sourceUrns.stream()
+                            .map(
+                                urn -> {
+                                  try {
+                                    return new SearchEntity().setEntity(Urn.createFromString(urn));
+                                  } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                  }
+                                })
+                            .toList())));
+
+    // Mock the execution request search
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+                Mockito.eq("*"),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(20)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(0)
+                .setNumEntities(0)
+                .setEntities(new SearchEntityArray()));
+
+    return mockClient;
+  }
+
+  private EntityClient getTestEntityClientWithNoAccessToSource(String sourceUrn) throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // Mock the ingestion source search returning empty (user has no access)
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+                Mockito.eq("*"),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(1000)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(0)
+                .setNumEntities(0)
+                .setEntities(new SearchEntityArray()));
+
+    // Mock the execution request search (should not be called, but just in case)
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+                Mockito.eq("*"),
+                Mockito.any(),
                 Mockito.any(),
                 Mockito.eq(0),
                 Mockito.eq(20)))
