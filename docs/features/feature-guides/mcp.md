@@ -28,7 +28,7 @@ Seamlessly integrates with AI-native tools like Cursor, Windsurf, Claude Desktop
 
 ## Why DataHub MCP Server?
 
-With DataHub MCP Server, you can instantly give AI agents visibility into of your entire data ecosystem. Find and understand data stored in your databases, data lake, data warehouse, and BI visualization tools. Explore data lineage, understand usage & use cases, identify the data experts, and generate SQL - all through natural language.
+With DataHub MCP Server, you can instantly give AI agents visibility into of your entire data ecosystem. Find and understand data stored in your databases, data lake, data warehouse, BI visualization tools, and AI/ML Feature stores. Explore data lineage, understand usage & use cases, identify the data experts, and generate SQL - all through natural language.
 
 ### **Structured Search with Context Filtering**
 
