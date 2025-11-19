@@ -2596,6 +2596,14 @@
   dependencies:
     "@octokit/openapi-types" "^24.2.0"
 
+"@originjs/vite-plugin-federation@^1.4.1":
+  version "1.4.1"
+  resolved "https://registry.npmjs.org/@originjs/vite-plugin-federation/-/vite-plugin-federation-1.4.1.tgz#e6abc8f18f2cf82783eb87853f4d03e6358b43c2"
+  integrity sha512-Uo08jW5pj1t58OUKuZNkmzcfTN2pqeVuAWCCiKf/75/oll4Efq4cHOqSE1FXMlvwZNGDziNdDyBbQ5IANem3CQ==
+  dependencies:
+    estree-walker "^3.0.2"
+    magic-string "^0.27.0"
+
 "@peculiar/asn1-schema@^2.3.6":
   version "2.3.8"
   resolved "https://registry.npmjs.org/@peculiar/asn1-schema/-/asn1-schema-2.3.8.tgz"
@@ -8054,7 +8062,7 @@ estree-walker@^2.0.2:
   resolved "https://registry.npmjs.org/estree-walker/-/estree-walker-2.0.2.tgz"
   integrity sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w==
 
-estree-walker@^3.0.3:
+estree-walker@^3.0.2, estree-walker@^3.0.3:
   version "3.0.3"
   resolved "https://registry.npmjs.org/estree-walker/-/estree-walker-3.0.3.tgz"
   integrity sha512-7RUKfXgSMMkzt6ZuXmqapOurLGPPfgj6l9uRZ7lRGolvk0y2yocc35LdcxKC5PQZdn2DMqioAQ2NoWcrTKmm6g==

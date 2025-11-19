@@ -24,12 +24,16 @@ import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import NavSkeleton from '@app/homeV2/layout/navBarRedesign/NavBarSkeleton';
 import {
+    NavBarMenuDropdownItem,
     NavBarMenuDropdownItemElement,
+    NavBarMenuGroup,
     NavBarMenuItemTypes,
     NavBarMenuItems,
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
+import { useMFEConfigFromBackend } from '@app/mfeframework/mfeConfigLoader';
+import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
@@ -133,6 +137,33 @@ export const NavSidebar = () => {
         key: `helpMenu${value.label}`,
     })) as NavBarMenuDropdownItemElement[];
 
+    // --- MFE YAML CONFIG ---
+    const mfeConfig: any = useMFEConfigFromBackend();
+
+    // MFE section (dropdown or spread)
+    let mfeSection: any[] = [];
+    if (mfeConfig) {
+        if (mfeConfig.subNavigationMode) {
+            mfeSection = [
+                {
+                    type: NavBarMenuItemTypes.Dropdown,
+                    title: 'MFE Apps',
+                    icon: <AppWindow />,
+                    key: 'mfe-dropdown',
+                    items: getMfeMenuDropdownItems(mfeConfig),
+                } as NavBarMenuDropdownItem,
+            ];
+        } else {
+            mfeSection = [
+                {
+                    type: NavBarMenuItemTypes.Group,
+                    key: 'mfe-group',
+                    title: 'MFE Apps',
+                    items: getMfeMenuItems(mfeConfig),
+                } as NavBarMenuGroup,
+            ];
+        }
+    }
     function handleHomeclick() {
         if (isHomePage && showHomepageRedesign) {
             toggle();
@@ -151,6 +182,7 @@ export const NavSidebar = () => {
                 onlyExactPathMapping: true,
                 onClick: () => handleHomeclick(),
             },
+            ...mfeSection,
             {
                 type: NavBarMenuItemTypes.Group,
                 key: 'govern',
