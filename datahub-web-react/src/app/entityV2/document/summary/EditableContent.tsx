@@ -2,9 +2,9 @@ import { Editor } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { useDocumentPermissions } from '@app/documentV2/hooks/useDocumentPermissions';
-import { useExtractMentions } from '@app/documentV2/hooks/useExtractMentions';
-import { useUpdateDocument } from '@app/documentV2/hooks/useUpdateDocument';
+import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
+import { useExtractMentions } from '@app/document/hooks/useExtractMentions';
+import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedAssetsSection } from '@app/entityV2/document/summary/RelatedAssetsSection';
 import { RelatedDocumentsSection } from '@app/entityV2/document/summary/RelatedDocumentsSection';
@@ -215,6 +215,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     return (
         <ContentWrapper>
             <EditorSection
+                data-testid="document-editor-section"
                 onFocus={() => setIsEditorFocused(true)}
                 onBlur={(e) => {
                     // Only blur if we're actually leaving the editor section
@@ -226,6 +227,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
             >
                 {canEditContents ? (
                     <StyledEditor
+                        data-testid="document-content-editor"
                         key={`editor-${documentUrn}-${editorVersion}`}
                         content={content}
                         onChange={setContent}
@@ -239,6 +241,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                     />
                 ) : (
                     <StyledEditor
+                        data-testid="document-content-editor-readonly"
                         key={`editor-readonly-${documentUrn}-${editorVersion}`}
                         content={content}
                         readOnly

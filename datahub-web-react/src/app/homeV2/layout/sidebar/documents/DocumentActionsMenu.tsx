@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useDocumentTree } from '@app/documentV2/DocumentTreeContext';
-import { useDeleteDocumentTreeMutation } from '@app/documentV2/hooks/useDocumentTreeMutations';
+import { useDocumentTree } from '@app/document/DocumentTreeContext';
+import { useDeleteDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
 import { MoveDocumentPopover } from '@app/homeV2/layout/sidebar/documents/MoveDocumentPopover';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -123,6 +123,7 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({ docume
         <>
             <Menu items={menuItems} placement="bottomRight">
                 <MenuButton
+                    data-testid="document-actions-menu-button"
                     icon={{ icon: 'DotsThreeVertical', source: 'phosphor' }}
                     variant="text"
                     isCircle

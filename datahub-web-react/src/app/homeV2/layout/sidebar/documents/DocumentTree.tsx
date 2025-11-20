@@ -2,8 +2,8 @@ import React, { useCallback, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useDocumentTree } from '@app/documentV2/DocumentTreeContext';
-import { useLoadDocumentTree } from '@app/documentV2/hooks/useLoadDocumentTree';
+import { useDocumentTree } from '@app/document/DocumentTreeContext';
+import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
 import Loading from '@app/shared/Loading';
 import { useEntityRegistry } from '@app/useEntityRegistry';

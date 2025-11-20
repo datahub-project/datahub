@@ -99,6 +99,7 @@ export const ContextGroupHeader: React.FC<Props> = ({ title, isCollapsed, onAddC
         >
             <Title>{title}</Title>
             <PlusButton
+                data-testid="create-document-button"
                 $show={isHovered && !isLoading}
                 onClick={onAddClick}
                 aria-label="Add new document"

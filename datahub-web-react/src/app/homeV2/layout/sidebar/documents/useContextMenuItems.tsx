@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 
-import { useCreateDocumentTreeMutation } from '@app/documentV2/hooks/useDocumentTreeMutations';
+import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import { NavBarMenuGroup, NavBarMenuItemTypes } from '@app/homeV2/layout/navBarRedesign/types';
 import { ContextGroupHeader } from '@app/homeV2/layout/sidebar/documents/ContextGroupHeader';

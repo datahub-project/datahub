@@ -2,7 +2,7 @@ import { CaretDown, CaretRight, FileText, Folder } from '@phosphor-icons/react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { DocumentChild } from '@app/documentV2/hooks/useDocumentChildren';
+import { DocumentChild } from '@app/document/hooks/useDocumentChildren';
 import Loading from '@app/shared/Loading';
 import { colors } from '@src/alchemy-components/theme';
 

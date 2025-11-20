@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { useDocumentPermissions } from '@app/documentV2/hooks/useDocumentPermissions';
-import { useUpdateDocument } from '@app/documentV2/hooks/useUpdateDocument';
+import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
+import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import BaseProperty from '@app/entityV2/summary/properties/property/properties/BaseProperty';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
@@ -70,7 +70,7 @@ export default function DocumentTypeProperty(props: PropertyComponentProps) {
         }
 
         return (
-            <TypeSelectWrapper>
+            <TypeSelectWrapper data-testid="document-type-select">
                 <SimpleSelect
                     values={[optimisticType]}
                     onUpdate={handleTypeChange}

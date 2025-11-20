@@ -176,6 +176,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     return (
         <TreeItemContainer
             className="tree-item-container"
+            data-testid={`document-tree-item-${urn}`}
             $level={level}
             $isSelected={isSelected}
             onClick={handleItemClick}
@@ -186,6 +187,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                 {showExpandButton && (
                     <ExpandButton
                         className="tree-item-expand-button"
+                        data-testid={`document-tree-expand-button-${urn}`}
                         $hasChildren={hasChildren}
                         $isExpanded={isExpanded || isHovered}
                         onClick={handleExpandClick}

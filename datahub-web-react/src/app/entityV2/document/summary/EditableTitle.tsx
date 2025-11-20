@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { useDocumentPermissions } from '@app/documentV2/hooks/useDocumentPermissions';
-import { useUpdateDocumentTitleMutation } from '@app/documentV2/hooks/useDocumentTreeMutations';
+import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
+import { useUpdateDocumentTitleMutation } from '@app/document/hooks/useDocumentTreeMutations';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const TitleContainer = styled.div`
@@ -85,6 +85,7 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     return (
         <TitleContainer>
             <TitleInput
+                data-testid="document-title-input"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 onInput={handleInput}

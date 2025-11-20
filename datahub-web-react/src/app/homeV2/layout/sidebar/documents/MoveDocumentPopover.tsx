@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { useMoveDocumentTreeMutation } from '@app/documentV2/hooks/useDocumentTreeMutations';
-import { useSearchDocuments } from '@app/documentV2/hooks/useSearchDocuments';
+import { useMoveDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
+import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import { Button, Input } from '@src/alchemy-components';
@@ -215,10 +215,11 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
             </TreeScrollContainer>
 
             <ButtonContainer>
-                <Button variant="outline" onClick={onClose} disabled={movingDocument}>
+                <Button variant="outline" onClick={onClose} disabled={movingDocument} data-testid="move-document-cancel-button">
                     Cancel
                 </Button>
                 <Button
+                    data-testid="move-document-confirm-button"
                     onClick={handleMove}
                     disabled={!hasSelectionChanged || movingDocument}
                     isLoading={movingDocument}
