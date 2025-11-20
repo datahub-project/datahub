@@ -14,7 +14,6 @@ from sqlglot.expressions import (
     Identifier,
     PartitionedByProperty,
     Property,
-    RangeBucket,
 )
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
@@ -1116,8 +1115,8 @@ SELECT val, record_count FROM PartitionStats"""
             for expr in expressions:
                 column_name = None
 
-                # Handle DATE(column_name), DATETIME_TRUNC, RANGE_BUCKET
-                if isinstance(expr, (Date, DatetimeTrunc, RangeBucket)):
+                # Handle DATE(column_name), DATETIME_TRUNC
+                if isinstance(expr, (Date, DatetimeTrunc)):
                     if hasattr(expr, "this") and expr.this:
                         column_name = str(expr.this)
 

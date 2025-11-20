@@ -2042,6 +2042,331 @@ def test_sqlglot_ddl_parsing_invalid_ddl():
     assert len(result) == 0
 
 
+def test_get_partition_range_invalid_format():
+    """Test error handling for invalid partition ID formats"""
+    with pytest.raises(ValueError, match="Invalid partition_id"):
+        PartitionDiscovery.get_partition_range_from_partition_id("invalid", None)
+
+
+def test_get_partition_range_valid_formats():
+    """Test partition range calculation for all valid formats"""
+    # Test yearly format (YYYY)
+    start, end = PartitionDiscovery.get_partition_range_from_partition_id("2024", None)
+    assert start.year == 2024
+    assert start.month == 1
+    assert start.day == 1
+    assert end.year == 2025
+
+    # Test monthly format (YYYYMM)
+    start, end = PartitionDiscovery.get_partition_range_from_partition_id(
+        "202411", None
+    )
+    assert start.year == 2024
+    assert start.month == 11
+    assert end.month == 12
+
+    # Test daily format (YYYYMMDD)
+    start, end = PartitionDiscovery.get_partition_range_from_partition_id(
+        "20241115", None
+    )
+    assert start.year == 2024
+    assert start.month == 11
+    assert start.day == 15
+    assert end.day == 16
+
+    # Test hourly format (YYYYMMDDHH)
+    start, end = PartitionDiscovery.get_partition_range_from_partition_id(
+        "2024111523", None
+    )
+    assert start.hour == 23
+    assert end.day == 16 or end.hour == 0
+
+
+def test_partition_discovery_with_non_date_columns():
+    """Test partition discovery with non-date partition columns"""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(name="region_partitioned", partitioned=True)
+
+    def mock_execute_query_non_date(query, job_config, context):
+        """Mock for non-date partitioned table"""
+
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            # Return a non-date partition column
+            return [SimpleNamespace(column_name="region", data_type="STRING")]
+
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            # Return partition info for string column
+            return [SimpleNamespace(partition_id="us-east", total_rows=10000)]
+
+        return []
+
+    # Should handle non-date partitions
+    filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_query_non_date
+    )
+
+    # Non-date partitions should still produce filters
+    assert filters is not None
+
+
+def test_partition_discovery_with_multiple_date_columns():
+    """Test partition discovery when table has multiple date-like columns"""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(name="multi_date_table", partitioned=True)
+
+    def mock_execute_query_multi_date(query, job_config, context):
+        """Mock for table with multiple date columns"""
+
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            # Return multiple date columns
+            return [
+                SimpleNamespace(column_name="event_date", data_type="DATE"),
+                SimpleNamespace(column_name="created_date", data_type="DATE"),
+            ]
+
+        if "GROUP BY" in query and "ORDER BY" in query:
+            # Return data for the partition columns
+            return [SimpleNamespace(val=date(2024, 11, 20), record_count=5000)]
+
+        if "SELECT 1" in query:
+            return [SimpleNamespace(exists_check=1)]
+
+        return []
+
+    filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_query_multi_date
+    )
+
+    assert filters is not None
+    assert len(filters) > 0
+
+
+def test_partition_discovery_with_year_month_day_columns():
+    """Test hierarchical processing of year/month/day partition columns"""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(name="hierarchical_partitioned", partitioned=True)
+
+    def mock_execute_query_hierarchical(query, job_config, context):
+        """Mock for year/month/day hierarchical partitions"""
+
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [
+                SimpleNamespace(column_name="year", data_type="INT64"),
+                SimpleNamespace(column_name="month", data_type="INT64"),
+                SimpleNamespace(column_name="day", data_type="INT64"),
+            ]
+
+        # INFORMATION_SCHEMA partition query
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            # Return data showing year/month/day structure
+            return [SimpleNamespace(partition_id="", total_rows=5000)]
+
+        # Year query
+        if "SELECT MAX(year)" in query or (
+            "SELECT" in query and "year" in query and "FROM" in query
+        ):
+            return [SimpleNamespace(val=2024)]
+
+        # Month query
+        if "SELECT MAX(month)" in query or (
+            "SELECT" in query and "month" in query and "FROM" in query
+        ):
+            return [SimpleNamespace(val=11)]
+
+        # Day query
+        if "SELECT MAX(day)" in query or (
+            "SELECT" in query and "day" in query and "FROM" in query
+        ):
+            return [SimpleNamespace(val=20)]
+
+        # Verification query
+        if "SELECT 1" in query:
+            return [SimpleNamespace(exists_check=1)]
+
+        return []
+
+    filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_query_hierarchical
+    )
+
+    # Should successfully create filters (may be hierarchical or fallback)
+    assert filters is not None
+
+
+def test_partition_discovery_external_table_with_partition_path():
+    """Test external table with partition path information"""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    external_table = create_test_table(
+        name="external_partitioned", partitioned=True, external=True
+    )
+
+    def mock_execute_query_external_path(query, job_config, context):
+        """Mock for external table with partition path"""
+
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="date", data_type="DATE")]
+
+        if "__PARTITIONS_SUMMARY__" in query:
+            # External table with partition path info
+            return [SimpleNamespace(partition_id="date=2024-11-20", total_rows=15000)]
+
+        if "GROUP BY" in query:
+            return [SimpleNamespace(val=date(2024, 11, 20), record_count=15000)]
+
+        return []
+
+    filters = discovery.get_required_partition_filters(
+        external_table, "test-project", "dataset", mock_execute_query_external_path
+    )
+
+    assert filters is not None
+
+
+def test_security_validate_column_names_list():
+    """Test validation of multiple column names"""
+    from datahub.ingestion.source.bigquery_v2.profiling.security import (
+        validate_column_names,
+    )
+
+    # Valid column names
+    valid_names = ["column1", "column_2", "_private", "snake_case_column"]
+    validated = validate_column_names(valid_names, "test")
+    assert len(validated) == 4
+
+    # Mix of valid and invalid
+    mixed_names = ["valid_col", "invalid;col", "another_valid"]
+    validated = validate_column_names(mixed_names, "test")
+    # Should only include valid ones
+    assert "valid_col" in validated
+    assert "another_valid" in validated
+    assert "invalid;col" not in validated
+
+
+def test_security_validate_filter_expression():
+    """Test filter expression validation"""
+    from datahub.ingestion.source.bigquery_v2.profiling.security import (
+        validate_filter_expression,
+    )
+
+    # Valid expressions
+    valid_exprs = [
+        "`date` = '2024-11-20'",
+        "`year` = 2024",
+        "`event_date` >= '2024-01-01'",
+        "`status` IN ('active', 'pending')",
+    ]
+
+    for expr in valid_exprs:
+        result = validate_filter_expression(expr)
+        assert result is True
+
+    # Invalid expressions should return False or raise
+    invalid_exprs = [
+        "date = '2024'; DROP TABLE users",
+        "col = val/*comment*/",
+    ]
+
+    for expr in invalid_exprs:
+        result = validate_filter_expression(expr)
+        assert result is False
+
+
+def test_security_validate_identifier_invalid():
+    """Test security validation rejects invalid identifiers"""
+    from datahub.ingestion.source.bigquery_v2.profiling.security import (
+        validate_bigquery_identifier,
+    )
+
+    # Test various invalid identifiers
+    invalid_ids = [
+        "table; DROP TABLE",
+        "col`; --comment",
+        "field\nmalicious",
+        "col/*comment*/",
+        "",  # empty
+        "123invalid",  # starts with number
+    ]
+
+    for invalid_id in invalid_ids:
+        with pytest.raises(ValueError):
+            validate_bigquery_identifier(invalid_id, "test")
+
+
+def test_constants_date_like_column_names_comprehensive():
+    """Test that DATE_LIKE_COLUMN_NAMES constant covers common patterns"""
+    from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+        DATE_LIKE_COLUMN_NAMES,
+    )
+
+    # Verify key date patterns are included
+    expected_patterns = [
+        "date",
+        "trade_date",
+        "event_date",
+        "timestamp",
+        "created_at",
+        "updated_at",
+        "booking_date",
+        "business_date",
+    ]
+
+    for pattern in expected_patterns:
+        assert pattern in DATE_LIKE_COLUMN_NAMES
+
+
+def test_partition_discovery_with_window_config():
+    """Test partition discovery with datetime window configuration"""
+    config = create_test_config(partition_datetime_window_days=30)
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(name="windowed_table", partitioned=True)
+
+    def mock_execute_windowed(query, job_config, context):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="event_date", data_type="DATE")]
+
+        if "SELECT 1" in query:
+            return [SimpleNamespace(exists_check=1)]
+
+        if "GROUP BY" in query:
+            return [SimpleNamespace(val=date(2024, 11, 15), record_count=5000)]
+
+        return []
+
+    filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_windowed
+    )
+
+    assert filters is not None
+
+
+def test_partition_discovery_empty_table():
+    """Test partition discovery on a table with no data"""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(name="empty_table", partitioned=True)
+
+    def mock_execute_empty(query, job_config, context):
+        # All queries return empty results
+        return []
+
+    filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_empty
+    )
+
+    # Should handle empty table gracefully
+    assert filters is not None or filters == []
+
+
 if __name__ == "__main__":
     # Run tests with pytest
     pytest.main([__file__, "-v"])
