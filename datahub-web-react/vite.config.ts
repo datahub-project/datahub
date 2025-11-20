@@ -63,7 +63,6 @@ export default defineConfig(async ({ mode }) => {
         '/authenticate': frontendProxy,
         '/api/v2/graphql': frontendProxy,
         '/openapi/v1/tracking/track': frontendProxy,
-        '/openapi/v1/ai-chat/message': frontendProxy,
         '/openapi/v1/files': frontendProxy,
     };
 
@@ -119,30 +118,6 @@ export default defineConfig(async ({ mode }) => {
         // },
         envPrefix: 'REACT_APP_',
         build: {
-            rollupOptions: {
-                input: {
-                    main: 'index.html',
-                    dev: 'index.dev.html',
-                },
-                output: {
-                    manualChunks(id) {
-                        if (id.includes('node_modules')) {
-                            if (id.includes('@mui')) {
-                                return 'mui-vendor';
-                            }
-                            if (id.includes('phosphor-icons')) {
-                                return 'phosphor-vendor';
-                            }
-                            // All other node_modules
-                            return 'vendor';
-                        }
-                        if (id.includes('src/')) {
-                            return 'source';
-                        }
-                        return null;
-                    },
-                },
-            },
             outDir: 'dist',
             target: 'esnext',
             minify: 'esbuild',
@@ -172,9 +147,6 @@ export default defineConfig(async ({ mode }) => {
             setupFiles: './src/setupTests.ts',
             css: true,
             // reporters: ['verbose'],
-            testTimeout: 60000, // 60 seconds timeout for individual tests
-            hookTimeout: 30000, // 30 seconds timeout for hooks
-            teardownTimeout: 15000, // 15 seconds timeout for teardown
             coverage: {
                 enabled: true,
                 provider: 'v8',

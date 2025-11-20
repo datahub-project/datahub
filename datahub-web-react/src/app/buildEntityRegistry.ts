@@ -23,7 +23,6 @@ import { MLFeatureTableEntity } from '@app/entity/mlFeatureTable/MLFeatureTableE
 import { MLModelEntity } from '@app/entity/mlModel/MLModelEntity';
 import { MLModelGroupEntity } from '@app/entity/mlModelGroup/MLModelGroupEntity';
 import { MLPrimaryKeyEntity } from '@app/entity/mlPrimaryKey/MLPrimaryKeyEntity';
-import { QueryEntity } from '@app/entity/query/QueryEntity';
 import { RestrictedEntity } from '@app/entity/restricted/RestrictedEntity';
 import { SchemaFieldPropertiesEntity } from '@app/entity/schemaField/SchemaFieldPropertiesEntity';
 import { StructuredPropertyEntity } from '@app/entity/structuredProperty/StructuredPropertyEntity';
@@ -60,7 +59,6 @@ export default function buildEntityRegistry() {
     registry.register(new SchemaFieldPropertiesEntity());
     registry.register(new StructuredPropertyEntity());
     registry.register(new DataProcessInstanceEntity());
-    registry.register(new QueryEntity());
     registry.register(new ApplicationEntity());
     return registry;
 }
