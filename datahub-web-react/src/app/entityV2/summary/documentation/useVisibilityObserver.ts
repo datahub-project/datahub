@@ -11,21 +11,33 @@ export function useVisibilityObserver(
         const element = elementRef.current;
         if (!element) return undefined;
 
-        setHasMore(element.scrollHeight > maxViewHeight);
+        const updateHasMore = () => {
+            setHasMore(element.scrollHeight > maxViewHeight);
+        };
 
-        const observer = new IntersectionObserver(
+        updateHasMore();
+
+        // ResizeObserver to detect size changes (e.g., when images load)
+        const resizeObserver = new ResizeObserver(updateHasMore);
+        resizeObserver.observe(element);
+
+        const intersectionObserver = new IntersectionObserver(
             (entries) => {
                 entries.forEach((entry) => {
                     if (entry.isIntersecting) {
-                        setHasMore(element.scrollHeight > maxViewHeight);
+                        updateHasMore();
                     }
                 });
             },
             { threshold: 0.01 },
         );
+        intersectionObserver.observe(element);
 
-        observer.observe(element);
-        return () => observer.disconnect();
+        // Clean up observers
+        return () => {
+            intersectionObserver.disconnect();
+            resizeObserver.disconnect();
+        };
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [maxViewHeight, ...dependencies]);

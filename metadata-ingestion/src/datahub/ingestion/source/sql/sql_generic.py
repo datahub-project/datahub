@@ -85,5 +85,5 @@ class SQLAlchemyGenericSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = SQLAlchemyGenericConfig.parse_obj(config_dict)
+        config = SQLAlchemyGenericConfig.model_validate(config_dict)
         return cls(config, ctx)

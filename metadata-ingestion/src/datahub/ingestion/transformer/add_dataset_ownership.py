@@ -55,7 +55,7 @@ class AddDatasetOwnership(OwnershipTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetOwnership":
-        config = AddDatasetOwnershipConfig.parse_obj(config_dict)
+        config = AddDatasetOwnershipConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -209,7 +209,7 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleAddDatasetOwnership":
-        config = SimpleDatasetOwnershipConfig.parse_obj(config_dict)
+        config = SimpleDatasetOwnershipConfig.model_validate(config_dict)
         return cls(config, ctx)
 
 
@@ -247,5 +247,5 @@ class PatternAddDatasetOwnership(AddDatasetOwnership):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternAddDatasetOwnership":
-        config = PatternDatasetOwnershipConfig.parse_obj(config_dict)
+        config = PatternDatasetOwnershipConfig.model_validate(config_dict)
         return cls(config, ctx)

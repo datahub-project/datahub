@@ -74,7 +74,7 @@ public class UrnValidationUtil {
                   "Simple URN %s contains comma character which is not allowed in non-tuple URNs",
                   urn));
         } else {
-          log.error(
+          log.warn(
               "Simple URN {} contains comma character which is not allowed in non-tuple URNs", urn);
         }
       }
@@ -91,7 +91,7 @@ public class UrnValidationUtil {
       if (strict) {
         throw new IllegalArgumentException(message);
       } else {
-        log.error(message);
+        log.warn(message);
       }
     }
 

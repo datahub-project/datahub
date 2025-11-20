@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { ManageViews } from '@app/entity/view/ManageViews';
 import { ManageOwnership } from '@app/entityV2/ownership/ManageOwnership';
+import { ManageViews } from '@app/entityV2/view/ManageViews';
 import { ManageIdentities } from '@app/identity/ManageIdentities';
 import { ManagePermissions } from '@app/permissions/ManagePermissions';
 import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';

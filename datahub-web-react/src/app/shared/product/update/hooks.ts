@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ProductUpdate, latestUpdate } from '@app/shared/product/update/latestUpdate';
 import { useAppConfig } from '@app/useAppConfig';
 
+import { useGetLatestProductUpdateQuery } from '@graphql/app.generated';
 import { useBatchGetStepStatesQuery, useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
 
 const PRODUCT_UPDATE_STEP_PREFIX = 'product_updates';
@@ -22,10 +22,19 @@ export function useIsProductAnnouncementEnabled() {
 }
 
 /**
- * Hook to fetch the announcement data (eventually can replace with fetch).
+ * Hook to fetch the latest product announcement data from GraphQL.
  */
 export function useGetLatestProductAnnouncementData() {
-    return latestUpdate;
+    const { data, loading, error } = useGetLatestProductUpdateQuery({
+        fetchPolicy: 'cache-first',
+    });
+
+    // Return null if loading, error, or no data
+    if (loading || error || !data?.latestProductUpdate) {
+        return null;
+    }
+
+    return data.latestProductUpdate;
 }
 
 export type ProductAnnouncementResult = {
@@ -36,16 +45,33 @@ export type ProductAnnouncementResult = {
 /**
  * Hook to check if the announcement should be shown based on dismissal state
  */
-export function useIsProductAnnouncementVisible(update: ProductUpdate): ProductAnnouncementResult {
+export function useIsProductAnnouncementVisible(updateId: string | null | undefined): ProductAnnouncementResult {
     const userUrn = useUserContext()?.user?.urn;
-    const productUpdateStepId = userUrn ? buildProductUpdateStepId(userUrn, update.id) : null;
+    const productUpdateStepId = userUrn && updateId ? buildProductUpdateStepId(userUrn, updateId) : null;
     const productUpdateStepIds = productUpdateStepId ? [productUpdateStepId] : [];
     const { data, loading, error, refetch } = useBatchGetStepStatesQuery({
-        skip: !userUrn,
+        skip: !userUrn || !updateId,
         variables: { input: { ids: productUpdateStepIds } },
         fetchPolicy: 'cache-first',
     });
 
+    // If userUrn is not loaded yet, don't show the announcement (wait for user context to load)
+    if (!userUrn) {
+        return {
+            visible: false,
+            refetch,
+        };
+    }
+
+    // If updateId is not available, don't show
+    if (!updateId) {
+        return {
+            visible: false,
+            refetch,
+        };
+    }
+
+    // If query is loading or has an error, don't show yet
     if (loading || error) {
         return {
             visible: false,
@@ -53,6 +79,7 @@ export function useIsProductAnnouncementVisible(update: ProductUpdate): ProductA
         };
     }
 
+    // Show announcement if the step state doesn't exist (user hasn't dismissed it)
     const visible =
         (data?.batchGetStepStates?.results &&
             !data?.batchGetStepStates?.results?.some((result) => result?.id === productUpdateStepId)) ||
@@ -67,9 +94,9 @@ export function useIsProductAnnouncementVisible(update: ProductUpdate): ProductA
 /**
  * Optional helper to dismiss the announcement (can also inline in `onClose`)
  */
-export function useDismissProductAnnouncement(update: ProductUpdate, refetch: () => void): () => void {
+export function useDismissProductAnnouncement(updateId: string | null | undefined, refetch: () => void): () => void {
     const userUrn = useUserContext()?.user?.urn;
-    const productUpdateStepId = userUrn ? buildProductUpdateStepId(userUrn, update.id) : null;
+    const productUpdateStepId = userUrn && updateId ? buildProductUpdateStepId(userUrn, updateId) : null;
 
     const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
 

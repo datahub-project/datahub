@@ -1,4 +1,4 @@
-import { markdownToHtml } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/markdownToHtml';
+import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 
 const cases = [
     [

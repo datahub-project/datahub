@@ -58,6 +58,9 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
     if (input.getLineageSearchPath() != null) {
       result.setLineageSearchPath(LineageSearchPath.valueOf(input.getLineageSearchPath().name()));
     }
+    if (input.hasIsPartial()) {
+      result.setIsPartial(input.isIsPartial());
+    }
     return result;
   }
 

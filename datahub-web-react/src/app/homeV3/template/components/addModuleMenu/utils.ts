@@ -4,7 +4,7 @@ import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.gene
 
 export function getCustomGlobalModules(globalTemplate: PageTemplateFragment | null) {
     const customGlobalModules: PageModuleFragment[] = [];
-    globalTemplate?.properties.rows.forEach((row) => {
+    globalTemplate?.properties?.rows?.forEach((row) => {
         row.modules.forEach((module) => {
             if (CUSTOM_MODULE_TYPES.includes(module.properties.type)) {
                 customGlobalModules.push(module);

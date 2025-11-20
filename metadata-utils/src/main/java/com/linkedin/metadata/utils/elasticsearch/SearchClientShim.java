@@ -317,7 +317,8 @@ public interface SearchClientShim<T> extends Closeable {
       int bulkRequestsLimit,
       long bulkFlushPeriod,
       long retryInterval,
-      int numRetries);
+      int numRetries,
+      int threadCount);
 
   void generateBulkProcessor(
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
@@ -325,9 +326,12 @@ public interface SearchClientShim<T> extends Closeable {
       int bulkRequestsLimit,
       long bulkFlushPeriod,
       long retryInterval,
-      int numRetries);
+      int numRetries,
+      int threadCount);
 
   void addBulk(DocWriteRequest<?> writeRequest);
+
+  void addBulk(String urn, DocWriteRequest<?> writeRequest);
 
   void flushBulkProcessor();
 

@@ -28,7 +28,9 @@ def load_entity_registry(entity_registry_file: Path) -> List[EntityType]:
     with entity_registry_file.open() as f:
         raw_entity_registry = yaml.safe_load(f)
 
-    entities = pydantic.parse_obj_as(List[EntityType], raw_entity_registry["entities"])
+    entities = pydantic.TypeAdapter(List[EntityType]).validate_python(
+        raw_entity_registry["entities"]
+    )
     return entities
 
 

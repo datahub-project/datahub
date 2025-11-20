@@ -126,14 +126,22 @@ export default function BaseProperty<T>({
     }, [valuesToShowInPopover, renderValueInTooltip, restItemsPillBorderType, renderValue]);
 
     return (
-        <PropertyWrapper>
+        <PropertyWrapper data-testid={`property-${property.type}`}>
             <Menu items={filteredItems} trigger={['click']} disabled={!isTemplateEditable}>
-                <Title weight="bold" color="gray" size="sm" colorLevel={600} $clickable={isTemplateEditable} type="div">
+                <Title
+                    weight="bold"
+                    color="gray"
+                    size="sm"
+                    colorLevel={600}
+                    $clickable={isTemplateEditable}
+                    type="div"
+                    data-testid="property-title"
+                >
                     {property.name}
                 </Title>
             </Menu>
             <Content>
-                <ValuesWrapper>
+                <ValuesWrapper data-testid="property-value">
                     {loading ? (
                         <Skeleton.Button active />
                     ) : (

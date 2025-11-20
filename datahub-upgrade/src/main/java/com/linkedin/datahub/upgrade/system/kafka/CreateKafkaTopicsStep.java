@@ -176,8 +176,7 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
       ListTopicsResult listTopicsResult = adminClient.listTopics();
       return listTopicsResult.names().get();
     } catch (Exception e) {
-      log.error("Failed to list existing topics: {}", e.getMessage(), e);
-      throw e;
+      throw new RuntimeException("Failed to list existing topics: " + e.getMessage(), e);
     }
   }
 

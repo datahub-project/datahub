@@ -1,0 +1,37 @@
+---
+run_id: kafka-connect-confluent-cloud-test
+
+source:
+  type: "kafka-connect"
+  config:
+    # Connect URI pointing to the mock API
+    # Format matches Confluent Cloud API structure
+    connect_uri: "http://localhost:8888/connect/v1/environments/env-00000/clusters/cluster-123"
+
+    # Confluent Cloud environment and cluster IDs (for reference)
+    confluent_cloud_environment_id: "env-00000"
+    confluent_cloud_cluster_id: "cluster-123"
+
+    # Confluent Cloud Kafka REST API endpoint for topic retrieval
+    kafka_rest_endpoint: "http://localhost:8888"
+
+    # Authentication credentials (admin:admin)
+    username: "admin"
+    password: "admin"
+
+    # Kafka API credentials (reuse Connect credentials)
+    kafka_api_key: "admin"
+    kafka_api_secret: "admin"
+
+    # Connector patterns
+    connector_patterns:
+      allow:
+        - ".*"
+
+    # Platform instance for URN generation
+    platform_instance: "confluent-cloud-prod"
+
+sink:
+  type: file
+  config:
+    filename: "./kafka_connect_confluent_cloud_mces.json"

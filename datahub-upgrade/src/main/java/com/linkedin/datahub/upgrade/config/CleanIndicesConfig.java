@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.config;
 
+import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import com.linkedin.gms.factory.config.ConfigurationProvider;

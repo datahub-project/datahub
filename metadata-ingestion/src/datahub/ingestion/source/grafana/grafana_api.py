@@ -69,7 +69,7 @@ class GrafanaAPIClient:
                 if not batch:
                     break
 
-                folders.extend(Folder.parse_obj(folder) for folder in batch)
+                folders.extend(Folder.model_validate(folder) for folder in batch)
                 page += 1
             except requests.exceptions.RequestException as e:
                 self.report.report_failure(
@@ -88,7 +88,7 @@ class GrafanaAPIClient:
         try:
             response = self.session.get(f"{self.base_url}/api/dashboards/uid/{uid}")
             response.raise_for_status()
-            return Dashboard.parse_obj(response.json())
+            return Dashboard.model_validate(response.json())
         except requests.exceptions.RequestException as e:
             self.report.warning(
                 title="Dashboard Fetch Error",

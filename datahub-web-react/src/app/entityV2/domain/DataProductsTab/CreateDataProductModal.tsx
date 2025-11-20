@@ -74,13 +74,19 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
             onCancel={onClose}
             style={MODAL_BODY_STYLE}
             width={MODAL_WIDTH}
+            data-testid="create-data-product-modal"
             open
             footer={
                 <>
-                    <Button onClick={onClose} type="text">
+                    <Button onClick={onClose} type="text" data-testid="cancel-button">
                         Cancel
                     </Button>
-                    <Button type="primary" onClick={createDataProduct} disabled={!builderState.name}>
+                    <Button
+                        type="primary"
+                        onClick={createDataProduct}
+                        disabled={!builderState.name}
+                        data-testid="submit-button"
+                    >
                         Create
                     </Button>
                 </>

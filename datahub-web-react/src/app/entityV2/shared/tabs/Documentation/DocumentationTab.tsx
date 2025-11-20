@@ -13,10 +13,9 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreviewModal } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreviewModal';
 import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
-import { Button } from '@src/alchemy-components';
+import { Button, Editor } from '@src/alchemy-components';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;

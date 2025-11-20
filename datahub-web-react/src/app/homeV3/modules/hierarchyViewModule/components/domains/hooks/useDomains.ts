@@ -34,7 +34,7 @@ export default function useDomains(parentDomainUrn: string | undefined, start: n
 
     const domains = useMemo(() => {
         if (skip) return [];
-        return data?.searchAcrossEntities?.searchResults.map((result) => result.entity).filter(isDomain);
+        return data?.searchAcrossEntities?.searchResults?.map((result) => result.entity).filter(isDomain);
     }, [data, skip]);
 
     const total = useMemo(() => data?.searchAcrossEntities?.total, [data]);

@@ -38,6 +38,22 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,debezium-postgres-connector,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-debezium-postgres-3-level-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,debezium-postgres-connector,PROD),postgres.public.member)",
     "changeType": "UPSERT",
@@ -50,22 +66,6 @@
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:kafka,postgres.debezium.public.member,PROD)"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-debezium-postgres-3-level-run",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kafka-connect,debezium-postgres-connector,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {

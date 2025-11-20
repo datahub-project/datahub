@@ -2,7 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.Constants.SKIP_REFERENCE_ASPECT;
 import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.*;
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.isQuoted;
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.unquote;
 

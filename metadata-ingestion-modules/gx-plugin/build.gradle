@@ -23,8 +23,9 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   def sentinel_file = "${venv_name}/.venv_environment_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
+  def venv_copies_flag = System.getenv('DATAHUB_VENV_USE_COPIES') == 'true' ? '--copies' : ''
   commandLine 'bash', '-c',
-      "${python_executable} -m venv ${venv_name} && " +
+      "${python_executable} -m venv ${venv_copies_flag} ${venv_name} && " +
       "${venv_name}/bin/pip install --upgrade uv && " +
       "touch ${sentinel_file}"
 }

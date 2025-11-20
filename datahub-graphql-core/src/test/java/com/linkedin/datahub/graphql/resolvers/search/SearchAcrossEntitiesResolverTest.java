@@ -215,6 +215,73 @@ public class SearchAcrossEntitiesResolverTest {
   }
 
   @Test
+  public static void testFilterRemovesDuplicates() throws Exception {
+    // Has no duplicate values
+    Filter expectedFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    buildCriterion("baseField", Condition.EQUAL, "baseTest"))))));
+
+    ViewService mockService = Mockito.mock(ViewService.class);
+    EntityClient mockClient =
+        initMockEntityClient(
+            ImmutableList.of(Constants.DATASET_ENTITY_NAME),
+            "",
+            expectedFilter,
+            0,
+            10,
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+
+    final SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, mockService);
+
+    final SearchAcrossEntitiesInput testInput =
+        new SearchAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DATASET),
+            "",
+            0,
+            10,
+            null,
+            ImmutableList.of(
+                new AndFilterInput(
+                    ImmutableList.of(
+                        new FacetFilterInput(
+                            "baseField",
+                            "",
+                            ImmutableList.of("baseTest", "baseTest"),
+                            false,
+                            FilterOperator.EQUAL)))),
+            null,
+            null,
+            null);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    verifyMockEntityClient(
+        mockClient,
+        ImmutableList.of(
+            Constants.DATASET_ENTITY_NAME), // Verify that merged entity types were used.
+        "",
+        expectedFilter,
+        0,
+        10);
+  }
+
+  @Test
   public static void testApplyViewNullBaseEntityTypes() throws Exception {
     Filter viewFilter =
         new Filter()

@@ -8,6 +8,7 @@ from pydantic import Field
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
+from datahub.ingestion.source.unity.azure_auth_config import AzureAuthConfig
 
 DATABRICKS = "databricks"
 
@@ -19,7 +20,12 @@ class UnityCatalogConnectionConfig(ConfigModel):
     """
 
     scheme: str = DATABRICKS
-    token: str = pydantic.Field(description="Databricks personal access token")
+    token: Optional[str] = pydantic.Field(
+        default=None, description="Databricks personal access token"
+    )
+    azure_auth: Optional[AzureAuthConfig] = Field(
+        default=None, description="Azure configuration"
+    )
     workspace_url: str = pydantic.Field(
         description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
     )

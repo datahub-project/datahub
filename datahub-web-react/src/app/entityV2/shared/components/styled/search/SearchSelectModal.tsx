@@ -73,6 +73,7 @@ export const SearchSelectModal = ({
                 zIndex={UI_Z_INDEX}
                 visible
                 onCancel={onCancelSelect}
+                data-testid="search-select-modal"
                 footer={
                     <>
                         <Button onClick={onCancel} type="text">

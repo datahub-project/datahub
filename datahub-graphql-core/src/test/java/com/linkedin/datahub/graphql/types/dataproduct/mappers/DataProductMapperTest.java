@@ -159,8 +159,8 @@ public class DataProductMapperTest {
       assertNotNull(result.getGlossaryTerms());
       // Domain association might be null if DomainAssociationMapper returns null
       // assertNotNull(result.getDomain());
-      // Application association might be null if ApplicationAssociationMapper returns null
-      // assertNotNull(result.getApplication());
+      // Applications list might be null if ApplicationsMapper returns null
+      // assertNotNull(result.getApplications());
     }
   }
 
@@ -192,7 +192,7 @@ public class DataProductMapperTest {
       assertNull(result.getTags());
       assertNull(result.getGlossaryTerms());
       assertNull(result.getDomain());
-      assertNull(result.getApplication());
+      assertNull(result.getApplications());
     }
   }
 

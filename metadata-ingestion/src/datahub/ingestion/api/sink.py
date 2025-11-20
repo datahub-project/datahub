@@ -123,7 +123,7 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Self":
-        return cls(ctx, cls.get_config_class().parse_obj(config_dict))
+        return cls(ctx, cls.get_config_class().model_validate(config_dict))
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         """Called at the start of each new workunit.

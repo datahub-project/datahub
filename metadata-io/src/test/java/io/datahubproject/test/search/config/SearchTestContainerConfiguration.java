@@ -1,9 +1,11 @@
 package io.datahubproject.test.search.config;
 
 import static io.datahubproject.test.search.BulkProcessorTestUtils.replaceBulkProcessorListener;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -87,7 +89,20 @@ public class SearchTestContainerConfiguration {
   protected ESIndexBuilder getIndexBuilder(
       @Qualifier("searchClientShim") SearchClientShim<?> searchClient) {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+
+    // Create a configuration with the test values
+    ElasticSearchConfiguration testConfig =
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .index(
+                TEST_ES_SEARCH_CONFIG.getIndex().toBuilder()
+                    .numShards(1)
+                    .numReplicas(1)
+                    .numRetries(3)
+                    .refreshIntervalSeconds(1)
+                    .build())
+            .build();
+
     return new ESIndexBuilder(
-        searchClient, 1, 1, 3, 1, Map.of(), false, false, false, TEST_OS_SEARCH_CONFIG, gitVersion);
+        searchClient, testConfig, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
   }
 }

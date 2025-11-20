@@ -129,6 +129,11 @@ class SnowsightUrlBuilder:
     def get_external_url_for_database(self, db_name: str) -> Optional[str]:
         return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
 
+    def get_external_url_for_streamlit(
+        self, app_name: str, schema_name: str, db_name: str
+    ) -> Optional[str]:
+        return f"{self.snowsight_base_url}#/streamlit-apps/{db_name}.{schema_name}.{app_name}"
+
 
 class SnowflakeFilter:
     def __init__(
@@ -212,6 +217,9 @@ class SnowflakeFilter:
 
     def is_procedure_allowed(self, procedure_name: str) -> bool:
         return self.filter_config.procedure_pattern.allowed(procedure_name)
+
+    def is_streamlit_allowed(self, streamlit_name: str) -> bool:
+        return self.filter_config.streamlit_pattern.allowed(streamlit_name)
 
 
 def _combine_identifier_parts(

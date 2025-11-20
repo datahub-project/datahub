@@ -92,7 +92,8 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   }
 
   private AspectTemplateEngine populateTemplateEngine(Map<String, AspectSpec> aspectSpecs) {
-    // TODO: This should be more dynamic ideally, "hardcoding" for now, passing in aspect spec map
+    // TODO: This should be more dynamic ideally, "hardcoding" for now, passing in
+    // aspect spec map
     // preemptively
 
     Map<String, Template<? extends RecordTemplate>> aspectSpecTemplateMap = new HashMap<>();

@@ -51,8 +51,9 @@ describe("ingestion source creation flow", () => {
       .should("be.visible");
 
     // Verify ingestion source details are saved correctly
-    cy.get('[data-testid="ingestion-source-table-edit-button"]')
-      .first()
+    // Find the row containing our ingestion source by name, then click its edit button
+    cy.contains("tr", ingestion_source_name)
+      .find('[data-testid="ingestion-source-table-edit-button"]')
       .click();
     cy.waitTextVisible("Account");
     cy.get("#account_id").should("have.value", accound_id);

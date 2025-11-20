@@ -1,7 +1,6 @@
 import collections
 import gzip
 import logging
-import os
 import pathlib
 import pickle
 import shutil
@@ -28,6 +27,7 @@ from typing import (
     Union,
 )
 
+from datahub.configuration.env_vars import get_override_sqlite_version_req
 from datahub.ingestion.api.closeable import Closeable
 from datahub.utilities.sentinels import Unset, unset
 
@@ -36,7 +36,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 def _get_sqlite_version_override() -> bool:
     """Check if SQLite version requirement should be overridden at runtime."""
-    override_str = os.environ.get("OVERRIDE_SQLITE_VERSION_REQ") or ""
+    override_str = get_override_sqlite_version_req()
     return bool(override_str and override_str.lower() != "false")
 
 

@@ -62,7 +62,7 @@ class DataHubSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DataHubSource":
-        config: DataHubSourceConfig = DataHubSourceConfig.parse_obj(config_dict)
+        config: DataHubSourceConfig = DataHubSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_report(self) -> SourceReport:

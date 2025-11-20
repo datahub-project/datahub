@@ -96,7 +96,7 @@ function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
                         </LoadingWrapper>
                     )}
                     {!loading && isSearchBarFocused && !!entities?.length && (
-                        <ResultsWrapper>
+                        <ResultsWrapper data-testid="search-results">
                             {entities?.map((entity) => (
                                 <DomainSearchResultItem
                                     key={entity.urn}

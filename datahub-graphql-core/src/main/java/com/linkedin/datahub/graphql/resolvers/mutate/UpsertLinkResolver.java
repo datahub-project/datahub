@@ -59,7 +59,6 @@ public class UpsertLinkResolver implements DataFetcher<CompletableFuture<Boolean
                 actor,
                 settingsInput,
                 _entityService);
-            log.warn(">>> NO ERROR RAISED");
             return true;
           } catch (Exception e) {
             log.error(

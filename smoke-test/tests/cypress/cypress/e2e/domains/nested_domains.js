@@ -49,7 +49,7 @@ const moveDomaintoParent = () => {
 
 const getDomainList = (domainName) => {
   cy.contains("span.ant-typography-ellipsis", domainName)
-    .parent('[data-testid="domain-list-item"]')
+    .parent('[data-testid="domain-options-list"]')
     .find(
       `[data-testid="open-domain-action-item-urn:li:domain:${domainName.toLowerCase()}"]`,
     )

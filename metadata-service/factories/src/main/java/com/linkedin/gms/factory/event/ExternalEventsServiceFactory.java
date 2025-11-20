@@ -20,7 +20,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ExternalEventsServiceFactory {
 
-  @Value("${eventsApi.defaultPollTimeoutSeconds:10}")
+  @Value("${eventsApi.defaultPollTimeoutSeconds:5}")
   private int pollTimeout;
 
   @Value("${eventsApi.defaultLimit:100}")

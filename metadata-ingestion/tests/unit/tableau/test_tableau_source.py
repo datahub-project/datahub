@@ -178,7 +178,7 @@ def test_tableau_unsupported_csql():
     context = PipelineContext(run_id="0", pipeline_name="test_tableau")
     config_dict = default_config.copy()
     del config_dict["stateful_ingestion"]
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
     config.extract_lineage_from_unsupported_custom_sql_queries = True
     config.lineage_overrides = TableauLineageOverrides(
         database_override_map={"production database": "prod"}
@@ -717,7 +717,7 @@ def test_get_owner_identifier_username():
     """Test owner identifier extraction using username."""
     config_dict = default_config.copy()
     config_dict["use_email_as_username"] = False
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
 
     context = PipelineContext(run_id="test", pipeline_name="test")
     site_source = TableauSiteSource(
@@ -738,7 +738,7 @@ def test_get_owner_identifier_email():
     """Test owner identifier extraction using email."""
     config_dict = default_config.copy()
     config_dict["use_email_as_username"] = True
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
 
     context = PipelineContext(run_id="test", pipeline_name="test")
     site_source = TableauSiteSource(
@@ -759,7 +759,7 @@ def test_get_owner_identifier_email_fallback():
     """Test owner identifier extraction falls back to username when email is not available."""
     config_dict = default_config.copy()
     config_dict["use_email_as_username"] = True
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
 
     context = PipelineContext(run_id="test", pipeline_name="test")
     site_source = TableauSiteSource(
@@ -780,7 +780,7 @@ def test_get_owner_identifier_empty_dict():
     """Test owner identifier extraction with empty owner dict."""
     config_dict = default_config.copy()
     config_dict["use_email_as_username"] = True
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
 
     context = PipelineContext(run_id="test", pipeline_name="test")
     site_source = TableauSiteSource(

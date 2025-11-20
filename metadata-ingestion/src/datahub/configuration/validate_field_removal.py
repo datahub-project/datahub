@@ -1,7 +1,7 @@
 import warnings
 from typing import TYPE_CHECKING, Type
 
-import pydantic
+from pydantic import model_validator
 
 from datahub.configuration.common import ConfigurationWarning
 
@@ -31,4 +31,4 @@ def pydantic_removed_field(
     # https://github.com/pydantic/pydantic/blob/v1.10.9/pydantic/main.py#L264
     # This hack ensures that multiple field removals do not overwrite each other.
     _validate_field_removal.__name__ = f"{_validate_field_removal.__name__}_{field}"
-    return pydantic.root_validator(pre=True, allow_reuse=True)(_validate_field_removal)
+    return model_validator(mode="before")(_validate_field_removal)

@@ -236,8 +236,13 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
     if (aspectMap.containsKey(APPLICATION_MEMBERSHIP_ASPECT_NAME)) {
       final Applications applications =
           new Applications(aspectMap.get(APPLICATION_MEMBERSHIP_ASPECT_NAME).getValue().data());
-      dataJob.setApplication(
-          ApplicationAssociationMapper.map(context, applications, dataJob.getUrn()));
+      final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+          applicationAssociations =
+              ApplicationAssociationMapper.mapList(context, applications, dataJob.getUrn());
+      dataJob.setApplications(applicationAssociations);
+      if (applicationAssociations != null && !applicationAssociations.isEmpty()) {
+        dataJob.setApplication(applicationAssociations.get(0));
+      }
     }
   }
 }

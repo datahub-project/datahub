@@ -13,7 +13,7 @@ import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -23,6 +23,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -96,12 +97,13 @@ public class MCLSpringCommonTestConfiguration {
       final IndexConvention indexConvention) {
     when(systemAuthentication.getActor())
         .thenReturn(TestOperationContexts.TEST_SYSTEM_AUTH.getActor());
+
     return OperationContext.asSystem(
         OperationContextConfig.builder().build(),
         systemAuthentication,
         entityRegistry,
         mock(ServicesRegistryContext.class),
-        indexConvention,
+        SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build(),
         TestOperationContexts.emptyActiveUsersRetrieverContext(() -> entityRegistry),
         mock(ValidationContext.class),
         null,

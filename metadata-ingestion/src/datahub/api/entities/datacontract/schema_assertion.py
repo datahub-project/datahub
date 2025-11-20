@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 from typing import List, Union
 
+from pydantic import ConfigDict, Field, RootModel
 from typing_extensions import Literal
 
 from datahub.api.entities.datacontract.assertion import BaseAssertion
-from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel, v1_Field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
 from datahub.metadata.schema_classes import (
@@ -22,12 +22,11 @@ from datahub.metadata.schema_classes import (
 class JsonSchemaContract(BaseAssertion):
     type: Literal["json-schema"]
 
-    json_schema: dict = v1_Field(alias="json-schema")
+    json_schema: dict = Field(alias="json-schema")
 
     _schema_metadata: SchemaMetadataClass
 
-    def _init_private_attributes(self) -> None:
-        super()._init_private_attributes()
+    def model_post_init(self, __context: object) -> None:
         self._schema_metadata = get_schema_metadata(
             platform="urn:li:dataPlatform:datahub",
             name="",
@@ -37,8 +36,7 @@ class JsonSchemaContract(BaseAssertion):
 
 
 class FieldListSchemaContract(BaseAssertion):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     type: Literal["field-list"]
 
@@ -46,8 +44,7 @@ class FieldListSchemaContract(BaseAssertion):
 
     _schema_metadata: SchemaMetadataClass
 
-    def _init_private_attributes(self) -> None:
-        super()._init_private_attributes()
+    def model_post_init(self, __context: object) -> None:
         self._schema_metadata = SchemaMetadataClass(
             schemaName="",
             platform="urn:li:dataPlatform:datahub",
@@ -58,14 +55,14 @@ class FieldListSchemaContract(BaseAssertion):
         )
 
 
-class SchemaAssertion(v1_ConfigModel):
-    __root__: Union[JsonSchemaContract, FieldListSchemaContract] = v1_Field(
+class SchemaAssertion(RootModel[Union[JsonSchemaContract, FieldListSchemaContract]]):
+    root: Union[JsonSchemaContract, FieldListSchemaContract] = Field(
         discriminator="type"
     )
 
     @property
     def id(self):
-        return self.__root__.type
+        return self.root.type
 
     def generate_mcp(
         self, assertion_urn: str, entity_urn: str
@@ -74,9 +71,9 @@ class SchemaAssertion(v1_ConfigModel):
             type=AssertionTypeClass.DATA_SCHEMA,
             schemaAssertion=SchemaAssertionInfoClass(
                 entity=entity_urn,
-                schema=self.__root__._schema_metadata,
+                schema=self.root._schema_metadata,
             ),
-            description=self.__root__.description,
+            description=self.root.description,
         )
 
         return [MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=aspect)]

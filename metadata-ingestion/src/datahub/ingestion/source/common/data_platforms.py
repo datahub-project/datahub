@@ -20,4 +20,5 @@ KNOWN_VALID_PLATFORM_NAMES = [
     "s3",
     "sagemaker",
     "snowflake",
+    "streamlit",
 ]

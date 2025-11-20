@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
@@ -112,12 +113,12 @@ import software.amazon.awssdk.auth.signer.Aws4Signer;
  * implementation is very similar to Es7CompatibilitySearchClientShim.
  */
 @Slf4j
-public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHighLevelClient> {
+public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkProcessor>
+    implements OpenSearchClientShim<RestHighLevelClient> {
 
   @Getter private final ShimConfiguration shimConfiguration;
   private final RestHighLevelClient client;
   protected SearchEngineType engineType;
-  private BulkProcessor bulkProcessor;
 
   public OpenSearch2SearchClientShim(@Nonnull ShimConfiguration config) throws IOException {
     this.shimConfiguration = config;
@@ -192,6 +193,7 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
     SchemeIOSessionStrategy sslStrategy =
         new SSLIOSessionStrategy(sslContext, null, null, hostnameVerifier);
 
+    log.info("Creating IOReactorConfig with threadCount: {}", shimConfiguration.getThreadCount());
     IOReactorConfig ioReactorConfig =
         IOReactorConfig.custom().setIoThreadCount(shimConfiguration.getThreadCount()).build();
     DefaultConnectingIOReactor ioReactor = new DefaultConnectingIOReactor(ioReactorConfig);
@@ -211,12 +213,24 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
         };
     ioReactor.setExceptionHandler(ioReactorExceptionHandler);
 
-    return new PoolingNHttpClientConnectionManager(
-        ioReactor,
-        RegistryBuilder.<SchemeIOSessionStrategy>create()
-            .register("http", NoopIOSessionStrategy.INSTANCE)
-            .register("https", sslStrategy)
-            .build());
+    PoolingNHttpClientConnectionManager connectionManager =
+        new PoolingNHttpClientConnectionManager(
+            ioReactor,
+            RegistryBuilder.<SchemeIOSessionStrategy>create()
+                .register("http", NoopIOSessionStrategy.INSTANCE)
+                .register("https", sslStrategy)
+                .build());
+
+    // Set maxConnectionsPerRoute to match threadCount (minimum 2)
+    int maxConnectionsPerRoute = Math.max(2, shimConfiguration.getThreadCount());
+    connectionManager.setDefaultMaxPerRoute(maxConnectionsPerRoute);
+
+    log.info(
+        "Configured connection pool: maxPerRoute={} (threadCount={})",
+        maxConnectionsPerRoute,
+        shimConfiguration.getThreadCount());
+
+    return connectionManager;
   }
 
   private void setCredentials(HttpAsyncClientBuilder httpAsyncClientBuilder) {
@@ -577,22 +591,25 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
       int bulkRequestsLimit,
       long bulkFlushPeriod,
       long retryInterval,
-      int numRetries) {
-    bulkProcessor =
-        BulkProcessor.builder(
-                (request, bulkListener) -> {
-                  client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
-                },
-                BulkListener.getInstance(writeRequestRefreshPolicy, metricUtils))
-            .setBulkActions(bulkRequestsLimit)
-            .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
-            // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has
-            // other
-            // retry methods)
-            .setBackoffPolicy(
-                BackoffPolicy.constantBackoff(
-                    TimeValue.timeValueSeconds(retryInterval), numRetries))
-            .build();
+      int numRetries,
+      int threadCount) {
+    Supplier<BulkProcessor> processorSupplier =
+        () ->
+            BulkProcessor.builder(
+                    (request, bulkListener) -> {
+                      client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
+                    },
+                    BulkListener.getInstance(0, writeRequestRefreshPolicy, metricUtils))
+                .setBulkActions(bulkRequestsLimit)
+                .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
+                .setBackoffPolicy(
+                    BackoffPolicy.constantBackoff(
+                        TimeValue.timeValueSeconds(retryInterval), numRetries))
+                .build();
+
+    initBulkProcessors(threadCount, processorSupplier);
+
+    log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
 
   @Override
@@ -602,43 +619,46 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
       int bulkRequestsLimit,
       long bulkFlushPeriod,
       long retryInterval,
-      int numRetries) {
-    bulkProcessor =
-        BulkProcessor.builder(
-                (request, bulkListener) -> {
-                  try {
-                    BulkResponse response = client.bulk(request, RequestOptions.DEFAULT);
-                    bulkListener.onResponse(response);
-                  } catch (IOException e) {
-                    bulkListener.onFailure(e);
-                    throw new RuntimeException(e);
-                  }
-                },
-                BulkListener.getInstance(writeRequestRefreshPolicy, metricUtils))
-            .setBulkActions(bulkRequestsLimit)
-            .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
-            // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has
-            // other
-            // retry methods)
-            .setBackoffPolicy(
-                BackoffPolicy.constantBackoff(
-                    TimeValue.timeValueSeconds(retryInterval), numRetries))
-            .build();
+      int numRetries,
+      int threadCount) {
+    Supplier<BulkProcessor> processorSupplier =
+        () ->
+            BulkProcessor.builder(
+                    (request, bulkListener) -> {
+                      try {
+                        BulkResponse response = client.bulk(request, RequestOptions.DEFAULT);
+                        bulkListener.onResponse(response);
+                      } catch (IOException e) {
+                        bulkListener.onFailure(e);
+                        throw new RuntimeException(e);
+                      }
+                    },
+                    BulkListener.getInstance(0, writeRequestRefreshPolicy, metricUtils))
+                .setBulkActions(bulkRequestsLimit)
+                .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
+                .setBackoffPolicy(
+                    BackoffPolicy.constantBackoff(
+                        TimeValue.timeValueSeconds(retryInterval), numRetries))
+                .build();
+
+    initBulkProcessors(threadCount, processorSupplier);
+
+    log.info("Initialized {} bulk processors for parallel execution", threadCount);
   }
 
   @Override
-  public void addBulk(DocWriteRequest<?> writeRequest) {
-    bulkProcessor.add(writeRequest);
+  protected void addToProcessor(BulkProcessor processor, DocWriteRequest<?> writeRequest) {
+    processor.add(writeRequest);
   }
 
   @Override
-  public void flushBulkProcessor() {
-    bulkProcessor.flush();
+  protected void flushProcessor(BulkProcessor processor) {
+    processor.flush();
   }
 
   @Override
-  public void closeBulkProcessor() {
-    bulkProcessor.close();
+  protected void closeProcessor(BulkProcessor processor) {
+    processor.close();
   }
 
   @Nonnull

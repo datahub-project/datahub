@@ -86,9 +86,10 @@ interface Props {
     hidePopOver?: boolean;
     pictureLink?: string;
     fontSize?: number;
+    dataTestId?: string;
 }
 
-export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fontSize }: Props) {
+export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fontSize, dataTestId }: Props) {
     const entityRegistry = useEntityRegistry();
     const ownerEntity = owner.owner;
     const ownerEntityType = owner.owner.type;
@@ -117,7 +118,7 @@ export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fo
     /* TODO: We probably do not want render if ownership type has been soft deleted */
 
     return (
-        <ContentWrapper>
+        <ContentWrapper data-testid={dataTestId}>
             <AvatarWrapper>{avatar}</AvatarWrapper>
             {hidePopOver ? (
                 <TextWrapper fontSize={fontSize}>{name}</TextWrapper>

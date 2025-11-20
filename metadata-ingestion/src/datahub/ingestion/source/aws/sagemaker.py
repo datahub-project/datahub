@@ -66,7 +66,7 @@ class SagemakerSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = SagemakerSourceConfig.parse_obj(config_dict)
+        config = SagemakerSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

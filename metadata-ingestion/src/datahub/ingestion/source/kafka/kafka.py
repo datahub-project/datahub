@@ -267,7 +267,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":
-        config: KafkaSourceConfig = KafkaSourceConfig.parse_obj(config_dict)
+        config: KafkaSourceConfig = KafkaSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

@@ -833,4 +833,214 @@ public class ReindexConfigTest {
 
     Assert.assertNotNull(config);
   }
+
+  @Test
+  void testDynamicFieldsIgnoredInMappingComparison() {
+    // Arrange - Create mappings with dynamic fields that differ
+    Map<String, Object> currentMappings = createBasicMappings();
+    Map<String, Object> targetMappings = createBasicMappings();
+
+    // Add dynamic field to current mappings
+    Map<String, Object> currentProperties =
+        (Map<String, Object>) currentMappings.get(PROPERTIES_KEY);
+    Map<String, Object> currentDynamicField = new HashMap<>();
+    currentDynamicField.put("type", "object");
+    currentDynamicField.put("dynamic", true);
+    currentDynamicField.put("properties", new HashMap<>());
+    currentProperties.put("ownerTypes", currentDynamicField);
+
+    // Add dynamic field to target mappings with different properties
+    Map<String, Object> targetProperties = (Map<String, Object>) targetMappings.get(PROPERTIES_KEY);
+    Map<String, Object> targetDynamicField = new HashMap<>();
+    targetDynamicField.put("type", "object");
+    targetDynamicField.put("dynamic", true);
+    Map<String, Object> targetDynamicProperties = new HashMap<>();
+    targetDynamicProperties.put(
+        "urn:li:ownershipType:__system__none", ImmutableMap.of("type", "keyword"));
+    targetDynamicField.put("properties", targetDynamicProperties);
+    targetProperties.put("ownerTypes", targetDynamicField);
+
+    // Act
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    // Assert - Dynamic field differences should be ignored
+    Assert.assertFalse(config.requiresApplyMappings());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testOwnerTypesFieldWithoutDynamicPropertyIgnored() {
+    // Arrange - Simulate the real scenario where current mapping has properties but no dynamic=true
+    Map<String, Object> currentMappings = createBasicMappings();
+    Map<String, Object> targetMappings = createBasicMappings();
+
+    // Current mapping: ownerTypes has properties but no dynamic=true (like in the real scenario)
+    Map<String, Object> currentProperties =
+        (Map<String, Object>) currentMappings.get(PROPERTIES_KEY);
+    Map<String, Object> currentOwnerTypes = new HashMap<>();
+    currentOwnerTypes.put("type", "object");
+    // Note: NO dynamic=true in current mapping
+    Map<String, Object> currentOwnerTypesProperties = new HashMap<>();
+    currentOwnerTypesProperties.put(
+        "urn:li:ownershipType:__system__none",
+        ImmutableMap.of(
+            "fields",
+            ImmutableMap.of("keyword", ImmutableMap.of("ignore_above", 256, "type", "keyword")),
+            "type",
+            "text"));
+    currentOwnerTypesProperties.put(
+        "urn:li:ownershipType:__system__technical_owner",
+        ImmutableMap.of(
+            "fields",
+            ImmutableMap.of("keyword", ImmutableMap.of("ignore_above", 256, "type", "keyword")),
+            "type",
+            "text"));
+    currentOwnerTypes.put("properties", currentOwnerTypesProperties);
+    currentProperties.put("ownerTypes", currentOwnerTypes);
+
+    // Target mapping: ownerTypes should be dynamic (from configuration)
+    Map<String, Object> targetProperties = (Map<String, Object>) targetMappings.get(PROPERTIES_KEY);
+    Map<String, Object> targetOwnerTypes = new HashMap<>();
+    targetOwnerTypes.put("type", "object");
+    targetOwnerTypes.put("dynamic", true); // This is what the configuration should generate
+    targetProperties.put("ownerTypes", targetOwnerTypes);
+
+    // Act
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    // Assert - ownerTypes differences should be ignored because it's dynamic in target
+    Assert.assertFalse(config.requiresApplyMappings());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testNestedAspectsOwnerTypesIgnored() {
+    // Arrange - Simulate the real scenario from the log where _aspects contains ownerTypes
+    Map<String, Object> currentMappings = createBasicMappings();
+    Map<String, Object> targetMappings = createBasicMappings();
+
+    // Current mapping: _aspects.businessAttributeRef.ownerTypes has properties but no dynamic=true
+    Map<String, Object> currentProperties =
+        (Map<String, Object>) currentMappings.get(PROPERTIES_KEY);
+    Map<String, Object> currentAspects = new HashMap<>();
+    currentAspects.put("type", "object");
+    Map<String, Object> currentAspectsProperties = new HashMap<>();
+
+    Map<String, Object> currentBusinessAttributeRef = new HashMap<>();
+    currentBusinessAttributeRef.put("type", "object");
+    Map<String, Object> currentBusinessAttributeRefProperties = new HashMap<>();
+
+    Map<String, Object> currentOwnerTypes = new HashMap<>();
+    currentOwnerTypes.put("type", "object");
+    // Note: NO dynamic=true in current mapping, but has properties
+    Map<String, Object> currentOwnerTypesProperties = new HashMap<>();
+    currentOwnerTypesProperties.put(
+        "urn:li:ownershipType:__system__none",
+        ImmutableMap.of(
+            "fields",
+            ImmutableMap.of("keyword", ImmutableMap.of("ignore_above", 256, "type", "keyword")),
+            "type",
+            "text"));
+    currentOwnerTypes.put("properties", currentOwnerTypesProperties);
+    currentBusinessAttributeRefProperties.put("ownerTypes", currentOwnerTypes);
+    currentBusinessAttributeRef.put("properties", currentBusinessAttributeRefProperties);
+    currentAspectsProperties.put("businessAttributeRef", currentBusinessAttributeRef);
+    currentAspects.put("properties", currentAspectsProperties);
+    currentProperties.put("_aspects", currentAspects);
+
+    // Target mapping: _aspects.businessAttributeRef.ownerTypes should be dynamic
+    Map<String, Object> targetProperties = (Map<String, Object>) targetMappings.get(PROPERTIES_KEY);
+    Map<String, Object> targetAspects = new HashMap<>();
+    targetAspects.put("type", "object");
+    Map<String, Object> targetAspectsProperties = new HashMap<>();
+
+    Map<String, Object> targetBusinessAttributeRef = new HashMap<>();
+    targetBusinessAttributeRef.put("type", "object");
+    Map<String, Object> targetBusinessAttributeRefProperties = new HashMap<>();
+
+    Map<String, Object> targetOwnerTypes = new HashMap<>();
+    targetOwnerTypes.put("type", "object");
+    targetOwnerTypes.put("dynamic", true); // This is what the configuration should generate
+    targetBusinessAttributeRefProperties.put("ownerTypes", targetOwnerTypes);
+    targetBusinessAttributeRef.put("properties", targetBusinessAttributeRefProperties);
+    targetAspectsProperties.put("businessAttributeRef", targetBusinessAttributeRef);
+    targetAspects.put("properties", targetAspectsProperties);
+    targetProperties.put("_aspects", targetAspects);
+
+    // Act
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    // Assert - _aspects.businessAttributeRef.ownerTypes differences should be ignored because it's
+    // dynamic in target
+    Assert.assertFalse(config.requiresApplyMappings());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testStructuredPropertiesIgnoredInMappingComparison() {
+    // Arrange - Create mappings with structured properties that differ
+    Map<String, Object> currentMappings = createBasicMappings();
+    Map<String, Object> targetMappings = createBasicMappings();
+
+    // Add structured properties to current mappings
+    Map<String, Object> currentProperties =
+        (Map<String, Object>) currentMappings.get(PROPERTIES_KEY);
+    Map<String, Object> currentStructuredProps = new HashMap<>();
+    currentStructuredProps.put("type", "object");
+    currentStructuredProps.put("dynamic", true);
+    currentStructuredProps.put("properties", new HashMap<>());
+    currentProperties.put(STRUCTURED_PROPERTY_MAPPING_FIELD, currentStructuredProps);
+
+    // Add structured properties to target mappings with different properties
+    Map<String, Object> targetProperties = (Map<String, Object>) targetMappings.get(PROPERTIES_KEY);
+    Map<String, Object> targetStructuredProps = new HashMap<>();
+    targetStructuredProps.put("type", "object");
+    targetStructuredProps.put("dynamic", true);
+    Map<String, Object> targetStructuredProperties = new HashMap<>();
+    targetStructuredProperties.put("newProp", ImmutableMap.of("type", "keyword"));
+    targetStructuredProps.put("properties", targetStructuredProperties);
+    targetProperties.put(STRUCTURED_PROPERTY_MAPPING_FIELD, targetStructuredProps);
+
+    // Act
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    // Assert - Structured properties differences should be ignored (since they're dynamic)
+    Assert.assertFalse(config.requiresApplyMappings());
+  }
 }

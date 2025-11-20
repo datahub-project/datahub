@@ -1,17 +1,18 @@
 import uuid
 from collections import namedtuple
+from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import patch
 
 import databricks
 import pytest
+import time_machine
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     GetMetastoreSummaryResponse,
     SchemaInfo,
 )
 from databricks.sdk.service.iam import ServicePrincipal
-from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
@@ -22,6 +23,123 @@ SERVICE_PRINCIPAL_ID_1 = str(uuid.uuid4())
 SERVICE_PRINCIPAL_ID_2 = str(uuid.uuid4())
 
 pytestmark = pytest.mark.integration_batch_1
+
+
+def register_mock_ml_model_data(workspace_client):
+    """Register mock data for ML models with run details and signatures."""
+    from io import BytesIO
+
+    from databricks.sdk.service.catalog import (
+        ModelVersionInfo,
+        RegisteredModelInfo,
+    )
+    from databricks.sdk.service.ml import (
+        Metric,
+        Param,
+        Run,
+        RunData,
+        RunInfo,
+        RunInfoStatus,
+        RunTag,
+    )
+
+    # Mock registered models
+    workspace_client.registered_models.list.return_value = [
+        RegisteredModelInfo.from_dict(
+            {
+                "name": "test_model",
+                "full_name": "quickstart_catalog.quickstart_schema.test_model",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "comment": "Test model with MLflow integration",
+                "created_at": 1666185700000,
+                "updated_at": 1666186000000,
+                "created_by": "abc@acryl.io",
+                "updated_by": "abc@acryl.io",
+            }
+        )
+    ]
+
+    # Mock model version with run_id
+    model_version = ModelVersionInfo.from_dict(
+        {
+            "name": "test_model",
+            "version": 1,
+            "catalog_name": "quickstart_catalog",
+            "schema_name": "quickstart_schema",
+            "model_name": "test_model",
+            "comment": "Version 1 with signature",
+            "created_at": 1666185800000,
+            "updated_at": 1666186000000,
+            "created_by": "abc@acryl.io",
+            "run_id": "test_run_abc123",
+            "aliases": [
+                {"alias_name": "prod"},
+                {"alias_name": "champion"},
+            ],
+        }
+    )
+
+    workspace_client.model_versions.list.return_value = [model_version]
+    workspace_client.model_versions.get.return_value = model_version
+
+    # Mock MLflow run details
+    mock_run_info = RunInfo(
+        run_id="test_run_abc123",
+        experiment_id="exp_456",
+        status=RunInfoStatus.FINISHED,
+        start_time=1666185800000,
+        end_time=1666186000000,
+        user_id="abc@acryl.io",
+    )
+
+    mock_run_data = RunData(
+        metrics=[
+            Metric(key="accuracy", value=0.95),
+            Metric(key="f1_score", value=0.93),
+            Metric(key="precision", value=0.94),
+        ],
+        params=[
+            Param(key="learning_rate", value="0.001"),
+            Param(key="batch_size", value="32"),
+            Param(key="epochs", value="100"),
+        ],
+        tags=[
+            RunTag(key="mlflow.user", value="abc@acryl.io"),
+            RunTag(key="mlflow.source.type", value="NOTEBOOK"),
+            RunTag(key="model_type", value="classifier"),
+        ],
+    )
+
+    mock_run = Run(info=mock_run_info, data=mock_run_data)
+    mock_response = mock.MagicMock()
+    mock_response.run = mock_run
+
+    # Mock MLmodel file content with signature
+    mlmodel_yaml = """
+artifact_path: model
+flavors:
+  python_function:
+    env: conda.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    python_version: 3.10.10
+  sklearn:
+    pickled_model: model.pkl
+    sklearn_version: 1.7.1
+    serialization_format: cloudpickle
+mlflow_version: 2.0.1
+model_uuid: abc123
+signature:
+  inputs: '[{"name": "feature1", "type": "double"}, {"name": "feature2", "type": "double"}, {"name": "feature3", "type": "long"}]'
+  outputs: '[{"name": "prediction", "type": "long"}]'
+  params: '[{"name": "temperature", "type": "float", "default": 0.7}]'
+"""
+
+    mock_download_response = mock.MagicMock()
+    mock_download_response.contents = BytesIO(mlmodel_yaml.encode("utf-8"))
+
+    return mock_response, mock_download_response
 
 
 def register_mock_api(request_mock):
@@ -427,7 +545,9 @@ def mock_hive_sql(query):
     return []
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
 def test_ingestion(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
 
@@ -491,3 +611,85 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
             output_path=f"/{tmp_path}/{output_file_name}",
             golden_path=f"{test_resources_dir}/{mce_golden_file}",
         )
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_ml_model_with_signature_and_run_details(pytestconfig, tmp_path, requests_mock):
+    """Test that ML model ingestion correctly captures signature and run details from MLflow."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+
+    register_mock_api(request_mock=requests_mock)
+
+    output_file_name = "unity_catalog_ml_model_mcps.json"
+
+    with (
+        patch("datahub.ingestion.source.unity.proxy.WorkspaceClient") as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+
+        # Register ML model mock data
+        mock_run_response, mock_download_response = register_mock_ml_model_data(
+            workspace_client
+        )
+
+        # Mock the MLflow APIs
+        with (
+            patch(
+                "datahub.ingestion.source.unity.proxy.ExperimentsAPI"
+            ) as mock_experiments_api,
+            patch("datahub.ingestion.source.unity.proxy.FilesAPI") as mock_files_api,
+        ):
+            # Setup ExperimentsAPI mock
+            experiments_instance = mock.MagicMock()
+            experiments_instance.get_run.return_value = mock_run_response
+            mock_experiments_api.return_value = experiments_instance
+
+            # Setup FilesAPI mock
+            files_instance = mock.MagicMock()
+            files_instance.download.return_value = mock_download_response
+            mock_files_api.return_value = files_instance
+
+            inspector = mock.MagicMock()
+            inspector.get_schema_names.return_value = ["bronze_kambi"]
+            get_inspector.return_value = inspector
+
+            execute_sql.side_effect = mock_hive_sql
+
+            config_dict: dict = {
+                "run_id": "unity-catalog-ml-model-test",
+                "pipeline_name": "unity-catalog-ml-model-test-pipeline",
+                "source": {
+                    "type": "unity-catalog",
+                    "config": {
+                        "workspace_url": "https://dummy.cloud.databricks.com",
+                        "token": "fake",
+                        "include_ownership": True,
+                        "include_hive_metastore": True,
+                        "warehouse_id": "test",
+                        "include_ml_model_aliases": True,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"/{tmp_path}/{output_file_name}",
+                    },
+                },
+            }
+            pipeline = Pipeline.create(config_dict)
+            pipeline.run()
+            pipeline.raise_from_status()
+
+            mce_golden_file: str = "unity_catalog_ml_model_mces_golden.json"
+
+            mce_helpers.check_golden_file(
+                pytestconfig,
+                output_path=f"/{tmp_path}/{output_file_name}",
+                golden_path=f"{test_resources_dir}/{mce_golden_file}",
+            )

@@ -25,7 +25,7 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_dataflow.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataflow_create.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -39,14 +39,14 @@ DataJob must be associated with a DataFlow. You can create a DataJob by providin
 <TabItem value="create-datajob" label="Create DataJob with a DataFlow Object" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_datajob.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/datajob_create_full.py show_path_as_comment }}
 ```
 
 </TabItem>
 <TabItem value="create-datajob-urn" label="Create DataJob with DataFlow URN">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_datajob_with_flow_urn.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/datajob_create_with_flow_urn.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -55,7 +55,7 @@ DataJob must be associated with a DataFlow. You can create a DataJob by providin
 ## Read DataFlow
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_dataflow.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataflow_read.py show_path_as_comment }}
 ```
 
 #### Example Output
@@ -69,7 +69,7 @@ DataJob must be associated with a DataFlow. You can create a DataJob by providin
 ## Read DataJob
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_datajob.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/datajob_read.py show_path_as_comment }}
 ```
 
 #### Example Output

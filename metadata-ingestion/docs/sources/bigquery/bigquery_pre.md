@@ -47,8 +47,19 @@ If you have multiple projects in your BigQuery setup, the role should be granted
 | `bigquery.jobs.listAll` | List all jobs (queries) submitted by any user. Needs for Lineage extraction. | Lineage Extraction/Usage Extraction | [roles/bigquery.resourceViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.resourceViewer) |
 | `logging.logEntries.list` | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled. | Lineage Extraction/Usage Extraction | [roles/logging.privateLogViewer](https://cloud.google.com/logging/docs/access-control#logging.privateLogViewer) |
 | `logging.privateLogEntries.list` | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled. | Lineage Extraction/Usage Extraction | [roles/logging.privateLogViewer](https://cloud.google.com/logging/docs/access-control#logging.privateLogViewer) |
-| `bigquery.tables.getData` | Access table data to extract storage size, last updated at, data profiles etc. | Profiling | |
+| `bigquery.tables.getData` | Access table data to extract storage size, last updated at, partition information, data profiles etc. **Required when profiling is enabled or when `use_tables_list_query_v2` is enabled.** This permission is needed to query BigQuery's `__TABLES__` pseudo-table. | Profiling/Enhanced Table Metadata | |
 | `datacatalog.policyTags.get` | _Optional_ Get policy tags for columns with associated policy tags. This permission is required only if `extract_policy_tags_from_catalog` is enabled. | Policy Tag Extraction | [roles/datacatalog.viewer](https://cloud.google.com/data-catalog/docs/access-control#permissions-and-roles) |
+
+:::warning Important: bigquery.tables.getData Permission
+
+The `bigquery.tables.getData` permission is **required** in the following scenarios:
+
+- When **profiling is enabled** (`profiling.enabled: true`)
+- When **`use_tables_list_query_v2` is enabled** (for enhanced table metadata extraction)
+
+Without this permission, you'll encounter errors when the connector tries to access BigQuery's `__TABLES__` pseudo-table for detailed table information including partition data, row counts, and storage metrics.
+
+:::
 
 #### Create a service account in the Extractor Project
 
@@ -175,6 +186,12 @@ source:
 - **Note**: The `bigquery_audit_metadata_datasets` parameter accepts datasets in `$PROJECT.$DATASET` format, allowing lineage computation from multiple projects.
 
 ### Profiling Details
+
+:::note Profiling Permission Requirement
+
+When profiling is enabled, the `bigquery.tables.getData` permission is **required**. This is needed to access detailed table metadata including partition information. See the permissions section above for details.
+
+:::
 
 For performance reasons, we only profile the latest partition for partitioned tables and the latest shard for sharded tables.
 You can set partition explicitly with `partition.partition_datetime` property if you want, though note that partition config will be applied to all partitioned tables.

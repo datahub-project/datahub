@@ -10,6 +10,7 @@ describe("domains", () => {
     cy.contains("Testing");
     cy.get('[data-node-key="Assets"]').click();
     cy.contains("Baz Dashboard");
-    cy.contains("1 - 1 of 1");
+    cy.contains("CypressTerm");
+    cy.contains("1 - 2 of 2");
   });
 });

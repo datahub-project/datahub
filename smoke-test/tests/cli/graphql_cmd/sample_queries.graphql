@@ -1,0 +1,39 @@
+# Sample GraphQL queries for smoke testing
+
+# Simple introspection query
+query IntrospectionQuery {
+  __schema {
+    queryType {
+      name
+    }
+  }
+}
+
+# Basic entity search
+query SearchEntities {
+  search(input: {
+    type: DATASET
+    query: "*"
+    start: 0
+    count: 5
+  }) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+        urn
+        type
+      }
+    }
+  }
+}
+
+# List available platforms
+query ListPlatforms {
+  listPlatforms {
+    name
+    displayName
+    type
+  }
+}

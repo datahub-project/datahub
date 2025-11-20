@@ -171,7 +171,7 @@ export default function DomainNode({
     return (
         <>
             <RowWrapper
-                data-testid="domain-list-item"
+                data-testid="domain-options-list"
                 $isSelected={isDomainNodeSelected && !isCollapsed}
                 isOpen={isOpen && !isClosing}
                 $variant={variant}
@@ -194,7 +194,7 @@ export default function DomainNode({
                         $isSelected={isDomainNodeSelected}
                         $addLeftPadding={!isCollapsed && !hasDomainChildren}
                     >
-                        <Text>
+                        <Text data-testid={`domain-option-${displayName}`}>
                             <Tooltip
                                 placement="right"
                                 title={isCollapsed && displayName}

@@ -9,7 +9,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1753274836521,
+                        "time": 1757897988497,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -32,15 +32,15 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.audit_log,PROD),user_id)"
                     ],
                     "transformOperation": "COPY: \"SESSIONS\".\"USER_ID\" AS \"USER_ID\"",
-                    "confidenceScore": 0.9,
+                    "confidenceScore": 0.2,
                     "query": "urn:li:query:3f2c70007dcf02cfbf95b647fa8aed2c46e638b17c371f214707e489438a2453"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836521,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988498,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -68,8 +68,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836522,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988499,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -103,8 +103,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836523,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988499,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -119,8 +119,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836523,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988499,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -151,8 +151,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836523,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988500,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -166,7 +166,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1753274836524,
+                        "time": 1757897988501,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -189,7 +189,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD),day)"
                     ],
                     "transformOperation": "SQL: TO_DATE(\"ORDERS\".\"ORDER_DATE\") AS \"DAY\"",
-                    "confidenceScore": 0.9,
+                    "confidenceScore": 0.2,
                     "query": "urn:li:query:43cb2badad2b8835f7486755f54c778d4d73d8caafe0a3ceed3babc8dad81f67"
                 },
                 {
@@ -202,15 +202,15 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD),total_amount)"
                     ],
                     "transformOperation": "SQL: SUM(\"ORDERS\".\"AMOUNT\") AS \"TOTAL_AMOUNT\"",
-                    "confidenceScore": 0.9,
+                    "confidenceScore": 0.2,
                     "query": "urn:li:query:43cb2badad2b8835f7486755f54c778d4d73d8caafe0a3ceed3babc8dad81f67"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836525,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988501,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -238,8 +238,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836526,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988502,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -276,8 +276,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836526,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988502,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -292,8 +292,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836526,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988503,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -324,8 +324,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836527,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988503,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -339,7 +339,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1753274836528,
+                        "time": 1757897988504,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -352,7 +352,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1753274836528,
+                        "time": 1757897988504,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -365,7 +365,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1753274836528,
+                        "time": 1757897988504,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -388,7 +388,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),user_id)"
                     ],
                     "transformOperation": "COPY: \"TEMP_ORDERS\".\"USER_ID\" AS \"USER_ID\"",
-                    "confidenceScore": 0.9,
+                    "confidenceScore": 0.2,
                     "query": "urn:li:query:1cfc42a2716bb27fa618416438130aedfaa59279874ae462e33124070d61433c"
                 },
                 {
@@ -401,7 +401,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),product_id)"
                     ],
                     "transformOperation": "COPY: \"TEMP_ORDERS\".\"PRODUCT_ID\" AS \"PRODUCT_ID\"",
-                    "confidenceScore": 0.9,
+                    "confidenceScore": 0.2,
                     "query": "urn:li:query:1cfc42a2716bb27fa618416438130aedfaa59279874ae462e33124070d61433c"
                 },
                 {
@@ -414,15 +414,15 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),order_date)"
                     ],
                     "transformOperation": "COPY: \"TEMP_ORDERS\".\"ORDER_DATE\" AS \"ORDER_DATE\"",
-                    "confidenceScore": 0.9,
+                    "confidenceScore": 0.2,
                     "query": "urn:li:query:1cfc42a2716bb27fa618416438130aedfaa59279874ae462e33124070d61433c"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836528,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988505,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -450,8 +450,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836529,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988506,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -476,8 +476,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836530,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988507,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -492,8 +492,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836530,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988507,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -524,8 +524,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836530,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988507,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -553,8 +553,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836531,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988508,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -594,8 +594,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836531,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988508,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -610,8 +610,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836532,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988509,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -642,8 +642,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836532,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988509,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -657,7 +657,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1753274836533,
+                        "time": 1757897988510,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -670,7 +670,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1753274836533,
+                        "time": 1757897988510,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -693,7 +693,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD),id)"
                     ],
                     "transformOperation": "COPY: \"U\".\"ID\" AS \"ID\"",
-                    "confidenceScore": 0.9,
+                    "confidenceScore": 0.2,
                     "query": "urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2"
                 },
                 {
@@ -706,7 +706,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD),name)"
                     ],
                     "transformOperation": "COPY: \"U\".\"NAME\" AS \"NAME\"",
-                    "confidenceScore": 0.9,
+                    "confidenceScore": 0.2,
                     "query": "urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2"
                 },
                 {
@@ -719,15 +719,15 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD),order_count)"
                     ],
                     "transformOperation": "SQL: COUNT(\"O\".\"ID\") AS \"ORDER_COUNT\"",
-                    "confidenceScore": 0.9,
+                    "confidenceScore": 0.2,
                     "query": "urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836533,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988510,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -755,8 +755,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836534,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988512,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -799,8 +799,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836535,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988512,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -815,8 +815,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836535,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988512,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -847,8 +847,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836535,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988513,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -862,7 +862,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1753274836536,
+                        "time": 1757897988514,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -875,7 +875,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1753274836536,
+                        "time": 1757897988514,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -890,8 +890,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836536,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988514,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -919,8 +919,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836537,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988514,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -945,8 +945,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836537,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988515,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -961,8 +961,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836537,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988515,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -993,8 +993,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836538,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988516,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1043,26 +1043,18 @@
             "fieldCounts": [
                 {
                     "fieldPath": "id",
-                    "count": 3
+                    "count": 2
                 },
                 {
                     "fieldPath": "name",
-                    "count": 3
-                },
-                {
-                    "fieldPath": "email",
-                    "count": 1
-                },
-                {
-                    "fieldPath": "last_login",
-                    "count": 1
+                    "count": 2
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836538,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988516,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1110,8 +1102,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836539,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988517,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1174,8 +1166,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836540,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988518,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1220,8 +1212,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836541,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988519,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1256,8 +1248,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836541,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988519,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1268,7 +1260,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1753274836542,
+            "timestampMillis": 1757897988520,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1283,8 +1275,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836542,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988520,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1295,7 +1287,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1753274836542,
+            "timestampMillis": 1757897988520,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1310,8 +1302,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836542,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988521,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1322,7 +1314,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1753274836543,
+            "timestampMillis": 1757897988521,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1337,8 +1329,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836543,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988521,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1349,7 +1341,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1753274836544,
+            "timestampMillis": 1757897988522,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1364,8 +1356,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836544,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988522,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1376,7 +1368,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1753274836544,
+            "timestampMillis": 1757897988522,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1391,8 +1383,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836544,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988522,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1403,7 +1395,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1753274836545,
+            "timestampMillis": 1757897988523,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1418,8 +1410,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836545,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988523,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1447,8 +1439,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836546,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988524,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1462,25 +1454,13 @@
             "subjects": [
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD),email)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD),id)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD),last_login)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD),name)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836546,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988524,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1495,8 +1475,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836547,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988524,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1527,8 +1507,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836548,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988525,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1556,8 +1536,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836548,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988525,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1582,8 +1562,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836549,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988526,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1598,8 +1578,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836549,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988526,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1630,8 +1610,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836550,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988526,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1659,8 +1639,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836550,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988527,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1679,8 +1659,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836550,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988527,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1695,8 +1675,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836551,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988528,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1727,8 +1707,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1753274836551,
-        "runId": "sql-queries-2025_07_23-14_47_16-ggeajh",
+        "lastObserved": 1757897988528,
+        "runId": "sql-queries-2025_09_14-20_59_48-c5znw7",
         "lastRunId": "no-run-id-provided"
     }
 }

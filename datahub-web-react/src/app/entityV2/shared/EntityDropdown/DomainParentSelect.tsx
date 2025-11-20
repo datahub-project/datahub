@@ -97,6 +97,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
                     autoCompleteResultsLoading,
                     entityRegistry,
                 )}
+                data-testid="parent-domain-select"
             />
             <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                 <DomainNavigator

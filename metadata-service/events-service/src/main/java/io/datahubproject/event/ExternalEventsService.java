@@ -9,9 +9,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.naming.TimeLimitExceededException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
@@ -83,11 +85,15 @@ public class ExternalEventsService {
 
     String finalTopic = remapExternalTopicName(topic);
 
-    KafkaConsumer<String, GenericRecord> consumer = consumerPool.borrowConsumer();
     List<GenericRecord> messages = new ArrayList<>();
     long startTime = System.currentTimeMillis();
     long timeout =
         (pollTimeoutSeconds != null ? pollTimeoutSeconds : defaultPollTimeoutSeconds) * 1000L;
+    KafkaConsumer<String, GenericRecord> consumer =
+        consumerPool.borrowConsumer(timeout, TimeUnit.MILLISECONDS);
+    if (consumer == null) {
+      throw new TimeLimitExceededException("Too many simultaneous requests, retry again later.");
+    }
 
     try {
       List<TopicPartition> partitions =
@@ -108,7 +114,12 @@ public class ExternalEventsService {
       int finalLimit = limit != null ? limit : defaultLimit;
 
       while (fetchedRecords < finalLimit) {
-        ConsumerRecords<String, GenericRecord> records = consumer.poll(Duration.ofMillis(1000));
+        long timeRemaining = timeout - (System.currentTimeMillis() - startTime);
+        if (timeRemaining <= 0L) {
+          break;
+        }
+        ConsumerRecords<String, GenericRecord> records =
+            consumer.poll(Duration.ofMillis(Math.min(1000, timeRemaining)));
         for (ConsumerRecord<String, GenericRecord> record : records) {
           messages.add(record.value());
           latestOffsets.put(
@@ -117,9 +128,6 @@ public class ExternalEventsService {
           if (fetchedRecords >= finalLimit) {
             break;
           }
-        }
-        if (System.currentTimeMillis() - startTime > timeout) {
-          break;
         }
       }
 

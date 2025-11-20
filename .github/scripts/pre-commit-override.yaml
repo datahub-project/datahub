@@ -3,13 +3,13 @@ repos:
     hooks:
       - id: smoke-test-cypress-lint-fix
         name: smoke-test cypress Lint Fix
-        entry: ./gradlew :smoke-test:cypressLintFix
+        entry: ./gradlew :smoke-test:cypressLintFix -x generateGitPropertiesGlobal
         language: system
         files: ^smoke-test/tests/cypress/.*\.tsx$
         pass_filenames: false
       - id: update-lineage-file
         name: update-lineage-file
-        entry: ./gradlew :metadata-ingestion:lineageGen
+        entry: ./gradlew :metadata-ingestion:lineageGen -x generateGitPropertiesGlobal
         language: system
         files: ^(metadata-ingestion-modules/.*|metadata-models/.*)$
         pass_filenames: false

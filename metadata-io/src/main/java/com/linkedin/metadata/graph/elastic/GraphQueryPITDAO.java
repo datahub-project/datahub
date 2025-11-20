@@ -19,6 +19,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +40,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
   @Getter private final SearchClientShim<?> client;
 
+  final ExecutorService pitExecutor;
+
   public GraphQueryPITDAO(
       SearchClientShim<?> client,
       GraphServiceConfiguration graphServiceConfig,
@@ -43,6 +49,46 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       MetricUtils metricUtils) {
     super(graphServiceConfig, config, metricUtils);
     this.client = client;
+
+    // Create dedicated thread pool for PIT operations
+    int maxThreads = config.getSearch().getGraph().getMaxThreads();
+    this.pitExecutor =
+        new ThreadPoolExecutor(
+            maxThreads, // core pool size
+            maxThreads, // maximum pool size
+            60L,
+            TimeUnit.SECONDS, // keep alive time
+            new LinkedBlockingQueue<>(maxThreads), // bounded queue for backpressure
+            r -> {
+              Thread t = new Thread(r, "pit-worker-" + System.currentTimeMillis());
+              t.setDaemon(true);
+              return t;
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy() // backpressure: caller runs when queue full
+            );
+
+    log.info("Initialized PIT thread pool with {} threads and bounded queue", maxThreads);
+  }
+
+  /** Shutdown the PIT executor service gracefully. */
+  public void shutdown() {
+    if (pitExecutor != null && !pitExecutor.isShutdown()) {
+      log.info("Shutting down PIT thread pool");
+      pitExecutor.shutdown();
+      try {
+        if (!pitExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
+          log.warn("PIT thread pool did not terminate gracefully, forcing shutdown");
+          pitExecutor.shutdownNow();
+          if (!pitExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+            log.error("PIT thread pool did not terminate after forced shutdown");
+          }
+        }
+      } catch (InterruptedException e) {
+        log.warn("Interrupted while waiting for PIT thread pool shutdown", e);
+        pitExecutor.shutdownNow();
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   /**
@@ -51,6 +97,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
    * Elasticsearch.
    *
    * @param maxRelations The remaining capacity for relationships (decremented from original limit)
+   * @param allowPartialResults If true, return partial results on timeout or maxRelations instead
+   *     of throwing
    */
   @Override
   protected List<LineageRelationship> searchWithSlices(
@@ -66,13 +114,15 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       int defaultPageSize,
       int slices,
       long remainingTime,
-      Set<Urn> entityUrns) {
+      Set<Urn> entityUrns,
+      boolean allowPartialResults) {
 
     // Create slice-based search requests
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
 
     for (int sliceId = 0; sliceId < slices; sliceId++) {
       final int currentSliceId = sliceId;
+
       CompletableFuture<List<LineageRelationship>> sliceFuture =
           CompletableFuture.supplyAsync(
               () -> {
@@ -90,19 +140,23 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                     currentSliceId,
                     slices,
                     remainingTime,
-                    entityUrns);
-              });
+                    entityUrns,
+                    allowPartialResults);
+              },
+              pitExecutor); // Use dedicated thread pool with CallerRunsPolicy for backpressure
       sliceFutures.add(sliceFuture);
     }
 
     // Reuse the common slice coordination logic
-    return processSliceFutures(sliceFutures, remainingTime);
+    return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
   }
 
   /**
    * Search a single slice of the data using PIT and search_after for pagination.
    *
    * @param maxRelations The remaining capacity for relationships (decremented from original limit)
+   * @param allowPartialResults If true, return partial results on timeout or maxRelations instead
+   *     of throwing
    */
   private List<LineageRelationship> searchSingleSliceWithPit(
       @Nonnull OperationContext opContext,
@@ -118,7 +172,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       int sliceId,
       int totalSlices,
       long remainingTime,
-      Set<Urn> entityUrns) {
+      Set<Urn> entityUrns,
+      boolean allowPartialResults) {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     String pitId = null;
@@ -134,7 +189,14 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
               client,
               opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
 
-      while (sliceRelationships.size() < maxRelations) {
+      // If maxRelations is -1 or 0, treat as unlimited (only bound by time)
+      while (maxRelations <= 0 || sliceRelationships.size() < maxRelations) {
+        // Check for thread interruption (from future.cancel(true))
+        if (Thread.currentThread().isInterrupted()) {
+          log.warn("Slice {} was interrupted, cleaning up PIT and stopping", sliceId);
+          throw new RuntimeException("Slice " + sliceId + " was interrupted");
+        }
+
         // Check timeout before processing
         if (remainingTime <= 0) {
           log.warn("Slice {} timed out, stopping PIT search", sliceId);
@@ -198,13 +260,23 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
         sliceRelationships.addAll(pageRelationships);
 
-        // Safety check to prevent exceeding the limit
-        if (sliceRelationships.size() >= maxRelations) {
-          log.error("Slice {} reached maxRelations limit, stopping PIT search", sliceId);
-          throw new IllegalStateException(
-              String.format(
-                  "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit.",
-                  sliceId, maxRelations));
+        // Safety check to prevent exceeding the limit (skip if unlimited, i.e., -1 or 0)
+        if (maxRelations > 0 && sliceRelationships.size() >= maxRelations) {
+          if (allowPartialResults) {
+            log.warn(
+                "Slice {} reached maxRelations limit, stopping PIT search. Results will be marked as partial.",
+                sliceId);
+            break;
+          } else {
+            log.error(
+                "Slice {} exceeded maxRelations limit of {}. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+                sliceId,
+                maxRelations);
+            throw new IllegalStateException(
+                String.format(
+                    "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+                    sliceId, maxRelations));
+          }
         }
 
         // Get search_after for next page

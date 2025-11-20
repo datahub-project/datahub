@@ -105,8 +105,10 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             .catch((e) => {
                 message.destroy();
                 message.error({ content: `Failed to create Domain!: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                onClose();
             });
-        onClose();
     };
 
     // Handle the Enter press

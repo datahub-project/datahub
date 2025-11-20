@@ -47,7 +47,7 @@ export const EditorTheme: RemirrorThemeType = {
     },
 };
 
-export const EditorContainer = styled.div`
+export const EditorContainer = styled.div<{ $readOnly?: boolean; $hideBorder?: boolean }>`
     ${extensionBlockquoteStyledCss}
     ${extensionCalloutStyledCss}
     ${extensionCodeBlockStyledCss}
@@ -63,7 +63,7 @@ export const EditorContainer = styled.div`
     font-weight: 400;
     display: flex;
     flex: 1 1 auto;
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: ${(props) => (props.$readOnly || props.$hideBorder ? `none` : `1px solid ${ANTD_GRAY[4.5]}`)};
     border-radius: 12px;
 
     .remirror-theme,
@@ -71,6 +71,7 @@ export const EditorContainer = styled.div`
         flex: 1 1 100%;
         display: flex;
         flex-direction: column;
+        max-width: 100%;
     }
 
     .remirror-editor.ProseMirror {

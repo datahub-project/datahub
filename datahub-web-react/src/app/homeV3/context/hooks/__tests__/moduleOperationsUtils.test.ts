@@ -19,13 +19,18 @@ import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.gene
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
 
 // Mock data helpers
-const createMockModule = (name: string, urn: string, exists = true): PageModuleFragment => ({
+const createMockModule = (
+    name: string,
+    urn: string,
+    exists = true,
+    type: DataHubPageModuleType = DataHubPageModuleType.OwnedAssets,
+): PageModuleFragment => ({
     urn,
     type: EntityType.DatahubPageModule,
     exists,
     properties: {
         name,
-        type: DataHubPageModuleType.OwnedAssets,
+        type,
         visibility: { scope: PageModuleScope.Personal },
         params: {},
     },
@@ -640,6 +645,24 @@ describe('Module Operations Utility Functions', () => {
             const notExistingModule = createMockModule('existing', 'urn:li:module:existing', false);
 
             const template = createMockTemplate([{ modules: [existingModule, notExistingModule] }]);
+
+            const result = filterOutNonExistentModulesFromTemplate(template);
+
+            expect(result?.properties.rows).toHaveLength(1);
+            expect(result?.properties?.rows?.[0]?.modules).toHaveLength(1);
+            expect(result?.properties?.rows?.[0]?.modules?.[0]).toBe(existingModule);
+        });
+
+        it('should remove Unknown modules', () => {
+            const existingModule = createMockModule('existing', 'urn:li:module:existing');
+            const unknownModule = createMockModule(
+                'existing',
+                'urn:li:module:existing',
+                true,
+                DataHubPageModuleType.Unknown,
+            );
+
+            const template = createMockTemplate([{ modules: [existingModule, unknownModule] }]);
 
             const result = filterOutNonExistentModulesFromTemplate(template);
 

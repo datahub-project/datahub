@@ -18,6 +18,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
@@ -32,7 +33,6 @@ import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -120,7 +120,7 @@ public class TrackingService {
   private final ObjectMapper _objectMapper = new ObjectMapper();
   private final ObjectWriter _objectWriter = _objectMapper.writerWithDefaultPrettyPrinter();
   private String _clientId;
-  private final Producer<String, String> dataHubUsageProducer;
+  private final GenericProducer<String> dataHubUsageProducer;
 
   public TrackingService(
       final TopicsConfiguration topicsConfiguration,
@@ -129,7 +129,7 @@ public class TrackingService {
       final MixpanelAPI mixpanelAPI,
       @Nonnull EntityService<?> entityService,
       @Nonnull GitVersion gitVersion,
-      @Nullable Producer<String, String> dataHubUsageProducer) {
+      @Nullable GenericProducer<String> dataHubUsageProducer) {
     this.topicsConfiguration = topicsConfiguration;
     this.secretService = secretService;
     this.messageBuilder = messageBuilder;

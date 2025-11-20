@@ -113,7 +113,7 @@ class TestPowerBiConfig:
             expected_config_or_exception, Exception
         ):
             with pytest.raises(expected_config_or_exception):
-                PowerBiDashboardSourceConfig.parse_obj(config_dict)
+                PowerBiDashboardSourceConfig.model_validate(config_dict)
         else:
-            config = PowerBiDashboardSourceConfig.parse_obj(config_dict)
+            config = PowerBiDashboardSourceConfig.model_validate(config_dict)
             assert config == expected_config_or_exception

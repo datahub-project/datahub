@@ -85,6 +85,7 @@ describe("ingestion sources", () => {
 
     createIngestionSource(sourceName1);
     createIngestionSource(sourceName2);
+    cy.get('[data-testid="ingestion-sources-search"]').should("be.visible");
     cy.get('[data-testid="ingestion-sources-search"]').type(sourceName1);
     cy.wait(3000);
     cy.waitTextVisible(sourceName1);

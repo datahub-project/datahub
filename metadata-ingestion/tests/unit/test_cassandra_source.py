@@ -99,7 +99,7 @@ def _get_base_config_dict() -> dict:
 
 def test_authenticate_no_ssl():
     config_dict = _get_base_config_dict()
-    config = CassandraSourceConfig.parse_obj(config_dict)
+    config = CassandraSourceConfig.model_validate(config_dict)
     report = MagicMock(spec=SourceReport)
     api = CassandraAPI(config, report)
 
@@ -116,7 +116,7 @@ def test_authenticate_no_ssl():
 def test_authenticate_ssl_ca_certs():
     config_dict = _get_base_config_dict()
     config_dict["ssl_ca_certs"] = "ca.pem"
-    config = CassandraSourceConfig.parse_obj(config_dict)
+    config = CassandraSourceConfig.model_validate(config_dict)
     report = MagicMock(spec=SourceReport)
     api = CassandraAPI(config, report)
 
@@ -148,7 +148,7 @@ def test_authenticate_ssl_all_certs():
     config_dict["ssl_ca_certs"] = "ca.pem"
     config_dict["ssl_certfile"] = "client.crt"
     config_dict["ssl_keyfile"] = "client.key"
-    config = CassandraSourceConfig.parse_obj(config_dict)
+    config = CassandraSourceConfig.model_validate(config_dict)
     report = MagicMock(spec=SourceReport)
     api = CassandraAPI(config, report)
 

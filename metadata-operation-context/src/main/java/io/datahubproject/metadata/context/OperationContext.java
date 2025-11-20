@@ -17,7 +17,6 @@ import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.exception.ActorAccessException;
@@ -163,17 +162,18 @@ public class OperationContext implements AuthorizationSession {
       @Nonnull Authentication systemAuthentication,
       @Nonnull EntityRegistry entityRegistry,
       @Nullable ServicesRegistryContext servicesRegistryContext,
-      @Nullable IndexConvention indexConvention,
+      @Nullable SearchContext searchContext,
       @Nullable RetrieverContext retrieverContext,
       @Nonnull ValidationContext validationContext,
       @Nullable SystemTelemetryContext systemTelemetryContext,
       boolean enforceExistenceEnabled) {
-    return asSystem(
+
+    return OperationContext.asSystem(
         config,
         systemAuthentication,
         entityRegistry,
         servicesRegistryContext,
-        indexConvention,
+        searchContext,
         retrieverContext,
         validationContext,
         ObjectMapperContext.DEFAULT,
@@ -184,15 +184,14 @@ public class OperationContext implements AuthorizationSession {
   public static OperationContext asSystem(
       @Nonnull OperationContextConfig config,
       @Nonnull Authentication systemAuthentication,
-      @Nullable EntityRegistry entityRegistry,
+      @Nonnull EntityRegistry entityRegistry,
       @Nullable ServicesRegistryContext servicesRegistryContext,
-      @Nullable IndexConvention indexConvention,
+      @Nullable SearchContext searchContext,
       @Nullable RetrieverContext retrieverContext,
       @Nonnull ValidationContext validationContext,
       @Nonnull ObjectMapperContext objectMapperContext,
       @Nullable SystemTelemetryContext systemTelemetryContext,
       boolean enforceExistenceEnabled) {
-
     ActorContext systemActorContext =
         ActorContext.builder()
             .systemAuth(true)
@@ -201,28 +200,24 @@ public class OperationContext implements AuthorizationSession {
             .build();
     OperationContextConfig systemConfig =
         config.toBuilder().allowSystemAuthentication(true).build();
-    SearchContext systemSearchContext =
-        indexConvention == null
-            ? SearchContext.EMPTY
-            : SearchContext.builder().indexConvention(indexConvention).build();
 
     try {
       return OperationContext.builder()
           .operationContextConfig(systemConfig)
           .systemActorContext(systemActorContext)
-          .searchContext(systemSearchContext)
+          .searchContext(searchContext != null ? searchContext : SearchContext.EMPTY)
           .entityRegistryContext(EntityRegistryContext.builder().build(entityRegistry))
           .servicesRegistryContext(servicesRegistryContext)
           // Authorizer.EMPTY doesn't actually apply to system auth
           .authorizationContext(
               AuthorizationContext.builder().authorizer(Authorizer.SYSTEM).build())
           .retrieverContext(retrieverContext)
-          .objectMapperContext(objectMapperContext)
           .validationContext(validationContext)
+          .objectMapperContext(objectMapperContext)
           .systemTelemetryContext(systemTelemetryContext)
-          .build(systemAuthentication, false);
-    } catch (OperationContextException e) {
-      throw new RuntimeException(e);
+          .build(systemAuthentication, enforceExistenceEnabled);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to build OperationContext", e);
     }
   }
 

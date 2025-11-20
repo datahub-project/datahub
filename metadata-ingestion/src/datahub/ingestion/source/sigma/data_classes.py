@@ -2,7 +2,7 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 
@@ -22,7 +22,8 @@ class Workspace(BaseModel):
     createdAt: datetime
     updatedAt: datetime
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)

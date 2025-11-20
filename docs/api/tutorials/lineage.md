@@ -35,7 +35,7 @@ You can create lineage between two datasets, data jobs, dashboards, or charts. T
 #### Add Entity Lineage Between Datasets
 
 ```python
-{{ inline /metadata-ingestion/examples/library/add_lineage_dataset_to_dataset.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/lineage_dataset_add.py show_path_as_comment }}
 ```
 
 #### Add Entity Lineage Between Datajobs
@@ -98,7 +98,7 @@ Check out more information on how we handle SQL parsing below.
 If you provide a `transformation_text` to `add_lineage`, DataHub will create a query node that represents the transformation logic. This is useful for tracking how data is transformed between datasets.
 
 ```python
-{{ inline /metadata-ingestion/examples/library/add_lineage_dataset_to_dataset_with_query_node.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/lineage_dataset_add_with_query_node.py show_path_as_comment }}
 ```
 
 Transformation text can be any transformation logic, Python scripts, Airflow DAG code, or any other code that describes how the upstream dataset is transformed into the downstream dataset.
@@ -124,7 +124,7 @@ The `get_lineage()` method allows you to retrieve lineage for a given entity.
 This will return the direct upstream entity that the dataset depends on. By default, it retrieves only the immediate upstream entities (1 hop).
 
 ```python
-{{ inline /metadata-ingestion/examples/library/get_lineage_basic.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/lineage_get_basic.py show_path_as_comment }}
 ```
 
 #### Get Downstream Lineage for a Dataset Across Multiple Hops
@@ -132,7 +132,7 @@ This will return the direct upstream entity that the dataset depends on. By defa
 To get upstream/downstream entities that are more than one hop away, you can use the `max_hops` parameter. This allows you to traverse the lineage graph up to a specified number of hops.
 
 ```python
-{{ inline /metadata-ingestion/examples/library/get_lineage_with_hops.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/lineage_get_with_hops.py show_path_as_comment }}
 
 ```
 
@@ -165,13 +165,13 @@ results = [
 You can retrieve column-level lineage by specifying the `source_column` parameter. This will return lineage paths that include the specified column.
 
 ```python
-{{ inline /metadata-ingestion/examples/library/get_column_lineage.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/lineage_column_get.py show_path_as_comment }}
 ```
 
 You can also pass `SchemaFieldUrn` as the `source_urn` to get column-level lineage.
 
 ```python
-{{ inline /metadata-ingestion/examples/library/get_column_lineage_from_schemafield.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/lineage_column_get_from_schemafield.py show_path_as_comment }}
 
 ```
 
@@ -211,7 +211,7 @@ For more details on how to interpret the results, see [Interpreting Lineage Resu
 You can filter by platform, type, domain, environment, and more.
 
 ```python
-{{ inline /metadata-ingestion/examples/library/get_lineage_with_filter.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/lineage_get_with_filter.py show_path_as_comment }}
 ```
 
 You can check more details about the available filters in the [Search SDK documentation](./sdk/search_client.md#filter-based-search).

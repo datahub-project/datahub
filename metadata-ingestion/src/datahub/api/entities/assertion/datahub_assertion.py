@@ -1,35 +1,31 @@
-from typing import Optional, Union
+from typing import Union
 
-from datahub.api.entities.assertion.assertion import BaseAssertionProtocol
-from datahub.api.entities.assertion.assertion_trigger import AssertionTrigger
-from datahub.api.entities.assertion.field_assertion import FieldAssertion
-from datahub.api.entities.assertion.freshness_assertion import FreshnessAssertion
-from datahub.api.entities.assertion.sql_assertion import SQLAssertion
-from datahub.api.entities.assertion.volume_assertion import VolumeAssertion
-from datahub.configuration.pydantic_migration_helpers import v1_Field
-from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionInfo
+from datahub.api.entities.assertion.field_assertion import (
+    FieldMetricAssertion,
+    FieldValuesAssertion,
+)
+from datahub.api.entities.assertion.freshness_assertion import (
+    CronFreshnessAssertion,
+    FixedIntervalFreshnessAssertion,
+)
+from datahub.api.entities.assertion.sql_assertion import (
+    SqlMetricAssertion,
+    SqlMetricChangeAssertion,
+)
+from datahub.api.entities.assertion.volume_assertion import (
+    RowCountChangeVolumeAssertion,
+    RowCountTotalVolumeAssertion,
+)
 
-
-class DataHubAssertion(BaseAssertionProtocol):
-    __root__: Union[
-        FreshnessAssertion,
-        VolumeAssertion,
-        SQLAssertion,
-        FieldAssertion,
-        # TODO: Add SchemaAssertion
-    ] = v1_Field(discriminator="type")
-
-    @property
-    def assertion(self):
-        return self.__root__.assertion
-
-    def get_assertion_info_aspect(
-        self,
-    ) -> AssertionInfo:
-        return self.__root__.get_assertion_info_aspect()
-
-    def get_id(self) -> str:
-        return self.__root__.get_id()
-
-    def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
-        return self.__root__.get_assertion_trigger()
+# Pydantic v2 smart union: automatically discriminates based on the 'type' field
+# (eg freshness/volume/sql/field) and unique fields within each type
+DataHubAssertion = Union[
+    FixedIntervalFreshnessAssertion,
+    CronFreshnessAssertion,
+    RowCountTotalVolumeAssertion,
+    RowCountChangeVolumeAssertion,
+    SqlMetricAssertion,
+    SqlMetricChangeAssertion,
+    FieldMetricAssertion,
+    FieldValuesAssertion,
+]

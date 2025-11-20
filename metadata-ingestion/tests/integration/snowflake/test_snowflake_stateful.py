@@ -33,7 +33,7 @@ def stateful_pipeline_config(include_tables: bool) -> PipelineConfig:
                 include_tables=include_tables,
                 incremental_lineage=False,
                 use_queries_v2=False,
-                stateful_ingestion=StatefulStaleMetadataRemovalConfig.parse_obj(
+                stateful_ingestion=StatefulStaleMetadataRemovalConfig.model_validate(
                     {
                         "enabled": True,
                         "remove_stale_metadata": True,

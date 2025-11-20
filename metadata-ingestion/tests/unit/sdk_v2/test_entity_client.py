@@ -44,7 +44,7 @@ def assert_client_golden(client: DataHubClient, golden_path: pathlib.Path) -> No
 def test_container_creation_flow(client: DataHubClient, mock_graph: Mock) -> None:
     # Create database and schema containers
     db = DatabaseKey(platform="snowflake", database="test_db")
-    schema = SchemaKey(**db.dict(), schema="test_schema")
+    schema = SchemaKey(**db.model_dump(), schema="test_schema")
 
     db_container = Container(db, display_name="test_db", subtype="Database")
     schema_container = Container(schema, display_name="test_schema", subtype="Schema")

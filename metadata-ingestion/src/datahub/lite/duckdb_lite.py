@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
     @classmethod
     def create(cls, config_dict: dict) -> "DuckDBLite":
-        config: DuckDBLiteConfig = DuckDBLiteConfig.parse_obj(config_dict)
+        config: DuckDBLiteConfig = DuckDBLiteConfig.model_validate(config_dict)
         return DuckDBLite(config)
 
     def __init__(self, config: DuckDBLiteConfig) -> None:

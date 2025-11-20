@@ -45,5 +45,5 @@ class FileSecretStore(SecretStore):
 
     @classmethod
     def create(cls, config: Any) -> "FileSecretStore":
-        config = FileSecretStoreConfig.parse_obj(config)
+        config = FileSecretStoreConfig.model_validate(config)
         return cls(config)

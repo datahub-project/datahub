@@ -29,6 +29,7 @@ export class SearchBarV2FiltersHelper {
   selectOption(filterName, text) {
     this.getDropdown(filterName).within(() => {
       cy.contains(text).click();
+      cy.get("input[type='checkbox']").should("be.checked");
     });
   }
 

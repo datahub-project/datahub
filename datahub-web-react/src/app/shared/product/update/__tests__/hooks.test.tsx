@@ -4,12 +4,7 @@ import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import * as useUserContextModule from '@app/context/useUserContext';
-import {
-    useGetLatestProductAnnouncementData,
-    useIsProductAnnouncementEnabled,
-    useIsProductAnnouncementVisible,
-} from '@app/shared/product/update/hooks';
-import { latestUpdate } from '@app/shared/product/update/latestUpdate';
+import { useIsProductAnnouncementEnabled, useIsProductAnnouncementVisible } from '@app/shared/product/update/hooks';
 import * as useAppConfigModule from '@app/useAppConfig';
 
 import { BatchGetStepStatesDocument } from '@graphql/step.generated';
@@ -109,13 +104,6 @@ describe('product update hooks', () => {
         });
     });
 
-    describe('useGetLatestProductAnnouncementData', () => {
-        it('returns latest update object', () => {
-            const { result } = renderHook(() => useGetLatestProductAnnouncementData());
-            expect(result.current).toBe(latestUpdate);
-        });
-    });
-
     describe('useIsProductAnnouncementVisible', () => {
         beforeEach(() => {
             vi.spyOn(useUserContextModule, 'useUserContext').mockReturnValue({
@@ -124,7 +112,7 @@ describe('product update hooks', () => {
         });
 
         it('returns visible=false when step state exists', async () => {
-            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE), {
+            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE.id), {
                 wrapper: ({ children }) => (
                     <MockedProvider mocks={[BATCH_GET_STEP_STATES_MOCK_PRESENT]} addTypename={false}>
                         {children}
@@ -138,7 +126,7 @@ describe('product update hooks', () => {
         });
 
         it('returns visible=true when step state does not exist', async () => {
-            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE), {
+            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE.id), {
                 wrapper: ({ children }) => (
                     <MockedProvider mocks={[BATCH_GET_STEP_STATES_MOCK_NOT_PRESENT]} addTypename={false}>
                         {children}
@@ -152,7 +140,7 @@ describe('product update hooks', () => {
         });
 
         it('returns visible=false when query is loading', () => {
-            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE), {
+            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE.id), {
                 wrapper: ({ children }) => (
                     <MockedProvider mocks={[BATCH_GET_STEP_STATES_MOCK_LOADING]} addTypename={false}>
                         {children}

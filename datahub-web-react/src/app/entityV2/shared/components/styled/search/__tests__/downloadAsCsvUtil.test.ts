@@ -10,7 +10,7 @@ import { EntityType } from '@types';
 
 // Mock external dependencies
 vi.mock('@app/shared/textUtil', () => ({
-    capitalizeFirstLetterOnly: vi.fn((str: string) => str?.charAt(0).toUpperCase() + str?.slice(1).toLowerCase()),
+    capitalizeFirstLetterOnly: vi.fn((str: string) => str?.charAt(0)?.toUpperCase() + str?.slice(1).toLowerCase()),
 }));
 
 vi.mock('@utils/runtimeBasePath', () => ({

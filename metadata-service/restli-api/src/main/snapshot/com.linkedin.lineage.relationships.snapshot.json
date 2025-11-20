@@ -103,6 +103,11 @@
       "default" : 0,
       "optional" : true
     }, {
+      "name" : "partial",
+      "type" : "boolean",
+      "doc" : "Indicates whether the results are partial due to reaching the maxRelations limit",
+      "optional" : true
+    }, {
       "name" : "relationships",
       "type" : {
         "type" : "array",

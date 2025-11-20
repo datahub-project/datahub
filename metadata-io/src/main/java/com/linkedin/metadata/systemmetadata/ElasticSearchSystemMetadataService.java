@@ -252,10 +252,12 @@ public class ElasticSearchSystemMetadataService
   }
 
   @Override
-  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+  public void reindexAll(
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     log.info("Setting up system metadata index");
     try {
-      for (ReindexConfig config : buildReindexConfigs(properties)) {
+      for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
         _indexBuilder.buildIndex(config);
       }
     } catch (IOException ie) {
@@ -265,7 +267,9 @@ public class ElasticSearchSystemMetadataService
 
   @Override
   public List<ReindexConfig> buildReindexConfigs(
-      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties)
+      throws IOException {
     return List.of(
         _indexBuilder.buildReindexState(
             _indexConvention.getIndexName(INDEX_NAME),

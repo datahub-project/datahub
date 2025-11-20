@@ -194,6 +194,18 @@ To resume the assertion, simply click **Start**.
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
+## Anomaly Detection with Smart Assertions ⚡
+
+As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides [Smart Assertions](./smart-assertions.md) out of the box. These are
+dynamic, AI-powered Custom SQL Assertions that you can use to monitor a metric computed by your SQL query, without
+requiring any manual setup.
+
+You can create smart assertions by simply selecting the `Detect with AI` option in the UI:
+
+<p align="left">
+  <img width="90%"  src="/imgs/observe/custom/custom-sql-smart-assertion.png"/>
+</p>
+
 ## Creating Custom SQL Assertions via API
 
 Under the hood, DataHub Cloud implements Custom SQL Assertion Monitoring using two concepts:

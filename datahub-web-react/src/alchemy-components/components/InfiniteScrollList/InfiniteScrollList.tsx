@@ -21,7 +21,7 @@ export function InfiniteScrollList<T>({
 
     return (
         <>
-            {items.length === 0 && !loading && emptyState}
+            {items.length === 0 && totalItemCount === 0 && !loading && emptyState}
             {items.map((item) => renderItem(item))}
             {hasMore && <ObserverContainer ref={observerRef} />}
             {items.length > 0 && showLoader && loading && <Loader size="sm" alignItems="center" />}

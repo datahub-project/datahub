@@ -1,0 +1,365 @@
+{
+  "terms": [
+    {
+      "name": "Customer ID",
+      "urn": "urn:li:glossaryTerm:customer_id",
+      "category": "Customer Data",
+      "definition": "Unique identifier for a customer"
+    },
+    {
+      "name": "Customer Lifetime Value",
+      "urn": "urn:li:glossaryTerm:customer_lifetime_value",
+      "category": "Customer Data",
+      "definition": "Total revenue expected from a customer over their lifetime"
+    },
+    {
+      "name": "Customer Segment",
+      "urn": "urn:li:glossaryTerm:customer_segment",
+      "category": "Customer Data",
+      "definition": "Classification of customers based on behavior or demographics"
+    },
+    {
+      "name": "Churn Rate",
+      "urn": "urn:li:glossaryTerm:churn_rate",
+      "category": "Customer Data",
+      "definition": "Percentage of customers who stop using the service"
+    },
+    {
+      "name": "Revenue",
+      "urn": "urn:li:glossaryTerm:revenue",
+      "category": "Financial Metrics",
+      "definition": "Total income generated from business operations"
+    },
+    {
+      "name": "Annual Recurring Revenue",
+      "urn": "urn:li:glossaryTerm:annual_recurring_revenue",
+      "category": "Financial Metrics",
+      "definition": "Predictable revenue stream from subscriptions"
+    },
+    {
+      "name": "Gross Margin",
+      "urn": "urn:li:glossaryTerm:gross_margin",
+      "category": "Financial Metrics",
+      "definition": "Revenue minus cost of goods sold"
+    },
+    {
+      "name": "Operating Expenses",
+      "urn": "urn:li:glossaryTerm:operating_expenses",
+      "category": "Financial Metrics",
+      "definition": "Costs incurred during normal business operations"
+    },
+    {
+      "name": "Daily Active Users",
+      "urn": "urn:li:glossaryTerm:daily_active_users",
+      "category": "Product Metrics",
+      "definition": "Number of unique users active on a given day"
+    },
+    {
+      "name": "Monthly Active Users",
+      "urn": "urn:li:glossaryTerm:monthly_active_users",
+      "category": "Product Metrics",
+      "definition": "Number of unique users active in a month"
+    },
+    {
+      "name": "User Engagement",
+      "urn": "urn:li:glossaryTerm:user_engagement",
+      "category": "Product Metrics",
+      "definition": "Measure of user interaction with the product"
+    },
+    {
+      "name": "Feature Adoption",
+      "urn": "urn:li:glossaryTerm:feature_adoption",
+      "category": "Product Metrics",
+      "definition": "Rate at which users adopt new features"
+    },
+    {
+      "name": "Lead",
+      "urn": "urn:li:glossaryTerm:lead",
+      "category": "Sales & Marketing",
+      "definition": "Potential customer who has shown interest"
+    },
+    {
+      "name": "Conversion Rate",
+      "urn": "urn:li:glossaryTerm:conversion_rate",
+      "category": "Sales & Marketing",
+      "definition": "Percentage of leads that become customers"
+    },
+    {
+      "name": "Customer Acquisition Cost",
+      "urn": "urn:li:glossaryTerm:customer_acquisition_cost",
+      "category": "Sales & Marketing",
+      "definition": "Cost to acquire a new customer"
+    },
+    {
+      "name": "Marketing Qualified Lead",
+      "urn": "urn:li:glossaryTerm:marketing_qualified_lead",
+      "category": "Sales & Marketing",
+      "definition": "Lead deemed ready for sales engagement"
+    },
+    {
+      "name": "Service Level Agreement",
+      "urn": "urn:li:glossaryTerm:service_level_agreement",
+      "category": "Operations",
+      "definition": "Commitment between service provider and customer"
+    },
+    {
+      "name": "Incident",
+      "urn": "urn:li:glossaryTerm:incident",
+      "category": "Operations",
+      "definition": "Unplanned interruption or reduction in service quality"
+    },
+    {
+      "name": "Mean Time To Resolution",
+      "urn": "urn:li:glossaryTerm:mean_time_to_resolution",
+      "category": "Operations",
+      "definition": "Average time to resolve an incident"
+    },
+    {
+      "name": "Uptime",
+      "urn": "urn:li:glossaryTerm:uptime",
+      "category": "Operations",
+      "definition": "Percentage of time a system is operational"
+    }
+  ],
+  "attachments": [
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:customer_segment",
+        "urn:li:glossaryTerm:annual_recurring_revenue"
+      ],
+      "num_terms": 2
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:revenue",
+        "urn:li:glossaryTerm:conversion_rate"
+      ],
+      "num_terms": 2
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.orders,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:revenue",
+        "urn:li:glossaryTerm:churn_rate"
+      ],
+      "num_terms": 2
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_customers,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:feature_adoption",
+        "urn:li:glossaryTerm:customer_segment"
+      ],
+      "num_terms": 2
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:mean_time_to_resolution"
+      ],
+      "num_terms": 1
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_payments,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:customer_id"
+      ],
+      "num_terms": 1
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_payments,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:user_engagement"
+      ],
+      "num_terms": 1
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.bigquery_usage_logs.cypress_logging_events,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:conversion_rate",
+        "urn:li:glossaryTerm:service_level_agreement",
+        "urn:li:glossaryTerm:customer_lifetime_value"
+      ],
+      "num_terms": 3
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.user_profile,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:incident",
+        "urn:li:glossaryTerm:monthly_active_users",
+        "urn:li:glossaryTerm:customer_acquisition_cost"
+      ],
+      "num_terms": 3
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:revenue",
+        "urn:li:glossaryTerm:feature_adoption",
+        "urn:li:glossaryTerm:marketing_qualified_lead"
+      ],
+      "num_terms": 3
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.orders,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:customer_segment"
+      ],
+      "num_terms": 1
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_customers,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:uptime"
+      ],
+      "num_terms": 1
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:customer_segment",
+        "urn:li:glossaryTerm:annual_recurring_revenue",
+        "urn:li:glossaryTerm:feature_adoption"
+      ],
+      "num_terms": 3
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_payments,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:service_level_agreement",
+        "urn:li:glossaryTerm:gross_margin",
+        "urn:li:glossaryTerm:customer_id"
+      ],
+      "num_terms": 3
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_orders,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:annual_recurring_revenue"
+      ],
+      "num_terms": 1
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_payments,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:conversion_rate",
+        "urn:li:glossaryTerm:churn_rate",
+        "urn:li:glossaryTerm:user_engagement"
+      ],
+      "num_terms": 3
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.transformers_customers,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:churn_rate",
+        "urn:li:glossaryTerm:operating_expenses"
+      ],
+      "num_terms": 2
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsAssertionDataset,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:gross_margin"
+      ],
+      "num_terms": 1
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:marketing_qualified_lead",
+        "urn:li:glossaryTerm:operating_expenses"
+      ],
+      "num_terms": 2
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:customer_id"
+      ],
+      "num_terms": 1
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:daily_active_users",
+        "urn:li:glossaryTerm:conversion_rate",
+        "urn:li:glossaryTerm:incident"
+      ],
+      "num_terms": 3
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:customer_acquisition_cost",
+        "urn:li:glossaryTerm:uptime"
+      ],
+      "num_terms": 2
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:gross_margin",
+        "urn:li:glossaryTerm:user_engagement"
+      ],
+      "num_terms": 2
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created_no_tag,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:mean_time_to_resolution"
+      ],
+      "num_terms": 1
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:user_engagement",
+        "urn:li:glossaryTerm:incident",
+        "urn:li:glossaryTerm:lead"
+      ],
+      "num_terms": 3
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:marketing_qualified_lead"
+      ],
+      "num_terms": 1
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset-v2,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:feature_adoption",
+        "urn:li:glossaryTerm:customer_segment",
+        "urn:li:glossaryTerm:marketing_qualified_lead"
+      ],
+      "num_terms": 3
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset2-v2,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:incident",
+        "urn:li:glossaryTerm:user_engagement"
+      ],
+      "num_terms": 2
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.monthly_temperature,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:monthly_active_users",
+        "urn:li:glossaryTerm:uptime",
+        "urn:li:glossaryTerm:customer_id"
+      ],
+      "num_terms": 3
+    },
+    {
+      "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,economic_data.factor_income,PROD)",
+      "term_urns": [
+        "urn:li:glossaryTerm:customer_id"
+      ],
+      "num_terms": 1
+    }
+  ]
+}

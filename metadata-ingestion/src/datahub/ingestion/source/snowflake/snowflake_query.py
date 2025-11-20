@@ -178,6 +178,10 @@ class SnowflakeQuery:
         order by procedure_schema, procedure_name"""
 
     @staticmethod
+    def streamlit_apps_for_database(db_name: str) -> str:
+        return f'SHOW STREAMLITS IN DATABASE "{db_name}"'
+
+    @staticmethod
     def get_all_tags():
         return """
         SELECT tag_database as "TAG_DATABASE",

@@ -73,3 +73,15 @@
     params: {}
     created: {{&auditStamp}}
     lastModified: {{&auditStamp}}
+- entityUrn: urn:li:dataHubPageModule:platforms
+  entityType: dataHubPageModule
+  aspectName: dataHubPageModuleProperties
+  changeType: UPSERT
+  aspect:
+    name: "Platforms"
+    type: PLATFORMS
+    visibility:
+      scope: GLOBAL
+    params: {}
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}

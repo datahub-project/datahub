@@ -145,7 +145,7 @@ class PipelineMetadata:
 
 @platform_name("Vertex AI", id="vertexai")
 @config_class(VertexAIConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(
     SourceCapability.DESCRIPTIONS,
     "Extract descriptions for Vertex AI Registered Models and Model Versions",
@@ -250,7 +250,7 @@ class VertexAISource(Source):
                     task_meta.state = task_detail.state
                     task_meta.start_time = task_detail.start_time
                     task_meta.create_time = task_detail.create_time
-                    if task_detail.end_time:
+                    if task_detail.end_time and task_meta.start_time:
                         task_meta.end_time = task_detail.end_time
                         task_meta.duration = int(
                             (
@@ -498,12 +498,14 @@ class VertexAISource(Source):
         if len(executions) == 1:
             create_time = executions[0].create_time
             update_time = executions[0].update_time
-            duration = update_time.timestamp() * 1000 - create_time.timestamp() * 1000
-            return int(create_time.timestamp() * 1000), int(duration)
+            if create_time and update_time:
+                duration = (
+                    update_time.timestamp() * 1000 - create_time.timestamp() * 1000
+                )
+                return int(create_time.timestamp() * 1000), int(duration)
         # When no execution context started,  start time and duration are not available
         # When multiple execution contexts stared on a run, not unable to know which context to use for create_time and duration
-        else:
-            return None, None
+        return None, None
 
     def _get_run_result_status(self, status: str) -> Union[str, RunResultTypeClass]:
         if status == "COMPLETE":
@@ -542,9 +544,11 @@ class VertexAISource(Source):
     ) -> Iterable[MetadataChangeProposalWrapper]:
         create_time = execution.create_time
         update_time = execution.update_time
-        duration = datetime_to_ts_millis(update_time) - datetime_to_ts_millis(
-            create_time
-        )
+        duration = None
+        if create_time and update_time:
+            duration = datetime_to_ts_millis(update_time) - datetime_to_ts_millis(
+                create_time
+            )
         result_status: Union[str, RunResultTypeClass] = get_execution_result_status(
             execution.state
         )
@@ -558,7 +562,7 @@ class VertexAISource(Source):
                 DataProcessInstancePropertiesClass(
                     name=execution.name,
                     created=AuditStampClass(
-                        time=datetime_to_ts_millis(create_time),
+                        time=datetime_to_ts_millis(create_time) if create_time else 0,
                         actor="urn:li:corpuser:datahub",
                     ),
                     externalUrl=self._make_artifact_external_url(
@@ -573,7 +577,9 @@ class VertexAISource(Source):
                 (
                     DataProcessInstanceRunEventClass(
                         status=DataProcessRunStatusClass.COMPLETE,
-                        timestampMillis=datetime_to_ts_millis(create_time),
+                        timestampMillis=datetime_to_ts_millis(create_time)
+                        if create_time
+                        else 0,
                         result=DataProcessInstanceRunResultClass(
                             type=result_status,
                             nativeResultType=self.platform,

@@ -2,8 +2,10 @@ package com.linkedin.metadata.utils.elasticsearch;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.util.Pair;
+import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 
@@ -24,13 +26,30 @@ public interface IndexConvention {
   String getEntityIndexName(String entityName);
 
   @Nonnull
+  String getEntityIndexNameV3(String searchGroup);
+
+  @Nonnull
   String getTimeseriesAspectIndexName(String entityName, String aspectName);
 
   @Nonnull
-  String getAllEntityIndicesPattern();
+  List<String> getAllEntityIndicesPatterns();
+
+  @Nonnull
+  List<String> getV3EntityIndexPatterns();
 
   @Nonnull
   String getAllTimeseriesAspectIndicesPattern();
+
+  /**
+   * Returns entity index patterns for cleanup operations. This method considers both V2 and V3
+   * patterns based on their cleanup configuration flags.
+   *
+   * @param entityIndexConfiguration The configuration containing V2/V3 enable and cleanup flags
+   * @return List of index patterns that should be included in cleanup operations
+   */
+  @Nonnull
+  List<String> getEntityIndicesCleanupPatterns(
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration);
 
   /**
    * Inverse of getEntityIndexName
@@ -60,4 +79,22 @@ public interface IndexConvention {
    */
   @Nonnull
   String getEntityDocumentId(Urn entityUrn);
+
+  /**
+   * Checks if the given index name matches the v2 entity naming pattern. V2 entity indices should
+   * contain "index_v2" in their name.
+   *
+   * @param indexName the index name to check
+   * @return true if the index name matches the v2 entity pattern
+   */
+  boolean isV2EntityIndex(@Nonnull String indexName);
+
+  /**
+   * Checks if the given index name matches the v3 entity naming pattern. V3 entity indices should
+   * contain "index_v3" in their name.
+   *
+   * @param indexName the index name to check
+   * @return true if the index name matches the v3 entity pattern
+   */
+  boolean isV3EntityIndex(@Nonnull String indexName);
 }

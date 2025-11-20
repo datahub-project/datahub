@@ -68,7 +68,7 @@ export default function SmallModule({
     });
 
     return (
-        <StyledModuleContainer ref={setNodeRef} {...attributes} data-testId={dataTestId}>
+        <StyledModuleContainer ref={setNodeRef} {...attributes} data-testid={dataTestId}>
             <ContainerWithHover>
                 {isTemplateEditable && (
                     <DragIcon

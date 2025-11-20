@@ -1,7 +1,7 @@
 import warnings
 from typing import TYPE_CHECKING, Callable, Type, TypeVar
 
-import pydantic
+from pydantic import model_validator
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.utilities.global_warning_util import add_global_warning
@@ -52,4 +52,4 @@ def pydantic_renamed_field(
     # validator with pre=True gets all the values that were passed in.
     # Given that a renamed field doesn't show up in the fields list, we can't use
     # the field-level validator, even with a different field name.
-    return pydantic.root_validator(pre=True, allow_reuse=True)(_validate_field_rename)
+    return model_validator(mode="before")(_validate_field_rename)

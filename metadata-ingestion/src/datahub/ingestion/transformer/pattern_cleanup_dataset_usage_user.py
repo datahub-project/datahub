@@ -38,7 +38,7 @@ class PatternCleanupDatasetUsageUser(DatasetUsageStatisticsTransformer):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternCleanupDatasetUsageUser":
-        config = PatternCleanupDatasetUsageUserConfig.parse_obj(config_dict)
+        config = PatternCleanupDatasetUsageUserConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(

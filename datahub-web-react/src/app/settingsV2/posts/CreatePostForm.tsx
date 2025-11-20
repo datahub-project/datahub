@@ -1,3 +1,4 @@
+import { Editor } from '@components';
 import { Form, FormInstance, Input, Radio, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -11,7 +12,6 @@ import {
     TYPE_FIELD_NAME,
 } from '@app/settingsV2/posts/constants';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import { Editor } from '@src/app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 import { PostContentType } from '@types';
 

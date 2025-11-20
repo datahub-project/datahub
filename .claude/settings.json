@@ -19,6 +19,7 @@
       "Bash(python -m pytest:*)",
       "Bash(yarn:*)",
       "Bash(./gradlew:*)",
+      "Bash(../gradlew :metadata-ingestion:lintFix:*)",
       "Bash(gw:*)"
     ],
     "deny": []

@@ -8,6 +8,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2025-03-25 12:00:00"
 
+
 pytestmark = pytest.mark.integration_batch_2
 
 

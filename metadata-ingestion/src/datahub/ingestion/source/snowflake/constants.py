@@ -58,11 +58,13 @@ class SnowflakeObjectDomain(StrEnum):
     STREAM = "stream"
     PROCEDURE = "procedure"
     DYNAMIC_TABLE = "dynamic table"
+    STREAMLIT = "streamlit"
 
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"
 LINEAGE_PERMISSION_ERROR = "lineage-permission-error"
 
+STREAMLIT_PLATFORM = "streamlit"
 
 # Snowflake connection arguments
 # https://docs.snowflake.com/en/user-guide/python-connector-api.html#connect

@@ -216,7 +216,7 @@ def test_dynamic_table_lineage_extraction(mock_extractor_class):
         UpstreamLineageEdge,
     )
 
-    result = UpstreamLineageEdge.parse_obj(mock_cursor.__iter__.return_value[0])
+    result = UpstreamLineageEdge.model_validate(mock_cursor.__iter__.return_value[0])
 
     # Verify the lineage information
     assert result.DOWNSTREAM_TABLE_NAME == "TEST_DB.PUBLIC.DYNAMIC_TABLE1"

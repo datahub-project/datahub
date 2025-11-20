@@ -11,7 +11,7 @@ export default function StringStructuredProperty({
     ...props
 }: StructuredPropertyComponentProps) {
     const values = useMemo(
-        () => structuredPropertyEntry?.values.map((value) => (value as StringValue)?.stringValue) ?? [],
+        () => structuredPropertyEntry?.values?.map((value) => (value as StringValue)?.stringValue) ?? [],
         [structuredPropertyEntry?.values],
     );
 

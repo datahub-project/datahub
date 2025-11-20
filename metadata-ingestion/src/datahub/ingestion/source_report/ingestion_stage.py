@@ -4,7 +4,6 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Tuple
 
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict
@@ -38,9 +37,7 @@ class IngestionStageReport:
     ingestion_high_stage_seconds: dict[IngestionHighStage, float] = field(
         default_factory=lambda: defaultdict(float)
     )
-    ingestion_stage_durations: TopKDict[Tuple[IngestionHighStage, str], float] = field(
-        default_factory=TopKDict
-    )
+    ingestion_stage_durations: TopKDict[str, float] = field(default_factory=TopKDict)
 
     def new_stage(
         self, stage: str, high_stage: IngestionHighStage = IngestionHighStage._UNDEFINED
@@ -81,9 +78,9 @@ class IngestionStageContext(AbstractContextManager):
                 f"Time spent in stage <{self._ingestion_stage}>: {elapsed} seconds",
                 stacklevel=2,
             )
-            self._report.ingestion_stage_durations[
-                (self._high_stage, self._ingestion_stage)
-            ] = elapsed
+            # Store tuple as string to avoid serialization errors
+            key = f"({self._high_stage.value}, {self._ingestion_stage})"
+            self._report.ingestion_stage_durations[key] = elapsed
         else:
             logger.info(
                 f"Time spent in stage <{self._high_stage.value}>: {elapsed} seconds",

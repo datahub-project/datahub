@@ -21,7 +21,7 @@ class SimpleRemoveDatasetOwnership(OwnershipTransformer):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleRemoveDatasetOwnership":
-        config = ClearDatasetOwnershipConfig.parse_obj(config_dict)
+        config = ClearDatasetOwnershipConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(

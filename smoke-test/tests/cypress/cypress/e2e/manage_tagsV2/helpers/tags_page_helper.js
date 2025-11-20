@@ -18,9 +18,11 @@ export default class TagsPageHelper {
     cy.clickOptionWithTestId("create-tag-modal-create-button");
 
     if (shouldBeSuccessfullyCreated) {
-      cy.waitTextVisible(`Tag "${name}" successfully created`);
+      // Wait for modal to close - check that add button is available again
+      cy.getWithTestId("add-tag-button").should("be.visible");
     } else {
-      cy.waitTextVisible("Failed to create tag. An unexpected error occurred");
+      // Wait for any error message that starts with "Failed to create tag."
+      cy.contains(/Failed to create tag\./).should("be.visible");
       cy.clickOptionWithTestId("create-tag-modal-cancel-button");
     }
   }

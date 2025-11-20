@@ -21,6 +21,7 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.knowledge.DocumentServiceFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.graphql.GraphQLConcurrencyConfiguration;
@@ -35,7 +36,9 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
@@ -47,6 +50,7 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -76,6 +80,7 @@ import org.springframework.context.annotation.Import;
   GitVersionFactory.class,
   SiblingGraphServiceFactory.class,
   AssertionServiceFactory.class,
+  DocumentServiceFactory.class
 })
 public class GraphQLEngineFactory {
   @Autowired
@@ -210,12 +215,24 @@ public class GraphQLEngineFactory {
   private AssertionService assertionService;
 
   @Autowired
+  @Qualifier("documentService")
+  private DocumentService documentService;
+
+  @Autowired
   @Qualifier("pageTemplateService")
   private PageTemplateService pageTemplateService;
 
   @Autowired
   @Qualifier("pageModuleService")
   private PageModuleService pageModuleService;
+
+  @Autowired(required = false)
+  @Qualifier("s3Util")
+  private S3Util s3Util;
+
+  @Autowired
+  @Qualifier("dataHubFileService")
+  private DataHubFileService dataHubFileService;
 
   @Bean(name = "graphQLEngine")
   @Nonnull
@@ -256,6 +273,7 @@ public class GraphQLEngineFactory {
     args.setViewsConfiguration(configProvider.getViews());
     args.setSearchBarConfiguration(configProvider.getSearchBar());
     args.setSearchCardConfiguration(configProvider.getSearchCard());
+    args.setSearchFlagsConfiguration(configProvider.getSearchFlags());
     args.setHomePageConfiguration(configProvider.getHomePage());
     args.setSiblingGraphService(siblingGraphService);
     args.setGroupService(groupService);
@@ -275,13 +293,17 @@ public class GraphQLEngineFactory {
     args.setApplicationService(applicationService);
     args.setPageTemplateService(pageTemplateService);
     args.setPageModuleService(pageModuleService);
+    args.setDataHubFileService(dataHubFileService);
     args.setGraphQLConfiguration(configProvider.getGraphQL());
     args.setBusinessAttributeService(businessAttributeService);
     args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
     args.setEntityVersioningService(entityVersioningService);
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
+    args.setDocumentService(documentService);
     args.setMetricUtils(metricUtils);
+    args.setS3Util(s3Util);
+
     return new GmsGraphQLEngine(args).builder().build();
   }
 

@@ -113,7 +113,7 @@ export default function DomainNode({
 
     return (
         <>
-            <RowWrapper data-testid="domain-list-item">
+            <RowWrapper data-testid="domain-options-list">
                 {hasDomainChildren && (
                     <ButtonWrapper>
                         <RotatingTriangle
@@ -128,6 +128,7 @@ export default function DomainNode({
                     onClick={handleSelectDomain}
                     isSelected={!!isOnEntityPage && !isInSelectMode}
                     addLeftPadding={!hasDomainChildren}
+                    data-testid={`domain-option-${displayName}`}
                 >
                     {!isInSelectMode && !displayDomainColoredIcon && <DomainIcon />}
                     {displayDomainColoredIcon && <DomainColoredIcon domain={domain} size={24} fontSize={12} />}

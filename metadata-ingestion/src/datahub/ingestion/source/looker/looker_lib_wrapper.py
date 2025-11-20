@@ -228,10 +228,18 @@ class LookerAPI:
             transport_options=self.transport_options,
         )
 
-    def lookml_model_explore(self, model: str, explore_name: str) -> LookmlModelExplore:
+    def lookml_model_explore(
+        self,
+        model: str,
+        explore_name: str,
+        fields: Optional[List[str]] = None,
+    ) -> LookmlModelExplore:
         self.client_stats.explore_calls += 1
         return self.client.lookml_model_explore(
-            model, explore_name, transport_options=self.transport_options
+            model,
+            explore_name,
+            fields=self.__fields_mapper(fields) if fields else None,
+            transport_options=self.transport_options,
         )
 
     @lru_cache(maxsize=1000)

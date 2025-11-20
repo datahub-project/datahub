@@ -13,7 +13,7 @@ def _base_config():
 def test_platform_correctly_set_cockroachdb():
     source = CockroachDBSource(
         ctx=PipelineContext(run_id="cockroachdb-source-test"),
-        config=CockroachDBConfig.parse_obj(_base_config()),
+        config=CockroachDBConfig.model_validate(_base_config()),
     )
     assert source.platform == "cockroachdb"
 
@@ -21,6 +21,6 @@ def test_platform_correctly_set_cockroachdb():
 def test_platform_correctly_set_postgres():
     source = PostgresSource(
         ctx=PipelineContext(run_id="postgres-source-test"),
-        config=PostgresConfig.parse_obj(_base_config()),
+        config=PostgresConfig.model_validate(_base_config()),
     )
     assert source.platform == "postgres"

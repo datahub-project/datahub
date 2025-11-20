@@ -1,6 +1,7 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 
 import { useAssetSummaryOperations } from '@app/homeV3/context/hooks/useAssetSummaryOperations';
+import useIsTemplateEditable from '@app/homeV3/context/hooks/useIsTemplateEditable';
 import { useModuleModalState } from '@app/homeV3/context/hooks/useModuleModalState';
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
@@ -17,7 +18,7 @@ interface Props {
 }
 
 export const PageTemplateProvider = ({ children, templateType }: Props) => {
-    const isTemplateEditable = false; // template is not editable in OSS
+    const isTemplateEditable = useIsTemplateEditable(templateType);
     // Template state management
     const {
         personalTemplate,

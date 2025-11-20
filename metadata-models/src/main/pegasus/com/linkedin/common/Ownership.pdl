@@ -17,7 +17,7 @@ record Ownership {
    * Ownership type to Owners map, populated via mutation hook.
    */
   @Searchable = {
-    "/*": {
+    "/$key": {
       "fieldType": "MAP_ARRAY",
       "queryByDefault": false
     }

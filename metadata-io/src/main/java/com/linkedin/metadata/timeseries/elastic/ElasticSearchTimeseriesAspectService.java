@@ -228,6 +228,7 @@ public class ElasticSearchTimeseriesAspectService
 
   @Override
   public List<ReindexConfig> buildReindexConfigs(
+      @Nonnull final OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     return entityRegistry.getEntitySpecs().values().stream()
         .flatMap(
@@ -284,8 +285,10 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   @Override
-  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-    for (ReindexConfig config : buildReindexConfigs(properties)) {
+  public void reindexAll(
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
       try {
         indexBuilder.buildIndex(config);
       } catch (IOException e) {

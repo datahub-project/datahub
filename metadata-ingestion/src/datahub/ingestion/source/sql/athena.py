@@ -386,7 +386,7 @@ class AthenaSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = AthenaConfig.parse_obj(config_dict)
+        config = AthenaConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     # overwrite this method to allow to specify the usage of a custom dialect

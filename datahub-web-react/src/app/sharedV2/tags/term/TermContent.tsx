@@ -205,7 +205,7 @@ export default function TermContent({
     };
 
     return (
-        <TermContainer $shouldHighlightBorderOnHover={!readOnly}>
+        <TermContainer $shouldHighlightBorderOnHover={!readOnly} data-testid={`term-${displayName}`}>
             <StyledTerm
                 style={{ cursor: 'pointer' }}
                 fontSize={fontSize}
@@ -226,6 +226,7 @@ export default function TermContent({
                         e.preventDefault();
                         removeTerm(term);
                     }}
+                    data-testid="remove-icon"
                 >
                     <CloseIconStyle />
                 </CloseButtonContainer>

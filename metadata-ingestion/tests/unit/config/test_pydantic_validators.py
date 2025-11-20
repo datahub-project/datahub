@@ -21,18 +21,18 @@ def test_field_rename():
 
         _validate_rename = pydantic_renamed_field("a", "b")
 
-    v = TestModel.parse_obj({"b": "original"})
+    v = TestModel.model_validate({"b": "original"})
     assert v.b == "original"
 
     with pytest.warns(ConfigurationWarning, match="a is deprecated"):
-        v = TestModel.parse_obj({"a": "renamed"})
+        v = TestModel.model_validate({"a": "renamed"})
         assert v.b == "renamed"
 
     with pytest.raises(ValidationError):
-        TestModel.parse_obj({"a": "foo", "b": "bar"})
+        TestModel.model_validate({"a": "foo", "b": "bar"})
 
     with pytest.raises(ValidationError):
-        TestModel.parse_obj({})
+        TestModel.model_validate({})
 
 
 def test_field_multiple_fields_rename():
@@ -43,29 +43,29 @@ def test_field_multiple_fields_rename():
         _validate_deprecated = pydantic_renamed_field("a", "b")
         _validate_deprecated1 = pydantic_renamed_field("a1", "b1")
 
-    v = TestModel.parse_obj({"b": "original", "b1": "original"})
+    v = TestModel.model_validate({"b": "original", "b1": "original"})
     assert v.b == "original"
     assert v.b1 == "original"
 
     with pytest.warns(ConfigurationWarning, match=r"a.* is deprecated"):
-        v = TestModel.parse_obj({"a": "renamed", "a1": "renamed"})
+        v = TestModel.model_validate({"a": "renamed", "a1": "renamed"})
         assert v.b == "renamed"
         assert v.b1 == "renamed"
 
     with pytest.raises(ValidationError):
-        TestModel.parse_obj({"a": "foo", "b": "bar", "b1": "ok"})
+        TestModel.model_validate({"a": "foo", "b": "bar", "b1": "ok"})
 
     with pytest.raises(ValidationError):
-        TestModel.parse_obj({"a1": "foo", "b1": "bar", "b": "ok"})
+        TestModel.model_validate({"a1": "foo", "b1": "bar", "b": "ok"})
 
     with pytest.raises(ValidationError):
-        TestModel.parse_obj({"b": "foo"})
+        TestModel.model_validate({"b": "foo"})
 
     with pytest.raises(ValidationError):
-        TestModel.parse_obj({"b1": "foo"})
+        TestModel.model_validate({"b1": "foo"})
 
     with pytest.raises(ValidationError):
-        TestModel.parse_obj({})
+        TestModel.model_validate({})
 
 
 def test_field_remove():
@@ -75,11 +75,13 @@ def test_field_remove():
         _validate_removed_r1 = pydantic_removed_field("r1")
         _validate_removed_r2 = pydantic_removed_field("r2")
 
-    v = TestModel.parse_obj({"b": "original"})
+    v = TestModel.model_validate({"b": "original"})
     assert v.b == "original"
 
     with pytest.warns(ConfigurationWarning, match=r"r\d was removed"):
-        v = TestModel.parse_obj({"b": "original", "r1": "removed", "r2": "removed"})
+        v = TestModel.model_validate(
+            {"b": "original", "r1": "removed", "r2": "removed"}
+        )
         assert v.b == "original"
 
 
@@ -94,11 +96,11 @@ def test_field_deprecated():
         _validate_deprecated_d1 = pydantic_field_deprecated("d1")
         _validate_deprecated_d2 = pydantic_field_deprecated("d2")
 
-    v = TestModel.parse_obj({"b": "original"})
+    v = TestModel.model_validate({"b": "original"})
     assert v.b == "original"
 
     with pytest.warns(ConfigurationWarning, match=r"d\d.+ deprecated"):
-        v = TestModel.parse_obj(
+        v = TestModel.model_validate(
             {"b": "original", "d1": "deprecated", "d2": "deprecated"}
         )
     assert v.b == "original"
@@ -118,17 +120,17 @@ def test_multiline_string_fixer():
         _validate_s = pydantic_multiline_string("s")
         _validate_m = pydantic_multiline_string("m")
 
-    v = TestModel.parse_obj({"s": "foo\nbar"})
+    v = TestModel.model_validate({"s": "foo\nbar"})
     assert v.s == "foo\nbar"
 
-    v = TestModel.parse_obj({"s": "foo\\nbar"})
+    v = TestModel.model_validate({"s": "foo\\nbar"})
     assert v.s == "foo\nbar"
 
-    v = TestModel.parse_obj({"s": "normal", "m": "foo\\nbar"})
+    v = TestModel.model_validate({"s": "normal", "m": "foo\\nbar"})
     assert v.s == "normal"
     assert v.m
     assert v.m.get_secret_value() == "foo\nbar"
 
-    v = TestModel.parse_obj({"s": "normal", "m": pydantic.SecretStr("foo\\nbar")})
+    v = TestModel.model_validate({"s": "normal", "m": pydantic.SecretStr("foo\\nbar")})
     assert v.m
     assert v.m.get_secret_value() == "foo\nbar"

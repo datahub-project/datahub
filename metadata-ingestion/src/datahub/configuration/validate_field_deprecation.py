@@ -1,7 +1,7 @@
 import warnings
 from typing import TYPE_CHECKING, Any, Optional, Type
 
-import pydantic
+from pydantic import model_validator
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.utilities.global_warning_util import add_global_warning
@@ -34,4 +34,4 @@ def pydantic_field_deprecated(
     # https://github.com/pydantic/pydantic/blob/v1.10.9/pydantic/main.py#L264
     # This hack ensures that multiple field deprecated do not overwrite each other.
     _validate_deprecated.__name__ = f"{_validate_deprecated.__name__}_{field}"
-    return pydantic.root_validator(pre=True, allow_reuse=True)(_validate_deprecated)
+    return model_validator(mode="before")(_validate_deprecated)

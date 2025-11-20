@@ -1,7 +1,7 @@
 import logging
 import pathlib
 import tempfile
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
@@ -492,7 +492,8 @@ class LookMLSource(StatefulIngestionSourceBase):
         manifest_file = folder / "manifest.lkml"
 
         if not manifest_file.exists():
-            self.reporter.info(
+            self.reporter.report_warning(
+                title="Manifest File Missing",
                 message="manifest.lkml file missing from project",
                 context=str(manifest_file),
             )
@@ -709,10 +710,14 @@ class LookMLSource(StatefulIngestionSourceBase):
         # Value: Tuple(model file name, connection name)
         view_connection_map: Dict[str, Tuple[str, str]] = {}
 
-        # Map of view name to explore name for API-based view lineage
-        # A view can be referenced by multiple explores, we only need one of the explores to use Looker Query API
-        # Key: view_name, Value: explore_name
-        view_to_explore_map: Dict[str, str] = {}
+        # Map of view name to all possible explores for API-based view lineage
+        # A view can be referenced by multiple explores, we'll optimize the assignment
+        # Key: view_name, Value: set of explore_names
+        view_to_explores: Dict[str, Set[str]] = defaultdict(set)
+
+        # Temporary map to keep track of the views in an explore
+        # Key: explore_name, Value: set of view_names
+        explore_to_views: Dict[str, Set[str]] = defaultdict(set)
 
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
@@ -789,8 +794,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                         for view_name in explore.upstream_views:
                             if self.source_config.emit_reachable_views_only:
                                 explore_reachable_views.add(view_name.include)
-                            # Build view to explore mapping for API-based view lineage
-                            view_to_explore_map[view_name.include] = explore.name
+
+                            view_to_explores[view_name.include].add(explore.name)
+                            explore_to_views[explore.name].add(view_name.include)
                 except Exception as e:
                     self.reporter.report_warning(
                         title="Failed to process explores",
@@ -803,6 +809,16 @@ class LookMLSource(StatefulIngestionSourceBase):
             processed_view_files = processed_view_map.setdefault(
                 model.connection, set()
             )
+
+            view_to_explore_map = {}
+            if view_to_explores and explore_to_views:
+                view_to_explore_map = self._optimize_views_by_common_explore(
+                    view_to_explores, explore_to_views
+                )
+            else:
+                logger.warning(
+                    f"Either view_to_explores: {view_to_explores} or explore_to_views: {explore_to_views} is empty"
+                )
 
             project_name = self.get_project_name(model_name)
 
@@ -888,9 +904,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 config=self.source_config,
                                 ctx=self.ctx,
                                 looker_client=self.looker_client,
-                                view_to_explore_map=view_to_explore_map
-                                if view_to_explore_map
-                                else None,
+                                view_to_explore_map=view_to_explore_map,
                             )
                         except Exception as e:
                             self.reporter.report_warning(
@@ -1039,6 +1053,62 @@ class LookMLSource(StatefulIngestionSourceBase):
                     ),
                     context=(f"Project: {project}, View File Path: {path}"),
                 )
+
+    def _optimize_views_by_common_explore(
+        self,
+        view_to_explores: Dict[str, Set[str]],
+        explore_to_views: Dict[str, Set[str]],
+    ) -> Dict[str, str]:
+        """
+        Optimize view-to-explore mapping by grouping views to minimize API calls.
+
+        This uses a greedy algorithm that prioritizes explores that appear in the most views,
+        maximizing the number of views assigned to the same explore.
+
+        Args:
+            view_to_explores: Dict mapping view_name -> set of explore_names
+            explore_to_views: Dict mapping explore_name -> set of view_names
+
+        Returns:
+            Dict mapping view_name -> explore_name (optimized assignment)
+        """
+
+        # Pre-compute explore sizes
+        explore_sizes = {
+            explore: len(views) for explore, views in explore_to_views.items()
+        }
+
+        # Build view-to-explore mapping using dynamic programming approach
+        view_to_explore: Dict[str, str] = {}
+
+        # For each view, find the explore with maximum size that contains it
+        for view_name, candidate_explores in view_to_explores.items():
+            if candidate_explores:
+                # Find explore with maximum size using max() with key function
+                # This assings the view to the explore with the most views that contains it
+                best_explore = max(
+                    candidate_explores, key=lambda explore: explore_sizes[explore]
+                )
+                view_to_explore[view_name] = best_explore
+
+        # Log optimization results
+        unique_explores_used = len(set(view_to_explore.values()))
+        total_views = len(view_to_explore)
+        total_explores = len(explore_to_views)
+
+        if total_explores > 0:
+            efficiency = (1 - unique_explores_used / total_explores) * 100
+            logger.info(
+                f"View-explore optimization: Using {unique_explores_used}/{total_explores} "
+                f"explores for {total_views} views (efficiency: {efficiency:.1f}% savings)"
+            )
+        else:
+            logger.info(
+                f"View-explore optimization: No explores to optimize for {total_views} views"
+            )
+
+        logger.debug(f"Final View-to-explore mapping: {view_to_explore}")
+        return view_to_explore
 
     def get_report(self):
         return self.reporter

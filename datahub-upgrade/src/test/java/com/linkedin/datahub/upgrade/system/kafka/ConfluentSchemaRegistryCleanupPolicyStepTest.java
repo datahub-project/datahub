@@ -83,6 +83,18 @@ public class ConfluentSchemaRegistryCleanupPolicyStepTest {
   }
 
   @Test
+  public void testSkipWhenPreCreateTopicsDisabled() {
+    // Set preCreateTopics to false
+    kafkaConfiguration.getSetup().setPreCreateTopics(false);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    UpgradeStepResult result = step.executable().apply(mockContext);
+
+    assertNotNull(result);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+  }
+
+  @Test
   public void testSuccessfulCleanupPolicyConfiguration() throws Exception {
     // Create spy to mock the createAdminClient method
     ConfluentSchemaRegistryCleanupPolicyStep spyStep = spy(step);

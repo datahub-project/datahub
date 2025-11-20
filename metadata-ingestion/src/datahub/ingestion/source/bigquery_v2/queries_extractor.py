@@ -36,6 +36,9 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryFilter,
     BigQueryIdentifierBuilder,
 )
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantQueriesRunSkipHandler,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -135,6 +138,7 @@ class BigQueryQueriesExtractor(Closeable):
         structured_report: SourceReport,
         filters: BigQueryFilter,
         identifiers: BigQueryIdentifierBuilder,
+        redundant_run_skip_handler: Optional[RedundantQueriesRunSkipHandler] = None,
         graph: Optional[DataHubGraph] = None,
         schema_resolver: Optional[SchemaResolver] = None,
         discovered_tables: Optional[Collection[str]] = None,
@@ -158,6 +162,9 @@ class BigQueryQueriesExtractor(Closeable):
         )
 
         self.structured_report = structured_report
+        self.redundant_run_skip_handler = redundant_run_skip_handler
+
+        self.start_time, self.end_time = self._get_time_window()
 
         self.aggregator = SqlParsingAggregator(
             platform=self.identifiers.platform,
@@ -172,8 +179,8 @@ class BigQueryQueriesExtractor(Closeable):
             generate_query_usage_statistics=self.config.include_query_usage_statistics,
             usage_config=BaseUsageConfig(
                 bucket_duration=self.config.window.bucket_duration,
-                start_time=self.config.window.start_time,
-                end_time=self.config.window.end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
                 user_email_pattern=self.config.user_email_pattern,
                 top_n_queries=self.config.top_n_queries,
             ),
@@ -198,6 +205,34 @@ class BigQueryQueriesExtractor(Closeable):
         path.mkdir(parents=True, exist_ok=True)
         logger.info(f"Using local temp path: {path}")
         return path
+
+    def _get_time_window(self) -> tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            start_time, end_time = (
+                self.redundant_run_skip_handler.suggest_run_time_window(
+                    self.config.window.start_time,
+                    self.config.window.end_time,
+                )
+            )
+        else:
+            start_time = self.config.window.start_time
+            end_time = self.config.window.end_time
+
+        # Usage statistics are aggregated per bucket (typically per day).
+        # To ensure accurate aggregated metrics, we need to align the start_time
+        # to the beginning of a bucket so that we include complete bucket periods.
+        if self.config.include_usage_statistics:
+            start_time = get_time_bucket(start_time, self.config.window.bucket_duration)
+
+        return start_time, end_time
+
+    def _update_state(self) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.update_state(
+                self.config.window.start_time,
+                self.config.window.end_time,
+                self.config.window.bucket_duration,
+            )
 
     def is_temp_table(self, name: str) -> bool:
         try:
@@ -299,6 +334,8 @@ class BigQueryQueriesExtractor(Closeable):
             shared_connection.close()
             audit_log_file.unlink(missing_ok=True)
 
+        self._update_state()
+
     def deduplicate_queries(
         self, queries: FileBackedList[ObservedQuery]
     ) -> FileBackedDict[Dict[int, ObservedQuery]]:
@@ -355,8 +392,8 @@ class BigQueryQueriesExtractor(Closeable):
         query_log_query = _build_enriched_query_log_query(
             project_id=project.id,
             region=region,
-            start_time=self.config.window.start_time,
-            end_time=self.config.window.end_time,
+            start_time=self.start_time,
+            end_time=self.end_time,
         )
 
         logger.info(f"Fetching query log from BQ Project {project.id} for {region}")

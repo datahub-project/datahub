@@ -3,7 +3,7 @@ from datahub.ingestion.source.preset import PresetConfig
 
 
 def test_default_values():
-    config = PresetConfig.parse_obj({})
+    config = PresetConfig.model_validate({})
 
     assert config.connect_uri == ""
     assert config.manager_uri == "https://api.app.preset.io"
@@ -20,7 +20,7 @@ def test_default_values():
 def test_set_display_uri():
     display_uri = "some_host:1234"
 
-    config = PresetConfig.parse_obj({"display_uri": display_uri})
+    config = PresetConfig.model_validate({"display_uri": display_uri})
 
     assert config.connect_uri == ""
     assert config.manager_uri == "https://api.app.preset.io"
@@ -36,7 +36,7 @@ def test_preset_config_parsing():
     }
 
     # Tests if SupersetConfig fields are parsed extra fields correctly
-    config = PresetConfig.parse_obj(preset_config)
+    config = PresetConfig.model_validate(preset_config)
 
     # Test Preset-specific fields
     assert config.api_key == "dummy_api_key"

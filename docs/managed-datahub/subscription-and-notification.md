@@ -46,7 +46,7 @@ If you want to create and manage group-level Subscriptions for your team, you wi
 
 The first step to getting notified is identifying the assets you want to subscribe to.
 DataHub’s [Lineage and Impact Analysis features](../../docs/act-on-metadata/impact-analysis.md#lineage-impact-analysis-setup-prerequisites-and-permissions) can help you identify upstream entities that could impact the assets you use and are responsible for.
-You can use the Subscriptions && Notifications feature to sign up for updates for your entire team, or just for yourself.
+You can use the Subscriptions & Notifications feature to sign up for updates for your entire team, or just for yourself.
 
 ### Individually Subscribing to an Entity
 
@@ -72,13 +72,13 @@ You can find your Slack Member ID in your profile settings.
 
 ### Subscribing Your Team/Group to Notifications
 
-The dropdown menu next to the Subscribe button lets you choose who the subscription is for. To create a group subscription, click on Manage Group Subscriptions.
+The dropdown menu next to the Subscribe button lets you choose who the subscription is for. To create a group subscription, click on **Manage for Groups**.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-subscription-dropdown.png"/>
 </p>
 
-Next, customize the group’s subscriptions by selecting the types of changes you want the group to be notified about.
+Next, customize the group's subscription by selecting the types of changes you want the group to be notified about.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-subscription-settings.png"/>
@@ -96,10 +96,6 @@ Connect to Slack. Currently, DataHub Cloud's Subscriptions and Notifications fea
 You can enable, disable, or manage notifications at any time to ensure that you receive relevant updates.
 
 Simply use the Dropdown menu next to the Subscribe button to unsubscribe from the asset, or to manage/modify your subscription (say, to modify the changes you want to be updated about).
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-subscription-dropdown.png"/>
-</p>
 
 You can also view and manage your subscriptions in your DataHub settings page.
 

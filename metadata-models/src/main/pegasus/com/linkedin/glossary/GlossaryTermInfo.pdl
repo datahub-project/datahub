@@ -27,7 +27,9 @@ record GlossaryTermInfo includes CustomProperties {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   name: optional string
 

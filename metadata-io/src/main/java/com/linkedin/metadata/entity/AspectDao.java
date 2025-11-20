@@ -211,6 +211,9 @@ public interface AspectDao {
   Integer countAspect(@Nonnull final String aspectName, @Nullable String urnLike);
 
   @Nonnull
+  Integer countAspect(final RestoreIndicesArgs args);
+
+  @Nonnull
   PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args);
 
   @Nonnull

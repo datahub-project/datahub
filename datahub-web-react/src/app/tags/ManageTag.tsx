@@ -7,12 +7,8 @@ import { ModalButton } from '@components/components/Modal/Modal';
 
 import OwnersSection from '@app/sharedV2/owners/OwnersSection';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import {
-    useBatchAddOwnersMutation,
-    useSetTagColorMutation,
-    useUpdateDescriptionMutation,
-} from '@src/graphql/mutations.generated';
-import { useGetTagQuery } from '@src/graphql/tag.generated';
+import { useBatchAddOwnersMutation, useSetTagColorMutation } from '@src/graphql/mutations.generated';
+import { useGetTagQuery, useUpdateTagMutation } from '@src/graphql/tag.generated';
 import { EntityType, OwnerEntityType } from '@src/types.generated';
 
 const FormSection = styled.div`
@@ -41,12 +37,16 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     });
 
     const [setTagColorMutation] = useSetTagColorMutation();
-    const [updateDescriptionMutation] = useUpdateDescriptionMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
+    const [updateTagMutation] = useUpdateTagMutation();
 
     // State to track values
     const [colorValue, setColorValue] = useState('#1890ff');
     const [originalColor, setOriginalColor] = useState('');
+
+    // Tag name state (editable)
+    const [tagName, setTagName] = useState('');
+    const [originalTagName, setOriginalTagName] = useState('');
 
     // Tag name for display purposes only
     const [tagDisplayName, setTagDisplayName] = useState('');
@@ -71,9 +71,12 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             setColorValue(tagColor);
             setOriginalColor(tagColor);
 
-            // Get the tag name for display
+            // Get the tag name for display and editing
             const displayName = entityRegistry.getDisplayName(EntityType.Tag, data.tag) || data.tag.name || '';
+            const tagNameValue = data.tag.properties?.name || data.tag.name || '';
             setTagDisplayName(displayName);
+            setTagName(tagNameValue);
+            setOriginalTagName(tagNameValue);
 
             // Get the description
             const desc = data.tag.properties?.description || '';
@@ -91,20 +94,18 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
         setColorValue(color);
     };
 
-    const handleDescriptionChange: React.Dispatch<React.SetStateAction<string>> = (value) => {
-        if (typeof value === 'function') {
-            setDescription(value);
-        } else {
-            setDescription(value);
-        }
-    };
-
     // Check if anything has changed
     const hasChanges = () => {
-        return colorValue !== originalColor || description !== originalDescription || pendingOwners.length > 0;
+        return (
+            tagName !== originalTagName ||
+            colorValue !== originalColor ||
+            description !== originalDescription ||
+            pendingOwners.length > 0
+        );
     };
 
     const handleReset = () => {
+        setTagName(originalTagName);
         setColorValue(originalColor);
         setDescription(originalDescription);
         setPendingOwners([]);
@@ -114,6 +115,16 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     // Save everything together
     const handleSave = async () => {
         try {
+            // Validate required fields
+            if (!tagName.trim()) {
+                message.error({
+                    content: 'Tag name is required',
+                    key: 'tagUpdate',
+                    duration: 3,
+                });
+                return;
+            }
+
             message.loading({ content: 'Saving changes...', key: 'tagUpdate' });
 
             // Track if we made any successful changes
@@ -139,23 +150,25 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
                 }
             }
 
-            // Update description if changed
-            if (description !== originalDescription) {
+            // Update tag name and/or description if changed
+            if (tagName !== originalTagName || description !== originalDescription) {
                 try {
-                    await updateDescriptionMutation({
+                    await updateTagMutation({
                         variables: {
+                            urn: tagUrn,
                             input: {
-                                resourceUrn: tagUrn,
-                                description,
+                                urn: tagUrn,
+                                name: tagName,
+                                description: description || undefined,
                             },
                         },
                     });
                     changesMade = true;
-                } catch (descError) {
-                    console.error('Error updating description:', descError);
+                } catch (tagUpdateError) {
+                    console.error('Error updating tag:', tagUpdateError);
                     throw new Error(
-                        `Failed to update description: ${
-                            descError instanceof Error ? descError.message : String(descError)
+                        `Failed to update tag: ${
+                            tagUpdateError instanceof Error ? tagUpdateError.message : String(tagUpdateError)
                         }`,
                     );
                 }
@@ -234,7 +247,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             color: 'violet',
             variant: 'filled',
             onClick: handleSave,
-            disabled: !hasChanges(),
+            disabled: !hasChanges() || !tagName.trim(),
             buttonDataTestId: 'update-tag-button',
         },
     ];
@@ -245,7 +258,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     }
 
     // Dynamic modal title
-    const modalTitle = tagDisplayName ? `Edit Tag: ${tagDisplayName}` : 'Edit Tag';
+    const modalTitle = tagDisplayName ? `Edit Tag` : 'Edit Tag';
 
     return (
         <Modal
@@ -260,9 +273,20 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             <div>
                 <FormSection>
                     <Input
+                        label="Name"
+                        value={tagName}
+                        setValue={setTagName}
+                        placeholder="Enter tag name"
+                        isRequired
+                        data-testid="tag-name-field"
+                    />
+                </FormSection>
+
+                <FormSection>
+                    <Input
                         label="Description"
                         value={description}
-                        setValue={handleDescriptionChange}
+                        setValue={setDescription}
                         placeholder="Tag description"
                         type="textarea"
                         data-testid="tag-description-field"

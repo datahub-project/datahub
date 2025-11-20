@@ -145,7 +145,7 @@ To update your Remote Executor deployment (e.g., to deploy a new container versi
 2. **Update Template**
    - Select **Replace current template**
    - Choose **Upload a template file**
-   - Download the latest DataHub Cloud Remote Executor [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/Ingestion/templates/python.ecs.template.yaml)
+   - Download the latest DataHub Cloud Remote Executor [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml)
    - Upload the template file
 
 <p align="center">

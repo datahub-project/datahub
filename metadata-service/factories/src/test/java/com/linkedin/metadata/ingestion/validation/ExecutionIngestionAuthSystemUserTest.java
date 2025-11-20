@@ -40,14 +40,16 @@ import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-@SpringBootTest(classes = SpringStandardPluginConfiguration.class)
+@SpringBootTest(
+    classes = {
+      SpringStandardPluginConfiguration.class,
+      ExecutionIngestionAuthTestConfiguration.class
+    })
 @TestPropertySource(properties = {"authentication.enabled=true", "entityClient.impl=java"})
-@Import(ExecutionIngestionAuthTestConfiguration.class)
 public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private ExecuteIngestionAuthValidator validator;

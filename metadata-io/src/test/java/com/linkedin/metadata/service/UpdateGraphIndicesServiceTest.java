@@ -53,6 +53,7 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Set;
@@ -88,7 +89,8 @@ public class UpdateGraphIndicesServiceTest {
             new ElasticSearchGraphService(
                 new LineageRegistry(entityRegistry),
                 mockESBulkProcessor,
-                IndexConventionImpl.noPrefix("md5"),
+                IndexConventionImpl.noPrefix(
+                    "md5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION),
                 mockWriteDAO,
                 mockReadDAO,
                 mock(ESIndexBuilder.class),

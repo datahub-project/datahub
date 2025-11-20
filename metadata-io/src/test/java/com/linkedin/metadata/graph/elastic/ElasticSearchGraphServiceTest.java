@@ -1,7 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
-import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -12,6 +11,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
@@ -31,6 +32,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -70,7 +72,7 @@ public class ElasticSearchGraphServiceTest {
         new ElasticSearchGraphService(
             new LineageRegistry(entityRegistry),
             mockESBulkProcessor,
-            IndexConventionImpl.noPrefix("md5"),
+            IndexConventionImpl.noPrefix("md5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION),
             mockWriteDAO,
             mockReadDAO,
             mock(ESIndexBuilder.class),
@@ -255,6 +257,52 @@ public class ElasticSearchGraphServiceTest {
   }
 
   @Test
+  public void testScrollRelatedEntitiesWithZeroCount() {
+    // Test the edge case where count=0 is passed, which should not cause
+    // ArrayIndexOutOfBoundsException when accessing searchHits[searchHits.length - 1]
+    OperationContext mockOpContext = TestOperationContexts.systemContextNoValidate();
+    GraphFilters mockGraphFilters = GraphFilters.ALL;
+    List<SortCriterion> mockSortCriteria = Collections.emptyList();
+
+    String scrollId = "test-scroll-id";
+    String keepAlive = "1m";
+    int count = 0; // This is the edge case we're testing
+
+    // Create mock search response with empty hits
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+
+    // Create empty search hits array (simulating no results)
+    SearchHit[] hits = new SearchHit[0];
+    when(mockHits.getHits()).thenReturn(hits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(0L, TotalHits.Relation.EQUAL_TO));
+
+    when(mockReadDAO.getSearchResponse(any(), any(), any(), any(), any(), anyInt()))
+        .thenReturn(mockResponse);
+    when(mockReadDAO.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
+
+    // This should not throw ArrayIndexOutOfBoundsException
+    RelatedEntitiesScrollResult result =
+        test.scrollRelatedEntities(
+            mockOpContext,
+            mockGraphFilters,
+            mockSortCriteria,
+            scrollId,
+            keepAlive,
+            count,
+            null,
+            null);
+
+    // Verify the result
+    assertNotNull(result);
+    assertEquals(result.getNumResults(), 0);
+    assertEquals(result.getPageSize(), 0);
+    assertTrue(result.getEntities().isEmpty());
+    assertNull(result.getScrollId()); // No scroll ID since no results
+  }
+
+  @Test
   public void testRaw() {
     // Create test edge tuples
     List<EdgeTuple> edgeTuples =
@@ -383,5 +431,80 @@ public class ElasticSearchGraphServiceTest {
 
     when(mockHit.getSourceAsMap()).thenReturn(sourceMap);
     return mockHit;
+  }
+
+  @Test
+  public void testGetImpactLineagePartialFlagPropagation() throws Exception {
+    // Test that the partial flag from LineageResponse is properly propagated to EntityLineageResult
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-dataset");
+    com.linkedin.metadata.graph.LineageGraphFilters filters =
+        com.linkedin.metadata.graph.LineageGraphFilters.forEntityType(
+            opContext.getLineageRegistry(),
+            "dataset",
+            com.linkedin.metadata.graph.LineageDirection.DOWNSTREAM);
+    int maxHops = 2;
+
+    // Create a mock LineageResponse with partial=true
+    com.linkedin.metadata.graph.LineageRelationship relationship =
+        new com.linkedin.metadata.graph.LineageRelationship()
+            .setEntity(sourceUrn)
+            .setType("DownstreamOf")
+            .setDegree(1);
+    LineageResponse mockLineageResponse =
+        new LineageResponse(1, Collections.singletonList(relationship), true); // partial=true
+
+    when(mockReadDAO.getImpactLineage(eq(opContext), eq(sourceUrn), eq(filters), eq(maxHops)))
+        .thenReturn(mockLineageResponse);
+
+    // Call the method under test
+    com.linkedin.metadata.graph.EntityLineageResult result =
+        test.getImpactLineage(opContext, sourceUrn, filters, maxHops);
+
+    // Verify the partial flag is propagated
+    assertNotNull(result, "Result should not be null");
+    assertTrue(
+        result.isPartial(),
+        "Partial flag should be propagated from LineageResponse to EntityLineageResult");
+    assertEquals(result.getTotal(), 1);
+    assertEquals(result.getRelationships().size(), 1);
+  }
+
+  @Test
+  public void testGetImpactLineagePartialFlagFalse() throws Exception {
+    // Test that when partial=false, the flag is properly propagated
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-dataset");
+    com.linkedin.metadata.graph.LineageGraphFilters filters =
+        com.linkedin.metadata.graph.LineageGraphFilters.forEntityType(
+            opContext.getLineageRegistry(),
+            "dataset",
+            com.linkedin.metadata.graph.LineageDirection.DOWNSTREAM);
+    int maxHops = 2;
+
+    // Create a mock LineageResponse with partial=false
+    com.linkedin.metadata.graph.LineageRelationship relationship =
+        new com.linkedin.metadata.graph.LineageRelationship()
+            .setEntity(sourceUrn)
+            .setType("DownstreamOf")
+            .setDegree(1);
+    LineageResponse mockLineageResponse =
+        new LineageResponse(1, Collections.singletonList(relationship), false); // partial=false
+
+    when(mockReadDAO.getImpactLineage(eq(opContext), eq(sourceUrn), eq(filters), eq(maxHops)))
+        .thenReturn(mockLineageResponse);
+
+    // Call the method under test
+    com.linkedin.metadata.graph.EntityLineageResult result =
+        test.getImpactLineage(opContext, sourceUrn, filters, maxHops);
+
+    // Verify the partial flag is propagated as false
+    assertNotNull(result, "Result should not be null");
+    assertEquals(
+        result.isPartial(),
+        Boolean.FALSE,
+        "Partial flag should be false when LineageResponse has partial=false");
+    assertEquals(result.getTotal(), 1);
+    assertEquals(result.getRelationships().size(), 1);
   }
 }

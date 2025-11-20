@@ -112,7 +112,8 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     response.count(searchHits.getHits().length);
     response.total((int) searchHits.getTotalHits().value);
     String nextScrollId = null;
-    if (searchHits.getHits().length == analyticsSearchRequest.getSize()) {
+    if (searchHits.getHits().length == analyticsSearchRequest.getSize()
+        && searchHits.getHits().length > 0) {
       Object[] sort = searchHits.getHits()[searchHits.getHits().length - 1].getSortValues();
       nextScrollId = new SearchAfterWrapper(sort, null, 0L).toScrollId();
     }
