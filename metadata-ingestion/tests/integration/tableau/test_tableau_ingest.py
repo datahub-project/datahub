@@ -1256,7 +1256,7 @@ def test_tableau_virtual_connections_no_column_lineage(
     """Test virtual connections ingestion without column-level lineage"""
     output_file_name: str = "tableau_virtual_connections_no_column_lineage_mces.json"
     golden_file_name: str = (
-        "tableau_virtual_connections_mces_golden.json"  # Same as full test
+        "tableau_virtual_connections_no_column_lineage_mces_golden.json"
     )
 
     new_pipeline_config: Dict[Any, Any] = {
