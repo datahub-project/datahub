@@ -28,6 +28,9 @@ def test_gms_config_accessible(auth_session) -> None:
     default_cli_version: str = gms_config["managedIngestion"]["defaultCliVersion"]
     print(f"Default CLI version: {default_cli_version}")
     assert not default_cli_version.startswith("@")
-    assert "." in default_cli_version or looks_like_a_short_sha(default_cli_version), (
-        "Default CLI version does not look like a version string"
-    )
+    # Allow "latest", version strings (with dots), or short SHAs
+    assert (
+        default_cli_version == "latest"
+        or "." in default_cli_version
+        or looks_like_a_short_sha(default_cli_version)
+    ), "Default CLI version does not look like a valid version string"

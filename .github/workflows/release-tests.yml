@@ -63,6 +63,8 @@ jobs:
           DATAHUB_FRONTEND_URL: ${{ github.event_name == 'schedule' && 'https://deploy-auto.acryl.io' || github.event.inputs.remote_instance_url }}
           RELEASE_TEST_NOTIFICATION_CHANNEL: ${{ github.event.inputs.remote_instance_url == 'https://deploy-test.acryl.io' && env.RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_TEST || env.RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_AUTO }}
           RELEASE_TEST_NOTIFICATION_TOKEN: ${{ github.event.inputs.remote_instance_url == 'https://deploy-test.acryl.io' && env.RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_TEST || env.RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_AUTO }}
+          REPORTING_DATAHUB_GMS_URL: https://acryl.acryl.io/gms
+          REPORTING_DATAHUB_TOKEN: ${{ secrets.ACRYL_ACRYL_IO_GMS_TOKEN }}
           USE_STATIC_SLEEP: "true"
         run: |
           cd smoke-test
