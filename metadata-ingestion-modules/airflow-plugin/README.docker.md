@@ -38,7 +38,7 @@ This directory contains a complete Docker-based test environment for the Airflow
 docker compose -f docker-compose.test.yml run --rm airflow-plugin-test
 
 # Update golden files
-docker-compose -f docker-compose.test.yml run --rm airflow-plugin-test py311-airflow31 -- --update-golden-files
+docker compose -f docker-compose.test.yml run --rm airflow-plugin-test
 ```
 
 ## Features
