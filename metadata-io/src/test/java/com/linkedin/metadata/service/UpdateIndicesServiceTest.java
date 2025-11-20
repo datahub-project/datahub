@@ -2,6 +2,7 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.eq;
@@ -12,7 +13,9 @@ import static org.mockito.Mockito.when;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -20,10 +23,14 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -44,14 +51,36 @@ public class UpdateIndicesServiceTest {
   public void setup() {
     MockitoAnnotations.openMocks(this);
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    // Create test strategies - for testing we'll create both V2 and V3 strategies
+    UpdateIndicesV2Strategy v2Strategy =
+        new UpdateIndicesV2Strategy(
+            EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+            entitySearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5");
+
+    UpdateIndicesV3Strategy v3Strategy =
+        new UpdateIndicesV3Strategy(
+            EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+            entitySearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            true); // v2Enabled = true (both strategies active)
+
+    Collection<UpdateIndicesStrategy> strategies = Arrays.asList(v2Strategy, v3Strategy);
+
     updateIndicesService =
         new UpdateIndicesService(
             updateGraphIndicesService,
             entitySearchService,
-            timeseriesAspectService,
             systemMetadataService,
-            searchDocumentTransformer,
-            "MD5");
+            strategies,
+            true, // searchDiffMode
+            true, // structuredPropertiesHookEnabled
+            true); // structuredPropertiesWriteEnabled
   }
 
   @Test
@@ -73,7 +102,7 @@ public class UpdateIndicesServiceTest {
 
     // Verify
     verify(systemMetadataService).deleteAspect(urn.toString(), CONTAINER_ASPECT_NAME);
-    verify(searchDocumentTransformer)
+    verify(searchDocumentTransformer, times(2))
         .transformAspect(
             eq(operationContext),
             eq(urn),
@@ -158,8 +187,8 @@ public class UpdateIndicesServiceTest {
     // Execute - this should trigger the empty document logging
     updateIndicesService.handleChangeEvent(operationContext, event);
 
-    // Verify the method was called
-    verify(searchDocumentTransformer)
+    // Verify the method was called twice (once by V2 strategy, once by V3 strategy)
+    verify(searchDocumentTransformer, times(2))
         .transformAspect(
             eq(operationContext),
             eq(urn),
@@ -167,5 +196,32 @@ public class UpdateIndicesServiceTest {
             eq(aspectSpec),
             eq(false),
             eq(event.getCreated()));
+  }
+
+  @Test
+  public void testHandleChangeEvents_WithBothStrategies() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)");
+
+    // Create test data
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(urn);
+    event.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    event.setEntityType(urn.getEntityType());
+    event.setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
+    event.setCreated(AuditStampUtils.createDefaultAuditStamp());
+
+    // Create aspect data for UPSERT operation
+    DatasetProperties datasetProperties = new DatasetProperties();
+    datasetProperties.setDescription("Test dataset description");
+    event.setAspect(GenericRecordUtils.serializeAspect(datasetProperties));
+
+    // Execute with both V2 and V3 strategies
+    updateIndicesService.handleChangeEvents(operationContext, Collections.singletonList(event));
+
+    // Verify both strategies were called (V2 through individual methods, V3 through processBatch)
+    // The exact verification depends on the implementation details, but both should process the
+    // event
+    verify(updateGraphIndicesService).handleChangeEvent(operationContext, event);
   }
 }

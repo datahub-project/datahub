@@ -4,7 +4,14 @@ from copy import deepcopy
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
+from pydantic import (
+    Field,
+    PositiveInt,
+    PrivateAttr,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.env_vars import get_bigquery_schema_parallelism
@@ -107,8 +114,9 @@ class BigQueryBaseConfig(ConfigModel):
         description="The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
     )
 
-    @validator("sharded_table_pattern")
-    def sharded_table_pattern_is_a_valid_regexp(cls, v):
+    @field_validator("sharded_table_pattern", mode="after")
+    @classmethod
+    def sharded_table_pattern_is_a_valid_regexp(cls, v: str) -> str:
         try:
             re.compile(v)
         except Exception as e:
@@ -117,7 +125,8 @@ class BigQueryBaseConfig(ConfigModel):
             ) from e
         return v
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def project_id_backward_compatibility_configs_set(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
@@ -232,12 +241,11 @@ class BigQueryFilterConfig(SQLFilterConfig):
         default=AllowDenyPattern.allow_all(),
     )
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
-        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
-        values = deepcopy(values)
-        dataset_pattern: Optional[AllowDenyPattern] = values.get("dataset_pattern")
-        schema_pattern = values.get("schema_pattern")
+    @model_validator(mode="after")
+    def backward_compatibility_configs_set(self) -> Any:
+        dataset_pattern = self.dataset_pattern
+        schema_pattern = self.schema_pattern
+
         if (
             dataset_pattern == AllowDenyPattern.allow_all()
             and schema_pattern != AllowDenyPattern.allow_all()
@@ -246,7 +254,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
                 "dataset_pattern is not set but schema_pattern is set, using schema_pattern as dataset_pattern. "
                 "schema_pattern will be deprecated, please use dataset_pattern instead."
             )
-            values["dataset_pattern"] = schema_pattern
+            self.dataset_pattern = schema_pattern
             dataset_pattern = schema_pattern
         elif (
             dataset_pattern != AllowDenyPattern.allow_all()
@@ -257,7 +265,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
                 " please use dataset_pattern only."
             )
 
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
+        match_fully_qualified_names = self.match_fully_qualified_names
 
         if (
             dataset_pattern is not None
@@ -287,7 +295,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
                     " of the form `<project_id>.<dataset_name>`."
                 )
 
-        return values
+        return self
 
 
 class BigQueryIdentifierConfig(
@@ -527,7 +535,8 @@ class BigQueryV2Config(
     _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
     _lineage_parse_view_ddl = pydantic_removed_field("lineage_parse_view_ddl")
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def set_include_schema_metadata(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
@@ -547,30 +556,33 @@ class BigQueryV2Config(
 
         return values
 
-    @root_validator(skip_on_failure=True)
+    @model_validator(mode="before")
+    @classmethod
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        values["options"].setdefault("max_overflow", -1)
+        values.setdefault("options", {}).setdefault("max_overflow", -1)
 
         return values
 
-    @validator("bigquery_audit_metadata_datasets")
+    @field_validator("bigquery_audit_metadata_datasets", mode="after")
+    @classmethod
     def validate_bigquery_audit_metadata_datasets(
-        cls, v: Optional[List[str]], values: Dict
+        cls, v: Optional[List[str]], info: ValidationInfo
     ) -> Optional[List[str]]:
-        if values.get("use_exported_bigquery_audit_metadata"):
+        if info.data.get("use_exported_bigquery_audit_metadata"):
             assert v and len(v) > 0, (
                 "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
             )
 
         return v
 
-    @validator("upstream_lineage_in_report")
-    def validate_upstream_lineage_in_report(cls, v: bool, values: Dict) -> bool:
-        if v and values.get("use_queries_v2", True):
+    @field_validator("upstream_lineage_in_report", mode="after")
+    @classmethod
+    def validate_upstream_lineage_in_report(cls, v: bool, info: ValidationInfo) -> bool:
+        if v and info.data.get("use_queries_v2", True):
             logging.warning(
                 "`upstream_lineage_in_report` is enabled but will be ignored because `use_queries_v2` is enabled."
                 "This debugging feature only works with the legacy lineage approach (`use_queries_v2: false`)."
@@ -578,11 +590,12 @@ class BigQueryV2Config(
 
         return v
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def validate_queries_v2_stateful_ingestion(cls, values: Dict) -> Dict:
-        if values.get("use_queries_v2"):
-            if values.get("enable_stateful_lineage_ingestion") or values.get(
-                "enable_stateful_usage_ingestion"
+    @model_validator(mode="after")
+    def validate_queries_v2_stateful_ingestion(self) -> "BigQueryV2Config":
+        if self.use_queries_v2:
+            if (
+                self.enable_stateful_lineage_ingestion
+                or self.enable_stateful_usage_ingestion
             ):
                 logger.warning(
                     "enable_stateful_lineage_ingestion and enable_stateful_usage_ingestion are deprecated "
@@ -590,7 +603,7 @@ class BigQueryV2Config(
                     "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
                     "for the unified time window extraction (lineage + usage + operations + queries)."
                 )
-        return values
+        return self
 
     def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if pattern else ""
