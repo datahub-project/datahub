@@ -8,20 +8,6 @@ from typing import Dict, Iterable, Optional, Set
 
 from google.cloud import dataplex_v1
 
-try:
-    from google.cloud.datacatalog_lineage_v1 import (
-        EntityReference,
-        LineageClient,
-        SearchLinksRequest,
-    )
-
-    LINEAGE_CLIENT_AVAILABLE = True
-except ImportError:
-    LINEAGE_CLIENT_AVAILABLE = False
-    LineageClient = None  # type: ignore
-    EntityReference = None  # type: ignore
-    SearchLinksRequest = None  # type: ignore
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
@@ -38,6 +24,22 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
+
+try:
+    from google.cloud.datacatalog.lineage_v1 import (
+        EntityReference,
+        LineageClient,
+        SearchLinksRequest,
+    )
+
+    LINEAGE_CLIENT_AVAILABLE = True
+    logger.info("Successfully imported lineage client (version 0.2.2 format)")
+except ImportError as e:
+    LINEAGE_CLIENT_AVAILABLE = False
+    LineageClient = None  # type: ignore
+    EntityReference = None  # type: ignore
+    SearchLinksRequest = None  # type: ignore
+    logger.warning(f"Lineage client not available: {e}")
 
 
 @dataclass(order=True, eq=True, frozen=True)
@@ -158,11 +160,20 @@ class DataplexLineageExtractor:
             Iterator of Link objects
         """
         try:
+            logger.info(
+                f"🔍 Searching upstream lineage for FQN: {fully_qualified_name}"
+            )
             target = EntityReference(fully_qualified_name=fully_qualified_name)
             request = SearchLinksRequest(parent=parent, target=target)
-            return self.lineage_client.search_links(request=request)
+            results = list(self.lineage_client.search_links(request=request))
+            logger.info(
+                f"✅ Found {len(results)} upstream lineage link(s) for {fully_qualified_name}"
+            )
+            return results
         except Exception as e:
-            logger.debug(f"No upstream lineage found for {fully_qualified_name}: {e}")
+            logger.warning(
+                f"❌ No upstream lineage found for {fully_qualified_name}: {type(e).__name__}: {e}"
+            )
             return []
 
     def _search_links_by_source(
@@ -179,11 +190,20 @@ class DataplexLineageExtractor:
             Iterator of Link objects
         """
         try:
+            logger.info(
+                f"🔍 Searching downstream lineage for FQN: {fully_qualified_name}"
+            )
             source = EntityReference(fully_qualified_name=fully_qualified_name)
             request = SearchLinksRequest(parent=parent, source=source)
-            return self.lineage_client.search_links(request=request)
+            results = list(self.lineage_client.search_links(request=request))
+            logger.info(
+                f"✅ Found {len(results)} downstream lineage link(s) for {fully_qualified_name}"
+            )
+            return results
         except Exception as e:
-            logger.debug(f"No downstream lineage found for {fully_qualified_name}: {e}")
+            logger.warning(
+                f"❌ No downstream lineage found for {fully_qualified_name}: {type(e).__name__}: {e}"
+            )
             return []
 
     def _construct_fqn(
@@ -223,9 +243,15 @@ class DataplexLineageExtractor:
         Returns:
             Dictionary mapping entity IDs to sets of LineageEdge objects
         """
+        logger.info(f"🚀 Starting lineage map build for project {project_id}")
         lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
+        entity_count = 0
 
         for entity in entity_data:
+            entity_count += 1
+            logger.debug(
+                f"Processing entity {entity_count}: {entity.entity_id} (platform: {entity.source_platform})"
+            )
             lineage_data = self.get_lineage_for_entity(project_id, entity)
 
             if not lineage_data:
@@ -243,8 +269,19 @@ class DataplexLineageExtractor:
                         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
                     )
                     lineage_map[entity.entity_id].add(edge)
+                    logger.debug(
+                        f"  Added lineage edge: {entity.entity_id} <- {upstream_entity_id}"
+                    )
 
         self.lineage_map = lineage_map
+
+        # Summary logging
+        total_edges = sum(len(edges) for edges in lineage_map.values())
+        entities_with_lineage = len(lineage_map)
+        logger.info(
+            f"📊 Lineage map complete: {entities_with_lineage} entities with lineage, {total_edges} total edges"
+        )
+
         return lineage_map
 
     def _extract_entity_id_from_fqn(self, fqn: str) -> Optional[str]:

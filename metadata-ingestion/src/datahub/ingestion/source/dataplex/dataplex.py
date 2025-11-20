@@ -18,7 +18,7 @@ from google.cloud import dataplex_v1
 from google.oauth2 import service_account
 
 try:
-    from google.cloud.datacatalog_lineage_v1 import LineageClient
+    from google.cloud.datacatalog.lineage_v1 import LineageClient
 
     LINEAGE_AVAILABLE = True
 except ImportError:
