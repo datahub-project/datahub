@@ -87,5 +87,5 @@ def test_deduplication_and_order_preservation() -> None:
     ]
 
     # verifies that the state can be serialized without raising an error
-    json = state.json()
+    json = state.model_dump_json()
     assert json
