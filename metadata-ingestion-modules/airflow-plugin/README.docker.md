@@ -114,9 +114,9 @@ See **`DOCKER_TEST_GUIDE.md`** for:
 REBUILD=true ./run-tests.sh                                 # Force rebuild
 
 # Docker Compose (recommended for CI/CD)
-docker-compose -f docker-compose.test.yml run --rm airflow-plugin-test
-docker-compose -f docker-compose.test.yml run --rm airflow-plugin-test py311-airflow29
-docker-compose -f docker-compose.test.yml build
+docker compose -f docker-compose.test.yml run --rm airflow-plugin-test
+docker compose -f docker-compose.test.yml run --rm airflow-plugin-test py311-airflow29
+docker compose -f docker-compose.test.yml build
 
 # Docker CLI (most control)
 docker build -f Dockerfile.test -t airflow-plugin-test ../../
