@@ -167,6 +167,8 @@ export enum EventType {
     FileUploadFailedEvent,
     FileUploadSucceededEvent,
     FileDownloadViewEvent,
+    FileUploadLatencyEvent,
+    FileDownloadLatencyEvent,
 }
 
 /**
@@ -1220,6 +1222,18 @@ export interface FileDownloadViewEvent extends BaseEvent {
     schemaFieldUrn?: string;
 }
 
+export interface FileUploadLatencyEvent extends BaseEvent {
+    type: EventType.FileUploadLatencyEvent;
+    url: string;
+    duration: number;
+}
+
+export interface FileDownloadLatencyEvent extends BaseEvent {
+    type: EventType.FileDownloadLatencyEvent;
+    url: string;
+    duration: number;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1364,4 +1378,6 @@ export type Event =
     | FileUploadAttemptEvent
     | FileUploadFailedEvent
     | FileUploadSucceededEvent
-    | FileDownloadViewEvent;
+    | FileDownloadViewEvent
+    | FileUploadLatencyEvent
+    | FileDownloadLatencyEvent;

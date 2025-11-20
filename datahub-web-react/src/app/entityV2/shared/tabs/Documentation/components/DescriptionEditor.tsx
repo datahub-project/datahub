@@ -214,8 +214,10 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                         content={updatedDescription}
                         onChange={handleEditorChange}
                         placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
-                        uploadFile={uploadFile}
-                        {...uploadFileAnalyticsCallbacks}
+                        uploadFileProps={{
+                            onFileUpload: uploadFile,
+                            ...uploadFileAnalyticsCallbacks,
+                        }}
                         hideBorder
                     />
                 </EditorContainer>

@@ -1,19 +1,15 @@
 package com.linkedin.datahub.upgrade.restoreindices;
 
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
-import io.ebean.ExpressionList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -156,22 +152,8 @@ public class SendMAEStep implements UpgradeStep {
   }
 
   @VisibleForTesting
-  int getRowCount(RestoreIndicesArgs args) {
-    ExpressionList<EbeanAspectV2> countExp =
-        _server
-            .find(EbeanAspectV2.class)
-            .where()
-            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
-    if (args.aspectName != null) {
-      countExp = countExp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
-    }
-    if (args.urn != null) {
-      countExp = countExp.eq(EbeanAspectV2.URN_COLUMN, args.urn);
-    }
-    if (args.urnLike != null) {
-      countExp = countExp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
-    }
-    return countExp.findCount();
+  int getRowCount(UpgradeContext context, RestoreIndicesArgs args) {
+    return _entityService.countAspect(args, context.report()::addLine);
   }
 
   @Override
@@ -184,7 +166,7 @@ public class SendMAEStep implements UpgradeStep {
 
       context.report().addLine("Sending MAE from local DB");
       long startTime = System.currentTimeMillis();
-      final int rowCount = getRowCount(args);
+      final int rowCount = getRowCount(context, args);
       context
           .report()
           .addLine(
@@ -224,7 +206,7 @@ public class SendMAEStep implements UpgradeStep {
               context.report().addLine("End of data.");
               break;
             } else {
-              log.error("Failure processing restore indices batch.", e);
+              context.report().addLine("Exception while processing batch", e);
               return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
             }
           }
