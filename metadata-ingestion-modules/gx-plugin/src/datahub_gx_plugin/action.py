@@ -603,7 +603,7 @@ class DataHubValidationAction(ValidationAction):
 
         is_spark = isinstance(data_asset.execution_engine, SparkDFExecutionEngine)
 
-        if is_sql_alchemy or is_pandas or is_spark:
+        if is_spark:
             ge_batch_spec = data_asset.active_batch_spec
             partitionSpec = None
             batchSpecProperties = {
@@ -614,9 +614,8 @@ class DataHubValidationAction(ValidationAction):
                     data_asset.active_batch_definition.datasource_name
                 ),
             }
-            sqlalchemy_uri = None
 
-            if ge_batch_spec["batch_data"] == "SparkDataFrame" and is_spark:
+            if isinstance(ge_batch_spec, RuntimeDataBatchSpec):
                 data_platform = self.get_platform_instance(
                     data_asset.active_batch_definition.datasource_name
                 )
@@ -643,6 +642,25 @@ class DataHubValidationAction(ValidationAction):
                         "batchSpec": batchSpec,
                     }
                 )
+            else:
+                warn(
+                    "DataHubValidationAction does not recognize this GE batch spec type- {batch_spec_type}.".format(
+                        batch_spec_type=type(ge_batch_spec)
+                    )
+                )
+        elif is_sql_alchemy or is_pandas:
+            ge_batch_spec = data_asset.active_batch_spec
+            partitionSpec = None
+            batchSpecProperties = {
+                "data_asset_name": str(
+                    data_asset.active_batch_definition.data_asset_name
+                ),
+                "datasource_name": str(
+                    data_asset.active_batch_definition.datasource_name
+                ),
+            }
+            sqlalchemy_uri = None
+
             if is_sql_alchemy and isinstance(
                 data_asset.execution_engine.engine, Engine
             ):
@@ -794,7 +812,7 @@ class DataHubValidationAction(ValidationAction):
         else:
             # TODO - v2-spec - SqlAlchemyDataset support
             warn(
-                "DataHubValidationAction does not recognize this GE data asset type - {asset_type}. This is either using v2-api or execution engine other than sqlalchemy or spark.".format(
+                "DataHubValidationAction does not recognize this GE data asset type - {asset_type}.".format(
                     asset_type=type(data_asset)
                 )
             )
