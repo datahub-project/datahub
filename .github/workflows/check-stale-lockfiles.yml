@@ -1,0 +1,53 @@
+name: Check Stale Lockfiles
+
+on:
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      - "**/build.gradle"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-lockfiles:
+    name: Verify lockfiles are up-to-date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: "zulu"
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve and lock all dependencies
+        run: |
+          ./gradlew resolveAndLockAll --write-locks
+
+      - name: Check for modified lockfiles
+        id: verify-lockfiles
+        run: |
+          git diff --exit-code -- '**/*.lockfile'
+
+      - name: Lockfile validation failure message
+        if: failure() && steps.verify-lockfiles.outcome == 'failure'
+        run: |
+          echo "==================== Validation Failed ===================="
+          echo ""
+          echo "Gradle lockfiles are out of date with the dependency versions"
+          echo "specified in build.gradle files."
+          echo ""
+          echo "Solution: Run the following command and commit the updated lockfiles:"
+          echo "  ./gradlew resolveAndLockAll --write-locks"
+          echo ""
+          echo "Modified lockfiles:"
+          git diff --name-only -- '**/*.lockfile'
+          echo ""
+          echo "=========================================================="
