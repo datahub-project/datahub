@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
-from pydantic import Field, SecretStr, root_validator
+from pydantic import Field, SecretStr, model_validator
 from typing_extensions import assert_never
 
 from datahub.configuration.common import AllowDenyPattern
@@ -46,7 +46,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.sdk.main_client import DataHubClient
 
 
@@ -121,7 +120,8 @@ class HexSourceConfig(
         description="Number of items to fetch per DataHub API call.",
     )
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def validate_lineage_times(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         # In-place update of the input dict would cause state contamination. This was discovered through test failures
         # in test_hex.py where the same dict is reused.
@@ -172,7 +172,6 @@ class HexSourceConfig(
 class HexReport(
     StaleEntityRemovalSourceReport,
     HexApiReport,
-    IngestionStageReport,
     HexQueryFetcherReport,
 ):
     pass
@@ -180,7 +179,7 @@ class HexReport(
 
 @platform_name("Hex")
 @config_class(HexSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DESCRIPTIONS, "Supported by default")
 @capability(SourceCapability.OWNERSHIP, "Supported by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -240,7 +239,7 @@ class HexSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "HexSource":
-        config = HexSourceConfig.parse_obj(config_dict)
+        config = HexSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

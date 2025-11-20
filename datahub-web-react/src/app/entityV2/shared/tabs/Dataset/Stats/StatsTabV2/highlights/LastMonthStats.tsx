@@ -22,7 +22,7 @@ const LastMonthStats = () => {
     const { sections } = useStatsSectionsContext();
 
     return (
-        <LastMonthStatsContainer>
+        <LastMonthStatsContainer data-testid="last-month-stats">
             <Text size="sm" weight="bold">
                 Last 30 days
             </Text>
@@ -35,6 +35,7 @@ const LastMonthStats = () => {
                     isEmpty={users === undefined}
                     button={sections.users.hasData ? <ViewButton /> : undefined}
                     onClick={() => (sections.users.hasData ? scrollToSection?.(SectionKeys.ROWS_AND_USERS) : undefined)}
+                    dataTestId="users-card"
                 />
                 <Card
                     title={queryCount !== undefined ? countFormatter(queryCount) : ''}
@@ -44,6 +45,7 @@ const LastMonthStats = () => {
                     isEmpty={queryCount === undefined}
                     button={sections.queries.hasData ? <ViewButton /> : undefined}
                     onClick={() => (sections.queries.hasData ? scrollToSection?.(SectionKeys.QUERIES) : undefined)}
+                    dataTestId="queries-card"
                 />
                 <Card
                     title={totalOperations !== undefined ? countFormatter(totalOperations) : ''}
@@ -53,6 +55,7 @@ const LastMonthStats = () => {
                     isEmpty={totalOperations === undefined}
                     button={sections.changes.hasData ? <ViewButton /> : undefined}
                     onClick={() => (sections.changes.hasData ? scrollToSection?.(SectionKeys.CHANGES) : undefined)}
+                    dataTestId="changes-card"
                 />
             </StatCards>
         </LastMonthStatsContainer>

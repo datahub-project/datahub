@@ -1,14 +1,13 @@
 package com.linkedin.gms.factory.search;
 
-import static com.linkedin.metadata.Constants.*;
-
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -66,7 +65,6 @@ public class ElasticSearchServiceFactory {
     return new ESSearchDAO(
         components.getSearchClient(),
         elasticSearchConfiguration.getSearch().isPointInTimeCreationEnabled(),
-        elasticSearchConfiguration.getImplementation(),
         elasticSearchConfiguration,
         customSearchConfiguration,
         queryFilterRewriteChain,
@@ -74,9 +72,14 @@ public class ElasticSearchServiceFactory {
   }
 
   @Bean
-  protected ESWriteDAO esWriteDAO() {
-    return new ESWriteDAO(
-        components.getConfig(), components.getSearchClient(), components.getBulkProcessor());
+  protected ESWriteDAO esWriteDAO(final ConfigurationProvider configurationProvider) {
+    ESWriteDAO esWriteDAO =
+        new ESWriteDAO(
+            components.getConfig(), components.getSearchClient(), components.getBulkProcessor());
+    if (configurationProvider.getDatahub().isReadOnly()) {
+      esWriteDAO.setWritable(false);
+    }
+    return esWriteDAO;
   }
 
   @Bean(name = "elasticSearchService")
@@ -87,15 +90,17 @@ public class ElasticSearchServiceFactory {
       final ElasticSearchConfiguration elasticSearchConfiguration,
       @Nullable final CustomSearchConfiguration customSearchConfiguration,
       final ESSearchDAO esSearchDAO,
-      final ESWriteDAO esWriteDAO)
+      final ESWriteDAO esWriteDAO,
+      @Qualifier("mappingsBuilder") final MappingsBuilder mappingsBuilder,
+      @Qualifier("settingsBuilder") final SettingsBuilder settingsBuilder)
       throws IOException {
 
     return new ElasticSearchService(
         components.getIndexBuilder(),
-        entityRegistry,
-        components.getIndexConvention(),
-        settingsBuilder,
         configurationProvider.getSearchService(),
+        configurationProvider.getElasticSearch(),
+        mappingsBuilder,
+        settingsBuilder,
         esSearchDAO,
         new ESBrowseDAO(
             components.getSearchClient(),

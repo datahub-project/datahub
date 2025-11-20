@@ -101,12 +101,13 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/looker';
 import {
     CONNECTION_TO_PLATFORM_MAP,
-    DEPLOY_KEY,
     LOOKML,
     LOOKML_BASE_URL,
     LOOKML_CLIENT_ID,
     LOOKML_CLIENT_SECRET,
-    LOOKML_GITHUB_INFO_REPO,
+    LOOKML_GIT_INFO_DEPLOY_KEY,
+    LOOKML_GIT_INFO_REPO,
+    LOOKML_GIT_INFO_REPO_SSH_LOCATOR,
     PARSE_TABLE_NAMES_FROM_SQL,
     PROJECT_NAME,
 } from '@app/ingestV2/source/builder/RecipeForm/lookml';
@@ -233,12 +234,12 @@ import {
 import {
     AZURE,
     CSV,
+    DATABRICKS,
     DBT_CLOUD,
     MYSQL,
     OKTA,
     POWER_BI,
     SAC,
-    UNITY_CATALOG,
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
@@ -356,8 +357,9 @@ export const RECIPE_FIELDS: RecipeFields = {
     },
     [LOOKML]: {
         fields: [
-            LOOKML_GITHUB_INFO_REPO,
-            DEPLOY_KEY,
+            LOOKML_GIT_INFO_REPO,
+            LOOKML_GIT_INFO_REPO_SSH_LOCATOR,
+            LOOKML_GIT_INFO_DEPLOY_KEY,
             PROJECT_NAME,
             LOOKML_BASE_URL,
             LOOKML_CLIENT_ID,
@@ -471,7 +473,7 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
-    [UNITY_CATALOG]: {
+    [DATABRICKS]: {
         fields: [WORKSPACE_URL, TOKEN],
         filterFields: [
             UNITY_METASTORE_ID_ALLOW,

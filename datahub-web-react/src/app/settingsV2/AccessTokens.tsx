@@ -1,5 +1,6 @@
 import { red } from '@ant-design/colors';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { PageTitle } from '@components';
 import { Alert, Button, Divider, Dropdown, Empty, Modal, Pagination, Select, Typography, message } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -23,9 +24,7 @@ import { EntityType, FacetFilterInput } from '@types';
 
 const SourceContainer = styled.div`
     width: 100%;
-    padding-top: 20px;
-    padding-right: 40px;
-    padding-left: 40px;
+    padding: 16px 20px;
     display: flex;
     flex-direction: column;
     overflow: auto;
@@ -33,18 +32,6 @@ const SourceContainer = styled.div`
 
 const TokensContainer = styled.div`
     padding-top: 0px;
-`;
-
-const TokensHeaderContainer = styled.div`
-    && {
-        padding-left: 0px;
-    }
-`;
-
-const TokensTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
-    }
 `;
 
 const StyledAlert = styled(Alert)`
@@ -322,12 +309,7 @@ export const AccessTokens = () => {
             {tokensError && message.error('Failed to load tokens :(')}
             {revokeTokenError && message.error('Failed to update the Token :(')}
             <TokensContainer>
-                <TokensHeaderContainer>
-                    <TokensTitle level={2}>Manage Access Tokens</TokensTitle>
-                    <Typography.Paragraph type="secondary">
-                        Manage Access Tokens for use with DataHub APIs.
-                    </Typography.Paragraph>
-                </TokensHeaderContainer>
+                <PageTitle title="Manage Access Tokens" subTitle="Manage Access Tokens for use with DataHub APIs." />
             </TokensContainer>
             <Divider />
             {isTokenAuthEnabled === false && (

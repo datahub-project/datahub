@@ -49,8 +49,6 @@ export JAVA_OPTS="${JAVA_MEMORY_OPTS:-"-Xms512m -Xmx1024m"} \
    -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
    -Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
    -Dlogback.debug=false \
-   --add-opens java.base/java.lang=ALL-UNNAMED \
-   --add-opens=java.base/java.util=ALL-UNNAMED \
    ${PROMETHEUS_AGENT:-} ${OTEL_AGENT:-} \
    ${TRUSTSTORE_FILE:-} ${TRUSTSTORE_TYPE:-} ${TRUSTSTORE_PASSWORD:-} \
    ${HTTP_PROXY:-} ${HTTPS_PROXY:-} ${NO_PROXY:-} \

@@ -52,6 +52,10 @@ type RowsProps = {
      * Content to display in the more info modal
      */
     moreInfoModalContent?: JSX.Element;
+    /**
+     * Optional data-testid property for the graph
+     */
+    dataTestId?: string;
 };
 
 export default function RowCountGraph({
@@ -64,6 +68,7 @@ export default function RowCountGraph({
     showEmptyMessageHeader = true,
     emptyMessage = 'No stats colllected for this asset at the moment.',
     moreInfoModalContent = <MoreInfoModalContent />,
+    dataTestId,
 }: RowsProps): JSX.Element {
     return (
         <GraphCard
@@ -76,12 +81,14 @@ export default function RowCountGraph({
             loading={loading}
             graphHeight={chartHeight}
             renderControls={renderControls}
+            dataTestId={dataTestId ? `${dataTestId}-card` : undefined}
             renderGraph={() => (
                 <LineChart
                     data={data}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={DEFAULT_GRAPH_LEFT_AXIS_PROPS}
                     margin={DEFAULT_GRAPH_MARGIN}
+                    dataTestId={dataTestId ? `${dataTestId}-chart` : undefined}
                     popoverRenderer={(datum: RowCountData) => (
                         <GraphPopover
                             header={dayjs(datum.x).format('dddd. MMM. D ’YY')}

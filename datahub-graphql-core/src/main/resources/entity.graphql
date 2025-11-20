@@ -170,7 +170,7 @@ type Query {
   getEntityCounts(input: EntityCountInput): EntityCountResults
 
   """
-  List all DataHub Domains
+  Lists all DataHub Domains belonging to the specified parent. If no parent is specified, lists root domains.
   """
   listDomains(input: ListDomainsInput!): ListDomainsResult
 
@@ -600,14 +600,22 @@ type Mutation {
   batchRemoveOwners(input: BatchRemoveOwnersInput!): Boolean
 
   """
-  Add a link, or institutional memory, from a particular Entity
+  Add a link, or institutional memory, for a particular asset
   """
   addLink(input: AddLinkInput!): Boolean
 
   """
-  Update a link, or institutional memory, from a particular Entity
+  Update a link, or institutional memory, for a particular asset.
+  A combo of link label and url create a unique identifier for which link to update.
   """
   updateLink(input: UpdateLinkInput!): Boolean
+
+  """
+  Upsert a link, or institutional memory, for a particular asset.
+  A combo of link label and url create a unique identifier to update a link,
+  or add a new link if no links with label/url combo are found.
+  """
+  upsertLink(input: UpsertLinkInput!): Boolean
 
   """
   Remove a link, or institutional memory, from a particular Entity
@@ -960,6 +968,14 @@ type Mutation {
   batchSetApplication(
     "Input for batch setting application"
     input: BatchSetApplicationInput!
+  ): Boolean
+
+  """
+  Batch unset a specific Application from a list of entities
+  """
+  batchUnsetApplication(
+    "Input for batch unsetting application"
+    input: BatchUnsetApplicationInput!
   ): Boolean
 
   """
@@ -1340,6 +1356,11 @@ enum EntityType {
   APPLICATION
 
   """
+  A Knowledge Article
+  """
+  DOCUMENT
+
+  """
   An DataHub Page Template
   """
   DATAHUB_PAGE_TEMPLATE
@@ -1348,6 +1369,11 @@ enum EntityType {
   An DataHub Page Module
   """
   DATAHUB_PAGE_MODULE
+
+  """
+  An DataHub File
+  """
+  DATAHUB_FILE
 }
 
 """
@@ -1741,9 +1767,16 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the dataset
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the dataset
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The forms associated with the Dataset
@@ -2216,9 +2249,16 @@ type VersionedDataset implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Experimental! The resolved health status of the asset
@@ -2438,9 +2478,16 @@ type GlossaryTerm implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the glossary term
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the glossary term
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   References to internal resources related to the Glossary Term
@@ -3025,6 +3072,16 @@ enum FabricType {
   Designates sandbox fabrics
   """
   SANDBOX
+
+  """
+  Designates alternative spelling PROD
+  """
+  PRD
+
+  """
+  Designates alternative spelling TEST
+  """
+  TST
 }
 
 """
@@ -3102,9 +3159,16 @@ type Container implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The deprecation status of the container
@@ -5667,9 +5731,16 @@ type Notebook implements Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -5959,9 +6030,16 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6302,9 +6380,16 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6706,9 +6791,16 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6968,9 +7060,16 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Granular API for querying edges extending from this entity
@@ -9256,6 +9355,31 @@ input UpdateLinkInput {
 }
 
 """
+Input provided when upsert the association between a Metadata Entity and a Link
+"""
+input UpsertLinkInput {
+  """
+  The url of the link to add or update
+  """
+  linkUrl: String!
+
+  """
+  The url of the link to add or update
+  """
+  label: String!
+
+  """
+  The urn of the resource or entity to attach the link to, for example a dataset urn
+  """
+  resourceUrn: String!
+
+  """
+  Optional settings input for this link
+  """
+  settings: LinkSettingsInput
+}
+
+"""
 Input provided when removing the association between a Metadata Entity and a Link
 """
 input RemoveLinkInput {
@@ -10333,9 +10457,16 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -10475,9 +10606,16 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -10662,9 +10800,16 @@ type MLFeature implements EntityWithRelationships & Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -10921,9 +11066,16 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -11075,9 +11227,16 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -11621,6 +11780,12 @@ input CreateDomainInput {
   Optional parent domain urn for the domain
   """
   parentDomain: String
+
+  """
+  Optional - Add owners to the domain.
+  If not provided, we'll automatically assign the current actor as the owner.
+  """
+  owners: [OwnerInput!]
 }
 
 """
@@ -13082,9 +13247,16 @@ type DataProduct implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the data product
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the data product
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Tags used for searching Data Product
@@ -13428,6 +13600,21 @@ input BatchSetApplicationInput {
 
   """
   The urns of the entities the given application should be set on
+  """
+  resourceUrns: [String!]!
+}
+
+"""
+Input properties required for batch unsetting a specific Application from entities
+"""
+input BatchUnsetApplicationInput {
+  """
+  The urn of the application to be removed from the resources
+  """
+  applicationUrn: String!
+
+  """
+  The urns of the entities the given application should be removed from
   """
   resourceUrns: [String!]!
 }

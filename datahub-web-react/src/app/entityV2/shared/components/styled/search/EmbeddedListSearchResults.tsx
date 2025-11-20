@@ -24,7 +24,7 @@ const SearchBody = styled.div<{ showFilters?: boolean }>`
     overflow: hidden;
     background-color: ${REDESIGN_COLORS.BACKGROUND};
     display: grid;
-    grid-template-rows: 92% auto;
+    grid-template-rows: minmax(0, 1fr) auto;
     grid-template-columns: ${(p) => (p.showFilters ? '0.2fr auto' : '1fr')};
     grid-template-areas: ${(p) =>
         p.showFilters
@@ -47,7 +47,6 @@ const FiltersContainer = styled.div`
     background-color: ${REDESIGN_COLORS.WHITE};
     display: flex;
     flex-direction: column;
-    height: 100%;
     max-width: 260px;
     min-width: 260px;
     border-right: 1px solid;
@@ -56,23 +55,36 @@ const FiltersContainer = styled.div`
 
 const ResultContainer = styled.div`
     grid-area: results;
-    height: auto;
-    overflow: auto;
-    flex: 1;
+    overflow: hidden;
     position: relative;
     width: 100%;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 `;
 
-const PaginationInfoContainer = styled.span`
+const PaginationInfoContainer = styled.div`
     grid-area: footer;
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
+    background-color: ${REDESIGN_COLORS.WHITE};
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+const PaginationRow = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+`;
+
+const ViewMessageRow = styled.div`
+    display: flex;
+    justify-content: center;
     align-items: center;
 `;
 
@@ -277,30 +289,32 @@ export const EmbeddedListSearchResults = ({
                     )}
                 </ResultContainer>
                 <PaginationInfoContainer>
-                    <PaginationInfo>
-                        <b>
-                            {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                        </b>{' '}
-                        of <b>{totalResults}</b>
-                    </PaginationInfo>
-                    <StyledPagination
-                        current={page}
-                        pageSize={numResultsPerPage}
-                        total={totalResults}
-                        showLessItems
-                        onChange={onChangePage}
-                        showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                        onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                        pageSizeOptions={['10', '20', '50', '100']}
-                    />
-                    {applyView ? (
-                        <MatchingViewsLabel
-                            view={view}
-                            selectedViewUrn={selectedViewUrn}
-                            setSelectedViewUrn={setSelectedViewUrn}
+                    <PaginationRow>
+                        <PaginationInfo>
+                            <b>
+                                {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
+                            </b>{' '}
+                            of <b>{totalResults}</b>
+                        </PaginationInfo>
+                        <StyledPagination
+                            current={page}
+                            pageSize={numResultsPerPage}
+                            total={totalResults}
+                            showLessItems
+                            onChange={onChangePage}
+                            showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                            onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
+                            pageSizeOptions={['10', '20', '30']}
                         />
-                    ) : (
-                        <span />
+                    </PaginationRow>
+                    {applyView && view && selectedViewUrn === view.urn && (
+                        <ViewMessageRow>
+                            <MatchingViewsLabel
+                                view={view}
+                                selectedViewUrn={selectedViewUrn}
+                                setSelectedViewUrn={setSelectedViewUrn}
+                            />
+                        </ViewMessageRow>
                     )}
                 </PaginationInfoContainer>
             </SearchBody>

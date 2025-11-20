@@ -36,6 +36,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
@@ -50,7 +51,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.junit.Assert;
-import org.opensearch.client.RestHighLevelClient;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -59,7 +59,7 @@ import org.testng.annotations.Test;
 public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   @Nonnull
   protected abstract ElasticSearchConfiguration getElasticSearchConfiguration();
@@ -73,7 +73,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected abstract String getElasticSearchImplementation();
 
-  private final IndexConvention _indexConvention = IndexConventionImpl.noPrefix("MD5");
+  private final IndexConvention _indexConvention =
+      IndexConventionImpl.noPrefix("MD5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
   private OperationContext operationContext;
@@ -84,7 +85,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   public void setup() {
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
     _client = buildService(getElasticSearchConfiguration(), TEST_GRAPH_SERVICE_CONFIG);
-    _client.reindexAll(Collections.emptySet());
+    _client.reindexAll(operationContext, Collections.emptySet());
   }
 
   @BeforeMethod

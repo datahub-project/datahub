@@ -180,13 +180,9 @@ interface ColumnProps {
     query: Query;
 }
 
-const ColumnsWrapper = styled.div`
-    text-align: right;
-`;
-
 /*
  * Columns Column
  */
 export const ColumnsColumn = ({ query }: ColumnProps) => {
-    return <ColumnsWrapper>{query.columns?.length ?? 0}</ColumnsWrapper>;
+    return <div>{query.columns?.length ?? 0}</div>;
 };

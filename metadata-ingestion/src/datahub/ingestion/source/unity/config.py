@@ -1,11 +1,10 @@
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urlparse
+from typing import Dict, List, Optional, Union
 
 import pydantic
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 from typing_extensions import Literal
 
 from datahub.configuration.common import (
@@ -20,10 +19,8 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.ingestion.source.ge_data_profiler import DATABRICKS
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
-from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -31,6 +28,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulProfilingConfigMixin,
 )
+from datahub.ingestion.source.unity.connection import UnityCatalogConnectionConfig
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
@@ -46,6 +44,12 @@ INCLUDE_HIVE_METASTORE_DEFAULT = True
 
 
 class LineageDataSource(ConfigEnum):
+    AUTO = "AUTO"
+    SYSTEM_TABLES = "SYSTEM_TABLES"
+    API = "API"
+
+
+class UsageDataSource(ConfigEnum):
     AUTO = "AUTO"
     SYSTEM_TABLES = "SYSTEM_TABLES"
     API = "API"
@@ -133,6 +137,7 @@ class UnityCatalogGEProfilerConfig(UnityCatalogProfilerConfig, GEProfilingConfig
 
 
 class UnityCatalogSourceConfig(
+    UnityCatalogConnectionConfig,
     SQLCommonConfig,
     StatefulIngestionConfigBase,
     BaseUsageConfig,
@@ -140,31 +145,6 @@ class UnityCatalogSourceConfig(
     StatefulProfilingConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
-    token: str = pydantic.Field(description="Databricks personal access token")
-    workspace_url: str = pydantic.Field(
-        description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
-    )
-    warehouse_id: Optional[str] = pydantic.Field(
-        default=None,
-        description=(
-            "SQL Warehouse id, for running queries. Must be explicitly provided to enable SQL-based features. "
-            "Required for the following features that need SQL access: "
-            "1) Tag extraction (include_tags=True) - queries system.information_schema.tags "
-            "2) Hive Metastore catalog (include_hive_metastore=True) - queries legacy hive_metastore catalog "
-            "3) System table lineage (lineage_data_source=SYSTEM_TABLES) - queries system.access.table_lineage/column_lineage "
-            "4) Data profiling (profiling.enabled=True) - runs SELECT/ANALYZE queries on tables. "
-            "When warehouse_id is missing, these features will be automatically disabled (with warnings) to allow ingestion to continue."
-        ),
-    )
-    include_hive_metastore: bool = pydantic.Field(
-        default=INCLUDE_HIVE_METASTORE_DEFAULT,
-        description="Whether to ingest legacy `hive_metastore` catalog. This requires executing queries on SQL warehouse.",
-    )
-    workspace_name: Optional[str] = pydantic.Field(
-        default=None,
-        description="Name of the workspace. Default to deployment name present in workspace_url",
-    )
-
     include_metastore: bool = pydantic.Field(
         default=False,
         description=(
@@ -311,6 +291,17 @@ class UnityCatalogSourceConfig(
         description="Generate usage statistics.",
     )
 
+    usage_data_source: UsageDataSource = pydantic.Field(
+        default=UsageDataSource.AUTO,
+        description=(
+            "Source for usage/query history data extraction. Options: "
+            f"'{UsageDataSource.AUTO.value}' (default) - Automatically use system.query.history table when SQL warehouse is configured, otherwise fall back to REST API. "
+            "This provides better performance for multi-workspace setups and large query volumes when warehouse_id is set. "
+            f"'{UsageDataSource.SYSTEM_TABLES.value}' - Force use of system.query.history table (requires SQL warehouse and SELECT permission on system.query.history). "
+            f"'{UsageDataSource.API.value}' - Force use of REST API endpoints for query history (legacy method, may have limitations with multiple workspaces)."
+        ),
+    )
+
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
         UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig
@@ -344,7 +335,15 @@ class UnityCatalogSourceConfig(
     _forced_disable_tag_extraction: bool = pydantic.PrivateAttr(default=False)
     _forced_disable_hive_metastore_extraction = pydantic.PrivateAttr(default=False)
 
-    scheme: str = DATABRICKS
+    include_hive_metastore: bool = pydantic.Field(
+        default=INCLUDE_HIVE_METASTORE_DEFAULT,
+        description="Whether to ingest legacy `hive_metastore` catalog. This requires executing queries on SQL warehouse.",
+    )
+
+    workspace_name: Optional[str] = pydantic.Field(
+        default=None,
+        description="Name of the workspace. Default to deployment name present in workspace_url",
+    )
 
     def __init__(self, **data):
         # First, let the parent handle the root validators and field processing
@@ -386,19 +385,6 @@ class UnityCatalogSourceConfig(
             forced_disable_hive_metastore_extraction
         )
 
-    def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
-        uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
-        if database:
-            uri_opts["catalog"] = database
-        return make_sqlalchemy_uri(
-            scheme=self.scheme,
-            username="token",
-            password=self.token,
-            at=urlparse(self.workspace_url).netloc,
-            db=database,
-            uri_opts=uri_opts,
-        )
-
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -411,13 +397,15 @@ class UnityCatalogSourceConfig(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
 
-    @pydantic.validator("start_time")
+    @field_validator("start_time", mode="after")
+    @classmethod
     def within_thirty_days(cls, v: datetime) -> datetime:
         if (datetime.now(timezone.utc) - v).days > 30:
             raise ValueError("Query history is only maintained for 30 days.")
         return v
 
-    @pydantic.validator("workspace_url")
+    @field_validator("workspace_url", mode="after")
+    @classmethod
     def workspace_url_should_start_with_http_scheme(cls, workspace_url: str) -> str:
         if not workspace_url.lower().startswith(("http://", "https://")):
             raise ValueError(
@@ -425,7 +413,26 @@ class UnityCatalogSourceConfig(
             )
         return workspace_url
 
-    @pydantic.validator("include_metastore")
+    @model_validator(mode="before")
+    def either_token_or_azure_auth_provided(cls, values: dict) -> dict:
+        token = values.get("token")
+        azure_auth = values.get("azure_auth")
+
+        # Check if exactly one of the authentication methods is provided
+        if not token and not azure_auth:
+            raise ValueError(
+                "Either 'azure_auth' or 'token' (personal access token) must be provided in the configuration."
+            )
+
+        if token and azure_auth:
+            raise ValueError(
+                "Cannot specify both 'token' and 'azure_auth'. Please provide only one authentication method."
+            )
+
+        return values
+
+    @field_validator("include_metastore", mode="after")
+    @classmethod
     def include_metastore_warning(cls, v: bool) -> bool:
         if v:
             msg = (
@@ -438,46 +445,56 @@ class UnityCatalogSourceConfig(
             add_global_warning(msg)
         return v
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def set_warehouse_id_from_profiling(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        profiling: Optional[
-            Union[UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig]
-        ] = values.get("profiling")
-        if not values.get("warehouse_id") and profiling and profiling.warehouse_id:
-            values["warehouse_id"] = profiling.warehouse_id
+    @model_validator(mode="after")
+    def set_warehouse_id_from_profiling(self):
+        profiling = self.profiling
+        if not self.warehouse_id and profiling and profiling.warehouse_id:
+            self.warehouse_id = profiling.warehouse_id
         if (
-            values.get("warehouse_id")
+            self.warehouse_id
             and profiling
             and profiling.warehouse_id
-            and values["warehouse_id"] != profiling.warehouse_id
+            and self.warehouse_id != profiling.warehouse_id
         ):
             raise ValueError(
                 "When `warehouse_id` is set, it must match the `warehouse_id` in `profiling`."
             )
 
-        if values.get("warehouse_id") and profiling and not profiling.warehouse_id:
-            profiling.warehouse_id = values["warehouse_id"]
+        if self.warehouse_id and profiling and not profiling.warehouse_id:
+            profiling.warehouse_id = self.warehouse_id
 
         if profiling and profiling.enabled and not profiling.warehouse_id:
             raise ValueError("warehouse_id must be set when profiling is enabled.")
 
-        return values
+        return self
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def validate_lineage_data_source_with_warehouse(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        lineage_data_source = values.get("lineage_data_source", LineageDataSource.AUTO)
-        warehouse_id = values.get("warehouse_id")
+    @model_validator(mode="after")
+    def validate_lineage_data_source_with_warehouse(self):
+        lineage_data_source = self.lineage_data_source or LineageDataSource.AUTO
 
-        if lineage_data_source == LineageDataSource.SYSTEM_TABLES and not warehouse_id:
+        if (
+            lineage_data_source == LineageDataSource.SYSTEM_TABLES
+            and not self.warehouse_id
+        ):
             raise ValueError(
                 f"lineage_data_source='{LineageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
             )
 
-        return values
+        return self
 
-    @pydantic.validator("schema_pattern", always=True)
+    @model_validator(mode="after")
+    def validate_usage_data_source_with_warehouse(self):
+        usage_data_source = self.usage_data_source or UsageDataSource.AUTO
+
+        if usage_data_source == UsageDataSource.SYSTEM_TABLES and not self.warehouse_id:
+            raise ValueError(
+                f"usage_data_source='{UsageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
+            )
+
+        return self
+
+    @field_validator("schema_pattern", mode="before")
+    @classmethod
     def schema_pattern_should__always_deny_information_schema(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:

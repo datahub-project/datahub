@@ -1,7 +1,14 @@
 import pathlib
+from copy import deepcopy
 from typing import Any, Dict, Optional, Union
 
-from pydantic import Field, FilePath, SecretStr, validator
+from pydantic import (
+    Field,
+    FilePath,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -41,7 +48,8 @@ class GitReference(ConfigModel):
         transform=lambda url: _GITHUB_URL_TEMPLATE,
     )
 
-    @validator("repo", pre=True)
+    @field_validator("repo", mode="before")
+    @classmethod
     def simplify_repo_url(cls, repo: str) -> str:
         if repo.startswith("github.com/") or repo.startswith("gitlab.com"):
             repo = f"https://{repo}"
@@ -53,20 +61,21 @@ class GitReference(ConfigModel):
 
         return repo
 
-    @validator("url_template", always=True)
-    def infer_url_template(cls, url_template: Optional[str], values: dict) -> str:
-        if url_template is not None:
-            return url_template
+    @model_validator(mode="after")
+    def infer_url_template(self) -> "GitReference":
+        if self.url_template is not None:
+            return self
 
-        repo: str = values["repo"]
-        if repo.startswith(_GITHUB_PREFIX):
-            return _GITHUB_URL_TEMPLATE
-        elif repo.startswith(_GITLAB_PREFIX):
-            return _GITLAB_URL_TEMPLATE
+        if self.repo.startswith(_GITHUB_PREFIX):
+            self.url_template = _GITHUB_URL_TEMPLATE
+        elif self.repo.startswith(_GITLAB_PREFIX):
+            self.url_template = _GITLAB_URL_TEMPLATE
         else:
             raise ValueError(
                 "Unable to infer URL template from repo. Please set url_template manually."
             )
+
+        return self
 
     def get_url_for_file_path(self, file_path: str) -> str:
         assert self.url_template
@@ -98,34 +107,42 @@ class GitInfo(GitReference):
 
     _fix_deploy_key_newlines = pydantic_multiline_string("deploy_key")
 
-    @validator("deploy_key", pre=True, always=True)
+    @model_validator(mode="before")
+    @classmethod
     def deploy_key_filled_from_deploy_key_file(
-        cls, v: Optional[SecretStr], values: Dict[str, Any]
-    ) -> Optional[SecretStr]:
-        if v is None:
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        # In-place update of the input dict would cause state contamination.
+        # So a deepcopy is performed first.
+        values = deepcopy(values)
+
+        if values.get("deploy_key") is None:
             deploy_key_file = values.get("deploy_key_file")
             if deploy_key_file is not None:
                 with open(deploy_key_file) as fp:
                     deploy_key = SecretStr(fp.read())
-                    return deploy_key
-        return v
+                    values["deploy_key"] = deploy_key
+        return values
 
-    @validator("repo_ssh_locator", always=True)
-    def infer_repo_ssh_locator(
-        cls, repo_ssh_locator: Optional[str], values: dict
-    ) -> str:
-        if repo_ssh_locator is not None:
-            return repo_ssh_locator
+    @model_validator(mode="after")
+    def infer_repo_ssh_locator(self) -> "GitInfo":
+        if self.repo_ssh_locator is not None:
+            return self
 
-        repo: str = values["repo"]
-        if repo.startswith(_GITHUB_PREFIX):
-            return f"git@github.com:{repo[len(_GITHUB_PREFIX) :]}.git"
-        elif repo.startswith(_GITLAB_PREFIX):
-            return f"git@gitlab.com:{repo[len(_GITLAB_PREFIX) :]}.git"
+        if self.repo.startswith(_GITHUB_PREFIX):
+            self.repo_ssh_locator = (
+                f"git@github.com:{self.repo[len(_GITHUB_PREFIX) :]}.git"
+            )
+        elif self.repo.startswith(_GITLAB_PREFIX):
+            self.repo_ssh_locator = (
+                f"git@gitlab.com:{self.repo[len(_GITLAB_PREFIX) :]}.git"
+            )
         else:
             raise ValueError(
                 "Unable to infer repo_ssh_locator from repo. Please set repo_ssh_locator manually."
             )
+
+        return self
 
     @property
     def branch_for_clone(self) -> Optional[str]:

@@ -12,6 +12,7 @@ on:
       - master
       - releases/**
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     branches:
       - "**"
   release:
@@ -21,7 +22,9 @@ concurrency:
   # Using `github.run_id` (unique val) instead of `github.ref` here
   # because we don't want to cancel this workflow on master only for PRs
   #   as that makes reproducing issues easier
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  # Adding github.event.action == labeled as a means to differentiate the trigger due to adding a label -- most labels are
+  # no-ops except for `depot`
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}-${{ github.event.action == 'labeled' }}
   cancel-in-progress: true
 
 env:
@@ -29,7 +32,9 @@ env:
   PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
 
   DOCKER_CACHE: "DEPOT"
-  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  DEPOT_PROJECT_ID: "s0gr1cr3jd"
+  HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
+  IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
 permissions:
@@ -39,6 +44,7 @@ permissions:
 jobs:
   setup:
     runs-on: depot-ubuntu-24.04-small
+    if: ${{ github.event_name != 'pull_request' || github.event.action != 'labeled' || github.event.label.name == 'depot' }}
     outputs:
       # TODO: Many of the vars below should not be required anymore.
       tag: ${{ steps.tag.outputs.tag }}
@@ -135,22 +141,25 @@ jobs:
       - name: Determine runner type
         id: set-runner
         # This needs to handle two scenarios:
-        # 1. Running on a PR from a fork. There are some auth issues that prevent us from using depot in that case.
-        #    So, Its easier to just use the regular github actions cache and build all images for each parallel job running smoke test.
-        #    Note, concurrency is lower when using github runners, queue times can be longer, test time is longer due to fewer parallel jobs.
-        # 2. Running on a PR from a branch in the datahub-project org and push/schedule events on master.
+        # 1. Running on a PR from a fork. We use github runners, unless the "depot" label exists -- in which case, we run
+        #    it on depotNote, concurrency is lower when using github runners, queue times can be longer, test time is longer
+        #    due to fewer parallel jobs.
+        # 3. Running on a PR from a branch in the datahub-project org and push/schedule events on master.
         #    Depot is used here for remote container builds in base_build and also for all runners. Depot runners support unlimited concurrency
         #    and hence short queue times and higher parallelism of smoke tests
-
         run: |
-          if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
+          if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.IS_FORK }}" == "false" ]]; then
             echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
             echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
             echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
             echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
           else
             echo "build_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            if [[ "${{ env.HAS_DEPOT_LABEL }}" == "true" ]]; then
+              echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+            else
+              echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            fi
             echo "test_runner_type_small=ubuntu-latest" >> "$GITHUB_OUTPUT"
             echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
             # publishing is currently only supported via depot
@@ -241,6 +250,17 @@ jobs:
           restore-keys: |
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/jars-*
+            ~/.gradle/caches/transforms-*
+          key: gradle-plugins-cache
+          restore-keys: |
+            gradle-plugins-cache
+
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@v1
@@ -314,6 +334,15 @@ jobs:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
+      - uses: actions/cache/save@v4
+        if: ${{ github.ref == 'refs/heads/master' }}
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/jars-*
+            ~/.gradle/caches/transforms-*
+          key: gradle-plugins-cache
 
   scan_images:
     permissions:
@@ -354,7 +383,7 @@ jobs:
           vuln-type: "os,library"
           trivy-config: "./trivy.yaml"
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: "trivy-results.sarif"
 
@@ -372,12 +401,12 @@ jobs:
         # python_batch_count is used to split pytests in the smoke-test (batches of actual test functions)
         # cypress_batch_count is used to split the collection of cypress test specs into batches.
         run: |
-          if [[ "${{ needs.setup.outputs.test_runner_type }}" == "ubuntu-latest" ]]; then
+          if [[ "${{ env.IS_FORK }}" == "true" ]]; then
             echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
-            echo "cypress_batch_count=11" >> "$GITHUB_OUTPUT"
-            echo "python_batch_count=6" >> "$GITHUB_OUTPUT"
+            echo "cypress_batch_count=8" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
           fi
 
       - id: set-matrix
@@ -422,11 +451,18 @@ jobs:
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
       - name: Free up disk space
-        if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/share/swift || true
+          sudo rm -rf /usr/local/julia* || true
+          sudo rm -rf /usr/local/share/powershell || true
+          sudo rm -rf /usr/share/miniconda || true
           sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+          sudo docker system prune -a -f || true
+          df -h
 
       - uses: actions/cache/restore@v4
         with:
@@ -468,6 +504,14 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
+
       - name: build images
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
@@ -482,6 +526,13 @@ jobs:
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
           docker images
 
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
@@ -621,7 +672,7 @@ jobs:
 
       - name: Download build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: ${{ github.workspace }}/build
