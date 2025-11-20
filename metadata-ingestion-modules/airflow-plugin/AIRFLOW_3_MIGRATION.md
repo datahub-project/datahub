@@ -896,11 +896,148 @@ If not set in `airflow.cfg`, the connection password field is used as a fallback
 
 - `src/datahub_airflow_plugin/airflow3/datahub_listener.py:297-398` - Emitter initialization using SDK Connection API
 
-### 12. Column-Level Lineage in Airflow 3.x
+### 12. Operator-Specific Patches for OpenLineage
+
+In Airflow 3.x, some operators require specific patches to enable proper lineage extraction because they either:
+
+1. Don't implement required OpenLineage methods (`get_openlineage_database_info()`)
+2. Use non-standard SQL storage mechanisms (e.g., configuration dictionaries)
+3. Use generic SQL dialects that don't support column-level lineage
+
+The plugin patches these operators to provide full lineage support.
+
+#### 12a. SQLite Operator Patch
+
+**Problem:** `SqliteHook` doesn't implement `get_openlineage_database_info()`, causing lineage extraction to fail.
+
+**Solution:** Patch `SqliteHook.get_openlineage_database_info()` to return proper database info:
+
+```python
+def get_openlineage_database_info(connection: Connection) -> DatabaseInfo:
+    # Extract database name from SQLite file path
+    db_path = connection.host
+    db_name = os.path.splitext(os.path.basename(db_path))[0]
+
+    return DatabaseInfo(
+        scheme="sqlite",
+        authority=None,  # SQLite doesn't have host:port
+        database=db_name,
+        normalize_name_method=lambda x: x.lower(),
+    )
+```
+
+**Files:** `src/datahub_airflow_plugin/airflow3/_sqlite_openlineage_patch.py`
+
+#### 12b. Athena Operator Patch
+
+**Problem:** `AthenaOperator` uses `SQLParser` with `dialect="generic"`, which doesn't provide column-level lineage.
+
+**Solution:** Wrap `AthenaOperator.get_openlineage_facets_on_complete()` to:
+
+1. Call the original OpenLineage implementation
+2. Enhance it with DataHub's SQL parser for column-level lineage
+
+```python
+def get_openlineage_facets_on_complete(self, task_instance):
+    # Get original OpenLineage result
+    operator_lineage = original_method(self, task_instance)
+
+    # Enhance with DataHub SQL parsing
+    sql_parsing_result = create_lineage_sql_parsed_result(
+        query=self.query,
+        platform="athena",
+        default_db=self.database,
+    )
+
+    # Store result in run_facets for DataHub listener
+    operator_lineage.run_facets["datahub_sql_parsing_result"] = sql_parsing_result
+
+    return operator_lineage
+```
+
+**Files:** `src/datahub_airflow_plugin/airflow3/_athena_openlineage_patch.py`
+
+#### 12c. BigQuery InsertJobOperator Patch
+
+**Problem:** `BigQueryInsertJobOperator` stores SQL in a `configuration` dictionary, not as a direct attribute. This means:
+
+- The standard SQLParser patch (Section 10) can't intercept it because it doesn't go through `SQLParser.generate_openlineage_metadata_from_sql()`
+- The official OpenLineage implementation extracts table-level lineage from BigQuery's job metadata/API response, **not by parsing SQL**
+- Therefore, the official implementation provides table-level lineage but **no column-level lineage**
+
+**Solution:** Wrap `get_openlineage_facets_on_complete()` to:
+
+1. Call the original OpenLineage implementation (gets table-level lineage from BigQuery job metadata)
+2. Extract SQL from `self.configuration.get("query", {}).get("query")`
+3. Run DataHub's SQL parser with BigQuery dialect to add column-level lineage
+4. Handle destination table from configuration
+5. Store result in `run_facets`
+
+```python
+def get_openlineage_facets_on_complete(self, task_instance):
+    # Extract SQL from configuration
+    sql = self.configuration.get("query", {}).get("query")
+
+    # Get original result
+    operator_lineage = original_method(self, task_instance)
+
+    # Run DataHub parser
+    sql_parsing_result = create_lineage_sql_parsed_result(
+        query=sql,
+        platform="bigquery",
+        default_db=self.project_id,
+    )
+
+    # Add destination table if specified in configuration
+    destination_table = self.configuration.get("query", {}).get("destinationTable")
+    if destination_table:
+        # Add to output tables
+        ...
+
+    operator_lineage.run_facets["datahub_sql_parsing_result"] = sql_parsing_result
+    return operator_lineage
+```
+
+**Files:** `src/datahub_airflow_plugin/airflow3/_bigquery_openlineage_patch.py`
+
+#### Patch Registration
+
+All patches are automatically applied when the plugin is loaded in Airflow 3.x:
+
+```python
+# In _airflow_compat.py
+from datahub_airflow_plugin.airflow3._sqlite_openlineage_patch import patch_sqlite_hook
+from datahub_airflow_plugin.airflow3._athena_openlineage_patch import patch_athena_operator
+from datahub_airflow_plugin.airflow3._bigquery_openlineage_patch import patch_bigquery_insert_job_operator
+
+patch_sqlite_hook()
+patch_athena_operator()
+patch_bigquery_insert_job_operator()
+```
+
+**Key Points:**
+
+- ✅ Patches are applied at import time, before any DAGs are loaded
+- ✅ Patches are idempotent (safe to call multiple times)
+- ✅ Patches gracefully handle missing providers (no error if provider not installed)
+- ✅ Each patch wraps the original method, ensuring compatibility with Airflow's OpenLineage implementation
+- ✅ Column-level lineage is consistently stored in `run_facets["datahub_sql_parsing_result"]` for the listener to process
+
+**Files Updated:**
+
+- `src/datahub_airflow_plugin/airflow3/_airflow_compat.py` - Patch registration
+- `src/datahub_airflow_plugin/airflow3/_sqlite_openlineage_patch.py` - SQLite hook patch
+- `src/datahub_airflow_plugin/airflow3/_athena_openlineage_patch.py` - Athena operator patch
+- `src/datahub_airflow_plugin/airflow3/_bigquery_openlineage_patch.py` - BigQuery operator patch
+
+### 13. Column-Level Lineage in Airflow 3.x
 
 **Status:** ✅ Fully Working
 
-Column-level (fine-grained) lineage is now supported in Airflow 3.x through the SQLParser patch mechanism described above.
+Column-level (fine-grained) lineage is now supported in Airflow 3.x through:
+
+1. The **SQLParser patch** (Section 10) for standard SQL operators
+2. **Operator-specific patches** (Section 12) for special-case operators
 
 **Example:** For a SQL query like:
 
