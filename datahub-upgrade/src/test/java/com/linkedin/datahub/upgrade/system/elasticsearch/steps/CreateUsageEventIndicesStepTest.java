@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
+import static org.mockito.Mockito.atLeastOnce;
+
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -18,12 +20,16 @@ import java.util.function.Function;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.CreateIndexResponse;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -40,6 +46,7 @@ public class CreateUsageEventIndicesStepTest {
   @Mock private IndexConfiguration index;
   @Mock private RawResponse rawResponse;
   @Mock private CreateIndexResponse createIndexResponse;
+  @Mock private GetAliasesResponse getAliasesResponse;
 
   private CreateUsageEventIndicesStep step;
   private OperationContext opContext = TestOperationContexts.systemContextNoValidate();
@@ -52,13 +59,13 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.when(esComponents.getSearchClient()).thenReturn(searchClient);
     Mockito.when(searchClient.getEngineType()).thenReturn(searchEngineType);
     Mockito.when(esComponents.getIndexBuilder()).thenReturn(indexBuilder);
-    Mockito.when(indexBuilder.getNumShards()).thenReturn(2);
-    Mockito.when(indexBuilder.getNumReplicas()).thenReturn(1);
 
     Mockito.when(configurationProvider.getPlatformAnalytics()).thenReturn(platformAnalytics);
     Mockito.when(configurationProvider.getElasticSearch()).thenReturn(elasticSearch);
     Mockito.when(elasticSearch.getIndex()).thenReturn(index);
-    Mockito.when(index.getPrefix()).thenReturn("test_");
+    Mockito.when(index.getNumShards()).thenReturn(2);
+    Mockito.when(index.getNumReplicas()).thenReturn(1);
+    Mockito.when(index.getFinalPrefix()).thenReturn("test_");
 
     Mockito.when(upgradeContext.opContext()).thenReturn(opContext);
 
@@ -68,7 +75,24 @@ public class CreateUsageEventIndicesStepTest {
     step = new CreateUsageEventIndicesStep(esComponents, configurationProvider);
   }
 
+  @BeforeClass
+  public void setup() {
+    System.setProperty("ENABLE_SYSTEM_UPDATE_DUE", "true");
+  }
+
+  @AfterClass
+  public void cleanup() {
+    System.clearProperty("ENABLE_SYSTEM_UPDATE_DUE");
+  }
+
   private void setupMockClientResponses() throws IOException {
+    // Mock ShimConfiguration for AWS detection
+    SearchClientShim.ShimConfiguration shimConfig =
+        Mockito.mock(SearchClientShim.ShimConfiguration.class);
+    Mockito.when(searchClient.getShimConfiguration()).thenReturn(shimConfig);
+    Mockito.when(shimConfig.getHost())
+        .thenReturn("localhost"); // Non-AWS host for self-hosted OpenSearch
+
     // Mock RawResponse for low-level requests (ILM/ISM policies, index templates)
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -98,6 +122,13 @@ public class CreateUsageEventIndicesStepTest {
                 Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(false);
 
+    // Mock alias check - return empty map by default (no alias exists)
+    Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
+
     // Mock index creation
     Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(true);
     Mockito.when(
@@ -125,21 +156,92 @@ public class CreateUsageEventIndicesStepTest {
   }
 
   @Test
-  public void testExecutable_AnalyticsDisabled() throws Exception {
+  public void testSkip_AnalyticsDisabled() throws Exception {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(false);
 
     // Act
-    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
-    UpgradeStepResult result = executable.apply(upgradeContext);
+    boolean shouldSkip = step.skip(upgradeContext);
 
     // Assert
-    Assert.assertNotNull(result);
-    Assert.assertEquals(result.stepId(), "CreateUsageEventIndicesStep");
-    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    Assert.assertTrue(shouldSkip);
+    Mockito.verify(platformAnalytics).isEnabled();
+  }
 
-    // Verify that no Elasticsearch operations were called
-    Mockito.verify(searchClient, Mockito.never()).getEngineType();
+  @Test
+  public void testSkip_AnalyticsEnabled() throws Exception {
+    // Arrange
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+
+    // Act
+    boolean shouldSkip = step.skip(upgradeContext);
+
+    // Assert
+    Assert.assertFalse(shouldSkip);
+    Mockito.verify(platformAnalytics).isEnabled();
+  }
+
+  @Test
+  public void testSkip_ConfigurationProviderException() throws Exception {
+    // Arrange
+    Mockito.when(platformAnalytics.isEnabled()).thenThrow(new RuntimeException("Config error"));
+
+    // Act & Assert
+    Assert.assertThrows(RuntimeException.class, () -> step.skip(upgradeContext));
+    Mockito.verify(platformAnalytics).isEnabled();
+  }
+
+  @Test
+  public void testSkip_EnvVarNotSet_DefaultsToEnabled() throws Exception {
+    // This test verifies that when SKIP_CREATE_USAGE_EVENT_INDICES_STEP is not set (default),
+    // the step respects the analytics enabled flag.
+    // Arrange
+    System.clearProperty("SKIP_CREATE_USAGE_EVENT_INDICES_STEP");
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+
+    // Act
+    boolean shouldSkip = step.skip(upgradeContext);
+
+    // Assert - Should not skip when analytics is enabled and env var is not set
+    Assert.assertFalse(shouldSkip);
+    Mockito.verify(platformAnalytics).isEnabled();
+  }
+
+  @Test
+  public void testSkip_EnvVarSetToTrue() throws Exception {
+    // Arrange
+    System.setProperty("SKIP_CREATE_USAGE_EVENT_INDICES_STEP", "true");
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+
+    try {
+      // Act
+      boolean shouldSkip = step.skip(upgradeContext);
+
+      // Assert - Should skip when env var is set to true, even if analytics is enabled
+      Assert.assertTrue(shouldSkip);
+      // Should not check analytics when env var skips
+      Mockito.verify(platformAnalytics, Mockito.never()).isEnabled();
+    } finally {
+      System.clearProperty("SKIP_CREATE_USAGE_EVENT_INDICES_STEP");
+    }
+  }
+
+  @Test
+  public void testSkip_EnvVarSetToFalse() throws Exception {
+    // Arrange
+    System.setProperty("SKIP_CREATE_USAGE_EVENT_INDICES_STEP", "false");
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+
+    try {
+      // Act
+      boolean shouldSkip = step.skip(upgradeContext);
+
+      // Assert - Should not skip when env var is set to false, check analytics instead
+      Assert.assertFalse(shouldSkip);
+      Mockito.verify(platformAnalytics).isEnabled();
+    } finally {
+      System.clearProperty("SKIP_CREATE_USAGE_EVENT_INDICES_STEP");
+    }
   }
 
   @Test
@@ -159,8 +261,8 @@ public class CreateUsageEventIndicesStepTest {
 
     // Verify Elasticsearch path was taken
     Mockito.verify(searchEngineType).isOpenSearch();
-    Mockito.verify(indexBuilder).getNumShards();
-    Mockito.verify(indexBuilder).getNumReplicas();
+    Mockito.verify(index).getNumShards();
+    Mockito.verify(index).getNumReplicas();
   }
 
   @Test
@@ -180,8 +282,8 @@ public class CreateUsageEventIndicesStepTest {
 
     // Verify OpenSearch path was taken
     Mockito.verify(searchEngineType).isOpenSearch();
-    Mockito.verify(indexBuilder).getNumShards();
-    Mockito.verify(indexBuilder).getNumReplicas();
+    Mockito.verify(index).getNumShards();
+    Mockito.verify(index).getNumReplicas();
   }
 
   @Test
@@ -189,7 +291,7 @@ public class CreateUsageEventIndicesStepTest {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
-    Mockito.when(indexBuilder.getNumShards())
+    Mockito.when(index.getNumShards())
         .thenThrow(new RuntimeException("Elasticsearch setup failed"));
 
     // Act
@@ -207,23 +309,7 @@ public class CreateUsageEventIndicesStepTest {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(true);
-    Mockito.when(indexBuilder.getNumShards())
-        .thenThrow(new RuntimeException("OpenSearch setup failed"));
-
-    // Act
-    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
-    UpgradeStepResult result = executable.apply(upgradeContext);
-
-    // Assert
-    Assert.assertNotNull(result);
-    Assert.assertEquals(result.stepId(), "CreateUsageEventIndicesStep");
-    Assert.assertEquals(result.result(), DataHubUpgradeState.FAILED);
-  }
-
-  @Test
-  public void testExecutable_ConfigurationProviderException() throws Exception {
-    // Arrange
-    Mockito.when(platformAnalytics.isEnabled()).thenThrow(new RuntimeException("Config error"));
+    Mockito.when(index.getNumShards()).thenThrow(new RuntimeException("OpenSearch setup failed"));
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
@@ -238,8 +324,9 @@ public class CreateUsageEventIndicesStepTest {
   @Test
   public void testExecutable_EngineTypeException() throws Exception {
     // Arrange
-    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
-    Mockito.when(searchClient.getEngineType()).thenThrow(new RuntimeException("Engine type error"));
+    // Throw exception in a method that executable() actually calls
+    Mockito.when(esComponents.getSearchClient().getEngineType())
+        .thenThrow(new RuntimeException("Engine type error"));
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
@@ -256,7 +343,7 @@ public class CreateUsageEventIndicesStepTest {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
-    Mockito.when(index.getPrefix()).thenReturn(""); // Empty prefix
+    Mockito.when(index.getFinalPrefix()).thenReturn(""); // Empty prefix
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
@@ -268,53 +355,24 @@ public class CreateUsageEventIndicesStepTest {
     Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
     // Verify empty prefix was used and no underscore separator was added
-    Mockito.verify(index).getPrefix();
+    Mockito.verify(index, atLeastOnce()).getFinalPrefix();
 
     // Verify that the low-level requests were made with correct names (no underscore prefix)
+    Mockito.verify(searchClient, Mockito.atLeast(2)).performLowLevelRequest(Mockito.any());
+
+    // Verify specific endpoint calls were made
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
-                request -> request.getEndpoint().equals("_ilm/policy/datahub_usage_event_policy")));
+                request ->
+                    request.getEndpoint().equals("/_ilm/policy/datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
                 request ->
                     request
                         .getEndpoint()
-                        .equals("_index_template/datahub_usage_event_index_template")));
-  }
-
-  @Test
-  public void testExecutable_WithNullPrefix() throws Exception {
-    // Arrange
-    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
-    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
-    Mockito.when(index.getPrefix()).thenReturn(null); // Null prefix
-
-    // Act
-    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
-    UpgradeStepResult result = executable.apply(upgradeContext);
-
-    // Assert
-    Assert.assertNotNull(result);
-    Assert.assertEquals(result.stepId(), "CreateUsageEventIndicesStep");
-    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-
-    // Verify null prefix was handled and no underscore separator was added
-    Mockito.verify(index).getPrefix();
-
-    // Verify that the low-level requests were made with correct names (no underscore prefix)
-    Mockito.verify(searchClient)
-        .performLowLevelRequest(
-            Mockito.argThat(
-                request -> request.getEndpoint().equals("_ilm/policy/datahub_usage_event_policy")));
-    Mockito.verify(searchClient)
-        .performLowLevelRequest(
-            Mockito.argThat(
-                request ->
-                    request
-                        .getEndpoint()
-                        .equals("_index_template/datahub_usage_event_index_template")));
+                        .equals("/_index_template/datahub_usage_event_index_template")));
   }
 
   @Test
@@ -322,7 +380,7 @@ public class CreateUsageEventIndicesStepTest {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
-    Mockito.when(index.getPrefix()).thenReturn("prod"); // Non-empty prefix
+    Mockito.when(index.getFinalPrefix()).thenReturn("prod_"); // Non-empty prefix
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
@@ -334,21 +392,21 @@ public class CreateUsageEventIndicesStepTest {
     Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
     // Verify non-empty prefix was used and underscore separator was added
-    Mockito.verify(index).getPrefix();
+    Mockito.verify(index, atLeastOnce()).getFinalPrefix();
 
     // Verify that the low-level requests were made with correct names (with underscore prefix)
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
                 request ->
-                    request.getEndpoint().equals("_ilm/policy/prod_datahub_usage_event_policy")));
+                    request.getEndpoint().equals("/_ilm/policy/prod_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
                 request ->
                     request
                         .getEndpoint()
-                        .equals("_index_template/prod_datahub_usage_event_index_template")));
+                        .equals("/_index_template/prod_datahub_usage_event_index_template")));
   }
 
   @Test
@@ -356,8 +414,8 @@ public class CreateUsageEventIndicesStepTest {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
-    Mockito.when(index.getPrefix())
-        .thenReturn("kbcpyv7ss3-staging-test"); // Specific prefix from issue
+    Mockito.when(index.getFinalPrefix())
+        .thenReturn("kbcpyv7ss3-staging-test_"); // Specific prefix from issue
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
@@ -369,7 +427,7 @@ public class CreateUsageEventIndicesStepTest {
     Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
     // Verify specific prefix was used and underscore separator was added
-    Mockito.verify(index).getPrefix();
+    Mockito.verify(index, atLeastOnce()).getFinalPrefix();
 
     // Verify that the low-level requests were made with correct names (with underscore prefix)
     Mockito.verify(searchClient)
@@ -378,7 +436,8 @@ public class CreateUsageEventIndicesStepTest {
                 request ->
                     request
                         .getEndpoint()
-                        .equals("_ilm/policy/kbcpyv7ss3-staging-test_datahub_usage_event_policy")));
+                        .equals(
+                            "/_ilm/policy/kbcpyv7ss3-staging-test_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
@@ -386,7 +445,7 @@ public class CreateUsageEventIndicesStepTest {
                     request
                         .getEndpoint()
                         .equals(
-                            "_index_template/kbcpyv7ss3-staging-test_datahub_usage_event_index_template")));
+                            "/_index_template/kbcpyv7ss3-staging-test_datahub_usage_event_index_template")));
   }
 
   @Test
@@ -394,7 +453,7 @@ public class CreateUsageEventIndicesStepTest {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(true);
-    Mockito.when(index.getPrefix()).thenReturn(""); // Empty prefix
+    Mockito.when(index.getFinalPrefix()).thenReturn(""); // Empty prefix
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
@@ -407,21 +466,24 @@ public class CreateUsageEventIndicesStepTest {
 
     // Verify OpenSearch path was taken and empty prefix was used
     Mockito.verify(searchEngineType).isOpenSearch();
-    Mockito.verify(index).getPrefix();
+    Mockito.verify(index, atLeastOnce()).getFinalPrefix();
 
     // Verify that the low-level requests were made with correct names (no underscore prefix)
+    // Note: createIsmPolicy makes 2 calls - one for creation and one for update attempt
+    Mockito.verify(searchClient, Mockito.atLeast(1))
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals("/_plugins/_ism/policies/datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
                 request ->
                     request
                         .getEndpoint()
-                        .equals("_plugins/_ism/policies/datahub_usage_event_policy")));
-    Mockito.verify(searchClient)
-        .performLowLevelRequest(
-            Mockito.argThat(
-                request ->
-                    request.getEndpoint().equals("_template/datahub_usage_event_index_template")));
+                        .equals("/_index_template/datahub_usage_event_index_template")));
   }
 
   @Test
@@ -429,7 +491,7 @@ public class CreateUsageEventIndicesStepTest {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(true);
-    Mockito.when(index.getPrefix()).thenReturn("prod"); // Non-empty prefix
+    Mockito.when(index.getFinalPrefix()).thenReturn("prod_"); // Non-empty prefix
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
@@ -442,23 +504,24 @@ public class CreateUsageEventIndicesStepTest {
 
     // Verify OpenSearch path was taken and non-empty prefix was used
     Mockito.verify(searchEngineType).isOpenSearch();
-    Mockito.verify(index).getPrefix();
+    Mockito.verify(index, atLeastOnce()).getFinalPrefix();
 
     // Verify that the low-level requests were made with correct names (with underscore prefix)
+    // Note: createIsmPolicy makes 2 calls - one for creation and one for update attempt
+    Mockito.verify(searchClient, Mockito.atLeast(1))
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals("/_plugins/_ism/policies/prod_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
                 request ->
                     request
                         .getEndpoint()
-                        .equals("_plugins/_ism/policies/prod_datahub_usage_event_policy")));
-    Mockito.verify(searchClient)
-        .performLowLevelRequest(
-            Mockito.argThat(
-                request ->
-                    request
-                        .getEndpoint()
-                        .equals("_template/prod_datahub_usage_event_index_template")));
+                        .equals("/_index_template/prod_datahub_usage_event_index_template")));
   }
 
   @Test
@@ -466,8 +529,8 @@ public class CreateUsageEventIndicesStepTest {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
-    Mockito.when(indexBuilder.getNumShards()).thenReturn(5);
-    Mockito.when(indexBuilder.getNumReplicas()).thenReturn(3);
+    Mockito.when(index.getNumShards()).thenReturn(5);
+    Mockito.when(index.getNumReplicas()).thenReturn(3);
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
@@ -479,8 +542,8 @@ public class CreateUsageEventIndicesStepTest {
     Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
     // Verify custom shards and replicas were retrieved
-    Mockito.verify(indexBuilder).getNumShards();
-    Mockito.verify(indexBuilder).getNumReplicas();
+    Mockito.verify(index).getNumShards();
+    Mockito.verify(index).getNumReplicas();
   }
 
   @Test

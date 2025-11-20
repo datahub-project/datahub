@@ -276,8 +276,9 @@ class TableauConnectionConfig(ConfigModel):
         description="When enabled, extracts column-level lineage from Tableau Datasources",
     )
 
-    @validator("connect_uri")
-    def remove_trailing_slash(cls, v):
+    @field_validator("connect_uri", mode="after")
+    @classmethod
+    def remove_trailing_slash(cls, v: str) -> str:
         return config_clean.remove_trailing_slashes(v)
 
     def get_tableau_auth(
@@ -684,8 +685,9 @@ class TableauConfig(
         "fetch_size",
     )
 
-    # pre = True because we want to take some decision before pydantic initialize the configuration to default values
-    @root_validator(pre=True)
+    # mode = "before" because we want to take some decision before pydantic initialize the configuration to default values
+    @model_validator(mode="before")
+    @classmethod
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         # In-place update of the input dict would cause state contamination. This was discovered through test failures
         # in test_hex.py where the same dict is reused.
@@ -715,27 +717,23 @@ class TableauConfig(
 
         return values
 
-    @root_validator(skip_on_failure=True)
-    def validate_config_values(cls, values: Dict) -> Dict:
-        tags_for_hidden_assets = values.get("tags_for_hidden_assets")
-        ingest_tags = values.get("ingest_tags")
+    @model_validator(mode="after")
+    def validate_config_values(self) -> "TableauConfig":
         if (
-            not ingest_tags
-            and tags_for_hidden_assets
-            and len(tags_for_hidden_assets) > 0
+            not self.ingest_tags
+            and self.tags_for_hidden_assets
+            and len(self.tags_for_hidden_assets) > 0
         ):
             raise ValueError(
                 "tags_for_hidden_assets is only allowed with ingest_tags enabled. Be aware that this will overwrite tags entered from the UI."
             )
 
-        use_email_as_username = values.get("use_email_as_username")
-        ingest_owner = values.get("ingest_owner")
-        if use_email_as_username and not ingest_owner:
+        if self.use_email_as_username and not self.ingest_owner:
             raise ValueError(
                 "use_email_as_username requires ingest_owner to be enabled."
             )
 
-        return values
+        return self
 
 
 class WorkbookKey(ContainerKey):

@@ -150,7 +150,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = MySQLConfig.parse_obj(config_dict)
+        config = MySQLConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def _setup_rds_iam_event_listener(

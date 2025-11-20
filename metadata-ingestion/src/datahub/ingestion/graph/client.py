@@ -102,6 +102,7 @@ if TYPE_CHECKING:
     from datahub.sql_parsing.schema_resolver import (
         GraphQLSchemaMetadata,
         SchemaResolver,
+        SchemaResolverReport,
     )
     from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 
@@ -290,7 +291,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         # TODO: We should refactor out the multithreading functionality of the sink
         # into a separate class that can be used by both the sink and the graph client
         # e.g. a DatahubBulkRestEmitter that both the sink and the graph client use.
-        return DatahubRestSinkConfig(**self.config.dict(), **(extra_config or {}))
+        return DatahubRestSinkConfig(**self.config.model_dump(), **(extra_config or {}))
 
     @contextlib.contextmanager
     def make_rest_sink(
@@ -774,7 +775,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         """
 
         if isinstance(config, (ConfigModel, BaseModel)):
-            blob = config.json()
+            blob = config.model_dump_json()
         else:
             blob = json.dumps(config)
 
@@ -1543,6 +1544,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         platform_instance: Optional[str],
         env: str,
         include_graph: bool = True,
+        report: Optional["SchemaResolverReport"] = None,
     ) -> "SchemaResolver":
         from datahub.sql_parsing.schema_resolver import SchemaResolver
 
@@ -1551,6 +1553,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             platform_instance=platform_instance,
             env=env,
             graph=self if include_graph else None,
+            report=report,
         )
 
     def initialize_schema_resolver_from_datahub(
@@ -1559,10 +1562,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         platform_instance: Optional[str],
         env: str,
         batch_size: int = 100,
+        report: Optional["SchemaResolverReport"] = None,
     ) -> "SchemaResolver":
         logger.info("Initializing schema resolver")
         schema_resolver = self._make_schema_resolver(
-            platform, platform_instance, env, include_graph=False
+            platform, platform_instance, env, include_graph=False, report=report
         )
 
         logger.info(f"Fetching schemas for platform {platform}, env {env}")

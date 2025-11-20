@@ -16,10 +16,10 @@ class UnityCatalogConnectionTest:
         self.report = UnityCatalogReport()
         self.proxy = UnityCatalogApiProxy(
             self.config.workspace_url,
-            self.config.token,
             self.config.profiling.warehouse_id,
             report=self.report,
             databricks_api_page_size=self.config.databricks_api_page_size,
+            personal_access_token=self.config.token,
         )
 
     def get_connection_test(self) -> TestConnectionReport:

@@ -52,34 +52,30 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   private final CqlSession _cqlSession;
-  private boolean _canWrite = true;
-  private boolean _connectionValidated = false;
+  private boolean canWrite = true;
+  @Setter private boolean connectionValidated = false;
 
   public CassandraAspectDao(@Nonnull final CqlSession cqlSession) {
     _cqlSession = cqlSession;
   }
 
-  public void setConnectionValidated(boolean validated) {
-    _connectionValidated = validated;
-    _canWrite = validated;
-  }
-
   private boolean validateConnection() {
-    if (_connectionValidated) {
+    if (connectionValidated) {
       return true;
     }
     if (!AspectStorageValidationUtil.checkTableExists(_cqlSession)) {
       log.error("GMS can't find entity aspects table in Cassandra storage layer.");
-      _canWrite = false;
+      canWrite = false;
       return false;
     }
-    _connectionValidated = true;
+    connectionValidated = true;
     return true;
   }
 
@@ -211,6 +207,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   public Optional<EntityAspect> updateAspect(
       @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect) {
     validateConnection();
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return Optional.empty();
+    }
     EntityAspect updateAspect = aspect.asLatest();
     SimpleStatement statement = generateSaveStatement(updateAspect, false);
     ResultSet rs = _cqlSession.execute(statement);
@@ -222,6 +222,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   public Optional<EntityAspect> insertAspect(
       @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect, long version) {
     validateConnection();
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return Optional.empty();
+    }
     EntityAspect insertAspect = aspect.withVersion(version);
     SimpleStatement statement = generateSaveStatement(insertAspect, true);
     ResultSet rs = _cqlSession.execute(statement);
@@ -404,6 +408,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   public void deleteAspect(
       @Nonnull final Urn urn, @Nonnull final String aspect, @Nonnull final Long version) {
     validateConnection();
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     SimpleStatement ss =
         deleteFrom(CassandraAspect.TABLE_NAME)
             .whereColumn(CassandraAspect.URN_COLUMN)
@@ -424,6 +432,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable TransactionContext txContext,
       @Nonnull final String urn) {
     validateConnection();
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return 0;
+    }
 
     Urn urnObj = UrnUtils.getUrn(urn);
     String keyAspectName = opContext.getKeyAspectName(urnObj);
@@ -477,20 +489,6 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     }
 
     return -1;
-  }
-
-  public List<EntityAspect> getAllAspects(String urn, String aspectName) {
-    SimpleStatement ss =
-        selectFrom(CassandraAspect.TABLE_NAME)
-            .all()
-            .whereColumn(CassandraAspect.URN_COLUMN)
-            .isEqualTo(literal(urn))
-            .whereColumn(CassandraAspect.ASPECT_COLUMN)
-            .isEqualTo(literal(aspectName))
-            .build();
-
-    ResultSet rs = _cqlSession.execute(ss);
-    return rs.all().stream().map(CassandraAspect::rowToEntityAspect).collect(Collectors.toList());
   }
 
   @Override
@@ -570,6 +568,13 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   @Override
   public Integer countAspect(@Nonnull String aspectName, @Nullable String urnLike) {
+    // Not implemented
+    return -1;
+  }
+
+  @Nonnull
+  @Override
+  public Integer countAspect(final RestoreIndicesArgs args) {
     // Not implemented
     return -1;
   }
@@ -697,7 +702,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   public void setWritable(boolean canWrite) {
-    _canWrite = canWrite;
+    this.canWrite = canWrite;
   }
 
   @Override

@@ -62,7 +62,6 @@ public class FilesController {
   protected AuthorizerChain authorizationChain;
 
   private static final int MAX_EXPIRATION_SECONDS = 604800; // 7 days
-  private static final String FILE_SEPARATOR = "__";
 
   /**
    * Endpoint to serve files by generating presigned S3 URLs and redirecting to them.
@@ -106,7 +105,7 @@ public class FilesController {
       }
 
       // Prefix file ID with bucket name
-      String key = String.format("%s/%s/%s", bucket, folder, fileId);
+      String key = String.format("%s/%s", folder, fileId);
 
       // Generate presigned URL using the existing S3Util
       String presignedUrl = s3Util.generatePresignedDownloadUrl(bucket, key, expiration);
@@ -159,7 +158,7 @@ public class FilesController {
     Authentication authentication = AuthenticationContext.getAuthentication();
 
     // Extract UUID from file ID
-    String fileUUID = fileId.split(FILE_SEPARATOR)[0];
+    String fileUUID = fileId.split(Constants.S3_FILE_ID_NAME_SEPARATOR)[0];
     Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:" + fileUUID);
 
     // Retrieve file entity and info

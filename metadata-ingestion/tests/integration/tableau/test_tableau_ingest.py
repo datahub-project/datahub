@@ -1022,7 +1022,7 @@ def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_
         ValidationError,
         match=r".*tags_for_hidden_assets is only allowed with ingest_tags enabled.*",
     ):
-        TableauConfig.parse_obj(new_config)
+        TableauConfig.model_validate(new_config)
 
 
 @freeze_time(FROZEN_TIME)
