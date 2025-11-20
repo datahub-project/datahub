@@ -38,8 +38,9 @@ import qlikLogo from '@images/qliklogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
-import snaplogic from '@images/snaplogic.png';
+import snaplogicLogo from '@images/snaplogic.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
+import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.png';
 import trinoLogo from '@images/trinologo.png';
@@ -158,6 +159,8 @@ export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
 export const GOOGLE_SHEETS = 'google_sheets';
 export const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
+export const STREAMLIT = 'streamlit';
+export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -206,8 +209,9 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
     [VERTEXAI_URN]: vertexAI,
-    [SNAPLOGIC_URN]: snaplogic,
+    [SNAPLOGIC_URN]: snaplogicLogo,
     [GOOGLE_SHEETS_URN]: googleSheetsLogo,
+    [STREAMLIT_URN]: streamlitLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
