@@ -1,6 +1,6 @@
 import { ApolloClient, InMemoryCache } from '@apollo/client';
-import { waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
+import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentChildren } from '@app/document/hooks/useDocumentChildren';
