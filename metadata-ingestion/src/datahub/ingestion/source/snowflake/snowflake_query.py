@@ -697,7 +697,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             upstreams_deny_pattern,
             ["upstream_table_name", "upstream_column_table_name"],
         )
-        _MAX_UPSTREAMS_PER_DOWNSTREAM = 20
+        _MAX_UPSTREAMS_PER_DOWNSTREAM = 50
         _MAX_UPSTREAM_COLUMNS_PER_DOWNSTREAM = 400
         _MAX_QUERIES_PER_DOWNSTREAM = 30
 
