@@ -61,7 +61,8 @@ class DataplexAssetKey(DataplexZoneKey):
 
 
 EntityDataTuple = namedtuple(
-    "EntityDataTuple", ["lake_id", "zone_id", "entity_id", "asset_id"]
+    "EntityDataTuple",
+    ["lake_id", "zone_id", "entity_id", "asset_id", "source_platform", "dataset_id"],
 )
 
 
@@ -123,7 +124,11 @@ def make_asset_data_product_urn(
 
 
 def make_entity_dataset_urn(
-    entity_id: str, project_id: str, env: str, platform: str = "dataplex"
+    entity_id: str,
+    project_id: str,
+    env: str,
+    dataset_id: str,
+    platform: str = "dataplex",
 ) -> str:
     """Create dataset URN for a Dataplex entity.
 
@@ -136,7 +141,7 @@ def make_entity_dataset_urn(
     Returns:
         The dataset URN
     """
-    dataset_name = f"{project_id}.{entity_id}"
+    dataset_name = f"{project_id}.{dataset_id}.{entity_id}"
     return builder.make_dataset_urn_with_platform_instance(
         platform=platform,
         name=dataset_name,
@@ -146,7 +151,7 @@ def make_entity_dataset_urn(
 
 
 def make_source_dataset_urn(
-    entity_id: str, project_id: str, source_platform: str, env: str
+    entity_id: str, project_id: str, source_platform: str, env: str, dataset_id: str
 ) -> str:
     """Create dataset URN for the source platform entity (BigQuery, GCS, etc.).
 
@@ -157,11 +162,12 @@ def make_source_dataset_urn(
         project_id: The GCP project ID
         source_platform: The source platform (bigquery, gcs, etc.)
         env: The environment (PROD, DEV, etc.)
+        dataset_id: The dataset ID from Dataplex
 
     Returns:
         The source dataset URN
     """
-    dataset_name = f"{project_id}.{entity_id}"
+    dataset_name = f"{project_id}.{dataset_id}.{entity_id}"
     return builder.make_dataset_urn_with_platform_instance(
         platform=source_platform,
         name=dataset_name,
