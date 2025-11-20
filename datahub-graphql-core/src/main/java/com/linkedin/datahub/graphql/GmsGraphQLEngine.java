@@ -597,7 +597,7 @@ public class GmsGraphQLEngine {
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
 
-    this.datasetType = new DatasetType(entityClient);
+    this.datasetType = new DatasetType(entityClient, featureFlags);
     this.roleType = new RoleType(entityClient);
     this.corpUserType = new CorpUserType(entityClient, featureFlags);
     this.corpGroupType = new CorpGroupType(entityClient);
@@ -1281,7 +1281,8 @@ public class GmsGraphQLEngine {
                   "moveDomain", new MoveDomainResolver(this.entityService, this.entityClient))
               .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
               .dataFetcher(
-                  "setDomain", new SetDomainResolver(this.entityClient, this.entityService))
+                  "setDomain",
+                  new SetDomainResolver(this.entityClient, this.entityService, this.featureFlags))
               .dataFetcher(
                   "batchSetDomain", new BatchSetDomainResolver(this.entityService, entityClient))
               .dataFetcher(
