@@ -184,6 +184,14 @@ class RestServiceConfig:
         return managed_ingestion.get("enabled", False)
 
     @property
+    def default_cli_version(self) -> Optional[str]:
+        """
+        Get the default CLI version.
+        """
+        managed_ingestion = self.raw_config.get("managedIngestion") or {}
+        return managed_ingestion.get("defaultCliVersion")
+
+    @property
     def is_datahub_cloud(self) -> bool:
         """
         Check if DataHub Cloud is enabled.
@@ -234,7 +242,8 @@ class RestServiceConfig:
 
         # Check if this is a config-based feature
         if feature in config_based_features:
-            return config_based_features[feature]()
+            result = config_based_features[feature]()
+            return bool(result) if result is not None else False
 
         # For environment-based features, determine requirements based on cloud vs. non-cloud
         deployment_type = "cloud" if self.is_datahub_cloud else "core"

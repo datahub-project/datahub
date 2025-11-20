@@ -6,6 +6,7 @@ from unittest.mock import patch
 from pytest import Config
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.testing import mce_helpers
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
     gen_mock_experiment,
@@ -16,7 +17,6 @@ from tests.integration.vertexai.mock_vertexai import (
     gen_mock_training_custom_job,
     get_mock_pipeline_job,
 )
-from tests.test_helpers import mce_helpers
 
 T = TypeVar("T")
 

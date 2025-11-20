@@ -27,7 +27,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project2.my-dataset2.test_physical_table,PROD)",
                     "column": "col1"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`test_physical_table`.`col1` AS `col1`"
+            }
         },
         {
             "downstream": {
@@ -45,7 +49,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project2.my-dataset2.test_physical_table,PROD)",
                     "column": "col2"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`test_physical_table`.`col2` AS `col2`"
+            }
         },
         {
             "downstream": {
@@ -63,9 +71,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project2.my-dataset2.test_physical_table,PROD)",
                     "column": "something"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "LOWER(`test_physical_table`.`something`) AS `something`"
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.35,
         "generalized_statement": "CREATE VIEW `my-project.my-dataset.test_table` AS SELECT * REPLACE (LOWER(something) AS something) FROM `my-project2.my-dataset2.test_physical_table`"

@@ -1,10 +1,11 @@
 import logging
+from copy import deepcopy
 from dataclasses import dataclass, field as dataclass_field
 from datetime import timedelta
 from typing import Any, Dict, Literal, Optional, Union
 
 import pydantic
-from pydantic import root_validator, validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -28,10 +29,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.stats_collections import TopKDict, float_top_k_dict
 
 logger = logging.getLogger(__name__)
-
-NAME: str = "name"
 
 BASE_PROJECT_NAME = "__BASE"
 
@@ -47,6 +47,9 @@ DERIVED_VIEW_PATTERN: str = r"\$\{([^}]*)\}"
 @dataclass
 class LookMLSourceReport(StaleEntityRemovalSourceReport):
     git_clone_latency: Optional[timedelta] = None
+    looker_query_api_latency_seconds: TopKDict[str, float] = dataclass_field(
+        default_factory=float_top_k_dict
+    )
     models_discovered: int = 0
     models_dropped: LossyList[str] = dataclass_field(default_factory=LossyList)
     views_discovered: int = 0
@@ -80,6 +83,11 @@ class LookMLSourceReport(StaleEntityRemovalSourceReport):
         if self._looker_api:
             self.api_stats = self._looker_api.compute_stats()
         return super().compute_stats()
+
+    def report_looker_query_api_latency(
+        self, view_urn: str, latency: timedelta
+    ) -> None:
+        self.looker_query_api_latency_seconds[view_urn] = latency.total_seconds()
 
 
 class LookMLSourceConfig(
@@ -122,7 +130,17 @@ class LookMLSourceConfig(
         description="List of regex patterns for LookML views to include in the extraction.",
     )
     parse_table_names_from_sql: bool = Field(True, description="See note below.")
-    api: Optional[LookerAPIConfig]
+    use_api_for_view_lineage: bool = Field(
+        False,
+        description="When enabled, uses Looker API to get SQL representation of views for lineage parsing instead of parsing LookML files directly. Requires 'api' configuration to be provided."
+        "Coverage of regex based lineage extraction has limitations, it only supportes ${TABLE}.column_name syntax, See (https://cloud.google.com/looker/docs/reference/param-field-sql#sql_for_dimensions) to"
+        "understand the other substitutions and cross-references allowed in LookML.",
+    )
+    use_api_cache_for_view_lineage: bool = Field(
+        False,
+        description="When enabled, uses Looker API server-side caching for query execution. Requires 'api' configuration to be provided.",
+    )
+    api: Optional[LookerAPIConfig] = None
     project_name: Optional[str] = Field(
         None,
         description="Required if you don't specify the `api` section. The project name within which all the model "
@@ -193,64 +211,116 @@ class LookMLSourceConfig(
         "All if comments are evaluated to true for configured looker_environment value",
     )
 
-    @validator("connection_to_platform_map", pre=True)
-    def convert_string_to_connection_def(cls, conn_map):
-        # Previous version of config supported strings in connection map. This upconverts strings to ConnectionMap
-        for key in conn_map:
-            if isinstance(conn_map[key], str):
-                platform = conn_map[key]
-                if "." in platform:
-                    platform_db_split = conn_map[key].split(".")
-                    connection = LookerConnectionDefinition(
-                        platform=platform_db_split[0],
-                        default_db=platform_db_split[1],
-                        default_schema="",
-                    )
-                    conn_map[key] = connection
-                else:
-                    logger.warning(
-                        f"Connection map for {key} provides platform {platform} but does not provide a default "
-                        f"database name. This might result in failed resolution"
-                    )
-                    conn_map[key] = LookerConnectionDefinition(
-                        platform=platform, default_db="", default_schema=""
-                    )
-        return conn_map
+    field_threshold_for_splitting: int = Field(
+        100,
+        description="When the total number of fields returned by Looker API exceeds this threshold, "
+        "the fields will be split into multiple API calls to avoid SQL parsing failures. "
+        "This helps provide partial column and table lineage when dealing with large field sets.",
+    )
 
-    @root_validator(skip_on_failure=True)
-    def check_either_connection_map_or_connection_provided(cls, values):
+    allow_partial_lineage_results: bool = Field(
+        True,
+        description="When enabled, allows partial lineage results to be returned even when some field chunks "
+        "fail or when there are SQL parsing errors. This provides better resilience for large field sets "
+        "and ensures some lineage information is available rather than complete failure.",
+    )
+
+    enable_individual_field_fallback: bool = Field(
+        True,
+        description="When enabled, if a field chunk fails, the system will attempt to process each field "
+        "individually to maximize information and isolate problematic fields. This helps identify "
+        "which specific fields are causing issues while still getting lineage for working fields.",
+    )
+
+    max_workers_for_parallel_processing: int = Field(
+        10,
+        description="Maximum number of worker threads to use for parallel processing of field chunks and individual fields. "
+        "Set to 1 to process everything sequentially. Higher values can improve performance but may increase memory usage. "
+        "Maximum allowed value is 100 to prevent resource exhaustion.",
+    )
+
+    @field_validator("max_workers_for_parallel_processing")
+    def validate_max_workers(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(
+                f"max_workers_for_parallel_processing must be at least 1, got {v}"
+            )
+        if v > 100:
+            logger.warning(
+                f"max_workers_for_parallel_processing is set to {v}, which exceeds the recommended maximum of 100. "
+                f"This may cause resource exhaustion. Using 100 instead."
+            )
+            return 100
+        return v
+
+    @model_validator(mode="before")
+    @classmethod
+    def convert_string_to_connection_def(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        values = deepcopy(values)
+        conn_map = values.get("connection_to_platform_map")
+        if conn_map:
+            # Previous version of config supported strings in connection map. This upconverts strings to ConnectionMap
+            for key in conn_map:
+                if isinstance(conn_map[key], str):
+                    platform = conn_map[key]
+                    if "." in platform:
+                        platform_db_split = conn_map[key].split(".")
+                        connection = LookerConnectionDefinition(
+                            platform=platform_db_split[0],
+                            default_db=platform_db_split[1],
+                            default_schema="",
+                        )
+                        conn_map[key] = connection
+                    else:
+                        logger.warning(
+                            f"Connection map for {key} provides platform {platform} but does not provide a default "
+                            f"database name. This might result in failed resolution"
+                        )
+                        conn_map[key] = LookerConnectionDefinition(
+                            platform=platform, default_db="", default_schema=""
+                        )
+        return values
+
+    @model_validator(mode="after")
+    def check_either_connection_map_or_connection_provided(self):
         """Validate that we must either have a connection map or an api credential"""
-        if not values.get("connection_to_platform_map", {}) and not values.get(
-            "api", {}
-        ):
+        if not (self.connection_to_platform_map or {}) and not (self.api):
             raise ValueError(
                 "Neither api not connection_to_platform_map config was found. LookML source requires either api "
                 "credentials for Looker or a map of connection names to platform identifiers to work correctly"
             )
-        return values
+        return self
 
-    @root_validator(skip_on_failure=True)
-    def check_either_project_name_or_api_provided(cls, values):
+    @model_validator(mode="after")
+    def check_either_project_name_or_api_provided(self):
         """Validate that we must either have a project name or an api credential to fetch project names"""
-        if not values.get("project_name") and not values.get("api"):
+        if not self.project_name and not self.api:
             raise ValueError(
                 "Neither project_name not an API credential was found. LookML source requires either api credentials "
                 "for Looker or a project_name to accurately name views and models."
             )
-        return values
+        return self
 
-    @validator("base_folder", always=True)
-    def check_base_folder_if_not_provided(
-        cls, v: Optional[pydantic.DirectoryPath], values: Dict[str, Any]
-    ) -> Optional[pydantic.DirectoryPath]:
-        if v is None:
-            git_info: Optional[GitInfo] = values.get("git_info")
-            if git_info:
-                if not git_info.deploy_key:
+    @model_validator(mode="after")
+    def check_api_provided_for_view_lineage(self):
+        """Validate that we must have an api credential to use Looker API for view's column lineage"""
+        if not self.api and self.use_api_for_view_lineage:
+            raise ValueError(
+                "API credential was not found. LookML source requires api credentials "
+                "for Looker to use Looker APIs for view's column lineage extraction."
+                "Set `use_api_for_view_lineage` to False to skip using Looker APIs."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def check_base_folder_if_not_provided(self):
+        if self.base_folder is None:
+            if self.git_info:
+                if not self.git_info.deploy_key:
                     logger.warning(
                         "git_info is provided, but no SSH key is present. If the repo is not public, we'll fail to "
                         "clone it."
                     )
             else:
                 raise ValueError("Neither base_folder nor git_info has been provided.")
-        return v
+        return self

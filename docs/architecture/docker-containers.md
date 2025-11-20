@@ -16,12 +16,10 @@ the proper ordering of the components whereas docker-compose relies on a series 
                                 datahub-gms (healthy)
                                        |
                                 datahub-upgrade (SystemUpdate completed)
-            /--------------------/   |   \   \------------------------------------------------\
-           /                         |    \-------------------\                                \
-mysql-setup (completed)  elasticsearch-setup (completed)  kafka-setup (completed)  (if apply) neo4j (healthy)
-    |                           |                          /         \
-    |                           |                         /           \
-mysql (healthy)         elasticsearch (healthy)   broker (healthy)  (if not internal) schema-registry  (healthy)
-                                                      |
-                                                  zookeeper (healthy)
+            /--------------------/   |      \------------------------------------------------\
+           /                         |                                                         \
+mysql-setup (completed)  elasticsearch-setup (completed)                           (if apply) neo4j (healthy)
+    |                           |
+    |                           |
+mysql (healthy)         elasticsearch (healthy)
 ```

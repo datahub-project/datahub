@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -31,6 +32,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SnowflakeEdition,
@@ -71,6 +73,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
+    RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -96,7 +99,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+        SourceCapabilityModifier.SCHEMA,
+    ],
+)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.DATA_PROFILING,
@@ -117,7 +127,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    "Enabled by default via stateful ingestion",
     supported=True,
 )
 @capability(
@@ -130,6 +140,7 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Optionally enabled via `classification.enabled`",
     supported=True,
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class SnowflakeV2Source(
     SnowflakeCommonMixin,
     StatefulIngestionSourceBase,
@@ -161,7 +172,11 @@ class SnowflakeV2Source(
         )
 
         # For database, schema, tables, views, etc
-        self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
+        self.data_dictionary = SnowflakeDataDictionary(
+            connection=self.connection,
+            report=self.report,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
+        )
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
 
         self.discovered_datasets: Optional[List[str]] = None
@@ -185,6 +200,7 @@ class SnowflakeV2Source(
                 ),
                 generate_usage_statistics=False,
                 generate_operations=False,
+                generate_queries=self.config.include_queries,
                 format_queries=self.config.format_sql_queries,
                 is_temp_table=self._is_temp_table,
                 is_allowed_table=self._is_allowed_table,
@@ -192,7 +208,7 @@ class SnowflakeV2Source(
         )
         self.report.sql_aggregator = self.aggregator.report
 
-        if self.config.include_table_lineage:
+        if self.config.include_table_lineage and not self.config.use_queries_v2:
             redundant_lineage_run_skip_handler: Optional[
                 RedundantLineageRunSkipHandler
             ] = None
@@ -310,6 +326,7 @@ class SnowflakeV2Source(
                 SourceCapability.PLATFORM_INSTANCE,
                 SourceCapability.DOMAINS,
                 SourceCapability.DELETION_DETECTION,
+                SourceCapability.TEST_CONNECTION,
             )
         ]
 
@@ -515,6 +532,7 @@ class SnowflakeV2Source(
             snowsight_url_builder=snowsight_url_builder,
             filters=self.filters,
             identifiers=self.identifiers,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
         )
 
         with self.report.new_stage(f"*: {METADATA_EXTRACTION}"):
@@ -551,11 +569,15 @@ class SnowflakeV2Source(
             and len(discovered_views) == 0
             and len(discovered_streams) == 0
         ):
-            self.structured_reporter.failure(
-                GENERIC_PERMISSION_ERROR_KEY,
-                "No tables/views/streams found. Please check permissions.",
-            )
-            return
+            if self.config.warn_no_datasets:
+                self.structured_reporter.warning(
+                    "No tables/views/streams found. Verify dataset permissions if Snowflake source is not empty.",
+                )
+            else:
+                self.structured_reporter.failure(
+                    GENERIC_PERMISSION_ERROR_KEY,
+                    "No tables/views/streams found. Verify dataset permissions in Snowflake.",
+                )
 
         self.discovered_datasets = (
             discovered_tables + discovered_views + discovered_streams
@@ -568,10 +590,26 @@ class SnowflakeV2Source(
             with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
                 schema_resolver = self.aggregator._schema_resolver
 
+                redundant_queries_run_skip_handler: Optional[
+                    RedundantQueriesRunSkipHandler
+                ] = None
+                if self.config.enable_stateful_time_window:
+                    redundant_queries_run_skip_handler = RedundantQueriesRunSkipHandler(
+                        source=self,
+                        config=self.config,
+                        pipeline_name=self.ctx.pipeline_name,
+                        run_id=self.ctx.run_id,
+                    )
+
                 queries_extractor = SnowflakeQueriesExtractor(
                     connection=self.connection,
+                    # TODO: this should be its own section in main recipe
                     config=SnowflakeQueriesExtractorConfig(
-                        window=self.config,
+                        window=BaseTimeWindowConfig(
+                            start_time=self.config.start_time,
+                            end_time=self.config.end_time,
+                            bucket_duration=self.config.bucket_duration,
+                        ),
                         temporary_tables_pattern=self.config.temporary_tables_pattern,
                         include_lineage=self.config.include_table_lineage,
                         include_usage_statistics=self.config.include_usage_stats,
@@ -580,10 +618,15 @@ class SnowflakeV2Source(
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         user_email_pattern=self.config.user_email_pattern,
                         pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                        pushdown_allow_usernames=self.config.pushdown_allow_usernames,
+                        query_dedup_strategy=self.config.query_dedup_strategy,
+                        push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
+                        additional_database_names_allowlist=self.config.additional_database_names_allowlist,
                     ),
                     structured_report=self.report,
                     filters=self.filters,
                     identifiers=self.identifiers,
+                    redundant_run_skip_handler=redundant_queries_run_skip_handler,
                     schema_resolver=schema_resolver,
                     discovered_tables=self.discovered_datasets,
                     graph=self.ctx.graph,
@@ -721,6 +764,7 @@ class SnowflakeV2Source(
                 # For privatelink, account identifier ends with .privatelink
                 # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
+                snowflake_domain=self.config.snowflake_domain,
             )
 
         except Exception as e:
@@ -732,6 +776,8 @@ class SnowflakeV2Source(
             return None
 
     def is_standard_edition(self) -> bool:
+        if self.config.known_snowflake_edition is not None:
+            return self.config.known_snowflake_edition == SnowflakeEdition.STANDARD
         try:
             self.connection.query(SnowflakeQuery.show_tags())
             return False

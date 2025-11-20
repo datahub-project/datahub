@@ -22,6 +22,17 @@ extend type Query {
   Fetch the global settings related to the docs propagation feature.
   """
   docPropagationSettings: DocPropagationSettings
+
+  """
+  Global settings related to the home page for an instance
+  """
+  globalHomePageSettings: GlobalHomePageSettings
+
+  """
+  Fetch the latest product update information from configured JSON source.
+  Returns null if the JSON source is unavailable or feature is disabled.
+  """
+  latestProductUpdate(refreshCache: Boolean = false): ProductUpdate
 }
 
 extend type Mutation {
@@ -37,6 +48,11 @@ extend type Mutation {
   updateDocPropagationSettings(
     input: UpdateDocPropagationSettingsInput!
   ): Boolean!
+
+  """
+  Update the applications settings.
+  """
+  updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
 }
 
 """
@@ -119,6 +135,11 @@ type PlatformPrivileges {
   manageGlossaries: Boolean!
 
   """
+  Whether the user should be able to manage Documents (Knowledge Articles)
+  """
+  manageDocuments: Boolean!
+
+  """
   Whether the user is able to manage user credentials
   """
   manageUserCredentials: Boolean!
@@ -172,6 +193,21 @@ type PlatformPrivileges {
   Whether the user can view the manage structured properties page.
   """
   viewStructuredPropertiesPage: Boolean!
+
+  """
+  Whether the user can manage applications.
+  """
+  manageApplications: Boolean!
+
+  """
+  Whether the user can manage platform features.
+  """
+  manageFeatures: Boolean!
+
+  """
+  Whether the user can manage default home page template.
+  """
+  manageHomePageTemplates: Boolean!
 }
 
 """
@@ -190,6 +226,26 @@ type SearchBarConfig {
   API variant
   """
   apiVariant: SearchBarAPI!
+}
+
+"""
+Configurations related to the Search card
+"""
+type SearchCardConfig {
+  """
+  Whether the search card should show description
+  """
+  showDescription: Boolean!
+}
+
+"""
+Configurations related the Search Flags
+"""
+type SearchFlagsConfig {
+  """
+  Default value for skipHighlighting search flag. Currently used in Search Page and Search Bar
+  """
+  defaultSkipHighlighting: Boolean!
 }
 
 """
@@ -294,6 +350,16 @@ type AppConfig {
   searchBarConfig: SearchBarConfig!
 
   """
+  Configurations related to the Search card
+  """
+  searchCardConfig: SearchCardConfig!
+
+  """
+  Configurations related the Search Flags
+  """
+  searchFlagsConfig: SearchFlagsConfig!
+
+  """
   Feature flags telling the UI whether a feature is enabled or not
   """
   featureFlags: FeatureFlagsConfig!
@@ -357,6 +423,26 @@ type VisualConfig {
   Configuration for custom theme-ing
   """
   theme: ThemeConfig
+
+  """
+  Configuration for the application sidebar section
+  """
+  application: ApplicationConfig
+}
+
+"""
+Configuration for the application sidebar section
+"""
+type ApplicationConfig {
+  """
+  Whether to show the application sidebar section even when empty
+  """
+  showSidebarSectionWhenEmpty: Boolean
+
+  """
+  Whether to show the application in the navigation sidebar
+  """
+  showApplicationInNavigation: Boolean
 }
 
 """
@@ -692,6 +778,71 @@ type FeatureFlagsConfig {
   If enabled, we will show the introduce page in the V2 UI experience to add a title and select platforms
   """
   showIntroducePage: Boolean!
+
+  """
+  If turned on, show the re-designed Ingestions page
+  """
+  showIngestionPageRedesign: Boolean!
+
+  """
+  If enabled, show the expand more button (>>) in the lineage graph
+  """
+  showLineageExpandMore: Boolean!
+
+  """
+  If turned on, show the re-designed Stats tab on the entity page
+  """
+  showStatsTabRedesign: Boolean!
+
+  """
+  If turned on, show the re-designed home page
+  """
+  showHomePageRedesign: Boolean!
+
+  """
+  Whether product updates on the sidebar is enabled. Will go to oss.
+  """
+  showProductUpdates: Boolean!
+
+  """
+  Enables the redesign of the lineage v2 graph
+  """
+  lineageGraphV3: Boolean!
+
+  """
+  Enables logical models feature
+  """
+  logicalModelsEnabled: Boolean!
+
+  """
+  Enables displaying the homepage user role underneath the name. Only available for custom home page.
+  """
+  showHomepageUserRole: Boolean!
+
+  """
+  If enabled, show the default external links on the entity page
+  """
+  showDefaultExternalLinks: Boolean!
+
+  """
+  Enables displaying the asset summary page
+  """
+  assetSummaryPageV1: Boolean!
+
+  """
+  Enables displaying the dataset summary page
+  """
+  datasetSummaryPageV1: Boolean!
+
+  """
+  If enabled, allows uploading of files for documentation.
+  """
+  documentationFileUploadV1: Boolean!
+
+  """
+  If enabled, shows the context documents feature in the sidebar.
+  """
+  contextDocumentsEnabled: Boolean!
 }
 
 """
@@ -714,6 +865,16 @@ type GlobalViewsSettings {
   this will be the default view.
   """
   defaultView: String
+}
+
+"""
+Input required to update global applications settings.
+"""
+input UpdateApplicationsSettingsInput {
+  """
+  Whether the Applications feature is enabled
+  """
+  enabled: Boolean
 }
 
 """
@@ -758,4 +919,55 @@ type ThemeConfig {
   The optional custom theme ID to determine which theme config we use in the frontend
   """
   themeId: String
+}
+
+"""
+Global settings related to the home page for an instance
+"""
+type GlobalHomePageSettings {
+  """
+  The default page template for the home page for this instance
+  """
+  defaultTemplate: DataHubPageTemplate
+}
+
+"""
+Product update information fetched from remote JSON source
+"""
+type ProductUpdate {
+  """
+  Whether this update is enabled and should be shown
+  """
+  enabled: Boolean!
+
+  """
+  Unique identifier for this update (e.g., "v1.2.1")
+  Version changes trigger re-display for users who dismissed previous versions
+  """
+  id: String!
+
+  """
+  Title of the update notification
+  """
+  title: String!
+
+  """
+  Optional URL to an image to display with the update
+  """
+  image: String
+
+  """
+  Optional description text for the update
+  """
+  description: String
+
+  """
+  Call-to-action button text (e.g., "Read updates")
+  """
+  ctaText: String!
+
+  """
+  Call-to-action link URL, with telemetry client ID appended
+  """
+  ctaLink: String!
 }

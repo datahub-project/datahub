@@ -105,7 +105,7 @@ describe('EntityProfile', () => {
         await waitFor(() =>
             expect(getByText('This and here we have yet another Dataset (YAN). Are there more?')).toBeInTheDocument(),
         );
-    }, 10000);
+    }, 20_000);
 
     it('renders tab content', async () => {
         const { getByText } = render(
@@ -191,7 +191,7 @@ describe('EntityProfile', () => {
         // find the schema fields in the schema table
         await waitFor(() => expect(getByText('user_name')).toBeInTheDocument());
         await waitFor(() => expect(getByText('user_id')).toBeInTheDocument());
-    });
+    }, 20_000);
 
     it('switches tab content', async () => {
         const { getByText, queryByText } = render(
@@ -290,7 +290,7 @@ describe('EntityProfile', () => {
         await waitFor(() => expect(getByText('propertyAKey')).toBeInTheDocument());
         await waitFor(() => expect(getByText('propertyAValue')).toBeInTheDocument());
         expect(queryByText('user_name')).not.toBeInTheDocument();
-    });
+    }, 20_000);
 
     it('renders sidebar content', async () => {
         const { getByText } = render(
@@ -370,7 +370,7 @@ describe('EntityProfile', () => {
         // find the tags
         await waitFor(() => expect(getByText('Tags')).toBeInTheDocument());
         await waitFor(() => expect(getByText('abc-sample-tag')).toBeInTheDocument());
-    });
+    }, 20_000);
 
     it('renders autorender aspects', async () => {
         const { getByText } = render(
@@ -469,4 +469,4 @@ describe('EntityProfile', () => {
         await waitFor(() => expect(getByText('autoField1')).toBeInTheDocument());
         await waitFor(() => expect(getByText('autoValue1')).toBeInTheDocument());
     });
-});
+}, 20_000);

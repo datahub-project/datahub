@@ -26,10 +26,10 @@ $(VENV_SENTINEL): requirements.txt
 
 # Not using Python's http.server because it enables caching headers.
 serve:
-	serve -p 3001 _build/html/
+	serve -p 3001 _build/markdown/
 
-md: html
-	$(VENV_DIR)/bin/python3 convert_sphinx_to_docusaurus.py
+md: venv 
+	@$(SPHINXBUILD) -M markdown "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O) && $(VENV_DIR)/bin/python3 convert_sphinx_to_docusaurus.py
 
 # Route other targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).

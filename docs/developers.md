@@ -78,6 +78,120 @@ We suggest partially compiling DataHub according to your needs:
   ./gradlew :docs-website:serve
   ```
 
+## Dependency Management
+
+### Dependency Locking
+
+DataHub uses Gradle's [dependency locking](https://docs.gradle.org/current/userguide/dependency_locking.html) to ensure reproducible builds across all environments. Dependency locks guarantee that the exact same dependency versions are used everywhere - in development, CI, and production - preventing unexpected behavior from transitive dependency updates.
+
+#### Why Dependency Locking?
+
+- **Reproducible Builds**: Same dependency versions across all environments
+- **Security**: Prevents unexpected transitive dependency updates that could introduce vulnerabilities
+- **Stability**: Explicit control over when dependencies change
+- **Audit Trail**: Lock files in git provide clear history of dependency changes
+
+#### How It Works
+
+Each sub-project has a `gradle.lockfile` that records the exact version of every direct and transitive dependency used across all configurations (compile, runtime, test, etc.). When you build the project, Gradle uses these locked versions instead of resolving the latest versions.
+
+#### Viewing Locked Dependencies
+
+To see the locked dependencies for a project:
+
+```bash
+./gradlew :project-name:dependencies --configuration runtimeClasspath
+```
+
+For example:
+
+```bash
+./gradlew :metadata-io:dependencies --configuration runtimeClasspath
+```
+
+#### Updating Dependencies
+
+When you update dependencies in `build.gradle` files, you must regenerate the lock files. There are several ways to do this depending on your needs:
+
+##### Update All Lock Files (Complete Refresh)
+
+After changing dependencies in any `build.gradle` file, run:
+
+```bash
+./gradlew resolveAndLockAll --write-locks
+```
+
+This resolves all configurations across all sub-projects and updates all lock files. This is the recommended approach when:
+
+- Adding or removing dependencies
+- Changing dependency versions
+- After pulling changes that modify `build.gradle` files
+
+##### Update a Specific Dependency Version
+
+To update a specific dependency to a newer version:
+
+```bash
+./gradlew dependencies --update-locks group:artifact
+```
+
+For example, to update Jackson:
+
+```bash
+./gradlew dependencies --update-locks com.fasterxml.jackson.core:jackson-databind
+```
+
+##### Update Lock Files for a Single Project
+
+If you only changed dependencies in one sub-project:
+
+```bash
+./gradlew :project-name:dependencies --write-locks
+```
+
+Note: This only locks configurations that get resolved by the `dependencies` task. For complete coverage, use `resolveAndLockAll` instead.
+
+#### Common Workflows
+
+**Adding a new dependency:**
+
+1. Add the dependency to the appropriate `build.gradle` file
+2. Run `./gradlew resolveAndLockAll --write-locks`
+3. Verify the build works: `./gradlew :project-name:build`
+4. Commit both the `build.gradle` change and updated lock files
+
+**Updating an existing dependency:**
+
+1. Change the version in `build.gradle`
+2. Run `./gradlew resolveAndLockAll --write-locks`
+3. Review the lock file changes to see what transitive dependencies changed
+4. Test thoroughly, especially if major version upgrades
+5. Commit the changes
+
+**After pulling changes:**
+If someone else updated dependencies and you pull their changes, just build normally:
+
+```bash
+./gradlew build
+```
+
+Gradle will automatically use the locked versions from the updated lock files. You don't need to regenerate locks unless you're making your own dependency changes.
+
+#### Troubleshooting
+
+**Build fails with dependency resolution error:**
+
+- Ensure you've run `./gradlew resolveAndLockAll --write-locks` after dependency changes
+- Check that lock files are committed and up to date
+- Try `./gradlew --refresh-dependencies build` to refresh Gradle's cache
+
+**Lock file is out of sync:**
+If you see warnings about lock state, regenerate the locks:
+
+```bash
+./gradlew resolveAndLockAll --write-locks
+```
+
 ## Deploying Local Versions
 
 This guide explains how to set up and deploy DataHub locally for development purposes.
@@ -116,22 +230,34 @@ The frontend will be available at `http://localhost:3000` and will automatically
 
 ### Refreshing components of quickStart
 
-To refresh any of the running system stared by `./gradlew quickStartDebug`, run
+To refresh any of the running system started by `./gradlew quickstartDebug`, run
 
 ```shell
 ./gradlew debugReload
 ```
 
 This will build any changed components and restart those containers that had changes.
-There are a few other quickStart\* variants, like quickStartDebugMin, quickStartDebugConsumers
+There are a few other quickstart\* variants, like quickstartDebugMin, quickstartDebugConsumers
 
 For each of those variants, there is a corresponding reloadTask.
 
-For `./gradlew quickStartDebugConsumers`, the reload command is `./gradlew debugConsumersReload`
-For `./gradlew quickStartDebugMin`, the reload command is `./gradlew debugMinReload`
+For `./gradlew quickstartDebugConsumers`, the reload command is `./gradlew debugConsumersReload`
+For `./gradlew quickstartDebugMin`, the reload command is `./gradlew debugMinReload`
 
-A full restart using `./gradlew quickStartDebug` is recommended if there are significant changes and the setup/system update containers need to be run again.
+A full restart using `./gradlew quickstartDebug` is recommended if there are significant changes and the setup/system update containers need to be run again.
 For incremental changes, the `debugReload*` variants can be used.
+
+### Cleaning up containers and volumes
+
+To completely remove containers and volumes for a specific project, you can use the nuke tasks:
+
+```shell
+# Remove containers and volumes for specific projects
+./gradlew quickstartDebugNuke     # For debug project
+./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
+```
+
+> **Note**: These are Gradle nuke tasks. For CLI-based cleanup, see `datahub docker nuke` in the [quickstart guide](quickstart.md).
 
 ### Using .env to configure settings of services started by quickstart
 
@@ -139,7 +265,7 @@ To start datahub with a customized set of environment variables, .env files can 
 For example, an env file `my-settings.env` can be created in docker/profiles folder and loaded using
 
 ```shell
-DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickStartDebug
+DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickstartDebug
 ```
 
 To refresh the containers due to code changes, `debugReload` task can be used.
@@ -176,18 +302,39 @@ Expected Output:
 acryl-datahub, version unavailable (installed in develop mode)
 ```
 
+### Building All Docker images
+
+Running `./gradlew quickstart` or one of its variants builds images required for that variant and also starts datahub.
+If you want to build all images without starting datahub, run
+
+```commandline
+./gradlew :docker:build
+```
+
+You can optionally pass the following additional args when executing `:docker:build` task
+
+- `-Ptag=customTag` to use the custom tag when generating the image tag.
+- `-PdockerRegistry=customRegistry` to use the custom registry when generating the full image tag.
+
 ## IDE Support
 
 The recommended IDE for DataHub development is [IntelliJ IDEA](https://www.jetbrains.com/idea/).
-You can run the following command to generate or update the IntelliJ project file.
 
-```shell
-./gradlew idea
-```
+### Required IntelliJ Plugins
 
-Open `datahub.ipr` in IntelliJ to start developing!
+DataHub requires the following IntelliJ plugins for proper development:
 
-For consistency please import and auto format the code using [LinkedIn IntelliJ Java style](../gradle/idea/LinkedIn%20Style.xml).
+1. **Lombok Plugin** - Essential for Lombok annotation processing
+   - Install: Settings → Plugins → Search "Lombok" → Install
+
+### Setup Steps
+
+1. Install required plugins (see above)
+2. Generate the IntelliJ project file (re-run after dependency changes):
+   ```shell
+   ./gradlew idea
+   ```
+3. Open `datahub.ipr` in IntelliJ
 
 ## Windows Compatibility
 
@@ -220,7 +367,7 @@ This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when bui
 
 #### Various errors related to `generateDataTemplate` or other `generate` tasks
 
-As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should reosolve the issue.
+As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should resolve the issue.
 
 #### `Execution failed for task ':metadata-service:restli-servlet-impl:checkRestModel'`
 
@@ -250,10 +397,10 @@ To be able to create symbolic links in Windows 10/11 the [Developer Mode](https:
 # enable core.symlinks config
 git config --global core.symlinks true
 
-# check the current core.sysmlinks config and scope
+# check the current core.symlinks config and scope
 git config --show-scope --show-origin core.symlinks
 
-# in case the core.sysmlinks config is still set locally to false, remove the local config
+# in case the core.symlinks config is still set locally to false, remove the local config
 git config --unset core.symlinks
 
 # reset the current branch to recreate the missing symbolic links (alternatively it is also possibly to switch branches away and back)
@@ -261,3 +408,25 @@ git reset --hard
 ```
 
 See also [here](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) for more information on how to enable symbolic links on Windows 10/11 and Git.
+
+## Security Testing
+
+### Configuration Property Classification Test
+
+**Location**: `metadata-io/src/test/java/com/linkedin/metadata/system_info/collectors/PropertiesCollectorConfigurationTest.java`
+
+This test ensures all configuration properties are explicitly classified as either sensitive (redacted) or non-sensitive (visible in system info). It prevents accidental exposure of secrets through DataHub's system information endpoints.
+
+**When you add new configuration properties:**
+
+1. The test will fail if your property is unclassified
+2. Follow the test failure message to add your property to the appropriate classification list
+3. When in doubt, classify as sensitive - it's safer to over-redact than expose secrets
+
+**Run the test:**
+
+```bash
+./gradlew :metadata-io:test --tests "*.PropertiesCollectorConfigurationTest"
+```
+
+Refer to the test file itself for comprehensive documentation on classification lists, template syntax, and examples. This is a mandatory security guardrail that protects against credential leaks.

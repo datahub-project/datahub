@@ -23,6 +23,11 @@ record ExecutionRequestInput {
   /**
   * Advanced: specify a specific executor to route the request to. If none is provided, a "default" executor is used.
   */
+  @Searchable = {
+    "fieldName": "executorId",
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
   executorId: string
 
   /**

@@ -16,6 +16,12 @@ fragment glossaryNodeFields on GlossaryNode {
     properties {
         name
         description
+        customProperties {
+            ...customPropertiesFields
+        }
+        createdOn {
+            time
+        }
     }
     ownership {
         ...ownershipFields
@@ -28,6 +34,9 @@ fragment glossaryNodeFields on GlossaryNode {
     }
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
         ...autoRenderAspectFields
+    }
+    institutionalMemory {
+        ...institutionalMemoryFields
     }
     structuredProperties {
         properties {
@@ -45,6 +54,9 @@ fragment glossaryNodeFields on GlossaryNode {
         ...displayPropertiesFields
     }
     ...notes
+    settings {
+        ...AssetSettingsFields
+    }
 }
 
 query getGlossaryNode($urn: String!) {

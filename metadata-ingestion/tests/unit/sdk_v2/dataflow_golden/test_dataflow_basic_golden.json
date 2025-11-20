@@ -1,0 +1,26 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "example_dag",
+            "env": "PROD"
+        }
+    }
+}
+]

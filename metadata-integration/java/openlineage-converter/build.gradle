@@ -18,13 +18,13 @@ dependencies {
     compileOnly "io.openlineage:openlineage-java:$openLineageVersion"
 
     implementation externalDependency.slf4jApi
-    implementation externalDependency.commonsLang
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 
     implementation externalDependency.json
 
     testImplementation externalDependency.testng
+    testImplementation "io.openlineage:openlineage-java:$openLineageVersion"
 }
 
 test {

@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Literal, Optional, TypedDict
 
 import requests
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from simple_salesforce import Salesforce
 from simple_salesforce.exceptions import SalesforceAuthenticationFailed
 
@@ -33,7 +33,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -107,30 +110,33 @@ class SalesforceConfig(
     auth: SalesforceAuthType = SalesforceAuthType.USERNAME_PASSWORD
 
     # Username, Password Auth
-    username: Optional[str] = Field(description="Salesforce username")
-    password: Optional[str] = Field(description="Password for Salesforce user")
+    username: Optional[str] = Field(None, description="Salesforce username")
+    password: Optional[str] = Field(None, description="Password for Salesforce user")
     consumer_key: Optional[str] = Field(
-        description="Consumer key for Salesforce JSON web token access"
+        None, description="Consumer key for Salesforce JSON web token access"
     )
     private_key: Optional[str] = Field(
-        description="Private key as a string for Salesforce JSON web token access"
+        None, description="Private key as a string for Salesforce JSON web token access"
     )
     security_token: Optional[str] = Field(
-        description="Security token for Salesforce username"
+        None, description="Security token for Salesforce username"
     )
     # client_id, client_secret not required
 
     # Direct - Instance URL, Access Token Auth
     instance_url: Optional[str] = Field(
-        description="Salesforce instance url. e.g. https://MyDomainName.my.salesforce.com"
+        None,
+        description="Salesforce instance url. e.g. https://MyDomainName.my.salesforce.com",
     )
     # Flag to indicate whether the instance is production or sandbox
     is_sandbox: bool = Field(
         default=False, description="Connect to Sandbox instance of your Salesforce"
     )
-    access_token: Optional[str] = Field(description="Access token for instance url")
+    access_token: Optional[str] = Field(
+        None, description="Access token for instance url"
+    )
 
-    ingest_tags: Optional[bool] = Field(
+    ingest_tags: bool = Field(
         default=False,
         description="Ingest Tags from source. This will override Tags entered from UI",
     )
@@ -144,7 +150,8 @@ class SalesforceConfig(
         description='Regex patterns for tables/schemas to describe domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain keys specified.',
     )
     api_version: Optional[str] = Field(
-        description="If specified, overrides default version used by the Salesforce package. Example value: '59.0'"
+        None,
+        description="If specified, overrides default version used by the Salesforce package. Example value: '59.0'",
     )
 
     profiling: SalesforceProfilingConfig = SalesforceProfilingConfig()
@@ -165,7 +172,8 @@ class SalesforceConfig(
             self.profiling.operation_config
         )
 
-    @validator("instance_url")
+    @field_validator("instance_url", mode="after")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
@@ -520,7 +528,7 @@ class SalesforceApi:
 
 @platform_name("Salesforce")
 @config_class(SalesforceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(
     capability_name=SourceCapability.PLATFORM_INSTANCE,
     description="Can be equivalent to Salesforce organization",
@@ -532,11 +540,11 @@ class SalesforceApi:
 @capability(
     capability_name=SourceCapability.DATA_PROFILING,
     description="Only table level profiling is supported via `profiling.enabled` config field",
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
 )
 @capability(
     capability_name=SourceCapability.DELETION_DETECTION,
-    description="Not supported yet",
-    supported=False,
+    description="Enabled by default via stateful ingestion",
 )
 @capability(
     capability_name=SourceCapability.SCHEMA_METADATA,
@@ -545,6 +553,14 @@ class SalesforceApi:
 @capability(
     capability_name=SourceCapability.TAGS,
     description="Enabled by default",
+)
+@capability(
+    capability_name=SourceCapability.LINEAGE_COARSE,
+    description="Extract table-level lineage for Salesforce objects",
+    subtype_modifier=[
+        SourceCapabilityModifier.SALESFORCE_CUSTOM_OBJECT,
+        SourceCapabilityModifier.SALESFORCE_STANDARD_OBJECT,
+    ],
 )
 class SalesforceSource(StatefulIngestionSourceBase):
     def __init__(self, config: SalesforceConfig, ctx: PipelineContext) -> None:

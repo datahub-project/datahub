@@ -10,6 +10,7 @@ export enum ButtonVariantValues {
     outline = 'outline',
     text = 'text',
     secondary = 'secondary',
+    link = 'link',
 }
 export type ButtonVariant = keyof typeof ButtonVariantValues;
 

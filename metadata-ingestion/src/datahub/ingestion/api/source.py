@@ -2,7 +2,6 @@ import contextlib
 import datetime
 import logging
 from abc import ABCMeta, abstractmethod
-from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import partial
@@ -15,7 +14,6 @@ from typing import (
     List,
     Optional,
     Sequence,
-    Set,
     Type,
     TypeVar,
     Union,
@@ -27,17 +25,18 @@ from typing_extensions import LiteralString, Self
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
     auto_patch_last_modified,
 )
 from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
     EnsureAspectSizeProcessor,
 )
+from datahub.ingestion.api.auto_work_units.auto_validate_input_fields import (
+    ValidateInputFieldsProcessor,
+)
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
-from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.report import ExamplesReport, Report
 from datahub.ingestion.api.source_helpers import (
     AutoSystemMetadata,
     auto_browse_path_v2,
@@ -49,10 +48,16 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit,
     auto_workunit_reporter,
 )
+from datahub.ingestion.api.source_protocols import (
+    MetadataWorkUnitIterable,
+    ProfilingCapable,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import UpstreamLineageClass
-from datahub.sdk.entity import Entity
+from datahub.ingestion.source_report.ingestion_stage import (
+    IngestionHighStage,
+    IngestionStageReport,
+)
+from datahub.telemetry import stats
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
@@ -76,6 +81,7 @@ class SourceCapability(Enum):
     SCHEMA_METADATA = "Schema Metadata"
     CONTAINERS = "Asset Containers"
     CLASSIFICATION = "Classification"
+    TEST_CONNECTION = "Test Connection"
 
 
 class StructuredLogLevel(Enum):
@@ -84,11 +90,24 @@ class StructuredLogLevel(Enum):
     ERROR = logging.ERROR
 
 
+class StructuredLogCategory(Enum):
+    """
+    This is used to categorise the errors mainly based on the biggest impact area
+    This is to be used to help in self-serve understand the impact of any log entry
+    More enums to be added as logs are updated to be self-serve
+    """
+
+    LINEAGE = "LINEAGE"
+    USAGE = "USAGE"
+    PROFILING = "PROFILING"
+
+
 @dataclass
 class StructuredLogEntry(Report):
     title: Optional[str]
     message: str
     context: LossyList[str]
+    log_category: Optional[StructuredLogCategory] = None
 
 
 @dataclass
@@ -111,9 +130,10 @@ class StructuredLogs(Report):
         exc: Optional[BaseException] = None,
         log: bool = False,
         stacklevel: int = 1,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
         """
-        Report a user-facing warning for the ingestion run.
+        Report a user-facing log for the ingestion run.
 
         Args:
             level: The level of the log entry.
@@ -121,6 +141,9 @@ class StructuredLogs(Report):
             title: The category / heading to present on for this message in the UI.
             context: Additional context (e.g. where, how) for the log entry.
             exc: The exception associated with the event. We'll show the stack trace when in debug mode.
+            log_category: The type of the log entry. This is used to categorise the log entry.
+            log: Whether to log the entry to the console.
+            stacklevel: The stack level to use for the log entry.
         """
 
         # One for this method, and one for the containing report_* call.
@@ -163,6 +186,7 @@ class StructuredLogs(Report):
                 title=title,
                 message=message,
                 context=context_list,
+                log_category=log_category,
             )
         else:
             if context is not None:
@@ -190,19 +214,11 @@ class StructuredLogs(Report):
 
 
 @dataclass
-class SourceReport(Report):
+class SourceReport(ExamplesReport, IngestionStageReport):
     event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
-
-    _urns_seen: Set[str] = field(default_factory=set)
-    entities: Dict[str, list] = field(default_factory=lambda: defaultdict(LossyList))
-    aspects: Dict[str, Dict[str, int]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(int))
-    )
-    aspect_urn_samples: Dict[str, Dict[str, LossyList[str]]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
-    )
+    num_input_fields_filtered: int = 0
 
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
@@ -220,33 +236,10 @@ class SourceReport(Report):
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
+        if not isinstance(wu, MetadataWorkUnit):
+            return
 
-        if isinstance(wu, MetadataWorkUnit):
-            urn = wu.get_urn()
-
-            # Specialized entity reporting.
-            if not isinstance(wu.metadata, MetadataChangeEvent):
-                mcps = [wu.metadata]
-            else:
-                mcps = list(mcps_from_mce(wu.metadata))
-
-            for mcp in mcps:
-                entityType = mcp.entityType
-                aspectName = mcp.aspectName
-
-                if urn not in self._urns_seen:
-                    self._urns_seen.add(urn)
-                    self.entities[entityType].append(urn)
-
-                if aspectName is not None:  # usually true
-                    self.aspects[entityType][aspectName] += 1
-                    self.aspect_urn_samples[entityType][aspectName].append(urn)
-                    if isinstance(mcp.aspect, UpstreamLineageClass):
-                        upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
-                        if upstream_lineage.fineGrainedLineages:
-                            self.aspect_urn_samples[entityType][
-                                "fineGrainedLineages"
-                            ].append(urn)
+        super()._store_workunit_data(wu)
 
     def report_warning(
         self,
@@ -254,9 +247,19 @@ class SourceReport(Report):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
-            StructuredLogLevel.WARN, message, title, context, exc, log=False
+            StructuredLogLevel.WARN,
+            message,
+            title,
+            context,
+            exc,
+            log=False,
+            log_category=log_category,
         )
 
     def warning(
@@ -265,9 +268,20 @@ class SourceReport(Report):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
-            StructuredLogLevel.WARN, message, title, context, exc, log=True
+            StructuredLogLevel.WARN,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_category=log_category,
         )
 
     def report_failure(
@@ -277,9 +291,19 @@ class SourceReport(Report):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=log
+            StructuredLogLevel.ERROR,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_category=log_category,
         )
 
     def failure(
@@ -289,9 +313,19 @@ class SourceReport(Report):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=log
+            StructuredLogLevel.ERROR,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_category=log_category,
         )
 
     def info(
@@ -301,9 +335,19 @@ class SourceReport(Report):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
-            StructuredLogLevel.INFO, message, title, context, exc, log=log
+            StructuredLogLevel.INFO,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_category=log_category,
         )
 
     @contextlib.contextmanager
@@ -313,6 +357,7 @@ class SourceReport(Report):
         title: Optional[LiteralString] = None,
         context: Optional[str] = None,
         level: StructuredLogLevel = StructuredLogLevel.ERROR,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> Iterator[None]:
         # Convenience method that helps avoid boilerplate try/except blocks.
         # TODO: I'm not super happy with the naming here - it's not obvious that this
@@ -321,10 +366,16 @@ class SourceReport(Report):
             yield
         except Exception as exc:
             self._structured_logs.report_log(
-                level, message=message, title=title, context=context, exc=exc
+                level,
+                message=message,
+                title=title,
+                context=context,
+                exc=exc,
+                log_category=log_category,
             )
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         self.start_time = datetime.datetime.now()
         self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
 
@@ -336,6 +387,43 @@ class SourceReport(Report):
             "warnings": Report.to_pure_python_obj(self.warnings),
             "infos": Report.to_pure_python_obj(self.infos),
         }
+
+    @staticmethod
+    def _discretize_dict_values(
+        nested_dict: Dict[str, Dict[str, int]],
+    ) -> Dict[str, Dict[str, int]]:
+        """Helper method to discretize values in a nested dictionary structure."""
+        result = {}
+        for outer_key, inner_dict in nested_dict.items():
+            discretized_dict: Dict[str, int] = {}
+            for inner_key, count in inner_dict.items():
+                discretized_dict[inner_key] = stats.discretize(count)
+            result[outer_key] = discretized_dict
+        return result
+
+    def get_aspects_dict(self) -> Dict[str, Dict[str, int]]:
+        """Convert the nested defaultdict aspects to a regular dict for serialization."""
+        return self._discretize_dict_values(self.aspects)
+
+    def get_aspects_by_subtypes_dict(self) -> Dict[str, Dict[str, Dict[str, int]]]:
+        """Get aspect counts grouped by entity type and subtype."""
+        return self._discretize_dict_values_nested(self.aspects_by_subtypes)
+
+    @staticmethod
+    def _discretize_dict_values_nested(
+        nested_dict: Dict[str, Dict[str, Dict[str, int]]],
+    ) -> Dict[str, Dict[str, Dict[str, int]]]:
+        """Helper method to discretize values in a nested dictionary structure with three levels."""
+        result = {}
+        for outer_key, middle_dict in nested_dict.items():
+            discretized_middle_dict: Dict[str, Dict[str, int]] = {}
+            for middle_key, inner_dict in middle_dict.items():
+                discretized_inner_dict: Dict[str, int] = {}
+                for inner_key, count in inner_dict.items():
+                    discretized_inner_dict[inner_key] = stats.discretize(count)
+                discretized_middle_dict[middle_key] = discretized_inner_dict
+            result[outer_key] = discretized_middle_dict
+        return result
 
     def compute_stats(self) -> None:
         super().compute_stats()
@@ -392,7 +480,7 @@ class Extractor(Generic[WorkUnitType, ExtractorConfig], Closeable, metaclass=ABC
         config_class = self.get_config_class()
 
         self.ctx = ctx
-        self.config = config_class.parse_obj(config_dict)
+        self.config = config_class.model_validate(config_dict)
 
     @abstractmethod
     def get_records(self, workunit: WorkUnitType) -> Iterable[RecordEnvelope]:
@@ -453,12 +541,13 @@ class Source(Closeable, metaclass=ABCMeta):
             auto_status_aspect,
             auto_materialize_referenced_tags_terms,
             partial(
-                auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
+                auto_fix_duplicate_schema_field_paths, platform=self.infer_platform()
             ),
-            partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
+            partial(auto_fix_empty_field_paths, platform=self.infer_platform()),
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
+            ValidateInputFieldsProcessor(self.get_report()).validate_input_fields,
             EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
         ]
 
@@ -475,13 +564,31 @@ class Source(Closeable, metaclass=ABCMeta):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         workunit_processors = self.get_workunit_processors()
         workunit_processors.append(AutoSystemMetadata(self.ctx).stamp)
-        return self._apply_workunit_processors(
+        # Process main workunits
+        yield from self._apply_workunit_processors(
             workunit_processors, auto_workunit(self.get_workunits_internal())
         )
+        # Process profiling workunits
+        yield from self._process_profiling_stage(workunit_processors)
+
+    def _process_profiling_stage(
+        self, processors: List[Optional[MetadataWorkUnitProcessor]]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process profiling stage if source supports it."""
+        if (
+            not isinstance(self, ProfilingCapable)
+            or not self.is_profiling_enabled_internal()
+        ):
+            return
+        with self.get_report().new_high_stage(IngestionHighStage.PROFILING):
+            profiling_stream = self._apply_workunit_processors(
+                processors, auto_workunit(self.get_profiling_internal())
+            )
+            yield from profiling_stream
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
+    ) -> MetadataWorkUnitIterable:
         raise NotImplementedError(
             "get_workunits_internal must be implemented if get_workunits is not overriden."
         )
@@ -503,9 +610,9 @@ class Source(Closeable, metaclass=ABCMeta):
         pass
 
     def close(self) -> None:
-        pass
+        self.get_report().close()
 
-    def _infer_platform(self) -> Optional[str]:
+    def infer_platform(self) -> Optional[str]:
         config = self.get_config()
         platform = (
             getattr(config, "platform_name", None)
@@ -520,7 +627,7 @@ class Source(Closeable, metaclass=ABCMeta):
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()
 
-        platform = self._infer_platform()
+        platform = self.infer_platform()
         env = getattr(config, "env", None)
         browse_path_drop_dirs = [
             platform,

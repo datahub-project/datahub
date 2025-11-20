@@ -1,5 +1,5 @@
-import Link from 'antd/lib/typography/Link';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { DatasetStatsSummarySubHeader } from '@app/entity/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
@@ -52,7 +52,7 @@ export default function EntityInfo({ formUrn }: Props) {
             <PlatformContent />
             <EntityName>{entityName}</EntityName>
             <StyledLink
-                href={`${entityRegistry.getEntityUrl(entityType, entityData?.urn || '')}/`}
+                to={`${entityRegistry.getEntityUrl(entityType, entityData?.urn || '')}/`}
                 target="_blank"
                 rel="noreferrer noopener"
             >

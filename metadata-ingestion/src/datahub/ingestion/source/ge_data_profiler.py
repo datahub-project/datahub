@@ -120,7 +120,6 @@ SNOWFLAKE = "snowflake"
 BIGQUERY = "bigquery"
 REDSHIFT = "redshift"
 DATABRICKS = "databricks"
-TRINO = "trino"
 
 # Type names for Databricks, to match Title Case types in sqlalchemy
 ProfilerTypeMapping.INT_TYPE_NAMES.append("Integer")
@@ -206,6 +205,25 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
             )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
+    elif (
+        self.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
+        or self.engine.dialect.name.lower() == GXSqlDialect.TRINO
+    ):
+        return convert_to_json_serializable(
+            self.engine.execute(
+                sa.select(sa.func.approx_distinct(sa.column(column))).select_from(
+                    self._table
+                )
+            ).scalar()
+        )
+    elif self.engine.dialect.name.lower() == DATABRICKS:
+        return convert_to_json_serializable(
+            self.engine.execute(
+                sa.select(sa.func.approx_count_distinct(sa.column(column))).select_from(
+                    self._table
+                )
+            ).scalar()
+        )
     return convert_to_json_serializable(
         self.engine.execute(
             sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
@@ -289,7 +307,6 @@ def _is_single_row_query_method(query: Any) -> bool:
         "get_column_max",
         "get_column_mean",
         "get_column_stdev",
-        "get_column_nonnull_count",
         "get_column_unique_count",
     }
     CONSTANT_ROW_QUERY_METHODS = {
@@ -313,6 +330,7 @@ def _is_single_row_query_method(query: Any) -> bool:
 
     FIRST_PARTY_SINGLE_ROW_QUERY_METHODS = {
         "get_column_unique_count_dh_patch",
+        "_get_column_cardinality",
     }
 
     # We'll do this the inefficient way since the arrays are pretty small.
@@ -479,7 +497,20 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
         try:
-            nonnull_count = self.dataset.get_column_nonnull_count(column)
+            # Don't use Great Expectations get_column_nonnull_count because it
+            # generates this SQL:
+            #
+            #   sum(CASE WHEN (mycolumn IN (NULL) OR mycolumn IS NULL) THEN 1 ELSE 0 END)
+            #
+            # which fails for complex types (such as Databricks maps) that don't
+            # support the IN operator.
+            nonnull_count = convert_to_json_serializable(
+                self.dataset.engine.execute(
+                    sa.select(sa.func.count(sa.column(column))).select_from(
+                        self.dataset._table
+                    )
+                ).scalar()
+            )
             column_spec.nonnull_count = nonnull_count
         except Exception as e:
             logger.debug(
@@ -734,11 +765,41 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_distinct_value_frequencies(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_distinct_value_frequencies:
+        if not self.config.include_field_distinct_value_frequencies:
+            return
+        try:
+            results = self.dataset.engine.execute(
+                sa.select(
+                    [
+                        sa.column(column),
+                        sa.func.count(sa.column(column)),
+                    ]
+                )
+                .select_from(self.dataset._table)
+                .where(sa.column(column).is_not(None))
+                .group_by(sa.column(column))
+            ).fetchall()
+
             column_profile.distinctValueFrequencies = [
-                ValueFrequencyClass(value=str(value), frequency=count)
-                for value, count in self.dataset.get_column_value_counts(column).items()
+                ValueFrequencyClass(value=str(value), frequency=int(count))
+                for value, count in results
             ]
+            # sort so output is deterministic. don't do it in SQL because not all column
+            # types are sortable in SQL (such as JSON data types on Athena/Trino).
+            column_profile.distinctValueFrequencies = sorted(
+                column_profile.distinctValueFrequencies, key=lambda x: x.value
+            )
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get distinct value frequencies for column {column}. {e}"
+            )
+
+            self.report.report_warning(
+                title="Profiling: Unable to Calculate Distinct Value Frequencies",
+                message="Distinct value frequencies for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_histogram(
@@ -1173,26 +1234,34 @@ class DatahubGEProfiler:
             f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
         )
 
-        with PerfTimer() as timer, unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
-            get_column_unique_count_dh_patch,
-        ), unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
-            _get_column_quantiles_bigquery_patch,
-        ), unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_awsathena",
-            _get_column_quantiles_awsathena_patch,
-        ), unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_median",
-            _get_column_median_patch,
-        ), concurrent.futures.ThreadPoolExecutor(
-            max_workers=max_workers
-        ) as async_executor, SQLAlchemyQueryCombiner(
-            enabled=self.config.query_combiner_enabled,
-            catch_exceptions=self.config.catch_exceptions,
-            is_single_row_query_method=_is_single_row_query_method,
-            serial_execution_fallback_enabled=True,
-        ).activate() as query_combiner:
+        with (
+            PerfTimer() as timer,
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
+                get_column_unique_count_dh_patch,
+            ),
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
+                _get_column_quantiles_bigquery_patch,
+            ),
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_awsathena",
+                _get_column_quantiles_awsathena_patch,
+            ),
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_median",
+                _get_column_median_patch,
+            ),
+            concurrent.futures.ThreadPoolExecutor(
+                max_workers=max_workers
+            ) as async_executor,
+            SQLAlchemyQueryCombiner(
+                enabled=self.config.query_combiner_enabled,
+                catch_exceptions=self.config.catch_exceptions,
+                is_single_row_query_method=_is_single_row_query_method,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
             # Submit the profiling requests to the thread pool executor.
             async_profiles = collections.deque(
                 async_executor.submit(
@@ -1395,12 +1464,12 @@ class DatahubGEProfiler:
                     )
                 return None
             finally:
-                if batch is not None and self.base_engine.engine.name.upper() in [
-                    "TRINO",
-                    "AWSATHENA",
+                if batch is not None and self.base_engine.engine.name.lower() in [
+                    GXSqlDialect.TRINO,
+                    GXSqlDialect.AWSATHENA,
                 ]:
                     if (
-                        self.base_engine.engine.name.upper() == "TRINO"
+                        self.base_engine.engine.name.lower() == GXSqlDialect.TRINO
                         or temp_view is not None
                     ):
                         self._drop_temp_table(batch)
@@ -1449,9 +1518,17 @@ class DatahubGEProfiler:
                 logger.error(
                     f"Unexpected {pretty_name} while profiling. Should have 3 parts but has {len(name_parts)} parts."
                 )
+            if platform == DATABRICKS:
+                # TODO: Review logic for BigQuery as well, probably project.dataset.table should be quoted there as well
+                quoted_name = ".".join(
+                    batch.engine.dialect.identifier_preparer.quote(part)
+                    for part in name_parts
+                )
+                batch._table = sa.text(quoted_name)
+                logger.debug(f"Setting quoted table name to be {batch._table}")
             # If we only have two parts that means the project_id is missing from the table name and we add it
             # Temp tables has 3 parts while normal tables only has 2 parts
-            if len(str(batch._table).split(".")) == 2:
+            elif len(str(batch._table).split(".")) == 2:
                 batch._table = sa.text(f"{name_parts[0]}.{str(batch._table)}")
                 logger.debug(f"Setting table name to be {batch._table}")
 

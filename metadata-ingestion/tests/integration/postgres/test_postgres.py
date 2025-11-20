@@ -1,9 +1,9 @@
 import subprocess
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -42,7 +42,7 @@ def postgres_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         yield docker_services
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_postgres_ingest_with_db(
     postgres_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
@@ -63,7 +63,7 @@ def test_postgres_ingest_with_db(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_postgres_ingest_with_all_db(
     postgres_runner, pytestconfig, test_resources_dir, tmp_path, mock_time

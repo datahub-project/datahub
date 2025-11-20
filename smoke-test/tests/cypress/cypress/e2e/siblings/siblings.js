@@ -33,14 +33,6 @@ describe("siblings", () => {
   });
 
   it("can view individual nodes", () => {
-    const resizeObserverLoopErrRe = /^[^(ResizeObserver loop limit exceeded)]/;
-    cy.on("uncaught:exception", (err) => {
-      /* returning false here prevents Cypress from failing the test */
-      if (resizeObserverLoopErrRe.test(err.message)) {
-        return false;
-      }
-    });
-
     cy.visitWithLogin(`/dataset/${DBT_URN}/?is_lineage_mode=false`);
     cy.get(".ant-table-row").should("be.visible");
     // navigate to the bq entity

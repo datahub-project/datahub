@@ -52,6 +52,10 @@ query appConfig {
             theme {
                 themeId
             }
+            application {
+                showSidebarSectionWhenEmpty
+                showApplicationInNavigation
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging
@@ -64,6 +68,12 @@ query appConfig {
         }
         searchBarConfig {
             apiVariant
+        }
+        searchCardConfig {
+            showDescription
+        }
+        searchFlagsConfig {
+            defaultSkipHighlighting
         }
         homePageConfig {
             firstInPersonalSidebar
@@ -96,6 +106,18 @@ query appConfig {
             showSearchBarAutocompleteRedesign
             showManageTags
             showIntroducePage
+            showIngestionPageRedesign
+            showLineageExpandMore
+            showStatsTabRedesign
+            showHomePageRedesign
+            showDefaultExternalLinks
+            showProductUpdates
+            lineageGraphV3
+            logicalModelsEnabled
+            showHomepageUserRole
+            assetSummaryPageV1
+            datasetSummaryPageV1
+            documentationFileUploadV1
         }
         chromeExtensionConfig {
             enabled
@@ -125,10 +147,49 @@ query getDocPropagationSettings {
     }
 }
 
+query getHomePageSettings {
+    globalHomePageSettings {
+        defaultTemplate {
+            ...PageTemplate
+        }
+    }
+}
+
+query getPresignedUploadUrl($input: GetPresignedUploadUrlInput!) {
+    getPresignedUploadUrl(input: $input) {
+        url
+        fileId
+    }
+}
+
+mutation createDataHubFile($input: CreateDataHubFileInput!) {
+    createDataHubFile(input: $input) {
+        file {
+            urn
+        }
+    }
+}
+
 mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
     updateGlobalViewsSettings(input: $input)
 }
 
 mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!) {
     updateDocPropagationSettings(input: $input)
+}
+
+mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
+    updateApplicationsSettings(input: $input)
+}
+
+query getLatestProductUpdate {
+    latestProductUpdate {
+        enabled
+        id
+        title
+        description
+        image
+        ctaText
+        ctaLink
+    }
 }

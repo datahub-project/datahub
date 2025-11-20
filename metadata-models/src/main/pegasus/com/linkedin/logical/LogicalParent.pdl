@@ -1,0 +1,34 @@
+namespace com.linkedin.logical
+
+import com.linkedin.common.Edge
+
+/**
+ * Relates a physical asset to a logical model.
+ */
+@Aspect = {
+  "name": "logicalParent"
+}
+record LogicalParent {
+  @Relationship = {
+    "/destinationUrn": {
+      "name": "PhysicalInstanceOf",
+      "entityTypes": [ "dataset", "schemaField" ],
+      "createdOn": "parent/created/time",
+      "createdActor": "parent/created/actor",
+      "updatedOn": "parent/lastModified/time",
+      "updatedActor": "parent/lastModified/actor",
+      "properties": "parent/properties"
+    }
+  }
+  @Searchable = {
+    "/destinationUrn": {
+      "fieldName": "logicalParent",
+      "fieldType": "URN",
+      "queryByDefault": false,
+      "addToFilters": true,
+      "hasValuesFieldName": "hasLogicalParent",
+      "filterNameOverride": "Physical Instance Of"
+    }
+  }
+  parent: optional Edge
+}

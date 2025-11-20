@@ -49,7 +49,7 @@ def mock_admin_client():
 def test_kafka_source_configuration(mock_kafka):
     ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource(
-        KafkaSourceConfig.parse_obj({"connection": {"bootstrap": "foobar:9092"}}),
+        KafkaSourceConfig.model_validate({"connection": {"bootstrap": "foobar:9092"}}),
         ctx,
     )
     kafka_source.close()
@@ -65,7 +65,9 @@ def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
 
     ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource(
-        KafkaSourceConfig.parse_obj({"connection": {"bootstrap": "localhost:9092"}}),
+        KafkaSourceConfig.model_validate(
+            {"connection": {"bootstrap": "localhost:9092"}}
+        ),
         ctx,
     )
     workunits = list(kafka_source.get_workunits())
@@ -236,6 +238,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # TopicNameStrategy is used for subject
         "topic1": (
             RegisteredSchema(
+                guid=None,
                 schema_id="schema_id_2",
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
@@ -245,6 +248,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
+                guid=None,
                 schema_id="schema_id_1",
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Value", "namespace": "test.acryl", "fields": [{"name":"t1value", "type": "string"}]}',
@@ -257,6 +261,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # RecordNameStrategy is used for subject
         "topic2": (
             RegisteredSchema(
+                guid=None,
                 schema_id="schema_id_3",
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic2Key", "namespace": "test.acryl", "fields": [{"name":"t2key", "type": "string"}]}',
@@ -266,6 +271,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
+                guid=None,
                 schema_id="schema_id_4",
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic2Value", "namespace": "test.acryl", "fields": [{"name":"t2value", "type": "string"}]}',
@@ -278,6 +284,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # TopicRecordNameStrategy is used for subject
         "topic3": (
             RegisteredSchema(
+                guid=None,
                 schema_id="schema_id_4",
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic3Key", "namespace": "test.acryl", "fields": [{"name":"t3key", "type": "string"}]}',
@@ -287,6 +294,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
+                guid=None,
                 schema_id="schema_id_5",
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic3Value", "namespace": "test.acryl", "fields": [{"name":"t3value", "type": "string"}]}',
@@ -429,6 +437,7 @@ def test_kafka_ignore_warnings_on_schema_type(
 ):
     # define the key and value schemas for topic1
     topic1_key_schema = RegisteredSchema(
+        guid=None,
         schema_id="schema_id_2",
         schema=Schema(
             schema_str="{}",
@@ -438,6 +447,7 @@ def test_kafka_ignore_warnings_on_schema_type(
         version=1,
     )
     topic1_value_schema = RegisteredSchema(
+        guid=None,
         schema_id="schema_id_1",
         schema=Schema(
             schema_str="{}",
@@ -563,6 +573,7 @@ def test_kafka_source_topic_meta_mappings(
     topic_subject_schema_map: Dict[str, Tuple[RegisteredSchema, RegisteredSchema]] = {
         "topic1": (
             RegisteredSchema(
+                guid=None,
                 schema_id="schema_id_2",
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
@@ -572,6 +583,7 @@ def test_kafka_source_topic_meta_mappings(
                 version=1,
             ),
             RegisteredSchema(
+                guid=None,
                 schema_id="schema_id_1",
                 schema=Schema(
                     schema_str=json.dumps(
@@ -797,7 +809,7 @@ def test_kafka_source_oauth_cb_configuration():
             "in the format <python-module>:<function-name>."
         ),
     ):
-        KafkaSourceConfig.parse_obj(
+        KafkaSourceConfig.model_validate(
             {
                 "connection": {
                     "bootstrap": "foobar:9092",

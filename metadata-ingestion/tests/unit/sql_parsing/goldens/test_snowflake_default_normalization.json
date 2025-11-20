@@ -28,7 +28,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)",
                     "column": "USER_FK"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"CUSTOMER_LAST_PURCHASE_DATE\".\"USER_FK\" AS \"USER_FK\""
+            }
         },
         {
             "downstream": {
@@ -46,7 +50,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)",
                     "column": "EMAIL"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"CUSTOMER_LAST_PURCHASE_DATE\".\"EMAIL\" AS \"EMAIL\""
+            }
         },
         {
             "downstream": {
@@ -64,7 +72,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)",
                     "column": "LAST_PURCHASE_DATE"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"CUSTOMER_LAST_PURCHASE_DATE\".\"LAST_PURCHASE_DATE\" AS \"LAST_PURCHASE_DATE\""
+            }
         },
         {
             "downstream": {
@@ -82,7 +94,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)",
                     "column": "purchase_amount"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "SUM(\"PURCHASES\".\"PURCHASE_AMOUNT\") AS \"LIFETIME_PURCHASE_AMOUNT\""
+            }
         },
         {
             "downstream": {
@@ -100,7 +116,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)",
                     "column": "pk"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "COUNT(DISTINCT (\"PURCHASES\".\"PK\")) AS \"LIFETIME_PURCHASE_COUNT\""
+            }
         },
         {
             "downstream": {
@@ -121,6 +141,32 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)",
                     "column": "purchase_amount"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "SUM(\"PURCHASES\".\"PURCHASE_AMOUNT\") / COUNT(DISTINCT (\"PURCHASES\".\"PK\")) AS \"AVERAGE_PURCHASE_AMOUNT\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)"
+            ],
+            "on_clause": "\"ACTIVE_CUSTOMERS\".\"USER_FK\" = \"PURCHASES\".\"USER_FK\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)",
+                    "column": "USER_FK"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)",
+                    "column": "USER_FK"
                 }
             ]
         }

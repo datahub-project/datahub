@@ -12,17 +12,20 @@ import com.deblock.jsondiff.matcher.LenientNumberPrimitivePartialMatcher;
 import com.deblock.jsondiff.matcher.StrictPrimitivePartialMatcher;
 import com.deblock.jsondiff.viewer.PatchDiffViewer;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.r2.RemoteInvocationException;
@@ -32,14 +35,13 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.util.ElasticsearchUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,9 +50,18 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.json.JSONObject;
 import org.opensearch.action.explain.ExplainResponse;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.search.builder.SearchSourceBuilder;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -58,6 +69,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -67,10 +79,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/openapi/operations/elasticSearch")
 @Slf4j
-@Tag(
-    name = "ElasticSearch Operations",
-    description = "An API for managing your elasticsearch instance")
 public class ElasticsearchController {
+  private static final String ES_DEBUG_DESCRIPTION =
+      "An API for debugging your elasticsearch requests";
+  private static final String DEFAULT_SORT_CRITERIA =
+      "[{\"field\":\"_score\",\"order\": \"DESCENDING\"}]";
   private final AuthorizerChain authorizerChain;
   private final OperationContext systemOperationContext;
   private final SystemMetadataService systemMetadataService;
@@ -78,6 +91,7 @@ public class ElasticsearchController {
   private final EntitySearchService searchService;
   private final EntityService<?> entityService;
   private final ObjectMapper objectMapper;
+  private final ESSearchDAO esSearchDAO;
 
   public ElasticsearchController(
       OperationContext systemOperationContext,
@@ -86,14 +100,15 @@ public class ElasticsearchController {
       EntitySearchService searchService,
       EntityService<?> entityService,
       AuthorizerChain authorizerChain,
-      ObjectMapper objectMapper) {
+      ESSearchDAO esSearchDAO) {
     this.systemOperationContext = systemOperationContext;
     this.authorizerChain = authorizerChain;
     this.systemMetadataService = systemMetadataService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.searchService = searchService;
     this.entityService = entityService;
-    this.objectMapper = objectMapper;
+    this.objectMapper = systemOperationContext.getObjectMapper();
+    this.esSearchDAO = esSearchDAO;
   }
 
   @InitBinder
@@ -101,6 +116,9 @@ public class ElasticsearchController {
     binder.registerCustomEditor(String[].class, new StringArrayPropertyEditor(null));
   }
 
+  @Tag(
+      name = "ElasticSearch Operations",
+      description = "An API for managing your elasticsearch instance")
   @GetMapping(path = "/getTaskStatus", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get Task Status")
   public ResponseEntity<String> getTaskStatus(
@@ -144,6 +162,9 @@ public class ElasticsearchController {
     return ResponseEntity.ok(j.toString());
   }
 
+  @Tag(
+      name = "ElasticSearch Operations",
+      description = "An API for managing your elasticsearch instance")
   @GetMapping(path = "/getIndexSizes", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get Index Sizes")
   public ResponseEntity<String> getIndexSizes(HttpServletRequest request) {
@@ -181,53 +202,9 @@ public class ElasticsearchController {
     return ResponseEntity.ok(j.toString());
   }
 
-  @PostMapping(path = "/entity/raw", produces = MediaType.APPLICATION_JSON_VALUE)
-  @Operation(
-      description =
-          "Retrieves raw Elasticsearch documents for the provided URNs. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
-      responses = {
-        @ApiResponse(
-            responseCode = "200",
-            description = "Successfully retrieved raw documents",
-            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
-        @ApiResponse(
-            responseCode = "403",
-            description = "Caller not authorized to access raw documents"),
-        @ApiResponse(responseCode = "400", description = "Invalid URN format provided")
-      })
-  public ResponseEntity<Map<Urn, Map<String, Object>>> getEntityRaw(
-      HttpServletRequest request,
-      @RequestBody
-          @Nonnull
-          @Schema(
-              description = "Set of URN strings to fetch raw documents for",
-              example = "[\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)\"]")
-          Set<String> urnStrs) {
-
-    Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
-
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    OperationContext opContext =
-        systemOperationContext.asSession(
-            RequestContext.builder()
-                .buildOpenapi(
-                    actorUrnStr,
-                    request,
-                    "getRawEntity",
-                    urns.stream().map(Urn::getEntityType).distinct().toList()),
-            authorizerChain,
-            authentication);
-
-    if (!AuthUtil.isAPIOperationsAuthorized(
-        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
-      log.error("{} is not authorized to get raw ES documents", actorUrnStr);
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
-    }
-
-    return ResponseEntity.ok(searchService.raw(opContext, urns));
-  }
-
+  @Tag(
+      name = "ElasticSearch Debugging",
+      description = "An API for debugging your elasticsearch instance")
   @GetMapping(path = "/explainSearchQuery", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Explain Search Query")
   public ResponseEntity<ExplainResponse> explainSearchQuery(
@@ -268,18 +245,19 @@ public class ElasticsearchController {
           String keepAlive,
       @Parameter(name = "size", required = true, description = "Page size for pagination.")
           @RequestParam(value = "size", required = false, defaultValue = "1")
-          int size,
+          @Nullable
+          Integer size,
       @Parameter(name = "filters", description = "Additional filters to apply to query.")
           @RequestParam(value = "filters", required = false)
           @Nullable
           String filters,
-      @Parameter(
-              name = "sortCriteria",
+      @Parameter(name = "sortCriteria", description = "Criteria to sort results on.")
+          @RequestParam(
+              value = "sortCriteria",
               required = false,
-              description = "Criteria to sort results on.")
-          @RequestParam("sortCriteria")
+              defaultValue = DEFAULT_SORT_CRITERIA)
           @Nullable
-          List<SortCriterion> sortCriteria,
+          String sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
           @RequestParam(
               value = "searchFlags",
@@ -321,7 +299,7 @@ public class ElasticsearchController {
             encodeValue(documentId),
             entityName,
             filters == null ? null : objectMapper.readValue(filters, Filter.class),
-            sortCriteria,
+            toSortCriteria(sortCriteria),
             scrollId,
             keepAlive,
             size,
@@ -330,6 +308,7 @@ public class ElasticsearchController {
     return ResponseEntity.ok(response);
   }
 
+  @Tag(name = "ElasticSearch Debugging", description = ES_DEBUG_DESCRIPTION)
   @GetMapping(path = "/explainSearchQueryDiff", produces = MediaType.TEXT_PLAIN_VALUE)
   @Operation(summary = "Explain the differences in scoring for 2 documents")
   public ResponseEntity<String> explainSearchQueryDiff(
@@ -377,18 +356,19 @@ public class ElasticsearchController {
           String keepAlive,
       @Parameter(name = "size", required = true, description = "Page size for pagination.")
           @RequestParam(value = "size", required = false, defaultValue = "1")
-          int size,
+          @Nullable
+          Integer size,
       @Parameter(name = "filters", description = "Additional filters to apply to query.")
           @RequestParam(value = "filters", required = false)
           @Nullable
           String filters,
-      @Parameter(
-              name = "sortCriteria",
+      @Parameter(name = "sortCriteria", description = "Criteria to sort results on.")
+          @RequestParam(
+              value = "sortCriteria",
               required = false,
-              description = "Criteria to sort results on.")
-          @RequestParam("sortCriteria")
+              defaultValue = DEFAULT_SORT_CRITERIA)
           @Nullable
-          List<SortCriterion> sortCriteria,
+          String sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
           @RequestParam(
               value = "searchFlags",
@@ -431,7 +411,7 @@ public class ElasticsearchController {
             encodeValue(documentIdA),
             entityName,
             filters == null ? null : objectMapper.readValue(filters, Filter.class),
-            sortCriteria,
+            toSortCriteria(sortCriteria),
             scrollId,
             keepAlive,
             size);
@@ -443,7 +423,7 @@ public class ElasticsearchController {
             encodeValue(documentIdB),
             entityName,
             filters == null ? null : objectMapper.readValue(filters, Filter.class),
-            sortCriteria,
+            toSortCriteria(sortCriteria),
             scrollId,
             keepAlive,
             size);
@@ -467,6 +447,427 @@ public class ElasticsearchController {
     PatchDiffViewer patch = PatchDiffViewer.from(jsondiff);
 
     return ResponseEntity.ok(patch.toString());
+  }
+
+  @Tag(name = "ElasticSearch Debugging", description = ES_DEBUG_DESCRIPTION)
+  @GetMapping(path = "/query/scroll/request", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Return the raw elasticsearch query given common options")
+  public ResponseEntity<Map<String, Object>> getQueryScrollRequest(
+      HttpServletRequest request,
+      @Parameter(
+              name = "query",
+              required = true,
+              description =
+                  "Search term to evaluate for specified document, will be applied as an input string to standard search query builder.")
+          @RequestParam(value = "query", defaultValue = "*")
+          @Nonnull
+          String query,
+      @Parameter(
+              name = "entityName",
+              required = true,
+              description = "Name of the entity the document belongs to.")
+          @RequestParam(value = "entityName", defaultValue = "dataset")
+          @Nonnull
+          String entityName,
+      @Parameter(name = "size", required = true, description = "Page size for pagination.")
+          @RequestParam(value = "size", required = false, defaultValue = "10")
+          @Nullable
+          Integer size,
+      @Parameter(name = "filters", description = "Additional filters to apply to query.")
+          @RequestParam(value = "filters", required = false)
+          @Nullable
+          String filters,
+      @Parameter(name = "sortCriteria", description = "Criteria to sort results on.")
+          @RequestParam(
+              value = "sortCriteria",
+              required = false,
+              defaultValue = DEFAULT_SORT_CRITERIA)
+          @Nullable
+          String sortCriteria,
+      @Parameter(name = "scrollId", description = "Scroll ID for pagination.")
+          @RequestParam("scrollId")
+          @Nullable
+          String scrollId,
+      @Parameter(
+              name = "keepAlive",
+              description =
+                  "Keep alive time for point in time scroll context"
+                      + ", only relevant where point in time is supported.")
+          @RequestParam("keepAlive")
+          @Nullable
+          String keepAlive,
+      @Parameter(name = "searchFlags", description = "Optional configuration flags.")
+          @RequestParam(
+              value = "searchFlags",
+              required = false,
+              defaultValue = "{\"fulltext\":true}")
+          @Nullable
+          String searchFlags)
+      throws JsonProcessingException {
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+
+    OperationContext opContext =
+        systemOperationContext
+            .asSession(
+                RequestContext.builder()
+                    .buildOpenapi(actorUrnStr, request, "getQueryScrollRequest", entityName),
+                authorizerChain,
+                authentication)
+            .withSearchFlags(
+                flags -> {
+                  try {
+                    return searchFlags == null
+                        ? flags
+                        : objectMapper.readValue(searchFlags, SearchFlags.class);
+                  } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                  }
+                });
+
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+      log.error(
+          "{} is not authorized for privilege " + PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
+          actorUrnStr);
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    }
+
+    Triple<SearchRequest, Filter, List<EntitySpec>> searchRequestComponents =
+        esSearchDAO.buildScrollRequest(
+            opContext,
+            opContext.getSearchContext().getIndexConvention(),
+            scrollId,
+            keepAlive,
+            List.of(entityName),
+            size,
+            filters == null ? null : objectMapper.readValue(filters, Filter.class),
+            query,
+            toSortCriteria(sortCriteria),
+            List.of());
+
+    Map<String, Object> responseMap = new HashMap<>();
+    try {
+      SearchSourceBuilder source = searchRequestComponents.getLeft().source();
+      if (source != null) {
+        // Use toXContent to get proper JSON representation
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        source.toXContent(builder, ToXContent.EMPTY_PARAMS);
+
+        // Use toXContent to serialize the source
+        source.toXContent(builder, ToXContent.EMPTY_PARAMS);
+
+        // Convert to string first, then to Map
+        responseMap =
+            XContentHelper.convertToMap(JsonXContent.jsonXContent, builder.toString(), true);
+      }
+    } catch (IOException e) {
+      // Handle the exception appropriately
+      throw new RuntimeException("Failed to convert SearchSourceBuilder to Map", e);
+    }
+
+    return ResponseEntity.ok(responseMap);
+  }
+
+  @Tag(name = "ElasticSearch Debugging", description = ES_DEBUG_DESCRIPTION)
+  @GetMapping(path = "/query/search/request", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Return the raw elasticsearch query given common options")
+  public ResponseEntity<Map<String, Object>> getQuerySearchRequest(
+      HttpServletRequest request,
+      @Parameter(
+              name = "query",
+              required = true,
+              description =
+                  "Search term to evaluate for specified document, will be applied as an input string to standard search query builder.")
+          @RequestParam(value = "query", defaultValue = "*")
+          @Nonnull
+          String query,
+      @Parameter(
+              name = "entityName",
+              required = true,
+              description = "Name of the entity the document belongs to.")
+          @RequestParam(value = "entityName", defaultValue = "dataset")
+          @Nonnull
+          String entityName,
+      @Parameter(name = "size", required = true, description = "Page size for pagination.")
+          @RequestParam(value = "size", required = false, defaultValue = "10")
+          @Nullable
+          Integer size,
+      @Parameter(name = "filters", description = "Additional filters to apply to query.")
+          @RequestParam(value = "filters", required = false)
+          @Nullable
+          String filters,
+      @Parameter(name = "sortCriteria", description = "Criteria to sort results on.")
+          @RequestParam(
+              value = "sortCriteria",
+              required = false,
+              defaultValue = DEFAULT_SORT_CRITERIA)
+          @Nullable
+          String sortCriteria,
+      @Parameter(name = "searchFlags", description = "Optional configuration flags.")
+          @RequestParam(
+              value = "searchFlags",
+              required = false,
+              defaultValue = "{\"fulltext\":true}")
+          @Nullable
+          String searchFlags)
+      throws JsonProcessingException {
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+
+    OperationContext opContext =
+        systemOperationContext
+            .asSession(
+                RequestContext.builder()
+                    .buildOpenapi(actorUrnStr, request, "getQuerySearchRequest", entityName),
+                authorizerChain,
+                authentication)
+            .withSearchFlags(
+                flags -> {
+                  try {
+                    return searchFlags == null
+                        ? flags
+                        : objectMapper.readValue(searchFlags, SearchFlags.class);
+                  } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                  }
+                });
+
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+      log.error(
+          "{} is not authorized for privilege " + PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
+          actorUrnStr);
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    }
+
+    Triple<SearchRequest, Filter, List<EntitySpec>> searchRequestComponents =
+        esSearchDAO.buildSearchRequest(
+            opContext,
+            List.of(entityName),
+            query,
+            filters == null ? null : objectMapper.readValue(filters, Filter.class),
+            toSortCriteria(sortCriteria),
+            0,
+            size,
+            List.of());
+
+    Map<String, Object> responseMap = new HashMap<>();
+    try {
+      SearchSourceBuilder source = searchRequestComponents.getLeft().source();
+      if (source != null) {
+        // Use toXContent to get proper JSON representation
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        source.toXContent(builder, ToXContent.EMPTY_PARAMS);
+
+        // Use toXContent to serialize the source
+        source.toXContent(builder, ToXContent.EMPTY_PARAMS);
+
+        // Convert to string first, then to Map
+        responseMap =
+            XContentHelper.convertToMap(JsonXContent.jsonXContent, builder.toString(), true);
+      }
+    } catch (IOException e) {
+      // Handle the exception appropriately
+      throw new RuntimeException("Failed to convert SearchSourceBuilder to Map", e);
+    }
+
+    return ResponseEntity.ok(responseMap);
+  }
+
+  @Tag(name = "ElasticSearch Debugging", description = ES_DEBUG_DESCRIPTION)
+  @GetMapping(
+      path = "/query/autocomplete/request/{fieldName}",
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Return the raw elasticsearch query given common options")
+  public ResponseEntity<Map<String, Object>> getQueryAutocompleteRequest(
+      HttpServletRequest request,
+      @PathVariable("fieldName") String fieldName,
+      @Parameter(
+              name = "query",
+              required = true,
+              description =
+                  "Search term to evaluate for specified document, will be applied as an input string to standard search query builder.")
+          @RequestParam(value = "query", defaultValue = "*")
+          @Nonnull
+          String query,
+      @Parameter(
+              name = "entityName",
+              required = true,
+              description = "Name of the entity the document belongs to.")
+          @RequestParam(value = "entityName", defaultValue = "dataset")
+          @Nonnull
+          String entityName,
+      @Parameter(name = "size", required = true, description = "Page size for pagination.")
+          @RequestParam(value = "size", required = false, defaultValue = "10")
+          @Nullable
+          Integer size,
+      @Parameter(name = "filters", description = "Additional filters to apply to query.")
+          @RequestParam(value = "filters", required = false)
+          @Nullable
+          String filters,
+      @Parameter(name = "searchFlags", description = "Optional configuration flags.")
+          @RequestParam(
+              value = "searchFlags",
+              required = false,
+              defaultValue = "{\"fulltext\":true}")
+          @Nullable
+          String searchFlags)
+      throws JsonProcessingException {
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+
+    OperationContext opContext =
+        systemOperationContext
+            .asSession(
+                RequestContext.builder()
+                    .buildOpenapi(actorUrnStr, request, "getQueryAutocompleteRequest", entityName),
+                authorizerChain,
+                authentication)
+            .withSearchFlags(
+                flags -> {
+                  try {
+                    return searchFlags == null
+                        ? flags
+                        : objectMapper.readValue(searchFlags, SearchFlags.class);
+                  } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                  }
+                });
+
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+      log.error(
+          "{} is not authorized for privilege " + PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
+          actorUrnStr);
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    }
+
+    Pair<SearchRequest, AutocompleteRequestHandler> searchRequestComponents =
+        esSearchDAO.buildAutocompleteRequest(
+            opContext,
+            entityName,
+            query,
+            fieldName,
+            filters == null ? null : objectMapper.readValue(filters, Filter.class),
+            size);
+
+    Map<String, Object> responseMap = new HashMap<>();
+    try {
+      SearchSourceBuilder source = searchRequestComponents.getLeft().source();
+      if (source != null) {
+        // Use toXContent to get proper JSON representation
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        source.toXContent(builder, ToXContent.EMPTY_PARAMS);
+
+        // Use toXContent to serialize the source
+        source.toXContent(builder, ToXContent.EMPTY_PARAMS);
+
+        // Convert to string first, then to Map
+        responseMap =
+            XContentHelper.convertToMap(JsonXContent.jsonXContent, builder.toString(), true);
+      }
+    } catch (IOException e) {
+      // Handle the exception appropriately
+      throw new RuntimeException("Failed to convert SearchSourceBuilder to Map", e);
+    }
+
+    return ResponseEntity.ok(responseMap);
+  }
+
+  @Tag(name = "ElasticSearch Debugging", description = ES_DEBUG_DESCRIPTION)
+  @GetMapping(
+      path = "/query/aggregate/request/{fieldName}",
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Return the raw elasticsearch query given common options")
+  public ResponseEntity<Map<String, Object>> getQueryAggregateRequest(
+      HttpServletRequest request,
+      @PathVariable("fieldName") String fieldName,
+      @Parameter(
+              name = "entityName",
+              required = true,
+              description = "Name of the entity the document belongs to.")
+          @RequestParam(value = "entityName", defaultValue = "dataset")
+          @Nonnull
+          String entityName,
+      @Parameter(name = "size", required = true, description = "Page size for pagination.")
+          @RequestParam(value = "size", required = false, defaultValue = "10")
+          @Nullable
+          Integer size,
+      @Parameter(name = "filters", description = "Additional filters to apply to query.")
+          @RequestParam(value = "filters", required = false)
+          @Nullable
+          String filters,
+      @Parameter(name = "searchFlags", description = "Optional configuration flags.")
+          @RequestParam(
+              value = "searchFlags",
+              required = false,
+              defaultValue = "{\"fulltext\":true}")
+          @Nullable
+          String searchFlags)
+      throws JsonProcessingException {
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+
+    OperationContext opContext =
+        systemOperationContext
+            .asSession(
+                RequestContext.builder()
+                    .buildOpenapi(actorUrnStr, request, "getQueryAggregateRequest", entityName),
+                authorizerChain,
+                authentication)
+            .withSearchFlags(
+                flags -> {
+                  try {
+                    return searchFlags == null
+                        ? flags
+                        : objectMapper.readValue(searchFlags, SearchFlags.class);
+                  } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                  }
+                });
+
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+      log.error(
+          "{} is not authorized for privilege " + PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
+          actorUrnStr);
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    }
+
+    SearchRequest searchRequest =
+        esSearchDAO.buildAggregateByValue(
+            opContext,
+            List.of(entityName),
+            fieldName,
+            filters == null ? null : objectMapper.readValue(filters, Filter.class),
+            size);
+
+    Map<String, Object> responseMap = new HashMap<>();
+    try {
+      SearchSourceBuilder source = searchRequest.source();
+      if (source != null) {
+        // Use toXContent to get proper JSON representation
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        source.toXContent(builder, ToXContent.EMPTY_PARAMS);
+
+        // Use toXContent to serialize the source
+        source.toXContent(builder, ToXContent.EMPTY_PARAMS);
+
+        // Convert to string first, then to Map
+        responseMap =
+            XContentHelper.convertToMap(JsonXContent.jsonXContent, builder.toString(), true);
+      }
+    } catch (IOException e) {
+      // Handle the exception appropriately
+      throw new RuntimeException("Failed to convert SearchSourceBuilder to Map", e);
+    }
+
+    return ResponseEntity.ok(responseMap);
   }
 
   private static String encodeValue(String value) {
@@ -563,5 +964,17 @@ public class ElasticsearchController {
                 aspectNames,
                 batchSize,
                 createDefaultAspects)));
+  }
+
+  @Nullable
+  private List<SortCriterion> toSortCriteria(@Nullable String sortCriteriaJson)
+      throws JsonProcessingException {
+    if (sortCriteriaJson == null) {
+      return null;
+    }
+
+    return systemOperationContext
+        .getObjectMapper()
+        .readValue(sortCriteriaJson, new TypeReference<List<SortCriterion>>() {});
   }
 }

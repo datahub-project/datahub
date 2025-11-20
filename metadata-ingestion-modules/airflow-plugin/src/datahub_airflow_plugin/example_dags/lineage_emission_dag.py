@@ -31,7 +31,6 @@ with DAG(
     schedule_interval=timedelta(days=1),
     start_date=days_ago(2),
     catchup=False,
-    default_view="tree",
 ) as dag:
     transformation_task = BashOperator(
         task_id="transformation_task",

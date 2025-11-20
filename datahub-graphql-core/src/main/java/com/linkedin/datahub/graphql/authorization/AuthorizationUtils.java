@@ -13,13 +13,18 @@ import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import io.datahubproject.metadata.context.OperationContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.reflect.ConstructorUtils;
@@ -344,8 +349,8 @@ public class AuthorizationUtils {
   }
 
   public static boolean canManageStructuredProperties(@Nonnull QueryContext context) {
-    return AuthUtil.isAuthorized(
-        context.getOperationContext(), PoliciesConfig.MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
+    return AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), MANAGE, List.of(STRUCTURED_PROPERTY_ENTITY_NAME));
   }
 
   public static boolean canViewStructuredPropertiesPage(@Nonnull QueryContext context) {
@@ -363,6 +368,91 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_FEATURES_PRIVILEGE);
   }
 
+  public static boolean canManageHomePageTemplates(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
+  }
+
+  /**
+   * Returns true if the current user is able to create Knowledge Articles. This is true if the user
+   * has the 'Create Entity' privilege for Knowledge Articles or 'Manage Knowledge Articles'
+   * platform privilege.
+   */
+  public static boolean canCreateDocument(@Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
+
+    return AuthUtil.isAuthorized(context.getOperationContext(), orPrivilegeGroups, null);
+  }
+
+  /**
+   * Returns true if the current user is able to edit a specific Document. This is true if the user
+   * has the 'Edit Entity Docs' or 'Edit Entity' metadata privilege on the document, or the 'Manage
+   * Documents' platform privilege.
+   */
+  public static boolean canEditDocument(@Nonnull Urn documentUrn, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())),
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
+
+    return isAuthorized(
+        context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
+  }
+
+  /**
+   * Returns true if the current user is able to read a specific Document. This is true if the user
+   * has the 'Get Entity' metadata privilege on the document or the 'Manage Documents' platform
+   * privilege.
+   */
+  public static boolean canGetDocument(@Nonnull Urn documentUrn, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType())),
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
+
+    return isAuthorized(
+        context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
+  }
+
+  /**
+   * Returns true if the current user is able to delete a specific Document. This is true if the
+   * user has the delete entity authorization on the document or the 'Manage Documents' platform
+   * privilege.
+   */
+  public static boolean canDeleteDocument(@Nonnull Urn documentUrn, @Nonnull QueryContext context) {
+    // Check if user can delete entity using standard delete authorization
+    if (AuthUtil.isAuthorizedEntityUrns(
+        context.getOperationContext(), DELETE, List.of(documentUrn))) {
+      return true;
+    }
+
+    // Fallback to document-specific management privilege
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
+
+    return isAuthorized(
+        context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
+  }
+
+  /** Returns true if the current user has the platform-level 'Manage Documents' privilege. */
+  public static boolean canManageDocuments(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE);
+  }
+
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
       @Nonnull String resourceType,
@@ -370,6 +460,51 @@ public class AuthorizationUtils {
       @Nonnull DisjunctivePrivilegeGroup privilegeGroup) {
     final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
     return AuthUtil.isAuthorized(context.getOperationContext(), privilegeGroup, resourceSpec);
+  }
+
+  /**
+   * Checks authorization for patch operations
+   *
+   * @param input Patch entity input
+   * @param context Query context
+   * @return true if authorized, false otherwise
+   */
+  public static boolean isAuthorizedForPatch(
+      @Nonnull PatchEntityInput input, @Nonnull QueryContext context) {
+
+    // For patch operations, we need EDIT_ENTITY_PRIVILEGE
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
+
+    // Use entity type from URN if not provided in input
+    String entityType = input.getEntityType();
+    if (entityType == null && input.getUrn() != null) {
+      try {
+        entityType = UrnUtils.getUrn(input.getUrn()).getEntityType();
+      } catch (Exception e) {
+        log.warn("Failed to extract entity type from URN: {}", input.getUrn(), e);
+      }
+    }
+
+    return isAuthorized(context, entityType, input.getUrn(), orPrivilegeGroups);
+  }
+
+  public static boolean isAuthorizedForTags(
+      @Nonnull QueryContext context,
+      @Nonnull String resourceType,
+      @Nonnull String resource,
+      @Nonnull DisjunctivePrivilegeGroup privilegeGroup,
+      @Nonnull Collection<Urn> tagUrns) {
+    final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
+    final Set<EntitySpec> subResources =
+        tagUrns.stream()
+            .map(tagUrn -> new EntitySpec(TAG_ENTITY_NAME, tagUrn.toString()))
+            .collect(Collectors.toSet());
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), privilegeGroup, resourceSpec, subResources);
   }
 
   public static boolean isViewDatasetUsageAuthorized(
@@ -394,6 +529,18 @@ public class AuthorizationUtils {
         context.getOperationContext(),
         PoliciesConfig.VIEW_DATASET_OPERATIONS_PRIVILEGE,
         new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+  }
+
+  public static boolean canManageAssetSummary(@Nonnull QueryContext context, @Nonnull Urn urn) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_ASSET_SUMMARY_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, urn.getEntityType(), urn.toString(), orPrivilegeGroups);
   }
 
   private AuthorizationUtils() {}

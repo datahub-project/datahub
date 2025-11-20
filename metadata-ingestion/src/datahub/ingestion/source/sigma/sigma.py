@@ -30,6 +30,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sigma.config import (
     PlatformDetail,
@@ -95,7 +96,11 @@ logger = logging.getLogger(__name__)
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
 @support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[SourceCapabilityModifier.SIGMA_WORKSPACE],
+)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default.")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -105,6 +110,7 @@ logger = logging.getLogger(__name__)
     SourceCapability.OWNERSHIP,
     "Enabled by default, configured using `ingest_owner`",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -144,7 +150,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = SigmaSourceConfig.parse_obj(config_dict)
+        config = SigmaSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def _gen_workbook_key(self, workbook_id: str) -> WorkbookKey:

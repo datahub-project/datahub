@@ -149,6 +149,18 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: LineageTab,
                 },
                 {
+                    name: 'Access',
+                    component: AccessManagement,
+                    display: {
+                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            const accessAspect = dataset?.dataset?.access;
+                            const rolesList = accessAspect?.roles;
+                            return !!accessAspect && !!rolesList && rolesList.length > 0;
+                        },
+                    },
+                },
+                {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
@@ -200,18 +212,6 @@ export class DatasetEntity implements Entity<Dataset> {
                         },
                         enabled: (_, dataset: GetDatasetQuery) => {
                             return (dataset?.dataset?.runs?.total || 0) > 0;
-                        },
-                    },
-                },
-                {
-                    name: 'Access Management',
-                    component: AccessManagement,
-                    display: {
-                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
-                        enabled: (_, dataset: GetDatasetQuery) => {
-                            const accessAspect = dataset?.dataset?.access;
-                            const rolesList = accessAspect?.roles;
-                            return !!accessAspect && !!rolesList && rolesList.length > 0;
                         },
                     },
                 },

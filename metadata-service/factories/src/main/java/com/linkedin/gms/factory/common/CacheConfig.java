@@ -36,6 +36,15 @@ public class CacheConfig {
   @Value("${searchService.cache.hazelcast.serviceName:hazelcast-service}")
   private String hazelcastServiceName;
 
+  @Value("${searchService.cache.hazelcast.kubernetes-api-retries:}")
+  private String kubernetesApiRetries;
+
+  @Value("${searchService.cache.hazelcast.service-dns-timeout:}")
+  private String kubernetesServiceDnsTimeout;
+
+  @Value("${searchService.cache.hazelcast.resolve-not-ready-addresses:}")
+  private String kubernetesResolveNotReadyAddresses;
+
   @Bean
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "caffeine")
   public CacheManager caffeineCacheManager() {
@@ -66,12 +75,26 @@ public class CacheConfig {
     config.setClassLoader(this.getClass().getClassLoader());
 
     config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
-    config
-        .getNetworkConfig()
-        .getJoin()
-        .getKubernetesConfig()
-        .setEnabled(true)
-        .setProperty("service-dns", hazelcastServiceName);
+
+    var kubernetesConfig =
+        config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(true);
+
+    // Configure Kubernetes discovery
+    kubernetesConfig.setProperty("service-dns", hazelcastServiceName);
+
+    // Set additional Kubernetes dns resolution properties.
+    if (!kubernetesApiRetries.isEmpty()) {
+      kubernetesConfig.setProperty("kubernetes-api-retries", kubernetesApiRetries);
+    }
+
+    if (!kubernetesServiceDnsTimeout.isEmpty()) {
+      kubernetesConfig.setProperty("service-dns-timeout", kubernetesServiceDnsTimeout);
+    }
+
+    if (!kubernetesResolveNotReadyAddresses.isEmpty()) {
+      kubernetesConfig.setProperty(
+          "resolve-not-ready-addresses", kubernetesResolveNotReadyAddresses);
+    }
 
     return Hazelcast.newHazelcastInstance(config);
   }

@@ -7,6 +7,7 @@ from typing_extensions import Self
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import SupportStatus, support_status
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
@@ -50,6 +51,7 @@ class BigQueryQueriesSourceConfig(
     )
 
 
+@support_status(SupportStatus.CERTIFIED)
 class BigQueryQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: BigQueryQueriesSourceConfig):
         self.ctx = ctx
@@ -78,7 +80,7 @@ class BigQueryQueriesSource(Source):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
-        config = BigQueryQueriesSourceConfig.parse_obj(config_dict)
+        config = BigQueryQueriesSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -94,3 +96,4 @@ class BigQueryQueriesSource(Source):
     def close(self) -> None:
         self.queries_extractor.close()
         self.connection.close()
+        super().close()

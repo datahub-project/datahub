@@ -11,6 +11,7 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import io.ebean.Database;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -30,7 +31,7 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
   public void setupTest() {
     Database server =
         EbeanTestUtils.createTestServer(EbeanTimelineServiceTest.class.getSimpleName());
-    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
+    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);
@@ -39,6 +40,13 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
     _entityServiceImpl =
         new EntityServiceImpl(_aspectDao, _mockProducer, true, preProcessHooks, true);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown Database instance to prevent thread pool and connection leaks
+    // This includes the "gma.heartBeat" thread and connection pools
+    EbeanTestUtils.shutdownDatabaseFromAspectDao(_aspectDao);
   }
 
   /**

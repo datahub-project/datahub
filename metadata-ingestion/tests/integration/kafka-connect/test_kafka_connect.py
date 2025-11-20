@@ -12,7 +12,7 @@ from freezegun import freeze_time
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.kafka_connect.kafka_connect import SinkTopicFilter
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -173,7 +173,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
     # Creating MySQL source with regex router transformations , only topic prefix
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
@@ -194,7 +196,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
     # Creating MySQL source with regex router transformations , no topic prefix, table whitelist
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
@@ -216,7 +220,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
     # Creating MySQL source with query , topic prefix
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
@@ -235,7 +241,9 @@ def loaded_kafka_connect(kafka_connect_runner):
                     }
                     """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
     # Creating MySQL source with ExtractTopic router transformations - source dataset not added
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
@@ -257,7 +265,9 @@ def loaded_kafka_connect(kafka_connect_runner):
                 }
                 """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
     # Creating MySQL sink connector - not added
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
@@ -275,7 +285,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     # Creating Debezium MySQL source connector
     r = requests.post(
@@ -290,18 +302,22 @@ def loaded_kafka_connect(kafka_connect_runner):
                 "database.port": "3306",
                 "database.user": "root",
                 "database.password": "rootpwd",
-                "database.server.name": "debezium.topics",
-                "database.history.kafka.bootstrap.servers": "test_broker:9092",
-                "database.history.kafka.topic": "dbhistory.debeziummysql",
+                "database.server.id": "184054",
+                "topic.prefix": "debezium.mysql",
+                "database.server.name": "all.debezium.topics",
+                "schema.history.internal.kafka.bootstrap.servers": "test_broker:9092",
+                "schema.history.internal.kafka.topic": "dbhistory.debeziummysql",
                 "database.allowPublicKeyRetrieval": "true",
                 "include.schema.changes": "false"
             }
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
-    # Creating Postgresql source
+    # Creating Postgresql source (JDBC connector)
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
@@ -318,7 +334,63 @@ def loaded_kafka_connect(kafka_connect_runner):
             }
         }""",
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
+
+    # Creating Debezium PostgreSQL source connector
+    r = requests.post(
+        KAFKA_CONNECT_ENDPOINT,
+        headers={"Content-Type": "application/json"},
+        data="""{
+            "name": "debezium-postgres-connector",
+            "config": {
+                "name": "debezium-postgres-connector",
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.hostname": "test_postgres",
+                "database.port": "5432",
+                "database.user": "postgres",
+                "database.password": "datahub",
+                "database.dbname": "postgres",
+                "topic.prefix": "postgres.debezium",
+                "database.server.name": "postgres.debezium.server",
+                "table.include.list": "public.member",
+                "plugin.name": "pgoutput",
+                "slot.name": "debezium_slot"
+            }
+        }""",
+    )
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
+
+    # Creating Debezium SQL Server source connector
+    r = requests.post(
+        KAFKA_CONNECT_ENDPOINT,
+        headers={"Content-Type": "application/json"},
+        data="""{
+            "name": "debezium-sqlserver-connector",
+            "config": {
+                "name": "debezium-sqlserver-connector",
+                "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+                "database.hostname": "test_sqlserver",
+                "database.port": "1433",
+                "database.user": "sa",
+                "database.password": "Password123!",
+                "database.names": "TestDB",
+                "database.server.name": "sqlserver.debezium.server",
+                "topic.prefix": "debezium.sqlserver",
+                "table.include.list": "dbo.test_table",
+                "schema.history.internal.kafka.bootstrap.servers": "test_broker:9092",
+                "schema.history.internal.kafka.topic": "dbhistory.sqlserver",
+                "database.encrypt": "false",
+                "database.trustServerCertificate": "true"
+            }
+        }""",
+    )
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     # Creating Generic source
     r = requests.post(
@@ -340,7 +412,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }""",
     )
     r.raise_for_status()
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     print("Populating MongoDB with test data...")
     # we populate the database before creating the connector
@@ -359,7 +433,7 @@ def loaded_kafka_connect(kafka_connect_runner):
             "config": {
                 "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
                 "connection.uri": "mongodb://test_mongo:27017",
-                "topic.prefix": "mongodb",
+                "topic.prefix": "my.mongodb.topic.prefix",
                 "database": "test_db",
                 "collection": "purchases",
                 "startup.mode": "copy_existing"
@@ -367,7 +441,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }""",
     )
     r.raise_for_status()
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     # Creating S3 Sink source
     r = requests.post(
@@ -425,7 +501,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     # Connectors should be ready to process data thanks to Docker health checks
     print("Waiting for Kafka Connect connectors to initialize and process data...")
@@ -755,6 +833,46 @@ def test_kafka_connect_bigquery_sink_ingest(
         pytestconfig,
         output_path=tmp_path / "kafka_connect_mces.json",
         golden_path=test_resources_dir / "kafka_connect_bigquery_sink_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_debezium_postgres(
+    loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
+):
+    # Run the metadata ingestion pipeline.
+    config_file = (
+        test_resources_dir / "kafka_connect_debezium_postgres_to_file.yml"
+    ).resolve()
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_mces.json",
+        golden_path=test_resources_dir
+        / "kafka_connect_debezium_postgres_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_debezium_sqlserver(
+    loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
+):
+    # Run the metadata ingestion pipeline.
+    config_file = (
+        test_resources_dir / "kafka_connect_debezium_sqlserver_to_file.yml"
+    ).resolve()
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_mces.json",
+        golden_path=test_resources_dir
+        / "kafka_connect_debezium_sqlserver_mces_golden.json",
         ignore_paths=[],
     )
 

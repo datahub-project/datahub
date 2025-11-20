@@ -10,9 +10,10 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.service.UpdateIndicesService;
-import org.testcontainers.containers.CassandraContainer;
+import org.testcontainers.cassandra.CassandraContainer;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -20,12 +21,19 @@ import org.testng.annotations.Test;
 public class CassandraAspectMigrationsDaoTest extends AspectMigrationsDaoTest<CassandraAspectDao> {
 
   private CassandraContainer _cassandraContainer;
+  private CqlSession _currentSession;
 
   public CassandraAspectMigrationsDaoTest() throws EntityRegistryException {}
 
   @BeforeClass
   public void setupContainer() {
     _cassandraContainer = CassandraTestUtils.setupContainer();
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    CassandraTestUtils.closeSession(_currentSession);
+    _currentSession = null;
   }
 
   @AfterClass
@@ -40,8 +48,9 @@ public class CassandraAspectMigrationsDaoTest extends AspectMigrationsDaoTest<Ca
   }
 
   private void configureComponents() {
-    CqlSession session = CassandraTestUtils.createTestSession(_cassandraContainer);
-    CassandraAspectDao dao = new CassandraAspectDao(session);
+    _currentSession = CassandraTestUtils.createTestSession(_cassandraContainer);
+
+    CassandraAspectDao dao = new CassandraAspectDao(_currentSession);
     dao.setConnectionValidated(true);
     _mockProducer = mock(EventProducer.class);
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
@@ -49,7 +58,7 @@ public class CassandraAspectMigrationsDaoTest extends AspectMigrationsDaoTest<Ca
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl = new EntityServiceImpl(dao, _mockProducer, true, preProcessHooks, true);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
-    _retentionService = new CassandraRetentionService(_entityServiceImpl, session, 1000);
+    _retentionService = new CassandraRetentionService(_entityServiceImpl, _currentSession, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
 
     _migrationsDao = dao;

@@ -15,6 +15,7 @@ export const cardDefaults: CardProps = {
     title: 'Title',
     iconAlignment: 'horizontal',
     isEmpty: false,
+    isCardClickable: true,
 };
 
 export const Card = ({
@@ -30,22 +31,33 @@ export const Card = ({
     maxWidth,
     height,
     isEmpty,
+    style,
+    isCardClickable = cardDefaults.isCardClickable,
+    dataTestId,
 }: CardProps) => {
     return (
         <>
             {isEmpty ? (
-                <CardContainer maxWidth={maxWidth} height={height} width={width}>
-                    <TitleContainer>
+                <CardContainer maxWidth={maxWidth} height={height} width={width} data-testid={dataTestId}>
+                    <TitleContainer data-testid="no-data">
                         <Title $isEmpty={isEmpty}>No Data</Title>
                         <SubTitle>{subTitle}</SubTitle>
                     </TitleContainer>
                 </CardContainer>
             ) : (
-                <CardContainer hasButton={!!button} onClick={onClick} maxWidth={maxWidth} height={height} width={width}>
+                <CardContainer
+                    isClickable={!!button && isCardClickable}
+                    onClick={onClick}
+                    maxWidth={maxWidth}
+                    height={height}
+                    width={width}
+                    style={style}
+                    data-testid={dataTestId}
+                >
                     <Header iconAlignment={iconAlignment}>
                         {icon}
                         <TitleContainer>
-                            <Title>
+                            <Title data-testid="title">
                                 {title}
                                 {!!percent && (
                                     <Pill
@@ -59,9 +71,9 @@ export const Card = ({
                             </Title>
                             <SubTitleContainer>
                                 <SubTitle>{subTitle}</SubTitle>
-                                {button}
                             </SubTitleContainer>
                         </TitleContainer>
+                        {button}
                     </Header>
                     {children}
                 </CardContainer>

@@ -1,13 +1,13 @@
 import functools
 import importlib.resources as pkg_resource
 import logging
-import os
 from typing import Dict, List, Optional
 
 import lark
 from lark import Lark, Tree
 
 import datahub.ingestion.source.powerbi.m_query.data_classes
+from datahub.configuration.env_vars import get_powerbi_m_query_parse_timeout
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
@@ -25,7 +25,7 @@ from datahub.utilities.threading_timeout import TimeoutException, threading_time
 
 logger = logging.getLogger(__name__)
 
-_M_QUERY_PARSE_TIMEOUT = int(os.getenv("DATAHUB_POWERBI_M_QUERY_PARSE_TIMEOUT", 60))
+_M_QUERY_PARSE_TIMEOUT = get_powerbi_m_query_parse_timeout()
 
 
 @functools.lru_cache(maxsize=1)

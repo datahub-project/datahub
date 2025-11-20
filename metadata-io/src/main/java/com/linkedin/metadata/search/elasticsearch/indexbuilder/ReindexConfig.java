@@ -1,8 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.PROPERTIES;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -10,15 +9,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
-import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.util.Pair;
-import java.util.AbstractMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.Builder;
@@ -48,8 +40,7 @@ public class ReindexConfig {
     Most index settings are default values and populated by Elastic. This list is an include list to determine which
     settings we care about when a difference is present.
   */
-  public static final List<String> SETTINGS_DYNAMIC =
-      ImmutableList.of("number_of_replicas", "refresh_interval");
+  public static final List<String> SETTINGS_DYNAMIC = ImmutableList.of("refresh_interval");
   // These setting require reindex
   public static final List<String> SETTINGS_STATIC = ImmutableList.of("number_of_shards");
   public static final List<String> SETTINGS =
@@ -68,14 +59,41 @@ public class ReindexConfig {
   private final String version;
 
   /* Calculated */
-  private final boolean requiresReindex;
-  private final boolean requiresApplySettings;
-  private final boolean requiresApplyMappings;
+  private boolean requiresReindex;
+  private boolean requiresApplySettings;
+  private boolean requiresApplyMappings;
   private final boolean isPureMappingsAddition;
   private final boolean isSettingsReindex;
   private final boolean hasNewStructuredProperty;
   private final boolean isPureStructuredPropertyAddition;
   private final boolean hasRemovedStructuredProperty;
+
+  private void restrictedMethod() throws IllegalAccessException {
+    String allowed = "ReindexDebugStep";
+    if (!isCalledFromReindexDebugStep(allowed)) {
+      throw new IllegalAccessException("This method can only be called from " + allowed);
+    }
+  }
+
+  private boolean isCalledFromReindexDebugStep(String step) {
+    StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+    return Arrays.stream(stackTrace)
+        .anyMatch(
+            element -> {
+              try {
+                return Class.forName(element.getClassName()).getSimpleName().equals(step);
+              } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+              }
+            });
+  }
+
+  public void forceReindex() throws IllegalAccessException {
+    restrictedMethod();
+    requiresReindex = true;
+    requiresApplyMappings = true;
+    requiresApplySettings = true;
+  }
 
   public static ReindexConfigBuilder builder() {
     return new CalculatedBuilder();
@@ -127,19 +145,33 @@ public class ReindexConfig {
     }
 
     private static TreeMap<String, Object> sortMap(Map<String, Object> input) {
+      if (input == null) {
+        return new TreeMap<>();
+      }
       return input.entrySet().stream()
           .collect(
               Collectors.toMap(
                   Map.Entry::getKey,
-                  e -> {
-                    if (e.getValue() instanceof Map) {
-                      return sortMap((Map<String, Object>) e.getValue());
-                    } else {
-                      return String.valueOf(e.getValue());
-                    }
-                  },
+                  e -> sortObject(e.getValue()),
                   (oldValue, newValue) -> newValue,
                   TreeMap::new));
+    }
+
+    private static List<Object> sortList(List<?> input) {
+      if (input == null) {
+        return new ArrayList<>();
+      }
+      return input.stream().map(ReindexConfigBuilder::sortObject).collect(Collectors.toList());
+    }
+
+    private static Object sortObject(Object item) {
+      if (item instanceof Map) {
+        return sortMap((Map<String, Object>) item);
+      } else if (item instanceof List) {
+        return sortList((List<?>) item);
+      } else {
+        return String.valueOf(item);
+      }
     }
   }
 
@@ -347,10 +379,18 @@ public class ReindexConfig {
       Map<String, Object> indexSettings = (Map<String, Object>) super.targetSettings.get("index");
       return SETTINGS.stream()
           .allMatch(
-              settingKey ->
-                  Objects.equals(
-                      indexSettings.get(settingKey).toString(),
-                      super.currentSettings.get("index." + settingKey)));
+              settingKey -> {
+                Object targetValue = indexSettings.get(settingKey);
+                String currentValue = super.currentSettings.get("index." + settingKey);
+                // Handle null values properly
+                if (targetValue == null && currentValue == null) {
+                  return true;
+                }
+                if (targetValue == null || currentValue == null) {
+                  return false;
+                }
+                return Objects.equals(targetValue.toString(), currentValue);
+              });
     }
 
     private boolean isSettingsReindexRequired() {
@@ -361,10 +401,18 @@ public class ReindexConfig {
 
       if (SETTINGS_STATIC.stream()
           .anyMatch(
-              settingKey ->
-                  !Objects.equals(
-                      indexSettings.get(settingKey).toString(),
-                      super.currentSettings.get("index." + settingKey)))) {
+              settingKey -> {
+                Object targetValue = indexSettings.get(settingKey);
+                String currentValue = super.currentSettings.get("index." + settingKey);
+                // Handle null values properly
+                if (targetValue == null && currentValue == null) {
+                  return false;
+                }
+                if (targetValue == null || currentValue == null) {
+                  return true;
+                }
+                return !Objects.equals(targetValue.toString(), currentValue);
+              })) {
         return true;
       }
 
@@ -375,8 +423,9 @@ public class ReindexConfig {
     }
 
     /**
-     * Dynamic fields should not be considered as part of the difference. This might need to be
-     * improved in the future for nested object fields.
+     * Dynamic fields should not be considered as part of the difference, except for structured
+     * properties. This prevents unnecessary reindexing when dynamic fields have minor differences
+     * in their properties.
      *
      * @param currentMappings current mappings
      * @param targetMappings target mappings
@@ -385,27 +434,145 @@ public class ReindexConfig {
     private static MapDifference<String, Object> calculateMapDifference(
         Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
 
-      // Identify dynamic object fields in target
-      Set<String> targetObjectFields =
-          targetMappings.entrySet().stream()
-              .filter(
-                  entry ->
-                      ((Map<String, Object>) entry.getValue()).containsKey(TYPE)
-                          && ((Map<String, Object>) entry.getValue())
-                              .get(TYPE)
-                              .equals(ESUtils.OBJECT_FIELD_TYPE))
-              .map(Map.Entry::getKey)
-              .collect(Collectors.toSet());
+      // Identify dynamic fields in target (fields with dynamic=true) - recursively search all
+      // levels
+      Set<String> targetDynamicFields = findDynamicFields(targetMappings, "");
 
-      if (!targetObjectFields.isEmpty()) {
-        log.debug("Object fields filtered from comparison: {}", targetObjectFields);
+      if (!targetDynamicFields.isEmpty()) {
+        log.info("Dynamic fields filtered from comparison: {}", targetDynamicFields);
         Map<String, Object> filteredCurrentMappings =
-            removeKeys(currentMappings, targetObjectFields);
-        Map<String, Object> filteredTargetMappings = removeKeys(targetMappings, targetObjectFields);
-        return Maps.difference(filteredCurrentMappings, filteredTargetMappings);
+            removeDynamicFields(currentMappings, targetDynamicFields);
+        Map<String, Object> filteredTargetMappings =
+            removeDynamicFields(targetMappings, targetDynamicFields);
+
+        MapDifference<String, Object> diff =
+            Maps.difference(filteredCurrentMappings, filteredTargetMappings);
+        log.info(
+            "Map difference - entriesOnlyOnLeft: {}, entriesOnlyOnRight: {}, entriesDiffering: {}",
+            diff.entriesOnlyOnLeft().keySet(),
+            diff.entriesOnlyOnRight().keySet(),
+            diff.entriesDiffering().keySet());
+        return diff;
       }
 
-      return Maps.difference(currentMappings, targetMappings);
+      MapDifference<String, Object> diff = Maps.difference(currentMappings, targetMappings);
+      log.info(
+          "No dynamic fields found. Map difference - entriesOnlyOnLeft: {}, entriesOnlyOnRight: {}, entriesDiffering: {}",
+          diff.entriesOnlyOnLeft().keySet(),
+          diff.entriesOnlyOnRight().keySet(),
+          diff.entriesDiffering().keySet());
+      return diff;
+    }
+
+    /**
+     * Recursively find all dynamic fields in the mappings
+     *
+     * @param mappings the mappings to search
+     * @param prefix the current path prefix
+     * @return set of field paths that are dynamic
+     */
+    private static Set<String> findDynamicFields(Map<String, Object> mappings, String prefix) {
+      Set<String> dynamicFields = new HashSet<>();
+
+      for (Map.Entry<String, Object> entry : mappings.entrySet()) {
+        String fieldPath = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+
+        if (entry.getValue() instanceof Map) {
+          Map<String, Object> fieldMapping = (Map<String, Object>) entry.getValue();
+
+          // Check if this field is explicitly marked as dynamic
+          if (fieldMapping.containsKey("dynamic")
+              && (Boolean.TRUE.equals(fieldMapping.get("dynamic"))
+                  || "true".equals(fieldMapping.get("dynamic")))) {
+            dynamicFields.add(fieldPath);
+          }
+
+          // Check if this field is known to be dynamic based on field name patterns
+          // This handles cases where ES drops dynamic=true from the mapping but the field should be
+          // dynamic
+          if (isKnownDynamicField(entry.getKey(), fieldMapping)) {
+            dynamicFields.add(fieldPath);
+          }
+
+          // Recursively search in properties if they exist
+          if (fieldMapping.containsKey("properties")
+              && fieldMapping.get("properties") instanceof Map) {
+            Map<String, Object> properties = (Map<String, Object>) fieldMapping.get("properties");
+            String propertiesPath = fieldPath.isEmpty() ? "properties" : fieldPath + ".properties";
+            dynamicFields.addAll(findDynamicFields(properties, propertiesPath));
+          }
+        }
+      }
+
+      return dynamicFields;
+    }
+
+    /**
+     * Check if a field is known to be dynamic based on its name and mapping structure. This handles
+     * cases where Elasticsearch drops dynamic=true from the mapping but the field should be
+     * dynamic.
+     *
+     * @param fieldName the field name
+     * @param fieldMapping the field mapping
+     * @return true if the field is known to be dynamic
+     */
+    private static boolean isKnownDynamicField(String fieldName, Map<String, Object> fieldMapping) {
+      // ownerTypes is dynamically built based on ownership types present in data
+      if ("ownerTypes".equals(fieldName) && "object".equals(fieldMapping.get("type"))) {
+        return true;
+      }
+
+      // structuredProperties is dynamic by design
+      if ("structuredProperties".equals(fieldName) && "object".equals(fieldMapping.get("type"))) {
+        return true;
+      }
+
+      return false;
+    }
+
+    /**
+     * Remove dynamic fields from mappings based on field paths
+     *
+     * @param mappings the mappings to filter
+     * @param dynamicFieldPaths the paths of dynamic fields to remove
+     * @return filtered mappings
+     */
+    private static Map<String, Object> removeDynamicFields(
+        Map<String, Object> mappings, Set<String> dynamicFieldPaths) {
+      Map<String, Object> filtered = new HashMap<>(mappings);
+
+      for (String fieldPath : dynamicFieldPaths) {
+        removeDynamicField(filtered, fieldPath);
+      }
+
+      return filtered;
+    }
+
+    /**
+     * Remove a single dynamic field from mappings based on its path
+     *
+     * @param mappings the mappings to modify
+     * @param fieldPath the path of the field to remove (e.g., "_aspects.ownership.ownerTypes")
+     */
+    private static void removeDynamicField(Map<String, Object> mappings, String fieldPath) {
+      String[] pathParts = fieldPath.split("\\.");
+
+      if (pathParts.length == 1) {
+        // Top-level field
+        mappings.remove(pathParts[0]);
+      } else {
+        // Nested field - navigate to the parent and remove the field
+        Map<String, Object> current = mappings;
+        for (int i = 0; i < pathParts.length - 1; i++) {
+          Object next = current.get(pathParts[i]);
+          if (next instanceof Map) {
+            current = (Map<String, Object>) next;
+          } else {
+            return; // Path doesn't exist
+          }
+        }
+        current.remove(pathParts[pathParts.length - 1]);
+      }
     }
 
     /**
@@ -460,7 +627,16 @@ public class ReindexConfig {
           return false;
         }
       } else {
-        if (!newSettings.get(key).toString().equals(oldSettings.get(key))) {
+        String oldValue = oldSettings.get(key);
+        Object newValue = newSettings.get(key);
+        // Handle null values properly
+        if (newValue == null && oldValue == null) {
+          continue;
+        }
+        if (newValue == null || oldValue == null) {
+          return false;
+        }
+        if (!newValue.toString().equals(oldValue)) {
           return false;
         }
       }

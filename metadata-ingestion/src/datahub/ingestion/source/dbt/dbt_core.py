@@ -9,13 +9,15 @@ from urllib.parse import urlparse
 import dateutil.parser
 import requests
 from packaging import version
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from datahub.configuration.git import GitReference
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -97,26 +99,24 @@ class DBTCoreConfig(DBTCommonConfig):
 
     _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
 
-    @validator("aws_connection", always=True)
-    def aws_connection_needed_if_s3_uris_present(
-        cls, aws_connection: Optional[AwsConnectionConfig], values: Dict, **kwargs: Any
-    ) -> Optional[AwsConnectionConfig]:
+    @model_validator(mode="after")
+    def aws_connection_needed_if_s3_uris_present(self) -> "DBTCoreConfig":
         # first check if there are fields that contain s3 uris
         uris = [
-            values.get(f)
+            getattr(self, f, None)
             for f in [
                 "manifest_path",
                 "catalog_path",
                 "sources_path",
             ]
-        ] + values.get("run_results_paths", [])
+        ] + (self.run_results_paths or [])
         s3_uris = [uri for uri in uris if is_s3_uri(uri or "")]
 
-        if s3_uris and aws_connection is None:
+        if s3_uris and self.aws_connection is None:
             raise ValueError(
                 f"Please provide aws_connection configuration, since s3 uris have been provided {s3_uris}"
             )
-        return aws_connection
+        return self
 
 
 def get_columns(
@@ -341,8 +341,7 @@ class DBTRunTiming(BaseModel):
 
 
 class DBTRunResult(BaseModel):
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     status: str
     timing: List[DBTRunTiming] = []
@@ -424,13 +423,13 @@ def load_run_results(
         )
         return all_nodes
 
-    dbt_metadata = DBTRunMetadata.parse_obj(test_results_json.get("metadata", {}))
+    dbt_metadata = DBTRunMetadata.model_validate(test_results_json.get("metadata", {}))
 
     all_nodes_map: Dict[str, DBTNode] = {x.dbt_name: x for x in all_nodes}
 
     results = test_results_json.get("results", [])
     for result in results:
-        run_result = DBTRunResult.parse_obj(result)
+        run_result = DBTRunResult.model_validate(result)
         id = run_result.unique_id
 
         if id.startswith("test."):
@@ -464,6 +463,7 @@ def load_run_results(
 @platform_name("dbt")
 @config_class(DBTCoreConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class DBTCoreSource(DBTSourceBase, TestableSource):
     config: DBTCoreConfig
     report: DBTCoreReport
@@ -474,7 +474,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DBTCoreConfig.parse_obj(config_dict)
+        config = DBTCoreConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod

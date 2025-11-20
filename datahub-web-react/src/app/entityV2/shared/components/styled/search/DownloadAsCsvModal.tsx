@@ -46,7 +46,7 @@ type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
 };
 
-const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 200;
+const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 100;
 const DOWNLOAD_NOTIFICATION_KEY = 'download-csv-notification';
 const formatTime = (seconds: number) => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -74,13 +74,17 @@ export default function DownloadAsCsvModal({
     );
     const entityRegistry = useEntityRegistry();
     const openNotification = (currentCount = 0, estimatedTimeRemaining?: number) => {
-        let description =
-            totalResults && currentCount < totalResults
-                ? `Downloading ${currentCount} of ${totalResults} entities...`
-                : 'Creating CSV to download';
+        // Scroll Across Entities gives max 10k as total but results can go further than that
+        const hasMoreThanLimit = totalResults === 10000;
+        let description = totalResults
+            ? `Downloading ${currentCount} of ${hasMoreThanLimit ? '10,000+' : totalResults} entities...`
+            : 'Creating CSV to download';
 
         if (estimatedTimeRemaining !== undefined) {
-            description += `\nEstimated time remaining: ${formatTime(estimatedTimeRemaining)}`;
+            // Show estimate only if the count is less than 10k entities
+            if (!hasMoreThanLimit) {
+                description += `\nEstimated time remaining: ${formatTime(estimatedTimeRemaining)}`;
+            }
         }
 
         notification.info({

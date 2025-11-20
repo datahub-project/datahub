@@ -85,8 +85,11 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
 @platform_name("ClickHouse")
 @config_class(ClickHouseUsageConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 @dataclasses.dataclass
 class ClickHouseUsageSource(Source):
     """
@@ -112,7 +115,7 @@ class ClickHouseUsageSource(Source):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = ClickHouseUsageConfig.parse_obj(config_dict)
+        config = ClickHouseUsageConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

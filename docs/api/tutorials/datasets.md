@@ -6,7 +6,7 @@ import TabItem from '@theme/TabItem';
 ## Why Would You Use Datasets?
 
 The dataset entity is one the most important entities in the metadata model. They represent collections of data that are typically represented as Tables or Views in a database (e.g. BigQuery, Snowflake, Redshift etc.), Streams in a stream-processing environment (Kafka, Pulsar etc.), bundles of data found as Files or Folders in data lake systems (S3, ADLS, etc.).
-For more information about datasets, refer to [Dataset](/docs/generated/metamodel/entities/dataset.md).
+For more information about datasets, refer to our [dataset reference](/docs/generated/metamodel/entities/dataset.md).
 
 ### Goal Of This Guide
 
@@ -109,7 +109,7 @@ Expected Response:
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/delete_dataset.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataset_delete.py show_path_as_comment }}
 ```
 
 </TabItem>

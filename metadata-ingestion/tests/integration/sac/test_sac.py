@@ -5,7 +5,7 @@ from urllib.parse import parse_qs
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 MOCK_TENANT_URL = "http://tenant"
 MOCK_TOKEN_URL = "http://tenant.authentication/oauth/token"

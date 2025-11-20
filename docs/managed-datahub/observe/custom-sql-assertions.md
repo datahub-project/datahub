@@ -116,7 +116,7 @@ Once these are in place, you're ready to create your Custom SQL Assertions!
 ### Steps
 
 1. Navigate to the Table you want to monitor
-2. Click the **Validations** tab
+2. Click the **Quality** tab
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
@@ -180,7 +180,7 @@ Once your assertion has run, you will begin to see Success or Failure status for
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Custom SQL** to open the SQL Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
@@ -192,6 +192,18 @@ To resume the assertion, simply click **Start**.
 
 <p align="left">
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
+</p>
+
+## Anomaly Detection with Smart Assertions ⚡
+
+As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides [Smart Assertions](./smart-assertions.md) out of the box. These are
+dynamic, AI-powered Custom SQL Assertions that you can use to monitor a metric computed by your SQL query, without
+requiring any manual setup.
+
+You can create smart assertions by simply selecting the `Detect with AI` option in the UI:
+
+<p align="left">
+  <img width="90%"  src="/imgs/observe/custom/custom-sql-smart-assertion.png"/>
 </p>
 
 ## Creating Custom SQL Assertions via API

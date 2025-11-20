@@ -1,0 +1,1220 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "_access_control": "None",
+                "catchup": "False",
+                "description": "None",
+                "doc_md": "None",
+                "fileloc": "<fileloc>",
+                "is_paused_upon_creation": "None",
+                "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
+                "tags": "[]",
+                "timezone": "Timezone('UTC')"
+            },
+            "externalUrl": "http://airflow.example.com/tree?dag_id=bigquery_insert_job_operator",
+            "name": "bigquery_insert_job_operator",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "bigquery_insert_job_operator"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'select_with_destination_config'",
+                "execution_timeout": "None",
+                "sla": "None",
+                "sql": "'\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 50\\n                '",
+                "task_id": "'select_with_destination_config'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]",
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 50\\n                \"}"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=select_with_destination_config",
+            "name": "select_with_destination_config",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)"
+            ],
+            "inputDatajobs": [],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),month)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.processed_costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c2b6bc237a75fe628ce6bf2c282b0e3c",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "run_id": "manual_run_test",
+                "duration": "<duration>",
+                "start_date": "<start_date>",
+                "end_date": "<end_date>",
+                "execution_date": "2023-09-27 21:34:38+00:00",
+                "try_number": "0",
+                "max_tries": "0",
+                "external_executor_id": "None",
+                "state": "running",
+                "operator": "BigQueryInsertJobOperator",
+                "priority_weight": "1",
+                "log_url": "http://airflow.example.com/dags/bigquery_insert_job_operator/grid?dag_run_id=manual_run_test&task_id=select_with_destination_config&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
+                "orchestrator": "airflow",
+                "dag_id": "bigquery_insert_job_operator",
+                "task_id": "select_with_destination_config"
+            },
+            "externalUrl": "http://airflow.example.com/dags/bigquery_insert_job_operator/grid?dag_run_id=manual_run_test&task_id=select_with_destination_config&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
+            "name": "bigquery_insert_job_operator_select_with_destination_config_manual_run_test",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1751646857113,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c2b6bc237a75fe628ce6bf2c282b0e3c",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c2b6bc237a75fe628ce6bf2c282b0e3c",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c2b6bc237a75fe628ce6bf2c282b0e3c",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.processed_costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c2b6bc237a75fe628ce6bf2c282b0e3c",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1751646857113,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED",
+            "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1751646857538,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:airflow",
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1751646857538
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'select_with_destination_config'",
+                "execution_timeout": "None",
+                "sla": "None",
+                "sql": "'\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 50\\n                '",
+                "task_id": "'select_with_destination_config'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]",
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 50\\n                \"}"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=select_with_destination_config",
+            "name": "select_with_destination_config",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)"
+            ],
+            "inputDatajobs": [],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),month)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),month)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.processed_costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),select_with_destination_config)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c2b6bc237a75fe628ce6bf2c282b0e3c",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1751646857555,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'insert_query_without_destination'",
+                "execution_timeout": "None",
+                "sla": "None",
+                "sql": "'\\n                INSERT INTO `test_project.test_dataset.processed_costs`\\n                (id, month, total_cost, area, cost_per_area)\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 100\\n                '",
+                "task_id": "'insert_query_without_destination'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]",
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n                INSERT INTO `test_project.test_dataset.processed_costs`\\n                (id, month, total_cost, area, cost_per_area)\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 100\\n                \"}"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=insert_query_without_destination",
+            "name": "insert_query_without_destination",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)"
+            ],
+            "inputDatajobs": [],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),month)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),month)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),total_cost)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),area)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),cost_per_area)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.processed_costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ad5cf6e007be4b127a8729275f118c3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "run_id": "manual_run_test",
+                "duration": "<duration>",
+                "start_date": "<start_date>",
+                "end_date": "<end_date>",
+                "execution_date": "2023-09-27 21:34:38+00:00",
+                "try_number": "0",
+                "max_tries": "0",
+                "external_executor_id": "None",
+                "state": "running",
+                "operator": "BigQueryInsertJobOperator",
+                "priority_weight": "1",
+                "log_url": "http://airflow.example.com/dags/bigquery_insert_job_operator/grid?dag_run_id=manual_run_test&task_id=insert_query_without_destination&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
+                "orchestrator": "airflow",
+                "dag_id": "bigquery_insert_job_operator",
+                "task_id": "insert_query_without_destination"
+            },
+            "externalUrl": "http://airflow.example.com/dags/bigquery_insert_job_operator/grid?dag_run_id=manual_run_test&task_id=insert_query_without_destination&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
+            "name": "bigquery_insert_job_operator_insert_query_without_destination_manual_run_test",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1751646862399,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ad5cf6e007be4b127a8729275f118c3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ad5cf6e007be4b127a8729275f118c3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ad5cf6e007be4b127a8729275f118c3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.processed_costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ad5cf6e007be4b127a8729275f118c3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1751646862399,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED",
+            "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1751646863086,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:airflow",
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1751646863086
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'insert_query_without_destination'",
+                "execution_timeout": "None",
+                "sla": "None",
+                "sql": "'\\n                INSERT INTO `test_project.test_dataset.processed_costs`\\n                (id, month, total_cost, area, cost_per_area)\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 100\\n                '",
+                "task_id": "'insert_query_without_destination'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]",
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.30.1/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n                INSERT INTO `test_project.test_dataset.processed_costs`\\n                (id, month, total_cost, area, cost_per_area)\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 100\\n                \"}"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=insert_query_without_destination",
+            "name": "insert_query_without_destination",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)"
+            ],
+            "inputDatajobs": [],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),month)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),month)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),total_cost)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),area)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),cost_per_area)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),month)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),month)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),total_cost)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),area)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),area)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD),total_cost)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD),cost_per_area)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_project.test_dataset.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "test_project.test_dataset.processed_costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,prod),insert_query_without_destination)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ad5cf6e007be4b127a8729275f118c3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1751646863119,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "airflow"
+            }
+        }
+    }
+}
+]

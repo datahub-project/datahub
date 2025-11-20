@@ -9,8 +9,9 @@ import { NavMenuItem, NavSubMenuItem } from '@app/homeV2/layout/types';
 import { HOME_PAGE_INGESTION_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@app/onboarding/useHandleOnboardingTour';
 import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { HelpLinkRoutes, PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import AnalyticsMenuIcon from '@images/analyticsMenuIcon.svg?react';
 import GovernMenuIcon from '@images/governMenuIcon.svg?react';
@@ -108,6 +109,7 @@ export function NavLinksMenu(props: Props) {
     // Flags to show/hide menu items
     const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
+    const businessAttributesFlag = useBusinessAttributesFlag();
 
     const showSettings = true;
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
@@ -165,6 +167,12 @@ export function NavLinksMenu(props: Props) {
                         isHidden: false,
                     },
                     {
+                        title: 'Business Attributes',
+                        description: 'Universal field for data consistency',
+                        link: PageRoutes.BUSINESS_ATTRIBUTE,
+                        isHidden: !businessAttributesFlag,
+                    },
+                    {
                         title: 'Domains',
                         description: 'Manage related groups of data assets',
                         link: PageRoutes.DOMAINS,
@@ -215,7 +223,7 @@ export function NavLinksMenu(props: Props) {
                     {
                         title: 'GraphiQL',
                         description: 'Explore the GraphQL API',
-                        link: HelpLinkRoutes.GRAPHIQL || null,
+                        link: HelpLinkRoutes.GRAPHIQL ? resolveRuntimePath(HelpLinkRoutes.GRAPHIQL) : null,
                         isHidden: false,
                         target: '_blank',
                         rel: 'noopener noreferrer',
@@ -223,7 +231,7 @@ export function NavLinksMenu(props: Props) {
                     {
                         title: 'OpenAPI',
                         description: 'Explore the OpenAPI endpoints',
-                        link: HelpLinkRoutes.OPENAPI,
+                        link: resolveRuntimePath(HelpLinkRoutes.OPENAPI),
                         isHidden: false,
                         target: '_blank',
                         rel: 'noopener noreferrer',

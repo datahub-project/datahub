@@ -1,16 +1,18 @@
 package com.linkedin.metadata.search.elasticsearch;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.testng.Assert.assertNotNull;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.query.SearchDAOTestBase;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.fixtures.search.SampleDataFixtureConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import lombok.Getter;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
@@ -23,7 +25,7 @@ import org.testng.annotations.Test;
   SearchTestContainerConfiguration.class
 })
 public class SearchDAOElasticSearchTest extends SearchDAOTestBase {
-  @Autowired private RestHighLevelClient searchClient;
+  @Autowired private SearchClientShim<?> searchClient;
   @Autowired private SearchConfiguration searchConfiguration;
 
   @Autowired
@@ -42,6 +44,11 @@ public class SearchDAOElasticSearchTest extends SearchDAOTestBase {
   @Override
   protected ESSearchDAO getESSearchDao() {
     return entitySearchService.getEsSearchDAO();
+  }
+
+  @Override
+  protected ElasticSearchConfiguration getElasticSearchConfiguration() {
+    return TEST_ES_SEARCH_CONFIG;
   }
 
   @Test

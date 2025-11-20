@@ -35,7 +35,7 @@ class FilterTransformer(Transformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Transformer":
-        config = FilterTransformerConfig.parse_obj(config_dict)
+        config = FilterTransformerConfig.model_validate(config_dict)
         return cls(config)
 
     def transform(self, env_event: EventEnvelope) -> Optional[EventEnvelope]:

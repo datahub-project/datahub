@@ -40,7 +40,7 @@ const StyledList = styled(List)`
         margin-left: -20px;
         border-bottom: none;
         padding-bottom: 0px;
-        padding-top: 15px;
+        padding-top: 0px;
     }
 ` as typeof List;
 
@@ -106,7 +106,6 @@ export const EntityList = ({
         <>
             <ScrollWrapper>
                 <StyledList
-                    bordered
                     dataSource={entities}
                     header={title || `${entities.length || 0} ${entityRegistry.getCollectionName(type)}`}
                     renderItem={(item) => (

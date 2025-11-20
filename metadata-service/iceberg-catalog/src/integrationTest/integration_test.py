@@ -10,13 +10,16 @@ def get_gms_url():
     return os.getenv("DATAHUB_GMS_URL") or "http://localhost:8080"
 
 
+def get_user_pass():
+    user = os.getenv("DH_USER", "datahub")
+    password = os.getenv("DH_PASS", "datahub")
+    return user, password
+
+
 @pytest.fixture
 def personal_access_token():
-    username = "datahub"
-    password = "datahub"
-    token_name, token = cli_utils.generate_access_token(
-        username, password, get_gms_url()
-    )
+    user, password = get_user_pass()
+    token_name, token = cli_utils.generate_access_token(user, password, get_gms_url())
 
     # Setting this env var makes get_default_graph use these env vars to create a graphql client.
     os.environ["DATAHUB_GMS_TOKEN"] = token
@@ -98,20 +101,21 @@ def spark_session(personal_access_token, warehouse):
 def warehouse(request, personal_access_token):
     warehouse_name = request.param
     # PAT dependency just to ensure env vars are setup with token
-    give_all_permissions("datahub", "test-policy")
-
-    data_root = os.getenv(
-        "ICEBERG_DATA_ROOT", f"s3://srinath-dev/test/{warehouse_name}"
-    )
+    user = os.getenv("DH_USER", "datahub")
     client_id = os.getenv("ICEBERG_CLIENT_ID")
     client_secret = os.getenv("ICEBERG_CLIENT_SECRET")
     region = os.getenv("ICEBERG_REGION")
     role = os.getenv("ICEBERG_ROLE")
+    data_root = os.getenv(
+        "ICEBERG_DATA_ROOT", f"s3://srinath-dev/test/{warehouse_name}"
+    )
 
     if not all((data_root, client_id, client_secret, region, role)):
         pytest.fail(
-            "Must set ICEBERG_DATA_ROOT, ICEBERG_CLIENT_ID, ICEBERG_CLIENT_SECRET, ICEBERG_REGION, ICEBERG_ROLE"
+            "Must set DH_USER, DH_PASS, ICEBERG_DATA_ROOT, ICEBERG_CLIENT_ID, ICEBERG_CLIENT_SECRET, ICEBERG_REGION, ICEBERG_ROLE"
         )
+
+    give_all_permissions(user, "test-policy")
 
     try:
         iceberg_cli.delete.callback(warehouse_name, dry_run=False, force=True)
@@ -204,6 +208,69 @@ def _test_rename_ops(spark_session):
     spark_session.sql("drop view test_table_renamed")
 
 
+def run_query(spark, id, table):
+    merge_query = f"""MERGE INTO {table} target
+                    USING (
+                            SELECT 
+                            '{id}' AS id,
+                            'user_{id}' AS user
+                            ) source
+                    ON source.id = target.id
+                    WHEN MATCHED THEN UPDATE SET *
+                    WHEN NOT MATCHED THEN INSERT *
+            """
+    spark.sql(merge_query)
+
+
+def _test_concurrency(spark_session, warehouse):
+    from pyspark.sql.types import StructType, StructField, StringType
+    from pyspark import InheritableThread
+    from uuid import uuid4
+
+    df = spark_session.createDataFrame(
+        [("id1", "user1"), ("id2", "user2")],
+        schema=StructType(
+            [
+                StructField("id", StringType(), True),
+                StructField("user", StringType(), True),
+            ]
+        ),
+    )
+
+    table_name = "test_table_concurrency"
+    spark_session.sql(f"DROP TABLE IF EXISTS {table_name}")
+
+    # Create table using SQL
+    spark_session.sql(f"""
+        CREATE TABLE {table_name} (
+            id string,
+            user string
+        ) USING iceberg
+        TBLPROPERTIES (
+            'commit.retry.num-retries'='10',
+            'commit.retry.min-wait-ms'='1000',
+            'write.merge.isolation-level'='snapshot'
+        )
+    """)
+
+    # Insert data
+    df.writeTo(f"default.{table_name}").using("iceberg").append()
+
+    # Run concurrent merges on the table
+    threads = []
+    n_threads = 4
+    for _ in range(n_threads):
+        id = str(uuid4())[:5]
+        t = InheritableThread(
+            target=run_query, args=(spark_session, id, f"{table_name}")
+        )
+        threads.append(t)
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+
 @pytest.mark.quick
 @pytest.mark.parametrize("warehouse", ["test_wh_0"], indirect=True)
 def test_iceberg_quick(spark_session, warehouse):
@@ -211,6 +278,8 @@ def test_iceberg_quick(spark_session, warehouse):
     _test_basic_table_ops(spark_session)
     _test_basic_view_ops(spark_session)
     _test_rename_ops(spark_session)
+
+    _test_concurrency(spark_session, warehouse)
 
     result = spark_session.sql("show namespaces")
     assert result[result["namespace"] == "default"].count() == 1

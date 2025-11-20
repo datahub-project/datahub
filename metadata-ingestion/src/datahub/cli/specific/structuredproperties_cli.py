@@ -12,7 +12,6 @@ from datahub.api.entities.structuredproperties.structuredproperties import (
 )
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
 
@@ -30,7 +29,6 @@ def properties() -> None:
 )
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def upsert(file: Path) -> None:
     """Upsert structured properties in DataHub."""
 
@@ -44,7 +42,6 @@ def upsert(file: Path) -> None:
 @click.option("--urn", required=True, type=str)
 @click.option("--to-file", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def get(urn: str, to_file: str) -> None:
     """Get structured properties from DataHub"""
     urn = Urn.make_structured_property_urn(urn)
@@ -55,7 +52,7 @@ def get(urn: str, to_file: str) -> None:
                 StructuredProperties.from_datahub(graph=graph, urn=urn)
             )
             click.secho(
-                f"{json.dumps(structuredproperties.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                f"{json.dumps(structuredproperties.model_dump(exclude_unset=True, exclude_none=True), indent=2)}"
             )
             if to_file:
                 structuredproperties.to_yaml(Path(to_file))
@@ -71,7 +68,7 @@ def get(urn: str, to_file: str) -> None:
 )
 @click.option("--details/--no-details", is_flag=True, default=True)
 @click.option("--to-file", required=False, type=str)
-@telemetry.with_telemetry()
+@upgrade.check_upgrade
 def list(details: bool, to_file: str) -> None:
     """List structured properties in DataHub"""
 
@@ -88,7 +85,7 @@ def list(details: bool, to_file: str) -> None:
             with open(file, "r") as fp:
                 existing_objects = yaml.load(fp)  # this is a list of dicts
                 existing_objects = [
-                    StructuredProperties.parse_obj(obj) for obj in existing_objects
+                    StructuredProperties.model_validate(obj) for obj in existing_objects
                 ]
                 objects = [obj for obj in objects]
                 # do a positional update of the existing objects
@@ -100,19 +97,19 @@ def list(details: bool, to_file: str) -> None:
                     # breakpoint()
                     if existing_urn in {obj.urn for obj in objects}:
                         existing_objects[i] = next(
-                            obj.dict(exclude_unset=True, exclude_none=True)
+                            obj.model_dump(exclude_unset=True, exclude_none=True)
                             for obj in objects
                             if obj.urn == existing_urn
                         )
                 new_objects = [
-                    obj.dict(exclude_unset=True, exclude_none=True)
+                    obj.model_dump(exclude_unset=True, exclude_none=True)
                     for obj in objects
                     if obj.urn not in existing_urns
                 ]
                 serialized_objects = existing_objects + new_objects
         else:
             serialized_objects = [
-                obj.dict(exclude_unset=True, exclude_none=True) for obj in objects
+                obj.model_dump(exclude_unset=True, exclude_none=True) for obj in objects
             ]
 
         with open(file, "w") as fp:
@@ -129,7 +126,7 @@ def list(details: bool, to_file: str) -> None:
             else:
                 for structuredproperty in structuredproperties:
                     click.secho(
-                        f"{json.dumps(structuredproperty.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                        f"{json.dumps(structuredproperty.model_dump(exclude_unset=True, exclude_none=True), indent=2)}"
                     )
         else:
             logger.info(

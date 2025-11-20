@@ -24,6 +24,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.target_table,PROD),id)"
                     ],
+                    "transformOperation": "COPY: \"S1\".\"ID\" AS \"ID\"",
                     "confidenceScore": 0.2
                 },
                 {
@@ -35,6 +36,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.target_table,PROD),column1)"
                     ],
+                    "transformOperation": "COPY: \"S1\".\"COLUMN1\" AS \"COLUMN1\"",
                     "confidenceScore": 0.2
                 },
                 {
@@ -46,6 +48,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.target_table,PROD),column2)"
                     ],
+                    "transformOperation": "COPY: \"S2\".\"COLUMN2\" AS \"COLUMN2\"",
                     "confidenceScore": 0.2
                 },
                 {
@@ -57,6 +60,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.target_table,PROD),column3)"
                     ],
+                    "transformOperation": "COPY: \"S3\".\"COLUMN3\" AS \"COLUMN3\"",
                     "confidenceScore": 0.2
                 }
             ]

@@ -21,14 +21,14 @@ describe('Utility Functions', () => {
         const incidents: any = [
             {
                 title: 'Incident 1',
-                status: { stage: 'WorkInProgress' },
+                incidentStatus: { stage: 'WorkInProgress' },
                 incidentType: 'DATASET_COLUMN',
                 priority: 'High',
                 type: 'INCIDENT',
             },
             {
                 title: 'Incident 2',
-                status: { stage: 'Closed' },
+                incidentStatus: { stage: 'Closed' },
                 incidentType: 'DATASET_COLUMN_1',
                 priority: 'Low',
                 type: 'INCIDENT',

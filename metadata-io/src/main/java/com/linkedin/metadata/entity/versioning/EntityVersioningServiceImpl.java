@@ -316,7 +316,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
                   ImmutableList.of(versionSetPropertiesProposal),
                   opContext.getAuditStamp(),
                   opContext.getRetrieverContext())
-              .build(),
+              .build(opContext),
           false);
     }
 

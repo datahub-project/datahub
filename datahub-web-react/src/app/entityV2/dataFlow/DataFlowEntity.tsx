@@ -1,5 +1,5 @@
 import { ShareAltOutlined } from '@ant-design/icons';
-import { FileText, ListBullets, Share, WarningCircle } from '@phosphor-icons/react';
+import { FileText, ListBullets, Share, TreeStructure, WarningCircle } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -9,6 +9,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
@@ -21,17 +22,16 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { DataFlowJobsTab } from '@app/entityV2/shared/tabs/Entity/DataFlowJobsTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
+import { DAGTab } from '@app/entityV2/shared/tabs/Lineage/DAGTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
+import { isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlow.generated';
 import { DataFlow, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -57,10 +57,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
         return (
             <ShareAltOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -98,6 +95,12 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     icon: FileText,
                 },
                 {
+                    name: 'Lineage',
+                    component: DAGTab,
+                    icon: TreeStructure,
+                    supportsFullsize: true,
+                },
+                {
                     name: 'Tasks',
                     component: DataFlowJobsTab,
                     icon: Share,
@@ -109,9 +112,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     name: 'Incidents',
                     icon: WarningCircle,
                     component: IncidentTab,
-                    getDynamicName: (_, dataFlow, loading) => {
-                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, dataFlow) => {
+                        return dataFlow?.dataFlow?.activeIncidents?.total;
                     },
                 },
                 {
@@ -140,6 +142,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
         },
         {
             component: SidebarDomainSection,
+        },
+        {
+            component: SidebarApplicationSection,
         },
         {
             component: DataProductSection,
@@ -191,8 +196,6 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 platformLogo={data?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
@@ -218,8 +221,6 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 insights={result.insights}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 jobCount={(data as any).childJobs?.total}
                 deprecation={data.deprecation}
@@ -229,8 +230,18 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 headerDropdownItems={headerDropdownItems}
                 parentContainers={data.parentContainers}
                 subTypes={genericProperties?.subTypes}
+                previewType={PreviewType.SEARCH}
             />
         );
+    };
+
+    getLineageVizConfig = (entity: DataFlow) => {
+        return {
+            urn: entity?.urn,
+            type: EntityType.DataFlow,
+            name: this.displayName(entity),
+            icon: entity?.platform?.properties?.logoUrl || undefined,
+        };
     };
 
     displayName = (data: DataFlow) => {
@@ -257,6 +268,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             EntityCapabilityType.TEST,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 }

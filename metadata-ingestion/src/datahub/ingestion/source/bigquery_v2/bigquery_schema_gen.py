@@ -12,6 +12,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
     make_tag_urn,
+    make_ts_millis,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import BigQueryDatasetKey, ContainerKey, ProjectIdKey
@@ -65,7 +66,7 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
-    PROFILING,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
@@ -286,6 +287,7 @@ class BigQuerySchemaGenerator:
         yield from gen_database_container(
             database=database,
             name=database,
+            qualified_name=database,
             sub_types=[DatasetContainerSubTypes.BIGQUERY_PROJECT],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
@@ -299,6 +301,8 @@ class BigQuerySchemaGenerator:
         description: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         extra_properties: Optional[Dict[str, str]] = None,
+        created: Optional[int] = None,
+        last_modified: Optional[int] = None,
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
@@ -332,6 +336,7 @@ class BigQuerySchemaGenerator:
         yield from gen_schema_container(
             database=project_id,
             schema=dataset,
+            qualified_name=f"{project_id}.{dataset}",
             sub_types=[DatasetContainerSubTypes.BIGQUERY_DATASET],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
@@ -347,6 +352,8 @@ class BigQuerySchemaGenerator:
             ),
             tags=tags_joined,
             extra_properties=extra_properties,
+            created=created,
+            last_modified=last_modified,
         )
 
     def _process_project(
@@ -409,7 +416,7 @@ class BigQuerySchemaGenerator:
 
         if self.config.is_profiling_enabled():
             logger.info(f"Starting profiling project {project_id}")
-            with self.report.new_stage(f"{project_id}: {PROFILING}"):
+            with self.report.new_high_stage(IngestionHighStage.PROFILING):
                 yield from self.profiler.get_workunits(
                     project_id=project_id,
                     tables=db_tables,
@@ -442,10 +449,12 @@ class BigQuerySchemaGenerator:
                 ):
                     yield wu
             except Exception as e:
-                if self.config.is_profiling_enabled():
-                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
+                # If configuration indicates we need table data access (for profiling or use_tables_list_query_v2),
+                # include bigquery.tables.getData in the error message since that's likely the missing permission
+                if self.config.have_table_data_read_permission:
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list, bigquery.tables.getData permissions?"
                 else:
-                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permissions?"
 
                 self.report.failure(
                     title="Unable to get tables for dataset",
@@ -482,6 +491,12 @@ class BigQuerySchemaGenerator:
                     else None
                 ),
                 description=bigquery_dataset.comment,
+                created=make_ts_millis(bigquery_dataset.created)
+                if bigquery_dataset.created
+                else None,
+                last_modified=make_ts_millis(bigquery_dataset.last_altered)
+                if bigquery_dataset.last_altered
+                else None,
             )
 
         columns = None

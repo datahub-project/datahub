@@ -27,12 +27,14 @@ class HanaConfig(BasicSQLAlchemyConfig):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 class HanaSource(SQLAlchemySource):
     def __init__(self, config: HanaConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "hana")
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "HanaSource":
-        config = HanaConfig.parse_obj(config_dict)
+        config = HanaConfig.model_validate(config_dict)
         return cls(config, ctx)

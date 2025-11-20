@@ -24,7 +24,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 
 /**
  * Service responsible for generating JWT tokens & managing the associated metadata entities in GMS
@@ -46,7 +46,7 @@ public class StatefulTokenService extends StatelessTokenService {
       @Nullable final String iss,
       @Nonnull final EntityService<?> entityService,
       @Nonnull final String salt) {
-    super(signingKey, signingAlgorithm, iss);
+    super(systemOperationContext, signingKey, signingAlgorithm, iss);
     this.systemOperationContext = systemOperationContext;
     this._entityService = entityService;
     this._revokedTokenCache =
@@ -148,7 +148,7 @@ public class StatefulTokenService extends StatelessTokenService {
         opContext,
         AspectsBatchImpl.builder()
             .mcps(List.of(proposal), auditStamp, opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         false);
 
     return accessToken;

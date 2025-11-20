@@ -82,6 +82,20 @@ public class TimeSeriesAspectResolver
           PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE,
           new EntitySpec(_entityName, urn));
     }
+    if (_entityName.equals(Constants.DATASET_ENTITY_NAME)
+        && _aspectName.equals(Constants.DATASET_USAGE_STATISTICS_ASPECT_NAME)) {
+      return AuthUtil.isAuthorized(
+          context.getOperationContext(),
+          PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
+          new EntitySpec(_entityName, urn));
+    }
+    if (_entityName.equals(Constants.DATASET_ENTITY_NAME)
+        && _aspectName.equals(Constants.DATASET_OPERATION_ASPECT_NAME)) {
+      return AuthUtil.isAuthorized(
+          context.getOperationContext(),
+          PoliciesConfig.VIEW_DATASET_OPERATIONS_PRIVILEGE,
+          new EntitySpec(_entityName, urn));
+    }
     return true;
   }
 

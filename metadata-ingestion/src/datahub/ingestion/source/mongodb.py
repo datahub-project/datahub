@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesVie
 import bson.timestamp
 import pymongo.collection
 from packaging import version
-from pydantic import PositiveInt, validator
+from pydantic import PositiveInt, field_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
@@ -36,7 +36,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
     construct_schema,
@@ -135,7 +138,8 @@ class MongoDBConfig(
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("maxDocumentSize")
+    @field_validator("maxDocumentSize", mode="after")
+    @classmethod
     def check_max_doc_size_filter_is_valid(cls, doc_size_filter_value):
         if doc_size_filter_value > 16793600:
             raise ValueError("maxDocumentSize must be a positive value <= 16793600.")
@@ -249,6 +253,13 @@ def construct_schema_pymongo(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+    ],
+)
 @dataclass
 class MongoDBSource(StatefulIngestionSourceBase):
     """
@@ -301,7 +312,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MongoDBSource":
-        config = MongoDBConfig.parse_obj(config_dict)
+        config = MongoDBConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

@@ -1,0 +1,19 @@
+[
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),downstream_job)",
+    "changeType": "PATCH",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/inputDatajobEdges/urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),upstream_job)",
+                "value": {
+                    "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),upstream_job)"
+                }
+            }
+        ]
+    }
+}
+]

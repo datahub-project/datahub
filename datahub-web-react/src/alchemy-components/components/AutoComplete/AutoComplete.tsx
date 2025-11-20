@@ -19,11 +19,11 @@ export default function AutoComplete({
     onChange,
     onClear,
     value,
+    clickOutsideWidth,
     ...props
 }: React.PropsWithChildren<AutoCompleteProps>) {
     const { open } = props;
 
-    const [internalValue, setInternalValue] = useState<string>(value || '');
     const [internalOpen, setInternalOpen] = useState<boolean>(!!open);
 
     useEffect(() => {
@@ -33,10 +33,6 @@ export default function AutoComplete({
     useEffect(() => {
         if (open !== undefined) setInternalOpen(open);
     }, [open]);
-
-    useEffect(() => {
-        if (value !== undefined) setInternalValue(value);
-    }, [value]);
 
     const onChangeHandler = (newValue: string, option: OptionType | OptionType[]) => {
         if (!internalOpen && newValue !== '') setInternalOpen(true);
@@ -49,12 +45,11 @@ export default function AutoComplete({
                 if (internalOpen) {
                     setInternalOpen(false);
                 } else {
-                    setInternalValue('');
                     onClear?.();
                 }
             }
         },
-        [internalOpen, setInternalValue, onClear],
+        [internalOpen, onClear],
     );
 
     const onBlur = (event: React.FocusEvent) => {
@@ -66,14 +61,22 @@ export default function AutoComplete({
         }
     };
 
+    // Automatically close the dropdown on resize to avoid the dropdown's misalignment
+    useEffect(() => {
+        const onResize = () => setInternalOpen(false);
+        window.addEventListener('resize', onResize, true);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
     return (
         <ClickOutside
             ignoreSelector={AUTOCOMPLETE_WRAPPER_CLASS_CSS_SELECTOR}
             onClickOutside={() => setInternalOpen(false)}
+            width={clickOutsideWidth}
         >
             <AntdAutoComplete
                 open={internalOpen}
-                value={internalValue}
+                value={value}
                 {...props}
                 listHeight={dropdownContentHeight}
                 data-testid={dataTestId}

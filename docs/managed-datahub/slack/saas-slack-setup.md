@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Configure Slack For Notifications
+# Slack App Setup
 
 <FeatureAvailability saasOnly />
 
@@ -16,8 +16,8 @@ You can see the permissions required by the DataHub Slack bot [below](#datahub-s
 
 The following steps should be performed by a Slack Workspace Admin.
 
-1. Navigate to [https://api.slack.com/reference/manifests#config-tokens](https://api.slack.com/reference/manifests#config-tokens)
-2. Under **Managing configuration tokens**, select **'Generate Token'**
+1. Navigate to [https://api.slack.com/apps](https://api.slack.com/apps)
+2. Click **Create App**, then select **'Generate Token'**
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_1.png"/>
 </p>
@@ -55,7 +55,7 @@ Now proceed to the [Subscriptions and Notifications page](https://docs.datahub.c
 
 ### DataHub Slack bot permissions
 
-The DataHub Slack bot requires a certain set of scopes (permissions) to function. We've listed them below with thier explanations.
+The DataHub Slack bot requires a certain set of scopes (permissions) to function. We've listed them below with their explanations.
 
 ```
 # Required for slash commands / shortcuts.
@@ -176,7 +176,7 @@ To customize the channel where notifications are send, click the button to the r
 If provided, a custom channel will be used to route notifications of the given type. If not provided, the default channel will be used.
 That's it! You should begin to receive notifications on Slack. Note that it may take up to 1 minute for notification settings to take effect after saving.  -->
 
-## Sending Notifications
+## Configure Notifications
 
 For now, we support sending notifications to
 
@@ -186,7 +186,9 @@ For now, we support sending notifications to
 
 By default, the Slack app will be able to send notifications to public channels. If you want to send notifications to private channels or DMs, you will need to invite the Slack app to those channels.
 
-## How to find Team ID and Channel ID in Slack
+Learn more about how [subscriptions and notifications work](../subscription-and-notification.md), including what things you can be notified about and all the places you can receive notifications.
+
+### How to find Team ID and Channel ID in Slack
 
 :::note
 We recommend just using the Slack channel name for simplicity (e.g. `#troubleshoot`).
@@ -215,7 +217,7 @@ We recommend just using the Slack channel name for simplicity (e.g. `#troublesho
 - Team ID = `TUMKD5EGJ` from above
 - Channel ID = `C029A3M079U` from above
 
-## How to find User ID in Slack
+### How to find User ID in Slack
 
 **Your User ID**
 

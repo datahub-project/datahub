@@ -29,6 +29,10 @@ public class AspectValidationException extends Exception {
     return new AspectValidationException(item, msg, ValidationSubType.FILTER);
   }
 
+  public static AspectValidationException forAuth(BatchItem item, String msg) {
+    return new AspectValidationException(item, msg, ValidationSubType.AUTHORIZATION);
+  }
+
   public static AspectValidationException forPrecondition(BatchItem item, String msg, Exception e) {
     return new AspectValidationException(item, msg, ValidationSubType.PRECONDITION, e);
   }

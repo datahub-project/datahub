@@ -7,6 +7,14 @@ from datahub.testing.check_sql_parser_result import assert_sql_result
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
 
 
+@pytest.fixture(scope="function", autouse=True)
+def _disable_cooperative_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    # When interactively debugging tests with breakpoint(), this gets annoying.
+    monkeypatch.setattr(
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_ENABLED", False
+    )
+
+
 def test_invalid_sql() -> None:
     assert_sql_result(
         """
@@ -145,6 +153,8 @@ AS
 
 def test_insert_as_select() -> None:
     # Note: this also tests lineage with case statements.
+    # The join extraction on this is going to be poor quality because
+    # we're not providing schemas.
 
     assert_sql_result(
         """
@@ -186,6 +196,21 @@ insert into downstream (a, c) select a, c from upstream2
 """,
         dialect="redshift",
         expected_file=RESOURCE_DIR / "test_insert_with_column_list.json",
+    )
+
+
+def test_insert_with_cte() -> None:
+    assert_sql_result(
+        """
+WITH temp_cte AS (
+    SELECT id, name, value
+    FROM db.schema.source_table
+)
+INSERT INTO db.schema.target_table (id, name, value)
+SELECT id, name, value FROM temp_cte
+""",
+        dialect="tsql",
+        expected_file=RESOURCE_DIR / "test_insert_with_cte.json",
     )
 
 
@@ -702,7 +727,7 @@ LIMIT 10
 
 
 def test_snowflake_unused_cte() -> None:
-    # For this, we expect table level lineage to include table1, but CLL should not.
+    # For this, we expect table level lineage to include table1, but CLL/joins should not.
     assert_sql_result(
         """
 WITH cte1 AS (
@@ -720,6 +745,20 @@ JOIN table3 ON table3.col5 = cte1.col2
 """,
         dialect="snowflake",
         expected_file=RESOURCE_DIR / "test_snowflake_unused_cte.json",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)": {
+                "col1": "VARCHAR(16777216)",
+                "col2": "NUMBER(38,0)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,table2,PROD)": {
+                "col3": "NUMBER(38,0)",
+                "col4": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)": {
+                "col5": "NUMBER(38,0)",
+                "col6": "VARCHAR(16777216)",
+            },
+        },
     )
 
 
@@ -734,7 +773,7 @@ WITH cte_alias AS (
 )
 SELECT table2.col2, cte_alias.col1
 FROM table2
-JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2
+JOIN table3 AS cte_alias ON table2.col2 = cte_alias.col2
 """,
         dialect="snowflake",
         default_db="my_db",
@@ -753,6 +792,42 @@ JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2
             },
         },
         expected_file=RESOURCE_DIR / "test_snowflake_cte_name_collision.json",
+    )
+
+
+def test_snowflake_join_with_cte_involved_tables() -> None:
+    # The main thing we're checking here is that the second extracted join
+    # does not include table2, and is purely between table1.user_id and users.id.
+    assert_sql_result(
+        """
+WITH cte_alias AS (
+    SELECT t1.id as t1_id_alias, t1.user_id, t2.other_col
+    FROM my_db.my_schema.table1 t1
+    JOIN my_db.my_schema.table2 t2 ON t1.id = t2.id
+)
+SELECT users.name, cte_alias.user_id, cte_alias.other_col
+FROM my_db.my_schema.users_table users
+JOIN cte_alias ON users.id = cte_alias.user_id
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)": {
+                "ID": "NUMBER",
+                "USER_ID": "NUMBER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)": {
+                "ID": "NUMBER",
+                "OTHER_COL": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.users_table,PROD)": {
+                "ID": "NUMBER",
+                "NAME": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_join_with_cte_involved_tables.json",
     )
 
 
@@ -782,7 +857,7 @@ FROM my_db.my_schema.my_table
 # TODO: Add a test for setting platform_instance or env
 
 
-def test_teradata_default_normalization() -> None:
+def test_default_schema_normalization() -> None:
     assert_sql_result(
         """
 create table demo_user.test_lineage2 as
@@ -820,12 +895,12 @@ create table demo_user.test_lineage2 as
                 "PatientId": "INTEGER()",
             },
         },
-        expected_file=RESOURCE_DIR / "test_teradata_default_normalization.json",
+        expected_file=RESOURCE_DIR / "test_default_schema_normalization.json",
     )
 
 
-def test_teradata_strange_operators() -> None:
-    # This is a test for the following operators:
+def test_dialect_specific_operators() -> None:
+    # This is a test for the following Teradata-specific operators:
     # - `SEL` (select)
     # - `EQ` (equals)
     # - `MINUS` (except)
@@ -838,7 +913,7 @@ select col1, col2 from dbc.table2
 """,
         dialect="teradata",
         default_schema="dbc",
-        expected_file=RESOURCE_DIR / "test_teradata_strange_operators.json",
+        expected_file=RESOURCE_DIR / "test_dialect_specific_operators.json",
     )
 
 
@@ -1173,6 +1248,17 @@ INSERT INTO my_table (id, month, total_cost, area)
     )
 
 
+def test_teradata_insert_into_values() -> None:
+    # Test INSERT VALUES with complex values including strings and timestamps
+    assert_sql_result(
+        """\
+INSERT INTO operations_temp.loss_backup (val_name, amount_type, field_number, amount_status, col_status, duration, time_code) 
+VALUES (9, '2011-04-17', 42, 42.34, '1980-12-29 15:11:17', '1994-08-19 21:28:09', 'garden')""",
+        dialect="teradata",
+        expected_file=RESOURCE_DIR / "test_insert_into_values.json",
+    )
+
+
 def test_bigquery_information_schema_query() -> None:
     # Special case - the BigQuery INFORMATION_SCHEMA views are prefixed with a
     # project + possibly a dataset/region, so sometimes are 4 parts instead of 3.
@@ -1374,4 +1460,147 @@ FROM ABC.employees ;
                 "job_title": "VARCHAR2(100)",
             },
         },
+    )
+
+
+def test_self_join_with_cte() -> None:
+    assert_sql_result(
+        """\
+WITH table_1_day_ago AS (
+    SELECT * FROM my_table
+    WHERE ts < CURRENT_TIMESTAMP() - INTERVAL '1 DAY'
+)
+SELECT
+    my_table.id,
+    LAST_VALUE(my_table.value) OVER (PARTITION BY my_table.id ORDER BY my_table.ts) as current_value,
+    LAST_VALUE(table_1_day_ago.value) OVER (PARTITION BY table_1_day_ago.id ORDER BY table_1_day_ago.ts) as value_1_day_ago 
+FROM my_table
+JOIN table_1_day_ago ON my_table.id = table_1_day_ago.id
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_self_join_with_cte.json",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)": {
+                "id": "INTEGER",
+                "value": "VARIANT",
+                "ts": "TIMESTAMP",
+            },
+        },
+    )
+
+
+def test_cross_join() -> None:
+    assert_sql_result(
+        """\
+SELECT * FROM my_table1
+CROSS JOIN my_table2
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_cross_join.json",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table1,PROD)": {
+                "id": "INTEGER",
+                "value": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table2,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR",
+            },
+        },
+    )
+
+
+def test_lateral_join() -> None:
+    # We don't fully support extracting the columns involved in a lateral join.
+    assert_sql_result(
+        """\
+SELECT t1.id, t1.name, t2.value
+FROM my_table1 t1,
+LATERAL (SELECT value FROM my_table2 WHERE t1.id = my_table2.id LIMIT 1) t2
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)": {
+                "id": "INTEGER",
+                "value": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_lateral_join.json",
+    )
+
+
+def test_right_join() -> None:
+    assert_sql_result(
+        """\
+SELECT t1.id, t1.name, t2.value
+FROM my_table1 t1
+RIGHT JOIN my_table2 t2 ON t1.id = t2.id
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)": {
+                "id": "INTEGER",
+                "value": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_right_join.json",
+    )
+
+
+def test_natural_join() -> None:
+    assert_sql_result(
+        """\
+SELECT t1.id, t1.name, t2.value
+FROM my_table1 t1
+NATURAL JOIN my_table2 t2
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)": {
+                "id": "INTEGER",
+                "value": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_natural_join.json",
+    )
+
+
+def test_dremio_quoted_identifiers() -> None:
+    # Test that Dremio SQL with quoted identifiers parses correctly.
+    # This is a regression test for the issue where Dremio was mapped to the
+    # "drill" dialect, which didn't support quoted identifiers properly.
+    assert_sql_result(
+        """\
+WITH "cte_orders" AS (
+    SELECT * FROM "MySource"."sales"."orders"
+    WHERE "status" = 'completed'
+)
+SELECT "cte_orders"."order_id", "customers"."customer_name"
+FROM "cte_orders"
+JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers"."customer_id"
+""",
+        dialect="dremio",
+        expected_file=RESOURCE_DIR / "test_dremio_quoted_identifiers.json",
     )

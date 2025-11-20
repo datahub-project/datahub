@@ -23,7 +23,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-test"
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -42,7 +43,44 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-test"
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),_topic+2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "snowflake_sink1:_topic+2",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -62,26 +100,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-test"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),_topic+2)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "snowflake_sink1:_topic+2",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-test"
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -101,37 +121,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-test"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-test"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),_topic+2)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-test"
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -146,7 +137,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-test"
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),_topic+2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

@@ -32,6 +32,7 @@ export default function EntityTypeFilter({ fieldName, facetState, appliedFilters
             options={options}
             isMultiSelect
             width="fit-content"
+            dataTestId="filter-entity-type"
             size="sm"
             showSearch
             renderCustomOptionText={(option) => option.displayName}

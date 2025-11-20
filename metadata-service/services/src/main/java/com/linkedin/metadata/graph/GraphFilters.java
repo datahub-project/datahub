@@ -87,8 +87,6 @@ public class GraphFilters {
   }
 
   /**
-   * Dgraph requires ordering
-   *
    * @return ordered list of source types or null if no source types defined
    */
   @Nullable
@@ -100,8 +98,6 @@ public class GraphFilters {
   }
 
   /**
-   * Dgraph requires ordering
-   *
    * @return ordered list of destination types or null if no destination types defined
    */
   @Nullable
@@ -113,8 +109,6 @@ public class GraphFilters {
   }
 
   /**
-   * Dgraph requires ordering
-   *
    * @return ordered list of relationship types, empty list if no types defined
    */
   @Nonnull

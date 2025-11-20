@@ -191,7 +191,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
                                                   withAppSource(systemAspect.getSystemMetadata()))
                                               .build(opContext.getAspectRetriever()))
                                   .collect(Collectors.toList()))
-                          .build();
+                          .build(opContext);
 
                   // re-ingest the aspects to trigger side effects
                   entityService.ingestAspects(opContext, aspectsBatch, true, false);

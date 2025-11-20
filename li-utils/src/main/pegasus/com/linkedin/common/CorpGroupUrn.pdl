@@ -17,8 +17,8 @@ namespace com.linkedin.common
     "name" : "groupName",
     "doc" : "The name of the AD/LDAP group.",
     "type" : "string",
-    "maxLength" : 64
+    "maxLength" : 128
   } ],
-  "maxLength" : 81
+  "maxLength" : 145
 }
 typeref CorpGroupUrn = string

@@ -124,21 +124,23 @@ cp-schema-registry:
   enabled: false
 ```
 
-Next, disable the `kafkaSetupJob` service:
+Next, disable the automatic creation of topics by the system update job:
 
 ```
-kafkaSetupJob:
-    enabled: false
+global:
+  kafka:
+    precreateTopics: false
 ```
 
 Then, update the `kafka` configurations to point to your Confluent Cloud broker and schema registry instance, along with the topics you've created in Step 1:
 
 ```
-kafka:
-      bootstrap:
-        server: pkc-g4ml2.eu-west-2.aws.confluent.cloud:9092
-      schemaregistry:
-        url: https://plrm-qwlpp.us-east-2.aws.confluent.cloud
+global:
+  kafka:
+    bootstrap:
+      server: pkc-g4ml2.eu-west-2.aws.confluent.cloud:9092
+    schemaregistry:
+      url: https://plrm-qwlpp.us-east-2.aws.confluent.cloud
 ```
 
 Next, you'll want to create 2 new Kubernetes secrets, one for the JaaS configuration which contains the username and password for Confluent,
@@ -229,11 +231,3 @@ credentialsAndCertsSecrets:
 ```
 
 The Actions pod will automatically pick these up in the correctly named environment variables when they are named this exact way.
-
-## Contribution
-
-Accepting contributions for a setup script compatible with Confluent Cloud!
-
-The kafka-setup-job container we ship with is only compatible with a distribution of Kafka wherein ZooKeeper
-is exposed and available. A version of the job using the [Confluent CLI](https://docs.confluent.io/confluent-cli/current/command-reference/kafka/topic/confluent_kafka_topic_create.html)
-would be very useful for the broader community.

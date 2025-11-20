@@ -6,6 +6,10 @@ source:
     username: sa
     password: test!Password
     host_port: localhost:21433
+    convert_urns_to_lowercase: true
+    database_pattern:
+      deny:
+        - .*DB_WITH@SPEC_SYMB.*
 
 sink:
   type: file

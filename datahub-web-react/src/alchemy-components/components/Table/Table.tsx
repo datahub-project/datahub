@@ -2,6 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
 import { CaretDown, CaretUp } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 
 import { StructuredPopover } from '@components/components/StructuredPopover';
 import {
@@ -19,6 +20,15 @@ import {
 import { SortingState, TableProps } from '@components/components/Table/types';
 import { useGetSelectionColumn } from '@components/components/Table/useGetSelectionColumn';
 import { getSortedData, handleActiveSort, renderCell } from '@components/components/Table/utils';
+
+export const CellHoverWrapper = styled.div`
+    width: 100%;
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    margin: -16px;
+    padding: 16px;
+`;
 
 export const tableDefaults: TableProps<any> = {
     columns: [],
@@ -48,6 +58,8 @@ export const Table = <T,>({
     rowRefs,
     headerRef,
     rowDataTestId,
+    footer,
+    renderScrollObserver,
     ...props
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -94,7 +106,7 @@ export const Table = <T,>({
                                     width={column.width}
                                     minWidth={column.minWidth}
                                     maxWidth={column.maxWidth}
-                                    shouldAddRightBorder={index !== columns.length - 1} // Add border unless last column
+                                    shouldAddRightBorder={index !== finalColumns.length - 1} // Add border unless last column
                                 >
                                     {column?.tooltipTitle ? (
                                         <StructuredPopover title={column.tooltipTitle}>
@@ -184,10 +196,9 @@ export const Table = <T,>({
                         const canExpand = expandable?.rowExpandable?.(row); // Check if row is expandable
                         const key = `row-${index}-${sortColumn ?? 'none'}-${sortOrder ?? 'none'}`;
                         return (
-                            <>
+                            <React.Fragment key={key}>
                                 {/* Render the main row */}
                                 <TableRow
-                                    key={key}
                                     canExpand={canExpand}
                                     onClick={(e) => {
                                         if (focusedRowIndex === index) {
@@ -208,24 +219,16 @@ export const Table = <T,>({
                                         }
                                     }}
                                     isRowClickable={isRowClickable}
-                                    data-testId={rowDataTestId?.(row)}
+                                    data-testid={rowDataTestId?.(row)}
                                     canHover
                                 >
                                     {/* Render each cell in the row */}
 
                                     {finalColumns.map((column, i) => {
-                                        return (
-                                            <TableCell
-                                                key={column.key}
-                                                width={column.width}
-                                                alignment={
-                                                    columns.length - 1 === i && canExpand ? 'right' : column.alignment
-                                                }
-                                                isGroupHeader={canExpand}
-                                                isExpanded={isExpanded}
-                                            >
-                                                {/* Add expandable icon if applicable or render row */}
-                                                {columns.length - 1 === i && canExpand ? (
+                                        return (() => {
+                                            let content;
+                                            if (columns.length - 1 === i && canExpand) {
+                                                content = (
                                                     <div
                                                         style={{
                                                             cursor: 'pointer',
@@ -237,21 +240,49 @@ export const Table = <T,>({
                                                             <CaretDown
                                                                 size={16}
                                                                 weight="bold"
-                                                                data-testId="group-header-expanded-icon"
+                                                                data-testid="group-header-expanded-icon"
                                                             /> // Expanded icon
                                                         ) : (
                                                             <CaretUp
                                                                 size={16}
                                                                 weight="bold"
-                                                                data-testId="group-header-collapsed-icon"
+                                                                data-testid="group-header-collapsed-icon"
                                                             /> // Collapsed icon
                                                         )}
                                                     </div>
-                                                ) : (
-                                                    renderCell(column, row, index)
-                                                )}
-                                            </TableCell>
-                                        );
+                                                );
+                                            } else {
+                                                content = renderCell(column, row, index);
+                                            }
+
+                                            const cellContent = column.cellWrapper
+                                                ? column.cellWrapper(content, row)
+                                                : content;
+
+                                            return (
+                                                <TableCell
+                                                    key={column.key}
+                                                    width={column.width}
+                                                    alignment={
+                                                        columns.length - 1 === i && canExpand
+                                                            ? 'right'
+                                                            : column.alignment
+                                                    }
+                                                    isGroupHeader={canExpand}
+                                                    isExpanded={isExpanded}
+                                                    onClick={() => {
+                                                        if (column.onCellClick) {
+                                                            column.onCellClick(row);
+                                                        }
+                                                    }}
+                                                    style={{ cursor: column.onCellClick ? 'pointer' : 'default' }}
+                                                    className={column.cellWrapper ? 'hoverable-cell' : undefined}
+                                                    data-testid={column.key}
+                                                >
+                                                    {cellContent}
+                                                </TableCell>
+                                            );
+                                        })();
                                     })}
                                 </TableRow>
                                 {/* Render expanded content if row is expanded */}
@@ -267,9 +298,11 @@ export const Table = <T,>({
                                         </TableCell>
                                     </TableRow>
                                 )}
-                            </>
+                            </React.Fragment>
                         );
                     })}
+                    {renderScrollObserver?.()}
+                    {footer}
                 </tbody>
             </BaseTable>
         </TableContainer>

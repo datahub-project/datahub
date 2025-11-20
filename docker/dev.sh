@@ -1,6 +1,10 @@
 #!/bin/bash
 set -ex
 
+# Handle the case when docker is aliased to podman or another container runtime
+shopt -s expand_aliases
+source ~/.bashrc
+
 MONITORING_COMPOSE=""
 if [[ $MONITORING == true ]]; then
   MONITORING_COMPOSE="-f monitoring/docker-compose.monitoring.yml"

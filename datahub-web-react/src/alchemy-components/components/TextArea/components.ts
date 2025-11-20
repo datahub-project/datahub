@@ -38,7 +38,7 @@ export const StyledIcon = styled(Icon)({
 export const TextAreaContainer = styled.div(
     ({ isSuccess, warning, isDisabled, isInvalid }: TextAreaProps) => ({
         border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
-        backgroundColor: isDisabled ? colors.gray[100] : colors.white,
+        backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
     }),
     {
         ...defaultFlexStyles,
@@ -77,6 +77,10 @@ export const TextAreaField = styled.textarea<{ icon?: IconNames }>(({ icon }) =>
 
     '&::placeholder': {
         ...inputPlaceholderTextStyles,
+    },
+
+    '&:disabled': {
+        backgroundColor: colors.gray[1500],
     },
 }));
 

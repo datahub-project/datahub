@@ -7,7 +7,7 @@ from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.salesforce import SalesforceConfig, SalesforceSource
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-05-12 11:00:00"
 
@@ -78,7 +78,7 @@ def test_latest_version(mock_sdk):
     mock_sf._call_salesforce = mocked_call
     mock_sdk.return_value = mock_sf
 
-    config = SalesforceConfig.parse_obj(
+    config = SalesforceConfig.model_validate(
         {
             "auth": "DIRECT_ACCESS_TOKEN",
             "instance_url": "https://mydomain.my.salesforce.com/",
@@ -122,7 +122,7 @@ def test_custom_version(mock_sdk):
     mock_sf._call_salesforce = mocked_call
     mock_sdk.return_value = mock_sf
 
-    config = SalesforceConfig.parse_obj(
+    config = SalesforceConfig.model_validate(
         {
             "auth": "DIRECT_ACCESS_TOKEN",
             "api_version": "46.0",

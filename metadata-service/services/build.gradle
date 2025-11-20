@@ -31,7 +31,6 @@ dependencies {
     implementation externalDependency.swaggerAnnotations
     runtimeOnly externalDependency.logbackClassic
     compileOnly externalDependency.lombok
-    implementation externalDependency.commonsCollections
     implementation externalDependency.javatuples
     implementation externalDependency.javaxValidation
     implementation externalDependency.opentelemetryAnnotations
@@ -46,6 +45,7 @@ dependencies {
     testImplementation project(':test-models')
     testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
     testImplementation project(':datahub-graphql-core')
+    testImplementation testFixtures(project(':metadata-io'))
     // logback >=1.3 required due to `testcontainers` only
     testImplementation 'ch.qos.logback:logback-classic:1.4.7'
 

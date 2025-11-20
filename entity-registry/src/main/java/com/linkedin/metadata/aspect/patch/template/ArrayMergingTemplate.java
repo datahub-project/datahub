@@ -41,24 +41,29 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
                 JsonNode nodeClone = node.deepCopy();
                 if (!keyFields.isEmpty()) {
                   for (String keyField : keyFields) {
-                    String key;
+                    String key = "";
                     // if the keyField has a unit separator, we are working with a nested key
                     if (keyField.contains(UNIT_SEPARATOR_DELIMITER)) {
                       String[] keyParts = keyField.split(UNIT_SEPARATOR_DELIMITER);
                       JsonNode keyObject = node;
 
                       // Traverse through all parts of the key path
-                      for (int i = 0; i < keyParts.length - 1; i++) {
-                        keyObject = keyObject.get(keyParts[i]);
-                        // Handle null values to prevent NullPointerException
-                        if (keyObject == null) {
-                          throw new IllegalArgumentException("Invalid key path: " + keyField);
+                      try {
+                        for (int i = 0; i < keyParts.length - 1; i++) {
+                          keyObject = keyObject.get(keyParts[i]);
                         }
-                      }
 
-                      key = keyObject.get(keyParts[keyParts.length - 1]).asText();
+                        // Get the final key value, defaulting to empty string if not found
+                        JsonNode finalKeyNode = keyObject.get(keyParts[keyParts.length - 1]);
+                        key = finalKeyNode != null ? finalKeyNode.asText() : "";
+                      } catch (NullPointerException | IllegalArgumentException e) {
+                        // If any part of the path is missing, use an empty string
+                        key = "";
+                      }
                     } else {
-                      key = node.get(keyField).asText();
+                      // Get the key, defaulting to empty string if not found
+                      JsonNode keyNode = node.get(keyField);
+                      key = keyNode != null ? keyNode.asText() : "";
                     }
                     keyValue =
                         keyValue.get(key) == null
@@ -67,7 +72,10 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
                   }
                 } else {
                   // No key fields, assume String array
-                  nodeClone = instance.objectNode().set(((TextNode) node).asText(), node);
+                  nodeClone =
+                      instance
+                          .objectNode()
+                          .set(node instanceof TextNode ? ((TextNode) node).asText() : "", node);
                 }
                 keyValue.setAll((ObjectNode) nodeClone);
               });

@@ -1,7 +1,7 @@
 {
     "query_type": "SELECT",
     "query_type_props": {},
-    "query_fingerprint": "f5250fa91f43bbe0d7d5a6fc0d2806a4f989952e2114725cf9a274ec09857171",
+    "query_fingerprint": "0356fdafd5dca1b39ec72d88a7c227fd4eacf3fd5c64788ff5fe0cb54e621c56",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
@@ -25,7 +25,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
                     "column": "col2"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"TABLE2\".\"COL2\" AS \"COL2\""
+            }
         },
         {
             "downstream": {
@@ -43,11 +47,37 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)",
                     "column": "col1"
                 }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"CTE_ALIAS\".\"COL1\" AS \"COL1\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)"
+            ],
+            "on_clause": "\"TABLE2\".\"COL2\" = \"CTE_ALIAS\".\"COL2\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
+                    "column": "COL2"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)",
+                    "column": "COL2"
+                }
             ]
         }
     ],
     "debug_info": {
         "confidence": 0.9,
-        "generalized_statement": "WITH cte_alias AS (SELECT col1, col2 FROM table1) SELECT table2.col2, cte_alias.col1 FROM table2 JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2"
+        "generalized_statement": "WITH cte_alias AS (SELECT col1, col2 FROM table1) SELECT table2.col2, cte_alias.col1 FROM table2 JOIN table3 AS cte_alias ON table2.col2 = cte_alias.col2"
     }
 }

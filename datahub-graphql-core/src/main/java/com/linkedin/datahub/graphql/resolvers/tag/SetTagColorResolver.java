@@ -67,7 +67,7 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
                         tagUrn.toString(),
                         TAG_PROPERTIES_ASPECT_NAME,
                         _entityService,
-                        null);
+                        new TagProperties().setName(tagUrn.getId()));
 
             if (tagProperties == null) {
               throw new IllegalArgumentException(

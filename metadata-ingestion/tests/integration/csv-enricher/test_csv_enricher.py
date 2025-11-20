@@ -4,13 +4,13 @@ from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.csv_enricher import CSVEnricherConfig
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
 
 def test_csv_enricher_config():
-    config = CSVEnricherConfig.parse_obj(
+    config = CSVEnricherConfig.model_validate(
         dict(
             filename="../integration/csv_enricher/csv_enricher_test_data.csv",
             write_semantics="OVERRIDE",

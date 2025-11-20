@@ -91,11 +91,7 @@ export class ContainerEntity implements Entity<Container> {
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                },
-                {
-                    name: 'Access Management',
+                    name: 'Access',
                     component: AccessManagement,
                     display: {
                         visible: (_, container: GetContainerQuery) => {
@@ -110,6 +106,10 @@ export class ContainerEntity implements Entity<Container> {
                             return !!accessAspect && !!rolesList && rolesList.length > 0;
                         },
                     },
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
             sidebarSections={this.getSidebarSections()}

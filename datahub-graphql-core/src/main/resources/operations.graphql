@@ -1,0 +1,101 @@
+input OperationsStatsInput {
+  """
+  The time range you want to get operations stats for
+  """
+  range: TimeRange
+
+  """
+  The optional time zone for aggregating stats. Accepts standard IANA time zone identifier ie. America/New_York
+  """
+  timeZone: String
+}
+
+"""
+The result of a Dataset operations query
+"""
+type OperationsQueryResult {
+  """
+  A set of relevant time windows for use in displaying operations
+  """
+  buckets: [OperationsAggregation]
+
+  """
+  A set of rolled up aggregations about the Dataset operations
+  """
+  aggregations: OperationsAggregationsResult
+}
+
+"""
+An aggregation of Dataset operations statistics
+"""
+type OperationsAggregation {
+  """
+  The time window start time
+  """
+  bucket: Long
+
+  """
+  The time window span
+  """
+  duration: WindowDuration
+
+  """
+  The resource urn associated with the operations information, eg a Dataset urn
+  """
+  resource: String
+
+  """
+  The rolled up operations metrics
+  """
+  aggregations: OperationsAggregationsResult
+}
+
+"""
+Rolled up metrics about Dataset operations over time
+"""
+type OperationsAggregationsResult {
+  """
+  The total number of operations performed within the queried time range
+  """
+  totalOperations: Int
+
+  """
+  The total number of INSERT operations performed within the queried time range
+  """
+  totalInserts: Int
+
+  """
+  The total number of UPDATE operations performed within the queried time range
+  """
+  totalUpdates: Int
+
+  """
+  The total number of DELETE operations performed within the queried time range
+  """
+  totalDeletes: Int
+
+  """
+  The total number of CREATE operations performed within the queried time range
+  """
+  totalCreates: Int
+
+  """
+  The total number of ALTER operations performed within the queried time range
+  """
+  totalAlters: Int
+
+  """
+  The total number of DROP operations performed within the queried time range
+  """
+  totalDrops: Int
+
+  """
+  The total number of CUSTOM operations performed within the queried time range
+  """
+  totalCustoms: Int
+
+  """
+  A map from each custom operation type to the total count for that type
+  """
+  customOperationsMap: [IntMapEntry!]
+}

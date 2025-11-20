@@ -112,7 +112,7 @@ class Pipeline:
     @classmethod
     def create(cls, config_dict: dict) -> "Pipeline":
         # Bind config
-        config = PipelineConfig.parse_obj(config_dict)
+        config = PipelineConfig.model_validate(config_dict)
 
         if not config.enabled:
             raise Exception(

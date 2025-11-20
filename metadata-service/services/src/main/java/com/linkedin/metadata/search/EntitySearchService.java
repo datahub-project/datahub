@@ -4,11 +4,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -21,6 +21,8 @@ import javax.annotation.Nullable;
 import org.opensearch.action.explain.ExplainResponse;
 
 public interface EntitySearchService {
+
+  SearchServiceConfiguration getSearchServiceConfig();
 
   default void configure() {}
 
@@ -96,7 +98,7 @@ public interface EntitySearchService {
       @Nullable Filter postFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size);
+      @Nullable Integer size);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -125,7 +127,7 @@ public interface EntitySearchService {
       @Nullable Filter postFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets);
 
   /**
@@ -147,7 +149,7 @@ public interface EntitySearchService {
       @Nullable Filter filters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size);
+      @Nullable Integer size);
 
   /**
    * Returns a list of suggestions given type ahead query.
@@ -169,7 +171,7 @@ public interface EntitySearchService {
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter requestParams,
-      int limit);
+      @Nullable Integer limit);
 
   /**
    * Returns number of documents per field value given the field and filters
@@ -187,7 +189,7 @@ public interface EntitySearchService {
       @Nullable List<String> entityNames,
       @Nonnull String field,
       @Nullable Filter requestParams,
-      int limit);
+      @Nullable Integer limit);
 
   /**
    * Gets a list of groups/entities that match given browse request.
@@ -206,7 +208,7 @@ public interface EntitySearchService {
       @Nonnull String path,
       @Nullable Filter requestParams,
       int from,
-      int size);
+      @Nullable Integer size);
 
   /**
    * Gets browse snapshot of a given path
@@ -226,7 +228,7 @@ public interface EntitySearchService {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count);
+      @Nullable Integer count);
 
   /**
    * Gets browse snapshot of a given path
@@ -246,7 +248,7 @@ public interface EntitySearchService {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count);
+      @Nullable Integer count);
 
   /**
    * Gets a list of paths for a given urn.
@@ -283,7 +285,7 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets);
 
   @Nonnull
@@ -295,7 +297,7 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     return fullTextScroll(
         opContext,
         entities,
@@ -332,7 +334,7 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets);
 
   default ScrollResult structuredScroll(
@@ -343,7 +345,7 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     return structuredScroll(
         opContext,
         entities,
@@ -356,9 +358,6 @@ public interface EntitySearchService {
         List.of());
   }
 
-  /** Max result size returned by the underlying search backend */
-  int maxResultSize();
-
   default ExplainResponse explain(
       @Nonnull OperationContext opContext,
       @Nonnull String query,
@@ -368,7 +367,7 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     return explain(
         opContext,
         query,
@@ -391,7 +390,7 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets);
 
   /**
@@ -403,13 +402,6 @@ public interface EntitySearchService {
    */
   @Nonnull
   Map<Urn, Map<String, Object>> raw(@Nonnull OperationContext opContext, @Nonnull Set<Urn> urns);
-
-  /**
-   * Return index convention
-   *
-   * @return convent
-   */
-  IndexConvention getIndexConvention();
 
   default void appendRunId(
       @Nonnull final OperationContext opContext, @Nonnull List<IngestResult> results) {

@@ -7,16 +7,13 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.test.models.DatasetAnonymized;
-import io.datahubproject.test.search.ElasticsearchTestContainer;
 import io.datahubproject.test.search.SearchTestUtils;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import java.io.IOException;
 import java.util.Set;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.testcontainers.containers.GenericContainer;
 import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
@@ -39,11 +36,6 @@ public class SearchFixtureUtils {
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
-  @Bean(name = "testSearchContainer")
-  public GenericContainer<?> testSearchContainer() {
-    return new ElasticsearchTestContainer().startContainer();
-  }
-
   @Test
   @Ignore("Fixture capture lineage")
   /*
@@ -60,8 +52,7 @@ public class SearchFixtureUtils {
         "urn:li:dataset:(urn:li:dataPlatform:teradata,teradata.simba.pp_bi_tables.tmis_daily_metrics_final_agg,PROD)";
 
     // Set.of("system_metadata_service_v1", "datasetindex_v2", "graph_service_v1")
-    try (RestHighLevelClient client =
-        new RestHighLevelClient(SearchTestUtils.environmentRestClientBuilder())) {
+    try (SearchClientShim<?> client = SearchTestUtils.environmentRestClientBuilder()) {
       FixtureWriter fixtureWriter = FixtureWriter.builder().client(client).build();
 
       /*
@@ -99,8 +90,7 @@ public class SearchFixtureUtils {
     String prefix = "";
     String commonSuffix = "index_v2";
 
-    try (RestHighLevelClient client =
-        new RestHighLevelClient(SearchTestUtils.environmentRestClientBuilder())) {
+    try (SearchClientShim<?> client = SearchTestUtils.environmentRestClientBuilder()) {
       FixtureWriter fixtureWriter = FixtureWriter.builder().client(client).build();
 
       EntityExporter exporter =
@@ -126,8 +116,7 @@ public class SearchFixtureUtils {
    */
   private void reindexTestFixtureData() throws IOException {
     ESBulkProcessor bulkProcessor =
-        ESBulkProcessor.builder(
-                new RestHighLevelClient(SearchTestUtils.environmentRestClientBuilder()))
+        ESBulkProcessor.builder(SearchTestUtils.environmentRestClientBuilder(), null)
             .async(true)
             .bulkRequestsLimit(1000)
             .retryInterval(1L)

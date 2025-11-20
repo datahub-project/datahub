@@ -10,6 +10,7 @@
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.base_union,PROD)"
     ],
     "column_lineage": null,
+    "joins": [],
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "MERGE INTO `demo-pipelines-stg`.`referrer`.`base_union` AS DBT_INTERNAL_DEST USING (SELECT * FROM `demo-pipelines-stg`.`referrer`.`prep_from_ios` WHERE partition_time = ? UNION ALL SELECT * FROM `demo-pipelines-stg`.`referrer`.`prep_from_web` WHERE partition_time = ?) AS DBT_INTERNAL_SOURCE ON FALSE WHEN NOT MATCHED BY SOURCE AND timestamp_trunc(DBT_INTERNAL_DEST.partition_time, DAY) IN (timestamp(?)) THEN delete WHEN NOT MATCHED THEN INSERT (`platform`, `pageview_id`, `query`, `referrer`, `partition_time`) VALUES (`platform`, `pageview_id`, `query`, `referrer`, `partition_time`)"

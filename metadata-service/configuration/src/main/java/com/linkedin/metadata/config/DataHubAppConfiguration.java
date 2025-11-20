@@ -2,13 +2,18 @@ package com.linkedin.metadata.config;
 
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.metadata.config.cache.CacheConfiguration;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 @Data
+@Component
+@ConfigurationProperties
 public class DataHubAppConfiguration {
 
   /** Ingestion related configs */
@@ -32,6 +37,12 @@ public class DataHubAppConfiguration {
   /** Search bar related configs */
   private SearchBarConfiguration searchBar;
 
+  /** Search card related configs */
+  private SearchCardConfiguration searchCard;
+
+  /** Search flags related configs */
+  private SearchFlagsConfiguration searchFlags;
+
   /** Home page related configs */
   private HomePageConfiguration homePage;
 
@@ -44,8 +55,11 @@ public class DataHubAppConfiguration {
   /** ElasticSearch configurations */
   private ElasticSearchConfiguration elasticSearch;
 
-  /* Search Service configurations */
+  /** Search Service configurations */
   private SearchServiceConfiguration searchService;
+
+  /** Graph Service configurations */
+  private GraphServiceConfiguration graphService;
 
   /** System Update configurations */
   private SystemUpdateConfiguration systemUpdate;
@@ -68,6 +82,21 @@ public class DataHubAppConfiguration {
   /** MCP throttling configuration */
   private MetadataChangeProposalConfig metadataChangeProposal;
 
+  /** MCL Processing configurations */
+  private MetadataChangeLogConfig metadataChangeLog;
+
   /** Timeseries Aspect Service configuration */
   private TimeseriesAspectServiceConfig timeseriesAspectService;
+
+  /** SystemMetadata Service configuration */
+  private SystemMetadataServiceConfig systemMetadataService;
+
+  /* Secret service configuration */
+  private SecretServiceConfiguration secretService;
+
+  /** MCL Processing configurations */
+  private MCLProcessingConfiguration mclProcessing;
+
+  /** Structured properties related configurations */
+  private StructuredPropertiesConfiguration structuredProperties;
 }

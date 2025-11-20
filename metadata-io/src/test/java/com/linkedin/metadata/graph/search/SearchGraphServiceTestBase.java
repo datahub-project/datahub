@@ -2,6 +2,7 @@ package com.linkedin.metadata.graph.search;
 
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
 
 import com.linkedin.common.FabricType;
@@ -12,6 +13,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
@@ -33,6 +36,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
@@ -47,7 +51,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.junit.Assert;
-import org.opensearch.client.RestHighLevelClient;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -56,7 +59,10 @@ import org.testng.annotations.Test;
 public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
+
+  @Nonnull
+  protected abstract ElasticSearchConfiguration getElasticSearchConfiguration();
 
   @Nonnull
   protected abstract ESBulkProcessor getBulkProcessor();
@@ -64,7 +70,11 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected abstract ESIndexBuilder getIndexBuilder();
 
-  private final IndexConvention _indexConvention = IndexConventionImpl.noPrefix("MD5");
+  @Nonnull
+  protected abstract String getElasticSearchImplementation();
+
+  private final IndexConvention _indexConvention =
+      IndexConventionImpl.noPrefix("MD5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
   private OperationContext operationContext;
@@ -74,8 +84,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @BeforeClass
   public void setup() {
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    _client = buildService(_graphQueryConfiguration.isEnableMultiPathSearch());
-    _client.reindexAll(Collections.emptySet());
+    _client = buildService(getElasticSearchConfiguration(), TEST_GRAPH_SERVICE_CONFIG);
+    _client.reindexAll(operationContext, Collections.emptySet());
   }
 
   @BeforeMethod
@@ -86,7 +96,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   }
 
   @Nonnull
-  private ElasticSearchGraphService buildService(boolean enableMultiPathSearch) {
+  private ElasticSearchGraphService buildService(
+      ElasticSearchConfiguration esSearchConfig, GraphServiceConfiguration graphServiceConfig) {
     ConfigEntityRegistry configEntityRegistry =
         new ConfigEntityRegistry(
             SearchCommonTestConfiguration.class
@@ -101,12 +112,12 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     } catch (EntityRegistryException e) {
       throw new RuntimeException(e);
     }
-    _graphQueryConfiguration.setEnableMultiPathSearch(enableMultiPathSearch);
+
     ESGraphQueryDAO readDAO =
-        new ESGraphQueryDAO(
-            getSearchClient(), lineageRegistry, _indexConvention, _graphQueryConfiguration);
+        new ESGraphQueryDAO(getSearchClient(), graphServiceConfig, esSearchConfig, null);
     ESGraphWriteDAO writeDAO =
-        new ESGraphWriteDAO(_indexConvention, getBulkProcessor(), 1, _graphQueryConfiguration);
+        new ESGraphWriteDAO(
+            _indexConvention, getBulkProcessor(), 1, esSearchConfig.getSearch().getGraph());
     return new ElasticSearchGraphService(
         lineageRegistry,
         getBulkProcessor(),
@@ -119,18 +130,63 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   @Override
   @Nonnull
-  protected GraphService getGraphService(boolean enableMultiPathSearch) {
-    if (enableMultiPathSearch != _graphQueryConfiguration.isEnableMultiPathSearch()) {
-      _client = buildService(enableMultiPathSearch);
-      _client.reindexAll(Collections.emptySet());
+  protected GraphService getGraphService(
+      @Nullable Boolean enableMultiPathSearch, @Nullable Integer graphSearchLimit) {
+
+    final GraphServiceConfiguration graphServiceConfig;
+    if (graphSearchLimit != null
+        && (graphSearchLimit
+                != _client.getGraphServiceConfig().getLimit().getResults().getApiDefault()
+            || graphSearchLimit
+                != _client.getGraphServiceConfig().getLimit().getResults().getMax())) {
+      graphServiceConfig =
+          TEST_GRAPH_SERVICE_CONFIG.toBuilder()
+              .limit(
+                  TEST_GRAPH_SERVICE_CONFIG.getLimit().toBuilder()
+                      .results(
+                          TEST_GRAPH_SERVICE_CONFIG.getLimit().getResults().toBuilder()
+                              .max(graphSearchLimit)
+                              .apiDefault(graphSearchLimit)
+                              .build())
+                      .build())
+              .build();
+    } else {
+      graphServiceConfig = TEST_GRAPH_SERVICE_CONFIG;
     }
+
+    final ElasticSearchConfiguration esSearchConfiguration;
+    if (enableMultiPathSearch != null
+        && enableMultiPathSearch
+            != _client.getESSearchConfig().getSearch().getGraph().isEnableMultiPathSearch()) {
+
+      esSearchConfiguration =
+          getElasticSearchConfiguration().toBuilder()
+              .search(
+                  getElasticSearchConfiguration().getSearch().toBuilder()
+                      .graph(
+                          getElasticSearchConfiguration().getSearch().getGraph().toBuilder()
+                              .enableMultiPathSearch(enableMultiPathSearch)
+                              .build())
+                      .build())
+              .build();
+    } else {
+      esSearchConfiguration = getElasticSearchConfiguration();
+    }
+
+    if (!_client.getGraphServiceConfig().equals(graphServiceConfig)
+        || !_client.getESSearchConfig().equals(esSearchConfiguration)) {
+      _client = buildService(esSearchConfiguration, graphServiceConfig);
+    }
+
     return _client;
   }
 
   @Override
   @Nonnull
   protected GraphService getGraphService() {
-    return getGraphService(_graphQueryConfiguration.isEnableMultiPathSearch());
+    return getGraphService(
+        getElasticSearchConfiguration().getSearch().getGraph().isEnableMultiPathSearch(),
+        TEST_GRAPH_SERVICE_CONFIG.getLimit().getResults().getMax());
   }
 
   @Override
@@ -440,13 +496,14 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, 0, null);
   }
 
-  private EntityLineageResult getUpstreamLineage(Urn urn, Long startTime, Long endTime, int count) {
+  private EntityLineageResult getUpstreamLineage(
+      Urn urn, Long startTime, Long endTime, @Nullable Integer count) {
     return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, null);
   }
 
   private EntityLineageResult getUpstreamLineage(
-      Urn urn, Long startTime, Long endTime, int count, int exploreLimit) {
-    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, exploreLimit);
+      Urn urn, Long startTime, Long endTime, @Nullable Integer limit, int exploreLimit) {
+    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, limit, exploreLimit);
   }
 
   /**
@@ -475,7 +532,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
       LineageDirection direction,
       Long startTime,
       Long endTime,
-      int count,
+      @Nullable Integer limit,
       @Nullable Integer entitiesExploredPerHopLimit) {
     return getGraphService()
         .getLineage(
@@ -489,7 +546,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             urn,
             direction,
             0,
-            count,
+            limit,
             3);
   }
 }

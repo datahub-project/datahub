@@ -56,7 +56,7 @@ const moveDomaintoParent = () => {
 
 const getDomainList = (domainName) => {
   cy.contains("span.ant-typography-ellipsis", domainName)
-    .parent('[data-testid="domain-list-item"]')
+    .parent('[data-testid="domain-options-list"]')
     .find('[aria-label="right"]')
     .click();
 };
@@ -152,9 +152,9 @@ describe("Verify nested domains test functionalities", () => {
 
     // Add a new link
     cy.clickFirstOptionWithTestId("add-link-button");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
 
     // Verify link addition
     cy.waitTextVisible("Test Label");
@@ -189,9 +189,9 @@ describe("Verify nested domains test functionalities", () => {
 
     // Add a new link
     cy.clickOptionWithTestId("add-link-button");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
 
     // Verify link addition
     cy.waitTextVisible("Test Label");
@@ -204,7 +204,7 @@ describe("Verify nested domains test functionalities", () => {
       .click();
 
     // Add an owner
-    cy.clickOptionWithTestId("addOwner");
+    cy.clickOptionWithTestId("add-owners-button");
     cy.enterTextInTestId(
       "edit-owners-modal-find-actors-input",
       Cypress.env("ADMIN_DISPLAYNAME") || "DataHub",

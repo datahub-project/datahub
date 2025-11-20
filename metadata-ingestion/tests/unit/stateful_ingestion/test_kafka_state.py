@@ -16,7 +16,7 @@ def test_kafka_common_state() -> None:
 
 
 def test_kafka_state_migration() -> None:
-    state = GenericCheckpointState.parse_obj(
+    state = GenericCheckpointState.model_validate(
         {
             "encoded_topic_urns": [
                 "kafka||test_topic1||test",

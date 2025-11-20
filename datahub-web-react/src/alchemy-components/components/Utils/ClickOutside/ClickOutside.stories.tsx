@@ -27,10 +27,18 @@ const meta = {
             description: 'Optional CSS-selector to ignore handling of clicks as outside clicks',
         },
         outsideSelector: {
-            description: 'Optional CSS-selector to cosider clicked element as outside click',
+            description: 'Optional CSS-selector to consider clicked element as outside click',
         },
         ignoreWrapper: {
             description: 'Enable to ignore clicking outside of wrapper',
+        },
+        width: {
+            description: 'Customize the width of the wrapper',
+            table: {
+                defaultValue: {
+                    summary: 'fit-content',
+                },
+            },
         },
     },
 

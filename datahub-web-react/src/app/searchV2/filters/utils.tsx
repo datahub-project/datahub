@@ -616,6 +616,9 @@ export const FilterEntityIcon: React.FC<FilterEntityIconProps> = ({ field, entit
         case field === PLATFORM_FILTER_NAME && entity !== null:
             return <>{icon}</>;
 
+        case field === DATA_PLATFORM_INSTANCE_FILTER_NAME && entity?.type === EntityType.DataPlatformInstance:
+            return <>{icon}</>;
+
         case field === TAGS_FILTER_NAME && entity?.type === EntityType.Tag:
             return <TagColor color={(entity as Tag).properties?.colorHex || ''} colorHash={entity?.urn} />;
 

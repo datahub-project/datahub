@@ -1,0 +1,34 @@
+namespace com.linkedin.application
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * The main properties of an Application
+ */
+@Aspect = {
+  "name": "applicationProperties"
+}
+record ApplicationProperties includes CustomProperties, ExternalReference  {
+  /**
+   * Display name of the Application
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
+  }
+  name: optional string
+
+  /**
+   * Documentation of the application
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2
+  }
+  description: optional string
+}

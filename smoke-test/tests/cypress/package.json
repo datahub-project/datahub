@@ -10,7 +10,9 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "cypress": "12.5.1",
+    "@testing-library/cypress": "^10.0.1",
+    "cypress": "^14.5.1",
+    "cypress-real-events": "^1.14.0",
     "cypress-timestamps": "^1.2.0",
     "dayjs": "^1.11.7"
   },

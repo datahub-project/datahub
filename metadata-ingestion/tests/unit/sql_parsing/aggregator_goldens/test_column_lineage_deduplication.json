@@ -31,6 +31,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),a)"
                     ],
+                    "transformOperation": "COPY: \"bar\".\"a\" AS \"a\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:fc48287a96588c73bcbdc1400f0c036b8d81196135618fb09a097459d54bd970"
                 },
@@ -43,6 +44,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),b)"
                     ],
+                    "transformOperation": "COPY: \"bar\".\"b\" AS \"b\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:fc48287a96588c73bcbdc1400f0c036b8d81196135618fb09a097459d54bd970"
                 },
@@ -55,6 +57,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),c)"
                     ],
+                    "transformOperation": "COPY: \"bar\".\"c\" AS \"c\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:02e2ec36678bea2a8c4c855fed5255d087cfeb2710d326e95fd9b48a9c4fc0ae"
                 }
@@ -69,6 +72,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "/* query 2 */\nINSERT INTO foo (\n  a,\n  b\n)\nSELECT\n  a,\n  b\nFROM bar",
                 "language": "SQL"
@@ -133,6 +137,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "/* query 1 */\nINSERT INTO foo (\n  a,\n  b,\n  c\n)\nSELECT\n  a,\n  b,\n  c\nFROM bar",
                 "language": "SQL"

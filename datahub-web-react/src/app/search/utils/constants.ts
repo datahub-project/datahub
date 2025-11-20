@@ -4,6 +4,7 @@ export const FILTER_URL_PREFIX = 'filter_';
 export const SEARCH_FOR_ENTITY_PREFIX = 'SEARCH__';
 export const EXACT_SEARCH_PREFIX = 'EXACT__';
 
+export const DISPLAY_NAME_FILTER_NAME = 'displayName';
 export const ENTITY_FILTER_NAME = '_entityType';
 export const LEGACY_ENTITY_FILTER_NAME = 'entity';
 export const ENTITY_INDEX_FILTER_NAME = '_index';
@@ -32,6 +33,7 @@ export const ENTITY_TYPES_FILTER_NAME = 'entityTypes';
 export const IS_HIDDEN_PROPERTY_FILTER_NAME = 'isHidden';
 export const SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME = 'showInColumnsTable';
 export const SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME = 'showInAssetSummary';
+export const VALUE_TYPE_FIELD_NAME = 'valueType';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const OUTPUT_PORTS_FIELD = 'isOutputPort';
@@ -145,28 +147,8 @@ export type FilterMode = (typeof FilterModes)[keyof typeof FilterModes];
 
 export const MAX_COUNT_VAL = 10000;
 
-export const EMBEDDED_LIST_SEARCH_ENTITY_TYPES = [
-    EntityType.Dataset,
-    EntityType.Dashboard,
-    EntityType.Chart,
-    EntityType.Mlmodel,
-    EntityType.MlmodelGroup,
-    EntityType.MlfeatureTable,
-    EntityType.Mlfeature,
-    EntityType.MlprimaryKey,
-    EntityType.DataFlow,
-    EntityType.DataJob,
-    EntityType.GlossaryTerm,
-    EntityType.GlossaryNode,
-    EntityType.Tag,
-    EntityType.Role,
-    EntityType.CorpUser,
-    EntityType.CorpGroup,
-    EntityType.Container,
-    EntityType.Domain,
-    EntityType.DataProduct,
-    EntityType.Notebook,
-    EntityType.BusinessAttribute,
+// We don't want to show Data Process Instance in standard search since they would crowd the results
+// however, for embedded searches such as the DPIs for a given entity, it makes sense to show them
+export const EXTRA_EMBEDDED_LIST_SEARCH_ENTITY_TYPES_TO_SUPPLEMENT_SEARCHABLE_ENTITY_TYPES = [
     EntityType.DataProcessInstance,
-    EntityType.SchemaField,
 ];

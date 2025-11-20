@@ -1,14 +1,15 @@
 import functools
 import os
 import pathlib
-from datetime import datetime, timezone
-from unittest.mock import patch
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
 
 import pytest
 from freezegun import freeze_time
 
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -26,7 +27,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
 )
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
@@ -326,7 +327,7 @@ def test_aggregate_operations() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=False,
-        generate_queries=False,
+        generate_queries=True,
         generate_usage_statistics=False,
         generate_operations=True,
     )
@@ -1025,3 +1026,412 @@ def test_sql_aggreator_close_cleans_tmp(tmp_path):
         assert len(os.listdir(tmp_path)) > 0
         aggregator.close()
         assert len(os.listdir(tmp_path)) == 0
+
+
+@freeze_time(FROZEN_TIME)
+def test_override_dialect_passed_to_sqlglot_lineage() -> None:
+    """Test that override_dialect is correctly passed to sqlglot_lineage"""
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    base_query = ObservedQuery(
+        query="create table foo as select a, b from bar",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    with patch(
+        "datahub.sql_parsing.sql_parsing_aggregator.sqlglot_lineage"
+    ) as mock_sqlglot_lineage:
+        mock_sqlglot_lineage.return_value = MagicMock()
+
+        # Test with override_dialect set
+
+        base_query.override_dialect = "snowflake"
+        aggregator.add_observed_query(base_query)
+
+        mock_sqlglot_lineage.assert_called_once()
+        call_args = mock_sqlglot_lineage.call_args
+        assert call_args.kwargs["override_dialect"] == "snowflake"
+
+        # Reset mock
+        mock_sqlglot_lineage.reset_mock()
+
+        # Test without override_dialect (should be None)
+
+        base_query.override_dialect = None
+        aggregator.add_observed_query(base_query)
+
+        mock_sqlglot_lineage.assert_called_once()
+        call_args = mock_sqlglot_lineage.call_args
+        assert call_args.kwargs["override_dialect"] is None
+
+
+@freeze_time(FROZEN_TIME)
+def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        is_temp_table=lambda x: x.lower()
+        in [
+            "dummy_test.diamond_problem.t1",
+            "dummy_test.diamond_problem.t2",
+            "dummy_test.diamond_problem.t3",
+            "dummy_test.diamond_problem.t4",
+        ],
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("snowflake", "dummy_test.diamond_problem.diamond_source1").urn(),
+        {"col_a": "int", "col_b": "int", "col_c": "int"},
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn(
+            "snowflake",
+            "dummy_test.diamond_problem.diamond_destination",
+        ).urn(),
+        {"col_a": "int", "col_b": "int", "col_c": "int"},
+    )
+
+    # Diamond query pattern: source1 -> t1 -> {t2, t3} -> t4 -> destination
+    queries = [
+        "CREATE TEMPORARY TABLE t1 as select * from diamond_source1;",
+        "CREATE TEMPORARY TABLE t2 as select * from t1;",
+        "CREATE TEMPORARY TABLE t3 as select * from t1;",
+        "CREATE TEMPORARY TABLE t4 as select t2.col_a, t3.col_b, t2.col_c from t2 join t3 on t2.col_a = t3.col_a;",
+        "CREATE TABLE diamond_destination as select * from t4;",
+    ]
+
+    base_timestamp = datetime(2025, 7, 1, 13, 52, 18, 741000, tzinfo=timezone.utc)
+
+    for i, query in enumerate(queries):
+        aggregator.add(
+            ObservedQuery(
+                query=query,
+                default_db="dummy_test",
+                default_schema="diamond_problem",
+                session_id="14774700499701726",
+                timestamp=base_timestamp + timedelta(seconds=i),
+            )
+        )
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        pytestconfig.rootpath
+        / "tests/unit/sql_parsing/aggregator_goldens/test_diamond_problem_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_empty_column_in_snowflake_lineage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that column lineage with empty string column names doesn't cause errors.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn = DatasetUrn("snowflake", "dev.public.source_table").urn()
+
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text="insert into target_table (col_a, col_b, col_c) select col_a, col_b, col_c from source_table",
+        downstream=downstream_urn,
+        upstreams=[upstream_urn],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="col_a"),
+                upstreams=[ColumnRef(table=upstream_urn, column="col_a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="col_b"),
+                upstreams=[
+                    ColumnRef(table=upstream_urn, column="col_b"),
+                    ColumnRef(table=upstream_urn, column=""),
+                ],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="col_c"),
+                upstreams=[
+                    ColumnRef(table=upstream_urn, column=""),
+                ],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.INSERT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR / "test_empty_column_in_snowflake_lineage_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_empty_downstream_column_in_snowflake_lineage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that column lineage with empty downstream column names doesn't cause errors.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn = DatasetUrn("snowflake", "dev.public.source_table").urn()
+
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text='create table target_table as select $1 as "", $2 as "   " from source_table',
+        downstream=downstream_urn,
+        upstreams=[upstream_urn],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column=""),
+                upstreams=[ColumnRef(table=upstream_urn, column="col_a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="   "),
+                upstreams=[ColumnRef(table=upstream_urn, column="col_b")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.CREATE_TABLE_AS_SELECT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR / "test_empty_downstream_column_in_snowflake_lineage_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_partial_empty_downstream_column_in_snowflake_lineage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that column lineage with mix of empty and valid downstream columns works correctly.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.empty_downstream").urn()
+    upstream_urn = DatasetUrn("snowflake", "dev.public.empty_upstream").urn()
+
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text='create table empty_downstream as select $1 as "", $2 as "TITLE_DOWNSTREAM" from empty_upstream',
+        downstream=downstream_urn,
+        upstreams=[upstream_urn],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column=""),
+                upstreams=[ColumnRef(table=upstream_urn, column="name")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    table=downstream_urn, column="TITLE_DOWNSTREAM"
+                ),
+                upstreams=[ColumnRef(table=upstream_urn, column="title")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.CREATE_TABLE_AS_SELECT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR
+        / "test_partial_empty_downstream_column_in_snowflake_lineage_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_empty_column_in_query_subjects(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that QuerySubjects with empty column names doesn't create invalid URNs.
+
+    This simulates a scenario where Snowflake's access_history may contain empty
+    column names, which should not result in invalid schemaField URNs.
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        generate_queries=True,
+        generate_query_subject_fields=True,
+    )
+
+    downstream_urn = DatasetUrn(
+        "snowflake", "production.dca_core.snowplow_user_engagement_mart"
+    ).urn()
+    upstream_urn = DatasetUrn(
+        "snowflake", "production.dca_core.snowplow_user_engagement_mart__dbt_tmp"
+    ).urn()
+
+    # Simulate a query where Snowflake's access_history contains empty column names.
+    preparsed_query = PreparsedQuery(
+        query_id="test-delete-query",
+        query_text=(
+            "delete from PRODUCTION.DCA_CORE.snowplow_user_engagement_mart "
+            "as DBT_INTERNAL_DEST where (unique_key_input) in ("
+            "select distinct unique_key_input from "
+            "PRODUCTION.DCA_CORE.snowplow_user_engagement_mart__dbt_tmp "
+            "as DBT_INTERNAL_SOURCE)"
+        ),
+        upstreams=[upstream_urn],
+        downstream=downstream_urn,
+        column_lineage=[
+            # This simulates a case where an empty column name might be present in the audit log.
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column=""),
+                upstreams=[ColumnRef(table=upstream_urn, column="unique_key_input")],
+            ),
+        ],
+        column_usage={
+            upstream_urn: {"unique_key_input", ""},  # Empty column from Snowflake
+        },
+        query_type=QueryType.DELETE,
+        timestamp=_ts(20),
+    )
+
+    aggregator.add_preparsed_query(preparsed_query)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    query_mcpws = [
+        mcpw
+        for mcpw in mcpws
+        if mcpw.entityUrn and mcpw.entityUrn.startswith("urn:li:query:")
+    ]
+
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, query_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR / "test_empty_column_in_query_subjects_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_empty_column_in_query_subjects_only_column_usage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that QuerySubjects with empty columns ONLY in column_usage doesn't create invalid URNs.
+
+    This simulates the exact customer scenario where:
+    - Snowflake returns empty columns in direct_objects_accessed (column_usage)
+    - But NO empty columns in objects_modified (column_lineage is empty or valid)
+
+    This is the scenario that would send invalid URNs to GMS rather than crash in Python,
+    matching the customer's error: "Provided urn urn:li:schemaField:(...,) is invalid"
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        generate_queries=True,
+        generate_query_subject_fields=True,
+        generate_query_usage_statistics=True,
+        usage_config=BaseUsageConfig(
+            bucket_duration=BucketDuration.DAY,
+            start_time=parse_user_datetime("2024-02-06T00:00:00Z"),
+            end_time=parse_user_datetime("2024-02-07T00:00:00Z"),
+        ),
+    )
+
+    # Simulate table name from user: production.dsd_digital_private.gsheets_legacy_views
+    upstream_urn = DatasetUrn(
+        "snowflake", "production.dsd_digital_private.gsheets_legacy_views"
+    ).urn()
+
+    # Simulate a SELECT query (no downstream) where the audit log contains empty column names.
+    preparsed_query = PreparsedQuery(
+        query_id="test-select-gsheets-view",
+        query_text="SELECT * FROM production.dsd_digital_private.gsheets_legacy_views WHERE id = 123",
+        upstreams=[upstream_urn],
+        downstream=None,  # SELECT query has no downstream
+        column_lineage=[],  # No column lineage because no downstream
+        column_usage={
+            # Simulate a case where an empty column name is present in the audit log.
+            upstream_urn: {"id", "name", ""},  # Empty column from Snowflake!
+        },
+        query_type=QueryType.SELECT,
+        timestamp=_ts(20),
+    )
+
+    aggregator.add_preparsed_query(preparsed_query)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    query_mcpws = [
+        mcpw
+        for mcpw in mcpws
+        if mcpw.entityUrn and mcpw.entityUrn.startswith("urn:li:query:")
+    ]
+
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, query_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR
+        / "test_empty_column_in_query_subjects_only_column_usage_golden.json",
+    )

@@ -16,15 +16,16 @@ if (!project.hasProperty("extra_pip_requirements")) {
 def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../../metadata-ingestion"
 
 task checkPythonVersion(type: Exec) {
-  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 8)'
+  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 9)'
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   def sentinel_file = "${venv_name}/.venv_environment_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
+  def venv_copies_flag = System.getenv('DATAHUB_VENV_USE_COPIES') == 'true' ? '--copies' : ''
   commandLine 'bash', '-c',
-      "${python_executable} -m venv ${venv_name} && " +
+      "${python_executable} -m venv ${venv_copies_flag} ${venv_name} && " +
       "${venv_name}/bin/pip install --upgrade uv && " +
       "touch ${sentinel_file}"
 }

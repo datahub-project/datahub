@@ -1,12 +1,14 @@
 package com.linkedin.metadata.search.query;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashSet;
@@ -15,7 +17,6 @@ import java.util.Set;
 import org.mockito.Mockito;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.testng.annotations.Test;
@@ -25,7 +26,7 @@ public class ESSearchDAORawEntityTest {
   @Test
   public void testRawEntityWithMockedClient() throws Exception {
     // Setup mocks
-    RestHighLevelClient mockClient = Mockito.mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = Mockito.mock(SearchClientShim.class);
     OperationContext opContext = TestOperationContexts.systemContextNoValidate();
 
     // Mock search response
@@ -49,10 +50,10 @@ public class ESSearchDAORawEntityTest {
         new ESSearchDAO(
             mockClient,
             false,
-            "elasticsearch",
-            new SearchConfiguration(),
+            TEST_OS_SEARCH_CONFIG,
             null,
-            com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain.EMPTY);
+            com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     // Execute rawEntity method
     Map<Urn, SearchResponse> results = esSearchDAO.rawEntity(opContext, urns);

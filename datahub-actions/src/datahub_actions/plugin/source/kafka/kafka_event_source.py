@@ -33,8 +33,10 @@ from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
     ENTITY_CHANGE_EVENT_V1_TYPE,
     METADATA_CHANGE_LOG_EVENT_V1_TYPE,
+    RELATIONSHIP_CHANGE_EVENT_V1_TYPE,
     EntityChangeEvent,
     MetadataChangeLogEvent,
+    RelationshipChangeEvent,
 )
 
 # May or may not need these.
@@ -46,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 ENTITY_CHANGE_EVENT_NAME = "entityChangeEvent"
+RELATIONSHIP_CHANGE_EVENT_NAME = "relationshipChangeEvent"
 DEFAULT_TOPIC_ROUTES = {
     "mcl": "MetadataChangeLog_Versioned_v1",
     "mcl_timeseries": "MetadataChangeLog_Timeseries_v1",
@@ -138,7 +141,7 @@ class KafkaEventSource(EventSource):
 
         self.consumer: confluent_kafka.Consumer = confluent_kafka.DeserializingConsumer(
             {
-                # Provide a custom group id to subcribe to multiple partitions via separate actions pods.
+                # Provide a custom group id to subscribe to multiple partitions via separate actions pods.
                 "group.id": ctx.pipeline_name,
                 "bootstrap.servers": self.source_config.connection.bootstrap,
                 "enable.auto.commit": False,  # We manually commit offsets.
@@ -157,7 +160,7 @@ class KafkaEventSource(EventSource):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "EventSource":
-        config = KafkaEventSourceConfig.parse_obj(config_dict)
+        config = KafkaEventSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def events(self) -> Iterable[EventEnvelope]:
@@ -216,9 +219,13 @@ class KafkaEventSource(EventSource):
             post_json_transform(value["payload"])
         )
         if ENTITY_CHANGE_EVENT_NAME == value["name"]:
-            event = build_entity_change_event(payload)
+            ece = build_entity_change_event(payload)
             kafka_meta = build_kafka_meta(msg)
-            yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, event, kafka_meta)
+            yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, ece, kafka_meta)
+        elif RELATIONSHIP_CHANGE_EVENT_NAME == value["name"]:
+            rce = RelationshipChangeEvent.from_json(payload.get("value"))
+            kafka_meta = build_kafka_meta(msg)
+            yield EventEnvelope(RELATIONSHIP_CHANGE_EVENT_V1_TYPE, rce, kafka_meta)
 
     def close(self) -> None:
         if self.consumer:
@@ -238,13 +245,13 @@ class KafkaEventSource(EventSource):
         )
         if retval is None:
             logger.exception(
-                f"Unexpected response when commiting offset to kafka: topic: {event.meta['kafka']['topic']}, partition: {event.meta['kafka']['partition']}, offset: {event.meta['kafka']['offset']}"
+                f"Unexpected response when committing offset to kafka: topic: {event.meta['kafka']['topic']}, partition: {event.meta['kafka']['partition']}, offset: {event.meta['kafka']['offset']}"
             )
             return
         for partition in retval:
             if partition.error is not None:
                 raise KafkaException(
-                    f"Failed to commit offest for topic: {partition.topic}, partition: {partition.partition}, offset: {partition.offset}: {partition.error.str()}"
+                    f"Failed to commit offset for topic: {partition.topic}, partition: {partition.partition}, offset: {partition.offset}: {partition.error.str()}"
                 )
         logger.debug(
             f"Successfully committed offsets at message: topic: {event.meta['kafka']['topic']}, partition: {event.meta['kafka']['partition']}, offset: {event.meta['kafka']['offset']}"

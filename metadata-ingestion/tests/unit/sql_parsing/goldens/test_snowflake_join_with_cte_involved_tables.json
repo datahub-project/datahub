@@ -1,0 +1,125 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "6af867d6ccfcc9a16d9e2385df783acd3589c9af20abf00d22cef2c11fb477c7",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.users_table,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "name",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.users_table,PROD)",
+                    "column": "NAME"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"USERS\".\"NAME\" AS \"NAME\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "user_id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(38, 0)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
+                    "column": "USER_ID"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"T1\".\"USER_ID\" AS \"USER_ID\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "other_col",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
+                    "column": "OTHER_COL"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"T2\".\"OTHER_COL\" AS \"OTHER_COL\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)"
+            ],
+            "on_clause": "\"T1\".\"ID\" = \"T2\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
+                    "column": "ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
+                    "column": "ID"
+                }
+            ]
+        },
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.users_table,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)"
+            ],
+            "on_clause": "\"USERS\".\"ID\" = \"CTE_ALIAS\".\"USER_ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
+                    "column": "USER_ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.users_table,PROD)",
+                    "column": "ID"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH cte_alias AS (SELECT t1.id AS t1_id_alias, t1.user_id, t2.other_col FROM my_db.my_schema.table1 AS t1 JOIN my_db.my_schema.table2 AS t2 ON t1.id = t2.id) SELECT users.name, cte_alias.user_id, cte_alias.other_col FROM my_db.my_schema.users_table AS users JOIN cte_alias ON users.id = cte_alias.user_id"
+    }
+}

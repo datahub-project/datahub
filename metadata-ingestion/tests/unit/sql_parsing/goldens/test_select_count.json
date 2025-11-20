@@ -23,9 +23,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,something_prd.fact_complaint_snapshot,PROD)",
                     "column": "etl_data_dt_id"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "COUNT(`fact_complaint_snapshot`.`etl_data_dt_id`) AS `_col_0`"
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "SELECT COUNT(etl_data_dt_id) FROM something_prd.fact_complaint_snapshot WHERE etl_data_dt_id = ?"

@@ -1,13 +1,6 @@
 package com.datahub.authorization;
 
-import com.datahub.authorization.fieldresolverprovider.DataPlatformInstanceFieldResolverProvider;
-import com.datahub.authorization.fieldresolverprovider.DomainFieldResolverProvider;
-import com.datahub.authorization.fieldresolverprovider.EntityFieldResolverProvider;
-import com.datahub.authorization.fieldresolverprovider.EntityTypeFieldResolverProvider;
-import com.datahub.authorization.fieldresolverprovider.EntityUrnFieldResolverProvider;
-import com.datahub.authorization.fieldresolverprovider.GroupMembershipFieldResolverProvider;
-import com.datahub.authorization.fieldresolverprovider.OwnerFieldResolverProvider;
-import com.datahub.authorization.fieldresolverprovider.TagFieldResolverProvider;
+import com.datahub.authorization.fieldresolverprovider.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.util.Pair;
@@ -31,7 +24,8 @@ public class DefaultEntitySpecResolver implements EntitySpecResolver {
             new OwnerFieldResolverProvider(entityClient),
             new DataPlatformInstanceFieldResolverProvider(entityClient),
             new GroupMembershipFieldResolverProvider(entityClient),
-            new TagFieldResolverProvider(entityClient));
+            new TagFieldResolverProvider(entityClient),
+            new ContainerFieldResolverProvider(entityClient));
     this.systemOperationContext = systemOperationContext;
   }
 

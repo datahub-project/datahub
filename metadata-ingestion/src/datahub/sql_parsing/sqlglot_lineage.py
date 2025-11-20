@@ -5,7 +5,18 @@ import functools
 import logging
 import traceback
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
+from typing import (
+    AbstractSet,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 import pydantic.dataclasses
 import sqlglot
@@ -17,6 +28,7 @@ import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 import sqlglot.optimizer.unnest_subqueries
+from pydantic import field_serializer, field_validator
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
@@ -45,6 +57,7 @@ from datahub.sql_parsing.sql_parsing_common import (
     QueryTypeProps,
 )
 from datahub.sql_parsing.sqlglot_utils import (
+    DialectOrStr,
     get_dialect,
     get_query_fingerprint_debug,
     is_dialect_instance,
@@ -54,6 +67,7 @@ from datahub.utilities.cooperative_timeout import (
     CooperativeTimeoutError,
     cooperative_timeout,
 )
+from datahub.utilities.ordered_set import OrderedSet
 
 assert SQLGLOT_PATCHED
 
@@ -112,12 +126,24 @@ class _DownstreamColumnRef(_ParserBaseModel):
 
 
 class DownstreamColumnRef(_ParserBaseModel):
+    """
+    TODO: Instead of implementing custom __hash__ function this class should simply inherit from _FrozenModel.
+          What stops us is that `column_type` field of type `SchemaFieldDataTypeClass` is not hashable - it's an
+          auto-generated class from .pdl model files. We need generic solution allowing us to either:
+          1. Implement hashing for .pdl model objects
+          2. Reliably provide pydantic (both v1 and v2) with information to skip particular fields from default
+             hash function - with a twist here that _FrozenModel implements its own `__lt__` function - it needs
+             to understand that instruction as well.
+          Instances of this class needs to be hashable as we store them in a set when processing lineage from queries.
+    """
+
     table: Optional[Urn] = None
     column: str
     column_type: Optional[SchemaFieldDataTypeClass] = None
     native_column_type: Optional[str] = None
 
-    @pydantic.validator("column_type", pre=True)
+    @field_validator("column_type", mode="before")
+    @classmethod
     def _load_column_type(
         cls, v: Optional[Union[dict, SchemaFieldDataTypeClass]]
     ) -> Optional[SchemaFieldDataTypeClass]:
@@ -127,20 +153,62 @@ class DownstreamColumnRef(_ParserBaseModel):
             return v
         return SchemaFieldDataTypeClass.from_obj(v)
 
+    @field_serializer("column_type", when_used="json")
+    def _serialize_column_type(
+        self, value: Optional[SchemaFieldDataTypeClass]
+    ) -> Optional[dict]:
+        """Pydantic v2 replacement for json_encoders={SchemaFieldDataTypeClass: lambda v: v.to_obj()} in _ParserBaseModel"""
+        if value is None:
+            return None
+        return value.to_obj()
+
+    def __hash__(self) -> int:
+        return hash((self.table, self.column, self.native_column_type))
+
+
+class ColumnTransformation(_FrozenModel):
+    is_direct_copy: bool
+    column_logic: str
+
 
 class _ColumnLineageInfo(_ParserBaseModel):
     downstream: _DownstreamColumnRef
     upstreams: List[_ColumnRef]
 
-    logic: Optional[str] = None
+    logic: Optional[ColumnTransformation] = None
 
 
 class ColumnLineageInfo(_ParserBaseModel):
+    """
+    TODO: Instead of implementing custom __hash__ function this class should simply inherit from _FrozenModel.
+          To achieve this, we need to change `upstreams` to `Tuple[ColumnRef, ...]` - along with many code lines
+          depending on it.
+          Instances of this class needs to be hashable as we store them in a set when processing lineage from queries.
+    """
+
     downstream: DownstreamColumnRef
     upstreams: List[ColumnRef]
 
-    # Logic for this column, as a SQL expression.
-    logic: Optional[str] = pydantic.Field(default=None, exclude=True)
+    logic: Optional[ColumnTransformation] = pydantic.Field(default=None)
+
+    def __hash__(self) -> int:
+        return hash((self.downstream, tuple(self.upstreams), self.logic))
+
+
+class _JoinInfo(_ParserBaseModel):
+    join_type: str
+    left_tables: List[_TableName]
+    right_tables: List[_TableName]
+    on_clause: Optional[str]
+    columns_involved: List[_ColumnRef]
+
+
+class JoinInfo(_ParserBaseModel):
+    join_type: str
+    left_tables: List[Urn]
+    right_tables: List[Urn]
+    on_clause: Optional[str]
+    columns_involved: List[ColumnRef]
 
 
 class SqlParsingDebugInfo(_ParserBaseModel):
@@ -158,7 +226,8 @@ class SqlParsingDebugInfo(_ParserBaseModel):
     def error(self) -> Optional[Exception]:
         return self.table_error or self.column_error
 
-    @pydantic.validator("table_error", "column_error")
+    @field_validator("table_error", "column_error", mode="before")
+    @classmethod
     def remove_variables_from_error(cls, v: Optional[Exception]) -> Optional[Exception]:
         if v and v.__traceback__:
             # Remove local variables from the traceback to avoid memory leaks.
@@ -178,6 +247,7 @@ class SqlParsingResult(_ParserBaseModel):
     out_tables: List[Urn]
 
     column_lineage: Optional[List[ColumnLineageInfo]] = None
+    joins: Optional[List[JoinInfo]] = None
 
     # TODO include formatted original sql logic
     # TODO include list of referenced columns
@@ -197,13 +267,19 @@ class SqlParsingResult(_ParserBaseModel):
         )
 
 
+def _extract_table_names(
+    iterable: Iterable[sqlglot.exp.Table],
+) -> OrderedSet[_TableName]:
+    return OrderedSet(_TableName.from_sqlglot_table(table) for table in iterable)
+
+
 def _table_level_lineage(
     statement: sqlglot.Expression, dialect: sqlglot.Dialect
-) -> Tuple[Set[_TableName], Set[_TableName]]:
+) -> Tuple[AbstractSet[_TableName], AbstractSet[_TableName]]:
     # Generate table-level lineage.
     modified = (
-        {
-            _TableName.from_sqlglot_table(expr.this)
+        _extract_table_names(
+            expr.this
             for expr in statement.find_all(
                 sqlglot.exp.Create,
                 sqlglot.exp.Insert,
@@ -215,36 +291,36 @@ def _table_level_lineage(
             # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
             # the `this` on the INSERT part isn't a table.
             if isinstance(expr.this, sqlglot.exp.Table)
-        }
-        | {
+        )
+        | _extract_table_names(
             # For statements that include a column list, like
             # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
             # the table name is nested inside a Schema object.
-            _TableName.from_sqlglot_table(expr.this.this)
+            expr.this.this
             for expr in statement.find_all(
                 sqlglot.exp.Create,
                 sqlglot.exp.Insert,
             )
             if isinstance(expr.this, sqlglot.exp.Schema)
             and isinstance(expr.this.this, sqlglot.exp.Table)
-        }
-        | {
+        )
+        | _extract_table_names(
             # For drop statements, we only want it if a table/view is being dropped.
             # Other "kinds" will not have table.name populated.
-            _TableName.from_sqlglot_table(expr.this)
+            expr.this
             for expr in ([statement] if isinstance(statement, sqlglot.exp.Drop) else [])
             if isinstance(expr.this, sqlglot.exp.Table)
             and expr.this.this
             and expr.this.name
-        }
+        )
     )
 
     tables = (
-        {
-            _TableName.from_sqlglot_table(table)
+        _extract_table_names(
+            table
             for table in statement.find_all(sqlglot.exp.Table)
             if not isinstance(table.parent, sqlglot.exp.Drop)
-        }
+        )
         # ignore references created in this query
         - modified
         # ignore CTEs created in this statement
@@ -479,16 +555,19 @@ def _select_statement_cll(
     root_scope: sqlglot.optimizer.Scope,
     column_resolver: _ColumnResolver,
     output_table: Optional[_TableName],
+    table_name_schema_mapping: Dict[_TableName, SchemaInfo],
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
     try:
-        # List output columns.
         output_columns = [
             (select_col.alias_or_name, select_col) for select_col in statement.selects
         ]
         logger.debug("output columns: %s", [col[0] for col in output_columns])
-        for output_col, original_col_expression in output_columns:
+
+        for output_col, _original_col_expression in output_columns:
             if not output_col or output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
@@ -512,15 +591,14 @@ def _select_statement_cll(
                 trim_selects=False,
                 # We don't need to pass the schema in here, since we've already qualified the columns.
             )
-            # import pathlib
-            # pathlib.Path("sqlglot.html").write_text(
-            #     str(lineage_node.to_html(dialect=dialect))
-            # )
 
             # Generate SELECT lineage.
-            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(lineage_node)
-
-            # column_logic = lineage_node.source
+            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
+                lineage_node,
+                dialect,
+                default_db,
+                default_schema,
+            )
 
             # Fuzzy resolve the output column.
             original_col_expression = lineage_node.expression
@@ -539,7 +617,7 @@ def _select_statement_cll(
             if original_col_expression.type:
                 output_col_type = original_col_expression.type
 
-            # Fuzzy resolve upstream columns.
+            # Resolve upstream columns - table names should already be qualified from placeholder processing
             direct_resolved_col_upstreams = {
                 _ColumnRef(
                     table=edge.table,
@@ -560,7 +638,7 @@ def _select_statement_cll(
                         column_type=output_col_type,
                     ),
                     upstreams=sorted(direct_resolved_col_upstreams),
-                    # logic=column_logic.sql(pretty=True, dialect=dialect),
+                    logic=_get_column_transformation(lineage_node, dialect),
                 )
             )
 
@@ -575,6 +653,7 @@ def _select_statement_cll(
 
 class _ColumnLineageWithDebugInfo(_ParserBaseModel):
     column_lineage: List[_ColumnLineageInfo]
+    joins: Optional[List[_JoinInfo]] = None
 
     select_statement: Optional[sqlglot.exp.Expression] = None
     # TODO: Add column exceptions here.
@@ -624,6 +703,13 @@ def _column_level_lineage(
             select_statement=select_statement,
         )
 
+    # Handle VALUES expressions separately - they have no upstream tables and no column lineage
+    if isinstance(select_statement, sqlglot.exp.Values):
+        return _ColumnLineageWithDebugInfo(
+            column_lineage=[],
+            select_statement=select_statement,
+        )
+
     assert isinstance(select_statement, _SupportedColumnLineageTypesTuple)
     try:
         root_scope = sqlglot.optimizer.build_scope(select_statement)
@@ -643,19 +729,35 @@ def _column_level_lineage(
         root_scope=root_scope,
         column_resolver=column_resolver,
         output_table=downstream_table,
+        table_name_schema_mapping=table_name_schema_mapping,
+        default_db=default_db,
+        default_schema=default_schema,
     )
+
+    joins: Optional[List[_JoinInfo]] = None
+    try:
+        # List join clauses.
+        joins = _list_joins(dialect=dialect, root_scope=root_scope)
+        logger.debug("Joins: %s", joins)
+    except Exception as e:
+        # This is a non-fatal error, so we can continue.
+        logger.debug("Failed to list joins: %s", e)
 
     return _ColumnLineageWithDebugInfo(
         column_lineage=column_lineage,
+        joins=joins,
         select_statement=select_statement,
     )
 
 
 def _get_direct_raw_col_upstreams(
     lineage_node: sqlglot.lineage.Node,
-) -> Set[_ColumnRef]:
-    # Using a set here to deduplicate upstreams.
-    direct_raw_col_upstreams: Set[_ColumnRef] = set()
+    dialect: Optional[sqlglot.Dialect] = None,
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
+) -> OrderedSet[_ColumnRef]:
+    # Using an OrderedSet here to deduplicate upstreams while preserving "discovery" order.
+    direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
 
     for node in lineage_node.walk():
         if node.downstream:
@@ -682,12 +784,321 @@ def _get_direct_raw_col_upstreams(
             direct_raw_col_upstreams.add(
                 _ColumnRef(table=table_ref, column=normalized_col)
             )
+        elif isinstance(node.expression, sqlglot.exp.Placeholder) and node.name != "*":
+            # Handle placeholder expressions from lateral joins.
+            #
+            # In newer SQLGlot versions, columns from lateral subqueries appear as sqlglot.exp.Placeholder
+            # expressions instead of regular table references. This is critical for lateral join column lineage.
+            #
+            # Example: In "SELECT t2.value FROM t1, LATERAL (SELECT value FROM t2 WHERE t1.id = t2.id) t2"
+            # The "t2.value" column reference creates a placeholder with name like '"my_table2"."value"'
+            # which we need to parse to establish the lineage: output.value <- my_table2.value
+            #
+            # Without this handling, lateral join column lineage would be incomplete/missing.
+            try:
+                parsed = sqlglot.parse_one(node.name, dialect=dialect)
+                if isinstance(parsed, sqlglot.exp.Column) and parsed.table:
+                    table_ref = _TableName.from_sqlglot_table(
+                        sqlglot.parse_one(
+                            parsed.table, into=sqlglot.exp.Table, dialect=dialect
+                        )
+                    )
+
+                    # SQLGlot's qualification process doesn't fully qualify placeholder names from lateral joins.
+                    # Even after statement-level qualification, these placeholders remain unqualified (e.g., "t2.value").
+                    # We need this runtime qualification to ensure proper lineage resolution.
+                    # Only qualify if this appears to be a real table reference (not a temporary construct)
+                    if (
+                        not (table_ref.database or table_ref.db_schema)
+                        and dialect is not None
+                    ):
+                        table_ref = table_ref.qualified(
+                            dialect=dialect,
+                            default_db=default_db,
+                            default_schema=default_schema,
+                        )
+
+                    # Extract column name using proper isinstance check
+                    if isinstance(parsed.this, sqlglot.exp.Identifier):
+                        column_name = parsed.this.name
+                    else:
+                        column_name = str(parsed.this)
+                    direct_raw_col_upstreams.add(
+                        _ColumnRef(table=table_ref, column=column_name)
+                    )
+            except Exception as e:
+                logger.debug(
+                    f"Failed to parse placeholder column expression: {node.name} with dialect {dialect}. The exception was: {e}",
+                    exc_info=True,
+                )
         else:
             # This branch doesn't matter. For example, a count(*) column would go here, and
             # we don't get any column-level lineage for that.
             pass
 
     return direct_raw_col_upstreams
+
+
+def _is_single_column_expression(
+    expression: sqlglot.exp.Expression,
+) -> bool:
+    # Check if the expression is trivial, i.e. it's just a single column.
+    # Things like count(*) or coalesce(col, 0) are not single columns.
+    if isinstance(expression, sqlglot.exp.Alias):
+        expression = expression.this
+
+    return isinstance(expression, sqlglot.exp.Column)
+
+
+def _get_column_transformation(
+    lineage_node: sqlglot.lineage.Node,
+    dialect: sqlglot.Dialect,
+    parent: Optional[sqlglot.lineage.Node] = None,
+) -> ColumnTransformation:
+    # expression = lineage_node.expression
+    # is_single_column_expression = _is_single_column_expression(lineage_node.expression)
+    if not lineage_node.downstream:
+        # parent_expression = parent.expression if parent else expression
+        if parent:
+            expression = parent.expression
+            is_copy = _is_single_column_expression(expression)
+        else:
+            # This case should rarely happen.
+            is_copy = True
+            expression = lineage_node.expression
+        return ColumnTransformation(
+            is_direct_copy=is_copy,
+            column_logic=expression.sql(dialect=dialect),
+        )
+
+    elif len(lineage_node.downstream) > 1 or not _is_single_column_expression(
+        lineage_node.expression
+    ):
+        return ColumnTransformation(
+            is_direct_copy=False,
+            column_logic=lineage_node.expression.sql(dialect=dialect),
+        )
+
+    else:
+        return _get_column_transformation(
+            lineage_node=lineage_node.downstream[0],
+            dialect=dialect,
+            parent=lineage_node,
+        )
+
+
+def _get_join_side_tables(
+    target: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    scope: sqlglot.optimizer.Scope,
+) -> OrderedSet[_TableName]:
+    target_alias_or_name = target.alias_or_name
+    if (source := scope.sources.get(target_alias_or_name)) and isinstance(
+        source, sqlglot.exp.Table
+    ):
+        # If the source is a Scope, we need to do some resolution work.
+        return OrderedSet([_TableName.from_sqlglot_table(source)])
+
+    column = sqlglot.exp.Column(
+        this=sqlglot.exp.Star(),
+        table=sqlglot.exp.Identifier(this=target.alias_or_name),
+    )
+    columns_used = _get_raw_col_upstreams_for_expression(
+        select=column,
+        dialect=dialect,
+        scope=scope,
+    )
+    return OrderedSet(col.table for col in columns_used)
+
+
+def _get_raw_col_upstreams_for_expression(
+    select: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    scope: sqlglot.optimizer.Scope,
+) -> OrderedSet[_ColumnRef]:
+    if not isinstance(scope.expression, sqlglot.exp.Query):
+        # Note that Select, Subquery, SetOperation, etc. are all subclasses of Query.
+        # So this line should basically never happen.
+        return OrderedSet()
+
+    original_expression = scope.expression
+    updated_expression = scope.expression.select(select, append=False, copy=True)
+
+    try:
+        scope.expression = updated_expression
+        node = sqlglot.lineage.to_node(
+            column=0,
+            scope=scope,
+            dialect=dialect,
+            trim_selects=False,
+        )
+
+        return _get_direct_raw_col_upstreams(node, dialect, None, None)
+    finally:
+        scope.expression = original_expression
+
+
+def _list_joins(
+    dialect: sqlglot.Dialect,
+    root_scope: sqlglot.optimizer.Scope,
+) -> List[_JoinInfo]:
+    # TODO: Add a confidence tracker here.
+
+    joins: List[_JoinInfo] = []
+
+    scope: sqlglot.optimizer.Scope
+    for scope in root_scope.traverse():
+        # PART 1: Handle regular explicit JOINs (updated API)
+        join: sqlglot.exp.Join
+        for join in scope.expression.find_all(sqlglot.exp.Join):
+            left_side_tables: OrderedSet[_TableName] = OrderedSet()
+            from_clause: sqlglot.exp.From
+            for from_clause in scope.find_all(sqlglot.exp.From):
+                left_side_tables.update(
+                    _get_join_side_tables(
+                        target=from_clause.this,
+                        dialect=dialect,
+                        scope=scope,
+                    )
+                )
+
+            right_side_tables: OrderedSet[_TableName] = OrderedSet()
+            if join_target := join.this:
+                right_side_tables = _get_join_side_tables(
+                    target=join_target,
+                    dialect=dialect,
+                    scope=scope,
+                )
+
+            # We don't need to check for `using` here because it's normalized to `on`
+            # by the sqlglot optimizer.
+            on_clause: Optional[sqlglot.exp.Expression] = join.args.get("on")
+            if on_clause:
+                joined_columns = _get_raw_col_upstreams_for_expression(
+                    select=on_clause, dialect=dialect, scope=scope
+                )
+
+                unique_tables = OrderedSet(col.table for col in joined_columns)
+                if not unique_tables:
+                    logger.debug(
+                        "Skipping join because we couldn't resolve the tables from the join condition: %s",
+                        join.sql(dialect=dialect),
+                    )
+                    continue
+
+                # When we have an `on` clause, we only want to include tables whose columns are
+                # involved in the join condition. Without this, a statement like this:
+                #   WITH cte_alias AS (select t1.id, t1.user_id, t2.other_col from t1 join t2 on t1.id = t2.id)
+                #   SELECT * FROM users
+                #   JOIN cte_alias ON users.id = cte_alias.user_id
+                # would incorrectly include t2 as part of the left side tables.
+                left_side_tables = OrderedSet(left_side_tables & unique_tables)
+                right_side_tables = OrderedSet(right_side_tables & unique_tables)
+            else:
+                # Some joins (cross join, lateral join, etc.) don't have an ON clause.
+                # In those cases, we have some best-effort logic at least extract the
+                # tables involved.
+                joined_columns = OrderedSet()
+
+                if not left_side_tables and not right_side_tables:
+                    logger.debug(
+                        "Skipping join because we couldn't resolve any tables from the join operands: %s",
+                        join.sql(dialect=dialect),
+                    )
+                    continue
+                elif len(left_side_tables | right_side_tables) == 1:
+                    # When we don't have an ON clause, we're more strict about the
+                    # minimum number of tables we need to resolve to avoid false positives.
+                    # On the off chance someone is doing a self-cross-join, we'll miss it.
+                    logger.debug(
+                        "Skipping join because we couldn't resolve enough tables from the join operands: %s",
+                        join.sql(dialect=dialect),
+                    )
+                    continue
+
+            joins.append(
+                _JoinInfo(
+                    join_type=_get_join_type(join),
+                    left_tables=list(left_side_tables),
+                    right_tables=list(right_side_tables),
+                    on_clause=on_clause.sql(dialect=dialect) if on_clause else None,
+                    columns_involved=list(sorted(joined_columns)),
+                )
+            )
+
+        # Handle LATERAL constructs
+        for lateral in scope.expression.find_all(sqlglot.exp.Lateral):
+            # Get tables from non-lateral FROM clauses
+            qualified_left: OrderedSet[_TableName] = OrderedSet()
+            for from_clause in scope.find_all(sqlglot.exp.From):
+                if not isinstance(from_clause.this, sqlglot.exp.Lateral):
+                    qualified_left.update(
+                        _get_join_side_tables(from_clause.this, dialect, scope)
+                    )
+
+            # Get tables from lateral subquery
+            qualified_right: OrderedSet[_TableName] = OrderedSet()
+            if lateral.this and isinstance(lateral.this, sqlglot.exp.Subquery):
+                qualified_right.update(
+                    _TableName.from_sqlglot_table(t)
+                    for t in lateral.this.find_all(sqlglot.exp.Table)
+                )
+            qualified_right.update(qualified_left)
+
+            if qualified_left and qualified_right:
+                joins.append(
+                    _JoinInfo(
+                        join_type="LATERAL JOIN",
+                        left_tables=list(qualified_left),
+                        right_tables=list(qualified_right),
+                        on_clause=None,
+                        columns_involved=[],
+                    )
+                )
+
+    return joins
+
+
+def _get_join_type(join: sqlglot.exp.Join) -> str:
+    """Returns the type of join as a string.
+
+    Args:
+        join: A sqlglot Join expression.
+
+    Returns:
+        Stringified join type e.g. "LEFT JOIN", "RIGHT OUTER JOIN", "LATERAL JOIN", etc.
+    """
+    # This logic was derived from the sqlglot join_sql method.
+    # https://github.com/tobymao/sqlglot/blob/07bf71bae5d2a5c381104a86bb52c06809c21174/sqlglot/generator.py#L2248
+
+    # Special case for lateral joins
+    if isinstance(join.this, sqlglot.exp.Lateral):
+        if join.this.args.get("cross_apply") is not None:
+            return "CROSS APPLY"
+        return "LATERAL JOIN"
+
+    # Special case for STRAIGHT_JOIN (MySQL)
+    if join.args.get("kind") == "STRAIGHT":
+        return "STRAIGHT_JOIN"
+
+    # <method> <global> <side> <kind> JOIN
+    #  - method = "HASH", "MERGE"
+    #  - global = "GLOBAL"
+    #  - side = "LEFT", "RIGHT"
+    #  - kind = "INNER", "OUTER", "SEMI", "ANTI"
+    components = []
+    if method := join.args.get("method"):
+        components.append(method)
+    if join.args.get("global"):
+        components.append("GLOBAL")
+    if side := join.args.get("side"):
+        # For SEMI/ANTI joins, side is optional
+        components.append(side)
+    if kind := join.args.get("kind"):
+        components.append(kind)
+
+    components.append("JOIN")
+    return " ".join(components)
 
 
 def _extract_select_from_create(
@@ -784,7 +1195,12 @@ def _try_extract_select(
             statement = sqlglot.exp.Select().select("*").from_(statement)
     elif isinstance(statement, sqlglot.exp.Insert):
         # TODO Need to map column renames in the expressions part of the statement.
-        statement = statement.expression
+        # Preserve CTEs when extracting the SELECT expression from INSERT
+        original_ctes = statement.ctes
+        statement = statement.expression  # Get the SELECT expression from the INSERT
+        if isinstance(statement, sqlglot.exp.Query) and original_ctes:
+            for cte in original_ctes:
+                statement = statement.with_(alias=cte.alias, as_=cte.this)
     elif isinstance(statement, sqlglot.exp.Update):
         # Assumption: the output table is already captured in the modified tables list.
         statement = _extract_select_from_update(statement)
@@ -875,6 +1291,40 @@ def _translate_internal_column_lineage(
     )
 
 
+def _translate_internal_joins(
+    table_name_urn_mapping: Dict[_TableName, str],
+    raw_joins: List[_JoinInfo],
+    dialect: sqlglot.Dialect,
+) -> List[JoinInfo]:
+    joins = []
+    for raw_join in raw_joins:
+        try:
+            joins.append(
+                JoinInfo(
+                    join_type=raw_join.join_type,
+                    left_tables=[
+                        table_name_urn_mapping[table] for table in raw_join.left_tables
+                    ],
+                    right_tables=[
+                        table_name_urn_mapping[table] for table in raw_join.right_tables
+                    ],
+                    on_clause=raw_join.on_clause,
+                    columns_involved=[
+                        ColumnRef(
+                            table=table_name_urn_mapping[col.table],
+                            column=col.column,
+                        )
+                        for col in raw_join.columns_involved
+                    ],
+                )
+            )
+        except KeyError as e:
+            # Skip joins that reference tables we can't resolve (e.g., from CTE subqueries)
+            logger.debug(f"Skipping join with unresolvable table: {e}")
+            continue
+    return joins
+
+
 _StrOrNone = TypeVar("_StrOrNone", str, Optional[str])
 
 
@@ -923,12 +1373,12 @@ def _sqlglot_lineage_inner(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    default_dialect: Optional[str] = None,
+    override_dialect: Optional[DialectOrStr] = None,
 ) -> SqlParsingResult:
-    if not default_dialect:
-        dialect = get_dialect(schema_resolver.platform)
+    if override_dialect:
+        dialect = get_dialect(override_dialect)
     else:
-        dialect = get_dialect(default_dialect)
+        dialect = get_dialect(schema_resolver.platform)
 
     default_db = _normalize_db_or_schema(default_db, dialect)
     default_schema = _normalize_db_or_schema(default_schema, dialect)
@@ -1034,6 +1484,7 @@ def _sqlglot_lineage_inner(
             )
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
+    joins = None
     try:
         with cooperative_timeout(
             timeout=(
@@ -1049,6 +1500,7 @@ def _sqlglot_lineage_inner(
                 default_schema=default_schema,
             )
             column_lineage = column_lineage_debug_info.column_lineage
+            joins = column_lineage_debug_info.joins
     except CooperativeTimeoutError as e:
         logger.debug(f"Timed out while generating column-level lineage: {e}")
         debug_info.column_error = e
@@ -1081,6 +1533,14 @@ def _sqlglot_lineage_inner(
                 f"Failed to translate column lineage to urns: {e}", exc_info=True
             )
             debug_info.column_error = e
+    joins_urns = None
+    if joins is not None:
+        try:
+            joins_urns = _translate_internal_joins(
+                table_name_urn_mapping, raw_joins=joins, dialect=dialect
+            )
+        except KeyError as e:
+            logger.debug(f"Failed to translate joins to urns: {e}", exc_info=True)
 
     query_type, query_type_props = get_query_type_of_sql(
         original_statement, dialect=dialect
@@ -1095,6 +1555,7 @@ def _sqlglot_lineage_inner(
         in_tables=in_urns,
         out_tables=out_urns,
         column_lineage=column_lineage_urns,
+        joins=joins_urns,
         debug_info=debug_info,
     )
 
@@ -1104,7 +1565,7 @@ def _sqlglot_lineage_nocache(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    default_dialect: Optional[str] = None,
+    override_dialect: Optional[DialectOrStr] = None,
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -1122,8 +1583,8 @@ def _sqlglot_lineage_nocache(
     can be brittle with respect to missing schema information and complex
     SQL logic like UNNESTs.
 
-    The SQL dialect can be given as an argument called default_dialect or it can
-    be inferred from the schema_resolver's platform.
+    The SQL dialect will be inferred from the schema_resolver's platform.
+    That inference can be overridden by passing an override_dialect argument.
     The set of supported dialects is the same as sqlglot's. See their
     `documentation <https://sqlglot.com/sqlglot/dialects/dialect.html#Dialects>`_
     for the full list.
@@ -1138,7 +1599,7 @@ def _sqlglot_lineage_nocache(
         schema_resolver: The schema resolver to use for resolving table schemas.
         default_db: The default database to use for unqualified table names.
         default_schema: The default schema to use for unqualified table names.
-        default_dialect: A default dialect to override the dialect provided by 'schema_resolver'.
+        override_dialect: Override the dialect provided by 'schema_resolver'.
 
     Returns:
         A SqlParsingResult object containing the parsed lineage information.
@@ -1163,10 +1624,32 @@ def _sqlglot_lineage_nocache(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
-            default_dialect=default_dialect,
+            override_dialect=override_dialect,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
+    except BaseException as e:
+        # Check if this is a PanicException from SQLGlot's Rust tokenizer
+        # We use runtime type checking instead of isinstance() because pyo3_runtime
+        # is only available when sqlglot[rs] is installed and may not be importable
+        # at module load time, but the exception can still be raised at runtime
+        if (
+            e.__class__.__name__ == "PanicException"
+            and e.__class__.__module__ == "pyo3_runtime"
+        ):
+            # Handle pyo3_runtime.PanicException from SQLGlot's Rust tokenizer.
+            # pyo3_runtime.PanicException inherits from BaseException (like SystemExit or
+            # KeyboardInterrupt) rather than Exception, so it bypasses normal exception handling.
+            # Avoid catching BaseException, as it includes KeyboardInterrupt
+            # and would prevent Ctrl+C from working.
+            wrapped_exception = Exception(
+                f"pyo3_runtime.PanicException during SQL parsing: {e}"
+            )
+            wrapped_exception.__cause__ = e
+            return SqlParsingResult.make_from_error(wrapped_exception)
+        else:
+            # Re-raise other BaseException types (SystemExit, KeyboardInterrupt, etc.)
+            raise
 
 
 _sqlglot_lineage_cached = functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)(
@@ -1179,15 +1662,15 @@ def sqlglot_lineage(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    default_dialect: Optional[str] = None,
+    override_dialect: Optional[DialectOrStr] = None,
 ) -> SqlParsingResult:
     if schema_resolver.includes_temp_tables():
         return _sqlglot_lineage_nocache(
-            sql, schema_resolver, default_db, default_schema, default_dialect
+            sql, schema_resolver, default_db, default_schema, override_dialect
         )
     else:
         return _sqlglot_lineage_cached(
-            sql, schema_resolver, default_db, default_schema, default_dialect
+            sql, schema_resolver, default_db, default_schema, override_dialect
         )
 
 
@@ -1239,6 +1722,7 @@ def create_lineage_sql_parsed_result(
     default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
+    override_dialect: Optional[DialectOrStr] = None,
 ) -> SqlParsingResult:
     schema_resolver = create_schema_resolver(
         platform=platform,
@@ -1258,6 +1742,7 @@ def create_lineage_sql_parsed_result(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            override_dialect=override_dialect,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)

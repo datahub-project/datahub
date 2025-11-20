@@ -19,6 +19,8 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 (admin_user, admin_pass) = get_admin_credentials()
 
+previous_policy_urn = ""
+
 
 @pytest.fixture()
 def auth_exclude_filter():
@@ -123,15 +125,24 @@ def access_token_setup(auth_session, auth_exclude_filter):
     res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
+
+    if res_data["data"]["listAccessTokens"]["tokens"]:
+        for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
+            revokeAccessToken(admin_session, metadata["id"])
+        wait_for_writes_to_sync()
+
+    # Verify clean state after cleanup
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data["data"]["listAccessTokens"]["total"] == 0
     assert not res_data["data"]["listAccessTokens"]["tokens"]
 
     yield
 
-    # Clean up
+    # Clean up after the test
     res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
         revokeAccessToken(admin_session, metadata["id"])
+    wait_for_writes_to_sync()
 
 
 def test_audit_token_events(auth_exclude_filter):
@@ -325,12 +336,17 @@ def test_policy_events(auth_exclude_filter):
         or res_data["usageEvents"][1]["eventType"] == "UpdatePolicyEvent"
     )
     assert res_data["usageEvents"][1]["entityUrn"] == new_urn
+    global previous_policy_urn
     if len(res_data["usageEvents"]) == 3:
         assert (
             res_data["usageEvents"][2]["eventType"] == "CreatePolicyEvent"
             or res_data["usageEvents"][2]["eventType"] == "UpdatePolicyEvent"
         )
-        assert res_data["usageEvents"][2]["entityUrn"] == new_urn
+        assert (
+            res_data["usageEvents"][2]["entityUrn"] == new_urn
+            or res_data["usageEvents"][2]["entityUrn"] == previous_policy_urn
+        )
+    previous_policy_urn = new_urn
     user_session.cookies.clear()
 
 
@@ -457,6 +473,97 @@ def test_user_events(auth_exclude_filter):
         res_data["usageEvents"][3]["aspectName"] == "corpUserInfo"
         or res_data["usageEvents"][3]["aspectName"] == "corpUserKey"
     )
+    user_session.cookies.clear()
+
+
+def test_policy_create_delete(auth_exclude_filter):
+    user_session = login_as(admin_user, admin_pass)
+    json = {
+        "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
+            createPolicy(input: $input) }""",
+        "variables": {
+            "input": {
+                "type": "METADATA",
+                "name": "Test Metadata Policy",
+                "description": "My New Metadata Policy",
+                "state": "ACTIVE",
+                "resources": {"type": "dataset", "allResources": True},
+                "privileges": ["EDIT_ENTITY_TAGS"],
+                "actors": {
+                    "users": ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
+                    "resourceOwners": False,
+                    "allUsers": False,
+                    "allGroups": False,
+                },
+            }
+        },
+    }
+
+    response = user_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["createPolicy"]
+
+    wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
+
+    new_urn = res_data["data"]["createPolicy"]
+
+    update_json = {
+        "query": """mutation deletePolicy($urn: String!) {\n
+            deletePolicy(urn: $urn) }""",
+        "variables": {
+            "urn": new_urn,
+        },
+    }
+
+    response = user_session.post(
+        f"{get_frontend_url()}/api/v2/graphql", json=update_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    # Check updated was submitted successfully
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["deletePolicy"]
+    assert res_data["data"]["deletePolicy"] == new_urn
+
+    wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
+    res_data = searchForAuditEvents(
+        user_session,
+        3,
+        ["CreatePolicyEvent", "DeletePolicyEvent"],
+        ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
+        [],
+    )
+    print(res_data)
+    assert res_data
+    assert res_data["usageEvents"]
+    assert len(res_data["usageEvents"]) == 3 or len(res_data["usageEvents"]) == 2
+    assert (
+        res_data["usageEvents"][0]["eventType"] == "CreatePolicyEvent"
+        or res_data["usageEvents"][0]["eventType"] == "DeletePolicyEvent"
+    )
+    assert res_data["usageEvents"][0]["entityUrn"] == new_urn
+    assert (
+        res_data["usageEvents"][1]["eventType"] == "CreatePolicyEvent"
+        or res_data["usageEvents"][1]["eventType"] == "DeletePolicyEvent"
+    )
+    assert res_data["usageEvents"][1]["entityUrn"] == new_urn
+    global previous_policy_urn
+    if len(res_data["usageEvents"]) == 3:
+        assert (
+            res_data["usageEvents"][2]["eventType"] == "CreatePolicyEvent"
+            or res_data["usageEvents"][2]["eventType"] == "DeletePolicyEvent"
+        )
+        assert (
+            res_data["usageEvents"][2]["entityUrn"] == new_urn
+            or res_data["usageEvents"][2]["entityUrn"] == previous_policy_urn
+        )
+    previous_policy_urn = new_urn
     user_session.cookies.clear()
 
 

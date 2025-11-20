@@ -8,6 +8,7 @@ import com.linkedin.common.Siblings;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -36,7 +37,7 @@ public class SiblingGraphService {
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
       int offset,
-      int count,
+      @Nullable Integer count,
       int maxHops) {
     return getLineage(opContext, entityUrn, direction, offset, count, maxHops, false, false);
   }
@@ -47,7 +48,7 @@ public class SiblingGraphService {
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
       int offset,
-      int count,
+      @Nullable Integer count,
       int maxHops,
       boolean separateSiblings,
       boolean includeGhostEntities) {
@@ -76,11 +77,14 @@ public class SiblingGraphService {
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
       int offset,
-      int count,
+      @Nullable Integer count,
       int maxHops,
       boolean separateSiblings,
       boolean includeGhostEntities,
       @Nonnull Set<Urn> visitedUrns) {
+
+    count = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), count);
+
     if (separateSiblings) {
       return ValidationUtils.validateEntityLineageResult(
           opContext,

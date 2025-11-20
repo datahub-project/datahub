@@ -4,7 +4,7 @@ from unittest import mock
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-02-23 07:00:00"
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
@@ -26,9 +27,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import MultipleSubtypesWarning, SdkUsageError
 from datahub.metadata.urns import (
+    ChartUrn,
     ContainerUrn,
     CorpGroupUrn,
     CorpUserUrn,
+    DashboardUrn,
+    DataFlowUrn,
     DataJobUrn,
     DataPlatformInstanceUrn,
     DataPlatformUrn,
@@ -37,6 +41,7 @@ from datahub.metadata.urns import (
     DomainUrn,
     GlossaryTermUrn,
     OwnershipTypeUrn,
+    StructuredPropertyUrn,
     TagUrn,
     Urn,
     VersionSetUrn,
@@ -47,12 +52,22 @@ from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
     from datahub.sdk.container import Container
-
 UrnOrStr: TypeAlias = Union[Urn, str]
+ChartUrnOrStr: TypeAlias = Union[str, ChartUrn]
 DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
 DatajobUrnOrStr: TypeAlias = Union[str, DataJobUrn]
+DataflowUrnOrStr: TypeAlias = Union[str, DataFlowUrn]
+DashboardUrnOrStr: TypeAlias = Union[str, DashboardUrn]
+DataPlatformInstanceUrnOrStr: TypeAlias = Union[str, DataPlatformInstanceUrn]
+DataPlatformUrnOrStr: TypeAlias = Union[str, DataPlatformUrn]
 
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
+ActorUrnOrStr: TypeAlias = Union[str, ActorUrn]
+StructuredPropertyUrnOrStr: TypeAlias = Union[str, StructuredPropertyUrn]
+StructuredPropertyValueType: TypeAlias = Union[str, float, int]
+StructuredPropertyInputType: TypeAlias = Dict[
+    StructuredPropertyUrnOrStr, Sequence[StructuredPropertyValueType]
+]
 
 TrainingMetricsInputType: TypeAlias = Union[
     List[models.MLMetricClass], Dict[str, Optional[str]]
@@ -95,6 +110,130 @@ def parse_time_stamp(ts: Optional[models.TimeStampClass]) -> Optional[datetime]:
     if ts is None:
         return None
     return parse_ts_millis(ts.time)
+
+
+class ChangeAuditStampsMixin(ABC):
+    """Mixin class for managing audit stamps on entities."""
+
+    __slots__ = ()
+
+    @abstractmethod
+    def _get_audit_stamps(self) -> models.ChangeAuditStampsClass:
+        """Get the audit stamps from the entity properties."""
+        pass
+
+    @abstractmethod
+    def _set_audit_stamps(self, audit_stamps: models.ChangeAuditStampsClass) -> None:
+        """Set the audit stamps on the entity properties."""
+        pass
+
+    @property
+    def last_modified(self) -> Optional[datetime]:
+        """Get the last modification timestamp from audit stamps."""
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        if audit_stamps.lastModified.time == 0:
+            return None
+        return datetime.fromtimestamp(
+            audit_stamps.lastModified.time / 1000
+        )  # supports only seconds precision
+
+    def set_last_modified(self, last_modified: datetime) -> None:
+        """Set the last modification timestamp in audit stamps."""
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        audit_stamps.lastModified.time = make_ts_millis(last_modified)
+        self._set_audit_stamps(audit_stamps)
+
+    @property
+    def last_modified_by(self) -> Optional[str]:
+        """Get the last modification actor from audit stamps."""
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        if audit_stamps.lastModified.actor == builder.UNKNOWN_USER:
+            return None
+        return audit_stamps.lastModified.actor
+
+    def set_last_modified_by(self, last_modified_by: ActorUrnOrStr) -> None:
+        """Set the last modification actor in audit stamps."""
+        if isinstance(last_modified_by, str):
+            last_modified_by = make_user_urn(last_modified_by)
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        audit_stamps.lastModified.actor = str(last_modified_by)
+        self._set_audit_stamps(audit_stamps)
+
+    @property
+    def created_at(self) -> Optional[datetime]:
+        """Get the creation timestamp from audit stamps."""
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        if audit_stamps.created.time == 0:
+            return None
+        return datetime.fromtimestamp(
+            audit_stamps.created.time / 1000
+        )  # supports only seconds precision
+
+    def set_created_at(self, created_at: datetime) -> None:
+        """Set the creation timestamp in audit stamps."""
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        audit_stamps.created.time = make_ts_millis(created_at)
+        self._set_audit_stamps(audit_stamps)
+
+    @property
+    def created_by(self) -> Optional[ActorUrnOrStr]:
+        """Get the creation actor from audit stamps."""
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        if audit_stamps.created.actor == builder.UNKNOWN_USER:
+            return None
+        return audit_stamps.created.actor
+
+    def set_created_by(self, created_by: ActorUrnOrStr) -> None:
+        """Set the creation actor in audit stamps."""
+        if isinstance(created_by, str):
+            created_by = make_user_urn(created_by)
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        audit_stamps.created.actor = str(created_by)
+        self._set_audit_stamps(audit_stamps)
+
+    @property
+    def deleted_on(self) -> Optional[datetime]:
+        """Get the deletion timestamp from audit stamps."""
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        if audit_stamps.deleted is None or audit_stamps.deleted.time == 0:
+            return None
+        return datetime.fromtimestamp(
+            audit_stamps.deleted.time / 1000
+        )  # supports only seconds precision
+
+    def set_deleted_on(self, deleted_on: datetime) -> None:
+        """Set the deletion timestamp in audit stamps."""
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        # Default constructor sets deleted to None
+        if audit_stamps.deleted is None:
+            audit_stamps.deleted = models.AuditStampClass(
+                time=0, actor=builder.UNKNOWN_USER
+            )
+        audit_stamps.deleted.time = make_ts_millis(deleted_on)
+        self._set_audit_stamps(audit_stamps)
+
+    @property
+    def deleted_by(self) -> Optional[ActorUrnOrStr]:
+        """Get the deletion actor from audit stamps."""
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        if (
+            audit_stamps.deleted is None
+            or audit_stamps.deleted.actor == builder.UNKNOWN_USER
+        ):
+            return None
+        return audit_stamps.deleted.actor
+
+    def set_deleted_by(self, deleted_by: ActorUrnOrStr) -> None:
+        """Set the deletion actor in audit stamps."""
+        if isinstance(deleted_by, str):
+            deleted_by = make_user_urn(deleted_by)
+        audit_stamps: models.ChangeAuditStampsClass = self._get_audit_stamps()
+        if audit_stamps.deleted is None:
+            audit_stamps.deleted = models.AuditStampClass(
+                time=0, actor=builder.UNKNOWN_USER
+            )
+        audit_stamps.deleted.actor = str(deleted_by)
+        self._set_audit_stamps(audit_stamps)
 
 
 class HasPlatformInstance(Entity):
@@ -166,7 +305,7 @@ OwnerInputType: TypeAlias = Union[
     Tuple[ActorUrn, OwnershipTypeType],
     models.OwnerClass,
 ]
-OwnersInputType: TypeAlias = List[OwnerInputType]
+OwnersInputType: TypeAlias = Sequence[OwnerInputType]
 
 
 class HasOwnership(Entity):
@@ -267,7 +406,9 @@ class HasOwnership(Entity):
 # If you pass in a ContainerKey, we can use parent_key() to build the browse path.
 # If you pass in a list of urns, we'll use that as the browse path. Any non-urn strings
 # will be treated as raw ids.
-ParentContainerInputType: TypeAlias = Union["Container", ContainerKey, List[UrnOrStr]]
+ParentContainerInputType: TypeAlias = Union[
+    "Container", ContainerKey, Sequence[UrnOrStr]
+]
 
 
 class HasContainer(Entity):
@@ -327,7 +468,7 @@ class HasContainer(Entity):
                 )
                 for entry in parsed_path
             ]
-        elif container is not None:
+        elif isinstance(container, ContainerKey):
             container_urn = container.as_urn()
 
             browse_path_reversed = [container_urn]
@@ -386,7 +527,7 @@ class HasContainer(Entity):
 
 
 TagInputType: TypeAlias = Union[str, TagUrn, models.TagAssociationClass]
-TagsInputType: TypeAlias = List[TagInputType]
+TagsInputType: TypeAlias = Sequence[TagInputType]
 
 
 class HasTags(Entity):
@@ -441,7 +582,7 @@ class HasTags(Entity):
 TermInputType: TypeAlias = Union[
     str, GlossaryTermUrn, models.GlossaryTermAssociationClass
 ]
-TermsInputType: TypeAlias = List[TermInputType]
+TermsInputType: TypeAlias = Sequence[TermInputType]
 
 
 class HasTerms(Entity):
@@ -716,3 +857,107 @@ class HasVersion(Entity):
                 a for a in version_props.aliases if a.versionTag != alias
             ]
             self._set_aspect(version_props)
+
+
+class HasStructuredProperties(Entity):
+    """
+    Mixin for entities that support structured properties
+    """
+
+    __slots__ = ()
+
+    @property
+    def structured_properties(
+        self,
+    ) -> Optional[List[models.StructuredPropertyValueAssignmentClass]]:
+        """
+        Retrieve structured properties for the entity
+
+        Returns:
+            Optional list of structured property value assignments
+        """
+        sp_aspect = self._get_aspect(models.StructuredPropertiesClass)
+        return sp_aspect.properties if sp_aspect else None
+
+    def _ensure_structured_properties(self) -> models.StructuredPropertiesClass:
+        """
+        Ensure structured properties aspect exists, creating it if necessary
+
+        Returns:
+            StructuredPropertiesClass aspect
+        """
+        return self._setdefault_aspect(models.StructuredPropertiesClass(properties=[]))
+
+    def set_structured_property(
+        self,
+        property_urn: StructuredPropertyUrnOrStr,
+        values: Sequence[StructuredPropertyValueType],
+    ) -> None:
+        """
+        Update an existing structured property or add if it doesn't exist
+
+        Args:
+            property_urn: URN of the structured property
+            values: List of values for the property
+        """
+        # validate property_urn is a valid structured property urn
+        property_urn = StructuredPropertyUrn.from_string(property_urn)
+
+        properties = self._ensure_structured_properties()
+
+        # Find existing property assignment
+        existing_prop = next(
+            (
+                prop
+                for prop in properties.properties
+                if prop.propertyUrn == str(property_urn)
+            ),
+            None,
+        )
+        current_timestamp = make_ts_millis(datetime.now())
+
+        if existing_prop:
+            # Update existing property
+            existing_prop.values = list(values)
+            existing_prop.lastModified = models.AuditStampClass(
+                time=current_timestamp,
+                actor=DEFAULT_ACTOR_URN,
+            )
+        else:
+            # Create new property assignment
+            new_property = models.StructuredPropertyValueAssignmentClass(
+                propertyUrn=str(property_urn),
+                values=list(values),
+                created=models.AuditStampClass(
+                    time=current_timestamp,
+                    actor=DEFAULT_ACTOR_URN,
+                ),
+                lastModified=models.AuditStampClass(
+                    time=current_timestamp,
+                    actor=DEFAULT_ACTOR_URN,
+                ),
+            )
+            add_list_unique(
+                properties.properties,
+                key=lambda prop: prop.propertyUrn,
+                item=new_property,
+            )
+
+        self._set_aspect(properties)
+
+    def remove_structured_property(
+        self, property_urn: StructuredPropertyUrnOrStr
+    ) -> None:
+        """
+        Remove a structured property from the entity
+
+        Args:
+            property_urn: URN of the structured property to remove
+        """
+        remove_list_unique(
+            self._ensure_structured_properties().properties,
+            key=lambda prop: prop.propertyUrn,
+            item=models.StructuredPropertyValueAssignmentClass(
+                propertyUrn=str(property_urn), values=[]
+            ),
+        )

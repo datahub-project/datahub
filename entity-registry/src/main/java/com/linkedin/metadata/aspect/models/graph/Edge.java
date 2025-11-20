@@ -132,6 +132,8 @@ public class Edge {
   public static final String EDGE_DESTINATION_STATUS = "destination.removed";
   public static final String EDGE_FIELD_VIA_STATUS = "viaRemoved";
   public static final String EDGE_FIELD_LIFECYCLE_OWNER_STATUS = "lifecycleOwnerRemoved";
+  public static final String EDGE_FIELD_UPDATED_ON = "updatedOn";
+  public static final String EDGE_FIELD_CREATED_ON = "createdOn";
 
   public static final List<Pair<String, SortOrder>> KEY_SORTS =
       ImmutableList.of(

@@ -156,7 +156,7 @@ public class EntityAspect {
             e.toString());
       }
 
-      envelopedAspect.setCreated(getAuditStamp());
+      envelopedAspect.setCreated(getAuditStamp(), SetMode.IGNORE_NULL);
 
       return envelopedAspect;
     }

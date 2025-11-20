@@ -78,6 +78,8 @@ public class EntityTypeUrnMapper {
           .put(
               Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME,
               "urn:li:entityType:datahub.businessAttribute")
+          .put(Constants.APPLICATION_ENTITY_NAME, "urn:li:entityType:datahub.application")
+          .put(Constants.DOCUMENT_ENTITY_NAME, "urn:li:entityType:datahub.document")
           .build();
 
   private static final Map<String, String> ENTITY_TYPE_URN_TO_NAME =

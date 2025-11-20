@@ -9,7 +9,7 @@ import { DeprecationIcon } from '@app/entityV2/shared/components/styled/Deprecat
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import { Button } from '@src/alchemy-components';
+import { Button, colors } from '@src/alchemy-components';
 import MarkAsDeprecatedButton from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 
 import { Deprecation, SubResourceType, UsageQueryResult } from '@types';
@@ -21,13 +21,13 @@ const FieldDetailsWrapper = styled.div`
 const FieldDetailsContent = styled.div`
     display: flex;
     gap: 10px;
-    border-bottom: 1px dashed;
-    border-color: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid;
+    border-color: ${colors.gray[100]};
     padding-bottom: 16px;
     & > div {
         &:not(:first-child) {
-            border-left: 1px dashed;
-            border-color: rgba(0, 0, 0, 0.3);
+            border-left: 1px solid;
+            border-color: ${colors.gray[100]};
         }
     }
 `;

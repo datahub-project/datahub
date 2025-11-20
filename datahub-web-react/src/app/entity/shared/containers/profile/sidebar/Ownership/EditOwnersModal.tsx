@@ -6,6 +6,7 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { handleBatchError } from '@app/entity/shared/utils';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToSearchInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getModalDomContainer } from '@utils/focus';
 
@@ -150,14 +151,19 @@ export const EditOwnersModal = ({
 
     // Invokes the search API as the owner types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+        const input = addUserFiltersToSearchInput(
+            {
+                type,
+                query: text,
+                start: 0,
+                count: 5,
+            },
+            type,
+        );
+
         searchQuery({
             variables: {
-                input: {
-                    type,
-                    query: text,
-                    start: 0,
-                    count: 5,
-                },
+                input,
             },
         });
     };

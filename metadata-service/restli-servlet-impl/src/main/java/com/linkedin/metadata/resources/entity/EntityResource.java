@@ -21,7 +21,9 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
-
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -133,7 +135,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String SYSTEM_METADATA = "systemMetadata";
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
-  private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
   private final Clock _clock = Clock.systemUTC();
 
   @Inject
@@ -183,6 +184,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("restrictedService")
   private RestrictedService restrictedService;
+
+  @Inject
+  private ElasticSearchConfiguration searchConfiguration;
 
   /** Retrieves the value for an entity that is made up of latest versions of specified aspects. */
   @RestMethod.Get
@@ -374,7 +378,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_COUNT) @Nullable Integer count,
       @Optional @Deprecated @Nullable @ActionParam(PARAM_FULLTEXT) Boolean fulltext,
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags) {
 
@@ -426,7 +430,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_COUNT) @Nullable Integer count,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -484,7 +488,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_SCROLL_ID) @Optional @Nullable String scrollId,
       @ActionParam(PARAM_KEEP_ALIVE) String keepAlive,
-      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_COUNT) @Nullable Integer count,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -545,7 +549,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_COUNT) @Nullable Integer count,
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags)
@@ -606,7 +610,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_SCROLL_ID) @Optional @Nullable String scrollId,
       @ActionParam(PARAM_KEEP_ALIVE) String keepAlive,
-      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_COUNT) @Nullable Integer count,
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags)
@@ -667,7 +671,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) {
+      @ActionParam(PARAM_COUNT) @Nullable Integer count) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
@@ -709,7 +713,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_QUERY) @Nonnull String query,
       @ActionParam(PARAM_FIELD) @Optional @Nullable String field,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_LIMIT) int limit,
+      @ActionParam(PARAM_LIMIT) @Nullable Integer limit,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -746,7 +750,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_PATH) @Nonnull String path,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_LIMIT) int limit,
+      @ActionParam(PARAM_LIMIT) @Nullable Integer limit,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -805,7 +809,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   }
 
   private String stringifyRowCount(int size) {
-    if (size < ELASTIC_MAX_PAGE_SIZE) {
+    if (size < ConfigUtils.applyLimit(systemMetadataService.getSystemMetadataServiceConfig(), size)) {
       return String.valueOf(size);
     } else {
       return "at least " + size;
@@ -848,7 +852,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   finalRegistryVersion.toString(),
                   false,
                   0,
-                  ESUtils.MAX_RESULT_SIZE);
+                   null);
           log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
           response.setAspectsAffected(aspectRowsToDelete.size());
           Set<String> urns =
@@ -1121,7 +1125,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<ListUrnsResult> listUrns(
       @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count)
+      @ActionParam(PARAM_COUNT) @Nullable Integer count)
       throws URISyntaxException {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -1192,7 +1196,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) {
+      @ActionParam(PARAM_COUNT) @Nullable Integer count) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(

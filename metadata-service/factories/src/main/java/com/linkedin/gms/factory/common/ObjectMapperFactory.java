@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -20,6 +21,7 @@ public class ObjectMapperFactory {
     objectMapper
         .getFactory()
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    objectMapper.registerModule(new Jdk8Module());
     return objectMapper;
   }
 }

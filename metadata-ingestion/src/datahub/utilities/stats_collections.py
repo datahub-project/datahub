@@ -56,3 +56,7 @@ class TopKDict(DefaultDict[_KT, _VT]):
 
 def int_top_k_dict() -> TopKDict[str, int]:
     return TopKDict(int)
+
+
+def float_top_k_dict() -> TopKDict[str, float]:
+    return TopKDict(float)

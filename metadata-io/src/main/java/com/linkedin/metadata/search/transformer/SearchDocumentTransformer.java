@@ -3,7 +3,7 @@ package com.linkedin.metadata.search.transformer;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.SYSTEM_CREATED_FIELD;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.SYSTEM_CREATED_FIELD;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -47,7 +47,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -118,34 +117,64 @@ public class SearchDocumentTransformer {
   }
 
   /**
-   * Handle object type UPSERTS where the new value to upsert removes a previous key. Only enabling
-   * for structured properties to start with i.e.
+   * While initially created to handle object type UPSERTS where the new value to upsert removes a
+   * previous key for enabling structured properties, this has been extended for removing other
+   * fields and nested values.
+   *
+   * <p>Original Structured Properties Example
    *
    * <p>New => { "structuredProperties.foobar": "value1" } Old => { "structuredProperties.foobar":
    * "value1" "structuredProperties.foobar2": "value2" } Expected => {
    * "structuredProperties.foobar": "value1" "structuredProperties.foobar2": null }
    *
-   * @param searchDocument new document
-   * @param previousSearchDocument previous document (if not present, no-op)
-   * @return searchDocument to upsert
+   * <p>Handles removing fields that were present in the previous document but are not in the new
+   * document. This method performs a deep comparison of all fields (including nested fields) and
+   * sets any missing fields to null in the resulting document.
+   *
+   * <p>The implementation handles both: - Flat fields with dots in their names which are escaped
+   * later. (like "structuredProperties.prop1") - Actual nested object structures
+   *
+   * <p>NOTE: This method mutates the input searchDocument object.
+   *
+   * @param searchDocument The new search document (will be mutated)
+   * @param previousSearchDocument The previous search document (can be null)
+   * @return The mutated search document with removed fields set to null
    */
   public static ObjectNode handleRemoveFields(
       @Nonnull ObjectNode searchDocument, @Nullable ObjectNode previousSearchDocument) {
-    if (previousSearchDocument != null) {
-      Set<String> documentFields = objectFieldsFilter(searchDocument.fieldNames());
-      objectFieldsFilter(previousSearchDocument.fieldNames()).stream()
-          .filter(prevFieldName -> !documentFields.contains(prevFieldName))
-          .forEach(removeFieldName -> searchDocument.set(removeFieldName, null));
+    if (previousSearchDocument == null) {
+      return searchDocument;
     }
-    // no-op
+
+    // Process fields recursively
+    processFieldsForRemoval(searchDocument, previousSearchDocument);
+
     return searchDocument;
   }
 
-  private static Set<String> objectFieldsFilter(Iterator<String> fieldNames) {
-    Iterable<String> iterable = () -> fieldNames;
-    return StreamSupport.stream(iterable.spliterator(), false)
-        .filter(fieldName -> fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX))
-        .collect(Collectors.toSet());
+  /** Recursively processes fields to find and null out removed ones. */
+  private static void processFieldsForRemoval(ObjectNode current, JsonNode previous) {
+    if (previous == null || !previous.isObject()) {
+      return;
+    }
+
+    Iterator<Map.Entry<String, JsonNode>> prevFields = previous.fields();
+    while (prevFields.hasNext()) {
+      Map.Entry<String, JsonNode> entry = prevFields.next();
+      String fieldName = entry.getKey();
+      JsonNode prevValue = entry.getValue();
+      JsonNode currentValue = current.get(fieldName);
+
+      if (currentValue == null) {
+        // Field was removed, set it to null
+        current.set(fieldName, JsonNodeFactory.instance.nullNode());
+      } else if (currentValue.isObject() && prevValue.isObject()) {
+        // Both are objects, recurse into them
+        processFieldsForRemoval((ObjectNode) currentValue, prevValue);
+      }
+      // If current exists but types don't match (one is object, other isn't),
+      // we don't recurse - the field was replaced with a different type
+    }
   }
 
   public Optional<ObjectNode> transformAspect(
@@ -166,12 +195,16 @@ public class SearchDocumentTransformer {
 
     Optional<ObjectNode> result = Optional.empty();
 
+    final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+    searchDocument.put("urn", urn.toString());
+
+    // Check if the entity has any searchable aspects
+    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
+    boolean entityHasSearchableAspects = !entitySpec.getSearchableFieldSpecs().isEmpty();
+
     if (!extractedSearchableFields.isEmpty()
         || !extractedSearchScoreFields.isEmpty()
         || !extractedSearchRefFields.isEmpty()) {
-      final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
-      searchDocument.put("urn", urn.toString());
-
       extractedSearchableFields.forEach(
           (key, values) ->
               setSearchableValue(key, values, searchDocument, forDelete, mclCreateAuditStamp));
@@ -182,9 +215,13 @@ public class SearchDocumentTransformer {
       extractedSearchScoreFields.forEach(
           (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
       result = Optional.of(searchDocument);
-    } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
-      final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
-      searchDocument.put("urn", urn.toString());
+    } else if (entityHasSearchableAspects) {
+      // If entity has searchable aspects but current aspect has no searchable fields,
+      // still create a search document with just the URN
+      result = Optional.of(searchDocument);
+    }
+
+    if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
       setStructuredPropertiesSearchValue(
           opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
       result = Optional.of(searchDocument);

@@ -94,6 +94,14 @@ const meta = {
             description: 'Ref for table header.',
             control: false,
         },
+        footer: {
+            description: 'Optional footer for the table.',
+            table: {
+                type: {
+                    summary: 'React.ReactNode',
+                },
+            },
+        },
     },
 
     // Define defaults

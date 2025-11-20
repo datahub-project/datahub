@@ -56,10 +56,15 @@ public class IcebergExceptionHandlerAdvice extends ResponseEntityExceptionHandle
     return err(e, HttpStatus.BAD_REQUEST);
   }
 
+  @ExceptionHandler(CommitFailedException.class)
+  public ResponseEntity<?> handle(CommitFailedException e) {
+    return err(e, HttpStatus.CONFLICT);
+  }
+
   @ExceptionHandler(Exception.class)
-  public ResponseEntity<?> handle(Exception e) throws Exception {
+  public ResponseEntity<?> handle(Exception e) {
     log.error("Server exception", e);
-    throw e;
+    return err(e, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   private ResponseEntity<?> err(Exception e, HttpStatus errCode) {

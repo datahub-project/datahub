@@ -10,23 +10,19 @@ const ContentWrapper = styled.div`
     color: ${REDESIGN_COLORS.DARK_GREY};
     line-height: 20px;
     white-space: break-spaces;
+    width: 100%;
 `;
 
 interface Props {
     description: string;
     isExpandable?: boolean;
     lineLimit?: number;
-    isShowMoreEnabled?: boolean;
 }
 
-export default function DescriptionSection({ description, isExpandable, lineLimit, isShowMoreEnabled }: Props) {
+export default function DescriptionSection({ description, isExpandable, lineLimit }: Props) {
     return (
         <ContentWrapper>
-            <CompactMarkdownViewer
-                lineLimit={isExpandable ? lineLimit : null}
-                content={description}
-                isShowMoreEnabled={isShowMoreEnabled}
-            />
+            <CompactMarkdownViewer lineLimit={isExpandable ? lineLimit : null} content={description} />
         </ContentWrapper>
     );
 }

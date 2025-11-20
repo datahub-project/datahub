@@ -5,6 +5,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,9 +15,24 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class RequestInputUtil {
   private RequestInputUtil() {}
+
+  public static Collection<String> resolveEntityNames(
+      @Nonnull EntityRegistry entityRegistry, @Nullable Set<String> entityNames) {
+    final Collection<String> resolvedEntityNames;
+    if (entityNames != null) {
+      resolvedEntityNames =
+          entityNames.stream().map(entityRegistry::getEntitySpec).map(EntitySpec::getName).toList();
+    } else {
+      resolvedEntityNames =
+          entityRegistry.getEntitySpecs().values().stream().map(EntitySpec::getName).toList();
+    }
+
+    return resolvedEntityNames;
+  }
 
   public static List<String> resolveAspectNames(
       EntityRegistry entityRegistry, Urn urn, List<String> inputAspectNames, boolean expandEmpty) {

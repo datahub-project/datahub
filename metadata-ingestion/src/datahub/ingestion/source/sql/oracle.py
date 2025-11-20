@@ -10,8 +10,8 @@ from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, 
 from unittest.mock import patch
 
 import oracledb
-import pydantic
 import sqlalchemy.engine
+from pydantic import ValidationInfo, field_validator
 from pydantic.fields import Field
 from sqlalchemy import event, sql
 from sqlalchemy.dialects.oracle.base import ischema_names
@@ -37,7 +37,7 @@ from datahub.ingestion.source.sql.sql_config import (
 
 logger = logging.getLogger(__name__)
 
-oracledb.version = "8.3.0"
+oracledb.version = "8.3.0"  # type: ignore[assignment]
 sys.modules["cx_Oracle"] = oracledb
 
 extra_oracle_types = {
@@ -101,25 +101,32 @@ class OracleConfig(BasicSQLAlchemyConfig):
         "On Linux, this value is ignored, as ldconfig or LD_LIBRARY_PATH will define the location.",
     )
 
-    @pydantic.validator("service_name")
-    def check_service_name(cls, v, values):
-        if values.get("database") and v:
+    @field_validator("service_name", mode="after")
+    @classmethod
+    def check_service_name(
+        cls, v: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        if info.data.get("database") and v:
             raise ValueError(
                 "specify one of 'database' and 'service_name', but not both"
             )
         return v
 
-    @pydantic.validator("data_dictionary_mode")
-    def check_data_dictionary_mode(cls, values):
-        if values not in ("ALL", "DBA"):
+    @field_validator("data_dictionary_mode", mode="after")
+    @classmethod
+    def check_data_dictionary_mode(cls, value: str) -> str:
+        if value not in ("ALL", "DBA"):
             raise ValueError("Specify one of data dictionary views mode: 'ALL', 'DBA'.")
-        return values
+        return value
 
-    @pydantic.validator("thick_mode_lib_dir", always=True)
-    def check_thick_mode_lib_dir(cls, v, values):
+    @field_validator("thick_mode_lib_dir", mode="before")
+    @classmethod
+    def check_thick_mode_lib_dir(
+        cls, v: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
         if (
             v is None
-            and values.get("enable_thick_mode")
+            and info.data.get("enable_thick_mode")
             and (platform.system() == "Darwin" or platform.system() == "Windows")
         ):
             raise ValueError(
@@ -441,7 +448,7 @@ class OracleInspectorObjectWrapper:
             "\nac.constraint_name,"
             "\nac.constraint_type,"
             "\nacc.column_name AS local_column,"
-            "\nac.r_table_name AS remote_table,"
+            "\nac.table_name AS remote_table,"
             "\nrcc.column_name AS remote_column,"
             "\nac.r_owner AS remote_owner,"
             "\nacc.position AS loc_pos,"
@@ -659,7 +666,7 @@ class OracleSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = OracleConfig.parse_obj(config_dict)
+        config = OracleConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_db_name(self, inspector: Inspector) -> str:

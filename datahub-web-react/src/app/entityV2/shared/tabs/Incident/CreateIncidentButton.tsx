@@ -11,7 +11,7 @@ import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 
 export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEntity }: CreateIncidentButtonProps) => {
-    const { entityData, urn: entityUrn, entityType: dataEntityType } = useEntityData();
+    const { entityData, urn: entityUrn, entityType: dataEntityType, loading } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
@@ -55,13 +55,20 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
         ),
     }));
 
+    // Dynamic test IDs based on loading state
+    const getTestId = () => {
+        if (loading) return 'create-incident-btn-loading';
+        if (isSiblingMode) return 'create-incident-btn-main-with-siblings';
+        return 'create-incident-btn-main';
+    };
+
     return (
         <>
             {isSiblingMode ? (
                 <Dropdown placement="bottom" menu={{ items: siblingSelectionOptions }}>
                     <CreateButton
                         disabled={!canEditIncidents}
-                        data-testid="create-incident-btn-main"
+                        data-testid={getTestId()}
                         className="create-incident-button"
                     >
                         <PlusOutlined /> Create
@@ -72,7 +79,7 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
                     <CreateButton
                         onClick={() => setShowIncidentBuilder(true)}
                         disabled={!canEditIncidents}
-                        data-testid="create-incident-btn-main"
+                        data-testid={getTestId()}
                         className="create-incident-button"
                     >
                         <PlusOutlined /> Create

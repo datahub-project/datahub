@@ -19,4 +19,7 @@ repositories {
 
 dependencies {
     implementation 'org.apache.spark:spark-sql_2.11:2.4.8'
+    implementation('commons-beanutils:commons-beanutils:1.11.0') {
+      because("CVE-2025-48734")
+    }
 }

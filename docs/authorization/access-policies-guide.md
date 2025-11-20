@@ -256,10 +256,10 @@ Policies only affect REST APIs when the environment variable `REST_API_AUTHORIZA
 
 ### GraphQL
 
-- [listPolicies](../../graphql/queries.md#listPolicies)
-- [createPolicy](../../graphql/mutations.md#createPolicy)
-- [updatePolicy](../../graphql/mutations.md#updatePolicy)
-- [deletePolicy](../../graphql/mutations.md#deletePolicy)
+- [listPolicies](../../graphql/queries.md#listpolicies)
+- [createPolicy](../../graphql/mutations.md#createpolicy)
+- [updatePolicy](../../graphql/mutations.md#updatepolicy)
+- [deletePolicy](../../graphql/mutations.md#deletepolicy)
 
 ## FAQ and Troubleshooting
 

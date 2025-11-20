@@ -8,7 +8,7 @@ from sqlalchemy.sql.elements import TextClause
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.oracle import OracleConfig
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 
 @dataclass
@@ -159,7 +159,7 @@ class OracleTestCaseBase:
             "source": {
                 "type": "oracle",
                 "config": {
-                    **self.get_default_recipe_config().dict(),
+                    **self.get_default_recipe_config().model_dump(),
                 },
             }
         }

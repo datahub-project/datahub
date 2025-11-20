@@ -11,6 +11,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
@@ -137,6 +138,7 @@ public class EntityClientCache {
 
     public EntityClientCache build(
         @Nonnull final Function<CollectionKey, Map<Urn, EntityResponse>> fetchFunction,
+        MetricUtils metricUtils,
         Class<?> metricClazz) {
 
       // estimate size
@@ -176,7 +178,7 @@ public class EntityClientCache {
               .config(this.config)
               .loadFunction(loader)
               .ttlSecondsFunction(ttlSeconds)
-              .build(metricClazz);
+              .build(metricUtils, metricClazz);
 
       return new EntityClientCache(this.config, this.cache, fetchFunction);
     }

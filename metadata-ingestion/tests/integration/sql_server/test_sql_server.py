@@ -11,7 +11,7 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
@@ -28,10 +28,19 @@ def mssql_runner(docker_compose_runner, pytestconfig):
         wait_for_port(docker_services, "testsqlserver", 1433)
         time.sleep(5)
 
-        # Run the setup.sql file to populate the database.
-        command = "docker exec testsqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'test!Password' -d master -i /setup/setup.sql"
-        ret = subprocess.run(command, shell=True, capture_output=True)
-        assert ret.returncode == 0
+        # Run the setup.sql file to populate the database; -b and -V 1, to fail on error
+        command = "docker exec testsqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'test!Password' -d master -i /setup/setup.sql -b -V 1"
+        print("\nExecuting SQL setup command:", command)
+        ret = subprocess.run(command, shell=True, capture_output=True, text=True)
+
+        if ret.returncode != 0:
+            print(f"sqlcmd return code: {ret.returncode}")
+            print(f"sqlcmd stdout:\n{ret.stdout}")
+            print(f"sqlcmd stderr:\n{ret.stderr}")
+            raise Exception(
+                "SQL Server setup failed. Check the output above for details."
+            )
+
         yield docker_services
 
     # The image is pretty large, so we remove it after the test.

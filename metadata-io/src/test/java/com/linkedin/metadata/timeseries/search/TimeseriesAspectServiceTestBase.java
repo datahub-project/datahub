@@ -3,6 +3,7 @@ package com.linkedin.metadata.timeseries.search;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_TIMESERIES_ASPECT_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -26,7 +27,6 @@ import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.StringMapArray;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
@@ -43,10 +43,11 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
-import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
@@ -58,7 +59,9 @@ import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
 import java.util.Calendar;
 import java.util.Collections;
@@ -68,7 +71,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -98,7 +100,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   private static final String ES_FIELD_STAT = "stat";
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   @Nonnull
   protected abstract ESBulkProcessor getBulkProcessor();
@@ -127,17 +129,21 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
                 .getClassLoader()
                 .getResourceAsStream("test-entity-registry.yml"));
 
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("es_timeseries_aspect_service_test")
+                .hashIdAlgo("MD5")
+                .build(),
+            SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
             entityRegistry,
-            new IndexConventionImpl(
-                IndexConventionImpl.IndexConventionConfig.builder()
-                    .prefix("es_timeseries_aspect_service_test")
-                    .hashIdAlgo("MD5")
-                    .build()));
+            SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
 
     elasticSearchTimeseriesAspectService = buildService();
-    elasticSearchTimeseriesAspectService.reindexAll(Collections.emptySet());
+    elasticSearchTimeseriesAspectService.reindexAll(opContext, Collections.emptySet());
     EntitySpec entitySpec = entityRegistry.getEntitySpec(ENTITY_NAME);
     aspectSpec = entitySpec.getAspectSpec(ASPECT_NAME);
   }
@@ -146,14 +152,14 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   private ElasticSearchTimeseriesAspectService buildService() {
     return new ElasticSearchTimeseriesAspectService(
         getSearchClient(),
-        new TimeseriesAspectIndexBuilders(
-            getIndexBuilder(),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention()),
         getBulkProcessor(),
         1,
         QueryFilterRewriteChain.EMPTY,
-        TimeseriesAspectServiceConfig.builder().build());
+        TEST_TIMESERIES_ASPECT_SERVICE_CONFIG,
+        opContext.getEntityRegistry(),
+        opContext.getSearchContext().getIndexConvention(),
+        getIndexBuilder(),
+        null);
   }
 
   /*

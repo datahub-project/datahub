@@ -6,7 +6,7 @@ import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
-import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -29,14 +29,17 @@ public class ElasticSearchTimeseriesAspectServiceFactory {
   @Nonnull
   protected ElasticSearchTimeseriesAspectService getInstance(
       final QueryFilterRewriteChain queryFilterRewriteChain,
-      final ConfigurationProvider configurationProvider) {
+      final ConfigurationProvider configurationProvider,
+      final MetricUtils metricUtils) {
     return new ElasticSearchTimeseriesAspectService(
         components.getSearchClient(),
-        new TimeseriesAspectIndexBuilders(
-            components.getIndexBuilder(), entityRegistry, components.getIndexConvention()),
         components.getBulkProcessor(),
-        components.getNumRetries(),
+        components.getConfig().getBulkProcessor().getNumRetries(),
         queryFilterRewriteChain,
-        configurationProvider.getTimeseriesAspectService());
+        configurationProvider.getTimeseriesAspectService(),
+        entityRegistry,
+        components.getIndexConvention(),
+        components.getIndexBuilder(),
+        metricUtils);
   }
 }

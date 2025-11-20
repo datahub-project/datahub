@@ -5,6 +5,7 @@
     "in_tables": [],
     "out_tables": [],
     "column_lineage": null,
+    "joins": null,
     "debug_info": {
         "confidence": 0.0,
         "generalized_statement": null

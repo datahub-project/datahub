@@ -1,12 +1,13 @@
 {
     "query_type": "UNKNOWN",
     "query_type_props": {},
-    "query_fingerprint": null,
+    "query_fingerprint": "feb48a0baf9ebbc06b7c8be01bdb2968345bf7f062c43a62742efbb8a03ab7ea",
     "in_tables": [],
     "out_tables": [],
     "column_lineage": null,
+    "joins": null,
     "debug_info": {
-        "confidence": 0.0,
-        "generalized_statement": null
+        "confidence": 0.9,
+        "generalized_statement": "ATTACH ? AS aux1"
     }
 }
