@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -266,5 +267,188 @@ public class SetDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testConstructorBackwardCompatibility() throws Exception {
+    // Create resolver using OLD constructor (with Authorizer parameter)
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService<?> mockService = getMockEntityService();
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+
+    // This should still work - backward compatibility
+    @SuppressWarnings("deprecation")
+    SetDomainResolver resolverOldWay =
+        new SetDomainResolver(mockClient, mockService, mockAuthorizer);
+
+    // Create resolver using NEW constructor (without Authorizer parameter)
+    SetDomainResolver resolverNewWay = new SetDomainResolver(mockClient, mockService);
+
+    // Both should be non-null and work
+    org.testng.Assert.assertNotNull(resolverOldWay);
+    org.testng.Assert.assertNotNull(resolverNewWay);
+  }
+
+  @Test
+  public void testDomainBasedAuthorizationWithExistingDomains() throws Exception {
+    // Setup: Entity has existing domain, trying to set a new domain
+    Domains originalDomains =
+        new Domains()
+            .setDomains(
+                new UrnArray(ImmutableList.of(Urn.createFromString(TEST_EXISTING_DOMAIN_URN))));
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // Mock the batchGetV2 call to return existing domains
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
+                Mockito.eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                Urn.createFromString(TEST_ENTITY_URN),
+                new EntityResponse()
+                    .setEntityName(Constants.DATASET_ENTITY_NAME)
+                    .setUrn(Urn.createFromString(TEST_ENTITY_URN))
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.DOMAINS_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(originalDomains.data())))))));
+
+    EntityService<?> mockService = getMockEntityService();
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_NEW_DOMAIN_URN)), eq(true)))
+        .thenReturn(true);
+
+    SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
+
+    // Create mock context that will allow authorization
+    // The authorizer in the context will be called with BOTH existing and new domains
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("domainUrn"))).thenReturn(TEST_NEW_DOMAIN_URN);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // This should succeed because getMockAllowContext() allows all authorization requests
+    resolver.get(mockEnv).get();
+
+    // Verify that the domain was set
+    final Domains newDomains =
+        new Domains()
+            .setDomains(new UrnArray(ImmutableList.of(Urn.createFromString(TEST_NEW_DOMAIN_URN))));
+    final MetadataChangeProposal proposal =
+        MutationUtils.buildMetadataChangeProposalWithUrn(
+            UrnUtils.getUrn(TEST_ENTITY_URN), DOMAINS_ASPECT_NAME, newDomains);
+
+    verifyIngestProposal(mockClient, 1, proposal);
+  }
+
+  @Test
+  public void testDomainBasedAuthorizationDeniedWithExistingDomains() throws Exception {
+    // Setup: Entity has existing domain, trying to set a new domain
+    Domains originalDomains =
+        new Domains()
+            .setDomains(
+                new UrnArray(ImmutableList.of(Urn.createFromString(TEST_EXISTING_DOMAIN_URN))));
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // Mock the batchGetV2 call to return existing domains
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
+                Mockito.eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                Urn.createFromString(TEST_ENTITY_URN),
+                new EntityResponse()
+                    .setEntityName(Constants.DATASET_ENTITY_NAME)
+                    .setUrn(Urn.createFromString(TEST_ENTITY_URN))
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.DOMAINS_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(originalDomains.data())))))));
+
+    EntityService<?> mockService = getMockEntityService();
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_NEW_DOMAIN_URN)), eq(true)))
+        .thenReturn(true);
+
+    SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
+
+    // Create mock context that will deny authorization
+    QueryContext mockContext = getMockDenyContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("domainUrn"))).thenReturn(TEST_NEW_DOMAIN_URN);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // This should fail because getMockDenyContext() denies all authorization requests
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // Verify that no proposal was ingested
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
+  }
+
+  @Test
+  public void testNewConstructorUsesContextAuthorizer() throws Exception {
+    // This test verifies that the new constructor (without Authorizer parameter)
+    // correctly uses the authorizer from QueryContext
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // Test setting the domain
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
+                Mockito.eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                Urn.createFromString(TEST_ENTITY_URN),
+                new EntityResponse()
+                    .setEntityName(Constants.DATASET_ENTITY_NAME)
+                    .setUrn(Urn.createFromString(TEST_ENTITY_URN))
+                    .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
+
+    EntityService<?> mockService = getMockEntityService();
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_NEW_DOMAIN_URN)), eq(true)))
+        .thenReturn(true);
+
+    // Use NEW constructor (without Authorizer)
+    SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
+
+    // Execute resolver with allow context
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("domainUrn"))).thenReturn(TEST_NEW_DOMAIN_URN);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // Should succeed because context provides an authorizer that allows
+    resolver.get(mockEnv).get();
+
+    final Domains newDomains =
+        new Domains()
+            .setDomains(new UrnArray(ImmutableList.of(Urn.createFromString(TEST_NEW_DOMAIN_URN))));
+    final MetadataChangeProposal proposal =
+        MutationUtils.buildMetadataChangeProposalWithUrn(
+            UrnUtils.getUrn(TEST_ENTITY_URN), DOMAINS_ASPECT_NAME, newDomains);
+
+    verifyIngestProposal(mockClient, 1, proposal);
   }
 }

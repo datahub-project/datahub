@@ -8,11 +8,10 @@ import java.util.Set;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
-import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorizedMCPsWithDomains;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
 import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
 import static com.datahub.authorization.AuthorizerChain.isDomainBasedAuthorizationEnabled;
-import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.RESTLI_SUCCESS;
 import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
@@ -48,6 +47,7 @@ import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.operations.Utils;
+import com.linkedin.metadata.resources.restli.DomainExtractionUtils;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -137,71 +137,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     private Authorizer _authorizer;
 
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
-
-    private UrnArray extractDomainsFromAspectJson(String aspectJson) {
-        try {
-            Domains domains = RecordUtils.toRecordTemplate(
-                Domains.class, aspectJson);
-            return (domains.getDomains() != null && !domains.getDomains().isEmpty())
-                ? domains.getDomains()
-                : null;
-        } catch (Exception e) {
-            log.warn("Error parsing domains from aspect JSON: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    private Map<Urn, List<Urn>> collectEntityDomains(
-        @Nonnull OperationContext opContext,
-        @Nonnull List<MetadataChangeProposal> mcps,
-        @Nonnull Set<Urn> allDomainsInBatch) {
-        Map<Urn, List<Urn>> entityDomains = new HashMap<>();
-
-        // Collect unique entity URNs
-        Set<Urn> entityUrns = mcps.stream()
-            .map(MetadataChangeProposal::getEntityUrn)
-            .filter(java.util.Objects::nonNull)
-            .collect(Collectors.toSet());
-
-        // Retrieve existing domains from entities
-        for (Urn entityUrn : entityUrns) {
-            try {
-                if (_entityService.exists(opContext, entityUrn, true)) {
-                    EnvelopedAspect envelopedAspect = _entityService.getLatestEnvelopedAspect(
-                        opContext, entityUrn.getEntityType(), entityUrn, DOMAINS_ASPECT_NAME);
-                    if (envelopedAspect != null) {
-                        Domains domains = RecordUtils.toRecordTemplate(
-                            Domains.class, envelopedAspect.getValue().data());
-                        List<Urn> existingDomains = new ArrayList<>(domains.getDomains());
-                        if (!existingDomains.isEmpty()) {
-                            entityDomains.put(entityUrn, existingDomains);
-                            allDomainsInBatch.addAll(existingDomains);
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("Error retrieving existing domains for entity {}: {}", entityUrn, e.getMessage());
-            }
-        }
-
-        // Extract domains from Domains aspect MCPs in current batch
-        for (MetadataChangeProposal mcp : mcps) {
-            if (mcp.getEntityUrn() != null && DOMAINS_ASPECT_NAME.equals(mcp.getAspectName()) && mcp.getAspect() != null) {
-                try {
-                    String aspectValue = mcp.getAspect().getValue().asString(StandardCharsets.UTF_8);
-                    UrnArray domainUrns = extractDomainsFromAspectJson(aspectValue);
-                    if (domainUrns != null && !domainUrns.isEmpty()) {
-                        allDomainsInBatch.addAll(domainUrns);
-                        entityDomains.computeIfAbsent(mcp.getEntityUrn(), k -> new ArrayList<>()).addAll(domainUrns);
-                    }
-                } catch (Exception e) {
-                    log.warn("Error extracting domains from MCP for {}: {}", mcp.getEntityUrn(), e.getMessage());
-                }
-            }
-        }
-
-        return entityDomains;
-    }
 
     @VisibleForTesting
     void setAuthorizer(Authorizer authorizer) {
@@ -376,54 +311,49 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
                 ACTION_INGEST_PROPOSAL, entityTypes), _authorizer, authentication, true);
 
-        // Collect domains and perform domain-based authorization only if feature is enabled
-        final Set<Urn> allDomainsInBatch = new HashSet<>();
-        final Map<Urn, List<Urn>> entityDomains;
-        final List<MetadataChangeProposal> domainScopedMcps = new ArrayList();
-        final List<MetadataChangeProposal> noDomainMcps;
-
-        if (isDomainBasedAuthorizationEnabled(_authorizer)) {
-            log.info("Domain-based authorization is ENABLED. Collecting domain information for {} proposals.", metadataChangeProposals.size());
-            entityDomains = collectEntityDomains(opContext, metadataChangeProposals, allDomainsInBatch);
-            noDomainMcps = new ArrayList();
-            // Categorize MCPs by domain presence
-            for (MetadataChangeProposal mcp : metadataChangeProposals) {
-                if (mcp.getEntityUrn() != null && entityDomains.containsKey(mcp.getEntityUrn())) {
-                    domainScopedMcps.add(mcp);
-                } else if (mcp.getEntityUrn() != null && !"dataHubExecutionRequest".equals(mcp.getEntityUrn().getEntityType())) {
-                    noDomainMcps.add(mcp);
-                }
-            }
-        } else {
-            log.info("Domain-based authorization is DISABLED. Using standard authorization for all {} proposals.", metadataChangeProposals.size());
-            // If domain-based authorization is disabled, all MCPs are treated as non-domain scoped
-            noDomainMcps = metadataChangeProposals;
-        }
-
         final AuditStamp auditStamp =
             new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
-
 
         return RestliUtils.toTask(opContext, () -> {
                 log.debug("Proposals: {}", metadataChangeProposals);
                 try {
-                    if (!noDomainMcps.isEmpty()) {
-                        List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorized(opContext, ENTITY,
-                            opContext.getEntityRegistry(), noDomainMcps)
-                            .stream().filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
-                            .collect(Collectors.toList());
-                        if (!exceptions.isEmpty()) {
-                            String errorMessages = exceptions.stream()
-                                .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
-                                .collect(Collectors.joining(", "));
+                    // Extract domains WITHIN transaction if domain-based authorization is enabled
+                    // This prevents race conditions where domains could change between auth check and update
+                    final Map<Urn, Set<Urn>> entityDomains;
+                    if (isDomainBasedAuthorizationEnabled(_authorizer)) {
+                        log.info("Domain-based authorization is ENABLED. Collecting domain information for {} proposals.",
+                            metadataChangeProposals.size());
+                        entityDomains = DomainExtractionUtils.extractEntityDomainsForAuthorization(
+                            opContext, _entityService, metadataChangeProposals);
+                        
+                        // Validate all domains exist
+                        Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(entityDomains);
+                        if (!DomainExtractionUtils.validateDomainsExist(opContext, _entityService, allDomains)) {
                             throw new RestLiServiceException(
-                                HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to modify entity: " + errorMessages);
+                                HttpStatus.S_400_BAD_REQUEST,
+                                "One or more domains do not exist. Cannot create entity with non-existent domain.");
                         }
+                    } else {
+                        log.info("Domain-based authorization is DISABLED. Using standard authorization for all {} proposals.",
+                            metadataChangeProposals.size());
+                        entityDomains = null;
                     }
 
-                    // DOMAIN-SCOPED AUTHORIZATION: Only perform if feature is enabled
-                    if (isDomainBasedAuthorizationEnabled(_authorizer) && !domainScopedMcps.isEmpty()) {
-                        validateDomainScopedCreationPermissions(opContext, domainScopedMcps, allDomainsInBatch);
+                    // Authorize all MCPs with unified method (handles both domain-based and standard auth)
+                    List<Pair<MetadataChangeProposal, Integer>> authResults = isAPIAuthorizedMCPsWithDomains(
+                        opContext, ENTITY, opContext.getEntityRegistry(), metadataChangeProposals, entityDomains);
+                    
+                    // Check for authorization failures
+                    List<Pair<MetadataChangeProposal, Integer>> failures = authResults.stream()
+                        .filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
+                        .collect(Collectors.toList());
+                    
+                    if (!failures.isEmpty()) {
+                        String errorMessages = failures.stream()
+                            .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
+                            .collect(Collectors.joining(", "));
+                        throw new RestLiServiceException(
+                            HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to modify entities: " + errorMessages);
                     }
 
                     final AspectsBatch batch = AspectsBatchImpl.builder()
@@ -513,38 +443,4 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             MetricRegistry.name(this.getClass(), "restoreIndices"));
     }
 
-    private void validateDomainScopedCreationPermissions(
-        @Nonnull OperationContext opContext,
-        @Nonnull List<MetadataChangeProposal> mcps,
-        @Nonnull Set<Urn> allDomainsInBatch) {
-
-        // Validate all domains exist
-        for (Urn domainUrn : allDomainsInBatch) {
-            if (!_entityService.exists(opContext, domainUrn, true)) {
-                throw new RestLiServiceException(
-                    HttpStatus.S_400_BAD_REQUEST,
-                    String.format("Domain %s does not exist. Cannot create entity with non-existent domain.", domainUrn));
-            }
-        }
-
-        // Authorize each MCP using the union of all domains in batch
-        List<Urn> domainsForAuth = allDomainsInBatch.isEmpty() ? null : new ArrayList<>(allDomainsInBatch);
-
-        for (MetadataChangeProposal mcp : mcps) {
-            if (mcp.getEntityUrn() == null) {
-                log.warn("Skipping MCP with null URN during domain-scoped authorization");
-                continue;
-            }
-
-            com.linkedin.metadata.authorization.ApiOperation operation =
-                mcp.getChangeType() == ChangeType.DELETE ? DELETE : UPDATE;
-
-            if (!isAPIAuthorizedEntityUrnsWithSubResources(opContext, operation, List.of(mcp.getEntityUrn()), domainsForAuth)) {
-                throw new RestLiServiceException(
-                    HttpStatus.S_403_FORBIDDEN,
-                    String.format("User %s is unauthorized to %s entity %s in the specified domain(s)",
-                        opContext.getSessionAuthentication().getActor().toUrnStr(), operation, mcp.getEntityUrn()));
-            }
-        }
-    }
 }

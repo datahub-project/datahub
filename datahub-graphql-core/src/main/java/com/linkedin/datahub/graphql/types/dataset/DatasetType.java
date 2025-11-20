@@ -25,6 +25,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.types.BatchMutableType;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
@@ -285,9 +286,20 @@ public class DatasetType
   private boolean isAuthorized(
       @Nonnull String urn, @Nonnull DatasetUpdateInput update, @Nonnull QueryContext context) {
     // Decide whether the current principal should be allowed to update the Dataset.
+    // First check entity-level authorization
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
-    return AuthorizationUtils.isAuthorized(
-        context, PoliciesConfig.DATASET_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);
+    boolean entityLevelAuthorized =
+        AuthorizationUtils.isAuthorized(
+            context, PoliciesConfig.DATASET_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);
+
+    if (!entityLevelAuthorized) {
+      return false;
+    }
+
+    // If entity-level authorization passes, also check domain-based authorization
+    // This ensures users have permissions for the dataset's domain(s)
+    final Urn entityUrn = UrnUtils.getUrn(urn);
+    return DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, entityUrn, entityClient);
   }
 
   private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final DatasetUpdateInput updateInput) {

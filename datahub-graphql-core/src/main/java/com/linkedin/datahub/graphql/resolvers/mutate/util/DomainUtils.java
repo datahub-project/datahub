@@ -1,12 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import static com.datahub.authorization.AuthorizerChain.isDomainBasedAuthorizationEnabled;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.EntitySpec;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -22,6 +26,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -38,6 +43,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -75,6 +81,121 @@ public class DomainUtils {
 
     return AuthorizationUtils.isAuthorized(
         context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
+  }
+
+  /**
+   * Get existing domains for an entity from the database. Similar to
+   * DomainExtractionUtils.getEntityDomains() but for GraphQL.
+   *
+   * @param context query context
+   * @param entityClient entity client for lookups
+   * @param entityUrn the entity URN to get domains for
+   * @return Set of domain URNs for the entity, or empty set if none found
+   */
+  @Nonnull
+  public static Set<Urn> getEntityDomains(
+      @Nonnull QueryContext context, @Nonnull EntityClient entityClient, @Nonnull Urn entityUrn) {
+    try {
+      EntityResponse response =
+          entityClient.getV2(
+              context.getOperationContext(),
+              entityUrn.getEntityType(),
+              entityUrn,
+              Collections.singleton(DOMAINS_ASPECT_NAME));
+
+      if (response != null && response.getAspects().containsKey(DOMAINS_ASPECT_NAME)) {
+        Domains domains =
+            new Domains(response.getAspects().get(DOMAINS_ASPECT_NAME).getValue().data());
+        if (domains.getDomains() != null && !domains.getDomains().isEmpty()) {
+          return new HashSet<>(domains.getDomains());
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Error retrieving domains for entity {}: {}", entityUrn, e.getMessage());
+    }
+    return Collections.emptySet();
+  }
+
+  /**
+   * Check if the current user is authorized to perform operations on entities with the specified
+   * domains. This performs domain-based authorization when enabled, using domains as authorization
+   * subresources.
+   *
+   * <p>For entity CREATION: - domainUrns should be the domains from the creation input - Used when
+   * creating new entities that will belong to specific domains - Use ApiOperation.CREATE
+   *
+   * <p>For entity UPDATES: - domainUrns should combine: existing entity domains + new domains from
+   * update - Used when modifying existing entities - Use ApiOperation.UPDATE
+   *
+   * @param context query context containing authorization information
+   * @param operation the API operation (CREATE, UPDATE, DELETE, etc.)
+   * @param entityUrn the entity URN being created or updated
+   * @param domainUrns the domain URNs associated with the entity (existing + new for updates, input
+   *     for creates)
+   * @return true if authorized, false otherwise
+   */
+  public static boolean isAuthorizedWithDomains(
+      @Nonnull QueryContext context,
+      @Nonnull ApiOperation operation,
+      @Nonnull Urn entityUrn,
+      @Nonnull Set<Urn> domainUrns) {
+
+    // Get authorizer from QueryContext
+    Authorizer authorizer = context.getAuthorizer();
+
+    // If domain-based authorization is not enabled, use standard authorization
+    if (!isDomainBasedAuthorizationEnabled(authorizer)) {
+      log.debug("Domain-based authorization is disabled. Using standard authorization.");
+      return AuthUtil.isAuthorizedEntityUrns(
+          context.getOperationContext(), operation, List.of(entityUrn));
+    }
+
+    // If no domains specified, use standard authorization (not domain-based)
+    if (domainUrns.isEmpty()) {
+      log.debug("No domains specified. Using standard authorization.");
+      return AuthUtil.isAuthorizedEntityUrns(
+          context.getOperationContext(), operation, List.of(entityUrn));
+    }
+
+    log.info(
+        "Domain-based authorization is ENABLED. Checking {} operation for entity {} with {} domains.",
+        operation,
+        entityUrn,
+        domainUrns.size());
+
+    // Convert domain URNs to EntitySpecs for use as subresources
+    Set<EntitySpec> domainSpecs =
+        domainUrns.stream()
+            .map(domainUrn -> new EntitySpec(domainUrn.getEntityType(), domainUrn.toString()))
+            .collect(Collectors.toSet());
+
+    // Build privilege group for this operation - use the GraphQL pattern
+    // Use public API to build privilege group
+    DisjunctivePrivilegeGroup privilegeGroup =
+        AuthUtil.buildDisjunctivePrivilegeGroup(
+            com.linkedin.metadata.authorization.ApiGroup.ENTITY,
+            operation,
+            entityUrn.getEntityType());
+
+    // Create entity spec for the target entity
+    EntitySpec entitySpec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
+
+    // Check authorization with domains as subresources
+    // This mirrors AuthorizationUtils.isAuthorizedForTags pattern (line 506-507)
+    boolean authorized =
+        AuthUtil.isAuthorized(
+            context.getOperationContext(), privilegeGroup, entitySpec, domainSpecs);
+
+    if (!authorized) {
+      log.warn(
+          "User {} is NOT authorized for {} operation on entity {} with domains: {}",
+          context.getActorUrn(),
+          operation,
+          entityUrn,
+          domainUrns);
+    }
+
+    return authorized;
   }
 
   public static void setDomainForResources(
