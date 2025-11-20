@@ -1,0 +1,64 @@
+source:
+  type: "dataform"
+  config:
+    # Google Cloud Dataform Configuration
+    cloud_config:
+      project_id: "my-gcp-project"
+      region: "us-central1"
+      repository_id: "my-dataform-repo"
+      workspace_id: "main" # optional
+      credential:
+        project_id: "my-gcp-project"
+        private_key_id: "key-id"
+        private_key: "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+        client_email: "dataform-service@my-gcp-project.iam.gserviceaccount.com"
+        client_id: "123456789"
+        auth_uri: "https://accounts.google.com/o/oauth2/auth"
+        token_uri: "https://oauth2.googleapis.com/token"
+        type: "service_account"
+
+    # Target Platform Configuration
+    target_platform: "bigquery"
+    target_platform_instance: "prod"
+
+    # Entity Controls
+    entities_enabled:
+      tables: true
+      views: true
+      assertions: true
+      operations: true
+      declarations: true
+
+    # Filtering
+    table_pattern:
+      allow:
+        - "analytics.*"
+        - "marts.*"
+      deny:
+        - ".*_temp"
+        - ".*_test"
+
+    schema_pattern:
+      allow:
+        - "analytics"
+        - "marts"
+        - "raw"
+
+    # Lineage Configuration
+    include_column_lineage: true
+    include_table_lineage: true
+    parse_table_names_from_sql: false
+
+    # Sibling Relationships
+    dataform_is_primary_sibling: true
+
+    # Metadata Enhancement
+    tag_prefix: "dataform:"
+    custom_properties:
+      team: "data-platform"
+      environment: "production"
+
+    # Git Integration
+    git_repository_url: "https://github.com/my-org/dataform-project"
+    git_branch: "main"
+# sink configs

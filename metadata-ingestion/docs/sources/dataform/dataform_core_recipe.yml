@@ -1,0 +1,50 @@
+source:
+  type: "dataform"
+  config:
+    # Dataform Core Configuration
+    core_config:
+      project_path: "/path/to/dataform/project"
+      target_name: "production" # optional
+      compilation_results_path: "/path/to/compilation-results.json" # optional
+
+    # Target Platform Configuration
+    target_platform: "postgres"
+    target_platform_instance: "main-db"
+
+    # Entity Controls
+    entities_enabled:
+      tables: true
+      views: true
+      assertions: true
+      operations: false # often disabled for core
+      declarations: true
+
+    # Filtering
+    table_pattern:
+      allow:
+        - "public.*"
+        - "analytics.*"
+
+    schema_pattern:
+      allow:
+        - "public"
+        - "analytics"
+
+    # Lineage Configuration
+    include_column_lineage: true
+    include_table_lineage: true
+    parse_table_names_from_sql: true # useful for core
+
+    # Sibling Relationships
+    dataform_is_primary_sibling: false # target platform primary
+
+    # Metadata Enhancement
+    tag_prefix: "dataform:"
+    custom_properties:
+      team: "analytics"
+      environment: "development"
+
+    # Git Integration
+    git_repository_url: "https://github.com/my-org/dataform-core-project"
+    git_branch: "develop"
+# sink configs

@@ -50,7 +50,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
-/** This hook associates dbt datasets with their sibling entities */
+/** This hook associates dbt and dataform datasets with their sibling entities */
 @Slf4j
 @Component
 @Import({
@@ -63,6 +63,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   public static final String SIBLING_ASSOCIATION_SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system_sibling_hook";
   public static final String DBT_PLATFORM_NAME = "dbt";
+  public static final String DATAFORM_PLATFORM_NAME = "dataform";
 
   // Older dbt sources produced lowercase subtypes, whereas we now
   // produce titlecase subtypes. We need to handle both cases to
@@ -138,7 +139,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       // in this case we want to re-create its siblings aspects
       if (event.getAspectName().equals(DATASET_KEY_ASPECT_NAME)) {
         handleEntityKeyEvent(datasetUrn);
-      } else if (datasetUrn.getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
+      } else if (isDbtOrDataformPlatform(datasetUrn)) {
         handleDbtDatasetEvent(event, datasetUrn);
       } else {
         handleSourceDatasetEvent(event, datasetUrn);
@@ -204,23 +205,18 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         && (subTypesAspectOfEntity.getTypeNames().contains(SOURCE_SUBTYPE_V1)
             || subTypesAspectOfEntity.getTypeNames().contains(SOURCE_SUBTYPE_V2))) {
       UpstreamArray upstreams = upstreamLineage.getUpstreams();
-      if (upstreams.size() == 1
-          && !upstreams
-              .get(0)
-              .getDataset()
-              .getPlatformEntity()
-              .getPlatformNameEntity()
-              .equals(DBT_PLATFORM_NAME)) {
+      if (upstreams.size() == 1 && !isDbtOrDataformPlatform(upstreams.get(0).getDataset())) {
 
         Urn sourceTableUrn = upstreams.get(0).getDataset();
 
-        // Skip if siblings already exist to avoid conflicts with dbt patch-based management
+        // Skip if siblings already exist to avoid conflicts with dbt/dataform patch-based
+        // management
         Siblings dbtSiblings = getSiblingsFromEntityClient(datasetUrn);
         Siblings sourceSiblings = getSiblingsFromEntityClient(sourceTableUrn);
 
         if (dbtSiblings != null || sourceSiblings != null) {
           log.debug(
-              "Skipping dbt source processing - existing siblings found: {} <-> {}",
+              "Skipping dbt/dataform source processing - existing siblings found: {} <-> {}",
               datasetUrn,
               sourceTableUrn);
           return;
@@ -241,25 +237,21 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         UpstreamArray upstreams = upstreamLineage.getUpstreams();
 
         // an entity can have merged lineage (eg. dbt + snowflake), but by default siblings are only
-        // between dbt <> non-dbt
+        // between dbt/dataform <> non-dbt/dataform
         UpstreamArray dbtUpstreams =
             new UpstreamArray(
                 upstreams.stream()
-                    .filter(
-                        obj ->
-                            obj.getDataset()
-                                .getPlatformEntity()
-                                .getPlatformNameEntity()
-                                .equals(DBT_PLATFORM_NAME))
+                    .filter(obj -> isDbtOrDataformPlatform(obj.getDataset()))
                     .collect(Collectors.toList()));
-        // We're assuming a data asset (eg. snowflake table) will only ever be downstream of 1 dbt
+        // We're assuming a data asset (eg. snowflake table) will only ever be downstream of 1
+        // dbt/dataform
         // model
         if (dbtUpstreams.size() == 1) {
           setSiblingsAndSoftDeleteSibling(
               dbtUpstreams.get(0).getDataset(), sourceUrn, false); // false = isDbtModel
         } else if (dbtUpstreams.size() > 1) {
           log.error(
-              "{} has an unexpected number of dbt upstreams: {}. Not adding any as siblings.",
+              "{} has an unexpected number of dbt/dataform upstreams: {}. Not adding any as siblings.",
               sourceUrn.toString(),
               dbtUpstreams.size());
         }
@@ -531,5 +523,26 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     } catch (RemoteInvocationException | URISyntaxException e) {
       throw new RuntimeException("Failed to retrieve UpstreamLineage", e);
     }
+  }
+
+  /** Helper method to check if a dataset URN belongs to DBT or Dataform platform */
+  private boolean isDbtOrDataformPlatform(final Urn datasetUrn) {
+    try {
+      DatasetUrn dataset = DatasetUrn.createFromUrn(datasetUrn);
+      String platformName = dataset.getPlatformEntity().getPlatformNameEntity();
+      return DBT_PLATFORM_NAME.equals(platformName) || DATAFORM_PLATFORM_NAME.equals(platformName);
+    } catch (URISyntaxException e) {
+      log.warn("Failed to parse dataset URN {}: {}", datasetUrn, e.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * Helper method to check if a dataset URN belongs to DBT or Dataform platform Overloaded version
+   * that takes DatasetUrn directly
+   */
+  private boolean isDbtOrDataformPlatform(final DatasetUrn datasetUrn) {
+    String platformName = datasetUrn.getPlatformEntity().getPlatformNameEntity();
+    return DBT_PLATFORM_NAME.equals(platformName) || DATAFORM_PLATFORM_NAME.equals(platformName);
   }
 }

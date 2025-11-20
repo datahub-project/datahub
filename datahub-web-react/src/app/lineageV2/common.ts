@@ -4,7 +4,7 @@ import React, { Dispatch, SetStateAction } from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
-import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
+import { DBT_CLOUD_URN, DATAFORM_URN } from '@app/ingest/source/builder/constants';
 import { getEntityTypeFromEntityUrn, getPlatformUrnFromEntityUrn } from '@app/lineageV2/lineageUtils';
 import { FetchedEntityV2 } from '@app/lineageV2/types';
 import { hashString } from '@app/shared/avatar/getAvatarColor';
@@ -107,6 +107,18 @@ export function isDbt(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
     );
 }
 
+export function isDataform(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
+    return (
+        (node.type === EntityType.Dataset || node.type === EntityType.SchemaField) &&
+        !!node.urn &&
+        getPlatformUrnFromEntityUrn(node.urn) === DATAFORM_URN
+    );
+}
+
+export function isDbtOrDataform(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
+    return isDbt(node) || isDataform(node);
+}
+
 export function isQuery(node: Pick<LineageNode, 'type'>): boolean {
     return node.type === EntityType.Query;
 }
@@ -114,7 +126,7 @@ export function isQuery(node: Pick<LineageNode, 'type'>): boolean {
 // TODO: Replace with value from search-across-lineage, once it's available
 // Must be kept in sync with useSearchAcrossLineage
 export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
-    return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
+return TRANSFORMATION_TYPES.includes(node.type) || isDbtOrDataform(node);
 }
 
 export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
@@ -123,6 +135,18 @@ export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
         (type === EntityType.Dataset || type === EntityType.SchemaField) &&
         getPlatformUrnFromEntityUrn(urn) === DBT_CLOUD_URN
     );
+}
+
+export function isUrnDataform(urn: string, entityRegistry: EntityRegistry): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
+    return (
+        (type === EntityType.Dataset || type === EntityType.SchemaField) &&
+        getPlatformUrnFromEntityUrn(urn) === DATAFORM_URN
+    );
+}
+
+export function isUrnDbtOrDataform(urn: string, entityRegistry: EntityRegistry): boolean {
+    return isUrnDbt(urn, entityRegistry) || isUrnDataform(urn, entityRegistry);
 }
 
 export function isUrnQuery(urn: string, entityRegistry: EntityRegistry): boolean {

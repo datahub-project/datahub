@@ -1,0 +1,326 @@
+{
+  "compiledGraph": {
+    "tables": {
+      "analytics.customer_metrics": {
+        "target": {
+          "database": "my-project",
+          "schema": "analytics",
+          "name": "customer_metrics"
+        },
+        "type": "table",
+        "description": "Customer metrics aggregated from orders and customer data",
+        "columns": [
+          {
+            "name": "customer_id",
+            "type": "STRING",
+            "description": "Unique customer identifier"
+          },
+          {
+            "name": "total_orders",
+            "type": "INT64",
+            "description": "Total number of orders placed by customer"
+          },
+          {
+            "name": "total_spent",
+            "type": "FLOAT64",
+            "description": "Total amount spent by customer"
+          },
+          {
+            "name": "avg_order_value",
+            "type": "FLOAT64",
+            "description": "Average order value"
+          },
+          {
+            "name": "first_order_date",
+            "type": "DATE",
+            "description": "Date of customer's first order"
+          },
+          {
+            "name": "last_order_date",
+            "type": "DATE",
+            "description": "Date of customer's last order"
+          },
+          {
+            "name": "is_active",
+            "type": "BOOLEAN",
+            "description": "Whether customer has ordered in last 90 days"
+          }
+        ],
+        "dependencyTargets": [
+          {
+            "schema": "raw",
+            "name": "orders"
+          },
+          {
+            "schema": "raw",
+            "name": "customers"
+          }
+        ],
+        "tags": ["analytics", "customer", "production", "daily"],
+        "fileName": "definitions/analytics/customer_metrics.sqlx",
+        "query": "SELECT customer_id, COUNT(*) as total_orders, SUM(amount) as total_spent, AVG(amount) as avg_order_value, MIN(order_date) as first_order_date, MAX(order_date) as last_order_date, MAX(order_date) >= CURRENT_DATE() - 90 as is_active FROM ${ref('orders')} o JOIN ${ref('customers')} c USING (customer_id) GROUP BY customer_id"
+      },
+      "marts.dim_customers": {
+        "target": {
+          "database": "my-project",
+          "schema": "marts",
+          "name": "dim_customers"
+        },
+        "type": "view",
+        "description": "Customer dimension table with enriched attributes",
+        "columns": [
+          {
+            "name": "customer_id",
+            "type": "STRING",
+            "description": "Customer identifier"
+          },
+          {
+            "name": "customer_name",
+            "type": "STRING",
+            "description": "Customer full name"
+          },
+          {
+            "name": "customer_email",
+            "type": "STRING",
+            "description": "Customer email address"
+          },
+          {
+            "name": "customer_segment",
+            "type": "STRING",
+            "description": "Customer segment based on spending"
+          },
+          {
+            "name": "total_orders",
+            "type": "INT64",
+            "description": "Total orders from metrics"
+          },
+          {
+            "name": "total_spent",
+            "type": "FLOAT64",
+            "description": "Total spent from metrics"
+          }
+        ],
+        "dependencyTargets": [
+          {
+            "schema": "analytics",
+            "name": "customer_metrics"
+          },
+          {
+            "schema": "raw",
+            "name": "customers"
+          }
+        ],
+        "tags": ["mart", "dimension", "customer"],
+        "fileName": "definitions/marts/dim_customers.sqlx",
+        "query": "SELECT c.*, cm.total_orders, cm.total_spent, CASE WHEN cm.total_spent > 1000 THEN 'High Value' WHEN cm.total_spent > 500 THEN 'Medium Value' ELSE 'Low Value' END as customer_segment FROM ${ref('customers')} c JOIN ${ref('customer_metrics')} cm USING (customer_id)"
+      },
+      "marts.fact_orders": {
+        "target": {
+          "database": "my-project",
+          "schema": "marts",
+          "name": "fact_orders"
+        },
+        "type": "incremental",
+        "description": "Orders fact table with incremental processing",
+        "columns": [
+          {
+            "name": "order_id",
+            "type": "STRING",
+            "description": "Order identifier"
+          },
+          {
+            "name": "customer_id",
+            "type": "STRING",
+            "description": "Customer who placed the order"
+          },
+          {
+            "name": "order_date",
+            "type": "DATE",
+            "description": "Date order was placed"
+          },
+          {
+            "name": "order_amount",
+            "type": "FLOAT64",
+            "description": "Total order amount"
+          },
+          {
+            "name": "order_status",
+            "type": "STRING",
+            "description": "Current order status"
+          }
+        ],
+        "dependencyTargets": [
+          {
+            "schema": "raw",
+            "name": "orders"
+          }
+        ],
+        "tags": ["mart", "fact", "incremental"],
+        "fileName": "definitions/marts/fact_orders.sqlx",
+        "query": "SELECT order_id, customer_id, order_date, amount as order_amount, status as order_status FROM ${ref('orders')} WHERE order_date >= (SELECT COALESCE(MAX(order_date), '1900-01-01') FROM ${self()})"
+      }
+    },
+    "assertions": {
+      "customer_metrics_no_nulls": {
+        "description": "Ensure no null customer IDs in customer metrics",
+        "query": "SELECT COUNT(*) FROM ${ref('customer_metrics')} WHERE customer_id IS NULL",
+        "dependencyTargets": ["analytics.customer_metrics"],
+        "tags": ["data-quality", "critical", "customer"],
+        "fileName": "definitions/assertions/customer_metrics_quality.sqlx"
+      },
+      "orders_positive_amounts": {
+        "description": "Ensure all order amounts are positive",
+        "query": "SELECT COUNT(*) FROM ${ref('fact_orders')} WHERE order_amount <= 0",
+        "dependencyTargets": ["marts.fact_orders"],
+        "tags": ["data-quality", "business-rule"],
+        "fileName": "definitions/assertions/orders_business_rules.sqlx"
+      },
+      "customer_email_format": {
+        "description": "Validate customer email format",
+        "query": "SELECT COUNT(*) FROM ${ref('dim_customers')} WHERE customer_email NOT LIKE '%@%.%'",
+        "dependencyTargets": ["marts.dim_customers"],
+        "tags": ["data-quality", "format-validation"],
+        "fileName": "definitions/assertions/customer_format_checks.sqlx"
+      }
+    },
+    "operations": {
+      "refresh_customer_cache": {
+        "description": "Refresh materialized customer cache for faster queries",
+        "queries": [
+          "DELETE FROM customer_cache WHERE last_updated < CURRENT_DATE() - 7",
+          "INSERT INTO customer_cache SELECT *, CURRENT_TIMESTAMP() as last_updated FROM ${ref('customer_metrics')}"
+        ],
+        "dependencyTargets": ["analytics.customer_metrics"],
+        "tags": ["maintenance", "cache", "performance"],
+        "fileName": "definitions/operations/refresh_cache.sqlx"
+      },
+      "cleanup_temp_tables": {
+        "description": "Clean up temporary processing tables",
+        "queries": [
+          "DROP TABLE IF EXISTS temp_customer_processing",
+          "DROP TABLE IF EXISTS temp_order_staging"
+        ],
+        "dependencyTargets": [],
+        "tags": ["maintenance", "cleanup"],
+        "fileName": "definitions/operations/cleanup.sqlx"
+      }
+    },
+    "declarations": {
+      "raw.orders": {
+        "target": {
+          "database": "my-project",
+          "schema": "raw",
+          "name": "orders"
+        },
+        "description": "Raw orders data from the transactional system",
+        "columns": [
+          {
+            "name": "order_id",
+            "type": "STRING",
+            "description": "Unique order identifier"
+          },
+          {
+            "name": "customer_id",
+            "type": "STRING",
+            "description": "Customer who placed the order"
+          },
+          {
+            "name": "amount",
+            "type": "FLOAT64",
+            "description": "Order amount in USD"
+          },
+          {
+            "name": "order_date",
+            "type": "DATE",
+            "description": "Date the order was placed"
+          },
+          {
+            "name": "status",
+            "type": "STRING",
+            "description": "Order status (pending, completed, cancelled)"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "description": "Timestamp when record was created"
+          }
+        ],
+        "tags": ["raw-data", "transactional", "orders"]
+      },
+      "raw.customers": {
+        "target": {
+          "database": "my-project",
+          "schema": "raw",
+          "name": "customers"
+        },
+        "description": "Raw customer master data",
+        "columns": [
+          {
+            "name": "customer_id",
+            "type": "STRING",
+            "description": "Unique customer identifier"
+          },
+          {
+            "name": "customer_name",
+            "type": "STRING",
+            "description": "Customer full name"
+          },
+          {
+            "name": "customer_email",
+            "type": "STRING",
+            "description": "Customer email address"
+          },
+          {
+            "name": "registration_date",
+            "type": "DATE",
+            "description": "Date customer registered"
+          },
+          {
+            "name": "customer_status",
+            "type": "STRING",
+            "description": "Customer status (active, inactive, suspended)"
+          }
+        ],
+        "tags": ["raw-data", "master-data", "pii", "customer"]
+      },
+      "raw.products": {
+        "target": {
+          "database": "my-project",
+          "schema": "raw",
+          "name": "products"
+        },
+        "description": "Product catalog data",
+        "columns": [
+          {
+            "name": "product_id",
+            "type": "STRING",
+            "description": "Product identifier"
+          },
+          {
+            "name": "product_name",
+            "type": "STRING",
+            "description": "Product name"
+          },
+          {
+            "name": "category",
+            "type": "STRING",
+            "description": "Product category"
+          },
+          {
+            "name": "price",
+            "type": "FLOAT64",
+            "description": "Product price"
+          }
+        ],
+        "tags": ["raw-data", "catalog", "product"]
+      }
+    }
+  },
+  "dataformCoreVersion": "2.0.1",
+  "targets": [
+    {
+      "name": "production",
+      "database": "my-project"
+    }
+  ]
+}

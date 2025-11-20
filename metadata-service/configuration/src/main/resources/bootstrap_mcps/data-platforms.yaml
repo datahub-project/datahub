@@ -468,6 +468,16 @@
     displayName: dbt
     type: OTHERS
     logoUrl: "assets/platforms/dbtlogo.png"
+- entityUrn: urn:li:dataPlatform:dataform
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dataform
+    displayName: Dataform
+    type: OTHERS
+    logoUrl: "assets/platforms/dataformlogo.png"
 - entityUrn: urn:li:dataPlatform:elasticsearch
   entityType: dataPlatform
   aspectName: dataPlatformInfo
