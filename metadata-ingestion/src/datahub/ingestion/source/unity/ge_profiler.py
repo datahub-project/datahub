@@ -5,10 +5,11 @@ from dataclasses import dataclass, field
 from typing import Iterable, List, Optional
 
 from databricks.sdk.service.catalog import DataSourceFormat
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Connection
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
@@ -18,6 +19,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.unity.config import UnityCatalogGEProfilerConfig
 from datahub.ingestion.source.unity.proxy_types import Table, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.utilities.groupby import groupby_unsorted
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +61,34 @@ class UnityCatalogGEProfiler(GenericProfiler):
         # TODO: Consider passing dataset urn builder directly
         # So there is no repeated logic between this class and source.py
 
+    def get_profiler_instance(
+        self, db_name: Optional[str] = None
+    ) -> "DatahubGEProfiler":
+        """Override to use catalog-specific connections for Unity Catalog profiling"""
+        logger.debug(
+            f"Getting profiler instance for Unity Catalog with db_name={db_name}"
+        )
+
+        # Use the catalog-specific URL if db_name is provided
+        if db_name:
+            url = self.config.get_sql_alchemy_url(database=db_name)
+        else:
+            url = self.config.get_sql_alchemy_url()
+
+        logger.debug(f"sql_alchemy_url={url}")
+
+        engine = create_engine(url, **self.config.options)
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+
+        return DatahubGEProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+        )
+
     def get_workunits(self, tables: List[Table]) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
@@ -66,7 +96,19 @@ class UnityCatalogGEProfiler(GenericProfiler):
             "max_overflow", self.profiling_config.max_workers
         )
 
-        url = self.config.get_sql_alchemy_url()
+        # Group tables by catalog using the groupby_unsorted utility
+        tables_by_catalog = groupby_unsorted(tables, lambda table: table.ref.catalog)
+
+        # Process each catalog separately to ensure proper database context
+        for catalog, catalog_tables in tables_by_catalog:
+            yield from self._get_workunits_for_catalog(catalog, list(catalog_tables))
+
+    def _get_workunits_for_catalog(
+        self, catalog: str, catalog_tables: List[Table]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Helper method to generate workunits for tables in a specific catalog"""
+        # Create connection for this specific catalog
+        url = self.config.get_sql_alchemy_url(database=catalog)
         engine = create_engine(url, **self.config.options)
         conn = engine.connect()
 
@@ -80,27 +122,39 @@ class UnityCatalogGEProfiler(GenericProfiler):
                     UnityCatalogSQLGenericTable(table),
                     conn,
                 )
-                for table in tables
+                for table in catalog_tables
             ]
 
             try:
                 for i, completed in enumerate(
-                    as_completed(futures, timeout=self.profiling_config.max_wait_secs)
+                    as_completed(
+                        futures, timeout=self.profiling_config.max_wait_secs
+                    )
                 ):
                     profile_request = completed.result()
                     if profile_request is not None:
                         profile_requests.append(profile_request)
                     if i > 0 and i % 100 == 0:
-                        logger.info(f"Finished table-level profiling for {i} tables")
+                        logger.info(
+                            f"Finished table-level profiling for {i} tables "
+                            f"in catalog {catalog}"
+                        )
             except (TimeoutError, concurrent.futures.TimeoutError):
-                logger.warning("Timed out waiting to complete table-level profiling.")
+                logger.warning(
+                    f"Timed out waiting to complete table-level profiling "
+                    f"for catalog {catalog}."
+                )
+
+        conn.close()
 
         if len(profile_requests) == 0:
             return
 
+        # Generate profile workunits for this catalog specifically
         yield from self.generate_profile_workunits(
             profile_requests,
             max_workers=self.config.profiling.max_workers,
+            db_name=catalog,  # Pass the catalog as db_name
             platform=self.platform,
             profiler_args=self.get_profile_args(),
         )
@@ -158,9 +212,9 @@ class UnityCatalogGEProfiler(GenericProfiler):
             return None
 
         if profile_table_level_only and table.is_delta_table:
-            # For requests with profile_table_level_only set, dataset profile is generated
-            # by looking at table.rows_count. For delta tables (a typical databricks table)
-            # count(*) is an efficient query to compute row count.
+            # For requests with profile_table_level_only set, dataset profile is
+            # generated by looking at table.rows_count. For delta tables (a typical
+            # databricks table) count(*) is an efficient query to compute row count.
             try:
                 table.rows_count = _get_dataset_row_count(table, conn)
             except Exception as e:
@@ -179,7 +233,9 @@ class UnityCatalogGEProfiler(GenericProfiler):
         return TableProfilerRequest(
             table=table,
             pretty_name=dataset_name,
-            batch_kwargs=dict(schema=table.ref.schema, table=table.name),
+            batch_kwargs=dict(
+                catalog=table.ref.catalog, schema=table.ref.schema, table=table.name
+            ),
             profile_table_level_only=profile_table_level_only,
         )
 
