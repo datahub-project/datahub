@@ -1,4 +1,25 @@
-"""BigQuery profiler security utilities for SQL injection protection."""
+"""
+BigQuery profiler security utilities for SQL injection protection.
+
+IMPORTANT SECURITY NOTE:
+========================
+This module provides TWO layers of SQL injection protection:
+
+1. **Identifier Validation** (validate_bigquery_identifier):
+   - Used for table/column/schema NAMES that cannot be parameterized
+   - BigQuery does NOT support parameterized identifiers (e.g., table names)
+   - These must be validated and escaped manually using backticks
+   - Example: SELECT * FROM `project`.`dataset`.`table_name`
+
+2. **Value Parameterization** (used throughout codebase):
+   - Used for actual DATA VALUES in WHERE clauses, comparisons, etc.
+   - BigQuery DOES support parameterized values via QueryJobConfig
+   - Always use ScalarQueryParameter for values when possible
+   - Example: WHERE partition_col = @partition_value
+
+This file handles case #1. Case #2 is handled by QueryJobConfig with
+ScalarQueryParameter throughout the codebase (see partition_discovery.py).
+"""
 
 import logging
 import re
@@ -10,7 +31,26 @@ logger = logging.getLogger(__name__)
 def validate_bigquery_identifier(
     identifier: str, identifier_type: str = "general"
 ) -> str:
-    """Validate and escape BigQuery identifiers against SQL injection."""
+    """
+    Validate and escape BigQuery identifiers (table/column/schema names) against SQL injection.
+
+    IMPORTANT: This is for IDENTIFIERS only (table names, column names, etc.).
+    For DATA VALUES, use parameterized queries with QueryJobConfig and ScalarQueryParameter.
+
+    BigQuery does NOT support parameterized identifiers, so we must:
+    1. Validate the identifier contains only safe characters
+    2. Escape it with backticks for safe SQL construction
+
+    Args:
+        identifier: The identifier to validate (table name, column name, etc.)
+        identifier_type: Type of identifier for error messages
+
+    Returns:
+        Backtick-escaped identifier safe for SQL construction
+
+    Raises:
+        ValueError: If identifier contains dangerous characters
+    """
     if not identifier or not isinstance(identifier, str):
         raise ValueError(
             f"Invalid {identifier_type} identifier: must be non-empty string"

@@ -1811,6 +1811,237 @@ def test_security_edge_cases():
     assert len(result) >= 3
 
 
+def test_sqlglot_ddl_parsing_date_partition():
+    """Test sqlglot-based DDL parsing for DATE(column) partition."""
+    config = BigQueryV2Config()
+    discovery = PartitionDiscovery(config)
+
+    # Create a mock table with DATE partition DDL
+    table = create_test_table(
+        name="test_date_partition",
+        ddl="""
+        CREATE TABLE `project.dataset.test_date_partition`
+        PARTITION BY DATE(timestamp_column)
+        AS SELECT * FROM source_table
+        """,
+    )
+
+    def mock_execute(query, job_config=None, context=""):
+        # Mock response for column type query
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [
+                SimpleNamespace(column_name="timestamp_column", data_type="TIMESTAMP")
+            ]
+        return []
+
+    result = discovery.get_partition_columns_from_ddl(
+        table, "project", "dataset", mock_execute
+    )
+
+    assert "timestamp_column" in result
+    assert result["timestamp_column"] == "TIMESTAMP"
+
+
+def test_sqlglot_ddl_parsing_datetime_trunc_partition():
+    """Test sqlglot-based DDL parsing for DATETIME_TRUNC partition."""
+    config = BigQueryV2Config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(
+        name="test_datetime_partition",
+        ddl="""
+        CREATE TABLE `project.dataset.test_datetime_partition`
+        PARTITION BY DATETIME_TRUNC(event_time, DAY)
+        AS SELECT * FROM source_table
+        """,
+    )
+
+    def mock_execute(query, job_config=None, context=""):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="event_time", data_type="DATETIME")]
+        return []
+
+    result = discovery.get_partition_columns_from_ddl(
+        table, "project", "dataset", mock_execute
+    )
+
+    assert "event_time" in result
+    assert result["event_time"] == "DATETIME"
+
+
+def test_sqlglot_ddl_parsing_timestamp_trunc_partition():
+    """Test sqlglot-based DDL parsing for TIMESTAMP_TRUNC partition."""
+    config = BigQueryV2Config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(
+        name="test_timestamp_partition",
+        ddl="""
+        CREATE TABLE `project.dataset.test_timestamp_partition`
+        PARTITION BY TIMESTAMP_TRUNC(created_at, HOUR)
+        OPTIONS(
+            partition_expiration_days=7
+        )
+        """,
+    )
+
+    def mock_execute(query, job_config=None, context=""):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="created_at", data_type="TIMESTAMP")]
+        return []
+
+    result = discovery.get_partition_columns_from_ddl(
+        table, "project", "dataset", mock_execute
+    )
+
+    assert "created_at" in result
+    assert result["created_at"] == "TIMESTAMP"
+
+
+def test_sqlglot_ddl_parsing_range_bucket_partition():
+    """Test sqlglot-based DDL parsing for RANGE_BUCKET partition."""
+    config = BigQueryV2Config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(
+        name="test_range_partition",
+        ddl="""
+        CREATE TABLE `project.dataset.test_range_partition`
+        PARTITION BY RANGE_BUCKET(user_id, GENERATE_ARRAY(0, 100, 10))
+        AS SELECT * FROM source_table
+        """,
+    )
+
+    def mock_execute(query, job_config=None, context=""):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="user_id", data_type="INT64")]
+        return []
+
+    result = discovery.get_partition_columns_from_ddl(
+        table, "project", "dataset", mock_execute
+    )
+
+    assert "user_id" in result
+    assert result["user_id"] == "INT64"
+
+
+def test_sqlglot_ddl_parsing_simple_column_partition():
+    """Test sqlglot-based DDL parsing for simple column partition."""
+    config = BigQueryV2Config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(
+        name="test_simple_partition",
+        ddl="""
+        CREATE TABLE `project.dataset.test_simple_partition` (
+            date STRING,
+            region STRING,
+            value INT64
+        )
+        PARTITION BY date
+        """,
+    )
+
+    def mock_execute(query, job_config=None, context=""):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="date", data_type="STRING")]
+        return []
+
+    result = discovery.get_partition_columns_from_ddl(
+        table, "project", "dataset", mock_execute
+    )
+
+    assert "date" in result
+    assert result["date"] == "STRING"
+
+
+def test_sqlglot_ddl_parsing_complex_multiline_format():
+    """Test sqlglot-based DDL parsing with complex multiline formatting."""
+    config = BigQueryV2Config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(
+        name="test_complex_format",
+        ddl="""
+        CREATE TABLE
+            `project.dataset.test_complex_format`
+        (
+            id INT64,
+            event_timestamp TIMESTAMP,
+            data STRING
+        )
+        PARTITION BY
+            DATE(event_timestamp)
+        CLUSTER BY
+            id
+        OPTIONS(
+            description="Complex formatted table",
+            partition_expiration_days=30
+        )
+        """,
+    )
+
+    def mock_execute(query, job_config=None, context=""):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [
+                SimpleNamespace(column_name="event_timestamp", data_type="TIMESTAMP")
+            ]
+        return []
+
+    result = discovery.get_partition_columns_from_ddl(
+        table, "project", "dataset", mock_execute
+    )
+
+    assert "event_timestamp" in result
+    assert result["event_timestamp"] == "TIMESTAMP"
+
+
+def test_sqlglot_ddl_parsing_no_partition():
+    """Test sqlglot-based DDL parsing for tables without partitions."""
+    config = BigQueryV2Config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(
+        name="test_no_partition",
+        ddl="""
+        CREATE TABLE `project.dataset.test_no_partition` (
+            id INT64,
+            name STRING
+        )
+        """,
+    )
+
+    def mock_execute(query, job_config=None, context=""):
+        return []
+
+    result = discovery.get_partition_columns_from_ddl(
+        table, "project", "dataset", mock_execute
+    )
+
+    assert len(result) == 0
+
+
+def test_sqlglot_ddl_parsing_invalid_ddl():
+    """Test sqlglot-based DDL parsing with invalid DDL."""
+    config = BigQueryV2Config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(
+        name="test_invalid_ddl",
+        ddl="INVALID SQL STATEMENT",
+    )
+
+    def mock_execute(query, job_config=None, context=""):
+        return []
+
+    result = discovery.get_partition_columns_from_ddl(
+        table, "project", "dataset", mock_execute
+    )
+
+    # Should handle gracefully and return empty dict
+    assert len(result) == 0
+
+
 if __name__ == "__main__":
     # Run tests with pytest
     pytest.main([__file__, "-v"])

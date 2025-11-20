@@ -1,15 +1,33 @@
 """BigQuery partition discovery and filter generation with enhanced security."""
 
 import logging
-import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypedDict, Union
 
+import sqlglot
 from dateutil.relativedelta import relativedelta
 from google.cloud.bigquery import QueryJobConfig, Row, ScalarQueryParameter
+from sqlglot.expressions import (
+    Anonymous,
+    Date,
+    DatetimeTrunc,
+    Identifier,
+    PartitionedByProperty,
+    Property,
+    RangeBucket,
+)
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    DATE_LIKE_COLUMN_NAMES,
+    DATE_TIME_TYPES,
+    PARTITION_FILTER_PATTERN,
+    PARTITION_ID_YYYYMMDD_LENGTH,
+    PARTITION_ID_YYYYMMDDHH_LENGTH,
+    PARTITION_PATH_PATTERN,
+    VALID_COLUMN_NAME_PATTERN,
+)
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     build_safe_table_reference,
     validate_column_names,
@@ -160,7 +178,10 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Dict[str, str]:
         """
-        Extract partition columns from table DDL using robust regex patterns.
+        Extract partition columns from table DDL using sqlglot parsing.
+
+        This method uses sqlglot to parse BigQuery CREATE TABLE DDL
+        and extract partition column information from the PARTITION BY clause.
 
         Args:
             table: BigqueryTable instance
@@ -177,43 +198,47 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
             return partition_cols_with_types
 
         try:
-            # Normalize DDL by removing extra whitespace and newlines
-            normalized_ddl = re.sub(r"\s+", " ", table.ddl.upper().strip())
+            # Parse the DDL using sqlglot with BigQuery dialect
+            parsed = sqlglot.parse_one(table.ddl, dialect="bigquery")
 
-            # Use regex to find PARTITION BY clause
-            partition_pattern = (
-                r"PARTITION\s+BY\s+([^)]+(?:\([^)]*\))?[^)]*)(?:\s+OPTIONS|$|;)"
-            )
+            # Find the PARTITION BY clause
+            partition_by_expr = None
+            for prop in parsed.find_all(Property):
+                if isinstance(prop, PartitionedByProperty):
+                    partition_by_expr = prop.this
+                    break
 
-            match = re.search(partition_pattern, normalized_ddl)
-            if not match:
+            if not partition_by_expr:
                 logger.debug(
                     f"No PARTITION BY clause found in DDL for table {table.name}"
                 )
                 return partition_cols_with_types
 
-            partition_clause = match.group(1).strip()
-            logger.debug(f"Found partition clause: {partition_clause}")
-
-            # Extract column names from various partition patterns
-            column_names = self._extract_column_names_from_partition_clause(
-                partition_clause
+            # Extract column names from the partition expressions
+            column_names = self._extract_column_names_from_sqlglot_partition(
+                partition_by_expr
             )
 
             if not column_names:
                 logger.warning(
-                    f"Could not extract column names from partition clause: {partition_clause}"
+                    f"Could not extract column names from PARTITION BY clause for table {table.name}"
                 )
                 return partition_cols_with_types
 
+            logger.debug(
+                f"Extracted partition columns from DDL: {column_names} for table {table.name}"
+            )
+
             # Get data types for the extracted columns
-            if column_names:
-                return self._get_partition_column_types(
-                    table, project, schema, column_names, execute_query_func
-                )
+            return self._get_partition_column_types(
+                table, project, schema, column_names, execute_query_func
+            )
 
         except Exception as e:
-            logger.warning(f"Error parsing DDL for partition columns: {e}")
+            logger.warning(
+                f"Error parsing DDL with sqlglot for table {table.name}: {e}. "
+                f"This may indicate a complex or non-standard DDL format."
+            )
 
         return partition_cols_with_types
 
@@ -531,13 +556,7 @@ LIMIT @max_results"""
                 # Single column partitioning
                 if len(partition_columns) == 1:
                     col_name = partition_columns[0]
-                    if partition_id.isdigit():
-                        if len(partition_id) == 8 or len(partition_id) == 10:
-                            partition_values[col_name] = partition_id
-                        else:
-                            partition_values[col_name] = partition_id
-                    else:
-                        partition_values[col_name] = partition_id
+                    partition_values[col_name] = partition_id
                 else:
                     self._parse_single_partition_id_for_multiple_columns(
                         partition_id, partition_columns, partition_values
@@ -670,7 +689,7 @@ LIMIT @max_results"""
 
         for col_name in date_columns:
             try:
-                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
+                if not VALID_COLUMN_NAME_PATTERN.match(col_name):
                     logger.warning(f"Invalid column name: {col_name}")
                     continue
 
@@ -873,7 +892,7 @@ SELECT val, record_count FROM PartitionStats"""
         """Process non-date columns within the latest date constraints."""
         for col_name in non_date_columns:
             try:
-                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
+                if not VALID_COLUMN_NAME_PATTERN.match(col_name):
                     logger.warning(f"Invalid column name: {col_name}")
                     continue
 
@@ -985,56 +1004,24 @@ SELECT val, record_count FROM PartitionStats"""
     def _is_date_like_column(self, col_name: str) -> bool:
         """
         Check if a column name suggests it contains date/time data.
-        Note: 'day' is excluded as it typically refers to day number (1-31) in partition contexts.
+
+        This is used as a fallback when column type information is unavailable or when
+        date columns are stored as STRING/INT64 in external tables.
+
+        See DATE_LIKE_COLUMN_NAMES in constants.py for the full list of patterns.
         """
-        return col_name.lower() in {
-            "date",
-            "dt",
-            "partition_date",
-            "date_partition",
-            "event_date",
-            "created_date",
-            "updated_date",
-            "timestamp",
-            "datetime",
-            "time",
-            "created_at",
-            "modified_at",
-            "updated_at",
-            "event_time",
-            # Trading/Financial date columns
-            "trade_date",
-            "trader_date",
-            "trading_date",
-            "business_date",
-            "settlement_date",
-            "value_date",
-            "booking_date",
-            # General date patterns
-            "start_date",
-            "end_date",
-            "effective_date",
-            "expiry_date",
-            "maturity_date",
-            "process_date",
-            "load_date",
-            "insert_date",
-        }
+        return col_name.lower() in DATE_LIKE_COLUMN_NAMES
 
     def _is_date_type_column(self, data_type: str) -> bool:
         """
         Check if a column's data type is a date/time type in BigQuery.
+
+        See DATE_TIME_TYPES in constants.py for the full list of recognized types.
         """
         if not data_type:
             return False
 
-        data_type_upper = data_type.upper()
-        return data_type_upper in {
-            "DATE",
-            "DATETIME",
-            "TIMESTAMP",
-            "TIME",
-        }
+        return data_type.upper() in DATE_TIME_TYPES
 
     def _log_partition_attempt(
         self,
@@ -1065,7 +1052,7 @@ SELECT val, record_count FROM PartitionStats"""
         Common patterns: YYYYMMDD for year/month/day, YYYYMMDDHH for year/month/day/hour
         """
         if partition_id.isdigit():
-            if len(partition_id) == 8:  # YYYYMMDD
+            if len(partition_id) == PARTITION_ID_YYYYMMDD_LENGTH:  # YYYYMMDD
                 year = partition_id[:4]
                 month = partition_id[4:6]
                 day = partition_id[6:8]
@@ -1079,7 +1066,7 @@ SELECT val, record_count FROM PartitionStats"""
                     elif col_lower in ["day", "dy"]:
                         result_values[col] = day
 
-            elif len(partition_id) == 10:  # YYYYMMDDHH
+            elif len(partition_id) == PARTITION_ID_YYYYMMDDHH_LENGTH:  # YYYYMMDDHH
                 year = partition_id[:4]
                 month = partition_id[4:6]
                 day = partition_id[6:8]
@@ -1096,150 +1083,84 @@ SELECT val, record_count FROM PartitionStats"""
                     elif col_lower in ["hour", "hr"]:
                         result_values[col] = hour
 
-    def _extract_column_names_from_partition_clause(
-        self, partition_clause: str
+    def _extract_column_names_from_sqlglot_partition(
+        self, partition_expr: Any
     ) -> List[str]:
         """
-        Extract column names from a PARTITION BY clause using various patterns.
+        Extract column names from a sqlglot PARTITION BY expression.
 
-        Handles:
+        This method handles various BigQuery partitioning patterns:
         - DATE(column_name)
         - DATETIME_TRUNC(column_name, DAY)
+        - TIMESTAMP_TRUNC(column_name, DAY)
         - RANGE_BUCKET(column_name, GENERATE_ARRAY(...))
-        - column1, column2, column3
+        - column1, column2, column3 (simple columns)
         - Complex expressions with nested functions
+
+        Args:
+            partition_expr: sqlglot expression from PARTITION BY clause
+
+        Returns:
+            List of column names used in partitioning
         """
+        column_names = []
+
         try:
-            # If there are commas, it's likely a mixed scenario
-            if "," in partition_clause:
-                # Try mixed scenarios first for comma-separated clauses
-                mixed_columns = self._extract_mixed_column_names(partition_clause)
-                if mixed_columns:
-                    return self._remove_duplicate_columns(mixed_columns)
+            # Handle case where partition_expr has expressions (multiple partitions)
+            expressions = []
+            if hasattr(partition_expr, "expressions") and partition_expr.expressions:
+                expressions = partition_expr.expressions
+            elif partition_expr:
+                expressions = [partition_expr]
 
-            # Pattern 1: Try simple column names first (col1, col2, col3)
-            simple_columns = self._extract_simple_column_names(partition_clause)
-            if simple_columns:
-                return self._remove_duplicate_columns(simple_columns)
+            for expr in expressions:
+                column_name = None
 
-            # Pattern 2: Try function-based partitioning
-            function_columns = self._extract_function_based_column_names(
-                partition_clause
-            )
-            if function_columns:
-                return self._remove_duplicate_columns(function_columns)
+                # Handle DATE(column_name), DATETIME_TRUNC, RANGE_BUCKET
+                if isinstance(expr, (Date, DatetimeTrunc, RangeBucket)):
+                    if hasattr(expr, "this") and expr.this:
+                        column_name = str(expr.this)
 
-            # If no columns found, return empty list
-            logger.debug(
-                f"No column names extracted from partition clause: {partition_clause}"
-            )
-            return []
+                # Handle generic function calls (Anonymous expressions)
+                elif isinstance(expr, Anonymous):
+                    # Try to extract the first argument (usually the column)
+                    if hasattr(expr, "expressions") and expr.expressions:
+                        first_arg = expr.expressions[0]
+                        if isinstance(first_arg, Identifier):
+                            column_name = str(first_arg)
+                        elif hasattr(first_arg, "this"):
+                            column_name = str(first_arg.this)
+
+                # Handle simple column identifiers
+                elif isinstance(expr, Identifier):
+                    column_name = str(expr)
+
+                # Handle expressions with "this" attribute (common sqlglot pattern)
+                elif hasattr(expr, "this") and expr.this:
+                    if isinstance(expr.this, Identifier):
+                        column_name = str(expr.this)
+                    else:
+                        # Try to extract column from nested expression
+                        column_name = str(expr.this)
+
+                # Clean up column name (remove quotes, backticks, whitespace)
+                if column_name:
+                    column_name = column_name.strip().strip("`").strip('"').strip("'")
+                    if column_name and column_name not in column_names:
+                        column_names.append(column_name)
+                        logger.debug(f"Extracted partition column: {column_name}")
 
         except Exception as e:
             logger.warning(
-                f"Error extracting column names from partition clause '{partition_clause}': {e}"
+                f"Error extracting column names from sqlglot partition expression: {e}"
             )
-            return []
-
-    def _extract_simple_column_names(self, partition_clause: str) -> List[str]:
-        """Extract simple comma-separated column names from partition clause."""
-        # Pattern for simple column names (col1, col2, col3)
-        simple_pattern = r"^([a-zA-Z_][a-zA-Z0-9_]*(?:\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*)*)$"
-        simple_match = re.match(simple_pattern, partition_clause.strip())
-
-        if simple_match:
-            # Direct column names separated by commas
-            columns = [col.strip() for col in simple_match.group(1).split(",")]
-            return [col for col in columns if col]
-
-        return []
-
-    def _extract_function_based_column_names(self, partition_clause: str) -> List[str]:
-        """Extract column names from function-based partitioning patterns."""
-        column_names = []
-        function_patterns = self._get_function_patterns()
-        seen = set()
-
-        for pattern in function_patterns:
-            matches = re.findall(pattern, partition_clause, re.IGNORECASE)
-            for match in matches:
-                if match not in seen:
-                    seen.add(match)
-                    column_names.append(match)
 
         return column_names
 
-    def _extract_mixed_column_names(self, partition_clause: str) -> List[str]:
-        """Extract column names from mixed scenarios (comma-separated parts with functions)."""
-        column_names = []
-        function_patterns = self._get_function_patterns()
-
-        # Use smarter splitting that respects parentheses
-        parts = self._split_partition_clause_respecting_parentheses(partition_clause)
-
-        for part in parts:
-            part = part.strip()
-            found_match = False
-
-            # Try to extract column name from each part using function patterns
-            for pattern in function_patterns:
-                matches = re.findall(pattern, part, re.IGNORECASE)
-                if matches:
-                    column_names.extend(matches)
-                    found_match = True
-                    break  # Stop after first successful pattern match to avoid duplicates
-
-            # If no function found, check if it's a simple column name
-            if not found_match:
-                simple_col_match = re.match(r"^([a-zA-Z_][a-zA-Z0-9_]*)$", part)
-                if simple_col_match:
-                    column_names.append(simple_col_match.group(1))
-
-        return column_names
-
-    def _get_function_patterns(self) -> List[str]:
-        """Get regex patterns for extracting column names from function-based partitioning."""
-        return [
-            # DATE(column), DATETIME(column), TIMESTAMP(column)
-            r"(?:DATE|DATETIME|TIMESTAMP)\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\)",
-            # DATE_TRUNC(column, unit), DATETIME_TRUNC(column, unit)
-            r"(?:DATE_TRUNC|DATETIME_TRUNC)\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*,",
-            # EXTRACT(DATE FROM column)
-            r"EXTRACT\s*\(\s*DATE\s+FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\)",
-            # RANGE_BUCKET(column, ...)
-            r"RANGE_BUCKET\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*,",
-            # Generic function(column, ...)
-            r"[a-zA-Z_][a-zA-Z0-9_]*\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*[,)]",
-        ]
-
-    def _split_partition_clause_respecting_parentheses(
-        self, partition_clause: str
-    ) -> List[str]:
-        """Split partition clause by commas while respecting parentheses."""
-        parts = []
-        current_part = ""
-        paren_depth = 0
-
-        for char in partition_clause:
-            if char == "(":
-                paren_depth += 1
-                current_part += char
-            elif char == ")":
-                paren_depth -= 1
-                current_part += char
-            elif char == "," and paren_depth == 0:
-                # Only split on commas that are not inside parentheses
-                if current_part.strip():
-                    parts.append(current_part.strip())
-                current_part = ""
-            else:
-                current_part += char
-
-        # Add the last part
-        if current_part.strip():
-            parts.append(current_part.strip())
-
-        return parts
+    # Note: Regex-based partition parsing methods have been replaced with sqlglot-based parsing
+    # in _extract_column_names_from_sqlglot_partition() for improved reliability and maintainability.
+    # The old regex methods (_extract_column_names_from_partition_clause, _get_function_patterns, etc.)
+    # have been removed as they are no longer needed.
 
     def _remove_duplicate_columns(self, column_names: List[str]) -> List[str]:
         """Remove duplicate column names while preserving order."""
@@ -1468,7 +1389,7 @@ LIMIT @limit_rows"""
         schema-declared types and actual stored values.
         """
         # Validate column name
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
+        if not VALID_COLUMN_NAME_PATTERN.match(col_name):
             raise ValueError(f"Invalid column name for filter: {col_name}")
 
         # Convert value to string for consistent handling
@@ -2035,11 +1956,17 @@ LIMIT 1"""
                     col_name = required_columns[0]
 
                     # Handle date partition formats
-                    if len(partition_id) == 8 and partition_id.isdigit():
+                    if (
+                        len(partition_id) == PARTITION_ID_YYYYMMDD_LENGTH
+                        and partition_id.isdigit()
+                    ):
                         # YYYYMMDD format
                         date_str = f"{partition_id[:4]}-{partition_id[4:6]}-{partition_id[6:8]}"
                         filters.append(self._create_safe_filter(col_name, date_str))
-                    elif len(partition_id) == 10 and partition_id.isdigit():
+                    elif (
+                        len(partition_id) == PARTITION_ID_YYYYMMDDHH_LENGTH
+                        and partition_id.isdigit()
+                    ):
                         # YYYYMMDDHH format
                         date_str = f"{partition_id[:4]}-{partition_id[4:6]}-{partition_id[6:8]}"
                         filters.append(self._create_safe_filter(col_name, date_str))
@@ -2211,10 +2138,7 @@ LIMIT @max_values"""
         result: PartitionInfo = {"required_columns": [], "partition_values": {}}
 
         # Look for "filter over column(s)" pattern which lists required partition columns
-        column_match = re.search(
-            r"filter over column\(s\) '([^']+)'(?:, '([^']+)')?(?:, '([^']+)')?(?:, '([^']+)')?",
-            error_message,
-        )
+        column_match = PARTITION_FILTER_PATTERN.search(error_message)
 
         if column_match:
             required_columns = []
@@ -2229,7 +2153,7 @@ LIMIT @max_values"""
                 )
 
         # Look for partition path patterns like feed=value/year=value/month=value/day=value
-        path_matches = re.findall(r"([a-zA-Z_]+)=([^/\s]+)", error_message)
+        path_matches = PARTITION_PATH_PATTERN.findall(error_message)
 
         if path_matches:
             partition_values = {}

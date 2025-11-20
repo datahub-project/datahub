@@ -27,6 +27,13 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIde
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    DATE_FORMAT_PATTERNS,
+    DATE_FORMAT_YYYY_MM_DD,
+    DATE_FORMAT_YYYYMMDD,
+    DATE_LIKE_COLUMN_NAMES,
+    STRFTIME_FORMATS,
+)
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery import (
     PartitionDiscovery,
 )
@@ -823,18 +830,21 @@ WHERE {partition_where}"""
             )
 
             # Use consistent formatting based on existing filter format
-            if existing_format == "YYYYMMDD":
+            if existing_format == DATE_FORMAT_YYYYMMDD:
                 # STRING format like '20250913'
-                start_date_str = f"'{start_date.strftime('%Y%m%d')}'"
-                end_date_str = f"'{reference_date.strftime('%Y%m%d')}'"
-            elif existing_format == "YYYY-MM-DD":
+                format_str = STRFTIME_FORMATS[DATE_FORMAT_YYYYMMDD]
+                start_date_str = f"'{start_date.strftime(format_str)}'"
+                end_date_str = f"'{reference_date.strftime(format_str)}'"
+            elif existing_format == DATE_FORMAT_YYYY_MM_DD:
                 # STRING format like '2025-09-13'
-                start_date_str = f"'{start_date.strftime('%Y-%m-%d')}'"
-                end_date_str = f"'{reference_date.strftime('%Y-%m-%d')}'"
+                format_str = STRFTIME_FORMATS[DATE_FORMAT_YYYY_MM_DD]
+                start_date_str = f"'{start_date.strftime(format_str)}'"
+                end_date_str = f"'{reference_date.strftime(format_str)}'"
             else:
                 # Default to YYYY-MM-DD string format (let BigQuery handle casting)
-                start_date_str = f"'{start_date.strftime('%Y-%m-%d')}'"
-                end_date_str = f"'{reference_date.strftime('%Y-%m-%d')}'"
+                format_str = STRFTIME_FORMATS[DATE_FORMAT_YYYY_MM_DD]
+                start_date_str = f"'{start_date.strftime(format_str)}'"
+                end_date_str = f"'{reference_date.strftime(format_str)}'"
 
             # Add range filter to limit the date window
             range_filter = (
@@ -863,22 +873,20 @@ WHERE {partition_where}"""
             col_name: Column name to check format for
 
         Returns:
-            Format string ("YYYYMMDD", "YYYY-MM-DD", or None for DATE functions)
+            Format string (DATE_FORMAT_YYYYMMDD, DATE_FORMAT_YYYY_MM_DD, or None for DATE functions)
         """
-        for filter_expr in partition_filters:
-            # Look for patterns like `date` = '20250913' (YYYYMMDD format)
-            yyyymmdd_pattern = rf"`{re.escape(col_name)}`\s*=\s*'(\d{{8}})'"
-            match = re.search(yyyymmdd_pattern, filter_expr, re.IGNORECASE)
-            if match:
-                return "YYYYMMDD"
+        # Build a prefix pattern to find filters for this specific column
+        col_prefix = f"`{re.escape(col_name)}`"
 
-            # Look for patterns like `date` = '2025-09-13' (YYYY-MM-DD format)
-            yyyy_mm_dd_pattern = (
-                rf"`{re.escape(col_name)}`\s*=\s*'(\d{{4}}-\d{{2}}-\d{{2}})'"
-            )
-            match = re.search(yyyy_mm_dd_pattern, filter_expr, re.IGNORECASE)
-            if match:
-                return "YYYY-MM-DD"
+        for filter_expr in partition_filters:
+            # Only check filters that reference this column
+            if col_prefix not in filter_expr:
+                continue
+
+            # Check each format pattern using pre-compiled regex
+            for format_name, pattern in DATE_FORMAT_PATTERNS.items():
+                if pattern.search(filter_expr):
+                    return format_name
 
         # If no specific format detected, assume DATE function format
         return None
@@ -886,30 +894,20 @@ WHERE {partition_where}"""
     def _extract_date_columns_from_filters(
         self, partition_filters: List[str]
     ) -> List[str]:
-        """Extract date-like column names from partition filter expressions."""
+        """
+        Extract date-like column names from partition filter expressions.
+
+        Note: This uses pattern matching as a heuristic. Ideally, we would have
+        column type information available, but partition filters are often constructed
+        without access to the full schema metadata.
+        """
         date_columns = []
 
-        # Common date column patterns
-        date_column_patterns = [
-            "date",
-            "dt",
-            "partition_date",
-            "date_partition",
-            "event_date",
-            "created_date",
-            "updated_date",
-            "timestamp",
-            "datetime",
-            "time",
-            "created_at",
-            "modified_at",
-            "updated_at",
-            "event_time",
-        ]
-
         for filter_expr in partition_filters:
-            for pattern in date_column_patterns:
-                if f"`{pattern}`" in filter_expr.lower():
+            filter_lower = filter_expr.lower()
+            # Check against all known date-like column patterns from constants
+            for pattern in DATE_LIKE_COLUMN_NAMES:
+                if f"`{pattern}`" in filter_lower:
                     if pattern not in date_columns:
                         date_columns.append(pattern)
 
