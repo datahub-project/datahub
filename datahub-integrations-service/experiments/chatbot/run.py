@@ -246,7 +246,7 @@ def log_generation_time_metrics(evals_df: pd.DataFrame) -> None:
 
 
 async def main(
-    prompt_ids: Annotated[Optional[List[str]], typer.Option(None)] = None,
+    prompt_ids: Optional[List[str]] = None,
 ) -> None:
     # Configure file logging with DEBUG level
     log_file = (

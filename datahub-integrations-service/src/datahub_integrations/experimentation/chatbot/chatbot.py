@@ -85,6 +85,16 @@ def update_prompt_expected_tool_calls(
             raise ValueError(f"Prompt with id {prompt_id} not found")
 
 
+def update_prompt_tags(prompt_id: str, new_tags: list[str] | None) -> None:
+    with YamlFileUpdater(prompts_file) as doc:
+        for prompt in doc:
+            if prompt["id"] == prompt_id:
+                prompt["tags"] = new_tags or []
+                break
+        else:
+            raise ValueError(f"Prompt with id {prompt_id} not found")
+
+
 def reload_prompt(prompt_id: str) -> Prompt:
     prompts = load_prompts_file(prompts_file)
     return next(p for p in prompts if p.id == prompt_id)
