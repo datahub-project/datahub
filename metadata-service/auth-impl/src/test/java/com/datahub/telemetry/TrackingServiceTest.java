@@ -14,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
@@ -24,7 +25,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Optional;
-import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -67,7 +67,7 @@ public class TrackingServiceTest {
   private EntityService<?> _entityService;
   private TrackingService _trackingService;
   private OperationContext opContext;
-  private Producer<String, String> dataHubUsageProducer;
+  private GenericProducer<String> dataHubUsageProducer;
   private TrackingService _noObfuscationTrackingService;
 
   @BeforeMethod
@@ -86,7 +86,7 @@ public class TrackingServiceTest {
     TopicsConfiguration topicsConfiguration = mock(TopicsConfiguration.class);
     when(topicsConfiguration.getDataHubUsage()).thenReturn("DataHubUsageEvent_v1");
 
-    dataHubUsageProducer = mock(Producer.class);
+    dataHubUsageProducer = mock(GenericProducer.class);
     when(dataHubUsageProducer.send(any(ProducerRecord.class), any()))
         .thenAnswer(
             invocation -> {
@@ -165,7 +165,7 @@ public class TrackingServiceTest {
   @Test
   public void testTrackEventWithKafkaError() throws IOException {
     // Create a new producer that simulates an error
-    Producer<String, String> errorProducer = mock(Producer.class);
+    GenericProducer<String> errorProducer = mock(GenericProducer.class);
     when(errorProducer.send(any(ProducerRecord.class), any()))
         .thenAnswer(
             invocation -> {
