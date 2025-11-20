@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY confluent_cloud_mock_api.py ./
 
-RUN pip install --no-cache-dir flask
+RUN pip install --no-cache-dir flask requests
 
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
