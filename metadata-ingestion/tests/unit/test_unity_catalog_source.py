@@ -25,7 +25,7 @@ class TestUnityCatalogSource:
             "azure_auth": azure_auth_partial,
         }
         with pytest.raises(Exception) as exc_info:
-            UnityCatalogSourceConfig.parse_obj(config_dict)
+            UnityCatalogSourceConfig.model_validate(config_dict)
         # Should mention the missing field in the error message
         assert (
             "client_id" in str(exc_info.value)
@@ -76,7 +76,7 @@ class TestUnityCatalogSource:
     @pytest.fixture
     def config_with_azure_auth(self):
         """Create a config with Azure authentication."""
-        return UnityCatalogSourceConfig.parse_obj(
+        return UnityCatalogSourceConfig.model_validate(
             {
                 "workspace_url": "https://test.databricks.com",
                 "warehouse_id": "test_warehouse",
@@ -93,7 +93,7 @@ class TestUnityCatalogSource:
     @pytest.fixture
     def config_with_azure_auth_and_ml_models(self):
         """Create a config with Azure authentication and ML model settings."""
-        return UnityCatalogSourceConfig.parse_obj(
+        return UnityCatalogSourceConfig.model_validate(
             {
                 "workspace_url": "https://test.databricks.com",
                 "warehouse_id": "test_warehouse",
@@ -349,7 +349,7 @@ class TestUnityCatalogSource:
             },
         }
 
-        config = UnityCatalogSourceConfig.parse_obj(valid_config_dict)
+        config = UnityCatalogSourceConfig.model_validate(valid_config_dict)
         assert config.azure_auth is not None
         assert config.azure_auth.client_id == "test-client-id"
         assert config.azure_auth.tenant_id == "test-tenant-id"
@@ -402,7 +402,7 @@ class TestUnityCatalogSource:
         """Test that UnityCatalogSource creation fails when neither token nor azure_auth are provided."""
         # Test with neither token nor azure_auth provided - this should fail at config parsing
         with pytest.raises(ValueError) as exc_info:
-            UnityCatalogSourceConfig.parse_obj(
+            UnityCatalogSourceConfig.model_validate(
                 {
                     "workspace_url": "https://test.databricks.com",
                     "warehouse_id": "test_warehouse",
@@ -421,7 +421,7 @@ class TestUnityCatalogSource:
     def test_test_connection_fails_without_authentication(self):
         """Test that test_connection fails when neither token nor azure_auth are provided."""
         with pytest.raises(ValueError) as exc_info:
-            UnityCatalogSourceConfig.parse_obj(
+            UnityCatalogSourceConfig.model_validate(
                 {
                     "workspace_url": "https://test.databricks.com",
                     "warehouse_id": "test_warehouse",
@@ -440,7 +440,7 @@ class TestUnityCatalogSource:
         """Test that UnityCatalogSource creation fails when both token and azure_auth are provided."""
         # Test with both token and azure_auth provided - this should fail at config parsing
         with pytest.raises(ValueError) as exc_info:
-            UnityCatalogSourceConfig.parse_obj(
+            UnityCatalogSourceConfig.model_validate(
                 {
                     "workspace_url": "https://test.databricks.com",
                     "warehouse_id": "test_warehouse",
@@ -587,7 +587,7 @@ class TestUnityCatalogSource:
             Schema,
         )
 
-        config = UnityCatalogSourceConfig.parse_obj(
+        config = UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -701,7 +701,7 @@ class TestUnityCatalogSource:
             Schema,
         )
 
-        config = UnityCatalogSourceConfig.parse_obj(
+        config = UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
@@ -796,7 +796,7 @@ class TestUnityCatalogSource:
             Schema,
         )
 
-        config = UnityCatalogSourceConfig.parse_obj(
+        config = UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",

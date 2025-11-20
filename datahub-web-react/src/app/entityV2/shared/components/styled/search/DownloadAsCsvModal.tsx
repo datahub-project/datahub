@@ -46,7 +46,7 @@ type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
 };
 
-const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 200;
+const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 100;
 const DOWNLOAD_NOTIFICATION_KEY = 'download-csv-notification';
 const formatTime = (seconds: number) => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
