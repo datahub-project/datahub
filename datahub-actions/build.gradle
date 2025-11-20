@@ -143,7 +143,7 @@ docker {
 
   additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
-  defaultVariant = "full"
+  defaultVariant = "slim"
   variants = [
     "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "false"]],
     "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]],
