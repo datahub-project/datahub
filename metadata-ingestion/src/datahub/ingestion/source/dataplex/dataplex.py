@@ -41,7 +41,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
     EntityDataTuple,
-    determine_entity_platform,
+    extract_entity_metadata,
     make_asset_container_key,
     make_audit_stamp,
     make_entity_dataset_urn,
@@ -97,7 +97,7 @@ class DataplexSource(Source):
 
         # Track entity IDs for lineage extraction
         # Key: project_id, Value: set of tuples (entity_id, zone_id, lake_id)
-        self.entity_ids_by_project: dict[str, set[EntityDataTuple]] = {}
+        self.entity_data_by_project: dict[str, set[EntityDataTuple]] = {}
 
         creds = self.config.get_credentials()
         credentials = (
@@ -133,6 +133,8 @@ class DataplexSource(Source):
         else:
             self.lineage_client = None
             self.lineage_extractor = None
+
+        self.asset_metadata = {}
 
     def get_report(self) -> DataplexReport:
         """Return the ingestion report."""
@@ -515,6 +517,9 @@ class DataplexSource(Source):
 
                             for entity in entities:
                                 entity_id = entity.id
+                                logger.debug(
+                                    f"Processing entity: {entity_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
+                                )
 
                                 if not self.config.filter_config.entity_pattern.allowed(
                                     entity_id
@@ -532,17 +537,37 @@ class DataplexSource(Source):
                                     f"Processing entity: {entity_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
                                 )
 
+                                # Determine source platform and dataset id from asset (bigquery, gcs, etc.)
+                                if entity.asset in self.asset_metadata:
+                                    source_platform, dataset_id = self.asset_metadata[
+                                        entity.asset
+                                    ]
+                                else:
+                                    source_platform, dataset_id = (
+                                        extract_entity_metadata(
+                                            project_id,
+                                            lake_id,
+                                            zone_id,
+                                            entity_id,
+                                            entity.asset,
+                                            self.config.location,
+                                            self.dataplex_client,
+                                        )
+                                    )
+
                                 # Track entity ID for lineage extraction
-                                if project_id not in self.entity_ids_by_project:
-                                    self.entity_ids_by_project[project_id] = set[
+                                if project_id not in self.entity_data_by_project:
+                                    self.entity_data_by_project[project_id] = set[
                                         EntityDataTuple
                                     ]()
-                                self.entity_ids_by_project[project_id].add(
+                                self.entity_data_by_project[project_id].add(
                                     EntityDataTuple(
                                         lake_id=lake_id,
                                         zone_id=zone_id,
                                         entity_id=entity_id,
                                         asset_id=entity.asset,
+                                        source_platform=source_platform,
+                                        dataset_id=dataset_id,
                                     )
                                 )
 
@@ -561,21 +586,12 @@ class DataplexSource(Source):
                                     )
                                     entity_full = entity
 
-                                # Determine source platform from asset (bigquery, gcs, etc.)
-                                source_platform = determine_entity_platform(
-                                    entity_full,
-                                    project_id,
-                                    lake_id,
-                                    zone_id,
-                                    self.config.location,
-                                    self.dataplex_client,
-                                )
-
                                 # Generate dataset URN with dataplex platform
                                 dataset_urn = make_entity_dataset_urn(
                                     entity_id,
                                     project_id,
                                     self.config.env,
+                                    dataset_id=dataset_id,
                                     platform="dataplex",
                                 )
 
@@ -663,6 +679,7 @@ class DataplexSource(Source):
                                         entity_id,
                                         project_id,
                                         source_platform,
+                                        dataset_id,
                                     )
 
                         except exceptions.GoogleAPICallError as e:
@@ -764,6 +781,7 @@ class DataplexSource(Source):
         entity_id: str,
         project_id: str,
         source_platform: str,
+        dataset_id: str,
     ) -> Iterable[MetadataWorkUnit]:
         """Generate sibling workunits linking Dataplex entity to source platform entity.
 
@@ -779,7 +797,7 @@ class DataplexSource(Source):
         """
         # Create source dataset URN (e.g., bigquery://project.entity)
         source_dataset_urn = make_source_dataset_urn(
-            entity_id, project_id, source_platform, self.config.env
+            entity_id, project_id, source_platform, self.config.env, dataset_id
         )
 
         # Dataplex entity sibling aspect
@@ -817,7 +835,7 @@ class DataplexSource(Source):
             return
 
         # Get entity IDs that were processed for this project
-        entity_data = self.entity_ids_by_project.get(project_id, set())
+        entity_data = self.entity_data_by_project.get(project_id, set())
         if not entity_data:
             logger.info(
                 f"No entities found for lineage extraction in project {project_id}"

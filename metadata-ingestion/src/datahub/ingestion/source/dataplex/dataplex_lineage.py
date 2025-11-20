@@ -27,7 +27,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
     EntityDataTuple,
-    extract_entity_metadata,
     make_entity_dataset_urn,
 )
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
@@ -107,20 +106,8 @@ class DataplexLineageExtractor:
             return None
 
         try:
-            # Construct the fully qualified name for the entity
-            # The format depends on the source platform (BigQuery, GCS, etc.)
-            # For now, we'll use a generic format that can be adjusted based on asset type
-            platform, dataset_id = extract_entity_metadata(
-                project_id,
-                entity.lake_id,
-                entity.zone_id,
-                entity.entity_id,
-                entity.asset_id,
-                self.config.location,
-                self.dataplex_client,
-            )
             fully_qualified_name = self._construct_fqn(
-                platform, project_id, dataset_id, entity.entity_id
+                entity.source_platform, project_id, entity.dataset_id, entity.entity_id
             )
             lineage_data = {"upstream": [], "downstream": []}
             # We only need multi-region name like US, EU, etc., specific region name like us-central1, eu-central1, etc. does not work
@@ -302,12 +289,15 @@ class DataplexLineageExtractor:
             # Generate URN for the upstream entity
             # Extract project_id from entity_id (format: project_id.entity_name)
             if "." in lineage_edge.entity_id:
-                project_id, entity_name = lineage_edge.entity_id.split(".", 1)
+                project_id, dataset_id, entity_name = lineage_edge.entity_id.split(
+                    ".", 2
+                )
             else:
                 # Fallback if format is different
                 project_id = (
                     self.config.project_ids[0] if self.config.project_ids else "unknown"
                 )
+                dataset_id = "unknown"
                 entity_name = lineage_edge.entity_id
 
             upstream_urn = make_entity_dataset_urn(
@@ -315,6 +305,7 @@ class DataplexLineageExtractor:
                 entity_id=entity_name,
                 platform=self.platform,
                 env=self.config.env,
+                dataset_id=dataset_id,
             )
 
             # Create table-level lineage
@@ -389,6 +380,7 @@ class DataplexLineageExtractor:
                 entity_id=entity.entity_id,
                 platform=self.platform,
                 env=self.config.env,
+                dataset_id=entity.dataset_id,
             )
 
             try:
