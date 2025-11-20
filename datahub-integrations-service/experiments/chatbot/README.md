@@ -32,8 +32,8 @@
    unset PS1
    dotenv
    ```
-1. Download `prompts.yaml` (stored in Notion) into `datahub-integrations-service/experiments/chatbot` folder
-1. (Optional) Download `instructions-override.yaml` from the same Notion location to test custom LLM instructions per instance (see [Instructions Override](#instructions-override) section below)
+1. Download `prompts.yaml` (stored in `customer-evals` repo) into `datahub-integrations-service/experiments/chatbot` folder
+1. (Optional) Download `instructions-override.yaml` from the same location to test custom LLM instructions per instance (see [Instructions Override](#instructions-override) section below)
 1. Generate `graph_credentials.json` file using [this script](https://github.com/acryldata/experimental/blob/main/hsheth/graph_credentials/generate_many_graph_credentials.py) and copy to `datahub-integrations-service/experiments` folder
    ```bash
    cd experimental/hsheth/graph_credentials
@@ -49,9 +49,12 @@ To run the bot + evals:
 
 1. `run.py` runs the chatbot on a set of prompts and saves the results to mlflow / local files.
 2. `run_ai_eval.py` runs AI evaluation on a completed chatbot experiment using MLflow evaluate.
-3. `chat_review.py` allows you to review the results of the chatbot + runs LLM judge evals.
+3. `chat_review.py` allows you to review the results of the chatbot + runs LLM judge evals. Run using `streamlit run experiments/chatbot/chat_review.py` to review latest Mlflow run. Run using `streamlit run experiments/chatbot/chat_review.py --  run-name RUN_NAME` to review particular run.
 
-Evals logged to our shared MLFlow instance can be viewed via the MLFlow web UI. It requires a pre-signed URL so use the following convenience script to open a browser window:
+Evals logged to our shared MLFlow instance can be viewed via the MLFlow web UI.
+Mlflow Web UI can be accessed via Okta -> AWS SSO -> Applications -> Sagemaker studio page.
+
+Alternatively, use the following convenience script to open a browser window:
 
 ```
 ./open_mlflow.sh
@@ -67,6 +70,11 @@ Evals logged to our shared MLFlow instance can be viewed via the MLFlow web UI. 
 - `response_guidelines` (Optional): the response guidelines for the prompt; passed to the LLM judge
 - `tags` (Optional): list of tags
 - `expected_tool_calls` (Optional): the list of tool calls supposed to be present in chat history
+
+#### Known tags:
+
+- known_failure : For cases failing due to known limitations
+- possible_failure : For cases failing due to flaky behavior/ lack of complete adherence of expected behavior.
 
 ### Instructions Override
 

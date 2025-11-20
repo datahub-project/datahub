@@ -4,13 +4,14 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Iterator
+from typing import Any, Iterator, Optional
 from zoneinfo import ZoneInfo
 
 import requests
 from slack_sdk.web import SlackResponse
 
-from tests.utilities import env_vars
+from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
+from tests.utilities import env_vars, release_test_reporter_helpers
 from tests.utilities.metadata_operations import get_default_channel_name
 from tests.utilities.slack_helpers import (
     get_channel_id_by_name as slack_get_channel_id_by_name,
@@ -91,6 +92,12 @@ class TestProgressTracker:
         self.default_channel_name: str | None = None
         if env_vars.get_notify_customers():
             self.default_channel_name = get_default_channel_name(auth_session)
+
+        # Release test metadata tracking
+        self._pipeline_urn: Optional[str] = None
+        self._task_urn: Optional[str] = None
+        self._process_instance: Optional[DataProcessInstance] = None
+        self._start_timestamp_millis: Optional[int] = None
 
     def _format_multi_timezone_timestamp(self) -> str:
         """Format current time in multiple timezones."""
@@ -213,6 +220,14 @@ class TestProgressTracker:
 
     def send_collection_message(self) -> None:
         """Send initial message when test collection completes."""
+        # Initialize test tracking - emit metadata to reporting DataHub
+        (
+            self._pipeline_urn,
+            self._task_urn,
+            self._process_instance,
+            self._start_timestamp_millis,
+        ) = release_test_reporter_helpers.initialize_test_tracking()
+
         with slack_operation("send collection message") as config:
             if config is None:
                 return
@@ -293,10 +308,23 @@ class TestProgressTracker:
     def send_final_message(self, exitstatus: int) -> None:
         """Update the main message with final test results."""
 
+        message = self._build_test_results_message()
+        # Finalize test tracking - emit process end and incidents to reporting DataHub
+        release_test_reporter_helpers.finalize_test_tracking(
+            task_urn=self._task_urn,
+            pipeline_urn=self._pipeline_urn,
+            process_instance=self._process_instance,
+            start_timestamp_millis=self._start_timestamp_millis,
+            failed_count=self.failed,
+            passed_count=self.passed,
+            skipped_count=self.skipped,
+            failed_tests=self.failed_tests,
+            message=message,
+        )
+
         self.send_final_message_via_integrations_service(exitstatus)
         try:
             with slack_operation("send final message") as config:
-                message = self._build_test_results_message()
                 logger.info(f"Final status message\n{message}\n")
                 if config is None:
                     return

@@ -36,15 +36,6 @@ class SnowflakeAnalyticsEngine(AnalyticsEngine):
         if self._config is not None:
             return self._config
 
-        # Get authentication_type as string, handling both enum and string cases
-        auth_type = self.connection.authentication_type
-        if hasattr(auth_type, "value"):
-            # It's an enum, get the string value
-            auth_type_str = auth_type.value
-        else:
-            # It's already a string
-            auth_type_str = str(auth_type)
-
         # Convert our connection model to the permissive config format
         config_dict = {
             "account_id": self.connection.account,
@@ -52,7 +43,7 @@ class SnowflakeAnalyticsEngine(AnalyticsEngine):
             "username": self.connection.user,
             "password": self.connection.password,
             "role": self.connection.role,
-            "authentication_type": auth_type_str,  # SnowflakeConnectionConfig expects str
+            "authentication_type": self.connection.authentication_type,
             "private_key": (
                 self.connection.private_key.get_secret_value()
                 if self.connection.private_key

@@ -6,9 +6,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 
 from datahub_integrations.analytics.snowflake.connection import SnowflakeConnection
 from datahub_integrations.analytics.snowflake.engine import SnowflakeAnalyticsEngine
-from datahub_integrations.propagation.snowflake.config import (
-    SnowflakeAuthenticationType,
-)
+from datahub_integrations.propagation.snowflake.constants import AUTH_TYPE_DEFAULT
 
 
 class TestSnowflakeAnalyticsEngine:
@@ -23,9 +21,7 @@ class TestSnowflakeAnalyticsEngine:
         """Test engine initialization."""
         with patch.object(SnowflakeConnection, "from_datahub") as mock_from_datahub:
             mock_connection = Mock(spec=SnowflakeConnection)
-            mock_connection.authentication_type = (
-                SnowflakeAuthenticationType.DEFAULT_AUTHENTICATOR
-            )
+            mock_connection.authentication_type = AUTH_TYPE_DEFAULT
             mock_from_datahub.return_value = mock_connection
 
             engine = SnowflakeAnalyticsEngine(self.account, self.mock_graph)
@@ -57,7 +53,7 @@ class TestSnowflakeAnalyticsEngineNativeConnection:
             mock_connection.account = "test_account"
             mock_connection.warehouse = "test_warehouse"
             mock_connection.role = "test_role"
-            mock_connection.authentication_type = "DEFAULT_AUTHENTICATOR"
+            mock_connection.authentication_type = AUTH_TYPE_DEFAULT
             mock_connection.private_key = None
             mock_connection.private_key_password = None
             mock_from_datahub.return_value = mock_connection
@@ -87,7 +83,7 @@ class TestSnowflakeAnalyticsEngineNativeConnection:
             mock_connection.account = "test_account"
             mock_connection.warehouse = "test_warehouse"
             mock_connection.role = "test_role"
-            mock_connection.authentication_type = "DEFAULT_AUTHENTICATOR"
+            mock_connection.authentication_type = AUTH_TYPE_DEFAULT
             mock_connection.private_key = None
             mock_connection.private_key_password = None
             mock_from_datahub.return_value = mock_connection

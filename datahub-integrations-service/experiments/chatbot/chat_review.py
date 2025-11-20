@@ -20,6 +20,7 @@ from datahub_integrations.experimentation.chatbot.chatbot import (
     reload_prompt,
     update_prompt_expected_tool_calls,
     update_prompt_guidelines,
+    update_prompt_tags,
 )
 from datahub_integrations.experimentation.chatbot.judge import (
     LLMJudgeResponse,
@@ -48,7 +49,7 @@ def load_run_data(run_id: str) -> pd.DataFrame:
 def get_most_recent_run() -> mlflow_entities.Run:
     return get_most_recent_run_for_expt(EXPERIMENT_NAME)
 
-
+@st.cache_data()
 def get_run_or_fail(run_name: str) -> mlflow_entities.Run:
     """Get MLflow run or fail if not found."""
     runs = mlflow.search_runs(
@@ -238,6 +239,7 @@ def main(run_name: Optional[str] = None):
                 disabled=new_guidelines == prompt.response_guidelines,
             ):
                 update_prompt_guidelines(prompt.id, new_guidelines)
+                print(f"Guidelines updated for prompt {prompt.id}")
                 st.success("Guidelines updated!")
 
             if new_guidelines != prompt.response_guidelines:
@@ -255,78 +257,105 @@ def main(run_name: Optional[str] = None):
                 ]
                 st.json(old_evaluation.model_dump())
 
-            # Expected Tool Calls Section
-            st.markdown("### Expected Tool Calls")
-            current_expected_calls = prompt.expected_tool_calls or []
+#            # Expected Tool Calls Section
+#            st.markdown("### Expected Tool Calls")
+#            current_expected_calls = prompt.expected_tool_calls or []
+#
+#            # Create a text area for editing expected tool calls as JSON
+#            current_calls_json = (
+#                json.dumps(
+#                    [call.model_dump() for call in current_expected_calls],
+#                    indent=2,
+#                )
+#                if current_expected_calls
+#                else "[]"
+#            )
+#
+#            new_calls_json = st.text_area(
+#                "Edit Expected Tool Calls (JSON)",
+#                key=f"expected-calls-{prompt_id}",
+#                value=current_calls_json,
+#                height=150,
+#                help='Enter expected tool calls as JSON array. Example: [{"tool_name": "search", "tool_input": {"query": "*"}}]',
+#                label_visibility="visible",
+#            )
+#
+#            try:
+#                new_calls_data = json.loads(new_calls_json)
+#                new_expected_calls = (
+#                    [
+#                        ExpectedToolCall(
+#                            tool_name=call["tool_name"], tool_input=call["tool_input"]
+#                        )
+#                        for call in new_calls_data
+#                    ]
+#                    if new_calls_data
+#                    else None
+#                )
+#
+#                if st.button(
+#                    "Update Expected Tool Calls",
+#                    disabled=new_calls_json == current_calls_json,
+#                ):
+#                    update_prompt_expected_tool_calls(prompt.id, new_expected_calls)
+#                    print(f"Expected tool calls updated for prompt {prompt.id}")
+#                    st.success("Expected tool calls updated!")
+#
+#                # Show updated evaluation if JSON has changed
+#                if new_calls_json != current_calls_json and history:
+#                    st.markdown("### Updated Tool Call Evaluation")
+#                    updated_tool_eval = validate_expected_tool_calls(
+#                        history, new_expected_calls or []
+#                    )
+#                    st.json(
+#                        {
+#                            "is_valid": updated_tool_eval.is_valid,
+#                            "justification": updated_tool_eval.justification,
+#                        }
+#                    )
+#                else:
+#                    st.markdown("### Current Tool Call Evaluation")
+#                    old_tool_eval = selected_row["Raw Data"]["tool_call_evaluation"]
+#                    st.json(
+#                        {
+#                            "is_valid": old_tool_eval.is_valid,
+#                            "justification": old_tool_eval.justification,
+#                        }
+#                    )
+#
+#            except json.JSONDecodeError as e:
+#                st.error(f"Invalid JSON: {e}")
+#            except (KeyError, TypeError) as e:
+#                st.error(f"Invalid expected tool calls format: {e}")
+#                st.info(
+#                    'Expected format: [{"tool_name": "tool_name", "tool_input": {"param": "value"}}]'
+#                )
 
-            # Create a text area for editing expected tool calls as JSON
-            current_calls_json = (
-                json.dumps(
-                    [call.model_dump() for call in current_expected_calls],
-                    indent=2,
-                )
-                if current_expected_calls
-                else "[]"
-            )
+            # Tags Section
+            st.markdown("### Tags")
+            current_tags = prompt.tags or []
+            current_tags_str = ", ".join(current_tags) if current_tags else ""
 
-            new_calls_json = st.text_area(
-                "Edit Expected Tool Calls (JSON)",
-                key=f"expected-calls-{prompt_id}",
-                value=current_calls_json,
-                height=150,
-                help='Enter expected tool calls as JSON array. Example: [{"tool_name": "search", "tool_input": {"query": "*"}}]',
+            new_tags_str = st.text_input(
+                "Edit Tags",
+                key=f"tags-{prompt_id}",
+                value=current_tags_str,
+                help="Enter tags as a comma-separated list (e.g., 'tag1, tag2, tag3')",
                 label_visibility="visible",
             )
 
-            try:
-                new_calls_data = json.loads(new_calls_json)
-                new_expected_calls = (
-                    [
-                        ExpectedToolCall(
-                            tool_name=call["tool_name"], tool_input=call["tool_input"]
-                        )
-                        for call in new_calls_data
-                    ]
-                    if new_calls_data
-                    else None
-                )
+            # Parse the comma-separated string into a list
+            new_tags = [
+                tag.strip() for tag in new_tags_str.split(",") if tag.strip()
+            ] if new_tags_str else []
 
-                if st.button(
-                    "Update Expected Tool Calls",
-                    disabled=new_calls_json == current_calls_json,
-                ):
-                    update_prompt_expected_tool_calls(prompt.id, new_expected_calls)
-                    st.success("Expected tool calls updated!")
-
-                # Show updated evaluation if JSON has changed
-                if new_calls_json != current_calls_json and history:
-                    st.markdown("### Updated Tool Call Evaluation")
-                    updated_tool_eval = validate_expected_tool_calls(
-                        history, new_expected_calls or []
-                    )
-                    st.json(
-                        {
-                            "is_valid": updated_tool_eval.is_valid,
-                            "justification": updated_tool_eval.justification,
-                        }
-                    )
-                else:
-                    st.markdown("### Current Tool Call Evaluation")
-                    old_tool_eval = selected_row["Raw Data"]["tool_call_evaluation"]
-                    st.json(
-                        {
-                            "is_valid": old_tool_eval.is_valid,
-                            "justification": old_tool_eval.justification,
-                        }
-                    )
-
-            except json.JSONDecodeError as e:
-                st.error(f"Invalid JSON: {e}")
-            except (KeyError, TypeError) as e:
-                st.error(f"Invalid expected tool calls format: {e}")
-                st.info(
-                    'Expected format: [{"tool_name": "tool_name", "tool_input": {"param": "value"}}]'
-                )
+            if st.button(
+                "Update Tags",
+                disabled=new_tags == current_tags,
+            ):
+                update_prompt_tags(prompt.id, new_tags if new_tags else None)
+                print(f"Tags updated for prompt {prompt.id}")
+                st.success("Tags updated!")
 
 
 if __name__ == "__main__":

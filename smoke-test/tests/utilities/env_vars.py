@@ -282,3 +282,52 @@ def get_release_test_notification_channel() -> Optional[str]:
 def get_release_test_notification_token() -> Optional[str]:
     """Notification token for release tests."""
     return os.getenv("RELEASE_TEST_NOTIFICATION_TOKEN")
+
+
+# ========================================================================================
+# Reporting DataHub Configuration
+# ========================================================================================
+
+
+def get_reporting_datahub_gms_url() -> Optional[str]:
+    """GMS URL for the reporting DataHub instance (where metadata is stored)."""
+    return os.getenv("REPORTING_DATAHUB_GMS_URL")
+
+
+def get_reporting_datahub_token() -> Optional[str]:
+    """Authentication token for the reporting DataHub instance."""
+    return os.getenv("REPORTING_DATAHUB_TOKEN")
+
+
+# ========================================================================================
+# GitHub CI/CD Environment Variables
+# ========================================================================================
+
+
+def get_github_env_vars() -> dict[str, Optional[str]]:
+    """
+    Get GitHub Actions environment variables and construct GitHub workflow run URL.
+
+    Returns a dictionary containing:
+    - GITHUB_RUN_ID: Unique ID for each workflow run
+    - GITHUB_REPOSITORY: Repository name in owner/repo format
+    - GITHUB_ACTOR: Username that triggered the workflow
+    - GITHUB_REF: Fully-formed git ref
+    - GITHUB_SHA: Commit SHA that triggered the workflow
+    - GITHUB_WORKFLOW_URL: Direct URL to the workflow run (None if GITHUB_RUN_ID or GITHUB_REPOSITORY not set)
+    """
+    run_id = os.getenv("GITHUB_RUN_ID")
+    repository = os.getenv("GITHUB_REPOSITORY")
+
+    workflow_url = None
+    if run_id and repository:
+        workflow_url = f"https://github.com/{repository}/actions/runs/{run_id}"
+
+    return {
+        "GITHUB_RUN_ID": run_id,
+        "GITHUB_REPOSITORY": repository,
+        "GITHUB_ACTOR": os.getenv("GITHUB_ACTOR"),
+        "GITHUB_REF": os.getenv("GITHUB_REF"),
+        "GITHUB_SHA": os.getenv("GITHUB_SHA"),
+        "GITHUB_WORKFLOW_URL": workflow_url,
+    }
