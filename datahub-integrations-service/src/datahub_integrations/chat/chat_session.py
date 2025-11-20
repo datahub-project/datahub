@@ -70,6 +70,7 @@ from datahub_integrations.mcp._token_estimator import TokenCountEstimator
 from datahub_integrations.mcp.mcp_server import (
     get_datahub_client,
     mcp,
+    register_all_tools,
     with_datahub_client,
 )
 from datahub_integrations.mcp_integration.tool import (
@@ -81,6 +82,9 @@ from datahub_integrations.slack.utils.string import truncate
 from datahub_integrations.smart_search.smart_search import smart_search
 from datahub_integrations.telemetry.chat_events import ChatbotToolCallEvent
 from datahub_integrations.telemetry.telemetry import track_saas_event
+
+# Register MCP tools with Cloud features (thread-safe, idempotent)
+register_all_tools(is_oss=False)
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (
@@ -856,6 +860,16 @@ class ChatSession:
         if message is None:
             raise ChatSessionError(f"No message in response {response}")
         response_content = message["content"]
+
+        # Check for multiple tool calls in a single response
+        tool_use_blocks = [block for block in response_content if "toolUse" in block]
+        if len(tool_use_blocks) > 1:
+            logger.warning(
+                f"LLM returned {len(tool_use_blocks)} tool calls in a single response. "
+                f"Agent loop may not handle this correctly. "
+                f"Tools: {[block['toolUse']['name'] for block in tool_use_blocks]}"
+            )
+
         for i, content_block in enumerate(response_content):
             is_last_block = i == len(response_content) - 1
             if "text" in content_block:

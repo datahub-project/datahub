@@ -1,0 +1,49 @@
+# datahub-integrations-service Rules
+
+## Standard Commands (run when explicitly asked)
+
+ALWAYS run commands from the datahub-integrations-service directory with venv activated.
+Use this command pattern: cd <to-datahub-integrations-service> && source venv/bin/activate && <command>
+
+These match the CI/build configuration in build.gradle:
+
+- Testing: pytest
+- Formatting: ruff format src/ tests/ scripts/ --exclude=scripts/forms
+- Linting: ruff check src/ tests/ scripts/ --exclude=scripts/forms
+- Type checking: mypy --config-file=mypy.ini src/ tests/
+
+The build also runs `../gradlew :datahub-integrations-service:lint` which runs all three tools.
+
+## Code Conventions (MUST FOLLOW)
+- Use loguru for logging. NEVER use print statements.
+- Imports go at the top of the file. Only exception: circular dependencies.
+- All methods MUST have type annotations. Use Pydantic and dataclasses.
+- Code should be self-documenting. NEVER write module-level docstrings.
+- Use # comments only for tricky details or edge cases.
+- If you find yourself copying code, refactor instead.
+
+## Testing Rules (MUST FOLLOW)
+- Use pytest for testing. Prefer pytest-style tests over unittest.
+- Test functions should NOT have docstrings - the test name should be clear enough.
+- Comments in tests are ok to explain tricky details.
+- Focus on testing core functionality and important edge cases.
+- Good code is easy to test - if tests are super complex or require tons of mocks, the code is not well-designed.
+
+## Architecture Patterns
+- Extract platform-specific logic from core business logic.
+- Design APIs that are stateless from the caller's perspective.
+- Use context managers for temporary state or configuration.
+- Prefer composition over inheritance for complex behaviors.
+- Avoid superfluous state - pay careful attention to data structures and their lifecycle.
+
+## Refactoring Guidelines
+- Make minimal changes that solve the immediate problem.
+- Don't remove functionality without understanding why it exists.
+- Before simplifying complex logic, investigate the edge cases it handles.
+- Prefer multiple small, reviewable changes over large rewrites.
+
+## Development Commands Reference
+- Setup: ../gradlew installDev && source venv/bin/activate
+- Update deps: ./scripts/lockfile.sh
+- Run service: uvicorn datahub_integrations.server:app --host 0.0.0.0 --port 9003 --reload
+

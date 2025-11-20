@@ -53,14 +53,21 @@ class TestBedrockLLMWrapper:
         assert wrapper.max_attempts == 5
         mock_get_client.assert_called_once_with(read_timeout=120, connect_timeout=30)
 
+    @patch("datahub_integrations.gen_ai.llm.bedrock.aggregate_converse_stream")
     @patch("datahub_integrations.gen_ai.llm.bedrock.get_bedrock_client")
-    def test_successful_converse_call(self, mock_get_client: Mock) -> None:
-        """Test successful Bedrock converse API call."""
+    def test_successful_converse_call(
+        self, mock_get_client: Mock, mock_aggregate: Mock
+    ) -> None:
+        """Test successful Bedrock converse API call (uses streaming internally)."""
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
 
-        # Mock successful response
-        mock_client.converse.return_value = {
+        # Mock the streaming response (just the structure, not the events)
+        mock_stream = MagicMock()
+        mock_client.converse_stream.return_value = {"stream": mock_stream}
+
+        # Mock the aggregated result from aggregate_converse_stream
+        mock_aggregate.return_value = {
             "output": {
                 "message": {
                     "role": "assistant",
@@ -73,6 +80,7 @@ class TestBedrockLLMWrapper:
                 "outputTokens": 10,
                 "totalTokens": 30,
             },
+            "metrics": {},
         }
 
         wrapper = BedrockLLMWrapper(model_name="claude-3-5-sonnet")
@@ -84,9 +92,9 @@ class TestBedrockLLMWrapper:
             inferenceConfig={"temperature": 0.5, "maxTokens": 4096},
         )
 
-        # Verify converse was called with correct parameters
-        mock_client.converse.assert_called_once()
-        call_kwargs = mock_client.converse.call_args.kwargs
+        # Verify converse_stream was called with correct parameters
+        mock_client.converse_stream.assert_called_once()
+        call_kwargs = mock_client.converse_stream.call_args.kwargs
         assert call_kwargs["modelId"] == "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
         assert call_kwargs["system"] == [{"text": "You are helpful"}]
         assert call_kwargs["messages"] == [
@@ -94,17 +102,32 @@ class TestBedrockLLMWrapper:
         ]
         assert call_kwargs["inferenceConfig"]["temperature"] == 0.5
 
-        # Verify response is returned as-is
+        # Verify aggregate_converse_stream was called with the stream
+        mock_aggregate.assert_called_once_with(mock_stream)
+
+        # Verify response has the expected format
         assert response["stopReason"] == "end_turn"
         assert response["usage"]["inputTokens"] == 20
+        assert (
+            response["output"]["message"]["content"][0]["text"]
+            == "Hello! How can I help you?"
+        )
 
+    @patch("datahub_integrations.gen_ai.llm.bedrock.aggregate_converse_stream")
     @patch("datahub_integrations.gen_ai.llm.bedrock.get_bedrock_client")
-    def test_converse_with_tools(self, mock_get_client: Mock) -> None:
+    def test_converse_with_tools(
+        self, mock_get_client: Mock, mock_aggregate: Mock
+    ) -> None:
         """Test Bedrock converse call with tool configuration."""
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
 
-        mock_client.converse.return_value = {
+        # Mock the streaming response
+        mock_stream = MagicMock()
+        mock_client.converse_stream.return_value = {"stream": mock_stream}
+
+        # Mock the aggregated result with tool use
+        mock_aggregate.return_value = {
             "output": {
                 "message": {
                     "role": "assistant",
@@ -121,7 +144,12 @@ class TestBedrockLLMWrapper:
                 }
             },
             "stopReason": "tool_use",
-            "usage": {"inputTokens": 50, "outputTokens": 20, "totalTokens": 70},
+            "usage": {
+                "inputTokens": 50,
+                "outputTokens": 20,
+                "totalTokens": 70,
+            },
+            "metrics": {},
         }
 
         wrapper = BedrockLLMWrapper(model_name="claude-3-5-sonnet")
@@ -152,13 +180,22 @@ class TestBedrockLLMWrapper:
         )
 
         # Verify toolConfig was passed through
-        call_kwargs = mock_client.converse.call_args.kwargs
+        call_kwargs = mock_client.converse_stream.call_args.kwargs
         assert "toolConfig" in call_kwargs
         assert call_kwargs["toolConfig"] == tool_config
+
+        # Verify aggregate_converse_stream was called
+        mock_aggregate.assert_called_once_with(mock_stream)
 
         # Verify tool use response
         assert response["stopReason"] == "tool_use"
         assert "toolUse" in response["output"]["message"]["content"][1]
+        assert (
+            response["output"]["message"]["content"][1]["toolUse"]["name"] == "search"
+        )
+        assert response["output"]["message"]["content"][1]["toolUse"]["input"] == {
+            "query": "test"
+        }
 
     @patch("datahub_integrations.gen_ai.llm.bedrock.get_bedrock_client")
     def test_validation_exception_input_too_long(self, mock_get_client: Mock) -> None:
@@ -174,7 +211,7 @@ class TestBedrockLLMWrapper:
         mock_client.exceptions.ValidationException = ValidationException
         mock_client.exceptions.ThrottlingException = ThrottlingException
         mock_client.exceptions.AccessDeniedException = AccessDeniedException
-        mock_client.converse.side_effect = ValidationException(
+        mock_client.converse_stream.side_effect = ValidationException(
             "Input is too long for model context window"
         )
 
@@ -203,7 +240,9 @@ class TestBedrockLLMWrapper:
         mock_client.exceptions.ValidationException = ValidationException
         mock_client.exceptions.ThrottlingException = ThrottlingException
         mock_client.exceptions.AccessDeniedException = AccessDeniedException
-        mock_client.converse.side_effect = ValidationException("Invalid model ID")
+        mock_client.converse_stream.side_effect = ValidationException(
+            "Invalid model ID"
+        )
 
         wrapper = BedrockLLMWrapper(model_name="claude-3-5-sonnet")
 
@@ -230,7 +269,9 @@ class TestBedrockLLMWrapper:
         mock_client.exceptions.ValidationException = ValidationException
         mock_client.exceptions.ThrottlingException = ThrottlingException
         mock_client.exceptions.AccessDeniedException = AccessDeniedException
-        mock_client.converse.side_effect = ThrottlingException("Rate limit exceeded")
+        mock_client.converse_stream.side_effect = ThrottlingException(
+            "Rate limit exceeded"
+        )
 
         wrapper = BedrockLLMWrapper(model_name="claude-3-5-sonnet")
 
@@ -257,7 +298,7 @@ class TestBedrockLLMWrapper:
         mock_client.exceptions.ValidationException = ValidationException
         mock_client.exceptions.ThrottlingException = ThrottlingException
         mock_client.exceptions.AccessDeniedException = AccessDeniedException
-        mock_client.converse.side_effect = AccessDeniedException(
+        mock_client.converse_stream.side_effect = AccessDeniedException(
             "Access denied to model bedrock:us.anthropic.claude-3-5-sonnet"
         )
 
@@ -272,14 +313,21 @@ class TestBedrockLLMWrapper:
 
         assert "Access denied" in str(exc_info.value)
 
+    @patch("datahub_integrations.gen_ai.llm.bedrock.aggregate_converse_stream")
     @patch("datahub_integrations.gen_ai.llm.bedrock.get_bedrock_client")
-    def test_max_tokens_not_treated_as_error(self, mock_get_client: Mock) -> None:
+    def test_max_tokens_not_treated_as_error(
+        self, mock_get_client: Mock, mock_aggregate: Mock
+    ) -> None:
         """Test that stopReason='max_tokens' is returned as valid response, not error."""
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
 
-        # Response with max_tokens stop reason (valid, not an error)
-        mock_client.converse.return_value = {
+        # Mock the streaming response
+        mock_stream = MagicMock()
+        mock_client.converse_stream.return_value = {"stream": mock_stream}
+
+        # Mock aggregated result with max_tokens stop reason
+        mock_aggregate.return_value = {
             "output": {
                 "message": {
                     "role": "assistant",
@@ -287,7 +335,12 @@ class TestBedrockLLMWrapper:
                 }
             },
             "stopReason": "max_tokens",
-            "usage": {"inputTokens": 100, "outputTokens": 200, "totalTokens": 300},
+            "usage": {
+                "inputTokens": 100,
+                "outputTokens": 200,
+                "totalTokens": 300,
+            },
+            "metrics": {},
         }
 
         wrapper = BedrockLLMWrapper(model_name="claude-3-5-sonnet")
@@ -345,23 +398,24 @@ class TestOpenAILLMWrapper:
     @patch.dict("os.environ", {"OPENAI_API_KEY": "test-api-key"})
     @patch("datahub_integrations.gen_ai.llm.openai.ChatOpenAI")
     def test_successful_converse_call(self, mock_chat_openai: Mock) -> None:
-        """Test successful OpenAI converse call with format transformation."""
-        from langchain_core.messages import AIMessage
+        """Test successful OpenAI converse call with format transformation (uses streaming)."""
+        from langchain_core.messages import AIMessageChunk
 
         mock_client = MagicMock()
         mock_chat_openai.return_value = mock_client
 
-        # Mock langchain response
-        mock_response = AIMessage(
-            content="Hello! How can I help you today?",
-            usage_metadata={
+        # Mock streaming response - now using .stream() instead of .invoke()
+        def mock_stream(messages, **kwargs):
+            chunk = AIMessageChunk(content="Hello! How can I help you today?")
+            chunk.usage_metadata = {
                 "input_tokens": 20,
                 "output_tokens": 10,
                 "total_tokens": 30,
-            },
-            response_metadata={"finish_reason": "stop"},
-        )
-        mock_client.invoke.return_value = mock_response
+            }
+            chunk.response_metadata = {"finish_reason": "stop"}
+            yield chunk
+
+        mock_client.stream.side_effect = mock_stream
 
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
 
@@ -388,17 +442,23 @@ class TestOpenAILLMWrapper:
         self, mock_chat_openai: Mock
     ) -> None:
         """Test that multiple Bedrock system messages are converted to langchain format."""
-        from langchain_core.messages import AIMessage, SystemMessage
+        from langchain_core.messages import AIMessageChunk, SystemMessage
 
         mock_client = MagicMock()
         mock_chat_openai.return_value = mock_client
 
-        mock_response = AIMessage(
-            content="I understand",
-            usage_metadata={"input_tokens": 50, "output_tokens": 5, "total_tokens": 55},
-            response_metadata={"finish_reason": "stop"},
-        )
-        mock_client.invoke.return_value = mock_response
+        # Mock streaming response
+        def mock_stream(messages, **kwargs):
+            chunk = AIMessageChunk(content="I understand")
+            chunk.usage_metadata = {
+                "input_tokens": 50,
+                "output_tokens": 5,
+                "total_tokens": 55,
+            }
+            chunk.response_metadata = {"finish_reason": "stop"}
+            yield chunk
+
+        mock_client.stream.side_effect = mock_stream
 
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
 
@@ -412,7 +472,7 @@ class TestOpenAILLMWrapper:
         )
 
         # Verify system messages were converted
-        call_args = mock_client.invoke.call_args[0][0]
+        call_args = mock_client.stream.call_args[0][0]
         system_messages = [msg for msg in call_args if isinstance(msg, SystemMessage)]
         assert len(system_messages) == 2
         assert system_messages[0].content == "You are a helpful assistant"
@@ -429,24 +489,27 @@ class TestOpenAILLMWrapper:
         mock_llm_with_tools = MagicMock()
         mock_client.bind_tools.return_value = mock_llm_with_tools
 
-        # Mock response with tool calls
-        mock_response = AIMessage(
-            content="I'll search for that",
-            tool_calls=[
-                {
-                    "name": "search_entities",
-                    "args": {"query": "datasets", "limit": 10},
-                    "id": "call_abc123",
-                }
-            ],
-            usage_metadata={
+        # Mock streaming response with tool calls
+        def mock_stream(messages, **kwargs):
+            chunk = AIMessage(
+                content="I'll search for that",
+                tool_calls=[
+                    {
+                        "name": "search_entities",
+                        "args": {"query": "datasets", "limit": 10},
+                        "id": "call_abc123",
+                    }
+                ],
+            )
+            chunk.usage_metadata = {
                 "input_tokens": 100,
                 "output_tokens": 30,
                 "total_tokens": 130,
-            },
-            response_metadata={"finish_reason": "tool_calls"},
-        )
-        mock_llm_with_tools.invoke.return_value = mock_response
+            }
+            chunk.response_metadata = {"finish_reason": "tool_calls"}
+            yield chunk
+
+        mock_llm_with_tools.stream.side_effect = mock_stream
 
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
 
@@ -508,7 +571,7 @@ class TestOpenAILLMWrapper:
 
         # Create proper OpenAI exception class and instance
         AuthenticationError = type("AuthenticationError", (Exception,), {})
-        mock_client.invoke.side_effect = AuthenticationError("Invalid API key")
+        mock_client.stream.side_effect = AuthenticationError("Invalid API key")
 
         # Patch the openai module's exception class for isinstance check
         with patch.object(openai, "AuthenticationError", AuthenticationError):
@@ -533,7 +596,7 @@ class TestOpenAILLMWrapper:
         mock_chat_openai.return_value = mock_client
 
         RateLimitError = type("RateLimitError", (Exception,), {})
-        mock_client.invoke.side_effect = RateLimitError("Rate limit exceeded")
+        mock_client.stream.side_effect = RateLimitError("Rate limit exceeded")
 
         with patch.object(openai, "RateLimitError", RateLimitError):
             wrapper = OpenAILLMWrapper(model_name="gpt-4o")
@@ -557,7 +620,7 @@ class TestOpenAILLMWrapper:
         mock_chat_openai.return_value = mock_client
 
         BadRequestError = type("BadRequestError", (Exception,), {})
-        mock_client.invoke.side_effect = BadRequestError(
+        mock_client.stream.side_effect = BadRequestError(
             "This model's maximum context length is 4096 tokens"
         )
 
@@ -576,17 +639,23 @@ class TestOpenAILLMWrapper:
     @patch.dict("os.environ", {"OPENAI_API_KEY": "test-api-key"})
     @patch("datahub_integrations.gen_ai.llm.openai.ChatOpenAI")
     def test_inference_config_passed_to_invoke(self, mock_chat_openai: Mock) -> None:
-        """Test that inferenceConfig is passed as kwargs to invoke() (thread-safe)."""
-        from langchain_core.messages import AIMessage
+        """Test that inferenceConfig is passed as kwargs to stream() (thread-safe)."""
+        from langchain_core.messages import AIMessageChunk
 
         mock_client = MagicMock()
         mock_chat_openai.return_value = mock_client
 
-        mock_response = AIMessage(
-            content="Response",
-            usage_metadata={"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
-        )
-        mock_client.invoke.return_value = mock_response
+        # Mock streaming response
+        def mock_stream(messages, **kwargs):
+            chunk = AIMessageChunk(content="Response")
+            chunk.usage_metadata = {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+            }
+            yield chunk
+
+        mock_client.stream.side_effect = mock_stream
 
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
 
@@ -597,9 +666,9 @@ class TestOpenAILLMWrapper:
             inferenceConfig={"temperature": 0.9, "maxTokens": 1024},
         )
 
-        # Verify invoke was called with the config as kwargs (not client mutation)
-        mock_client.invoke.assert_called_once()
-        call_kwargs = mock_client.invoke.call_args[1]
+        # Verify stream was called with the config as kwargs (not client mutation)
+        mock_client.stream.assert_called_once()
+        call_kwargs = mock_client.stream.call_args[1]
         assert call_kwargs["temperature"] == 0.9
         assert call_kwargs["max_tokens"] == 1024
 
@@ -614,15 +683,17 @@ class TestOpenAILLMWrapper:
         mock_llm_with_tools = MagicMock()
         mock_client.bind_tools.return_value = mock_llm_with_tools
 
-        mock_response = AIMessage(
-            content="Response",
-            usage_metadata={
+        # Mock streaming response
+        def mock_stream(messages, **kwargs):
+            chunk = AIMessage(content="Response")
+            chunk.usage_metadata = {
                 "input_tokens": 50,
                 "output_tokens": 10,
                 "total_tokens": 60,
-            },
-        )
-        mock_llm_with_tools.invoke.return_value = mock_response
+            }
+            yield chunk
+
+        mock_llm_with_tools.stream.side_effect = mock_stream
 
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
 
@@ -734,7 +805,13 @@ class TestGeminiLLMWrapper:
             },
             response_metadata={"finish_reason": "STOP"},
         )
-        mock_client.invoke.return_value = mock_response
+
+        # Mock streaming response
+        def mock_stream(messages, **kwargs):
+            chunk = mock_response
+            yield chunk
+
+        mock_client.stream.side_effect = mock_stream
 
         wrapper = GeminiLLMWrapper(model_name="gemini-1.5-pro")
 
@@ -745,9 +822,9 @@ class TestGeminiLLMWrapper:
             inferenceConfig={"temperature": 0.7, "maxTokens": 2048},
         )
 
-        # Verify invoke was called with correct parameters
-        mock_client.invoke.assert_called_once()
-        call_kwargs = mock_client.invoke.call_args[1]
+        # Verify stream was called with correct parameters
+        mock_client.stream.assert_called_once()
+        call_kwargs = mock_client.stream.call_args[1]
         assert call_kwargs["temperature"] == 0.7
         assert call_kwargs["max_tokens"] == 2048
 
@@ -762,23 +839,25 @@ class TestGeminiLLMWrapper:
     )
     @patch("datahub_integrations.gen_ai.llm.gemini.ChatVertexAI")
     def test_inference_config_passed_to_invoke(self, mock_chat_vertex: Mock) -> None:
-        """Test that inferenceConfig is passed as kwargs to invoke() (thread-safe)."""
-        from langchain_core.messages import AIMessage
+        """Test that inferenceConfig is passed as kwargs to stream() (thread-safe)."""
+        from langchain_core.messages import AIMessageChunk
 
         from datahub_integrations.gen_ai.llm.gemini import GeminiLLMWrapper
 
         mock_client = MagicMock()
         mock_chat_vertex.return_value = mock_client
 
-        mock_response = AIMessage(
-            content="Response",
-            usage_metadata={
+        # Mock streaming response
+        def mock_stream(messages, **kwargs):
+            chunk = AIMessageChunk(content="Response")
+            chunk.usage_metadata = {
                 "input_tokens": 10,
                 "output_tokens": 5,
                 "total_tokens": 15,
-            },
-        )
-        mock_client.invoke.return_value = mock_response
+            }
+            yield chunk
+
+        mock_client.stream.side_effect = mock_stream
 
         wrapper = GeminiLLMWrapper(model_name="gemini-1.5-pro")
 
@@ -789,9 +868,9 @@ class TestGeminiLLMWrapper:
             inferenceConfig={"temperature": 0.9, "maxTokens": 1024},
         )
 
-        # Verify invoke was called with the config as kwargs (not client mutation)
-        mock_client.invoke.assert_called_once()
-        call_kwargs = mock_client.invoke.call_args[1]
+        # Verify stream was called with the config as kwargs (not client mutation)
+        mock_client.stream.assert_called_once()
+        call_kwargs = mock_client.stream.call_args[1]
         assert call_kwargs["temperature"] == 0.9
         assert call_kwargs["max_tokens"] == 1024
 

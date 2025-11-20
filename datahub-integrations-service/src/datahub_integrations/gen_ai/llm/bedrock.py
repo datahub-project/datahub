@@ -7,6 +7,9 @@ from loguru import logger
 
 from datahub_integrations.gen_ai.bedrock import get_bedrock_client
 from datahub_integrations.gen_ai.llm.base import LLMWrapper
+from datahub_integrations.gen_ai.llm.bedrock_stream_aggregator import (
+    aggregate_converse_stream,
+)
 from datahub_integrations.gen_ai.llm.exceptions import (
     LlmAuthenticationException,
     LlmInputTooLongException,
@@ -45,7 +48,10 @@ class BedrockLLMWrapper(LLMWrapper):
         inferenceConfig: Optional[Dict[str, Any]] = None,
     ) -> ConverseResponse:
         """
-        Call Bedrock's native converse API with exception translation.
+        Call Bedrock using streaming API internally, returning complete response.
+
+        This uses converse_stream() under the hood to avoid read timeouts on large outputs,
+        but accumulates all chunks and returns the same format as the request/response API.
 
         Catches Bedrock-specific exceptions and translates them to standardized LlmException types.
         """
@@ -63,7 +69,7 @@ class BedrockLLMWrapper(LLMWrapper):
 
         # Log before API call with structured fields
         logger.info(
-            "Calling Bedrock LLM",
+            "Calling Bedrock LLM (streaming)",
             extra={
                 "provider": "bedrock",
                 "model": modelId,
@@ -78,18 +84,44 @@ class BedrockLLMWrapper(LLMWrapper):
 
         try:
             with PerfTimer() as timer:
-                response = self._client.converse(**kwargs)
+                # Use streaming API and accumulate results
+                stream_response = self._client.converse_stream(**kwargs)
+
+                # Aggregate the stream into a complete response
+                aggregated = aggregate_converse_stream(stream_response["stream"])
+
+            # Extract components from aggregated response
+            usage = aggregated.get("usage", {})
+            stop_reason = aggregated.get("stopReason", "end_turn")
+
+            # Build the complete response in the same format as converse()
+            response: ConverseResponse = {
+                "output": aggregated["output"],
+                "stopReason": stop_reason,
+                "usage": {
+                    "inputTokens": usage.get("inputTokens", 0),
+                    "outputTokens": usage.get("outputTokens", 0),
+                },
+            }
+
+            # Add optional cache token fields if present
+            if "cacheReadInputTokens" in usage:
+                response["usage"]["cacheReadInputTokens"] = usage[
+                    "cacheReadInputTokens"
+                ]
+            if "cacheWriteInputTokens" in usage:
+                response["usage"]["cacheWriteInputTokens"] = usage[
+                    "cacheWriteInputTokens"
+                ]
 
             # Extract token usage for logging
-            usage = response.get("usage", {})
             input_tokens = usage.get("inputTokens", 0)
             output_tokens = usage.get("outputTokens", 0)
             total_tokens = usage.get("totalTokens", 0)
-            stop_reason = response.get("stopReason", "unknown")
 
             # Log after API call with structured fields
             logger.info(
-                "Bedrock LLM call completed",
+                "Bedrock LLM call completed (streaming)",
                 extra={
                     "provider": "bedrock",
                     "model": modelId,
@@ -103,7 +135,7 @@ class BedrockLLMWrapper(LLMWrapper):
 
             # Note: stopReason == "max_tokens" is a valid response, not an error
             # The calling code will check stopReason and handle it appropriately
-            return response  # type: ignore[return-value]
+            return response
 
         except self._client.exceptions.ValidationException as e:
             error_msg = str(e)

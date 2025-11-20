@@ -1214,10 +1214,10 @@ class TestInvokeWithLangchain:
     """
 
     def test_invoke_without_tools(self) -> None:
-        """Test invocation without any tools configured."""
+        """Test invocation without any tools configured (uses streaming internally)."""
         wrapper = MockLLMWrapper(model_name="test")
 
-        # Mock the client and its invoke method
+        # Mock the client and its stream method
         from unittest.mock import MagicMock
 
         mock_client = MagicMock()
@@ -1229,7 +1229,12 @@ class TestInvokeWithLangchain:
                 "total_tokens": 30,
             },
         )
-        mock_client.invoke.return_value = mock_response
+
+        # Mock streaming to return single chunk
+        def mock_stream(messages, **kwargs):
+            yield mock_response
+
+        mock_client.stream.side_effect = mock_stream
         wrapper._client = mock_client
 
         lc_messages = [HumanMessage(content="Hello")]
@@ -1237,12 +1242,12 @@ class TestInvokeWithLangchain:
 
         result = wrapper._invoke_with_langchain(lc_messages, None, inferenceConfig)
 
-        # Should call client.invoke with mapped inference config
-        mock_client.invoke.assert_called_once_with(lc_messages, temperature=0.7)
-        assert result == mock_response
+        # Should call client.stream with mapped inference config
+        mock_client.stream.assert_called_once_with(lc_messages, temperature=0.7)
+        assert result.content == mock_response.content
 
     def test_invoke_with_tools(self) -> None:
-        """Test invocation with tools configured."""
+        """Test invocation with tools configured (uses streaming internally)."""
         wrapper = MockLLMWrapper(model_name="test")
 
         from unittest.mock import MagicMock
@@ -1258,7 +1263,12 @@ class TestInvokeWithLangchain:
                 "total_tokens": 80,
             },
         )
-        mock_bound_client.invoke.return_value = mock_response
+
+        # Mock streaming to return single chunk
+        def mock_stream(messages, **kwargs):
+            yield mock_response
+
+        mock_bound_client.stream.side_effect = mock_stream
         mock_client.bind_tools.return_value = mock_bound_client
         wrapper._client = mock_client
 
@@ -1280,14 +1290,14 @@ class TestInvokeWithLangchain:
             lc_messages, toolConfig, inferenceConfig
         )
 
-        # Should bind tools and invoke on the bound client
+        # Should bind tools and stream on the bound client
         mock_client.bind_tools.assert_called_once()
         bound_tools = mock_client.bind_tools.call_args[0][0]
         assert len(bound_tools) == 1
         assert bound_tools[0]["type"] == "function"
         assert bound_tools[0]["function"]["name"] == "search"
 
-        mock_bound_client.invoke.assert_called_once_with(
+        mock_bound_client.stream.assert_called_once_with(
             lc_messages, temperature=0.5, max_tokens=100
         )
         assert result == mock_response
@@ -1308,7 +1318,12 @@ class TestInvokeWithLangchain:
                 "total_tokens": 30,
             },
         )
-        mock_bound_client.invoke.return_value = mock_response
+
+        # Mock streaming
+        def mock_stream(messages, **kwargs):
+            yield mock_response
+
+        mock_bound_client.stream.side_effect = mock_stream
         mock_client.bind_tools.return_value = mock_bound_client
         wrapper._client = mock_client
 
@@ -1356,7 +1371,12 @@ class TestInvokeWithLangchain:
                 "total_tokens": 30,
             },
         )
-        mock_client.invoke.return_value = mock_response
+
+        # Mock streaming
+        def mock_stream(messages, **kwargs):
+            yield mock_response
+
+        mock_client.stream.side_effect = mock_stream
         wrapper._client = mock_client
 
         lc_messages = [HumanMessage(content="Test")]
@@ -1373,7 +1393,7 @@ class TestInvokeWithLangchain:
 
         # Should call regular invoke, not bind_tools
         mock_client.bind_tools.assert_not_called()
-        mock_client.invoke.assert_called_once_with(lc_messages, temperature=0.7)
+        mock_client.stream.assert_called_once_with(lc_messages, temperature=0.7)
         assert result == mock_response
 
     def test_invoke_with_empty_tools_list(self) -> None:
@@ -1391,7 +1411,12 @@ class TestInvokeWithLangchain:
                 "total_tokens": 30,
             },
         )
-        mock_client.invoke.return_value = mock_response
+
+        # Mock streaming
+        def mock_stream(messages, **kwargs):
+            yield mock_response
+
+        mock_client.stream.side_effect = mock_stream
         wrapper._client = mock_client
 
         lc_messages = [HumanMessage(content="Test")]
@@ -1404,7 +1429,7 @@ class TestInvokeWithLangchain:
 
         # Should call regular invoke without tool binding
         mock_client.bind_tools.assert_not_called()
-        mock_client.invoke.assert_called_once_with(lc_messages)
+        mock_client.stream.assert_called_once_with(lc_messages)
         assert result == mock_response
 
     def test_invoke_maps_inference_config_correctly(self) -> None:
@@ -1422,7 +1447,12 @@ class TestInvokeWithLangchain:
                 "total_tokens": 30,
             },
         )
-        mock_client.invoke.return_value = mock_response
+
+        # Mock streaming
+        def mock_stream(messages, **kwargs):
+            yield mock_response
+
+        mock_client.stream.side_effect = mock_stream
         wrapper._client = mock_client
 
         lc_messages = [HumanMessage(content="Test")]
@@ -1434,10 +1464,10 @@ class TestInvokeWithLangchain:
         wrapper._invoke_with_langchain(lc_messages, None, inferenceConfig)
 
         # Should map Bedrock config to langchain kwargs
-        mock_client.invoke.assert_called_once_with(
+        mock_client.stream.assert_called_once_with(
             lc_messages, temperature=0.9, max_tokens=500
         )
-        call_kwargs = mock_client.invoke.call_args[1]
+        call_kwargs = mock_client.stream.call_args[1]
         assert call_kwargs["temperature"] == 0.9
         assert call_kwargs["max_tokens"] == 500
 
@@ -1457,7 +1487,12 @@ class TestInvokeWithLangchain:
                 "total_tokens": 30,
             },
         )
-        mock_bound_client.invoke.return_value = mock_response
+
+        # Mock streaming
+        def mock_stream(messages, **kwargs):
+            yield mock_response
+
+        mock_bound_client.stream.side_effect = mock_stream
         mock_client.bind_tools.return_value = mock_bound_client
         wrapper._client = mock_client
 

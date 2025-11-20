@@ -1,8 +1,6 @@
 """DataHub MCP Server Implementation.
 
-IMPORTANT: This file is kept in sync between two repositories:
-- datahub-integrations-service: src/datahub_integrations/mcp/mcp_server.py
-- mcp-server-datahub: src/mcp_server_datahub/mcp_server.py
+IMPORTANT: This file is kept in sync between two repositories.
 
 When making changes, ensure both versions remain identical. Use relative imports
 (e.g., `from ._token_estimator import ...`) instead of absolute imports to maintain
@@ -18,6 +16,8 @@ import json
 import os
 import pathlib
 import re
+import string
+import threading
 from typing import (
     Any,
     Awaitable,
@@ -44,6 +44,7 @@ from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl, load_filters
 from datahub.utilities.ordered_set import OrderedSet
 from fastmcp import FastMCP
+from json_repair import repair_json
 from loguru import logger
 from pydantic import BaseModel
 
@@ -985,12 +986,33 @@ def get_entities(urns: List[str] | str) -> List[dict] | dict:
     """
     client = get_datahub_client()
 
-    # Handle single URN for backward compatibility
+    # Handle JSON-stringified arrays (same issue as filters in search tool)
+    # Some MCP clients/LLMs pass arrays as JSON strings instead of proper lists
     if isinstance(urns, str):
-        urns = [urns]
-        return_single = True
+        urns_str = urns.strip()  # Remove leading/trailing whitespace
+
+        # Try to parse as JSON array first
+        if urns_str.startswith("["):
+            try:
+                # Use json_repair to handle malformed JSON from LLMs
+                urns = json.loads(repair_json(urns_str))
+                return_single = False
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning(
+                    f"Failed to parse URNs as JSON array: {e}. Treating as single URN."
+                )
+                # Not valid JSON, treat as single URN string
+                urns = [urns_str]
+                return_single = True
+        else:
+            # Single URN string
+            urns = [urns_str]
+            return_single = True
     else:
         return_single = False
+
+    # Trim whitespace from each URN (defensive against string concatenation issues)
+    urns = [urn.strip() for urn in urns]
 
     results = []
     for urn in urns:
@@ -1592,19 +1614,7 @@ def search(
     - sort_by: Field name to sort by (optional)
     - sort_order: "desc" (default) or "asc"
 
-    Available sort fields for datasets:
-    - queryCountLast30DaysFeature: Number of queries in last 30 days
-    - rowCountFeature: Table row count
-    - sizeInBytesFeature: Table size in bytes
-    - writeCountLast30DaysFeature: Number of writes/updates in last 30 days
-
-    Sorting examples:
-    - Most queried datasets:
-      search(query="*", filters={"entity_type": ["DATASET"]}, sort_by="queryCountLast30DaysFeature", num_results=10)
-    - Largest tables:
-      search(query="*", filters={"entity_type": ["DATASET"]}, sort_by="sizeInBytesFeature", num_results=10)
-    - Smallest tables first:
-      search(query="*", filters={"entity_type": ["DATASET"]}, sort_by="sizeInBytesFeature", sort_order="asc", num_results=10)
+    $SORTING_FIELDS_DOCS
 
     Note: If sort_by is not provided, search results use default ranking by relevance and
     importance. When using sort_by, results are strictly ordered by that field.
@@ -2478,8 +2488,53 @@ def _find_upstream_lineage_path(
     }
 
 
-def register_search_tools(mcp_instance: FastMCP) -> None:
-    """Register the appropriate search tool based on environment configuration."""
+# Track if tools have been registered to prevent duplicate registration
+_tools_registered = False
+_tools_registration_lock = threading.Lock()
+
+
+def register_search_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
+    """Register search and entity tools on an MCP instance.
+
+    This is the core registration logic that can be used by both production code
+    (via register_all_tools) and tests (with isolated MCP instances).
+
+    Args:
+        mcp_instance: The FastMCP instance to register tools on
+        is_oss: If True, use OSS-compatible tool descriptions (limited sorting fields).
+                If False, use Cloud descriptions (full sorting features).
+    """
+    # Choose sorting documentation based on deployment type
+    if not is_oss:
+        sorting_docs = """Available sort fields for datasets:
+    - queryCountLast30DaysFeature: Number of queries in last 30 days
+    - rowCountFeature: Table row count
+    - sizeInBytesFeature: Table size in bytes
+    - writeCountLast30DaysFeature: Number of writes/updates in last 30 days
+
+    Sorting examples:
+    - Most queried datasets:
+      search(query="*", filters={"entity_type": ["DATASET"]}, sort_by="queryCountLast30DaysFeature", num_results=10)
+    - Largest tables:
+      search(query="*", filters={"entity_type": ["DATASET"]}, sort_by="sizeInBytesFeature", num_results=10)
+    - Smallest tables first:
+      search(query="*", filters={"entity_type": ["DATASET"]}, sort_by="sizeInBytesFeature", sort_order="asc", num_results=10)"""
+    else:
+        sorting_docs = """Available sort fields:
+    - lastOperationTime: Last modified timestamp in source system
+
+    Sorting examples:
+    - Most recently updated:
+      search(query="*", filters={"entity_type": ["DATASET"]}, sort_by="lastOperationTime", sort_order="desc", num_results=10)"""
+
+    # Build full description with interpolated sorting docs using Template
+    if search.__doc__ is None:
+        raise ValueError("search function must have a docstring")
+    search_description = string.Template(search.__doc__).substitute(
+        SORTING_FIELDS_DOCS=sorting_docs
+    )
+
+    # Register search tool
     if _is_semantic_search_enabled():
         # Note: Actual semantic search availability is validated at runtime when used
         # This allows the tool to be registered even if validation would fail,
@@ -2490,36 +2545,57 @@ def register_search_tools(mcp_instance: FastMCP) -> None:
             async_background(enhanced_search)
         )
     else:
-        # Register original search tool for backward compatibility (as "search")
-        mcp_instance.tool(name="search", description=search.__doc__)(
+        # Register original search tool with deployment-specific description
+        mcp_instance.tool(name="search", description=search_description)(
             async_background(search)
         )
 
+    # Register get_lineage tool
+    mcp_instance.tool(name="get_lineage", description=get_lineage.__doc__)(
+        async_background(get_lineage)
+    )
 
-# Register search tools on the global MCP instance
-register_search_tools(mcp)
+    # Register get_dataset_queries tool
+    mcp_instance.tool(
+        name="get_dataset_queries", description=get_dataset_queries.__doc__
+    )(async_background(get_dataset_queries))
 
-# Register get_lineage tool
-mcp.tool(name="get_lineage", description=get_lineage.__doc__)(
-    async_background(get_lineage)
-)
+    # Register get_entities tool
+    mcp_instance.tool(name="get_entities", description=get_entities.__doc__)(
+        async_background(get_entities)
+    )
 
-# Register get_dataset_queries tool
-mcp.tool(name="get_dataset_queries", description=get_dataset_queries.__doc__)(
-    async_background(get_dataset_queries)
-)
+    # Register list_schema_fields tool
+    mcp_instance.tool(
+        name="list_schema_fields", description=list_schema_fields.__doc__
+    )(async_background(list_schema_fields))
 
-# Register get_entities tool
-mcp.tool(name="get_entities", description=get_entities.__doc__)(
-    async_background(get_entities)
-)
+    # Register get_lineage_paths_between tool
+    mcp_instance.tool(
+        name="get_lineage_paths_between", description=get_lineage_paths_between.__doc__
+    )(async_background(get_lineage_paths_between))
 
-# Register list_schema_fields tool
-mcp.tool(name="list_schema_fields", description=list_schema_fields.__doc__)(
-    async_background(list_schema_fields)
-)
 
-# Register get_lineage_paths_between tool
-mcp.tool(
-    name="get_lineage_paths_between", description=get_lineage_paths_between.__doc__
-)(async_background(get_lineage_paths_between))
+def register_all_tools(is_oss: bool = False) -> None:
+    """Register all MCP tools on the global mcp instance.
+
+    Args:
+        is_oss: If True, use OSS-compatible tool descriptions (limited sorting fields).
+                If False, use Cloud descriptions (full sorting features).
+
+    Note: Thread-safe. Can be called multiple times from different threads.
+          Only the first call will register tools, subsequent calls are no-ops.
+    """
+    global _tools_registered
+
+    # Thread-safe check-and-set using lock
+    with _tools_registration_lock:
+        if _tools_registered:
+            logger.debug("Tools already registered, skipping duplicate registration")
+            return
+
+        _tools_registered = True
+        logger.info(f"Registering MCP tools (is_oss={is_oss})")
+
+    # Call the core registration logic on the global mcp instance
+    register_search_tools(mcp, is_oss)

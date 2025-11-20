@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from datahub.utilities.perf_timer import PerfTimer
 from google.api_core import exceptions as gcp_exceptions
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_google_vertexai import ChatVertexAI
 from loguru import logger
 
@@ -86,64 +85,13 @@ class GeminiLLMWrapper(LLMWrapper):
         - No prompt caching support (cachePoint markers are skipped)
         - Tool calling format may have subtle differences
         """
-        # STEP 1: Convert Bedrock system messages to langchain format
-        lc_messages: List[Any] = []
-
-        for sys_msg in system:
-            if isinstance(sys_msg, dict) and "text" in sys_msg:
-                lc_messages.append(SystemMessage(content=sys_msg["text"]))
-
-        # STEP 2: Convert Bedrock conversation messages to langchain format
-        # Same logic as OpenAI - combine multiple content blocks within each message
-        for msg in messages:
-            role = msg.get("role")
-            content = msg.get("content", [])
-
-            # Check if this message contains tool results (same as OpenAI)
-            # Uses shared helper method from base class
-            tool_messages = self._convert_bedrock_tool_results_to_langchain(content)
-
-            if tool_messages:
-                # This message contains tool results - add all ToolMessages
-                lc_messages.extend(tool_messages)
-                # Skip the rest - tool results are fully handled
-                continue
-
-            # Not a tool result - process as regular message
-            # Extract text blocks (Gemini doesn't support multimodal in this wrapper yet)
-            text_parts = []
-            for block in content:
-                if isinstance(block, dict):
-                    if "text" in block:
-                        # Text content block - extract the text
-                        text_parts.append(block["text"])
-                    elif "cachePoint" in block:
-                        # Bedrock-specific caching marker - intentionally skipped
-                        # Gemini doesn't have prompt caching support
-                        pass
-                    elif "toolResult" in block:
-                        # Tool results already handled above
-                        pass
-                    else:
-                        # Unexpected block type - may be toolUse, image, document, etc.
-                        # Log warning to track if we're missing important content
-                        logger.warning(
-                            f"Unexpected content block type in {role} message during Gemini conversion: {list(block.keys())}"
-                        )
-
-            # Bedrock supports multiple content "parts" (text blocks) in a single message,
-            # but Langchain's message format expects a single string for content.
-            # Combine all text blocks with newlines to preserve the multi-part structure.
-            combined_text = "\n".join(text_parts)
-
-            if role == "user":
-                lc_messages.append(HumanMessage(content=combined_text))
-            elif role == "assistant":
-                lc_messages.append(AIMessage(content=combined_text))
+        # STEP 1 & 2: Convert Bedrock messages to langchain format
+        # Use shared helper from base class
+        lc_messages = self._convert_bedrock_messages_to_langchain(system, messages)
 
         # STEP 3: Log before API call with structured fields
         logger.info(
-            "Calling Gemini LLM",
+            "Calling Gemini LLM (streaming)",
             extra={
                 "provider": "gemini",
                 "model": modelId,
@@ -157,10 +105,11 @@ class GeminiLLMWrapper(LLMWrapper):
         )
 
         try:
-            # Time the entire API call regardless of tool configuration
+            # Time the entire API call
             with PerfTimer() as timer:
-                # Use shared langchain invocation helper
-                # Handles: inference config mapping, tool conversion, cachePoint filtering
+                # Use shared langchain streaming helper from base class
+                # This handles: inference config mapping, tool conversion, cachePoint filtering,
+                # and streaming with langchain's built-in chunk combining
                 response = self._invoke_with_langchain(
                     lc_messages, toolConfig, inferenceConfig
                 )
@@ -176,7 +125,7 @@ class GeminiLLMWrapper(LLMWrapper):
 
             # Log after API call with structured fields
             logger.info(
-                "Gemini LLM call completed",
+                "Gemini LLM call completed (streaming)",
                 extra={
                     "provider": "gemini",
                     "model": modelId,

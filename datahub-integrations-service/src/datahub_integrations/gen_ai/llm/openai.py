@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import openai
 from datahub.utilities.perf_timer import PerfTimer
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from loguru import logger
 from pydantic import SecretStr
@@ -80,119 +79,13 @@ class OpenAILLMWrapper(LLMWrapper):
         - Tool calling (Bedrock toolSpec -> langchain function format)
         - Prompt caching (Bedrock cachePoint markers -> OpenAI automatic caching)
         - Response format conversion (langchain AIMessage -> Bedrock output structure)
-        """
-        # STEP 1: Convert Bedrock system messages to langchain SystemMessage format
-        # Bedrock: [{"text": "You are helpful"}, {"text": "Follow rules"}]
-        # Langchain: [SystemMessage(content="You are helpful"), SystemMessage(content="Follow rules")]
-        lc_messages: List[Any] = []
-        for sys_msg in system:
-            if isinstance(sys_msg, dict) and "text" in sys_msg:
-                lc_messages.append(SystemMessage(content=sys_msg["text"]))
-
-        # STEP 2: Convert Bedrock conversation messages to langchain message format
-        #
-        # Key difference in message structure:
-        # Bedrock: One message can have MULTIPLE content blocks (text, toolUse, cachePoint)
-        #   Example: {"role": "user", "content": [
-        #       {"text": "What is DataHub?"},
-        #       {"text": "Please be concise."},
-        #       {"cachePoint": {"type": "default"}}
-        #   ]}
-        #
-        # Langchain: One message has ONE content string
-        #   Example: HumanMessage(content="What is DataHub?\nPlease be concise.")
-        #
-        # We combine all text blocks from one Bedrock message into one langchain message.
-        # This preserves message boundaries (each Bedrock message = one turn in conversation).
-        #
-        # Note on caching:
-        # - Bedrock: Explicit cachePoint markers tell where to cache
-        # - OpenAI: Automatically caches prompt prefixes ≥1024 tokens on supported models
-        #   (GPT-4, GPT-4-turbo, GPT-4o) without special configuration
-        # We filter out Bedrock's cachePoint markers and rely on OpenAI's automatic caching
-        for msg in messages:
-            role = msg.get("role")  # "user" or "assistant"
-            content = msg.get("content", [])  # List of content blocks
-
-            # Check if this message contains tool results
-            # Tool results need special handling - they become ToolMessage, not HumanMessage
-            # Bedrock: {"role": "user", "content": [{"toolResult": {"toolUseId": "123", "content": [...]}}]}
-            # Langchain: ToolMessage(content="...", tool_call_id="123")
-            tool_messages = self._convert_bedrock_tool_results_to_langchain(content)
-
-            if tool_messages:
-                # This message contains tool results - add all ToolMessages
-                lc_messages.extend(tool_messages)
-                # Skip the rest of the loop - tool results are fully handled
-                continue
-
-            # Not a tool result - process as regular message
-            # Extract all text blocks from this message and combine them
-            text_parts = []
-            for block in content:
-                if isinstance(block, dict):
-                    if "text" in block:
-                        # This is a text content block - extract the text
-                        text_parts.append(block["text"])
-                    elif "cachePoint" in block:
-                        # This is a Bedrock-specific caching marker - intentionally skipped
-                        # OpenAI handles caching automatically, doesn't use explicit markers
-                        pass
-                    elif "toolResult" in block:
-                        # Tool results already handled above - shouldn't reach here
-                        pass
-                    else:
-                        # Unexpected block type - may be toolUse (handled separately for assistant)
-                        # or future block types like image, document, etc.
-                        # Log warning to track if we're missing important content
-                        logger.warning(
-                            f"Unexpected content block type in {role} message during OpenAI conversion: {list(block.keys())}"
-                        )
-
-            # Bedrock supports multiple content "parts" (text blocks) in a single message,
-            # but Langchain's message format expects a single string for content.
-            # Combine all text blocks with newlines to preserve the multi-part structure.
-            combined_text = "\n".join(text_parts)
-
-            if role == "user":
-                # User message: Convert to langchain HumanMessage
-                lc_messages.append(HumanMessage(content=combined_text))
-            elif role == "assistant":
-                # Assistant message: May contain text and/or tool calls
-                # Need to extract tool calls separately from text content
-                #
-                # Bedrock toolUse format:
-                #   {"toolUse": {"toolUseId": "abc", "name": "search", "input": {...}}}
-                # Langchain tool_calls format:
-                #   {"name": "search", "args": {...}, "id": "abc"}
-                #
-                # Extract any tool calls from this assistant message
-                tool_calls_in_msg = []
-                for block in content:
-                    if isinstance(block, dict) and "toolUse" in block:
-                        tool_use = block["toolUse"]
-                        # Transform Bedrock toolUse to langchain tool_call format
-                        tool_calls_in_msg.append(
-                            {
-                                "name": tool_use.get("name"),
-                                "args": tool_use.get("input", {}),
-                                "id": tool_use.get("toolUseId"),
-                            }
-                        )
-
-                # Create AIMessage with text content and optional tool calls
-                if tool_calls_in_msg:
-                    # Assistant made tool calls - include both text and tool_calls
-                    lc_messages.append(
-                        AIMessage(content=combined_text, tool_calls=tool_calls_in_msg)
-                    )
-                else:
-                    # Regular text response without tool calls
-                    lc_messages.append(AIMessage(content=combined_text))
+        """  # STEP 1 & 2: Convert Bedrock messages to langchain format
+        # Use shared helper from base class
+        lc_messages = self._convert_bedrock_messages_to_langchain(system, messages)
 
         # STEP 3: Log before API call with structured fields
         logger.info(
-            "Calling OpenAI LLM",
+            "Calling OpenAI LLM (streaming)",
             extra={
                 "provider": "openai",
                 "model": modelId,
@@ -206,10 +99,11 @@ class OpenAILLMWrapper(LLMWrapper):
         )
 
         try:
-            # Time the entire API call regardless of tool configuration
+            # Time the entire API call
             with PerfTimer() as timer:
-                # Use shared langchain invocation helper
-                # Handles: inference config mapping, tool conversion, cachePoint filtering
+                # Use shared langchain streaming helper from base class
+                # This handles: inference config mapping, tool conversion, cachePoint filtering,
+                # and streaming with langchain's built-in chunk combining
                 response = self._invoke_with_langchain(
                     lc_messages, toolConfig, inferenceConfig
                 )
@@ -223,9 +117,12 @@ class OpenAILLMWrapper(LLMWrapper):
             else:
                 input_tokens = output_tokens = total_tokens = 0
 
+            # Extract response metadata
+            response_metadata = getattr(response, "response_metadata", {})
+
             # Log after API call with structured fields
             logger.info(
-                "OpenAI LLM call completed",
+                "OpenAI LLM call completed (streaming)",
                 extra={
                     "provider": "openai",
                     "model": modelId,
@@ -235,9 +132,7 @@ class OpenAILLMWrapper(LLMWrapper):
                     "total_tokens": total_tokens,
                     "has_content": bool(response.content),
                     "content_length": len(response.content) if response.content else 0,
-                    "finish_reason": response.response_metadata.get(
-                        "finish_reason", "N/A"
-                    ),
+                    "finish_reason": response_metadata.get("finish_reason", "N/A"),
                 },
             )
 

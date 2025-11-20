@@ -116,7 +116,7 @@ if prompt := st.chat_input("Type your message here..."):
             # Update label with current step count
             status.update(label=f"💭 Thinking... ({len(messages)} steps)", state="running")
             # Append the latest message (messages accumulate naturally in the status widget)
-            status.write(f"{len(messages)}. {messages[-1]}")
+            status.write(f"{len(messages)}. {messages[-1].text}")
     
     with (
         st.status("Generating response...", expanded=True) as status,
