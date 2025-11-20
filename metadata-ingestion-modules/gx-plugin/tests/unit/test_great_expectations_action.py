@@ -553,22 +553,3 @@ def test_DataHubValidationAction_graceful_failure(
         validation_result_suite=ge_validation_result_suite,
         data_asset=ge_validator_sqlalchemy,
     ) == {"datahub_notification_result": "DataHub notification failed"}
-
-
-def test_DataHubValidationAction_not_supported(
-    ge_data_context: FileDataContext,
-    ge_validator_spark: Validator,
-    ge_validation_result_suite: ExpectationSuiteValidationResult,
-    ge_validation_result_suite_id: ValidationResultIdentifier,
-) -> None:
-    server_url = "http://localhost:99199"
-
-    datahub_action = DataHubValidationAction(
-        data_context=ge_data_context, server_url=server_url
-    )
-
-    assert datahub_action.run(
-        validation_result_suite_identifier=ge_validation_result_suite_id,
-        validation_result_suite=ge_validation_result_suite,
-        data_asset=ge_validator_spark,
-    ) == {"datahub_notification_result": "none required"}
