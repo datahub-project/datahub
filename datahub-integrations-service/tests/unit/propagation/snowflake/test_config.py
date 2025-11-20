@@ -3,10 +3,14 @@
 from unittest.mock import Mock, mock_open, patch
 
 import pydantic
+from snowflake.connector.network import KEY_PAIR_AUTHENTICATOR
 
 from datahub_integrations.propagation.snowflake.config import (
-    SnowflakeAuthenticationType,
     SnowflakeConnectionConfigPermissive,
+)
+from datahub_integrations.propagation.snowflake.constants import (
+    AUTH_TYPE_DEFAULT,
+    AUTH_TYPE_KEY_PAIR,
 )
 
 
@@ -21,7 +25,7 @@ class TestSnowflakeConnectionConfigPermissive:
             username="test_user",
             password="test_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
             role="test_role",
-            authentication_type=SnowflakeAuthenticationType.DEFAULT_AUTHENTICATOR.value,
+            authentication_type=AUTH_TYPE_DEFAULT,
         )
 
         connect_args = config.get_connect_args()
@@ -46,7 +50,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             warehouse="test_warehouse",
             username="test_user",
             role="test_role",
-            authentication_type=SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR.value,
+            authentication_type=AUTH_TYPE_KEY_PAIR,
             private_key=test_private_key,
         )
 
@@ -69,7 +73,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             username="test_user",
             password="test_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
             role="test_role",
-            authentication_type=SnowflakeAuthenticationType.DEFAULT_AUTHENTICATOR.value,
+            authentication_type=AUTH_TYPE_DEFAULT,
         )
 
         # First call
@@ -88,7 +92,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             warehouse="test_warehouse",
             username="test_user",
             role="test_role",
-            authentication_type=SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR.value,
+            authentication_type=AUTH_TYPE_KEY_PAIR,
             private_key=test_key,
         )
 
@@ -109,7 +113,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             warehouse="test_warehouse",
             username="test_user",
             role="test_role",
-            authentication_type=SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR.value,
+            authentication_type=AUTH_TYPE_KEY_PAIR,
             private_key_path="/path/to/key.pem",
         )
 
@@ -127,7 +131,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             warehouse="test_warehouse",
             username="test_user",
             role="test_role",
-            authentication_type=SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR.value,
+            authentication_type=AUTH_TYPE_KEY_PAIR,
             private_key=test_key,
         )
 
@@ -144,7 +148,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             warehouse="test_warehouse",
             username="test_user",
             role="test_role",
-            authentication_type=SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR.value,
+            authentication_type=AUTH_TYPE_KEY_PAIR,
             private_key="test_key",
         )
 
@@ -159,7 +163,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             warehouse="test_warehouse",
             username="test_user",
             role="test_role",
-            authentication_type=SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR.value,
+            authentication_type=AUTH_TYPE_KEY_PAIR,
             private_key="test_key",
             private_key_password="my_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
         )
@@ -175,7 +179,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             warehouse="test_warehouse",
             username="test_user",
             role="test_role",
-            authentication_type=SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR.value,
+            authentication_type=AUTH_TYPE_KEY_PAIR,
             private_key="test_key",
             private_key_password=pydantic.SecretStr("secret_password"),
         )
@@ -193,7 +197,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             username="test_user",
             password="test_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
             role="test_role",
-            authentication_type=SnowflakeAuthenticationType.DEFAULT_AUTHENTICATOR.value,
+            authentication_type=AUTH_TYPE_DEFAULT,
         )
 
         with patch(
@@ -218,7 +222,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             warehouse="test_warehouse",
             username="test_user",
             role="test_role",
-            authentication_type=SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR.value,
+            authentication_type=AUTH_TYPE_KEY_PAIR,
             private_key="test_key",
         )
 
@@ -238,9 +242,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
                 # Verify key pair auth was used
                 call_kwargs = mock_connect.call_args[1]
                 assert call_kwargs["user"] == "test_user"
-                assert (
-                    call_kwargs["authenticator"]
-                    == SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR
-                )
+                # Check that the actual Snowflake library constant is used
+                assert call_kwargs["authenticator"] == KEY_PAIR_AUTHENTICATOR
                 assert call_kwargs["private_key"] == b"processed_key"
                 assert call_kwargs["application"] == "test_app"

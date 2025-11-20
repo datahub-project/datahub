@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional
 
 from datahub.configuration.common import ConnectionModel
 from datahub.ingestion.graph.client import DataHubGraph
@@ -11,8 +11,11 @@ from datahub_integrations.graphql.connection import (
     get_connection_json,
     save_connection_json,
 )
-from datahub_integrations.propagation.snowflake.config import (
-    SnowflakeAuthenticationType,
+from datahub_integrations.propagation.snowflake.constants import (
+    AUTH_TYPE_KEY_PAIR,
+    DEFAULT_AUTH_TYPE,
+    VALID_AUTH_TYPES,
+    AuthenticationType,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,53 +31,37 @@ class SnowflakeConnection(_FrozenConnectionModel):  # type: ignore[misc]  # Froz
     user: str
     password: Optional[SecretStr] = None
     role: Optional[str] = None
-    authentication_type: Union[SnowflakeAuthenticationType, str] = (
-        SnowflakeAuthenticationType.DEFAULT_AUTHENTICATOR
-    )
+    authentication_type: AuthenticationType = DEFAULT_AUTH_TYPE
     private_key: Optional[SecretStr] = None
     private_key_password: Optional[SecretStr] = None
 
     @field_validator("authentication_type", mode="before")
     @classmethod
-    def coerce_authentication_type(cls, v):
-        """Coerce authentication_type to SnowflakeAuthenticationType enum if it's a string."""
-        if isinstance(v, str):
-            try:
-                return SnowflakeAuthenticationType(v)
-            except ValueError:
-                # If the string is not a valid enum value, let Pydantic handle the error
-                pass
+    def validate_authentication_type_value(cls, v) -> AuthenticationType:
+        """Validate that the authentication type is supported."""
+        if v not in VALID_AUTH_TYPES:
+            raise ValueError(
+                f"Invalid authentication_type: {v}. "
+                f"Must be one of: {', '.join(VALID_AUTH_TYPES.keys())}"
+            )
         return v
 
     @model_validator(mode="after")
-    def validate_authentication_type(self):
-        # Normalize authentication_type to enum for comparison
-        auth_type = self.authentication_type
-        if isinstance(auth_type, str):
-            try:
-                auth_type = SnowflakeAuthenticationType(auth_type)
-            except ValueError:
-                raise ValueError(
-                    f"Invalid authentication_type: {auth_type}. "
-                    f"Must be one of: {', '.join(t.value for t in SnowflakeAuthenticationType)}"
-                ) from None
-
+    def validate_authentication_config(self):
+        """Validate authentication configuration is consistent."""
         # If private_key is set, authentication_type should be KEY_PAIR_AUTHENTICATOR
         if (
             self.private_key is not None
-            and auth_type != SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR
+            and self.authentication_type != AUTH_TYPE_KEY_PAIR
         ):
             raise ValueError(
-                f"`private_key` is set but `authentication_type` is {auth_type}. "
-                f"Should be set to '{SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR}' when using key pair authentication"
+                f"`private_key` is set but `authentication_type` is {self.authentication_type}. "
+                f"Should be set to '{AUTH_TYPE_KEY_PAIR}' when using key pair authentication"
             )
         # If authentication_type is KEY_PAIR_AUTHENTICATOR, private_key must be set
-        if (
-            auth_type == SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR
-            and self.private_key is None
-        ):
+        if self.authentication_type == AUTH_TYPE_KEY_PAIR and self.private_key is None:
             raise ValueError(
-                f"`private_key` must be set when using {SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR} authentication"
+                f"`private_key` must be set when using {AUTH_TYPE_KEY_PAIR} authentication"
             )
         return self
 
@@ -89,7 +76,7 @@ class SnowflakeConnection(_FrozenConnectionModel):  # type: ignore[misc]  # Froz
         return config
 
     def to_datahub(self, graph: DataHubGraph) -> None:
-        # Use mode='json' to serialize enums to their string values
+        # Serialize connection config to JSON-compatible dict
         config_dict = self.model_dump(mode="json")
         logger.info(
             f"Saving Snowflake connection to DataHub. authentication_type={config_dict.get('authentication_type')} (type={type(config_dict.get('authentication_type'))})"
