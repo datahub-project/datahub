@@ -6,6 +6,12 @@ See [the DataHub Airflow docs](https://docs.datahub.com/docs/lineage/airflow) fo
 
 The plugin supports Apache Airflow versions 2.7+ and 3.1+.
 
+| Airflow Version | Extra to Install | Status                 | Notes                            |
+| --------------- | ---------------- | ---------------------- | -------------------------------- |
+| 2.7-2.10        | `[airflow2]`     | ✅ Fully Supported     |                                  |
+| 3.0.x           | `[airflow3]`     | ⚠️ Requires manual fix | Needs `pydantic>=2.11.8` upgrade |
+| 3.1+            | `[airflow3]`     | ✅ Fully Supported     |                                  |
+
 **Note on Airflow 3.0.x**: Airflow 3.0.6 pins pydantic==2.11.7, which contains a bug that prevents the DataHub plugin from importing correctly. This issue is resolved in Airflow 3.1.0+ which uses pydantic>=2.11.8. If you must use Airflow 3.0.6, you can manually upgrade pydantic to >=2.11.8, though this may conflict with Airflow's dependency constraints. We recommend upgrading to Airflow 3.1.0 or later.
 
 Related issue: https://github.com/pydantic/pydantic/issues/10963

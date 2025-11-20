@@ -64,7 +64,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Other Notable Changes
 
 - Airflow 3.x Support: The `acryl-datahub-airflow-plugin` now supports Apache Airflow 3.x while maintaining backward compatibility with Airflow 2.5+. Key changes include:
-  - **Kill Switch Migration**: In Airflow 3.x, the plugin's kill switch now uses environment variables instead of Airflow Variables to comply with strict database access restrictions. Set `AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true` to disable the plugin in Airflow 3.x (versus using Airflow Variables in 2.x).
+  - **Kill Switch Migration**: The plugin's kill switch behavior has changed between versions:
+    - **Airflow 2.x**: Continue using Airflow Variables to disable the plugin (set the Airflow Variable `datahub_airflow_plugin_disable_listener` to `true`)
+    - **Airflow 3.x**: Use environment variable `AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true` to disable the plugin. This change is required to comply with Airflow 3.x's strict database access restrictions during listener initialization.
   - **Configuration Changes**: Airflow 3.x moved some configuration keys (e.g., `WEBSERVER__BASE_URL` → `API__BASE_URL`). The plugin automatically detects and uses the correct configuration for each version.
   - **SubDAG Removal**: SubDAG support has been removed in Airflow 3.x. Users should migrate to TaskGroups for visual grouping of tasks.
   - **New SQLParser Integration**: Airflow 3.x uses a unified SQLParser patch architecture for lineage extraction, replacing operator-specific extractors. This provides better consistency and column-level lineage across all SQL operators.
