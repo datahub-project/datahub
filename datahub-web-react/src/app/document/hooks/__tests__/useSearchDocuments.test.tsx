@@ -1,13 +1,13 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { renderHook } from '@testing-library/react-hooks';
 import { waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 
+import { SearchDocumentsInput, useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 
 import { SearchDocumentsDocument } from '@graphql/document.generated';
 import { DocumentState } from '@types';
-import { useSearchDocuments, SearchDocumentsInput } from '@app/document/hooks/useSearchDocuments';
 
 describe('useSearchDocuments', () => {
     const mockDocuments = [
@@ -661,4 +661,3 @@ describe('useSearchDocuments', () => {
         expect(typeof result.current.refetch).toBe('function');
     });
 });
-

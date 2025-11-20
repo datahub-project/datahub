@@ -169,4 +169,3 @@ describe('useExtractMentions', () => {
         expect(result.current.assetUrns).toEqual(['urn:li:dataset:(urn:li:dataPlatform:kafka,topic-123,PROD']);
     });
 });
-

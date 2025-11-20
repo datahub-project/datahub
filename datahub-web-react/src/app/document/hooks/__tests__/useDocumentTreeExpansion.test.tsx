@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { act, waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useDocumentTreeExpansion } from '@app/document/hooks/useDocumentTreeExpansion';
 import * as useDocumentChildrenModule from '@app/document/hooks/useDocumentChildren';
+import { useDocumentTreeExpansion } from '@app/document/hooks/useDocumentTreeExpansion';
 
 vi.mock('../useDocumentChildren');
 
@@ -305,4 +305,3 @@ describe('useDocumentTreeExpansion', () => {
         expect(mockFetchChildren).toHaveBeenCalledTimes(2);
     });
 });
-

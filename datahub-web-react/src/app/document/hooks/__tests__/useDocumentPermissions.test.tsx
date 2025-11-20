@@ -1,10 +1,9 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
+import { useEntityData } from '@app/entity/shared/EntityContext';
 
 // Mock the context hooks
 vi.mock('@app/context/useUserContext', () => ({
@@ -237,7 +236,7 @@ describe('useDocumentPermissions', () => {
         const { result, rerender } = renderHook(() => useDocumentPermissions());
 
         const firstResult = result.current;
-        
+
         // Rerender without changing dependencies
         rerender();
 
@@ -311,4 +310,3 @@ describe('useDocumentPermissions', () => {
         expect(result2.current.canMove).toBe(true);
     });
 });
-

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import { renderHook } from '@testing-library/react-hooks';
+import { describe, expect, it } from 'vitest';
 
 import { useExtractMentions } from '@app/document/hooks/useExtractMentions';
 
@@ -168,4 +168,3 @@ describe('useExtractMentions', () => {
         expect(result.current.assetUrns).toEqual(['urn:li:dataset:(urn:li:dataPlatform:kafka,topic-123,PROD']);
     });
 });
-

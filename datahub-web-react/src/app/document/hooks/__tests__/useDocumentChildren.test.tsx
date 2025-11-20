@@ -1,12 +1,12 @@
 import { ApolloClient, InMemoryCache } from '@apollo/client';
-import { renderHook } from '@testing-library/react-hooks';
 import { waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useDocumentChildren } from '@app/document/hooks/useDocumentChildren';
 
 import { SearchDocumentsDocument } from '@graphql/document.generated';
 import { DocumentState } from '@types';
-import { useDocumentChildren } from '@app/document/hooks/useDocumentChildren';
 
 describe('useDocumentChildren', () => {
     let mockClient: ApolloClient<any>;
@@ -312,4 +312,3 @@ describe('useDocumentChildren', () => {
         });
     });
 });
-

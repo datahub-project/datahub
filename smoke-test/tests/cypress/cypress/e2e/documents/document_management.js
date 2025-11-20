@@ -1,11 +1,31 @@
+import { hasOperationName } from "../utils";
+
 const test_id = `cy_doc_${Date.now()}`;
 
+// Helper to enable context documents feature flag
+function enableContextDocuments() {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.reply((res) => {
+        res.body.data.appConfig.featureFlags.contextDocumentsEnabled = true;
+      });
+    }
+  });
+}
+
 describe("Document Management End-to-End Test", () => {
-  // Suppress ResizeObserver errors
-  Cypress.on(
-    "uncaught:exception",
-    (err) => !err.message.includes("ResizeObserver loop"),
-  );
+  // Suppress ResizeObserver and quick filters errors
+  Cypress.on("uncaught:exception", (err) => {
+    // Suppress ResizeObserver errors
+    if (err.message.includes("ResizeObserver loop")) {
+      return false;
+    }
+    // Suppress quick filters backend errors
+    if (err.message.includes("Failed to to get quick filters")) {
+      return false;
+    }
+    return true;
+  });
 
   // Store document URNs for cleanup
   const createdDocuments = [];
@@ -23,11 +43,13 @@ describe("Document Management End-to-End Test", () => {
   };
 
   before(() => {
+    enableContextDocuments();
     cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 
   beforeEach(() => {
+    enableContextDocuments();
     cy.login();
   });
 

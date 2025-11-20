@@ -215,7 +215,12 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
             </TreeScrollContainer>
 
             <ButtonContainer>
-                <Button variant="outline" onClick={onClose} disabled={movingDocument} data-testid="move-document-cancel-button">
+                <Button
+                    variant="outline"
+                    onClick={onClose}
+                    disabled={movingDocument}
+                    data-testid="move-document-cancel-button"
+                >
                     Cancel
                 </Button>
                 <Button

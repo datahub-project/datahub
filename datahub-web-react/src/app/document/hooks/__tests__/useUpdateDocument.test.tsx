@@ -1,25 +1,25 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { message } from 'antd';
-import { renderHook } from '@testing-library/react-hooks';
 import { waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react-hooks';
+import { message } from 'antd';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+    UpdateDocumentContentsInput,
+    UpdateDocumentRelatedEntitiesInput,
+    UpdateDocumentStatusInput,
+    UpdateDocumentSubTypeInput,
+    useUpdateDocument,
+} from '@app/document/hooks/useUpdateDocument';
 
 import {
     UpdateDocumentContentsDocument,
+    UpdateDocumentRelatedEntitiesDocument,
     UpdateDocumentStatusDocument,
     UpdateDocumentSubTypeDocument,
-    UpdateDocumentRelatedEntitiesDocument,
 } from '@graphql/document.generated';
 import { DocumentState } from '@types';
-import {
-    useUpdateDocument,
-    UpdateDocumentContentsInput,
-    UpdateDocumentStatusInput,
-    UpdateDocumentSubTypeInput,
-    UpdateDocumentRelatedEntitiesInput,
-} from '@app/document/hooks/useUpdateDocument';
 
 // Mock antd message
 vi.mock('antd', () => ({
@@ -281,7 +281,9 @@ describe('useUpdateDocument', () => {
             const success = await result.current.updateStatus(input);
 
             expect(success).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to update document status. An unexpected error occurred!');
+            expect(message.error).toHaveBeenCalledWith(
+                'Failed to update document status. An unexpected error occurred!',
+            );
         });
     });
 
@@ -397,7 +399,9 @@ describe('useUpdateDocument', () => {
             const success = await result.current.updateSubType(input);
 
             expect(success).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to update document sub-type. An unexpected error occurred!');
+            expect(message.error).toHaveBeenCalledWith(
+                'Failed to update document sub-type. An unexpected error occurred!',
+            );
         });
     });
 
@@ -529,4 +533,3 @@ describe('useUpdateDocument', () => {
         });
     });
 });
-

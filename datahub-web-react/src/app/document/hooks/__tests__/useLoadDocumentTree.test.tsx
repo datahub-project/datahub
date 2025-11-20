@@ -1,15 +1,15 @@
 import { ApolloClient, InMemoryCache } from '@apollo/client';
-import { renderHook } from '@testing-library/react-hooks';
 import { waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-
 import { DocumentTreeContext } from '@app/document/DocumentTreeContext';
-import { SearchDocumentsDocument } from '@graphql/document.generated';
-import { DocumentState } from '@types';
 import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import * as useSearchDocumentsModule from '@app/document/hooks/useSearchDocuments';
+
+import { SearchDocumentsDocument } from '@graphql/document.generated';
+import { DocumentState } from '@types';
 
 vi.mock('../useSearchDocuments');
 
@@ -87,9 +87,7 @@ describe('useLoadDocumentTree', () => {
         // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -135,9 +133,7 @@ describe('useLoadDocumentTree', () => {
         ]);
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -192,9 +188,7 @@ describe('useLoadDocumentTree', () => {
         // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -217,9 +211,7 @@ describe('useLoadDocumentTree', () => {
         });
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -237,9 +229,7 @@ describe('useLoadDocumentTree', () => {
         });
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -282,9 +272,7 @@ describe('useLoadDocumentTree', () => {
         // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -322,9 +310,7 @@ describe('useLoadDocumentTree', () => {
         });
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -348,9 +334,7 @@ describe('useLoadDocumentTree', () => {
         // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -370,9 +354,7 @@ describe('useLoadDocumentTree', () => {
         });
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -424,9 +406,7 @@ describe('useLoadDocumentTree', () => {
         // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -453,9 +433,7 @@ describe('useLoadDocumentTree', () => {
         // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -496,9 +474,7 @@ describe('useLoadDocumentTree', () => {
         // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
-            <DocumentTreeContext.Provider value={mockContextValue}>
-                {children}
-            </DocumentTreeContext.Provider>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
         );
 
         renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -511,4 +487,3 @@ describe('useLoadDocumentTree', () => {
         expect(initializeCall[0].title).toBe('Untitled');
     });
 });
-
