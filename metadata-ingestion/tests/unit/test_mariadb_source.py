@@ -65,15 +65,19 @@ def test_mariadb_config():
 
 
 def test_get_stored_procedures():
-    """Test fetching stored procedures from MariaDB"""
+    """Test fetching stored procedures from MariaDB (uses inherited MySQL method)"""
+    mock_inspector = MagicMock(spec=Inspector)
+    mock_engine = MagicMock()
     mock_conn = MagicMock(spec=Connection)
 
-    # Create mock result for ROUTINES query using simple dict
+    mock_inspector.engine = mock_engine
+    mock_engine.connect.return_value.__enter__.return_value = mock_conn
+
+    # Create mock result using MySQL's column aliases (name, definition, comment)
     test_row = {
-        "ROUTINE_SCHEMA": "test_db",
-        "ROUTINE_NAME": "test_proc",
-        "ROUTINE_DEFINITION": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
-        "ROUTINE_COMMENT": "Test procedure",
+        "name": "test_proc",  # MySQL uses 'ROUTINE_NAME as name'
+        "definition": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",  # 'ROUTINE_DEFINITION as definition'
+        "comment": "Test procedure",  # 'ROUTINE_COMMENT as comment'
         "CREATED": "2024-01-01",
         "LAST_ALTERED": "2024-01-02",
         "SQL_DATA_ACCESS": "MODIFIES",
@@ -84,25 +88,16 @@ def test_get_stored_procedures():
     routines_result = MagicMock()
     routines_result.__iter__.return_value = [test_row].__iter__()
 
-    # Create mock result for SHOW CREATE PROCEDURE
-    show_create_result = MagicMock()
-    show_create_result.fetchone.return_value = (
-        "test_proc",
-        "utf8mb4",
-        "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
-    )
-
     def mock_execute(query, params=None):
-        if "SHOW CREATE PROCEDURE" in str(query):
-            return show_create_result
         return routines_result
 
     mock_conn.execute.side_effect = mock_execute
 
     source = MariaDBSource(ctx=PipelineContext(run_id="test"), config=MariaDBConfig())
 
-    procedures = source._get_stored_procedures(
-        conn=mock_conn, db_name="test_db", schema="test_db"
+    # MariaDB now uses the inherited MySQL method get_procedures_for_schema
+    procedures = source.get_procedures_for_schema(
+        inspector=mock_inspector, schema="test_db", db_name="test_db"
     )
 
     assert len(procedures) == 1
@@ -163,10 +158,13 @@ def test_loop_stored_procedures():
 
 
 def test_mariadb_procedure_pattern_filtering():
-    """Test procedure pattern filtering in MariaDB source"""
+    """Test procedure pattern filtering in MariaDB source (uses inherited MySQL method)"""
     mock_inspector = MagicMock(spec=Inspector)
     mock_engine = MagicMock()
+    mock_conn = MagicMock(spec=Connection)
+
     mock_inspector.engine = mock_engine
+    mock_engine.connect.return_value.__enter__.return_value = mock_conn
     mock_inspector.engine.url.database = "test_db"
 
     config = MariaDBConfig(
@@ -177,11 +175,27 @@ def test_mariadb_procedure_pattern_filtering():
 
     source = MariaDBSource(ctx=PipelineContext(run_id="test"), config=config)
 
-    with patch.object(source, "_get_stored_procedures") as mock_get_procs:
+    # Mock the SQL query result with MySQL's column aliases
+    test_row = {
+        "name": "test_proc_temp",
+        "definition": "CREATE PROCEDURE test_proc_temp() BEGIN SELECT 1; END",
+        "comment": None,
+        "CREATED": None,
+        "LAST_ALTERED": None,
+        "SQL_DATA_ACCESS": None,
+        "SECURITY_TYPE": None,
+        "DEFINER": None,
+    }
+
+    routines_result = MagicMock()
+    routines_result.__iter__.return_value = [test_row].__iter__()
+    mock_conn.execute.return_value = routines_result
+
+    with patch.object(source, "get_procedures_for_schema") as mock_get_procs:
         mock_get_procs.return_value = [
             BaseProcedure(
                 name="test_proc_temp",
-                language="sql",
+                language="SQL",
                 argument_signature=None,
                 return_type=None,
                 procedure_definition="CREATE PROCEDURE test_proc_temp() BEGIN SELECT 1; END",
@@ -201,15 +215,19 @@ def test_mariadb_procedure_pattern_filtering():
 
 
 def test_mariadb_error_handling():
-    """Test error handling in MariaDB stored procedure fetching"""
+    """Test error handling in MariaDB stored procedure fetching (uses inherited MySQL method)"""
+    mock_inspector = MagicMock(spec=Inspector)
+    mock_engine = MagicMock()
     mock_conn = MagicMock(spec=Connection)
 
-    # Create mock result for ROUTINES query using simple dict
+    mock_inspector.engine = mock_engine
+    mock_engine.connect.return_value.__enter__.return_value = mock_conn
+
+    # Create mock result using MySQL's column aliases
     test_row = {
-        "ROUTINE_SCHEMA": "test_db",
-        "ROUTINE_NAME": "test_proc",
-        "ROUTINE_DEFINITION": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
-        "ROUTINE_COMMENT": "Test procedure",
+        "name": "test_proc",
+        "definition": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
+        "comment": "Test procedure",
         "CREATED": "2024-01-01",
         "LAST_ALTERED": "2024-01-02",
         "SQL_DATA_ACCESS": "MODIFIES",
@@ -219,27 +237,18 @@ def test_mariadb_error_handling():
 
     routines_result = MagicMock()
     routines_result.__iter__.return_value = [test_row].__iter__()
-
-    # Mock execution behavior
-    def mock_execute(query, params=None):
-        if "SHOW CREATE PROCEDURE" in str(query):
-            raise Exception("Failed to get procedure")
-        if "FROM information_schema.ROUTINES" in str(query):
-            return routines_result
-        return MagicMock()
-
-    mock_conn.execute.side_effect = mock_execute
+    mock_conn.execute.return_value = routines_result
 
     source = MariaDBSource(ctx=PipelineContext(run_id="test"), config=MariaDBConfig())
-    procedures = source._get_stored_procedures(
-        conn=mock_conn, db_name="test_db", schema="test_db"
+    procedures = source.get_procedures_for_schema(
+        inspector=mock_inspector, schema="test_db", db_name="test_db"
     )
 
     # Verify the results
     assert len(procedures) == 1
     assert isinstance(procedures[0], BaseProcedure)
     assert procedures[0].name == "test_proc"
-    # Should fall back to ROUTINE_DEFINITION when SHOW CREATE PROCEDURE fails
+    # Should get procedure definition from information_schema.ROUTINES
     assert (
         procedures[0].procedure_definition
         == "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END"

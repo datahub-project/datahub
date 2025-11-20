@@ -1,6 +1,6 @@
 # This import verifies that the dependencies are available.
 import logging
-import re
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
 
 import pymysql  # noqa: F401
@@ -124,10 +124,6 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
 class MySQLConfig(
     MySQLConnectionConfig, TwoTierSQLAlchemyConfig, StoredProcedureConfigMixin
 ):
-    # MySQLConfig now inherits stored procedure configuration from StoredProcedureConfigMixin
-    # This includes: include_stored_procedures, procedure_pattern
-    pass
-
     def get_identifier(self, *, schema: str, table: str) -> str:
         return f"{schema}.{table}"
 
@@ -176,24 +172,21 @@ class MySQLSource(TwoTierSQLAlchemySource):
         config = MySQLConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def is_temp_table(self, name: str) -> bool:
+    @staticmethod
+    def _parse_datetime(value: Optional[Any]) -> Optional[datetime]:
         """
-        Check if a table name represents a temporary table in MySQL.
-        MySQL temporary tables typically start with # or _tmp patterns.
+        Convert a timestamp value to datetime or return None.
+
+        Handles both string and datetime objects from SQLAlchemy.
         """
-        # MySQL temporary table patterns
-        temp_patterns = [
-            r"^#.*",  # Tables starting with #
-            r"^(tmp|temp)_.*",  # Tables starting with tmp_ or temp_
-            r".*_(tmp|temp)$",  # Tables ending with _tmp or _temp
-            r".*_(tmp|temp)_.*",  # Tables containing _tmp_ or _temp_
-        ]
-
-        table_name = name.split(".")[
-            -1
-        ].lower()  # Get just the table name, case insensitive
-
-        return any(re.match(pattern, table_name) for pattern in temp_patterns)
+        if not value:
+            return None
+        if isinstance(value, datetime):
+            return value
+        try:
+            return datetime.fromisoformat(str(value))
+        except (ValueError, TypeError):
+            return None
 
     def get_schema_level_workunits(
         self,
@@ -211,9 +204,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
             try:
                 yield from self.loop_stored_procedures(inspector, schema, self.config)
             except Exception as e:
-                self.report.failure(
+                self.report.warning(
                     title="Failed to list stored procedures for schema",
-                    message="An error occurred while listing procedures for the schema.",
+                    message="Unable to list stored procedures. Ensure your user has SELECT privilege on information_schema.ROUTINES. Continuing with table ingestion. Set include_stored_procedures=false to disable this warning.",
                     context=f"{database}.{schema}",
                     exc=e,
                 )
@@ -256,12 +249,12 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 ),
                 schema_key=None,  # MySQL is two-tier - no schema key needed
                 schema_resolver=self.get_schema_resolver(),
-                is_temp_table=self.is_temp_table,
+                # MySQL temporary tables aren't in information_schema, so no need for is_temp_table
             )
         except Exception as e:
             self.report.warning(
                 title="Failed to emit stored procedure",
-                message="An error occurred while emitting stored procedure",
+                message="Unable to emit stored procedure metadata. This may be due to issues with lineage parsing or invalid SQL. Check logs for details.",
                 context=procedure.name,
                 exc=e,
             )
@@ -354,8 +347,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
                         argument_signature=None,
                         return_type=None,
                         procedure_definition=row_dict.get("definition"),
-                        created=row_dict.get("CREATED"),
-                        last_altered=row_dict.get("LAST_ALTERED"),
+                        created=self._parse_datetime(row_dict.get("CREATED")),
+                        last_altered=self._parse_datetime(row_dict.get("LAST_ALTERED")),
                         comment=row_dict.get("comment"),
                         extra_properties={
                             k: v

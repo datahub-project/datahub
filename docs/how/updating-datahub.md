@@ -32,6 +32,14 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Breaking Changes
 
 - #15005: `SqlParsingBuilder` is removed, use `SqlParsingAggregator` instead
+- **Stored Procedures now enabled by default** for MySQL, MariaDB, and PostgreSQL sources: The `include_stored_procedures` configuration option now defaults to `true` (previously `false`). This change will:
+  - Ingest stored procedures, their definitions, and lineage automatically
+  - May increase ingestion time depending on the number of stored procedures
+  - May increase metadata volume in DataHub
+  - **If stored procedure ingestion fails** (e.g., due to insufficient permissions), the ingestion will log a warning and continue with table/view ingestion
+  - **Required privileges**: `SELECT` on `information_schema.ROUTINES` (MySQL/MariaDB) or access to system catalog tables (PostgreSQL)
+  - To revert to previous behavior, explicitly set `include_stored_procedures: false` in your recipe
+  - Use `procedure_pattern` to filter which procedures are ingested if you only want a subset
 - #14710: LookML ingestion source migrated to SDKv2 resulting in:
   - `browsePaths` aspect replaced with `browsePathsV2`
   - Only emits MCPs

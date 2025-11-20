@@ -236,7 +236,7 @@ def generate_procedure_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
     schema_resolver: Optional[SchemaResolver],
-    is_temp_table: Callable[[str], bool] = lambda _: False,
+    is_temp_table_fn: Optional[Callable[[str], bool]] = None,
 ) -> Iterable[MetadataWorkUnit]:
     yield from _generate_job_workunits(database_key, schema_key, procedure)
 
@@ -250,6 +250,6 @@ def generate_procedure_workunits(
                 procedure_job_urn=job_urn,
                 default_db=database_key.database,
                 default_schema=schema_key.db_schema if schema_key else None,
-                is_temp_table=is_temp_table,
+                is_temp_table=is_temp_table_fn or (lambda _: False),
             )
         )

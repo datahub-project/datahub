@@ -1569,7 +1569,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 schema_resolver=(
                     self.aggregator._schema_resolver if self.aggregator else None
                 ),
-                is_temp_table=self.is_temp_table,
+                is_temp_table_fn=self.is_temp_table,
             )
         except Exception as e:
             self.structured_reporter.warning(

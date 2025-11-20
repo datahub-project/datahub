@@ -10,35 +10,96 @@ from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 
 
 def test_stored_procedure_parsing():
-    """Test parsing of a stored procedure using BaseProcedure"""
-    procedure = BaseProcedure(
-        name="test_proc",
-        language="sql",
-        argument_signature=None,
-        return_type=None,
-        procedure_definition="""
-        CREATE PROCEDURE test_proc()
-        BEGIN
-            INSERT INTO target_table
-            SELECT * FROM source_table;
-        END
-        """,
-        created=None,
-        last_altered=None,
-        comment=None,
-        extra_properties={
-            "sql_data_access": "MODIFIES",
-            "security_type": "DEFINER",
-            "definer": "root@localhost",
+    """Test MySQL-specific parsing of stored procedures from information_schema"""
+    from datetime import datetime
+    from unittest.mock import MagicMock
+
+    from sqlalchemy.engine.reflection import Inspector
+
+    # Mock inspector and connection
+    mock_inspector = MagicMock(spec=Inspector)
+    mock_engine = MagicMock()
+    mock_conn = MagicMock()
+
+    mock_inspector.engine = mock_engine
+    mock_engine.connect.return_value.__enter__.return_value = mock_conn
+
+    # Create a MySQL source instance
+    config = MySQLConfig(
+        host_port="localhost:3306", username="test", password="test", database="test"
+    )
+    ctx = PipelineContext(run_id="test")
+    mysql_source = MySQLSource(config, ctx)
+
+    # Mock SQL result - create mock Row objects that support dict() conversion
+    def create_mock_row(data):
+        """Create a mock SQLAlchemy Row that supports dict() conversion"""
+        mock_row = MagicMock()
+        # Make dict(row) return the data
+        mock_row.__iter__ = lambda: iter(data.items())
+        mock_row.keys = lambda: data.keys()
+        mock_row.__getitem__ = lambda self, key: data[key]
+        return mock_row
+
+    test_data = [
+        {
+            "name": "simple_proc",
+            "definition": "BEGIN SELECT 1; END",
+            "comment": "Simple procedure",
+            "CREATED": datetime(2024, 1, 1, 10, 0, 0),
+            "LAST_ALTERED": datetime(2024, 1, 2, 11, 30, 0),
+            "SQL_DATA_ACCESS": "MODIFIES",
+            "SECURITY_TYPE": "DEFINER",
+            "DEFINER": "root@localhost",
         },
+        {
+            "name": "proc_with_nulls",
+            "definition": "BEGIN SELECT * FROM users; END",
+            "comment": None,  # Test None handling
+            "CREATED": None,
+            "LAST_ALTERED": None,
+            "SQL_DATA_ACCESS": None,
+            "SECURITY_TYPE": "INVOKER",
+            "DEFINER": "admin@%",
+        },
+    ]
+
+    test_rows = [create_mock_row(data) for data in test_data]
+
+    mock_result = MagicMock()
+    mock_result.__iter__.return_value = iter(test_rows)
+    mock_conn.execute.return_value = mock_result
+
+    # Call the actual method
+    procedures = mysql_source.get_procedures_for_schema(
+        inspector=mock_inspector, schema="test_db", db_name="test_db"
     )
 
-    assert procedure.name == "test_proc"
-    assert procedure.language == "sql"
-    assert procedure.procedure_definition is not None
-    assert "CREATE PROCEDURE test_proc()" in procedure.procedure_definition
-    assert procedure.extra_properties is not None
-    assert procedure.extra_properties["sql_data_access"] == "MODIFIES"
+    # Verify parsing
+    assert len(procedures) == 2
+
+    # Test first procedure with all fields populated
+    proc1 = procedures[0]
+    assert proc1.name == "simple_proc"
+    assert proc1.language == "SQL"
+    assert proc1.procedure_definition == "BEGIN SELECT 1; END"
+    assert proc1.comment == "Simple procedure"
+    assert proc1.created == datetime(2024, 1, 1, 10, 0, 0)
+    assert proc1.last_altered == datetime(2024, 1, 2, 11, 30, 0)
+    assert proc1.extra_properties is not None
+    assert proc1.extra_properties["sql_data_access"] == "MODIFIES"
+    assert proc1.extra_properties["security_type"] == "DEFINER"
+    assert proc1.extra_properties["definer"] == "root@localhost"
+
+    # Test second procedure with None/null handling
+    proc2 = procedures[1]
+    assert proc2.name == "proc_with_nulls"
+    assert proc2.comment is None
+    assert proc2.created is None
+    assert proc2.last_altered is None
+    assert proc2.extra_properties is not None
+    assert "sql_data_access" not in proc2.extra_properties  # None values excluded
+    assert proc2.extra_properties["security_type"] == "INVOKER"
 
 
 def test_mysql_source_has_stored_procedure_support():
@@ -75,83 +136,6 @@ def test_stored_procedure_config():
     assert config.procedure_pattern.allowed("test_db.my_proc")
     assert not config.procedure_pattern.allowed("test_db.my_proc_temp")
     assert not config.procedure_pattern.allowed("other_db.proc")
-
-
-def test_temp_table_identification():
-    """Test MySQL temporary table pattern matching logic using the actual MySQLSource method"""
-
-    # Create a MySQL source instance to test the actual method
-    config = MySQLConfig(
-        host_port="localhost:3306", username="test", password="test", database="test"
-    )
-    ctx = PipelineContext(run_id="test")
-    mysql_source = MySQLSource(config, ctx)
-
-    # Test cases that SHOULD match temporary table patterns
-    temp_cases = [
-        "#temp_table",  # Starts with #
-        "#TMP_123",  # Starts with # (case insensitive)
-        "tmp_customers",  # Starts with tmp_
-        "temp_data",  # Starts with temp_
-        "TMP_STAGING",  # Starts with tmp_ (uppercase)
-        "TEMP_WORK",  # Starts with temp_ (uppercase)
-        "my_table_tmp",  # Ends with _tmp
-        "my_table_temp",  # Ends with _temp
-        "DATA_TMP",  # Ends with _tmp (uppercase)
-        "STAGING_TEMP",  # Ends with _temp (uppercase)
-        "stage_tmp_final",  # Contains _tmp_
-        "stage_temp_final",  # Contains _temp_
-        "ETL_TMP_PROCESS",  # Contains _tmp_ (uppercase)
-        "LOAD_TEMP_DATA",  # Contains _temp_ (uppercase)
-    ]
-
-    # Test cases that should NOT match
-    non_temp_cases = [
-        "customers",  # Regular table
-        "template_table",  # Contains "temp" but not matching pattern
-        "temperature",  # Contains "temp" but not matching pattern
-        "temporary",  # Contains "temp" but not matching pattern
-        "attempt",  # Contains "temp" but not matching pattern
-        "contempt",  # Contains "temp" but not matching pattern
-        "tmpfile",  # Starts with "tmp" but no underscore
-        "tempfile",  # Starts with "temp" but no underscore
-        "my_attempt_table",  # Contains "temp" but not in pattern
-        "contemporary_data",  # Contains "temp" but not in pattern
-    ]
-
-    # Test qualified table names (database.schema.table format)
-    qualified_temp_cases = [
-        "mydb.schema.tmp_table",  # Should extract "tmp_table"
-        "prod.public.temp_staging",  # Should extract "temp_staging"
-        "test.dbo.final_tmp",  # Should extract "final_tmp"
-        "warehouse.etl.stage_temp_work",  # Should extract "stage_temp_work"
-    ]
-
-    qualified_non_temp_cases = [
-        "mydb.schema.customers",  # Should extract "customers"
-        "prod.public.template_data",  # Should extract "template_data"
-    ]
-
-    # Run all test cases using the actual MySQLSource.is_temp_table method
-    for table_name in temp_cases:
-        assert mysql_source.is_temp_table(table_name), (
-            f"Expected '{table_name}' to be identified as temp table"
-        )
-
-    for table_name in non_temp_cases:
-        assert not mysql_source.is_temp_table(table_name), (
-            f"Expected '{table_name}' to NOT be identified as temp table"
-        )
-
-    for table_name in qualified_temp_cases:
-        assert mysql_source.is_temp_table(table_name), (
-            f"Expected qualified name '{table_name}' to be identified as temp table"
-        )
-
-    for table_name in qualified_non_temp_cases:
-        assert not mysql_source.is_temp_table(table_name), (
-            f"Expected qualified name '{table_name}' to NOT be identified as temp table"
-        )
 
 
 def test_mysql_procedure_pattern_filtering():
