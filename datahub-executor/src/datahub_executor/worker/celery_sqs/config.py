@@ -31,8 +31,11 @@ class SchemaPickler(pickle._Pickler):
                 getstate = getattr(obj, "__getstate__", None)
                 if self._is_pydantic_v2_model(obj) and getstate is not None:
                     # Translate v2 state to v1
+                    # Capture getstate in closure to avoid binding issues with multiple instances
+                    original_getstate = getstate
+
                     def __getstate__(self):
-                        _state = getstate()
+                        _state = original_getstate()
                         _state["__private_attribute_values__"] = (
                             _state.get("__pydantic_private__", {}) or {}
                         )
@@ -41,16 +44,16 @@ class SchemaPickler(pickle._Pickler):
                         )
                         return _state
 
-                    # Patch getstate
-                    original_getstate = getstate
-                    type(obj).__getstate__ = types.MethodType(__getstate__, obj)
+                    # Patch the instance's getstate method (not the class!)
+                    # This ensures each instance has its own bound method with its own closure
+                    obj.__getstate__ = types.MethodType(__getstate__, obj)
                     patched = True
 
             return super().save(obj, save_persistent_id=save_persistent_id)  # type: ignore
         finally:
             # Only restore if we actually patched it
             if patched and original_getstate is not None:
-                type(obj).__getstate__ = original_getstate
+                obj.__getstate__ = original_getstate
 
     def _is_pydantic_v2_model(self, obj) -> bool:
         return (
