@@ -23,12 +23,12 @@ import { MLFeatureTableEntity } from '@app/entity/mlFeatureTable/MLFeatureTableE
 import { MLModelEntity } from '@app/entity/mlModel/MLModelEntity';
 import { MLModelGroupEntity } from '@app/entity/mlModelGroup/MLModelGroupEntity';
 import { MLPrimaryKeyEntity } from '@app/entity/mlPrimaryKey/MLPrimaryKeyEntity';
+import { QueryEntity } from '@app/entity/query/QueryEntity';
 import { RestrictedEntity } from '@app/entity/restricted/RestrictedEntity';
 import { SchemaFieldPropertiesEntity } from '@app/entity/schemaField/SchemaFieldPropertiesEntity';
 import { StructuredPropertyEntity } from '@app/entity/structuredProperty/StructuredPropertyEntity';
 import { TagEntity } from '@app/entity/tag/Tag';
 import { UserEntity } from '@app/entity/user/User';
-import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 
 export default function buildEntityRegistry() {
     const registry = new EntityRegistry();
@@ -48,7 +48,6 @@ export default function buildEntityRegistry() {
     registry.register(new MLModelEntity());
     registry.register(new MLModelGroupEntity());
     registry.register(new DomainEntity());
-    registry.register(new DocumentEntity());
     registry.register(new ContainerEntity());
     registry.register(new GlossaryNodeEntity());
     registry.register(new RoleEntity());
@@ -61,6 +60,7 @@ export default function buildEntityRegistry() {
     registry.register(new SchemaFieldPropertiesEntity());
     registry.register(new StructuredPropertyEntity());
     registry.register(new DataProcessInstanceEntity());
+    registry.register(new QueryEntity());
     registry.register(new ApplicationEntity());
     return registry;
 }
