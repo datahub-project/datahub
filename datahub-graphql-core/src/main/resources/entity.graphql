@@ -3072,6 +3072,16 @@ enum FabricType {
   Designates sandbox fabrics
   """
   SANDBOX
+
+  """
+  Designates alternative spelling PROD
+  """
+  PRD
+
+  """
+  Designates alternative spelling TEST
+  """
+  TST
 }
 
 """
