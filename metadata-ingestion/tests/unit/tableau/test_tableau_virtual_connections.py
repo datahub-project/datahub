@@ -121,8 +121,8 @@ class TestVirtualConnectionProcessor:
         )
         assert len(self.vc_processor.datasource_vc_relationships) == 0
 
-        # Test empty VC table IDs list
-        self.vc_processor.vc_table_ids_for_lookup = []
+        # Test empty VC table IDs set
+        self.vc_processor.vc_table_ids_for_lookup = set()
         self.vc_processor.lookup_vc_ids_from_table_ids()
         assert len(self.vc_processor.vc_table_id_to_vc_id) == 0
 
@@ -345,7 +345,7 @@ class TestVirtualConnectionProcessor:
         # Test basic initialization
         assert self.vc_processor.tableau_source is not None
         assert self.vc_processor.config is not None
-        assert isinstance(self.vc_processor.vc_table_ids_for_lookup, list)
+        assert isinstance(self.vc_processor.vc_table_ids_for_lookup, set)
         assert isinstance(self.vc_processor.datasource_vc_relationships, dict)
 
         # Test folder key generation
@@ -381,7 +381,7 @@ class TestVirtualConnectionProcessor:
     def test_integration_with_tableau_source_methods(self):
         """Test integration with tableau source methods"""
         # Test VC lookup with mock data
-        self.vc_processor.vc_table_ids_for_lookup = ["vc-table-1", "vc-table-2"]
+        self.vc_processor.vc_table_ids_for_lookup = {"vc-table-1", "vc-table-2"}
 
         mock_vc_data = [
             {
@@ -594,8 +594,7 @@ class TestVirtualConnectionProcessor:
 
         # Verify VC table IDs were collected
         expected_table_ids = {"vc-table-1", "vc-table-2"}
-        actual_table_ids = set(self.vc_processor.vc_table_ids_for_lookup)
-        assert expected_table_ids.issubset(actual_table_ids)
+        assert expected_table_ids.issubset(self.vc_processor.vc_table_ids_for_lookup)
 
     def test_vc_folder_and_project_handling(self):
         """Test VC folder container creation and project handling scenarios"""
