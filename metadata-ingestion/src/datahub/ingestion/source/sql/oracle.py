@@ -1328,7 +1328,6 @@ class OracleSource(SQLAlchemySource):
             tables_prefix = self.config.data_dictionary_mode.value
 
             self._validate_tables_prefix(tables_prefix)
-
             with inspector.engine.connect() as conn:
                 cursor = conn.execute(
                     sql.text(
