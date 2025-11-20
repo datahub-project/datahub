@@ -25,7 +25,10 @@ from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
     ValidationResultIdentifier,
 )
-from great_expectations.execution_engine import PandasExecutionEngine
+from great_expectations.execution_engine import (
+    PandasExecutionEngine,
+    SparkDFExecutionEngine,
+)
 from great_expectations.execution_engine.sqlalchemy_execution_engine import (
     SqlAlchemyExecutionEngine,
 )
@@ -590,12 +593,15 @@ class DataHubValidationAction(ValidationAction):
 
         logger.debug("Finding datasets being validated")
 
-        # for now, we support only v3-api and sqlalchemy execution engine and Pandas engine
+        # for now, we support only v3-api and sqlalchemy execution engine,Pandas engine and Spark engine
         is_sql_alchemy = isinstance(data_asset, Validator) and (
             isinstance(data_asset.execution_engine, SqlAlchemyExecutionEngine)
         )
         is_pandas = isinstance(data_asset.execution_engine, PandasExecutionEngine)
-        if is_sql_alchemy or is_pandas:
+
+        is_spark = isinstance(data_asset.execution_engine, SparkDFExecutionEngine)
+
+        if is_sql_alchemy or is_pandas or is_spark:
             ge_batch_spec = data_asset.active_batch_spec
             partitionSpec = None
             batchSpecProperties = {
@@ -607,6 +613,36 @@ class DataHubValidationAction(ValidationAction):
                 ),
             }
             sqlalchemy_uri = None
+
+            print(ge_batch_spec)
+
+            if ge_batch_spec["batch_data"] == "SparkDataFrame" and is_spark:
+                data_platform = self.get_platform_instance(
+                    data_asset.active_batch_definition.datasource_name
+                )
+                dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                    platform=(
+                        data_platform
+                        if self.platform_alias is None
+                        else self.platform_alias
+                    ),
+                    name=data_asset.active_batch_definition.data_asset_name,
+                    platform_instance="",
+                    env=self.env,
+                )
+
+                batchSpec = BatchSpec(
+                    nativeBatchId=batch_identifier,
+                    query="",
+                    customProperties=batchSpecProperties,
+                )
+                dataset_partitions.append(
+                    {
+                        "dataset_urn": dataset_urn,
+                        "partitionSpec": partitionSpec,
+                        "batchSpec": batchSpec,
+                    }
+                )
             if is_sql_alchemy and isinstance(
                 data_asset.execution_engine.engine, Engine
             ):
@@ -758,7 +794,7 @@ class DataHubValidationAction(ValidationAction):
         else:
             # TODO - v2-spec - SqlAlchemyDataset support
             warn(
-                "DataHubValidationAction does not recognize this GE data asset type - {asset_type}. This is either using v2-api or execution engine other than sqlalchemy.".format(
+                "DataHubValidationAction does not recognize this GE data asset type - {asset_type}. This is either using v2-api or execution engine other than sqlalchemy or spark.".format(
                     asset_type=type(data_asset)
                 )
             )
