@@ -3,7 +3,8 @@ import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
+import dataHubLogo from '@images/datahublogo.png';
 
 const Section = styled.div`
     width: auto;
@@ -60,7 +61,7 @@ const resources = [
 
 export const ErrorSection = (): JSX.Element => {
     const themeConfig = useTheme();
-    const themeLogo = resolveRuntimePath(themeConfig.assets.logoUrl || '@images/datahublogo.png');
+    const themeLogo = themeConfig.assets.logoUrl || dataHubLogo;
 
     return (
         <Section>
