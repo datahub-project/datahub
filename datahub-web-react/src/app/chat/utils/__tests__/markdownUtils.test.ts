@@ -99,8 +99,9 @@ describe('markdownUtils', () => {
             const markdown = 'Hello <script>alert("XSS")</script> world';
             const result = markdownToHtml(markdown);
 
-            // Quotes are also escaped for safety
-            expect(result).toBe('Hello &lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt; world');
+            // Note: Quotes don't need escaping in HTML content (only in attributes)
+            // The important part is that < and > are escaped to prevent tag injection
+            expect(result).toBe('Hello &lt;script&gt;alert("XSS")&lt;/script&gt; world');
             expect(result).not.toContain('<script>');
         });
 

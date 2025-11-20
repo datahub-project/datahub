@@ -1,13 +1,23 @@
 /**
- * Escape HTML special characters to prevent XSS attacks
- * Properly escapes characters for both HTML content and attributes
+ * Escape HTML special characters for HTML content
+ * Note: Only escapes characters that are dangerous in HTML content (&, <, >)
+ * Quotes and apostrophes don't need escaping in HTML content (only in attributes)
+ * Escaping them causes cursor position issues due to browser entity decoding
  * @param text The text to escape
- * @returns HTML-safe string
+ * @returns HTML-safe string for content
  */
-function escapeHtml(text: string): string {
+function escapeHtmlContent(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Escape HTML special characters for HTML attributes
+ * Includes quote escaping which is necessary in attribute values
+ * @param text The text to escape
+ * @returns HTML-safe string for attributes
+ */
+function escapeHtmlAttribute(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    // Note: Apostrophes don't need escaping in HTML content (only in attributes)
-    // Escaping them causes cursor position issues due to browser entity decoding
 }
 
 /**
@@ -25,18 +35,18 @@ export function markdownToHtml(markdown: string): string {
 
         if (mentionStart === -1) {
             // No more mentions, add remaining text (escaped)
-            result += escapeHtml(markdown.substring(i));
+            result += escapeHtmlContent(markdown.substring(i));
             break;
         }
 
         // Add text before the mention (escaped)
-        result += escapeHtml(markdown.substring(i, mentionStart));
+        result += escapeHtmlContent(markdown.substring(i, mentionStart));
 
         // Find the closing ]
         const closingBracket = markdown.indexOf(']', mentionStart);
         if (closingBracket === -1) {
             // Malformed, treat rest as text (escaped)
-            result += escapeHtml(markdown.substring(mentionStart));
+            result += escapeHtmlContent(markdown.substring(mentionStart));
             break;
         }
 
@@ -59,20 +69,20 @@ export function markdownToHtml(markdown: string): string {
 
             if (parenDepth !== 0) {
                 // Malformed, treat as text (escaped)
-                result += escapeHtml(markdown.substring(mentionStart));
+                result += escapeHtmlContent(markdown.substring(mentionStart));
                 break;
             }
 
             // Extract the URN
             const urn = markdown.substring(closingBracket + 2, j - 1);
 
-            // Create the mention span (escape urn and displayName to prevent XSS)
-            result += `<span class="mention" data-urn="${escapeHtml(urn)}" contenteditable="false">@${escapeHtml(displayName)}</span>`;
+            // Create the mention span (escape urn for attribute, displayName for content)
+            result += `<span class="mention" data-urn="${escapeHtmlAttribute(urn)}" contenteditable="false">@${escapeHtmlContent(displayName)}</span>`;
 
             i = j;
         } else {
             // Not a link, treat as text (escaped)
-            result += escapeHtml(markdown.substring(mentionStart, closingBracket + 1));
+            result += escapeHtmlContent(markdown.substring(mentionStart, closingBracket + 1));
             i = closingBracket + 1;
         }
     }
