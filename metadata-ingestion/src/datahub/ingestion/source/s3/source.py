@@ -11,10 +11,6 @@ from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
-from pyspark.conf import SparkConf
-from pyspark.sql import SparkSession
-from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
 from datahub.emitter.mce_builder import (
@@ -41,7 +37,6 @@ from datahub.ingestion.source.aws.s3_boto_utils import (
 )
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
-    get_bucket_relative_path,
     get_key_prefix,
     strip_s3_prefix,
 )
@@ -285,150 +280,33 @@ class S3Source(StatefulIngestionSourceBase):
                     for config_flag in profiling_flags_to_report
                 },
             )
-            self.init_spark()
+            # Set SPARK_VERSION before importing profiling module
+            # This is needed because pydeequ imports require this to be set
+            os.environ.setdefault("SPARK_VERSION", "3.5")
 
-    def init_spark(self):
-        os.environ.setdefault("SPARK_VERSION", "3.5")
-        spark_version = os.environ["SPARK_VERSION"]
+            try:
+                from datahub.ingestion.source.s3.profiling import SparkProfiler
 
-        # Importing here to avoid Deequ dependency for non profiling use cases
-        # Deequ fails if Spark is not available which is not needed for non profiling use cases
-        import pydeequ
-
-        conf = SparkConf()
-        conf.set(
-            "spark.jars.packages",
-            ",".join(
-                [
-                    "org.apache.hadoop:hadoop-aws:3.0.3",
-                    # Spark's avro version needs to be matched with the Spark version
-                    f"org.apache.spark:spark-avro_2.12:{spark_version}{'.0' if spark_version.count('.') == 1 else ''}",
-                    pydeequ.deequ_maven_coord,
-                ]
-            ),
-        )
-
-        if self.source_config.aws_config is not None:
-            credentials = self.source_config.aws_config.get_credentials()
-
-            aws_access_key_id = credentials.get("aws_access_key_id")
-            aws_secret_access_key = credentials.get("aws_secret_access_key")
-            aws_session_token = credentials.get("aws_session_token")
-
-            aws_provided_credentials = [
-                aws_access_key_id,
-                aws_secret_access_key,
-                aws_session_token,
-            ]
-
-            if any(x is not None for x in aws_provided_credentials):
-                # see https://hadoop.apache.org/docs/r3.0.3/hadoop-aws/tools/hadoop-aws/index.html#Changing_Authentication_Providers
-                if all(x is not None for x in aws_provided_credentials):
-                    conf.set(
-                        "spark.hadoop.fs.s3a.aws.credentials.provider",
-                        "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider",
-                    )
-
-                else:
-                    conf.set(
-                        "spark.hadoop.fs.s3a.aws.credentials.provider",
-                        "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
-                    )
-
-                if aws_access_key_id is not None:
-                    conf.set("spark.hadoop.fs.s3a.access.key", aws_access_key_id)
-                if aws_secret_access_key is not None:
-                    conf.set(
-                        "spark.hadoop.fs.s3a.secret.key",
-                        aws_secret_access_key,
-                    )
-                if aws_session_token is not None:
-                    conf.set(
-                        "spark.hadoop.fs.s3a.session.token",
-                        aws_session_token,
-                    )
-            else:
-                # if no explicit AWS config is provided, use a default AWS credentials provider
-                conf.set(
-                    "spark.hadoop.fs.s3a.aws.credentials.provider",
-                    "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
+                self.profiler = SparkProfiler(
+                    aws_config=config.aws_config,
+                    spark_driver_memory=config.spark_driver_memory,
+                    spark_config=config.spark_config,
+                    report=self.report,
+                    profiling_times_taken=self.profiling_times_taken,
+                    profiling_config=config.profiling,
                 )
-
-            if self.source_config.aws_config.aws_endpoint_url is not None:
-                conf.set(
-                    "fs.s3a.endpoint", self.source_config.aws_config.aws_endpoint_url
-                )
-            if self.source_config.aws_config.aws_region is not None:
-                conf.set(
-                    "fs.s3a.endpoint.region", self.source_config.aws_config.aws_region
-                )
-
-        conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
-        conf.set("spark.driver.memory", self.source_config.spark_driver_memory)
-
-        if self.source_config.spark_config:
-            for key, value in self.source_config.spark_config.items():
-                conf.set(key, value)
-        self.spark = SparkSession.builder.config(conf=conf).getOrCreate()
+            except (ImportError, ModuleNotFoundError) as e:
+                raise RuntimeError(
+                    "PySpark is not installed but is required for S3 profiling. "
+                    "Please install with profiling support: "
+                    "pip install 'acryl-datahub[data-lake-profiling]' or 'acryl-datahub[s3]'"
+                ) from e
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = DataLakeSourceConfig.model_validate(config_dict)
 
         return cls(config, ctx)
-
-    def read_file_spark(self, file: str, ext: str) -> Optional[DataFrame]:
-        logger.debug(f"Opening file {file} for profiling in spark")
-        if "s3://" in file:
-            # replace s3:// with s3a://, and make sure standalone bucket names always end with a slash.
-            # Spark will fail if given a path like `s3a://mybucket`, and requires it to be `s3a://mybucket/`.
-            file = f"s3a://{get_bucket_name(file)}/{get_bucket_relative_path(file)}"
-
-        telemetry.telemetry_instance.ping("data_lake_file", {"extension": ext})
-
-        if ext.endswith(".parquet"):
-            df = self.spark.read.parquet(file)
-        elif ext.endswith(".csv"):
-            # see https://sparkbyexamples.com/pyspark/pyspark-read-csv-file-into-dataframe
-            df = self.spark.read.csv(
-                file,
-                header="True",
-                inferSchema="True",
-                sep=",",
-                ignoreLeadingWhiteSpace=True,
-                ignoreTrailingWhiteSpace=True,
-            )
-        elif ext.endswith(".tsv"):
-            df = self.spark.read.csv(
-                file,
-                header="True",
-                inferSchema="True",
-                sep="\t",
-                ignoreLeadingWhiteSpace=True,
-                ignoreTrailingWhiteSpace=True,
-            )
-        elif ext.endswith(".json") or ext.endswith(".jsonl"):
-            df = self.spark.read.json(file)
-        elif ext.endswith(".avro"):
-            try:
-                df = self.spark.read.format("avro").load(file)
-            except AnalysisException as e:
-                self.report.report_warning(
-                    file,
-                    f"Avro file reading failed with exception. The error was: {e}",
-                )
-                return None
-
-        # TODO: add support for more file types
-        # elif file.endswith(".orc"):
-        # df = self.spark.read.orc(file)
-        else:
-            self.report.report_warning(file, f"file {file} has unsupported extension")
-            return None
-        logger.debug(f"dataframe read for file {file} with row count {df.count()}")
-        # replace periods in names because they break PyDeequ
-        # see https://mungingdata.com/pyspark/avoid-dots-periods-column-names/
-        return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
         if self.is_s3_platform():
@@ -514,85 +392,6 @@ class S3Source(StatefulIngestionSourceBase):
             return avro.AvroInferrer()
         else:
             return None
-
-    def get_table_profile(
-        self, table_data: TableData, dataset_urn: str
-    ) -> Iterable[MetadataWorkUnit]:
-        # Importing here to avoid Deequ dependency for non profiling use cases
-        # Deequ fails if Spark is not available which is not needed for non profiling use cases
-        from pydeequ.analyzers import AnalyzerContext
-
-        from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
-
-        # read in the whole table with Spark for profiling
-        table = None
-        try:
-            if table_data.partitions:
-                table = self.read_file_spark(
-                    table_data.table_path, os.path.splitext(table_data.full_path)[1]
-                )
-            else:
-                table = self.read_file_spark(
-                    table_data.full_path, os.path.splitext(table_data.full_path)[1]
-                )
-        except Exception as e:
-            logger.error(e)
-
-        # if table is not readable, skip
-        if table is None:
-            self.report.report_warning(
-                table_data.display_name,
-                f"unable to read table {table_data.display_name} from file {table_data.full_path}",
-            )
-            return
-
-        with PerfTimer() as timer:
-            # init PySpark analysis object
-            logger.debug(
-                f"Profiling {table_data.full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-            )
-            table_profiler = _SingleTableProfiler(
-                table,
-                self.spark,
-                self.source_config.profiling,
-                self.report,
-                table_data.full_path,
-            )
-
-            logger.debug(
-                f"Profiling {table_data.full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-            )
-            # instead of computing each profile individually, we run them all in a single analyzer.run() call
-            # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
-            # since multiple profiles reuse computations, this saves a lot of time
-            table_profiler.prepare_table_profiles()
-
-            # compute the profiles
-            logger.debug(
-                f"Profiling {table_data.full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-            )
-            analysis_result = table_profiler.analyzer.run()
-            analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
-                self.spark, analysis_result
-            )
-
-            logger.debug(
-                f"Profiling {table_data.full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-            )
-            table_profiler.extract_table_profiles(analysis_metrics)
-
-            time_taken = timer.elapsed_seconds()
-
-            logger.info(
-                f"Finished profiling {table_data.full_path}; took {time_taken:.3f} seconds"
-            )
-
-            self.profiling_times_taken.append(time_taken)
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=table_profiler.profile,
-        ).as_workunit()
 
     def _create_table_operation_aspect(self, table_data: TableData) -> OperationClass:
         reported_time = int(time.time() * 1000)
@@ -788,7 +587,7 @@ class S3Source(StatefulIngestionSourceBase):
         )
 
         if self.source_config.is_profiling_enabled():
-            yield from self.get_table_profile(table_data, dataset_urn)
+            yield from self.profiler.get_table_profile(table_data, dataset_urn)
 
     def get_prefix(self, relative_path: str) -> str:
         index = re.search(r"[\*|\{]", relative_path)
