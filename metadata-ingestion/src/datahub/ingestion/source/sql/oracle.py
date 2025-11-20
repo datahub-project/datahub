@@ -1097,6 +1097,7 @@ class OracleSource(SQLAlchemySource):
 
         with inspector.engine.connect() as conn:
             try:
+                self._validate_tables_prefix(tables_prefix)
                 procedures_query = PROCEDURES_QUERY.format(tables_prefix=tables_prefix)
                 procedures = conn.execute(
                     sql.text(procedures_query), dict(schema=normalized_schema)
@@ -1325,6 +1326,8 @@ class OracleSource(SQLAlchemySource):
                 schema or inspector.dialect.default_schema_name
             )
             tables_prefix = self.config.data_dictionary_mode.value
+
+            self._validate_tables_prefix(tables_prefix)
 
             with inspector.engine.connect() as conn:
                 cursor = conn.execute(
