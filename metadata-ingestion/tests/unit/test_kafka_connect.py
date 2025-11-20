@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 from unittest.mock import Mock, patch
 
 import jpype
@@ -2700,17 +2700,22 @@ class TestJdbcSinkConnector:
 
         assert len(lineages) == 2
 
-        # Check first lineage
-        assert lineages[0].source_dataset == "users"
-        assert lineages[0].source_platform == "kafka"
-        assert lineages[0].target_dataset == "analytics.public.users"
-        assert lineages[0].target_platform == "postgres"
+        # Sort lineages by source dataset for consistent comparison
+        for lineage in lineages:
+            assert lineage.source_dataset is not None
+        sorted_lineages = sorted(lineages, key=lambda x: cast(str, x.source_dataset))
 
-        # Check second lineage
-        assert lineages[1].source_dataset == "orders"
-        assert lineages[1].source_platform == "kafka"
-        assert lineages[1].target_dataset == "analytics.public.orders"
-        assert lineages[1].target_platform == "postgres"
+        # Check first lineage (orders)
+        assert sorted_lineages[0].source_dataset == "orders"
+        assert sorted_lineages[0].source_platform == "kafka"
+        assert sorted_lineages[0].target_dataset == "analytics.public.orders"
+        assert sorted_lineages[0].target_platform == "postgres"
+
+        # Check second lineage (users)
+        assert sorted_lineages[1].source_dataset == "users"
+        assert sorted_lineages[1].source_platform == "kafka"
+        assert sorted_lineages[1].target_dataset == "analytics.public.users"
+        assert sorted_lineages[1].target_platform == "postgres"
 
     def test_jdbc_sink_lineage_with_transforms(self) -> None:
         """Test lineage extraction with topic transforms."""
@@ -2748,13 +2753,18 @@ class TestJdbcSinkConnector:
 
         assert len(lineages) == 2
 
+        # Sort lineages by source dataset for consistent comparison
+        for lineage in lineages:
+            assert lineage.source_dataset is not None
+        sorted_lineages = sorted(lineages, key=lambda x: cast(str, x.source_dataset))
+
         # Original topics should be preserved in source
-        assert lineages[0].source_dataset == "prod.users"
-        assert lineages[1].source_dataset == "prod.orders"
+        assert sorted_lineages[0].source_dataset == "prod.orders"
+        assert sorted_lineages[1].source_dataset == "prod.users"
 
         # Transformed topics should be used for table names
-        assert lineages[0].target_dataset == "analytics.public.users"
-        assert lineages[1].target_dataset == "analytics.public.orders"
+        assert sorted_lineages[0].target_dataset == "analytics.public.orders"
+        assert sorted_lineages[1].target_dataset == "analytics.public.users"
 
     def test_jdbc_sink_mysql_without_schema(self) -> None:
         """Test MySQL sink which doesn't use schema hierarchy."""

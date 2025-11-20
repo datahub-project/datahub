@@ -566,8 +566,13 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         working within Cloud environment constraints.
         """
         # Get all available topics from cluster (if available)
-        # For Cloud, use all_cluster_topics (populated separately) instead of topic_names
-        all_topics = list(self.all_cluster_topics) if self.all_cluster_topics else []
+        # For Cloud, use all_cluster_topics (populated separately) if available,
+        # otherwise fall back to connector_manifest.topic_names
+        all_topics = (
+            list(self.all_cluster_topics)
+            if self.all_cluster_topics
+            else list(self.connector_manifest.topic_names)
+        )
 
         # If we have topics and transforms, try the transform-aware approach
         if all_topics and parser.transforms:
