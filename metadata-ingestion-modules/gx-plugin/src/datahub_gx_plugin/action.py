@@ -614,8 +614,6 @@ class DataHubValidationAction(ValidationAction):
             }
             sqlalchemy_uri = None
 
-            print(ge_batch_spec)
-
             if ge_batch_spec["batch_data"] == "SparkDataFrame" and is_spark:
                 data_platform = self.get_platform_instance(
                     data_asset.active_batch_definition.datasource_name
