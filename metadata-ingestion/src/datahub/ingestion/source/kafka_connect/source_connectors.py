@@ -566,7 +566,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         working within Cloud environment constraints.
         """
         # Get all available topics from cluster (if available)
-        all_topics = list(self.connector_manifest.topic_names)
+        # For Cloud, use all_cluster_topics (populated separately) instead of topic_names
+        all_topics = list(self.all_cluster_topics) if self.all_cluster_topics else []
 
         # If we have topics and transforms, try the transform-aware approach
         if all_topics and parser.transforms:
@@ -579,15 +580,15 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
         # Fallback to existing config-based strategies
         logger.debug("Falling back to config-based extraction strategies")
-        if self._has_one_to_one_topic_mapping():
-            return self._extract_lineages_from_config_mapping(parser)
+        if self._has_one_to_one_topic_mapping(all_topics):
+            return self._extract_lineages_from_config_mapping(parser, all_topics)
         elif parser.topic_prefix:
-            return self._extract_lineages_from_prefix_inference(parser)
+            return self._extract_lineages_from_prefix_inference(parser, all_topics)
         else:
             # Use available topics directly if no better strategy
             return self._create_direct_lineages_from_topics(all_topics, parser)
 
-    def _has_one_to_one_topic_mapping(self) -> bool:
+    def _has_one_to_one_topic_mapping(self, topics: Optional[List[str]] = None) -> bool:
         """Check if connector has clear 1:1 table to topic mapping from config."""
         config = self.connector_manifest.config
 
@@ -599,7 +600,11 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         table_config = config.get("table.include.list") or config.get("table.whitelist")
         if table_config:
             table_names = parse_comma_separated_list(table_config)
-            return len(table_names) == len(self.connector_manifest.topic_names)
+            # Use provided topics or fall back to connector manifest topics
+            available_topics = (
+                topics if topics is not None else self.connector_manifest.topic_names
+            )
+            return len(table_names) == len(available_topics)
 
         return False
 
@@ -810,7 +815,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         return result_topics
 
     def _extract_lineages_from_config_mapping(
-        self, parser: JdbcParser
+        self, parser: JdbcParser, topics: Optional[List[str]] = None
     ) -> List[KafkaConnectLineage]:
         """Extract lineages using direct config-to-topic mapping."""
         config = self.connector_manifest.config
@@ -837,10 +842,15 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             )
             if table_config:
                 table_names = parse_comma_separated_list(table_config)
-                topics = list(self.connector_manifest.topic_names)
+                # Use provided topics or fall back to connector manifest topics
+                available_topics = (
+                    topics
+                    if topics is not None
+                    else list(self.connector_manifest.topic_names)
+                )
 
                 # Create 1:1 mapping (assuming same order)
-                for table_name, topic in zip(table_names, topics):
+                for table_name, topic in zip(table_names, available_topics):
                     # Keep full table name including schema for proper lineage
                     clean_table = table_name.strip('"')
                     lineage = self._create_lineage_mapping(
@@ -855,12 +865,17 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         return lineages
 
     def _extract_lineages_from_prefix_inference(
-        self, parser: JdbcParser
+        self, parser: JdbcParser, topics: Optional[List[str]] = None
     ) -> List[KafkaConnectLineage]:
         """Extract lineages by inferring source tables from topic names using prefix."""
         lineages = []
 
-        for topic in self.connector_manifest.topic_names:
+        # Use provided topics or fall back to connector manifest topics
+        available_topics = (
+            topics if topics is not None else self.connector_manifest.topic_names
+        )
+
+        for topic in available_topics:
             # Remove prefix to get source table name
             source_table = self._extract_source_table_from_topic(
                 topic, parser.topic_prefix
@@ -2167,9 +2182,10 @@ class DebeziumSourceConnector(BaseConnector):
         if connector_class in (POSTGRES_CDC_SOURCE_V2_CLOUD, MYSQL_CDC_SOURCE_V2_CLOUD):
             return connector_manifest.config.get("topic.prefix", "")
 
-        # V1 connectors use database.server.name with fallback to topic.prefix
+        # V1 connectors use topic.prefix with fallback to database.server.name
+        # topic.prefix is the canonical Debezium configuration for topic naming
         return connector_manifest.config.get(
-            "database.server.name", connector_manifest.config.get("topic.prefix", "")
+            "topic.prefix", connector_manifest.config.get("database.server.name", "")
         )
 
     def get_parser(
@@ -2618,9 +2634,10 @@ class DebeziumSourceConnector(BaseConnector):
 
         Flow:
         1. Handle EventRouter (special case - data-dependent routing)
-        2. Get table names (from config or discover from DataHub)
-        3. For each table: generate topic name -> apply transforms -> create lineage
-        4. Filter lineages by Kafka topics if available
+        2. Fallback: If no table.include.list and no SchemaResolver, parse topic names from runtime API
+        3. Get table names (from config or discover from DataHub)
+        4. For each table: generate topic name -> apply transforms -> create lineage
+        5. Filter lineages by Kafka topics if available
         """
         try:
             parser = self.get_parser(self.connector_manifest)
@@ -2633,6 +2650,49 @@ class DebeziumSourceConnector(BaseConnector):
                 return self._extract_lineages_for_event_router(
                     parser.source_platform, parser.database_name
                 )
+
+            # Check for missing configuration: no table.include.list and no SchemaResolver
+            table_config = self.connector_manifest.config.get(
+                "table.include.list"
+            ) or self.connector_manifest.config.get("table.whitelist")
+
+            if not table_config and (
+                not self.schema_resolver or not self.config.use_schema_resolver
+            ):
+                # Try fallback: parse topic names from OSS connector-specific topics
+                # NOTE: topic_names is only populated for OSS (from /connectors/{name}/topics API)
+                # For Confluent Cloud, topic_names is empty (we use all_cluster_topics separately)
+                if self.connector_manifest.topic_names:
+                    logger.info(
+                        f"Debezium connector '{self.connector_manifest.name}' has no table.include.list configured "
+                        f"and SchemaResolver is not available. Attempting fallback: parsing topic names from "
+                        f"{len(self.connector_manifest.topic_names)} connector-specific topics."
+                    )
+                    lineages = self._extract_lineages_from_topics(
+                        parser.source_platform, parser.server_name, parser.database_name
+                    )
+                    if lineages:
+                        logger.info(
+                            f"Fallback succeeded: extracted {len(lineages)} lineages for connector "
+                            f"'{self.connector_manifest.name}' by parsing topic names"
+                        )
+                        return lineages
+                    else:
+                        logger.warning(
+                            f"Fallback failed: could not extract lineages from topic names for connector "
+                            f"'{self.connector_manifest.name}'"
+                        )
+
+                # Cannot extract lineages without table configuration or schema resolver
+                logger.warning(
+                    f"Debezium connector '{self.connector_manifest.name}' has no table.include.list configured "
+                    f"and SchemaResolver is not available. Cannot extract lineages. "
+                    f"Please either: "
+                    f"1) Add 'table.include.list' to the connector configuration, OR "
+                    f"2) Enable 'use_schema_resolver: true' in the DataHub ingestion config and ensure you've "
+                    f"ingested {parser.source_platform} datasets into DataHub first."
+                )
+                return []
 
             # Step 1: Get table names to process
             table_names = self._get_table_names_to_process(parser)
@@ -2955,10 +3015,17 @@ class DebeziumSourceConnector(BaseConnector):
         EventRouter often works with RegexRouter to rename output topics. We can use
         the RegexRouter replacement pattern to identify which topics belong to this connector.
         """
+        # Use all_cluster_topics for Cloud (contains all topics), otherwise use topic_names (OSS)
+        available_topics = (
+            list(self.all_cluster_topics)
+            if self.all_cluster_topics
+            else list(self.connector_manifest.topic_names)
+        )
+
         # Look for RegexRouter transform configuration
         transforms_config = self.connector_manifest.config.get("transforms", "")
         if not transforms_config:
-            return list(self.connector_manifest.topic_names)
+            return available_topics
 
         transform_names = parse_comma_separated_list(transforms_config)
 
@@ -2990,7 +3057,7 @@ class DebeziumSourceConnector(BaseConnector):
         if regex_replacement:
             filtered_topics = [
                 topic
-                for topic in self.connector_manifest.topic_names
+                for topic in available_topics
                 if topic.startswith(regex_replacement)
             ]
             logger.debug(
@@ -3002,12 +3069,30 @@ class DebeziumSourceConnector(BaseConnector):
         logger.warning(
             f"EventRouter connector {self.connector_manifest.name} has no RegexRouter - cannot filter topics accurately"
         )
-        return list(self.connector_manifest.topic_names)
+        return available_topics
+
+    def _extract_lineages_from_topic_names(
+        self, parser: DebeziumParser
+    ) -> List[KafkaConnectLineage]:
+        """
+        Extract lineages by reverse-engineering table names from runtime Kafka topic names.
+
+        This is a fallback used when:
+        1. No table.include.list configured
+        2. SchemaResolver not available (or use_schema_resolver=False)
+        3. But runtime topic names ARE available from Kafka Connect API
+
+        This is the OLD behavior that allows lineage extraction without explicit
+        table configuration by parsing the actual topics the connector is producing.
+        """
+        return self._extract_lineages_from_topics(
+            parser.source_platform, parser.server_name or "", parser.database_name
+        )
 
     def _extract_lineages_from_topics(
         self,
         source_platform: str,
-        server_name: str,
+        server_name: Optional[str],
         database_name: Optional[str],
     ) -> List[KafkaConnectLineage]:
         """

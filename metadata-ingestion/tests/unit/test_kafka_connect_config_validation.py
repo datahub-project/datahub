@@ -303,3 +303,133 @@ class TestConfigurationValidation:
         assert config.use_schema_resolver is True
         assert config.schema_resolver_expand_patterns is True
         assert config.schema_resolver_finegrained_lineage is True
+
+
+class TestSchemaResolverAutoEnable:
+    """Tests for automatic schema_resolver enabling for Confluent Cloud."""
+
+    def test_oss_keeps_default_false(self):
+        """Test that OSS Kafka Connect keeps use_schema_resolver=False by default."""
+        config = KafkaConnectSourceConfig(
+            cluster_name="test",
+            connect_uri="http://localhost:8083",
+        )
+
+        assert config.use_schema_resolver is False
+        assert config.schema_resolver_expand_patterns is False
+        assert config.schema_resolver_finegrained_lineage is False
+
+    def test_confluent_cloud_auto_enables_via_uri(self):
+        """Test that Confluent Cloud auto-enables use_schema_resolver via URI detection."""
+        config = KafkaConnectSourceConfig(
+            cluster_name="test",
+            connect_uri="https://api.confluent.cloud/connect/v1/environments/env-123/clusters/lkc-456",
+        )
+
+        # Should auto-enable schema resolver for Confluent Cloud
+        assert config.use_schema_resolver is True
+        assert config.schema_resolver_expand_patterns is True
+        assert config.schema_resolver_finegrained_lineage is True
+
+    def test_confluent_cloud_auto_enables_via_ids(self):
+        """Test that Confluent Cloud auto-enables use_schema_resolver via environment/cluster IDs."""
+        config = KafkaConnectSourceConfig(
+            cluster_name="test",
+            confluent_cloud_environment_id="env-123",
+            confluent_cloud_cluster_id="lkc-456",
+        )
+
+        # Should auto-enable schema resolver for Confluent Cloud
+        assert config.use_schema_resolver is True
+        assert config.schema_resolver_expand_patterns is True
+        assert config.schema_resolver_finegrained_lineage is True
+
+    def test_confluent_cloud_respects_explicit_false(self):
+        """Test that explicit use_schema_resolver=false is respected for Confluent Cloud."""
+        config = KafkaConnectSourceConfig(
+            cluster_name="test",
+            connect_uri="https://api.confluent.cloud/connect/v1/environments/env-123/clusters/lkc-456",
+            use_schema_resolver=False,
+        )
+
+        # Should respect explicit False
+        assert config.use_schema_resolver is False
+        assert config.schema_resolver_expand_patterns is False
+        assert config.schema_resolver_finegrained_lineage is False
+
+    def test_confluent_cloud_respects_explicit_true(self):
+        """Test that explicit use_schema_resolver=true is respected for Confluent Cloud."""
+        config = KafkaConnectSourceConfig(
+            cluster_name="test",
+            confluent_cloud_environment_id="env-123",
+            confluent_cloud_cluster_id="lkc-456",
+            use_schema_resolver=True,
+        )
+
+        # Should respect explicit True
+        assert config.use_schema_resolver is True
+        assert config.schema_resolver_expand_patterns is True
+        assert config.schema_resolver_finegrained_lineage is True
+
+    def test_confluent_cloud_auto_enable_with_sub_features_override(self):
+        """Test auto-enable with explicit sub-feature overrides."""
+        config = KafkaConnectSourceConfig(
+            cluster_name="test",
+            confluent_cloud_environment_id="env-123",
+            confluent_cloud_cluster_id="lkc-456",
+            # Don't set use_schema_resolver - let it auto-enable
+            schema_resolver_expand_patterns=False,  # Explicit override
+            schema_resolver_finegrained_lineage=True,  # Explicit override
+        )
+
+        # Should auto-enable use_schema_resolver
+        assert config.use_schema_resolver is True
+        # But respect explicit sub-feature overrides
+        assert config.schema_resolver_expand_patterns is False
+        assert config.schema_resolver_finegrained_lineage is True
+
+    def test_oss_with_explicit_true_not_affected(self):
+        """Test that OSS with explicit use_schema_resolver=true works correctly."""
+        config = KafkaConnectSourceConfig(
+            cluster_name="test",
+            connect_uri="http://localhost:8083",
+            use_schema_resolver=True,
+        )
+
+        # Explicit True should work for OSS
+        assert config.use_schema_resolver is True
+        assert config.schema_resolver_expand_patterns is True
+        assert config.schema_resolver_finegrained_lineage is True
+
+    def test_is_confluent_cloud_detection(self):
+        """Test is_confluent_cloud() detection method."""
+        # OSS by URI
+        config_oss = KafkaConnectSourceConfig(
+            cluster_name="test",
+            connect_uri="http://localhost:8083",
+        )
+        assert config_oss.is_confluent_cloud() is False
+
+        # Cloud by URI
+        config_cloud_uri = KafkaConnectSourceConfig(
+            cluster_name="test",
+            connect_uri="https://api.confluent.cloud/connect/v1/environments/env-123/clusters/lkc-456",
+        )
+        assert config_cloud_uri.is_confluent_cloud() is True
+
+        # Cloud by IDs
+        config_cloud_ids = KafkaConnectSourceConfig(
+            cluster_name="test",
+            confluent_cloud_environment_id="env-123",
+            confluent_cloud_cluster_id="lkc-456",
+        )
+        assert config_cloud_ids.is_confluent_cloud() is True
+
+        # Cloud by IDs takes precedence even with non-cloud URI
+        config_mixed = KafkaConnectSourceConfig(
+            cluster_name="test",
+            connect_uri="http://localhost:8083",
+            confluent_cloud_environment_id="env-123",
+            confluent_cloud_cluster_id="lkc-456",
+        )
+        assert config_mixed.is_confluent_cloud() is True

@@ -222,7 +222,12 @@ class KafkaConnectSourceConfig(
         "When enabled (requires DataHub graph connection): "
         "1) Expands table patterns (e.g., 'database.*') to actual tables using DataHub metadata "
         "2) Generates fine-grained column-level lineage for CDC sources/sinks. "
-        "Disabled by default to maintain backward compatibility.",
+        "\n\n"
+        "**Auto-enabled for Confluent Cloud:** This feature is automatically enabled for Confluent Cloud "
+        "environments where DataHub graph connection is required. Set `use_schema_resolver: false` to disable. "
+        "\n\n"
+        "**Prerequisite:** Source database tables must be ingested into DataHub before Kafka Connect ingestion "
+        "for this feature to work. Without prior database ingestion, schema resolver will not find table metadata.",
     )
 
     schema_resolver_expand_patterns: Optional[bool] = Field(
@@ -275,17 +280,50 @@ class KafkaConnectSourceConfig(
 
         return values
 
+    def is_confluent_cloud(self) -> bool:
+        """
+        Detect if this configuration is for Confluent Cloud.
+
+        Detection logic:
+        1. If environment_id and cluster_id are explicitly configured, assume Confluent Cloud
+        2. Otherwise, check if connect_uri follows Confluent Cloud pattern:
+           https://api.confluent.cloud/connect/v1/environments/{env-id}/clusters/{cluster-id}
+        """
+        # Explicit Confluent Cloud configuration takes precedence
+        if self.confluent_cloud_environment_id and self.confluent_cloud_cluster_id:
+            return True
+
+        # Fallback to URI-based detection
+        uri = self.connect_uri.lower()
+        return "api.confluent.cloud" in uri and "/connect/v1/" in uri
+
     @model_validator(mode="after")
     def validate_configuration_interdependencies(self) -> "KafkaConnectSourceConfig":
         """
         Validate configuration field interdependencies and provide clear error messages.
 
         Checks:
-        1. Schema resolver dependent fields require use_schema_resolver=True
-        2. Kafka API credentials are complete (key + secret)
-        3. Confluent Cloud IDs are complete (environment + cluster)
-        4. Warn if conflicting configurations are provided
+        1. Auto-enable schema_resolver for Confluent Cloud (if not explicitly disabled)
+        2. Schema resolver dependent fields require use_schema_resolver=True
+        3. Kafka API credentials are complete (key + secret)
+        4. Confluent Cloud IDs are complete (environment + cluster)
+        5. Warn if conflicting configurations are provided
         """
+        # 0. Auto-enable schema_resolver for Confluent Cloud if not explicitly configured
+        # This provides better defaults for Cloud users who likely have proper DataHub setup
+        if self.is_confluent_cloud() and self.use_schema_resolver is False:
+            # Only auto-enable if use_schema_resolver was not explicitly set (still has default False)
+            # We check if model_fields_set contains 'use_schema_resolver' to detect explicit setting
+            # If user explicitly set it to False, respect that choice
+            if "use_schema_resolver" not in self.model_fields_set:
+                self.use_schema_resolver = True
+                logger.info(
+                    "Auto-enabled 'use_schema_resolver' for Confluent Cloud. "
+                    "This enables enhanced lineage extraction with column-level lineage and pattern expansion. "
+                    "Note: Source database tables must be ingested into DataHub first for this feature to work. "
+                    "Set 'use_schema_resolver: false' to disable this behavior."
+                )
+
         # 1. Set schema resolver defaults if not explicitly configured
         if self.use_schema_resolver:
             # Schema resolver is enabled - set sensible defaults for sub-features
@@ -661,6 +699,9 @@ class BaseConnector:
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
     schema_resolver: Optional["SchemaResolver"] = None
+    all_cluster_topics: Optional[List[str]] = (
+        None  # All topics from Kafka cluster (Confluent Cloud only, for validation)
+    )
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         """Extract lineage mappings for this connector. Override in subclasses."""

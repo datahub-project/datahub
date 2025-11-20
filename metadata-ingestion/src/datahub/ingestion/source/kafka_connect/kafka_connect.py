@@ -99,6 +99,13 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             logger.info(
                 "Detected Confluent Cloud - using comprehensive Kafka REST API topic retrieval"
             )
+            # For Confluent Cloud, DataHub graph connection is mandatory for lineage resolution
+            if ctx.graph is None:
+                raise ValueError(
+                    "Confluent Cloud detected but DataHub graph connection not configured. "
+                    "For Confluent Cloud, the DataHub graph is required for proper lineage resolution. "
+                    "Please configure 'datahub_api' in your pipeline configuration with the server URL."
+                )
         else:
             logger.info("Detected self-hosted Kafka Connect - using runtime topics API")
 
@@ -177,6 +184,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         connector = ConnectorRegistry.get_connector_for_manifest(
             connector_manifest, self.config, self.report, self.ctx
         )
+
+        # For Confluent Cloud, populate all_cluster_topics for validation purposes
+        if connector and self._is_confluent_cloud:
+            all_cluster_topics = self._get_all_topics_from_kafka_api()
+            if all_cluster_topics:
+                connector.all_cluster_topics = all_cluster_topics
+                logger.debug(
+                    f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
+                )
 
         if not connector:
             # No handler found for this connector class
@@ -363,11 +379,16 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         # Environment-specific approach
         if self._is_confluent_cloud:
-            # Confluent Cloud: Use config-based derivation from existing manifest data
-            # This avoids redundant API calls since we already have the connector config
-            return self._get_topics_confluent_cloud_from_manifest(connector_manifest)
+            # Confluent Cloud: Don't populate topic_names with all cluster topics
+            # All cluster topics will be stored separately and passed where needed
+            # This prevents accidental parsing of non-connector-specific topics
+            logger.debug(
+                f"Confluent Cloud environment - not populating topic_names for {connector_name}"
+            )
+            return []
         else:
             # Self-hosted: Use original runtime topics API
+            # These are connector-specific topics, safe to populate in topic_names
             topics = self._get_topics_self_hosted(connector_name)
 
             # For sink connectors, filter out stale topics

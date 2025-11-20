@@ -209,6 +209,67 @@ The Kafka Connect source can query DataHub for schema information to provide two
 
 Both features require existing metadata in DataHub from your database and Kafka schema registry ingestion.
 
+#### Auto-Enabled for Confluent Cloud
+
+**Starting with the latest version**, `use_schema_resolver` is **automatically enabled** for Confluent Cloud environments to provide better defaults for enhanced lineage extraction. This gives you column-level lineage and pattern expansion out of the box!
+
+**Confluent Cloud (Auto-Enabled):**
+
+```yml
+source:
+  type: kafka-connect
+  config:
+    # Confluent Cloud environment
+    confluent_cloud_environment_id: "env-xyz123"
+    confluent_cloud_cluster_id: "lkc-abc456"
+    username: "your-connect-api-key"
+    password: "your-connect-api-secret"
+
+    # Schema resolver automatically enabled! ✓
+    # use_schema_resolver: true (auto-enabled)
+    # schema_resolver_expand_patterns: true (auto-enabled)
+    # schema_resolver_finegrained_lineage: true (auto-enabled)
+```
+
+**To disable** (if you don't need these features):
+
+```yml
+source:
+  type: kafka-connect
+  config:
+    confluent_cloud_environment_id: "env-xyz123"
+    confluent_cloud_cluster_id: "lkc-abc456"
+    use_schema_resolver: false # Explicitly disable auto-enable
+```
+
+**Self-hosted (Manual Enable Required):**
+
+```yml
+source:
+  type: kafka-connect
+  config:
+    connect_uri: "http://localhost:8083"
+
+    # Must explicitly enable for self-hosted
+    use_schema_resolver: true
+
+    # DataHub connection
+    datahub_api:
+      server: "http://localhost:8080"
+```
+
+**Important Prerequisites:**
+
+> **⚠️ Source database tables must be ingested into DataHub BEFORE running Kafka Connect ingestion**
+>
+> The schema resolver queries DataHub for existing table metadata. If your source databases haven't been ingested yet, the feature will have no effect. Run database ingestion first!
+
+**Recommended Ingestion Order:**
+
+1. Ingest source databases (PostgreSQL, MySQL, Snowflake, etc.) → DataHub
+2. Ingest Kafka schema registry (optional, for topic schemas) → DataHub
+3. Run Kafka Connect ingestion → Enjoy enhanced lineage!
+
 #### Configuration Overview
 
 ```yml
@@ -217,7 +278,7 @@ source:
   config:
     connect_uri: "http://localhost:8083"
 
-    # Enable DataHub schema querying
+    # Enable DataHub schema querying (auto-enabled for Confluent Cloud)
     use_schema_resolver: true
 
     # Control which features to use (both default to true when schema resolver enabled)

@@ -211,8 +211,26 @@ class SnowflakeSinkConnector(BaseConnector):
             except Exception as e:
                 logger.warning(f"Failed to parse snowflake.topic2table.map: {e}")
 
-        # Apply transforms to get final topic names
-        topic_list = list(connector_manifest.topic_names)
+        # Get available topics (all cluster topics for Cloud, connector topics for OSS)
+        available_topics = set(
+            self.all_cluster_topics or connector_manifest.topic_names
+        )
+
+        # Get topics the connector subscribes to from its configuration
+        subscribed_topics = set(self.get_topics_from_config())
+
+        # Filter available topics to only those the connector subscribes to
+        if subscribed_topics:
+            topic_list = list(available_topics.intersection(subscribed_topics))
+            logger.debug(
+                f"Filtered to {len(topic_list)} subscribed topics for {connector_manifest.name}: {topic_list}"
+            )
+        else:
+            # If no subscription config, use all available topics (OSS behavior)
+            topic_list = list(available_topics)
+            logger.debug(
+                f"No subscription filter found, using all {len(topic_list)} available topics"
+            )
         transform_result = get_transform_pipeline().apply_forward(
             topic_list, connector_manifest.config
         )
@@ -947,8 +965,26 @@ class JdbcSinkConnector(BaseConnector):
                 f"database={parser.database_name}, schema={parser.schema_name}"
             )
 
-            # Apply transforms to topics
-            topic_list = list(self.connector_manifest.topic_names)
+            # Get available topics (all cluster topics for Cloud, connector topics for OSS)
+            available_topics = set(
+                self.all_cluster_topics or self.connector_manifest.topic_names
+            )
+
+            # Get topics the connector subscribes to from its configuration
+            subscribed_topics = set(self.get_topics_from_config())
+
+            # Filter available topics to only those the connector subscribes to
+            if subscribed_topics:
+                topic_list = list(available_topics.intersection(subscribed_topics))
+                logger.debug(
+                    f"Filtered to {len(topic_list)} subscribed topics for {self.connector_manifest.name}: {topic_list}"
+                )
+            else:
+                # If no subscription config, use all available topics (OSS behavior)
+                topic_list = list(available_topics)
+                logger.debug(
+                    f"No subscription filter found, using all {len(topic_list)} available topics"
+                )
             transform_result = get_transform_pipeline().apply_forward(
                 topic_list, self.connector_manifest.config
             )

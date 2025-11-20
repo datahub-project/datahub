@@ -675,7 +675,7 @@ class TestConfluentCloudConnectors:
             "database.port": "5432",
             "database.user": "user_name",
             "database.password": "password",
-            "database.dbname": "aledade",
+            "database.dbname": "test_db",
             "database.server.name": "server_name",
             "table.include.list": "public.users,public.orders",
             "transforms": "Transform",
@@ -695,11 +695,11 @@ class TestConfluentCloudConnectors:
         # Test the parser correctly handles Cloud config
         parser = connector.get_parser(manifest)
         assert parser.source_platform == "postgres"
-        assert parser.database_name == "aledade"
+        assert parser.database_name == "test_db"
         assert parser.topic_prefix == "server_name"  # Uses database.server.name
         assert (
             parser.db_connection_url
-            == "postgresql://server_name.us-east-1.rds.amazonaws.com:5432/aledade"
+            == "postgresql://server_name.us-east-1.rds.amazonaws.com:5432/test_db"
         )
 
         # Test table names parsing with Cloud field names
