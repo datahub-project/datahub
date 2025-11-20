@@ -590,7 +590,7 @@ class DataHubValidationAction(ValidationAction):
 
     def get_dataset_partitions(self, batch_identifier, data_asset):
         dataset_partitions: List[
-            Dict[str, PartitionSpecClass | BatchSpec | str | None]
+            Dict[str, Union[PartitionSpecClass, BatchSpec, str, None]]
         ] = []
 
         logger.debug("Finding datasets being validated")
