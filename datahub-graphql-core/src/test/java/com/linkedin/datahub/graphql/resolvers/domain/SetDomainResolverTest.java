@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -15,6 +14,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
@@ -39,6 +39,18 @@ public class SetDomainResolverTest {
       "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";
   private static final String TEST_EXISTING_DOMAIN_URN = "urn:li:domain:test-id";
   private static final String TEST_NEW_DOMAIN_URN = "urn:li:domain:test-id-2";
+
+  private FeatureFlags getMockFeatureFlagsWithDomainAuthDisabled() {
+    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(false);
+    return mockFlags;
+  }
+
+  private FeatureFlags getMockFeatureFlagsWithDomainAuthEnabled() {
+    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
+    return mockFlags;
+  }
 
   @Test
   public void testGetSuccessNoExistingDomains() throws Exception {
@@ -66,7 +78,8 @@ public class SetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_NEW_DOMAIN_URN)), eq(true)))
         .thenReturn(true);
 
-    SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
+    SetDomainResolver resolver =
+        new SetDomainResolver(mockClient, mockService, getMockFeatureFlagsWithDomainAuthDisabled());
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -128,7 +141,8 @@ public class SetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_NEW_DOMAIN_URN)), eq(true)))
         .thenReturn(true);
 
-    SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
+    SetDomainResolver resolver =
+        new SetDomainResolver(mockClient, mockService, getMockFeatureFlagsWithDomainAuthDisabled());
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -180,7 +194,8 @@ public class SetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_NEW_DOMAIN_URN)), eq(true)))
         .thenReturn(false);
 
-    SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
+    SetDomainResolver resolver =
+        new SetDomainResolver(mockClient, mockService, getMockFeatureFlagsWithDomainAuthDisabled());
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -219,7 +234,8 @@ public class SetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_NEW_DOMAIN_URN)), eq(true)))
         .thenReturn(true);
 
-    SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
+    SetDomainResolver resolver =
+        new SetDomainResolver(mockClient, mockService, getMockFeatureFlagsWithDomainAuthDisabled());
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -237,7 +253,8 @@ public class SetDomainResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService<?> mockService = getMockEntityService();
-    SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
+    SetDomainResolver resolver =
+        new SetDomainResolver(mockClient, mockService, getMockFeatureFlagsWithDomainAuthDisabled());
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -257,7 +274,10 @@ public class SetDomainResolverTest {
         .when(mockClient)
         .ingestProposal(any(), Mockito.any(), anyBoolean());
     SetDomainResolver resolver =
-        new SetDomainResolver(mockClient, Mockito.mock(EntityService.class));
+        new SetDomainResolver(
+            mockClient,
+            Mockito.mock(EntityService.class),
+            getMockFeatureFlagsWithDomainAuthDisabled());
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -267,26 +287,6 @@ public class SetDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-  }
-
-  @Test
-  public void testConstructorBackwardCompatibility() throws Exception {
-    // Create resolver using OLD constructor (with Authorizer parameter)
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService<?> mockService = getMockEntityService();
-    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-
-    // This should still work - backward compatibility
-    @SuppressWarnings("deprecation")
-    SetDomainResolver resolverOldWay =
-        new SetDomainResolver(mockClient, mockService, mockAuthorizer);
-
-    // Create resolver using NEW constructor (without Authorizer parameter)
-    SetDomainResolver resolverNewWay = new SetDomainResolver(mockClient, mockService);
-
-    // Both should be non-null and work
-    org.testng.Assert.assertNotNull(resolverOldWay);
-    org.testng.Assert.assertNotNull(resolverNewWay);
   }
 
   @Test
@@ -325,7 +325,8 @@ public class SetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_NEW_DOMAIN_URN)), eq(true)))
         .thenReturn(true);
 
-    SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
+    SetDomainResolver resolver =
+        new SetDomainResolver(mockClient, mockService, getMockFeatureFlagsWithDomainAuthEnabled());
 
     // Create mock context that will allow authorization
     // The authorizer in the context will be called with BOTH existing and new domains
@@ -385,7 +386,8 @@ public class SetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_NEW_DOMAIN_URN)), eq(true)))
         .thenReturn(true);
 
-    SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
+    SetDomainResolver resolver =
+        new SetDomainResolver(mockClient, mockService, getMockFeatureFlagsWithDomainAuthEnabled());
 
     // Create mock context that will deny authorization
     QueryContext mockContext = getMockDenyContext();
@@ -429,8 +431,9 @@ public class SetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_NEW_DOMAIN_URN)), eq(true)))
         .thenReturn(true);
 
-    // Use NEW constructor (without Authorizer)
-    SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
+    // Use NEW constructor (with FeatureFlags)
+    SetDomainResolver resolver =
+        new SetDomainResolver(mockClient, mockService, getMockFeatureFlagsWithDomainAuthDisabled());
 
     // Execute resolver with allow context
     QueryContext mockContext = getMockAllowContext();

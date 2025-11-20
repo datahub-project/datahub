@@ -14,6 +14,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
@@ -100,9 +101,11 @@ public class DatasetType
   private static final String ENTITY_NAME = "dataset";
 
   private final EntityClient entityClient;
+  private final FeatureFlags featureFlags;
 
-  public DatasetType(final EntityClient entityClient) {
+  public DatasetType(final EntityClient entityClient, final FeatureFlags featureFlags) {
     this.entityClient = entityClient;
+    this.featureFlags = featureFlags;
   }
 
   @Override
@@ -296,10 +299,15 @@ public class DatasetType
       return false;
     }
 
-    // If entity-level authorization passes, also check domain-based authorization
+    // If entity-level authorization passes, also check domain-based authorization when enabled
     // This ensures users have permissions for the dataset's domain(s)
-    final Urn entityUrn = UrnUtils.getUrn(urn);
-    return DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, entityUrn, entityClient);
+    if (featureFlags.isDomainBasedAuthorizationEnabled()) {
+      final Urn entityUrn = UrnUtils.getUrn(urn);
+      return DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, entityUrn, entityClient);
+    }
+
+    // If domain-based authorization is not enabled, entity-level authorization is sufficient
+    return true;
   }
 
   private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final DatasetUpdateInput updateInput) {
