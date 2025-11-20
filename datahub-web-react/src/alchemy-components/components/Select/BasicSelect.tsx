@@ -70,7 +70,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     emptyState,
     descriptionMaxWidth,
     dataTestId,
-    autoUpdate = false,
+    autoUpdate,
     renderCustomSelectedValue,
     hideSelectedOptions,
     filterResultsByQuery = selectDefaults.filterResultsByQuery,
@@ -93,20 +93,28 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
 
     const prevIsOpen = useRef(isOpen);
 
-    const handleUpdateClick = useCallback(() => {
+    const updateValues = useCallback(() => {
         setSelectedValues(tempValues);
+        onUpdate?.(tempValues);
+    }, [onUpdate, tempValues]);
+
+    const handleUpdateClick = useCallback(() => {
+        updateValues();
         closeDropdown();
-        if (onUpdate) {
-            onUpdate(tempValues);
-        }
-    }, [closeDropdown, tempValues, onUpdate]);
+    }, [closeDropdown, updateValues]);
 
     useEffect(() => {
-        if (prevIsOpen.current && !isOpen && autoUpdate) {
-            handleUpdateClick();
+        if (prevIsOpen.current && !isOpen && autoUpdate === 'onClose') {
+            updateValues();
         }
         prevIsOpen.current = isOpen;
-    }, [isOpen, autoUpdate, handleUpdateClick]);
+    }, [isOpen, autoUpdate, updateValues]);
+
+    useEffect(() => {
+        if (autoUpdate === 'instant') {
+            updateValues();
+        }
+    }, [autoUpdate, tempValues, updateValues]);
 
     useEffect(() => {
         if (values !== undefined && !isEqual(selectedValues, values)) {

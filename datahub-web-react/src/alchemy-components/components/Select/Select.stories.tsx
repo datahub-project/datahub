@@ -201,13 +201,14 @@ const meta: Meta = {
             },
         },
         autoUpdate: {
-            description: 'Set to `true` to update value on option click',
-            type: 'boolean',
+            description:
+                'Controls when values are updated - "instant" updates immediately on selection, "onClose" updates when dropdown closes, undefined requires manual "Update" button click',
             table: {
                 defaultValue: { summary: 'undefined' },
             },
             control: {
-                type: 'boolean',
+                type: 'radio',
+                options: ['instant', 'onClose'],
             },
         },
         hideSelectedOptions: {

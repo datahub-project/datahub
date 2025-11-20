@@ -18,6 +18,8 @@ export type SelectLabelProps = {
 
 type OptionPosition = 'start' | 'end' | 'center';
 
+export type AutoUpdateVariant = 'instant' | 'onClose';
+
 export type CustomOptionRenderer<OptionType extends SelectOption> = (option: OptionType) => React.ReactNode;
 
 export interface SelectProps<OptionType extends SelectOption = SelectOption> {
@@ -59,7 +61,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     emptyState?: React.ReactElement;
     descriptionMaxWidth?: number;
     dataTestId?: string;
-    autoUpdate?: boolean;
+    autoUpdate?: AutoUpdateVariant;
     hideSelectedOptions?: boolean;
     selectMinHeight?: string;
 }

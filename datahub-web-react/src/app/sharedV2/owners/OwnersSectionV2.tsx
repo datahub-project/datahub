@@ -10,6 +10,7 @@ import OwnerPill from '@app/sharedV2/owners/components/OwnerPill';
 import useOwnershipTypes from '@app/sharedV2/owners/hooks/useOwnershipTypes';
 import { OwnerSelectOption, PartialExtendedOwner } from '@app/sharedV2/owners/types';
 import { isCorpUserOrCorpGroup, mapEntityToOwnerEntityType } from '@app/sharedV2/owners/utils';
+import { mergeArraysOfObjects } from '@app/utils/arrayUtils';
 import { MergeStrategy, mergeArrays } from '@app/utils/mergeArrays';
 
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
@@ -98,22 +99,20 @@ const OwnersSection = ({
     }, [inputValue, recommendedData, autocompleteData]);
 
     const options: OwnerSelectOption[] = useMemo(() => {
-        return [
-            ...selectedOptions,
-            ...searchResults
-                .filter(isCorpUserOrCorpGroup)
-                .map((userOrGroup) => ({
-                    value: userOrGroup.urn,
-                    label: userOrGroup.urn,
-                    owner: {
-                        owner: userOrGroup,
-                        ownerUrn: userOrGroup.urn,
-                        ownerEntityType: mapEntityToOwnerEntityType(userOrGroup),
-                        ownershipTypeUrn: defaultOwnershipType,
-                    },
-                }))
-                .filter((option) => !selectedOptions.some((selectedOption) => selectedOption.value === option.value)),
-        ];
+        const searchResultsOptions: OwnerSelectOption[] = searchResults
+            .filter(isCorpUserOrCorpGroup)
+            .map((userOrGroup) => ({
+                value: userOrGroup.urn,
+                label: userOrGroup.urn,
+                owner: {
+                    owner: userOrGroup,
+                    ownerUrn: userOrGroup.urn,
+                    ownerEntityType: mapEntityToOwnerEntityType(userOrGroup),
+                    ownershipTypeUrn: defaultOwnershipType,
+                },
+            }));
+
+        return mergeArraysOfObjects(selectedOptions, searchResultsOptions, (item) => item.value);
     }, [searchResults, selectedOptions, defaultOwnershipType]);
 
     const handleOwnerSearch = debounce((text: string) => {
@@ -162,11 +161,10 @@ const OwnersSection = ({
                     showSearch
                     onSearchChange={handleOwnerSearch}
                     selectLabelProps={{ variant: 'custom' }}
-                    hideSelectedOptions
                     renderCustomSelectedValue={(option, onRemove) => (
                         <OwnerPill owner={option.owner.owner} onRemove={onRemove} readonly={!canEdit} hideLink />
                     )}
-                    filterResultsByQuery={false}
+                    // filterResultsByQuery={false}
                     renderCustomOptionText={(option) => (
                         <AutoCompleteEntityItem
                             entity={option.owner.owner}
@@ -175,7 +173,9 @@ const OwnersSection = ({
                         />
                     )}
                     selectMinHeight="42px"
-                    autoUpdate
+                    // autoUpdate="instant"
+                    autoUpdate="onClose"
+                    // hideSelectedOptions
                 />
             </FormSection>
         </SectionContainer>
