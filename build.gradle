@@ -535,6 +535,9 @@ subprojects {
           exclude 'src/**/resources/'
           exclude 'src/**/generated/'
           exclude 'src/**/mainGeneratedDataTemplate/'
+          exclude 'src/**/mainGeneratedAvroSchema/'
+          exclude 'src/**/mainGeneratedGraphQL/'
+          exclude 'src/**/generatedJsonSchema/'
           exclude 'src/**/mainGeneratedRest/'
           exclude 'src/renamed/avro/'
           exclude 'src/test/sample-test-plugins/'
@@ -571,18 +574,6 @@ subprojects {
         javaLauncher = javaToolchains.launcherFor {
           languageVersion = JavaLanguageVersion.of(jdkVersion(project))
         }
-      }
-    }
-
-    afterEvaluate {
-      def spotlessJavaTask = tasks.findByName('spotlessJava')
-      def processTask = tasks.findByName('processResources')
-      if (processTask != null) {
-        spotlessJavaTask.dependsOn processTask
-      }
-      def compileJavaTask = tasks.findByName('compileJava')
-      if (compileJavaTask != null) {
-        spotlessJavaTask.dependsOn compileJavaTask
       }
     }
   }
