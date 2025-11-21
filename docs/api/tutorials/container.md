@@ -32,7 +32,7 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_container.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/container_create.py show_path_as_comment }}
 ```
 
 </TabItem>

@@ -46,6 +46,10 @@ grant role datahub_role to user datahub_user;
 
 // Optional - required if extracting lineage, usage or tags (without lineage)
 grant imported privileges on database snowflake to role datahub_role;
+
+// Optional - required if extracting Streamlit Apps
+grant usage on all streamlits in database "<your-database>" to role datahub_role;
+grant usage on future streamlits in database "<your-database>" to role datahub_role;
 ```
 
 The details of each granted privilege can be viewed in the [Snowflake docs](https://docs.snowflake.com/en/user-guide/security-access-control-privileges.html). A summary of each privilege and why it is required for this connector:
@@ -62,6 +66,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 ```
 
 - `select` on `streams` is required for stream definitions to be available. This does not allow selecting the data (not required) unless the underlying dataset has select access as well.
+- `usage` on `streamlit` is required to show streamlits in a database.
 
 ```sql
 grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
@@ -188,3 +193,4 @@ Both strategies access the same Snowflake system tables (`account_usage.query_hi
 - Dynamic tables require the `monitor` privilege for metadata extraction. Without this privilege, dynamic tables will not be visible to DataHub.
 - The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc. This is applicable particularly for lineage, usage and tags (without lineage) extraction.
 - If there is any [ongoing Snowflake incident](https://status.snowflake.com/), we will not be able to get the metadata until that incident is resolved.
+- Lineage extraction, when got directly from Snowflake access history, has some limitations, as documented [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes), [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-column-lineage), and [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-object-modified-by-ddl-column).

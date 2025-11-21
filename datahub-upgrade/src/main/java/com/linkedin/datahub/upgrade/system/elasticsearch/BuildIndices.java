@@ -7,6 +7,8 @@ import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPostStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPreStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesStep;
+import com.linkedin.datahub.upgrade.system.elasticsearch.steps.CreateUsageEventIndicesStep;
+import com.linkedin.datahub.upgrade.system.elasticsearch.steps.CreateUserStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.entity.AspectDao;
@@ -69,6 +71,10 @@ public class BuildIndices implements BlockingSystemUpgrade {
     }
 
     final List<UpgradeStep> steps = new ArrayList<>();
+    // Setup Elasticsearch users and roles (if enabled)
+    steps.add(new CreateUserStep(baseElasticSearchComponents, configurationProvider));
+    // Setup usage event indices and policies
+    steps.add(new CreateUsageEventIndicesStep(baseElasticSearchComponents, configurationProvider));
     // Disable ES write mode/change refresh rate and clone indices
     steps.add(
         new BuildIndicesPreStep(

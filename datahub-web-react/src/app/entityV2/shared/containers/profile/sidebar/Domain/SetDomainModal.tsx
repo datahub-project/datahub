@@ -66,7 +66,6 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     };
 
     const handleSearch = (text: string) => {
-        console.log('Not calling search');
         if (text) {
             domainSearch({
                 variables: {

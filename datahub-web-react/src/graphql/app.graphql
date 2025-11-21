@@ -88,6 +88,7 @@ query appConfig {
             nestedDomainsEnabled
             platformBrowseV2
             businessAttributeEntityEnabled
+            contextDocumentsEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
             themeV2Enabled
@@ -116,6 +117,7 @@ query appConfig {
             logicalModelsEnabled
             showHomepageUserRole
             assetSummaryPageV1
+            datasetSummaryPageV1
             documentationFileUploadV1
         }
         chromeExtensionConfig {
@@ -154,6 +156,21 @@ query getHomePageSettings {
     }
 }
 
+query getPresignedUploadUrl($input: GetPresignedUploadUrlInput!) {
+    getPresignedUploadUrl(input: $input) {
+        url
+        fileId
+    }
+}
+
+mutation createDataHubFile($input: CreateDataHubFileInput!) {
+    createDataHubFile(input: $input) {
+        file {
+            urn
+        }
+    }
+}
+
 mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
     updateGlobalViewsSettings(input: $input)
 }
@@ -164,4 +181,16 @@ mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!
 
 mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
     updateApplicationsSettings(input: $input)
+}
+
+query getLatestProductUpdate {
+    latestProductUpdate {
+        enabled
+        id
+        title
+        description
+        image
+        ctaText
+        ctaLink
+    }
 }

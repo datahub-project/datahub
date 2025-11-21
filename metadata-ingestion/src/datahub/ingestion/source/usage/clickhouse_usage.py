@@ -115,7 +115,7 @@ class ClickHouseUsageSource(Source):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = ClickHouseUsageConfig.parse_obj(config_dict)
+        config = ClickHouseUsageConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

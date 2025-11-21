@@ -20,19 +20,19 @@ export default function HierarchyViewModal() {
     const [form] = Form.useForm<HierarchyForm>();
 
     const initialFormState: HierarchyForm = useMemo(() => {
-        const originalAssetUrns = initialState?.properties.params.hierarchyViewParams?.assetUrns;
+        const originalAssetUrns = initialState?.properties?.params?.hierarchyViewParams?.assetUrns;
         const assetType = getAssetTypeFromAssetUrns(originalAssetUrns);
         const assetUrns = filterAssetUrnsByAssetType(originalAssetUrns, assetType);
 
         const relatedEntitiesFilterJson =
-            initialState?.properties.params.hierarchyViewParams?.relatedEntitiesFilterJson;
+            initialState?.properties?.params?.hierarchyViewParams?.relatedEntitiesFilterJson;
 
         return {
-            name: initialState?.properties.name || '',
+            name: initialState?.properties?.name || '',
             assetsType: assetType,
             domainAssets: assetType === ASSET_TYPE_DOMAINS ? assetUrns : [],
             glossaryAssets: assetType === ASSET_TYPE_GLOSSARY ? assetUrns : [],
-            showRelatedEntities: !!initialState?.properties.params.hierarchyViewParams?.showRelatedEntities,
+            showRelatedEntities: !!initialState?.properties?.params?.hierarchyViewParams?.showRelatedEntities,
             relatedEntitiesFilter: relatedEntitiesFilterJson ? JSON.parse(relatedEntitiesFilterJson) : undefined,
         };
     }, [initialState]);

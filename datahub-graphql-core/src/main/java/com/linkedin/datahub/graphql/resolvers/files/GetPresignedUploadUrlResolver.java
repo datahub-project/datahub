@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlInput;
 import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlResponse;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.aws.S3Util;
 import graphql.schema.DataFetcher;
@@ -85,18 +86,31 @@ public class GetPresignedUploadUrlResolver
   private void validateInputForAssetDocumentationScenario(
       final QueryContext context, final GetPresignedUploadUrlInput input) {
     String assetUrn = input.getAssetUrn();
+    String schemaFieldUrn = input.getSchemaFieldUrn();
 
     if (assetUrn == null) {
       throw new IllegalArgumentException("assetUrn is required for ASSET_DOCUMENTATION scenario");
     }
 
-    if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, UrnUtils.getUrn(assetUrn))) {
-      throw new AuthorizationException("Unauthorized to edit documentation for asset: " + assetUrn);
+    // FYI: for schema field we have to apply another rules to check permissions
+    if (schemaFieldUrn != null) {
+      if (!DescriptionUtils.isAuthorizedToUpdateFieldDescription(
+          context, UrnUtils.getUrn(assetUrn))) {
+        throw new AuthorizationException(
+            "Unauthorized to edit documentation for schema field: " + schemaFieldUrn);
+      }
+    } else {
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, UrnUtils.getUrn(assetUrn))) {
+        throw new AuthorizationException(
+            "Unauthorized to edit documentation for asset: " + assetUrn);
+      }
     }
   }
 
   private String generateNewFileId(final GetPresignedUploadUrlInput input) {
-    return String.format("%s-%s", UUID.randomUUID().toString(), input.getFileName());
+    return String.format(
+        "%s%s%s",
+        UUID.randomUUID().toString(), Constants.S3_FILE_ID_NAME_SEPARATOR, input.getFileName());
   }
 
   private String getS3Key(
@@ -104,9 +118,7 @@ public class GetPresignedUploadUrlResolver
     UploadDownloadScenario scenario = input.getScenario();
 
     if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION) {
-      return String.format(
-          "%s/%s/%s",
-          s3Configuration.getBucketName(), s3Configuration.getAssetPathPrefix(), fileId);
+      return String.format("%s/%s", s3Configuration.getAssetPathPrefix(), fileId);
     } else {
       throw new IllegalArgumentException("Unsupported upload scenario: " + scenario);
     }

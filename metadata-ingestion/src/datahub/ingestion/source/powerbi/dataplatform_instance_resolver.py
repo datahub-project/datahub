@@ -41,7 +41,7 @@ class ResolvePlatformInstanceFromDatasetTypeMapping(
         if isinstance(platform, PlatformDetail):
             return platform
 
-        return PlatformDetail.parse_obj({})
+        return PlatformDetail.model_validate({})
 
 
 class ResolvePlatformInstanceFromServerToPlatformInstance(
@@ -56,7 +56,7 @@ class ResolvePlatformInstanceFromServerToPlatformInstance(
             ]
             if data_platform_detail.data_platform_server
             in self.config.server_to_platform_instance
-            else PlatformDetail.parse_obj({})
+            else PlatformDetail.model_validate({})
         )
 
 

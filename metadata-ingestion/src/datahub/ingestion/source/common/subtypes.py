@@ -34,6 +34,8 @@ class DatasetSubTypes(StrEnum):
     API_ENDPOINT = "API Endpoint"
     SLACK_CHANNEL = "Slack Channel"
     PROJECTIONS = "Projections"
+    GOOGLE_SHEETS = "Google Sheets"
+    GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -116,6 +118,9 @@ class BIAssetSubTypes(StrEnum):
     # Hex
     HEX_PROJECT = "Project"
     HEX_COMPONENT = "Component"
+
+    # Streamlit
+    STREAMLIT = "Streamlit"
 
 
 class MLAssetSubTypes(StrEnum):
