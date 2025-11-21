@@ -13,3 +13,9 @@ repos:
         language: system
         files: ^(metadata-ingestion-modules/.*|metadata-models/.*)$
         pass_filenames: false
+      - id: check-gradle-lockfiles
+        name: Check gradle lockfiles are updated
+        entry: python .github/scripts/check_gradle_lockfiles.py
+        language: system
+        files: ^.*build\.gradle(\.kts)?$
+        pass_filenames: false

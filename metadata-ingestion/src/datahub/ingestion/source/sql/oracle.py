@@ -479,11 +479,27 @@ class OracleInspectorObjectWrapper:
     def get_pk_constraint(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> Dict:
+        # Denormalize table name for querying Oracle data dictionary
+        denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
+            table_name
+        )
+        assert denormalized_table_name
+
+        # Denormalize schema name for querying Oracle data dictionary
+        denormalized_schema = self._inspector_instance.dialect.denormalize_name(
+            schema or self.default_schema_name
+        )
+
+        if denormalized_schema is None:
+            denormalized_schema = self._inspector_instance.dialect.default_schema_name
+
         pkeys = []
         constraint_name = None
 
         try:
-            for row in self._get_constraint_data(table_name, schema, dblink):
+            for row in self._get_constraint_data(
+                denormalized_table_name, denormalized_schema, dblink
+            ):
                 if row[1] == "P":  # constraint_type is 'P' for primary key
                     if constraint_name is None:
                         constraint_name = (
