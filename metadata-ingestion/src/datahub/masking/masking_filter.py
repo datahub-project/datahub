@@ -67,6 +67,11 @@ class SecretMaskingFilter(logging.Filter):
         """Check if pattern needs rebuilding and rebuild if necessary."""
         MAX_REBUILD_ATTEMPTS = 10  # Prevent infinite loops
 
+        # Track last successfully built pattern for emergency fallback
+        last_built_pattern: Optional[re.Pattern] = None
+        last_built_replacements: Dict[str, str] = {}
+        last_built_version: int = 0
+
         for attempt in range(MAX_REBUILD_ATTEMPTS):
             # Quick check WITHOUT lock (fast path)
             current_version = self._registry.get_version()
@@ -100,6 +105,11 @@ class SecretMaskingFilter(logging.Filter):
             try:
                 new_pattern = re.compile(pattern_str)
                 new_replacements = {value: name for value, name in sorted_secrets}
+
+                # Save this for emergency fallback
+                last_built_pattern = new_pattern
+                last_built_replacements = new_replacements
+                last_built_version = current_version
             except Exception as e:
                 logger.error(f"Failed to compile masking pattern: {e}")
                 return  # Keep using old pattern
@@ -150,12 +160,24 @@ class SecretMaskingFilter(logging.Filter):
                 # Continue to next iteration of the loop
 
         # If we get here, we failed after MAX_REBUILD_ATTEMPTS
-        logger.error(
-            f"CRITICAL: Failed to rebuild masking pattern after {MAX_REBUILD_ATTEMPTS} attempts. "
-            f"Secrets are being modified too rapidly. "
-            f"Continuing with potentially stale pattern (version {self._last_version}). "
-            f"Some newly added secrets may not be masked until rate of changes decreases."
-        )
+        # Emergency fallback: Use the last pattern we built if we have no pattern at all
+        # Better to have a slightly stale pattern than no masking at all
+        with self._pattern_lock:
+            if self._pattern is None and last_built_pattern is not None:
+                self._pattern = last_built_pattern
+                self._replacements = last_built_replacements
+                self._last_version = last_built_version
+                logger.warning(
+                    f"Emergency fallback: Using potentially stale pattern (version {last_built_version}) "
+                    f"because no pattern was previously available and registry is changing too rapidly."
+                )
+            else:
+                logger.error(
+                    f"CRITICAL: Failed to rebuild masking pattern after {MAX_REBUILD_ATTEMPTS} attempts. "
+                    f"Secrets are being modified too rapidly. "
+                    f"Continuing with potentially stale pattern (version {self._last_version}). "
+                    f"Some newly added secrets may not be masked until rate of changes decreases."
+                )
         # Keep using the old pattern rather than crashing - graceful degradation
 
     def mask_text(self, text: str) -> str:
