@@ -187,7 +187,7 @@ project.ext.externalDependency = [
     'javaxInject' : 'javax.inject:javax.inject:1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
     'jakartaValidation': 'jakarta.validation:jakarta.validation-api:3.1.0-M2',
-    'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.41',
+    'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.46',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
     'jettySecurity': "org.eclipse.jetty:jetty-security:$jettyVersion",
     'jettyClient': "org.eclipse.jetty:jetty-client:$jettyVersion",
