@@ -73,6 +73,7 @@ public class EntityTypeMapper {
           .put(EntityType.DATA_CONTRACT, Constants.DATA_CONTRACT_ENTITY_NAME)
           .put(EntityType.APPLICATION, Constants.APPLICATION_ENTITY_NAME)
           .putAll(ACRYL_ENTITY_TYPE_TO_NAME) // SaaS only
+          .put(EntityType.DOCUMENT, Constants.DOCUMENT_ENTITY_NAME)
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =

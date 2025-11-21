@@ -26,6 +26,7 @@ import com.linkedin.gms.factory.conversation.DataHubAiConversationServiceFactory
 import com.linkedin.gms.factory.datacontract.DataContractServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.integration.IntegrationsServiceFactory;
+import com.linkedin.gms.factory.knowledge.DocumentServiceFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
@@ -52,6 +53,7 @@ import com.linkedin.metadata.service.DataContractService;
 import com.linkedin.metadata.service.DataHubAiConversationService;
 import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
@@ -107,7 +109,8 @@ import software.amazon.awssdk.services.sts.StsClient;
   ActionWorkflowServiceFactory.class,
   DataContractServiceFactory.class,
   IntegrationsServiceFactory.class,
-  DataHubAiConversationServiceFactory.class
+  DataHubAiConversationServiceFactory.class,
+  DocumentServiceFactory.class
 })
 public class GraphQLEngineFactory {
   @Autowired
@@ -283,6 +286,10 @@ public class GraphQLEngineFactory {
   private DataHubAiConversationService dataHubAiConversationService;
 
   @Autowired
+  @Qualifier("documentService")
+  private DocumentService documentService;
+
+  @Autowired
   @Qualifier("pageTemplateService")
   private PageTemplateService pageTemplateService;
 
@@ -399,6 +406,7 @@ public class GraphQLEngineFactory {
     args.setDataContractService(_dataContractService);
     args.setAssertionService(assertionService);
     args.setDataHubAiConversationService(dataHubAiConversationService);
+    args.setDocumentService(documentService);
     args.setMetricUtils(metricUtils);
     args.setBaseUrl(baseUrl);
     args.setMetadataTestClient(metadataTestClient);

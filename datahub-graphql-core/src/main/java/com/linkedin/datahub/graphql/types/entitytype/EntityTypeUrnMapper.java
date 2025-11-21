@@ -81,6 +81,7 @@ public class EntityTypeUrnMapper {
               "urn:li:entityType:datahub.businessAttribute")
           .put(Constants.APPLICATION_ENTITY_NAME, "urn:li:entityType:datahub.application")
           .put(AcrylConstants.SUBSCRIPTION_ENTITY_NAME, "urn:li:entityType:datahub.subscription")
+          .put(Constants.DOCUMENT_ENTITY_NAME, "urn:li:entityType:datahub.document")
           .build();
 
   private static final Map<String, String> ENTITY_TYPE_URN_TO_NAME =

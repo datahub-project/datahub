@@ -1148,6 +1148,7 @@ featureFlags:
   # If enabled, the support tickets feature will be available in the UI
   showAskDataHub: ${SHOW_ASK_DATAHUB:false}
   # If enabled, the ask datahub feature will be available in the UI
+  contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

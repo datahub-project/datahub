@@ -31,7 +31,12 @@ public enum ChangeCategory {
   INCIDENT,
 
   // Structured Properties event
-  STRUCTURED_PROPERTY;
+  STRUCTURED_PROPERTY,
+
+  // Parent relationship changes (for hierarchical entities like documents)
+  PARENT,
+  // Related entities changes (Currently used for document related assets, related documents, etc.)
+  RELATED_ENTITIES;
 
   public static final Map<List<String>, ChangeCategory> COMPOUND_CATEGORIES;
 

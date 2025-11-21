@@ -59,6 +59,14 @@ enum ChangeCategoryType {
   When tags have been added or removed
   """
   TAG
+  """
+  When parent relationship has been modified
+  """
+  PARENT
+  """
+  When related entities have been added or removed
+  """
+  RELATED_ENTITIES
 }
 
 """

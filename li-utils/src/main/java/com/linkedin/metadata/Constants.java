@@ -131,6 +131,8 @@ public class Constants {
   public static final String FORM_ENTITY_NAME = "form";
   public static final String RESTRICTED_ENTITY_NAME = "restricted";
   public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
+  public static final String PLATFORM_RESOURCE_ENTITY_NAME = "platformResource";
+  public static final String DOCUMENT_ENTITY_NAME = "document";
 
   /** Aspects */
   // Common
@@ -252,7 +254,6 @@ public class Constants {
   public static final String DATA_PLATFORM_INSTANCE_PROPERTIES_ASPECT_NAME =
       "dataPlatformInstanceProperties";
   // PlatformResource
-  public static final String PLATFORM_RESOURCE_ENTITY_NAME = "platformResource";
   public static final String PLATFORM_RESOURCE_INFO_ASPECT_NAME = "platformResourceInfo";
 
   // ML Feature
@@ -562,6 +563,11 @@ public class Constants {
   public static final String BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME = "businessAttributeInfo";
   public static final String BUSINESS_ATTRIBUTE_ASSOCIATION = "businessAttributeAssociation";
   public static final String BUSINESS_ATTRIBUTE_ASPECT = "businessAttributes";
+
+  // Knowledge Article
+  public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
+  public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
+
   public static final List<String> SKIP_REFERENCE_ASPECT =
       Arrays.asList("ownership", "status", "institutionalMemory");
 
