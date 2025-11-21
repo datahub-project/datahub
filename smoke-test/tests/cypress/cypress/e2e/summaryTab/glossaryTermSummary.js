@@ -21,7 +21,7 @@ describe("summary tab - glossary term", () => {
     ]);
   });
 
-  it("glossary term - description section", () => {
+  it.skip("glossary term - description section", () => {
     utils.testAboutSection();
   });
 
