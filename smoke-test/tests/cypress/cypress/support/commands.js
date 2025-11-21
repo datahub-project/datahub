@@ -12,7 +12,7 @@
 // -- This is a parent command --
 
 import dayjs from "dayjs";
-import { hasOperationName } from "../e2e/utils";
+import { hasOperationName, aliasGraphQLOperation } from "../e2e/utils";
 
 function selectorWithtestId(id) {
   return `[data-testid="${id}"]`;
@@ -626,6 +626,19 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
     }
   });
 });
+
+Cypress.Commands.add("interceptGraphQLOperation", (operationName) => {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    aliasGraphQLOperation(req, operationName);
+  });
+});
+
+Cypress.Commands.add(
+  "waitForGraphQLOperation",
+  (operationName, options = {}) => {
+    cy.wait(`@gql${operationName}`, options);
+  },
+);
 
 Cypress.on("uncaught:exception", (err) => {
   const resizeObserverLoopLimitErrMessage =

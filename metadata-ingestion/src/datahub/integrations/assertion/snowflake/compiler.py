@@ -20,6 +20,7 @@ from datahub.api.entities.assertion.compiler_interface import (
 from datahub.api.entities.assertion.datahub_assertion import DataHubAssertion
 from datahub.api.entities.assertion.field_assertion import FieldValuesAssertion
 from datahub.api.entities.assertion.freshness_assertion import (
+    CronFreshnessAssertion,
     FixedIntervalFreshnessAssertion,
 )
 from datahub.emitter.mce_builder import make_assertion_urn
@@ -110,7 +111,7 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
                     result.status = "failure"
                     result.report.report_failure(
                         assertion_spec.get_id(),
-                        f"Failed to compile assertion of type {assertion_spec.assertion.type} due to error: {e}",
+                        f"Failed to compile assertion of type {assertion_spec.type} due to error: {e}",
                     )
                     result.report.num_compile_failed += 1
             if result.report.num_compile_succeeded > 0:
@@ -141,27 +142,30 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
         # For field values assertion, metric is number or percentage of rows that do not satify
         # operator condition.
         # For remaining assertions, numeric metric is discernible in assertion definition itself.
-        metric_definition = self.metric_generator.metric_sql(assertion.assertion)
+        metric_definition = self.metric_generator.metric_sql(assertion)
 
-        if isinstance(assertion.assertion, FixedIntervalFreshnessAssertion):
+        if isinstance(assertion, FixedIntervalFreshnessAssertion):
             assertion_sql = self.metric_evaluator.operator_sql(
                 LessThanOrEqualToOperator(
                     type="less_than_or_equal_to",
-                    value=assertion.assertion.lookback_interval.total_seconds(),
+                    value=assertion.lookback_interval.total_seconds(),
                 ),
                 metric_definition,
             )
-        elif isinstance(assertion.assertion, FieldValuesAssertion):
+        elif isinstance(assertion, CronFreshnessAssertion):
+            # CronFreshnessAssertion does not have an operator, skip operator_sql
+            assertion_sql = metric_definition
+        elif isinstance(assertion, FieldValuesAssertion):
             assertion_sql = self.metric_evaluator.operator_sql(
                 LessThanOrEqualToOperator(
                     type="less_than_or_equal_to",
-                    value=assertion.assertion.failure_threshold.value,
+                    value=assertion.failure_threshold.value,
                 ),
                 metric_definition,
             )
         else:
             assertion_sql = self.metric_evaluator.operator_sql(
-                assertion.assertion.operator, metric_definition
+                assertion.operator, metric_definition
             )
 
         dmf_name = get_dmf_name(assertion)
@@ -169,35 +173,37 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
 
         args_create_dmf, args_add_dmf = get_dmf_args(assertion)
 
-        entity_name = get_entity_name(assertion.assertion)
+        entity_name = get_entity_name(assertion)
 
-        self._entity_schedule_history.setdefault(
-            assertion.assertion.entity, assertion.assertion.trigger
-        )
-        if (
-            assertion.assertion.entity in self._entity_schedule_history
-            and self._entity_schedule_history[assertion.assertion.entity]
-            != assertion.assertion.trigger
+        if assertion.trigger:
+            self._entity_schedule_history.setdefault(
+                assertion.entity, assertion.trigger
+            )
+        if assertion.trigger and (
+            assertion.entity in self._entity_schedule_history
+            and self._entity_schedule_history[assertion.entity] != assertion.trigger
         ):
             raise ValueError(
                 "Assertions on same entity must have same schedules as of now."
-                f" Found different schedules on entity {assertion.assertion.entity} ->"
-                f" ({self._entity_schedule_history[assertion.assertion.entity].trigger}),"
-                f" ({assertion.assertion.trigger.trigger})"
+                f" Found different schedules on entity {assertion.entity} ->"
+                f" ({self._entity_schedule_history[assertion.entity].trigger}),"
+                f" ({assertion.trigger.trigger})"
             )
 
-        dmf_schedule = get_dmf_schedule(assertion.assertion.trigger)
+        dmf_schedule = (
+            get_dmf_schedule(assertion.trigger) if assertion.trigger else None
+        )
         dmf_definition = self.dmf_handler.create_dmf(
             f"{dmf_schema_name}.{dmf_name}",
             args_create_dmf,
-            assertion.assertion.description
-            or f"Created via DataHub for assertion {make_assertion_urn(assertion.get_id())} of type {assertion.assertion.type}",
+            assertion.description
+            or f"Created via DataHub for assertion {make_assertion_urn(assertion.get_id())} of type {assertion.type}",
             assertion_sql,
         )
         dmf_association = self.dmf_handler.add_dmf_to_table(
             f"{dmf_schema_name}.{dmf_name}",
             args_add_dmf,
-            dmf_schedule,
+            dmf_schedule or "",  # type: ignore[arg-type]
             ".".join(entity_name),
         )
 
@@ -217,7 +223,7 @@ def get_dmf_args(assertion: DataHubAssertion) -> Tuple[str, str]:
     # So we fetch any one column from table's schema
     args_create_dmf = "ARGT TABLE({col_name} {col_type})"
     args_add_dmf = "{col_name}"
-    entity_schema = get_entity_schema(assertion.assertion)
+    entity_schema = get_entity_schema(assertion)
     if entity_schema:
         for col_dict in entity_schema:
             return args_create_dmf.format(
