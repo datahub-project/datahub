@@ -6,7 +6,10 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
-import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
@@ -178,6 +181,37 @@ public class S3Util {
     } catch (Exception e) {
       log.error("Failed to generate presigned upload URL for bucket: {}, key: {}", bucket, key, e);
       throw new RuntimeException("Failed to generate presigned upload URL: " + e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Delete an object from S3
+   *
+   * @param bucket The S3 bucket name
+   * @param key The S3 object key to delete
+   */
+  public void deleteObject(@Nonnull String bucket, @Nonnull String key) {
+    try {
+      DeleteObjectRequest deleteObjectRequest =
+          DeleteObjectRequest.builder().bucket(bucket).key(key).build();
+
+      DeleteObjectResponse response = s3Client.deleteObject(deleteObjectRequest);
+
+      if (!response.sdkHttpResponse().isSuccessful()) {
+        log.error(
+            "Failed to delete object from S3. Bucket: {}, Key: {}, Response: {}",
+            bucket,
+            key,
+            response);
+        throw new RuntimeException(
+            "Failed to delete object from S3. Response: "
+                + response.sdkHttpResponse().statusCode());
+      }
+
+      log.info("Successfully deleted object from S3. Bucket: {}, Key: {}", bucket, key);
+    } catch (Exception e) {
+      log.error("Failed to delete object from S3. Bucket: {}, Key: {}", bucket, key, e);
+      throw new RuntimeException("Failed to delete object from S3: " + e.getMessage(), e);
     }
   }
 }
