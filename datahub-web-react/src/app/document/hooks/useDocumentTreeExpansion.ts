@@ -98,33 +98,42 @@ export function useDocumentTreeExpansion(params: UseDocumentTreeExpansionParams 
                 if (needsFetch && !loadingUrns.has(urn)) {
                     console.log('🔍 Starting fetchChildren for:', urn);
                     setLoadingUrns((prev) => new Set(prev).add(urn));
-                    const children = await fetchChildren(urn);
-                    console.log('✅ fetchChildren completed:', { urn, count: children.length, children });
-                    setLoadingUrns((prev) => {
-                        const next = new Set(prev);
-                        next.delete(urn);
-                        return next;
-                    });
+                    try {
+                        const children = await fetchChildren(urn);
+                        console.log('✅ fetchChildren completed:', { urn, count: children.length, children });
+                        setLoadingUrns((prev) => {
+                            const next = new Set(prev);
+                            next.delete(urn);
+                            return next;
+                        });
 
-                    // Filter out excluded URN if specified
-                    const validChildren = excludeUrn ? children.filter((c) => c.urn !== excludeUrn) : children;
+                        // Filter out excluded URN if specified
+                        const validChildren = excludeUrn ? children.filter((c) => c.urn !== excludeUrn) : children;
 
-                    const childNodes: DocumentNode[] = validChildren.map((c: DocumentChild) => ({
-                        urn: c.urn,
-                        title: c.title,
-                        parentUrn: urn,
-                    }));
+                        const childNodes: DocumentNode[] = validChildren.map((c: DocumentChild) => ({
+                            urn: c.urn,
+                            title: c.title,
+                            parentUrn: urn,
+                        }));
 
-                    setChildrenCache((prev) => ({
-                        ...prev,
-                        [urn]: childNodes,
-                    }));
+                        setChildrenCache((prev) => ({
+                            ...prev,
+                            [urn]: childNodes,
+                        }));
 
-                    // Check if these children have children
-                    if (childNodes.length > 0) {
-                        const childUrns = childNodes.map((c) => c.urn);
-                        const childrenMap = await checkForChildren(childUrns);
-                        setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
+                        // Check if these children have children
+                        if (childNodes.length > 0) {
+                            const childUrns = childNodes.map((c) => c.urn);
+                            const childrenMap = await checkForChildren(childUrns);
+                            setHasChildrenMap((prev) => ({ ...prev, ...childrenMap }));
+                        }
+                    } catch (error) {
+                        console.error('❌ Failed to fetch children:', error);
+                        setLoadingUrns((prev) => {
+                            const next = new Set(prev);
+                            next.delete(urn);
+                            return next;
+                        });
                     }
                 }
             }

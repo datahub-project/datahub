@@ -172,7 +172,7 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
                     </IconWrapper>
                 )}
                 <SearchResultContent>
-                    <SearchResultTitle>{title}</SearchResultTitle>
+                    <SearchResultTitle data-testid="move-popover-search-result-title">{title}</SearchResultTitle>
                     {level === 0 && breadcrumb && <SearchResultBreadcrumb>{breadcrumb}</SearchResultBreadcrumb>}
                 </SearchResultContent>
             </SearchResultItemContainer>

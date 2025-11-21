@@ -45,18 +45,17 @@ export function useContextMenuItems(): NavBarMenuGroup | null {
         return null;
     }
 
+    if (isCollapsed) {
+        return null;
+    }
+
     // Render documents tree (reads from DocumentTreeContext)
     return {
         type: NavBarMenuItemTypes.Group,
         key: 'context',
         title: '',
         renderTitle: () => (
-            <ContextGroupHeader
-                title="Context"
-                isCollapsed={isCollapsed}
-                onAddClick={() => handleCreateDocument()}
-                isLoading={creating}
-            />
+            <ContextGroupHeader title="Context" onAddClick={() => handleCreateDocument()} isLoading={creating} />
         ),
         items: [
             {

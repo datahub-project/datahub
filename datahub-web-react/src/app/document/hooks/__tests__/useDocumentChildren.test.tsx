@@ -1,4 +1,4 @@
-import { ApolloClient, InMemoryCache } from '@apollo/client';
+import { ApolloClient, ApolloProvider, InMemoryCache } from '@apollo/client';
 import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,13 +26,15 @@ describe('useDocumentChildren', () => {
         });
     });
 
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <ApolloProvider client={mockClient}>{children}</ApolloProvider>
+    );
+
     describe('checkForChildren', () => {
         it('should return empty map for empty parent URNs array', async () => {
             const mockQuery = vi.spyOn(mockClient, 'query');
 
-            const { result } = renderHook(() => useDocumentChildren(), {
-                wrapper: ({ children }) => <>{children}</>,
-            });
+            const { result } = renderHook(() => useDocumentChildren(), { wrapper });
 
             // Mock useApolloClient
             // Note: useApolloClient is mocked via module mock in real implementation
@@ -82,7 +84,7 @@ describe('useDocumentChildren', () => {
 
             // Note: useApolloClient is mocked via module mock in real implementation
 
-            const { result } = renderHook(() => useDocumentChildren());
+            const { result } = renderHook(() => useDocumentChildren(), { wrapper });
 
             const childrenMap = await result.current.checkForChildren(parentUrns);
 
@@ -143,7 +145,7 @@ describe('useDocumentChildren', () => {
 
             // Note: useApolloClient is mocked via module mock in real implementation
 
-            const { result } = renderHook(() => useDocumentChildren());
+            const { result } = renderHook(() => useDocumentChildren(), { wrapper });
 
             const childrenMap = await result.current.checkForChildren(parentUrns);
 
@@ -160,7 +162,7 @@ describe('useDocumentChildren', () => {
 
             // Note: useApolloClient is mocked via module mock in real implementation
 
-            const { result } = renderHook(() => useDocumentChildren());
+            const { result } = renderHook(() => useDocumentChildren(), { wrapper });
 
             const childrenMap = await result.current.checkForChildren(parentUrns);
 
@@ -197,7 +199,7 @@ describe('useDocumentChildren', () => {
 
             // Note: useApolloClient is mocked via module mock in real implementation
 
-            const { result } = renderHook(() => useDocumentChildren());
+            const { result } = renderHook(() => useDocumentChildren(), { wrapper });
 
             const children = await result.current.fetchChildren(parentUrn);
 
@@ -244,7 +246,7 @@ describe('useDocumentChildren', () => {
 
             // Note: useApolloClient is mocked via module mock in real implementation
 
-            const { result } = renderHook(() => useDocumentChildren());
+            const { result } = renderHook(() => useDocumentChildren(), { wrapper });
 
             const children = await result.current.fetchChildren(parentUrn);
 
@@ -264,7 +266,7 @@ describe('useDocumentChildren', () => {
 
             // Note: useApolloClient is mocked via module mock in real implementation
 
-            const { result } = renderHook(() => useDocumentChildren());
+            const { result } = renderHook(() => useDocumentChildren(), { wrapper });
 
             const children = await result.current.fetchChildren(parentUrn);
 
@@ -278,7 +280,7 @@ describe('useDocumentChildren', () => {
 
             // Note: useApolloClient is mocked via module mock in real implementation
 
-            const { result } = renderHook(() => useDocumentChildren());
+            const { result } = renderHook(() => useDocumentChildren(), { wrapper });
 
             const children = await result.current.fetchChildren(parentUrn);
 
@@ -296,7 +298,7 @@ describe('useDocumentChildren', () => {
 
             // Note: useApolloClient is mocked via module mock in real implementation
 
-            const { result } = renderHook(() => useDocumentChildren());
+            const { result } = renderHook(() => useDocumentChildren(), { wrapper });
 
             const children = await result.current.fetchChildren(parentUrn);
 
@@ -306,7 +308,7 @@ describe('useDocumentChildren', () => {
 
     describe('loading state', () => {
         it('should always return loading as false', () => {
-            const { result } = renderHook(() => useDocumentChildren());
+            const { result } = renderHook(() => useDocumentChildren(), { wrapper });
 
             expect(result.current.loading).toBe(false);
         });

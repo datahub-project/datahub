@@ -28,7 +28,9 @@ describe('useSearchDocuments', () => {
     ];
 
     it('should search documents with default parameters', async () => {
-        const input: SearchDocumentsInput = {};
+        const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
+        };
 
         const mocks = [
             {
@@ -43,6 +45,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: false,
@@ -80,6 +83,7 @@ describe('useSearchDocuments', () => {
 
     it('should search documents with custom query', async () => {
         const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
             query: 'test query',
         };
 
@@ -96,6 +100,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: false,
@@ -130,6 +135,7 @@ describe('useSearchDocuments', () => {
 
     it('should search documents with parent document filter', async () => {
         const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
             parentDocument: 'urn:li:document:parent',
         };
 
@@ -146,6 +152,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: false,
@@ -179,6 +186,7 @@ describe('useSearchDocuments', () => {
 
     it('should search root-only documents', async () => {
         const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
             rootOnly: true,
         };
 
@@ -195,6 +203,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: true,
                             types: undefined,
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: false,
@@ -228,6 +237,7 @@ describe('useSearchDocuments', () => {
 
     it('should filter documents by types', async () => {
         const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
             types: ['guide', 'tutorial'],
         };
 
@@ -244,6 +254,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: ['guide', 'tutorial'],
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: false,
@@ -277,6 +288,7 @@ describe('useSearchDocuments', () => {
 
     it('should filter documents by states', async () => {
         const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
             states: [DocumentState.Published],
         };
 
@@ -293,6 +305,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             states: [DocumentState.Published],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: false,
@@ -326,6 +339,7 @@ describe('useSearchDocuments', () => {
 
     it('should include drafts when specified', async () => {
         const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
             includeDrafts: true,
         };
 
@@ -342,6 +356,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: true,
                         },
                         includeParentDocuments: false,
@@ -375,6 +390,7 @@ describe('useSearchDocuments', () => {
 
     it('should handle pagination with start and count', async () => {
         const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
             start: 10,
             count: 50,
         };
@@ -392,6 +408,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: false,
@@ -426,6 +443,7 @@ describe('useSearchDocuments', () => {
 
     it('should include parent documents when specified', async () => {
         const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
             includeParentDocuments: true,
         };
 
@@ -442,6 +460,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: true,
@@ -491,6 +510,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: false,
@@ -524,6 +544,7 @@ describe('useSearchDocuments', () => {
 
     it('should return empty array when no documents found', async () => {
         const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
             query: 'nonexistent',
         };
 
@@ -540,6 +561,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: false,
@@ -573,7 +595,9 @@ describe('useSearchDocuments', () => {
     });
 
     it('should handle GraphQL errors', async () => {
-        const input: SearchDocumentsInput = {};
+        const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
+        };
 
         const mocks = [
             {
@@ -588,6 +612,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: false,
@@ -614,7 +639,9 @@ describe('useSearchDocuments', () => {
     });
 
     it('should expose refetch function', async () => {
-        const input: SearchDocumentsInput = {};
+        const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
+        };
 
         const mocks = [
             {
@@ -629,6 +656,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             states: [DocumentState.Published, DocumentState.Unpublished],
+                            sourceType: 'NATIVE',
                             includeDrafts: false,
                         },
                         includeParentDocuments: false,

@@ -1,6 +1,7 @@
 import { message } from 'antd';
 import { useCallback } from 'react';
 
+import analytics, { DocumentEditType, EventType } from '@app/analytics';
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
 
 import {
@@ -70,6 +71,15 @@ export function useCreateDocumentTreeMutation() {
                     children: [],
                 });
 
+                // 4. Track analytics event
+                analytics.event({
+                    type: EventType.CreateDocumentEvent,
+                    documentUrn: newUrn,
+                    documentType: input.subType,
+                    hasParent: !!input.parentDocument,
+                    parentDocumentUrn: input.parentDocument || undefined,
+                });
+
                 return newUrn;
             } catch (error) {
                 console.error('Failed to create document:', error);
@@ -112,6 +122,13 @@ export function useUpdateDocumentTitleMutation() {
                 if (!result.data?.updateDocumentContents) {
                     throw new Error('Failed to update title');
                 }
+
+                // Track analytics event
+                analytics.event({
+                    type: EventType.EditDocumentEvent,
+                    documentUrn: urn,
+                    editType: DocumentEditType.Title,
+                });
 
                 return true;
             } catch (error) {
@@ -167,6 +184,14 @@ export function useMoveDocumentTreeMutation() {
                     throw new Error('Failed to move document');
                 }
 
+                // Track analytics event
+                analytics.event({
+                    type: EventType.MoveDocumentEvent,
+                    documentUrn: urn,
+                    oldParentDocumentUrn: oldParentUrn || undefined,
+                    newParentDocumentUrn: newParentUrn || undefined,
+                });
+
                 message.success('Document moved successfully');
                 return true;
             } catch (error) {
@@ -213,6 +238,12 @@ export function useDeleteDocumentTreeMutation() {
                 if (!result.data?.deleteDocument) {
                     throw new Error('Failed to delete document');
                 }
+
+                // Track analytics event
+                analytics.event({
+                    type: EventType.DeleteDocumentEvent,
+                    documentUrn: urn,
+                });
 
                 message.success('Document deleted');
                 return true;

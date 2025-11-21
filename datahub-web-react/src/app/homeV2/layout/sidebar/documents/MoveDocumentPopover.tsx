@@ -152,7 +152,7 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
     const hasSelectionChanged = selectedParentUrn !== currentParentUrn;
 
     return (
-        <PopoverContainer>
+        <PopoverContainer data-testid="move-document-popover">
             <SearchContainer>
                 <Input label="" placeholder="Search documents..." value={searchQuery} setValue={setSearchQuery} />
             </SearchContainer>

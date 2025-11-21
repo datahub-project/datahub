@@ -1,6 +1,8 @@
 import { message } from 'antd';
 import { useCallback } from 'react';
 
+import analytics, { DocumentEditType, EventType } from '@app/analytics';
+
 import {
     useUpdateDocumentContentsMutation,
     useUpdateDocumentRelatedEntitiesMutation,
@@ -59,6 +61,13 @@ export function useUpdateDocument() {
                 });
 
                 if (result.data?.updateDocumentContents) {
+                    // Track analytics event
+                    analytics.event({
+                        type: EventType.EditDocumentEvent,
+                        documentUrn: input.urn,
+                        editType: DocumentEditType.Contents,
+                        documentType: input.subType,
+                    });
                     return true;
                 }
 
@@ -85,6 +94,12 @@ export function useUpdateDocument() {
                 });
 
                 if (result.data?.updateDocumentStatus) {
+                    // Track analytics event
+                    analytics.event({
+                        type: EventType.EditDocumentEvent,
+                        documentUrn: input.urn,
+                        editType: DocumentEditType.PublishState,
+                    });
                     return true;
                 }
 
@@ -111,6 +126,13 @@ export function useUpdateDocument() {
                 });
 
                 if (result.data?.updateDocumentSubType) {
+                    // Track analytics event
+                    analytics.event({
+                        type: EventType.EditDocumentEvent,
+                        documentUrn: input.urn,
+                        editType: DocumentEditType.Type,
+                        documentType: input.subType || undefined,
+                    });
                     return true;
                 }
 

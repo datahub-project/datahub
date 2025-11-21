@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
-const HeaderContainer = styled.div<{ $isCollapsed: boolean }>`
+const HeaderContainer = styled.div`
     position: relative;
     padding: 0px 0px 0px 0px;
     color: #8088a3;
@@ -79,24 +79,15 @@ const PlusButton = styled(Button)<{ $show: boolean }>`
 
 interface Props {
     title: string;
-    isCollapsed: boolean;
     onAddClick: () => void;
     isLoading?: boolean;
 }
 
-export const ContextGroupHeader: React.FC<Props> = ({ title, isCollapsed, onAddClick, isLoading }) => {
+export const ContextGroupHeader: React.FC<Props> = ({ title, onAddClick, isLoading }) => {
     const [isHovered, setIsHovered] = useState(false);
 
-    if (isCollapsed) {
-        return null;
-    }
-
     return (
-        <HeaderContainer
-            $isCollapsed={isCollapsed}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-        >
+        <HeaderContainer onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
             <Title>{title}</Title>
             <PlusButton
                 data-testid="create-document-button"

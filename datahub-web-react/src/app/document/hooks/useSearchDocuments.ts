@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { useSearchDocumentsQuery } from '@graphql/document.generated';
-import { Document, DocumentState } from '@types';
+import { Document, DocumentSourceType, DocumentState } from '@types';
 
 export interface SearchDocumentsInput {
     query?: string;
@@ -27,6 +27,7 @@ export function useSearchDocuments(input: SearchDocumentsInput) {
                 rootOnly: input.rootOnly,
                 types: input.types,
                 states: input.states || [DocumentState.Published, DocumentState.Unpublished],
+                sourceType: DocumentSourceType.Native,
                 includeDrafts: input.includeDrafts || false,
             },
             includeParentDocuments: input.includeParentDocuments || false,

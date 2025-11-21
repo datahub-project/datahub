@@ -40,12 +40,15 @@ describe('useDocumentTreeMutations', () => {
             const mockDeleteNode = vi.fn();
 
             const mockContextValue = {
+                nodes: new Map(),
+                rootUrns: [],
                 addNode: mockAddNode,
                 deleteNode: mockDeleteNode,
                 updateNodeTitle: vi.fn(),
                 moveNode: vi.fn(),
                 getNode: vi.fn(),
                 getRootNodes: vi.fn(),
+                getChildren: vi.fn(),
                 initializeTree: vi.fn(),
                 setNodeChildren: vi.fn(),
             };
@@ -120,12 +123,15 @@ describe('useDocumentTreeMutations', () => {
             const mockDeleteNode = vi.fn();
 
             const mockContextValue = {
+                nodes: new Map(),
+                rootUrns: [],
                 addNode: mockAddNode,
                 deleteNode: mockDeleteNode,
                 updateNodeTitle: vi.fn(),
                 moveNode: vi.fn(),
                 getNode: vi.fn(),
                 getRootNodes: vi.fn(),
+                getChildren: vi.fn(),
                 initializeTree: vi.fn(),
                 setNodeChildren: vi.fn(),
             };
@@ -173,12 +179,15 @@ describe('useDocumentTreeMutations', () => {
             const mockDeleteNode = vi.fn();
 
             const mockContextValue = {
+                nodes: new Map(),
+                rootUrns: [],
                 addNode: mockAddNode,
                 deleteNode: mockDeleteNode,
                 updateNodeTitle: vi.fn(),
                 moveNode: vi.fn(),
                 getNode: vi.fn(),
                 getRootNodes: vi.fn(),
+                getChildren: vi.fn(),
                 initializeTree: vi.fn(),
                 setNodeChildren: vi.fn(),
             };
@@ -245,12 +254,15 @@ describe('useDocumentTreeMutations', () => {
             }));
 
             const mockContextValue = {
+                nodes: new Map(),
+                rootUrns: [],
                 addNode: vi.fn(),
                 deleteNode: vi.fn(),
                 updateNodeTitle: mockUpdateNodeTitle,
                 moveNode: vi.fn(),
                 getNode: mockGetNode,
                 getRootNodes: vi.fn(),
+                getChildren: vi.fn(),
                 initializeTree: vi.fn(),
                 setNodeChildren: vi.fn(),
             };
@@ -301,12 +313,15 @@ describe('useDocumentTreeMutations', () => {
             }));
 
             const mockContextValue = {
+                nodes: new Map(),
+                rootUrns: [],
                 addNode: vi.fn(),
                 deleteNode: vi.fn(),
                 updateNodeTitle: mockUpdateNodeTitle,
                 moveNode: vi.fn(),
                 getNode: mockGetNode,
                 getRootNodes: vi.fn(),
+                getChildren: vi.fn(),
                 initializeTree: vi.fn(),
                 setNodeChildren: vi.fn(),
             };
@@ -358,12 +373,15 @@ describe('useDocumentTreeMutations', () => {
             }));
 
             const mockContextValue = {
+                nodes: new Map(),
+                rootUrns: [],
                 addNode: vi.fn(),
                 deleteNode: vi.fn(),
                 updateNodeTitle: vi.fn(),
                 moveNode: mockMoveNode,
                 getNode: mockGetNode,
                 getRootNodes: vi.fn(),
+                getChildren: vi.fn(),
                 initializeTree: vi.fn(),
                 setNodeChildren: vi.fn(),
             };
@@ -415,12 +433,15 @@ describe('useDocumentTreeMutations', () => {
             }));
 
             const mockContextValue = {
+                nodes: new Map(),
+                rootUrns: [],
                 addNode: vi.fn(),
                 deleteNode: vi.fn(),
                 updateNodeTitle: vi.fn(),
                 moveNode: mockMoveNode,
                 getNode: mockGetNode,
                 getRootNodes: vi.fn(),
+                getChildren: vi.fn(),
                 initializeTree: vi.fn(),
                 setNodeChildren: vi.fn(),
             };
@@ -463,12 +484,15 @@ describe('useDocumentTreeMutations', () => {
             const mockGetNode = vi.fn(() => undefined);
 
             const mockContextValue = {
+                nodes: new Map(),
+                rootUrns: [],
                 addNode: vi.fn(),
                 deleteNode: vi.fn(),
                 updateNodeTitle: vi.fn(),
                 moveNode: vi.fn(),
                 getNode: mockGetNode,
                 getRootNodes: vi.fn(),
+                getChildren: vi.fn(),
                 initializeTree: vi.fn(),
                 setNodeChildren: vi.fn(),
             };
@@ -501,12 +525,15 @@ describe('useDocumentTreeMutations', () => {
             }));
 
             const mockContextValue = {
+                nodes: new Map(),
+                rootUrns: [],
                 addNode: vi.fn(),
                 deleteNode: mockDeleteNode,
                 updateNodeTitle: vi.fn(),
                 moveNode: vi.fn(),
                 getNode: mockGetNode,
                 getRootNodes: vi.fn(),
+                getChildren: vi.fn(),
                 initializeTree: vi.fn(),
                 setNodeChildren: vi.fn(),
             };
@@ -557,12 +584,15 @@ describe('useDocumentTreeMutations', () => {
             const mockGetNode = vi.fn(() => savedNode);
 
             const mockContextValue = {
+                nodes: new Map(),
+                rootUrns: [],
                 addNode: mockAddNode,
                 deleteNode: mockDeleteNode,
                 updateNodeTitle: vi.fn(),
                 moveNode: vi.fn(),
                 getNode: mockGetNode,
                 getRootNodes: vi.fn(),
+                getChildren: vi.fn(),
                 initializeTree: vi.fn(),
                 setNodeChildren: vi.fn(),
             };
@@ -598,15 +628,18 @@ describe('useDocumentTreeMutations', () => {
         });
 
         it('should return false when document not found in tree', async () => {
-            const mockGetNode = vi.fn(() => null);
+            const mockGetNode = vi.fn(() => undefined);
 
             const mockContextValue = {
+                nodes: new Map(),
+                rootUrns: [],
                 addNode: vi.fn(),
                 deleteNode: vi.fn(),
                 updateNodeTitle: vi.fn(),
                 moveNode: vi.fn(),
                 getNode: mockGetNode,
                 getRootNodes: vi.fn(),
+                getChildren: vi.fn(),
                 initializeTree: vi.fn(),
                 setNodeChildren: vi.fn(),
             };

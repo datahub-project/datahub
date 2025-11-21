@@ -40,7 +40,7 @@ interface DocumentTreeContextType {
     initializeTree: (rootNodes: DocumentTreeNode[]) => void;
 }
 
-const DocumentTreeContext = React.createContext<DocumentTreeContextType | undefined>(undefined);
+export const DocumentTreeContext = React.createContext<DocumentTreeContextType | undefined>(undefined);
 
 export const useDocumentTree = () => {
     const context = useContext(DocumentTreeContext);
