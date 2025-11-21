@@ -1497,6 +1497,8 @@ def test_lineage_consistency_fix_tables_added_from_column_lineage() -> None:
     assert len(lineage_mcps) == 1
 
     lineage_aspect = lineage_mcps[0].aspect
+    assert lineage_aspect is not None
+    assert hasattr(lineage_aspect, "upstreams")
     upstream_urns = {u.dataset for u in lineage_aspect.upstreams}
 
     # All 3 tables should be present after the fix
@@ -1560,6 +1562,8 @@ def test_lineage_consistency_no_fix_needed() -> None:
     assert len(lineage_mcps) == 1
 
     lineage_aspect = lineage_mcps[0].aspect
+    assert lineage_aspect is not None
+    assert hasattr(lineage_aspect, "upstreams")
     upstream_urns = {u.dataset for u in lineage_aspect.upstreams}
 
     assert len(upstream_urns) == 2
@@ -1632,6 +1636,8 @@ def test_lineage_consistency_multiple_missing_tables() -> None:
     assert len(lineage_mcps) == 1
 
     lineage_aspect = lineage_mcps[0].aspect
+    assert lineage_aspect is not None
+    assert hasattr(lineage_aspect, "upstreams")
     upstream_urns = {u.dataset for u in lineage_aspect.upstreams}
 
     assert len(upstream_urns) == 4

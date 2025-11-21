@@ -1377,7 +1377,9 @@ class SqlParsingAggregator(Closeable):
 
                         # Add table to upstreams if only exists in cll (consistency fix)
                         if table_urn not in upstreams:
-                            logger.debug(f"Found missing table urn {table_urn} in cll. The query_id was: {query.query_id}")
+                            logger.debug(
+                                f"Found missing table urn {table_urn} in cll. The query_id was: {query.query_id}"
+                            )
                             upstreams[table_urn] = query.query_id
                             queries_with_inconsistencies.add(query.query_id)
                             self.report.num_tables_added_from_column_lineage += 1
@@ -1393,7 +1395,9 @@ class SqlParsingAggregator(Closeable):
 
         # Log and update metrics if we applied the consistency fix
         if queries_with_inconsistencies:
-            self.report.num_queries_with_lineage_inconsistencies_fixed += len(queries_with_inconsistencies)
+            self.report.num_queries_with_lineage_inconsistencies_fixed += len(
+                queries_with_inconsistencies
+            )
 
         # Finally, we can build our lineage edge.
         required_queries = OrderedSet[QueryId]()
