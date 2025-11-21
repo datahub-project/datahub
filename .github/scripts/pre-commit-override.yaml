@@ -3,13 +3,13 @@ repos:
     hooks:
       - id: smoke-test-cypress-lint-fix
         name: smoke-test cypress Lint Fix
-        entry: .github/scripts/pre-commit-wrapper.sh ./gradlew :smoke-test:cypressLintFix
+        entry: .github/scripts/pre-commit-wrapper.sh ./gradlew :smoke-test:cypressLintFix -x generateGitPropertiesGlobal
         language: system
         files: ^smoke-test/tests/cypress/.*\.tsx$
         pass_filenames: false
       - id: update-lineage-file
         name: update-lineage-file
-        entry: .github/scripts/pre-commit-wrapper.sh ./gradlew :metadata-ingestion:lineageGen
+        entry: .github/scripts/pre-commit-wrapper.sh ./gradlew :metadata-ingestion:lineageGen -x generateGitPropertiesGlobal
         language: system
         files: ^(metadata-ingestion-modules/.*|metadata-models/.*)$
         pass_filenames: false
