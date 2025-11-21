@@ -478,9 +478,10 @@ public class CreateCdcUserStepTest {
     assertEquals(result.isCdcUserCreated(), true);
     assertTrue(result.getExecutionTimeMs() >= 0);
     // Verify PreparedStatement approach - should call dataSource() and prepareStatement()
+    // MySQL: 1 createCdcUser + 5 grantCdcPrivileges statements = 6 total
     verify(mockDatabase).dataSource();
-    verify(mockConnection, times(2)).prepareStatement(anyString());
-    verify(mockPreparedStatement, times(2)).executeUpdate();
+    verify(mockConnection, times(6)).prepareStatement(anyString());
+    verify(mockPreparedStatement, times(6)).executeUpdate();
   }
 
   @Test
@@ -533,9 +534,10 @@ public class CreateCdcUserStepTest {
     assertEquals(result.isCdcUserCreated(), true);
     assertTrue(result.getExecutionTimeMs() >= 0);
     // Verify PreparedStatement approach - should call dataSource() and prepareStatement()
+    // MySQL: 1 createCdcUser + 5 grantCdcPrivileges statements = 6 total
     verify(mockDatabase).dataSource();
-    verify(mockConnection, times(2)).prepareStatement(anyString());
-    verify(mockPreparedStatement, times(2)).executeUpdate();
+    verify(mockConnection, times(6)).prepareStatement(anyString());
+    verify(mockPreparedStatement, times(6)).executeUpdate();
   }
 
   @Test
@@ -562,8 +564,9 @@ public class CreateCdcUserStepTest {
     assertEquals(result.isCdcUserCreated(), true);
     assertTrue(result.getExecutionTimeMs() >= 0);
     // Verify PreparedStatement approach - should call dataSource() and prepareStatement()
+    // MySQL: 1 createCdcUser + 5 grantCdcPrivileges statements = 6 total
     verify(mockDatabase).dataSource();
-    verify(mockConnection, times(2)).prepareStatement(anyString());
-    verify(mockPreparedStatement, times(2)).executeUpdate();
+    verify(mockConnection, times(6)).prepareStatement(anyString());
+    verify(mockPreparedStatement, times(6)).executeUpdate();
   }
 }
