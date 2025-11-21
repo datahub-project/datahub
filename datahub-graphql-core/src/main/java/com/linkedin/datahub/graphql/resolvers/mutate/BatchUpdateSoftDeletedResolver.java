@@ -9,7 +9,6 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchUpdateSoftDeletedInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DeleteUtils;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -23,7 +22,6 @@ import lombok.extern.slf4j.Slf4j;
 public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService<?> _entityService;
-  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -66,7 +64,7 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
 
   private void validateInputUrn(String urnStr, QueryContext context) {
     final Urn urn = UrnUtils.getUrn(urnStr);
-    if (!DeleteUtils.isAuthorizedToDeleteEntity(context, urn, _entityClient)) {
+    if (!DeleteUtils.isAuthorizedToDeleteEntity(context, urn)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
