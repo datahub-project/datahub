@@ -2126,10 +2126,34 @@
     "openapi": {
       "capabilities": [
         {
-          "capability": "PLATFORM_INSTANCE",
-          "description": "",
+          "capability": "DESCRIPTIONS",
+          "description": "Extracts endpoint descriptions and summaries from OpenAPI specifications",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Does not currently support domain assignment",
           "subtype_modifier": null,
           "supported": false
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Does not currently support extracting ownership",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "TAGS",
+          "description": "Extracts tags from OpenAPI specifications",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Extracts schemas from OpenAPI specifications for GET, POST, PUT, and PATCH methods",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.openapi.OpenApiSource",
