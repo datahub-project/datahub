@@ -36,6 +36,7 @@ MANIFEST
 .python-version
 Pipfile
 Pipfile.lock
+fix-failing-tests/
 
 # Generated files
 **/bin
