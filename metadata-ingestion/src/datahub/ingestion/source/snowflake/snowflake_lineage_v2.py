@@ -266,7 +266,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 query.query_id,
             )
 
-            # FIX: Extract unique tables from column lineage
+            # It can happen tables are only showing up in CLL and we have to correct
+            # upstream tables with that
             if column_lineage:
                 tables_from_column_lineage: Set[str] = set()
                 for fg_lineage in column_lineage:

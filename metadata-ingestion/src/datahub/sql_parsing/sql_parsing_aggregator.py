@@ -1352,8 +1352,7 @@ class SqlParsingAggregator(Closeable):
         # mapping of downstream column -> { upstream column -> query id that produced it }
         cll: Dict[str, Dict[SchemaFieldUrn, QueryId]] = defaultdict(dict)
 
-        # FIX: Track tables added from column lineage for metrics
-        tables_added_from_cll: Set[UrnStr] = set()
+        # FIX: Track queries with lineage inconsistencies for metrics
         queries_with_inconsistencies: Set[QueryId] = set()
 
         for query in queries:
@@ -1376,7 +1375,7 @@ class SqlParsingAggregator(Closeable):
                     if upstream_ref.column and upstream_ref.column.strip():
                         table_urn = upstream_ref.table
 
-                        # FIX: Add table to upstreams if missing (consistency fix)
+                        # Add table to upstreams if only exists in cll (consistency fix)
                         if table_urn not in upstreams:
                             logger.debug(f"Found missing table urn {table_urn} in cll. The query_id was: {query.query_id}")
                             upstreams[table_urn] = query.query_id
