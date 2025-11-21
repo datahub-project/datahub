@@ -104,6 +104,7 @@ class SnowflakeV2Report(
     tags_scanned: int = 0
     streams_scanned: int = 0
     procedures_scanned: int = 0
+    streamlit_apps_scanned: int = 0
 
     include_usage_stats: bool = False
     include_operational_stats: bool = False
@@ -165,6 +166,8 @@ class SnowflakeV2Report(
             self.streams_scanned += 1
         elif ent_type == "procedure":
             self.procedures_scanned += 1
+        elif ent_type == "streamlit":
+            self.streamlit_apps_scanned += 1
         else:
             raise KeyError(f"Unknown entity {ent_type}.")
 

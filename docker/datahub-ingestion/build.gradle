@@ -37,15 +37,18 @@ docker {
 
     version "${docker_version}"
 
-    defaultVariant = "slim"
+    defaultVariant = "full"
 
     variants = [
-        "slim": [suffix: "", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "slim"]],
-        "full": [suffix: "-full", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "full"]]
+        "full": [suffix: "", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "full"]],
+        "slim": [suffix: "-slim", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "slim"]],
+        "locked": [suffix: "-locked", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "locked"]]
         ]
-    // This task is intended to build the slim image
-    //target 'ingestion-base-slim' //Review if this needs to be handled by bake
-    def dockerBuildArgs = [RELEASE_VERSION: python_docker_version]
+    // This task is intended to build the full image by default
+    // Use dockerTarget property to select which variant to build
+    def targetVariant = docker_target ?: defaultVariant.get()
+    def variantArgs = variants.get()[targetVariant]?.args ?: variants.get()[defaultVariant.get()].args
+    def dockerBuildArgs = new HashMap(variantArgs)
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     if (project.hasProperty('pipMirrorUrl')) {
