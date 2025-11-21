@@ -1475,7 +1475,6 @@ public class ESUtils {
             log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
             break;
           }
-          break;
         case ELASTICSEARCH_7:
           {
             // For Elasticsearch, use the low-level client to delete PIT
