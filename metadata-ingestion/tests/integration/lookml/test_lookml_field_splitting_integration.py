@@ -166,9 +166,12 @@ def test_integration_field_splitting_with_large_view(pytestconfig, tmp_path, moc
         report = pipeline.source.get_report()
         assert report is not None
 
-        # Check that warnings contain field splitting statistics
+        # Check that field splitting statistics are reported (in warnings for partial/failure, or infos for complete success)
         warnings = [w for w in report.warnings if "Field Splitting" in str(w)]
-        assert len(warnings) > 0, "Expected field splitting statistics to be reported"
+        infos = [w for w in report.infos if "Field Splitting" in str(w)]
+        assert len(warnings) > 0 or len(infos) > 0, (
+            "Expected field splitting statistics to be reported"
+        )
 
 
 @freeze_time(FROZEN_TIME)
@@ -205,13 +208,17 @@ def test_integration_individual_field_fallback_on_chunk_failure(
     query_call_count = [0]
 
     def run_inline_query_side_effect(result_format=None, body=None, **kwargs):
-        """Simulate chunk failure, then individual field success."""
+        """Simulate chunk failure, then some individual field failures and successes."""
         if result_format == "sql":
             query_call_count[0] += 1
             # First chunk fails (returns invalid SQL that causes parsing error)
             if query_call_count[0] == 1:
                 return "INVALID SQL SYNTAX ERROR"
-            # Subsequent individual field queries succeed
+            # Some individual field queries fail (to test problematic fields reporting)
+            # Fail every 5th field to create some problematic fields
+            if (query_call_count[0] - 1) % 5 == 0:
+                return "INVALID SQL SYNTAX ERROR"
+            # Other individual field queries succeed
             return f"SELECT {view_name}.field_{query_call_count[0] - 2} FROM test_table"
         return ""
 

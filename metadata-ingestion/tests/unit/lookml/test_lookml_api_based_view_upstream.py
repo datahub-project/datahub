@@ -1356,4 +1356,5 @@ class TestFieldSplittingAndParallelProcessing:
             upstream_instance_with_splitting._get_spr()
 
             # Verify reporter was called for statistics
-            assert upstream_instance_with_splitting.reporter.report_warning.called
+            # For complete success (100% success rate), info() is called instead of report_warning()
+            assert upstream_instance_with_splitting.reporter.info.called

@@ -917,7 +917,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         if success_rate == 100:
             # All queries succeeded
-            self.reporter.report_warning(
+            self.reporter.info(
                 title="Field Splitting Statistics - Complete Success",
                 message="Field splitting completed successfully",
                 context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%, Total fields: {total_fields}, Chunks: {total_chunks}, Upstream tables: {upstream_tables}, Column lineages: {column_lineages}{fallback_info}",
