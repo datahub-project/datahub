@@ -100,12 +100,15 @@ def _ingest_cleanup_data_impl(
             )
     """
     print(f"deleting {test_name} test data for idempotency")
+    logger.info(f"Deleting {test_name} test data for idempotency")
     delete_urns_from_file(graph_client, data_file)
     print(f"ingesting {test_name} test data")
+    logger.info(f"Ingesting {test_name} test data")
     ingest_file_via_rest(auth_session, data_file)
     wait_for_writes_to_sync()
     yield
     print(f"removing {test_name} test data")
+    logger.info(f"Removing {test_name} test data")
     delete_urns_from_file(graph_client, data_file)
     if to_delete_urns:
         delete_urns(graph_client, to_delete_urns)
