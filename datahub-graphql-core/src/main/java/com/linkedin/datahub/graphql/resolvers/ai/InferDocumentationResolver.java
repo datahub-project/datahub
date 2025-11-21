@@ -75,7 +75,7 @@ public class InferDocumentationResolver
                                 + "Check integrations service logs for details.",
                             targetUrn);
                         throw new RuntimeException(
-                            "Failed to infer documentation. The AI service encountered an error."
+                            "The AI service encountered an error. "
                                 + "Please try again in a few moments. If the issue persists, contact your DataHub administrator.");
                       }
 
