@@ -30,7 +30,7 @@ public class StructuredPropertiesSoftDelete extends MutationHook {
         items.stream()
             .filter(i -> i.getRecordTemplate() != null)
             .map(i -> Pair.of(i.getUrn(), i.getAspect(StructuredProperties.class)))
-            .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+            .collect(Collectors.toMap(Pair::getKey, Pair::getValue, (a, b) -> a));
 
     // Apply filter
     Map<Urn, Boolean> mutatedEntityStructuredPropertiesMap =
