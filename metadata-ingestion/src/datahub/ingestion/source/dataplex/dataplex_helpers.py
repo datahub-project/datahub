@@ -119,7 +119,7 @@ def make_asset_container_key(
 def make_asset_data_product_urn(
     project_id: str, lake_id: str, zone_id: str, asset_id: str
 ) -> str:
-    """Create URN for a assewt as a data product."""
+    """Create URN for an asset as a data product."""
     return builder.make_data_product_urn(f"{project_id}.{lake_id}.{zone_id}.{asset_id}")
 
 
@@ -261,19 +261,20 @@ def extract_entity_metadata(
     asset_id: str,
     location: str,
     dataplex_client: dataplex_v1.DataplexServiceClient,
-) -> Dict[str, str]:
+) -> tuple[Optional[str], Optional[str]]:
     """Extract entity metadata including platform and dataset_id.
 
     Args:
-        entity: Dataplex entity object
         project_id: GCP project ID
         lake_id: Dataplex lake ID
         zone_id: Dataplex zone ID
+        entity_id: Entity ID
+        asset_id: Asset ID
         location: GCP location
         dataplex_client: Dataplex service client
 
     Returns:
-        Tuple with platform, dataset_id
+        Tuple with (platform, dataset_id). Returns (None, None) if extraction fails.
     """
 
     try:

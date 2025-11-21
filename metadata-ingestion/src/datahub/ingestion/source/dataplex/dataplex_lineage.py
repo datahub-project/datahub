@@ -160,19 +160,17 @@ class DataplexLineageExtractor:
             Iterator of Link objects
         """
         try:
-            logger.info(
-                f"🔍 Searching upstream lineage for FQN: {fully_qualified_name}"
-            )
+            logger.info(f"Searching upstream lineage for FQN: {fully_qualified_name}")
             target = EntityReference(fully_qualified_name=fully_qualified_name)
             request = SearchLinksRequest(parent=parent, target=target)
             results = list(self.lineage_client.search_links(request=request))
             logger.info(
-                f"✅ Found {len(results)} upstream lineage link(s) for {fully_qualified_name}"
+                f"Found {len(results)} upstream lineage link(s) for {fully_qualified_name}"
             )
             return results
         except Exception as e:
             logger.warning(
-                f"❌ No upstream lineage found for {fully_qualified_name}: {type(e).__name__}: {e}"
+                f"No upstream lineage found for {fully_qualified_name}: {type(e).__name__}: {e}"
             )
             return []
 
@@ -190,19 +188,17 @@ class DataplexLineageExtractor:
             Iterator of Link objects
         """
         try:
-            logger.info(
-                f"🔍 Searching downstream lineage for FQN: {fully_qualified_name}"
-            )
+            logger.info(f"Searching downstream lineage for FQN: {fully_qualified_name}")
             source = EntityReference(fully_qualified_name=fully_qualified_name)
             request = SearchLinksRequest(parent=parent, source=source)
             results = list(self.lineage_client.search_links(request=request))
             logger.info(
-                f"✅ Found {len(results)} downstream lineage link(s) for {fully_qualified_name}"
+                f"Found {len(results)} downstream lineage link(s) for {fully_qualified_name}"
             )
             return results
         except Exception as e:
             logger.warning(
-                f"❌ No downstream lineage found for {fully_qualified_name}: {type(e).__name__}: {e}"
+                f"No downstream lineage found for {fully_qualified_name}: {type(e).__name__}: {e}"
             )
             return []
 
@@ -243,7 +239,7 @@ class DataplexLineageExtractor:
         Returns:
             Dictionary mapping entity IDs to sets of LineageEdge objects
         """
-        logger.info(f"🚀 Starting lineage map build for project {project_id}")
+        logger.info(f"Starting lineage map build for project {project_id}")
         lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
         entity_count = 0
 
@@ -279,7 +275,7 @@ class DataplexLineageExtractor:
         total_edges = sum(len(edges) for edges in lineage_map.values())
         entities_with_lineage = len(lineage_map)
         logger.info(
-            f"📊 Lineage map complete: {entities_with_lineage} entities with lineage, {total_edges} total edges"
+            f"Lineage map complete: {entities_with_lineage} entities with lineage, {total_edges} total edges"
         )
 
         return lineage_map

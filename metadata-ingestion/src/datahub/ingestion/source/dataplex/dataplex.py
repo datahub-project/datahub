@@ -66,6 +66,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.metadata.urns import DataPlatformUrn
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,7 @@ class DataplexSource(Source):
         self.metadata_client = dataplex_v1.MetadataServiceClient(
             credentials=credentials
         )
+        # Catalog client for Phase 2: Entry Groups and Entries extraction
         self.catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
 
         if self.config.extract_lineage:
@@ -439,7 +441,7 @@ class DataplexSource(Source):
                                     else None
                                 )
                                 modified_ts = (
-                                    int(zone.update_time.timestamp() * 1000)
+                                    int(asset.update_time.timestamp() * 1000)
                                     if asset.update_time
                                     else None
                                 )
@@ -475,11 +477,187 @@ class DataplexSource(Source):
                 exc=e,
             )
 
+    def _process_zone_entities(
+        self, project_id: str, lake_id: str, zone_id: str
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Process all entities for a single zone (called by parallel workers).
+
+        Args:
+            project_id: GCP project ID
+            lake_id: Dataplex lake ID
+            zone_id: Dataplex zone ID
+
+        Yields:
+            MetadataChangeProposalWrapper objects for entities in this zone
+        """
+        entities_parent = f"projects/{project_id}/locations/{self.config.location}/lakes/{lake_id}/zones/{zone_id}"
+        entities_request = dataplex_v1.ListEntitiesRequest(parent=entities_parent)
+
+        try:
+            entities = self.metadata_client.list_entities(request=entities_request)
+
+            for entity in entities:
+                entity_id = entity.id
+                logger.debug(
+                    f"Processing entity: {entity_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
+                )
+
+                if not self.config.filter_config.entity_pattern.allowed(entity_id):
+                    logger.debug(f"Entity {entity_id} filtered out by pattern")
+                    self.report.report_entity_scanned(entity_id, filtered=True)
+                    continue
+
+                self.report.report_entity_scanned(entity_id)
+                logger.info(
+                    f"Processing entity: {entity_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
+                )
+
+                # Determine source platform and dataset id from asset (bigquery, gcs, etc.)
+                if entity.asset in self.asset_metadata:
+                    source_platform, dataset_id = self.asset_metadata[entity.asset]
+                else:
+                    source_platform, dataset_id = extract_entity_metadata(
+                        project_id,
+                        lake_id,
+                        zone_id,
+                        entity_id,
+                        entity.asset,
+                        self.config.location,
+                        self.dataplex_client,
+                    )
+
+                # Track entity ID for lineage extraction
+                if project_id not in self.entity_data_by_project:
+                    self.entity_data_by_project[project_id] = set[EntityDataTuple]()
+                self.entity_data_by_project[project_id].add(
+                    EntityDataTuple(
+                        lake_id=lake_id,
+                        zone_id=zone_id,
+                        entity_id=entity_id,
+                        asset_id=entity.asset,
+                        source_platform=source_platform,
+                        dataset_id=dataset_id,
+                    )
+                )
+
+                # Fetch full entity details including schema
+                try:
+                    get_entity_request = dataplex_v1.GetEntityRequest(
+                        name=entity.name,
+                        view=dataplex_v1.GetEntityRequest.EntityView.FULL,
+                    )
+                    entity_full = self.metadata_client.get_entity(
+                        request=get_entity_request
+                    )
+                except exceptions.GoogleAPICallError as e:
+                    logger.warning(
+                        f"Could not fetch full entity details for {entity_id}: {e}"
+                    )
+                    entity_full = entity
+
+                # Generate dataset URN with dataplex platform
+                dataset_urn = make_entity_dataset_urn(
+                    entity_id,
+                    project_id,
+                    self.config.env,
+                    dataset_id=dataset_id,
+                    platform="dataplex",
+                )
+
+                # Extract schema metadata
+                schema_metadata = self._extract_schema_metadata(
+                    entity_full, dataset_urn
+                )
+
+                # Build dataset properties
+                custom_properties = {
+                    "lake": lake_id,
+                    "zone": zone_id,
+                    "entity_id": entity_id,
+                    "source_platform": source_platform,
+                }
+
+                if entity_full.data_path:
+                    custom_properties["data_path"] = entity_full.data_path
+
+                if entity_full.system:
+                    custom_properties["system"] = entity_full.system.name
+
+                if entity_full.format:
+                    custom_properties["format"] = entity_full.format.format_.name
+
+                # Build aspects list
+                aspects = [
+                    DatasetPropertiesClass(
+                        name=entity_id,
+                        description=entity_full.description or "",
+                        customProperties=custom_properties,
+                        created=make_audit_stamp(entity_full.create_time),
+                        lastModified=make_audit_stamp(entity_full.update_time),
+                    ),
+                    DataPlatformInstanceClass(
+                        platform=str(DataPlatformUrn(self.platform))
+                    ),
+                    SubTypesClass(
+                        typeNames=[
+                            "Dataplex Entity",
+                            entity_full.type_.name,
+                        ]
+                    ),
+                ]
+
+                # Add schema metadata if available
+                if schema_metadata:
+                    aspects.append(schema_metadata)
+
+                asset_container_key = make_asset_container_key(
+                    project_id=project_id,
+                    lake_id=lake_id,
+                    zone_id=zone_id,
+                    asset_id=entity.asset,
+                    platform=self.platform,
+                    env=self.config.env,
+                )
+                asset_container_urn = asset_container_key.as_urn()
+                aspects.append(ContainerClass(container=asset_container_urn))
+
+                yield from MetadataChangeProposalWrapper.construct_many(
+                    entityUrn=dataset_urn,
+                    aspects=aspects,
+                )
+
+                # Create sibling relationship if enabled and source platform is different
+                if (
+                    self.config.create_sibling_relationships
+                    and source_platform != "dataplex"
+                ):
+                    yield from self._gen_sibling_workunits(
+                        dataset_urn,
+                        entity_id,
+                        project_id,
+                        source_platform,
+                        dataset_id,
+                    )
+
+        except exceptions.GoogleAPICallError as e:
+            self.report.report_failure(
+                title=f"Failed to list entities in zone {zone_id}",
+                message=f"Error listing entities in project {project_id}, lake {lake_id}, zone {zone_id}",
+                exc=e,
+            )
+
     def _get_entities_mcps(
         self, project_id: str
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Fetch entities from Dataplex and generate corresponding MCPs as Datasets."""
+        """Fetch entities from Dataplex and generate corresponding MCPs as Datasets.
+
+        This method parallelizes entity extraction at the zone level using ThreadedIteratorExecutor,
+        following the pattern established by BigQuery V2.
+        """
         parent = f"projects/{project_id}/locations/{self.config.location}"
+
+        # Collect all zones to process in parallel
+        zones_to_process = []
 
         try:
             with self.report.dataplex_api_timer:
@@ -504,190 +682,8 @@ class DataplexSource(Source):
                         if not self.config.filter_config.zone_pattern.allowed(zone_id):
                             continue
 
-                        # List entities in this zone
-                        entities_parent = f"projects/{project_id}/locations/{self.config.location}/lakes/{lake_id}/zones/{zone_id}"
-                        entities_request = dataplex_v1.ListEntitiesRequest(
-                            parent=entities_parent
-                        )
-
-                        try:
-                            entities = self.metadata_client.list_entities(
-                                request=entities_request
-                            )
-
-                            for entity in entities:
-                                entity_id = entity.id
-                                logger.debug(
-                                    f"Processing entity: {entity_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
-                                )
-
-                                if not self.config.filter_config.entity_pattern.allowed(
-                                    entity_id
-                                ):
-                                    logger.debug(
-                                        f"Entity {entity_id} filtered out by pattern"
-                                    )
-                                    self.report.report_entity_scanned(
-                                        entity_id, filtered=True
-                                    )
-                                    continue
-
-                                self.report.report_entity_scanned(entity_id)
-                                logger.info(
-                                    f"Processing entity: {entity_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
-                                )
-
-                                # Determine source platform and dataset id from asset (bigquery, gcs, etc.)
-                                if entity.asset in self.asset_metadata:
-                                    source_platform, dataset_id = self.asset_metadata[
-                                        entity.asset
-                                    ]
-                                else:
-                                    source_platform, dataset_id = (
-                                        extract_entity_metadata(
-                                            project_id,
-                                            lake_id,
-                                            zone_id,
-                                            entity_id,
-                                            entity.asset,
-                                            self.config.location,
-                                            self.dataplex_client,
-                                        )
-                                    )
-
-                                # Track entity ID for lineage extraction
-                                if project_id not in self.entity_data_by_project:
-                                    self.entity_data_by_project[project_id] = set[
-                                        EntityDataTuple
-                                    ]()
-                                self.entity_data_by_project[project_id].add(
-                                    EntityDataTuple(
-                                        lake_id=lake_id,
-                                        zone_id=zone_id,
-                                        entity_id=entity_id,
-                                        asset_id=entity.asset,
-                                        source_platform=source_platform,
-                                        dataset_id=dataset_id,
-                                    )
-                                )
-
-                                # Fetch full entity details including schema
-                                try:
-                                    get_entity_request = dataplex_v1.GetEntityRequest(
-                                        name=entity.name,
-                                        view=dataplex_v1.GetEntityRequest.EntityView.FULL,
-                                    )
-                                    entity_full = self.metadata_client.get_entity(
-                                        request=get_entity_request
-                                    )
-                                except exceptions.GoogleAPICallError as e:
-                                    logger.warning(
-                                        f"Could not fetch full entity details for {entity_id}: {e}"
-                                    )
-                                    entity_full = entity
-
-                                # Generate dataset URN with dataplex platform
-                                dataset_urn = make_entity_dataset_urn(
-                                    entity_id,
-                                    project_id,
-                                    self.config.env,
-                                    dataset_id=dataset_id,
-                                    platform="dataplex",
-                                )
-
-                                # Extract schema metadata
-                                schema_metadata = self._extract_schema_metadata(
-                                    entity_full, dataset_urn
-                                )
-
-                                # Build dataset properties
-                                custom_properties = {
-                                    "lake": lake_id,
-                                    "zone": zone_id,
-                                    "entity_id": entity_id,
-                                    "source_platform": source_platform,
-                                }
-
-                                if entity_full.data_path:
-                                    custom_properties["data_path"] = (
-                                        entity_full.data_path
-                                    )
-
-                                if entity_full.system:
-                                    custom_properties["system"] = (
-                                        entity_full.system.name
-                                    )
-
-                                if entity_full.format:
-                                    custom_properties["format"] = (
-                                        entity_full.format.format_.name
-                                    )
-
-                                # Build aspects list
-                                aspects = [
-                                    DatasetPropertiesClass(
-                                        name=entity_id,
-                                        description=entity_full.description or "",
-                                        customProperties=custom_properties,
-                                        created=make_audit_stamp(
-                                            entity_full.create_time
-                                        ),
-                                        lastModified=make_audit_stamp(
-                                            entity_full.update_time
-                                        ),
-                                    ),
-                                    DataPlatformInstanceClass(
-                                        platform=str(DataPlatformUrn(self.platform))
-                                    ),
-                                    SubTypesClass(
-                                        typeNames=[
-                                            "Dataplex Entity",
-                                            entity_full.type_.name,
-                                        ]
-                                    ),
-                                ]
-
-                                # Add schema metadata if available
-                                if schema_metadata:
-                                    aspects.append(schema_metadata)
-
-                                asset_container_key = make_asset_container_key(
-                                    project_id=project_id,
-                                    lake_id=lake_id,
-                                    zone_id=zone_id,
-                                    asset_id=entity.asset,
-                                    platform=self.platform,
-                                    env=self.config.env,
-                                )
-                                asset_container_urn = asset_container_key.as_urn()
-                                aspects.append(
-                                    ContainerClass(container=asset_container_urn)
-                                )
-
-                                yield from MetadataChangeProposalWrapper.construct_many(
-                                    entityUrn=dataset_urn,
-                                    aspects=aspects,
-                                )
-
-                                # Create sibling relationship if enabled and source platform is different
-                                if (
-                                    self.config.create_sibling_relationships
-                                    and source_platform != "dataplex"
-                                ):
-                                    yield from self._gen_sibling_workunits(
-                                        dataset_urn,
-                                        entity_id,
-                                        project_id,
-                                        source_platform,
-                                        dataset_id,
-                                    )
-
-                        except exceptions.GoogleAPICallError as e:
-                            self.report.report_failure(
-                                title=f"Failed to list entities in zone {zone_id}",
-                                message=f"Error listing entities in project {project_id}, lake {lake_id}, zone {zone_id}",
-                                exc=e,
-                            )
+                        # Add this zone to the list for parallel processing
+                        zones_to_process.append((project_id, lake_id, zone_id))
 
                 except exceptions.GoogleAPICallError as e:
                     self.report.report_failure(
@@ -702,6 +698,18 @@ class DataplexSource(Source):
                 message=f"Error listing lakes in project {project_id}",
                 exc=e,
             )
+
+        # Process zones in parallel using ThreadedIteratorExecutor
+        if zones_to_process:
+            logger.info(
+                f"Processing {len(zones_to_process)} zones in parallel with {self.config.max_workers} workers"
+            )
+            for wu in ThreadedIteratorExecutor.process(
+                worker_func=self._process_zone_entities,
+                args_list=zones_to_process,
+                max_workers=self.config.max_workers,
+            ):
+                yield wu
 
     def _get_entry_groups_mcps(
         self, project_id: str

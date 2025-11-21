@@ -155,5 +155,5 @@ The connector requires the following Python packages:
 
 ```bash
 pip install 'google-cloud-dataplex>=1.0.0'
-pip install 'google-cloud-datacatalog-lineage>=0.3.0'  # Required only if extract_lineage is enabled
+pip install 'google-cloud-datacatalog-lineage==0.2.2'  # Required only if extract_lineage is enabled
 ```

@@ -1,8 +1,9 @@
 source:
   type: dataplex
   config:
-    # Required: GCP project ID where Dataplex resources are located
-    project_id: "my-gcp-project"
+    # Required: GCP project ID(s) where Dataplex resources are located
+    project_ids:
+      - "my-gcp-project"
 
     # Optional: GCP location (default: us-central1)
     location: "us-central1"

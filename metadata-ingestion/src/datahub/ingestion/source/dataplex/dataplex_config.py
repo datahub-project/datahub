@@ -66,17 +66,17 @@ class DataplexConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
 
     extract_lakes: bool = Field(
         default=True,
-        description="Whether to extract Lake metadata as Domains.",
+        description="Whether to extract Lake metadata as Containers.",
     )
 
     extract_zones: bool = Field(
         default=True,
-        description="Whether to extract Zone metadata as Sub-domains.",
+        description="Whether to extract Zone metadata as Containers.",
     )
 
     extract_assets: bool = Field(
         default=True,
-        description="Whether to extract Asset metadata as Data Products.",
+        description="Whether to extract Asset metadata as Containers.",
     )
 
     extract_entities: bool = Field(
@@ -125,7 +125,7 @@ class DataplexConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
 
     max_workers: int = Field(
         default=10,
-        description="Maximum number of concurrent workers for parallel processing.",
+        description="Number of worker threads to use to parallelize zone entity extraction. Set to 1 to disable parallelization.",
     )
 
     dataplex_url: str = Field(
