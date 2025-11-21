@@ -3219,12 +3219,12 @@ enum FabricType {
   SANDBOX
 
   """
-  SAAS ONLY Designates alternative spelling PROD
+  Designates alternative spelling PROD
   """
   PRD
 
   """
-  SAAS ONLY Designates alternative spelling TEST
+  Designates alternative spelling TEST
   """
   TST
 }
