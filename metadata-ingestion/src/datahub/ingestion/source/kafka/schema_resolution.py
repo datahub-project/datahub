@@ -73,11 +73,11 @@ class KafkaSchemaResolver:
 
         # Initialize schema inference as final fallback
         self.schema_inference = None
-        if source_config.schemaless_fallback.enabled:
+        if source_config.schema_resolution.enabled:
             self.schema_inference = KafkaSchemaInference(
                 bootstrap_servers=source_config.connection.bootstrap,
                 consumer_config=source_config.connection.consumer_config,
-                fallback_config=source_config.schemaless_fallback,
+                fallback_config=source_config.schema_resolution,
                 max_workers=max_workers,
             )
 
@@ -315,11 +315,7 @@ class KafkaSchemaResolver:
             sample_messages = self.schema_inference._sample_topic_messages(topic)
 
             # Use the configured fallback config to determine how many messages to sample
-            fallback_config = (
-                self.source_config.schema_resolution
-                if self.source_config.schema_resolution.enabled
-                else self.source_config.schemaless_fallback
-            )
+            fallback_config = self.source_config.schema_resolution
 
             # Limit to configured number of samples for efficiency
             sample_messages = sample_messages[: fallback_config.max_messages_per_topic]

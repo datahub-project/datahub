@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datahub.ingestion.source.kafka.kafka_config import SchemalessFallback
+from datahub.ingestion.source.kafka.kafka_config import SchemaResolutionFallback
 from datahub.ingestion.source.kafka.kafka_schema_inference import (
     FieldAnalysis,
     KafkaSchemaInference,
@@ -20,7 +20,7 @@ from datahub.metadata.schema_classes import (
 @pytest.fixture
 def fallback_config():
     """Create a test fallback configuration."""
-    return SchemalessFallback(
+    return SchemaResolutionFallback(
         enabled=True,
         sample_timeout_seconds=1.0,
         sample_strategy="hybrid",

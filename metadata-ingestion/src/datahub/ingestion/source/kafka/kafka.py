@@ -273,11 +273,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             KafkaSource.create_schema_registry(config, self.report)
         )
 
-        if self.source_config.schemaless_fallback.enabled:
+        if self.source_config.schema_resolution.enabled:
             self.schema_inference = KafkaSchemaInference(
                 bootstrap_servers=self.source_config.connection.bootstrap,
                 consumer_config=self.source_config.connection.consumer_config,
-                fallback_config=self.source_config.schemaless_fallback,
+                fallback_config=self.source_config.schema_resolution,
                 max_workers=self.source_config.profiling.max_workers,
             )
         if self.source_config.domain:
@@ -356,12 +356,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         # Handle comprehensive schema resolution for topics without schemas
-        # Support both new and old config names for backward compatibility
-        schema_resolution_enabled = (
-            self.source_config.schema_resolution.enabled
-            or self.source_config.schemaless_fallback.enabled
-        )
-        if schema_resolution_enabled:
+        if self.source_config.schema_resolution.enabled:
             topics_needing_resolution = [
                 topic
                 for topic in topic_names

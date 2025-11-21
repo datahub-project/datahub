@@ -27,7 +27,7 @@ class TestKafkaSchemaResolver:
         """Create a mock source config."""
         config = MagicMock()
         config.schema_resolution = SchemaResolutionFallback(enabled=True)
-        config.schemaless_fallback = SchemaResolutionFallback(enabled=False)
+        config.schema_resolution = SchemaResolutionFallback(enabled=False)
         config.topic_subject_map = {
             "test-topic-value": "com.example.TestRecord-value",
             "mapped-topic-key": "com.example.KeyRecord-key",

@@ -9,7 +9,7 @@ from typing import Dict, List, Set, Union
 
 from confluent_kafka import Consumer
 
-from datahub.ingestion.source.kafka.kafka_config import SchemalessFallback
+from datahub.ingestion.source.kafka.kafka_config import SchemaResolutionFallback
 from datahub.ingestion.source.kafka.kafka_utils import (
     MessageValue,
     process_kafka_message_for_sampling,
@@ -50,7 +50,7 @@ class KafkaSchemaInference:
         self,
         bootstrap_servers: str,
         consumer_config: Dict[str, Union[str, int, float, bool]],
-        fallback_config: SchemalessFallback,
+        fallback_config: SchemaResolutionFallback,
         max_workers: int = 5 * (os.cpu_count() or 4),
     ):
         """Initialize schema inference with Kafka connection details."""

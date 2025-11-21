@@ -275,7 +275,7 @@ source:
       nested_field_max_depth: 5 # Maximum recursion depth for nested JSON structures (default: 10)
 ```
 
-When `schema_resolution.enabled` is true (or the legacy `schemaless_fallback.enabled`):
+When `schema_resolution.enabled` is true:
 
 DataHub uses a comprehensive multi-stage approach to resolve schemas for Kafka topics:
 
@@ -359,18 +359,11 @@ profiling:
 
 DataHub supports three sampling strategies for schema inference:
 
-- **`hybrid` (default)**: Tries `latest` first for speed, falls back to `earliest` if no recent messages found. Best of both worlds.
+- **`hybrid` (default, recommended)**: Tries `latest` first for speed, falls back to `earliest` if no recent messages found. Balanced approach.
 - **`latest`**: Only reads recent messages. Fastest but may fail on quiet topics.
 - **`earliest`**: Scans from the beginning of topic history. Most comprehensive but slower on large topics.
 
-**Strategy Performance Comparison**:
-| Strategy | Speed | Coverage | Best For |
-|----------|-------|----------|----------|
-| `latest` | ⚡⚡⚡ | 🔍 | Active topics, speed priority |
-| `hybrid` | ⚡⚡ | 🔍🔍🔍 | **Recommended - balanced** |
-| `earliest` | ⚡ | 🔍🔍🔍 | Comprehensive analysis |
-
-**Backward Compatibility**: The old `schemaless_fallback` configuration is still supported but deprecated. Use `schema_resolution` for new configurations. If you prefer the old behavior (warnings for missing schemas), set `schema_resolution.enabled: false`.
+If you prefer to receive warnings for missing schemas instead of automatic resolution, set `schema_resolution.enabled: false`.
 
 ### Data Profiling
 

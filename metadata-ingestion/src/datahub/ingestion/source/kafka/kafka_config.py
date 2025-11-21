@@ -49,10 +49,6 @@ class SchemaResolutionFallback(ConfigModel):
     )
 
 
-# Backward compatibility alias
-SchemalessFallback = SchemaResolutionFallback
-
-
 class ProfilerConfig(GEProfilingConfig):
     """
     Kafka-specific profiling configuration that extends GEProfilingConfig.
@@ -145,12 +141,6 @@ class KafkaSourceConfig(
     schema_resolution: SchemaResolutionFallback = Field(
         default=SchemaResolutionFallback(),
         description="Configuration for comprehensive schema resolution with multiple fallback strategies.",
-    )
-
-    # Backward compatibility alias
-    schemaless_fallback: SchemaResolutionFallback = Field(
-        default=SchemaResolutionFallback(),
-        description="[DEPRECATED] Use 'schema_resolution' instead. Configuration for comprehensive schema resolution with multiple fallback strategies.",
     )
     disable_topic_record_naming_strategy: bool = Field(
         default=False,

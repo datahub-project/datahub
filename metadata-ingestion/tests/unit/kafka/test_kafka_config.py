@@ -9,7 +9,7 @@ from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_config import (
     KafkaSourceConfig,
     ProfilerConfig,
-    SchemalessFallback,
+    SchemaResolutionFallback,
 )
 from datahub.ingestion.source_config.operation_config import OperationConfig
 
@@ -156,21 +156,21 @@ class TestKafkaProfilingConfig:
         assert config.tags_to_ignore_sampling == ["sensitive", "pii"]
 
 
-class TestSchemalessFallbackConfig:
-    """Test SchemalessFallback configuration."""
+class TestSchemaResolutionFallbackConfig:
+    """Test SchemaResolutionFallback configuration."""
 
-    def test_schemaless_fallback_defaults(self):
-        """Test default values for SchemalessFallback."""
-        config = SchemalessFallback()
+    def test_schema_resolution_defaults(self):
+        """Test default values for SchemaResolutionFallback."""
+        config = SchemaResolutionFallback()
 
         assert config.enabled is False  # Default to disabled (opt-in)
         assert config.sample_timeout_seconds == 2.0
         assert config.sample_strategy == "hybrid"
         assert config.max_messages_per_topic == 10
 
-    def test_schemaless_fallback_custom_values(self):
-        """Test custom values for SchemalessFallback."""
-        config = SchemalessFallback(
+    def test_schema_resolution_custom_values(self):
+        """Test custom values for SchemaResolutionFallback."""
+        config = SchemaResolutionFallback(
             enabled=True,
             sample_timeout_seconds=5.0,
             sample_strategy="latest",
@@ -182,19 +182,19 @@ class TestSchemalessFallbackConfig:
         assert config.sample_strategy == "latest"
         assert config.max_messages_per_topic == 20
 
-    def test_schemaless_fallback_validation(self):
-        """Test validation of SchemalessFallback fields."""
+    def test_schema_resolution_validation(self):
+        """Test validation of SchemaResolutionFallback fields."""
         # Valid strategies
         for strategy in ["earliest", "latest", "hybrid"]:
-            config = SchemalessFallback(sample_strategy=strategy)
+            config = SchemaResolutionFallback(sample_strategy=strategy)
             assert config.sample_strategy == strategy
 
         # Positive values
-        config = SchemalessFallback(sample_timeout_seconds=0.1)
+        config = SchemaResolutionFallback(sample_timeout_seconds=0.1)
         assert config.sample_timeout_seconds == 0.1
 
-    def test_kafka_source_config_includes_schemaless_fallback(self):
-        """Test that KafkaSourceConfig includes schemaless_fallback field."""
+    def test_kafka_source_config_includes_schema_resolution(self):
+        """Test that KafkaSourceConfig includes schema_resolution field."""
         # Create minimal config
         config_dict = {
             "connection": {
@@ -205,21 +205,21 @@ class TestSchemalessFallbackConfig:
 
         config = KafkaSourceConfig.parse_obj(config_dict)
 
-        # Should have schemaless_fallback field
-        assert hasattr(config, "schemaless_fallback")
-        assert isinstance(config.schemaless_fallback, SchemalessFallback)
+        # Should have schema_resolution field
+        assert hasattr(config, "schema_resolution")
+        assert isinstance(config.schema_resolution, SchemaResolutionFallback)
 
         # Should be disabled by default
-        assert config.schemaless_fallback.enabled is False
+        assert config.schema_resolution.enabled is False
 
-    def test_kafka_source_config_with_custom_schemaless_fallback(self):
-        """Test KafkaSourceConfig with custom schemaless_fallback settings."""
+    def test_kafka_source_config_with_custom_schema_resolution(self):
+        """Test KafkaSourceConfig with custom schema_resolution settings."""
         config_dict = {
             "connection": {
                 "bootstrap": "localhost:9092",
                 "schema_registry_url": "http://localhost:8081",
             },
-            "schemaless_fallback": {
+            "schema_resolution": {
                 "enabled": True,
                 "sample_timeout_seconds": 3.0,
                 "sample_strategy": "earliest",
@@ -228,6 +228,6 @@ class TestSchemalessFallbackConfig:
 
         config = KafkaSourceConfig.parse_obj(config_dict)
 
-        assert config.schemaless_fallback.enabled is True
-        assert config.schemaless_fallback.sample_timeout_seconds == 3.0
-        assert config.schemaless_fallback.sample_strategy == "earliest"
+        assert config.schema_resolution.enabled is True
+        assert config.schema_resolution.sample_timeout_seconds == 3.0
+        assert config.schema_resolution.sample_strategy == "earliest"

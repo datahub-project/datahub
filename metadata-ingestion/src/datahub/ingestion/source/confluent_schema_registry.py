@@ -275,12 +275,12 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
             if not is_key_schema:
                 # Value schema is always expected. Check if we should warn.
-                if not self.source_config.schemaless_fallback.enabled:
+                if not self.source_config.schema_resolution.enabled:
                     self.report.warning(
                         title="Unable to find a matching subject name for the topic in the schema registry",
                         message=f"The {kafka_entity} {schema_type_str or ''} is either schema-less, or no messages have been written to the {kafka_entity} yet. "
                         "If this is unexpected, check the topic_subject_map and topic_naming related configs. "
-                        "Consider enabling 'schemaless_fallback.enabled' to automatically infer schema from message data.",
+                        "Consider enabling 'schema_resolution.enabled' to automatically infer schema from message data.",
                         context=topic,
                     )
 

@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 from datahub.ingestion.source.kafka.kafka_config import (
     KafkaSourceConfig,
-    SchemalessFallback,
+    SchemaResolutionFallback,
 )
 from datahub.ingestion.source.kafka.kafka_schema_inference import KafkaSchemaInference
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -22,12 +22,12 @@ class TestKafkaSchemaFallbackIntegration:
                     "bootstrap": "localhost:9092",
                     "schema_registry_url": "http://localhost:8081",
                 },
-                "schemaless_fallback": {"enabled": True},
+                "schema_resolution": {"enabled": True},
             }
         )
 
         # The KafkaSource would initialize schema inference
-        fallback_config = config.schemaless_fallback
+        fallback_config = config.schema_resolution
         assert fallback_config.enabled is True
 
         # Test that we can create a KafkaSchemaInference instance
@@ -48,12 +48,12 @@ class TestKafkaSchemaFallbackIntegration:
                     "bootstrap": "localhost:9092",
                     "schema_registry_url": "http://localhost:8081",
                 },
-                "schemaless_fallback": {"enabled": False},
+                "schema_resolution": {"enabled": False},
             }
         )
 
         # The KafkaSource would NOT initialize schema inference
-        fallback_config = config.schemaless_fallback
+        fallback_config = config.schema_resolution
         assert fallback_config.enabled is False
 
     def test_topics_needing_fallback_identification(self):
@@ -101,7 +101,7 @@ class TestKafkaSchemaFallbackIntegration:
 
     def test_schema_inference_batch_processing(self):
         """Test that schema inference processes topics in batch correctly."""
-        fallback_config = SchemalessFallback(enabled=True)
+        fallback_config = SchemaResolutionFallback(enabled=True)
 
         schema_inference = KafkaSchemaInference(
             bootstrap_servers="localhost:9092",
@@ -127,7 +127,7 @@ class TestKafkaSchemaFallbackIntegration:
 
     def test_schema_inference_sequential_processing(self):
         """Test that schema inference falls back to sequential processing when appropriate."""
-        fallback_config = SchemalessFallback(enabled=True)
+        fallback_config = SchemaResolutionFallback(enabled=True)
 
         schema_inference = KafkaSchemaInference(
             bootstrap_servers="localhost:9092",
@@ -153,7 +153,7 @@ class TestKafkaSchemaFallbackIntegration:
 
     def test_schema_inference_error_handling(self):
         """Test that schema inference handles errors gracefully."""
-        fallback_config = SchemalessFallback(enabled=True)
+        fallback_config = SchemaResolutionFallback(enabled=True)
 
         schema_inference = KafkaSchemaInference(
             bootstrap_servers="localhost:9092",
@@ -182,7 +182,7 @@ class TestKafkaSchemaFallbackIntegration:
                     "bootstrap": "localhost:9092",
                     "schema_registry_url": "http://localhost:8081",
                 },
-                "schemaless_fallback": {
+                "schema_resolution": {
                     "enabled": True,
                     "sample_strategy": "hybrid",
                 },
@@ -190,7 +190,7 @@ class TestKafkaSchemaFallbackIntegration:
             }
         )
 
-        assert config1.schemaless_fallback.enabled is True
+        assert config1.schema_resolution.enabled is True
         assert config1.profiling.enabled is True
         assert config1.profiling.max_workers == 8
 
@@ -201,12 +201,12 @@ class TestKafkaSchemaFallbackIntegration:
                     "bootstrap": "localhost:9092",
                     "schema_registry_url": "http://localhost:8081",
                 },
-                "schemaless_fallback": {"enabled": False},
+                "schema_resolution": {"enabled": False},
                 "profiling": {"enabled": True},
             }
         )
 
-        assert config2.schemaless_fallback.enabled is False
+        assert config2.schema_resolution.enabled is False
         assert config2.profiling.enabled is True
 
         # Test 3: Both disabled
@@ -216,12 +216,12 @@ class TestKafkaSchemaFallbackIntegration:
                     "bootstrap": "localhost:9092",
                     "schema_registry_url": "http://localhost:8081",
                 },
-                "schemaless_fallback": {"enabled": False},
+                "schema_resolution": {"enabled": False},
                 "profiling": {"enabled": False},
             }
         )
 
-        assert config3.schemaless_fallback.enabled is False
+        assert config3.schema_resolution.enabled is False
         assert config3.profiling.enabled is False
 
     def test_fallback_results_integration_with_profiling_logic(self):
