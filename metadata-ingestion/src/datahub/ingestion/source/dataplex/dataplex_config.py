@@ -100,6 +100,20 @@ class DataplexConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         "Extracts table-level lineage relationships between entities.",
     )
 
+    lineage_fail_fast: bool = Field(
+        default=False,
+        description="If True, fail immediately on lineage extraction errors. "
+        "If False (default), log errors and continue processing other entities. "
+        "Recommended: False for development, True for production to catch issues early.",
+    )
+
+    max_lineage_failures: int = Field(
+        default=10,
+        description="Maximum number of consecutive lineage extraction failures before stopping. "
+        "Acts as a circuit breaker to prevent excessive API calls when there's a systemic issue. "
+        "Set to -1 to disable circuit breaker. Default: 10.",
+    )
+
     create_sibling_relationships: bool = Field(
         default=True,
         description="Whether to create sibling relationships between Dataplex entities and native platform datasets (BigQuery/GCS).",

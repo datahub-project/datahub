@@ -90,6 +90,10 @@ class DataplexLineageExtractor:
         # Cache for lineage information
         self.lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
 
+        # Circuit breaker state
+        self.consecutive_failures = 0
+        self.circuit_breaker_triggered = False
+
     def get_lineage_for_entity(
         self, project_id: str, entity: EntityDataTuple
     ) -> Optional[Dict[str, list]]:
@@ -103,9 +107,21 @@ class DataplexLineageExtractor:
         Returns:
             Dictionary with 'upstream' and 'downstream' lists of entity FQNs,
             or None if lineage extraction is disabled or fails
+
+        Raises:
+            RuntimeError: If circuit breaker is triggered or fail_fast mode is enabled
         """
         if not self.config.extract_lineage or not self.lineage_client:
             return None
+
+        # Check circuit breaker
+        if self.circuit_breaker_triggered:
+            error_msg = (
+                f"Circuit breaker triggered: {self.consecutive_failures} consecutive failures. "
+                "Skipping remaining lineage extraction."
+            )
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
         try:
             fully_qualified_name = self._construct_fqn(
@@ -139,12 +155,98 @@ class DataplexLineageExtractor:
                 )
                 self.report.num_lineage_entries_scanned += 1
 
+            # Success - reset failure counter
+            self.consecutive_failures = 0
+
             return lineage_data
 
         except Exception as e:
-            logger.warning(f"Failed to get lineage for entity {entity.entity_id}: {e}")
+            # Increment failure counter
+            self.consecutive_failures += 1
             self.report.num_lineage_entries_failed += 1
+
+            # Classify error type
+            error_type = self._classify_error(e)
+            error_msg = (
+                f"Failed to get lineage for entity {entity.entity_id} "
+                f"({error_type}): {e}"
+            )
+
+            # Log at ERROR level instead of WARNING
+            logger.error(error_msg)
+
+            # Check if circuit breaker should trigger
+            if (
+                self.config.max_lineage_failures > 0
+                and self.consecutive_failures >= self.config.max_lineage_failures
+            ):
+                self.circuit_breaker_triggered = True
+                circuit_error = (
+                    f"Circuit breaker triggered after {self.consecutive_failures} "
+                    f"consecutive failures. Last error: {error_msg}"
+                )
+                logger.error(circuit_error)
+                if self.config.lineage_fail_fast:
+                    raise RuntimeError(circuit_error) from e
+
+            # Fail fast if configured
+            if self.config.lineage_fail_fast:
+                raise RuntimeError(error_msg) from e
+
             return None
+
+    def _classify_error(self, error: Exception) -> str:
+        """
+        Classify error as transient (retryable) or permanent.
+
+        Args:
+            error: The exception to classify
+
+        Returns:
+            String describing error type: "TRANSIENT" or "PERMANENT"
+        """
+        error_str = str(error).lower()
+        error_type_name = type(error).__name__
+
+        # Transient errors (network, rate limiting, temporary API issues)
+        transient_indicators = [
+            "timeout",
+            "timed out",
+            "deadline exceeded",
+            "503",
+            "429",  # Rate limiting
+            "quota exceeded",
+            "rate limit",
+            "temporarily unavailable",
+            "connection reset",
+            "connection refused",
+            "network",
+        ]
+
+        # Permanent errors (authentication, permission, not found)
+        permanent_indicators = [
+            "401",  # Unauthorized
+            "403",  # Forbidden
+            "404",  # Not found
+            "invalid credentials",
+            "permission denied",
+            "not found",
+            "does not exist",
+            "invalid argument",
+            "bad request",
+            "400",
+        ]
+
+        for indicator in transient_indicators:
+            if indicator in error_str:
+                return f"TRANSIENT-{error_type_name}"
+
+        for indicator in permanent_indicators:
+            if indicator in error_str:
+                return f"PERMANENT-{error_type_name}"
+
+        # Default to permanent for unknown errors (safer assumption)
+        return f"UNKNOWN-{error_type_name}"
 
     def _search_links_by_target(
         self, parent: str, fully_qualified_name: str
@@ -158,21 +260,18 @@ class DataplexLineageExtractor:
 
         Returns:
             Iterator of Link objects
+
+        Raises:
+            Exception: If the lineage API call fails
         """
-        try:
-            logger.info(f"Searching upstream lineage for FQN: {fully_qualified_name}")
-            target = EntityReference(fully_qualified_name=fully_qualified_name)
-            request = SearchLinksRequest(parent=parent, target=target)
-            results = list(self.lineage_client.search_links(request=request))
-            logger.info(
-                f"Found {len(results)} upstream lineage link(s) for {fully_qualified_name}"
-            )
-            return results
-        except Exception as e:
-            logger.warning(
-                f"No upstream lineage found for {fully_qualified_name}: {type(e).__name__}: {e}"
-            )
-            return []
+        logger.info(f"Searching upstream lineage for FQN: {fully_qualified_name}")
+        target = EntityReference(fully_qualified_name=fully_qualified_name)
+        request = SearchLinksRequest(parent=parent, target=target)
+        results = list(self.lineage_client.search_links(request=request))
+        logger.info(
+            f"Found {len(results)} upstream lineage link(s) for {fully_qualified_name}"
+        )
+        return results
 
     def _search_links_by_source(
         self, parent: str, fully_qualified_name: str
@@ -186,21 +285,18 @@ class DataplexLineageExtractor:
 
         Returns:
             Iterator of Link objects
+
+        Raises:
+            Exception: If the lineage API call fails
         """
-        try:
-            logger.info(f"Searching downstream lineage for FQN: {fully_qualified_name}")
-            source = EntityReference(fully_qualified_name=fully_qualified_name)
-            request = SearchLinksRequest(parent=parent, source=source)
-            results = list(self.lineage_client.search_links(request=request))
-            logger.info(
-                f"Found {len(results)} downstream lineage link(s) for {fully_qualified_name}"
-            )
-            return results
-        except Exception as e:
-            logger.warning(
-                f"No downstream lineage found for {fully_qualified_name}: {type(e).__name__}: {e}"
-            )
-            return []
+        logger.info(f"Searching downstream lineage for FQN: {fully_qualified_name}")
+        source = EntityReference(fully_qualified_name=fully_qualified_name)
+        request = SearchLinksRequest(parent=parent, source=source)
+        results = list(self.lineage_client.search_links(request=request))
+        logger.info(
+            f"Found {len(results)} downstream lineage link(s) for {fully_qualified_name}"
+        )
+        return results
 
     def _construct_fqn(
         self, platform: str, project_id: str, dataset_id: str, entity_id: str
