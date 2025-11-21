@@ -61,11 +61,9 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    DatasetSnapshotClass,
     GlobalTagsClass,
     InputFieldClass,
     InputFieldsClass,
-    MetadataChangeEventClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaMetadataClass,
@@ -497,47 +495,58 @@ class GrafanaSource(StatefulIngestionSourceBase):
             env=self.env,
         )
 
-        # Create dataset snapshot
-        dataset_snapshot = DatasetSnapshotClass(
-            urn=dataset_urn,
-            aspects=[
-                DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform),
-                    instance=make_dataplatform_instance_urn(
-                        platform=self.platform,
-                        instance=self.platform_instance,
-                    )
-                    if self.platform_instance
-                    else None,
-                ),
-                DatasetPropertiesClass(
-                    name=f"{ds_uid} ({panel.title or panel.id})",
-                    description="",
-                    customProperties={
-                        "type": ds_type,
-                        "uid": ds_uid,
-                        "full_path": dataset_name,
-                    },
-                ),
-                StatusClass(removed=False),
-            ],
-        )
+        # Platform instance aspect
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(
+                    platform=self.platform,
+                    instance=self.platform_instance,
+                )
+                if self.platform_instance
+                else None,
+            ),
+        ).as_workunit()
+
+        # Dataset properties aspect
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DatasetPropertiesClass(
+                name=f"{ds_uid} ({panel.title or panel.id})",
+                description="",
+                customProperties={
+                    "type": ds_type,
+                    "uid": ds_uid,
+                    "full_path": dataset_name,
+                },
+            ),
+        ).as_workunit()
+
+        # Status aspect
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
 
         # Add schema metadata if available
         schema_fields = extract_fields_from_panel(
             panel, self.config.connection_to_platform_map, self.ctx.graph, self.report
         )
         if schema_fields:
-            schema_metadata = SchemaMetadataClass(
-                schemaName=f"{ds_type}.{ds_uid}.{panel.id}",
-                platform=make_data_platform_urn(self.platform),
-                version=0,
-                fields=schema_fields,
-                hash="",
-                platformSchema=OtherSchemaClass(rawSchema=""),
-            )
-            dataset_snapshot.aspects.append(schema_metadata)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SchemaMetadataClass(
+                    schemaName=f"{ds_type}.{ds_uid}.{panel.id}",
+                    platform=make_data_platform_urn(self.platform),
+                    version=0,
+                    fields=schema_fields,
+                    hash="",
+                    platformSchema=OtherSchemaClass(rawSchema=""),
+                ),
+            ).as_workunit()
 
+        # Add tags if available
         if dashboard_uid and self.config.ingest_tags:
             dashboard = self.api_client.get_dashboard(dashboard_uid)
             if dashboard and dashboard.tags:
@@ -546,13 +555,12 @@ class GrafanaSource(StatefulIngestionSourceBase):
                     tags.append(TagAssociationClass(tag=make_tag_urn(tag)))
 
                 if tags:
-                    dataset_snapshot.aspects.append(GlobalTagsClass(tags=tags))
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn,
+                        aspect=GlobalTagsClass(tags=tags),
+                    ).as_workunit()
 
         self.report.report_dataset_scanned()
-        yield MetadataWorkUnit(
-            id=f"grafana-dataset-{ds_uid}-{panel.id}",
-            mce=MetadataChangeEventClass(proposedSnapshot=dataset_snapshot),
-        )
 
         # Add dataset to dashboard container
         if dashboard_uid:
