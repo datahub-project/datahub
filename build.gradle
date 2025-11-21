@@ -133,7 +133,7 @@ project.ext.externalDependency = [
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.15',
     'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.5.6',
     'awsRds':"software.amazon.awssdk:rds:$awsSdk2Version",
-    'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.5',
+    'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.6',
     'azureIdentity': 'com.azure:azure-identity:1.18.1',
     'cacheApi': 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
@@ -187,7 +187,7 @@ project.ext.externalDependency = [
     'javaxInject' : 'javax.inject:javax.inject:1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
     'jakartaValidation': 'jakarta.validation:jakarta.validation-api:3.1.0-M2',
-    'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.41',
+    'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.46',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
     'jettySecurity': "org.eclipse.jetty:jetty-security:$jettyVersion",
     'jettyClient': "org.eclipse.jetty:jetty-client:$jettyVersion",
@@ -485,6 +485,11 @@ subprojects {
   apply plugin: 'maven-publish'
   apply plugin: 'com.diffplug.spotless'
 
+  // Enable dependency locking for all configurations
+  dependencyLocking {
+    lockAllConfigurations()
+  }
+
   def gitPropertiesTask = tasks.register("copyGitProperties", Copy) {
     dependsOn rootProject.tasks.named("generateGitPropertiesGlobal")
     def sourceFile = file("${rootProject.buildDir}/git.properties")
@@ -530,6 +535,9 @@ subprojects {
           exclude 'src/**/resources/'
           exclude 'src/**/generated/'
           exclude 'src/**/mainGeneratedDataTemplate/'
+          exclude 'src/**/mainGeneratedAvroSchema/'
+          exclude 'src/**/mainGeneratedGraphQL/'
+          exclude 'src/**/generatedJsonSchema/'
           exclude 'src/**/mainGeneratedRest/'
           exclude 'src/renamed/avro/'
           exclude 'src/test/sample-test-plugins/'
@@ -566,18 +574,6 @@ subprojects {
         javaLauncher = javaToolchains.launcherFor {
           languageVersion = JavaLanguageVersion.of(jdkVersion(project))
         }
-      }
-    }
-
-    afterEvaluate {
-      def spotlessJavaTask = tasks.findByName('spotlessJava')
-      def processTask = tasks.findByName('processResources')
-      if (processTask != null) {
-        spotlessJavaTask.dependsOn processTask
-      }
-      def compileJavaTask = tasks.findByName('compileJava')
-      if (compileJavaTask != null) {
-        spotlessJavaTask.dependsOn compileJavaTask
       }
     }
   }
@@ -621,4 +617,22 @@ tasks.register('formatChanged') {
   dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
   dependsOn(':datahub-web-react:mdPrettierWriteChanged')
   dependsOn('spotlessApply')
+}
+
+tasks.register('resolveAndLockAll') {
+  description = 'Resolves all configurations to generate complete dependency lock files'
+  group = 'dependency locking'
+  doLast {
+    allprojects.each { project ->
+      project.configurations.findAll { config ->
+        config.canBeResolved && !config.name.toLowerCase().contains('detached')
+      }.each { config ->
+        try {
+          config.resolve()
+        } catch (Exception e) {
+          logger.warn("Could not resolve configuration ${project.path}:${config.name}: ${e.message}")
+        }
+      }
+    }
+  }
 }

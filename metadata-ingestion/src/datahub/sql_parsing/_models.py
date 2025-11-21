@@ -4,15 +4,10 @@ from typing import Any, Optional
 import sqlglot
 from pydantic import BaseModel
 
-from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
-
 
 class _ParserBaseModel(
     BaseModel,
     arbitrary_types_allowed=True,
-    json_encoders={
-        SchemaFieldDataTypeClass: lambda v: v.to_obj(),
-    },
 ):
     def json(self, *args: Any, **kwargs: Any) -> str:
         return super().model_dump_json(*args, **kwargs)  # type: ignore
@@ -21,7 +16,7 @@ class _ParserBaseModel(
 @functools.total_ordering
 class _FrozenModel(_ParserBaseModel, frozen=True):
     def __lt__(self, other: "_FrozenModel") -> bool:
-        for field in self.model_fields:
+        for field in self.__class__.model_fields:
             self_v = getattr(self, field)
             other_v = getattr(other, field)
 

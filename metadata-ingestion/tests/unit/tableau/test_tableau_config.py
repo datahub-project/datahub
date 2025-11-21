@@ -103,9 +103,10 @@ def test_ingest_hidden_assets_multiple():
 def test_ingest_hidden_assets_invalid():
     config = deepcopy(default_config)
     config["ingest_hidden_assets"] = ["worksheet", "invalid"]
+
     with pytest.raises(
         ValidationError,
-        match=re.compile(r"ingest_hidden_assets.*input_value='invalid'", re.DOTALL),
+        match=re.compile(r"ingest_hidden_assets.*'worksheet'.*'dashboard'", re.DOTALL),
     ):
         TableauConfig.model_validate(config)
 
