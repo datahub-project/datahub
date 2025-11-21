@@ -88,6 +88,27 @@ def test_dashboard_nested_panels():
     assert dashboard.panels[1].title == "Top Level Panel"
 
 
+def test_dashboard_without_tags():
+    """Test that dashboards without tags field validate correctly (default to empty list)"""
+    dashboard_data = {
+        "dashboard": {
+            "uid": "dash1",
+            "title": "Test Dashboard",
+            "description": "Test Description",
+            "version": "1",
+            "panels": [],
+            "timezone": "utc",
+            "schemaVersion": "1.0",
+            "meta": {"folderId": "123"},
+        }
+    }
+
+    dashboard = Dashboard.model_validate(dashboard_data)
+    assert dashboard.uid == "dash1"
+    assert dashboard.title == "Test Dashboard"
+    assert dashboard.tags == []
+
+
 def test_folder():
     folder_data = {"id": "1", "title": "Test Folder", "description": "Test Description"}
 

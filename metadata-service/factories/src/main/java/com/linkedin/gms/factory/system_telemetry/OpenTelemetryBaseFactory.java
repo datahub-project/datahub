@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.system_telemetry;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.system_telemetry.usage.DataHubUsageSpanExporter;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.utils.metrics.MetricSpanExporter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -19,7 +20,6 @@ import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
-import org.apache.kafka.clients.producer.Producer;
 
 /** Common System OpenTelemetry */
 public abstract class OpenTelemetryBaseFactory {
@@ -30,7 +30,7 @@ public abstract class OpenTelemetryBaseFactory {
   protected SystemTelemetryContext traceContext(
       MetricUtils metricUtils,
       ConfigurationProvider configurationProvider,
-      Producer<String, String> dueProducer) {
+      GenericProducer<String> dueProducer) {
 
     SpanProcessor usageSpanExporter = getUsageSpanExporter(configurationProvider, dueProducer);
     OpenTelemetry openTelemetry = openTelemetry(metricUtils, usageSpanExporter);
@@ -43,7 +43,7 @@ public abstract class OpenTelemetryBaseFactory {
 
   @Nullable
   private SpanProcessor getUsageSpanExporter(
-      ConfigurationProvider configurationProvider, Producer<String, String> dueProducer) {
+      ConfigurationProvider configurationProvider, GenericProducer<String> dueProducer) {
     if (dueProducer != null
         && configurationProvider.getPlatformAnalytics().isEnabled()
         && configurationProvider.getPlatformAnalytics().getUsageExport().isEnabled()) {
