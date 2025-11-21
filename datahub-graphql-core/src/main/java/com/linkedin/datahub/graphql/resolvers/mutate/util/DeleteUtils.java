@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import static com.datahub.authorization.AuthorizerChain.isDomainBasedAuthorizationEnabled;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 
@@ -8,6 +9,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -15,6 +17,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,7 +26,21 @@ public class DeleteUtils {
 
   private DeleteUtils() {}
 
-  public static boolean isAuthorizedToDeleteEntity(@Nonnull QueryContext context, Urn entityUrn) {
+  public static boolean isAuthorizedToDeleteEntity(
+      @Nonnull QueryContext context, @Nonnull Urn entityUrn, @Nonnull EntityClient entityClient) {
+    // Check if domain-based authorization is enabled
+    if (isDomainBasedAuthorizationEnabled(context.getAuthorizer())) {
+      // Get entity's domains using EntityClient (GraphQL uses EntityClient)
+      Set<Urn> domainUrns = DomainUtils.getEntityDomains(context, entityClient, entityUrn);
+      
+      // If entity has domains, use domain-aware authorization
+      if (!domainUrns.isEmpty()) {
+        log.debug("Domain-based authorization enabled for DELETE. Checking domains: {}", domainUrns);
+        return DomainUtils.isAuthorizedWithDomains(context, DELETE, entityUrn, domainUrns);
+      }
+    }
+    
+    // Fall back to standard authorization if no domains or feature disabled
     return AuthUtil.isAuthorizedEntityUrns(
         context.getOperationContext(), DELETE, List.of(entityUrn));
   }

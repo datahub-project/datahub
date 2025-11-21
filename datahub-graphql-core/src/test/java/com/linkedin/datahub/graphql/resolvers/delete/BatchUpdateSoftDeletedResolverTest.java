@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchUpdateSoftDeletedInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -56,7 +57,7 @@ public class BatchUpdateSoftDeletedResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
 
-    BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
+    BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService, Mockito.mock(EntityClient.class));
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -107,7 +108,7 @@ public class BatchUpdateSoftDeletedResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
 
-    BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
+    BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService, Mockito.mock(EntityClient.class));
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -155,7 +156,7 @@ public class BatchUpdateSoftDeletedResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
 
-    BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
+    BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService, Mockito.mock(EntityClient.class));
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -175,7 +176,7 @@ public class BatchUpdateSoftDeletedResolverTest {
   public void testGetUnauthorized() throws Exception {
     EntityService<?> mockService = getMockEntityService();
 
-    BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
+    BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService, Mockito.mock(EntityClient.class));
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -199,7 +200,7 @@ public class BatchUpdateSoftDeletedResolverTest {
         .when(mockService)
         .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
-    BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
+    BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService, Mockito.mock(EntityClient.class));
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

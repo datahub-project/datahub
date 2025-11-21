@@ -508,6 +508,11 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
+    // Check domain-based authorization if feature flag is enabled
+    if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      checkDomainAuthorizationForEntity(opContext, urn, authentication.getActor().toUrnStr());
+    }
+
     if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
