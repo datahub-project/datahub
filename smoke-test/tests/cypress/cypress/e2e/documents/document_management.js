@@ -268,7 +268,7 @@ describe("Document Management End-to-End Test", () => {
   });
 
   describe("Document Hierarchy Operations", () => {
-    it.only("should create two documents, move one to the other, and verify nesting", function () {
+    it("should create two documents, move one to the other, and verify nesting", function () {
       // 1. Initial Setup
       cy.visit("/search");
       cy.wait(2000);
