@@ -525,7 +525,6 @@ public class DocumentService {
     log.debug("Updated status of document {} to {}", documentUrn, newState);
   }
 
-
   /**
    * Update the sub type for a document
    *
