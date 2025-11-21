@@ -320,6 +320,11 @@ public class AssertionMapper {
       assertionInfo.setExternalUrl(gmsAssertionInfo.getExternalUrl().toString());
     }
 
+    // Entity URN
+    if (gmsAssertionInfo.hasEntityUrn()) {
+      assertionInfo.setEntityUrn(gmsAssertionInfo.getEntityUrn().toString());
+    }
+
     return assertionInfo;
   }
 

@@ -8629,6 +8629,11 @@ type AssertionInfo {
   URL where assertion details are available
   """
   externalUrl: String
+
+  """
+  The entity targeted by this assertion. Newly added field, automatically set by mutation
+  """
+  entityUrn: String
 }
 
 """

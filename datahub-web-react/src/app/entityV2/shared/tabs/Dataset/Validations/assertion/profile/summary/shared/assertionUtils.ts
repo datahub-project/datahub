@@ -84,3 +84,7 @@ export const getAssertionEditabilityType = (assertion: Assertion): AssertionEdit
 
     return AssertionEditabilityScopeType.NONE;
 };
+
+export const getIsSmartAssertion = (assertion: Assertion): boolean => {
+    return assertion.info?.source?.type === AssertionSourceType.Inferred;
+};

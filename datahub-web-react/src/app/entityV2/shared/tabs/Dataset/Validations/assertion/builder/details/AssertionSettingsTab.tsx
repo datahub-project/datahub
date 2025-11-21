@@ -48,7 +48,7 @@ export const AssertionContainer = styled.div`
     justify-content: space-around;
 `;
 
-export const AssertionSettings = (props: Props) => {
+export const AssertionSettingsTab = (props: Props) => {
     const initialState = createAssertionMonitorBuilderState(props.assertion, props.entity, props.monitor);
     const [builderState, setBuilderState] = useState<AssertionMonitorBuilderState>(initialState);
     const [editing, setEditing] = useState<boolean>(false);

@@ -1,14 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Skeleton } from 'antd';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { AssertionSettingsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/AssertionSettingsTab';
 import { AssertionProfileFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileFooter';
 import { AssertionProfileHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeader';
 import { AssertionProfileHeaderLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeaderLoading';
 import { AssertionTabs } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionTabs';
 import { AssertionNoteTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/note/AssertionNoteTab';
-import { AssertionSettingsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/settings/AssertionSettingsTab';
+import { AssertionSettingsLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/settings/AssertionSettingsLoading';
+import { AssertionSummaryLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummaryLoading';
 import { AssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummaryTab';
 import {
     AssertionEditabilityScopeType,
@@ -61,14 +64,7 @@ export const AssertionProfile = ({
     } = useGetAssertionWithMonitorsQuery({ variables: { assertionUrn: urn }, fetchPolicy: 'cache-first' });
 
     const assertion = assertionData?.assertion as Maybe<Assertion>;
-    const monitor = assertionData?.assertion?.monitor?.relationships?.[0]?.entity as Maybe<Monitor>;
-    const result = assertion?.runEvents?.runEvents[0]?.result;
-    const assertionEntityUrn = assertion ? getEntityUrnForAssertion(assertion) : undefined;
-    const canEditAssertion = assertion
-        ? (assertion?.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
-        : false;
-    const editAllowed = canEditMonitors && canEditAssertion;
-    const assertionEntitySibling = assertionEntityUrn ? getSiblingWithUrn(entity, assertionEntityUrn) : undefined;
+    const assertionEntityUrn = assertion?.info?.entityUrn;
 
     const {
         data: contractData,
@@ -82,13 +78,13 @@ export const AssertionProfile = ({
         skip: !assertionEntityUrn,
     });
 
-    const fullRefetch = useCallback(async () => {
+    const fullRefetch = async () => {
         try {
             await Promise.allSettled([assertionRefetch(), contractRefetch()]);
         } catch (error) {
             console.error('Error refetching assertion details:', error);
         }
-    }, [assertionRefetch, contractRefetch]);
+    };
 
     useEffect(() => {
         if (selectedTab === TabType.Settings) {
@@ -109,78 +105,100 @@ export const AssertionProfile = ({
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedTab]);
+    }, [selectedTab, assertion?.urn]);
 
     const contract = contractData?.dataset?.contract as DataContract | null | undefined;
-    const isLoading = assertionLoading || contractLoading;
+    const isLoading = assertionLoading || contractLoading || isRefetchingForSettingsTab;
 
-    const tabs = useMemo(
-        () => [
-            {
-                key: TabType.Summary,
-                label: 'Summary',
-                content: (
-                    <AssertionSummaryTab
-                        loading={isLoading}
-                        assertion={assertion}
-                        monitor={monitor}
-                        openAssertionNote={openAssertionNote}
-                        refreshData={fullRefetch}
-                    />
-                ),
-            },
-            {
-                key: TabType.Note,
-                label: 'Notes',
-                content: <AssertionNoteTab loading={isLoading} assertion={assertion} editAllowed={editAllowed} />,
-            },
-            {
-                key: TabType.Settings,
-                label: 'Settings',
-                content: (
-                    <AssertionSettingsTab
-                        loading={isLoading || isRefetchingForSettingsTab}
-                        assertion={assertion}
-                        entity={assertionEntitySibling}
-                        refetch={fullRefetch}
-                        monitor={monitor}
-                        editable={
-                            !!assertion && getAssertionEditabilityType(assertion) !== AssertionEditabilityScopeType.NONE
-                        }
-                        editAllowed={editAllowed}
-                    />
-                ),
-            },
-        ],
-        [
-            isLoading,
-            assertion,
-            monitor,
-            openAssertionNote,
-            fullRefetch,
-            editAllowed,
-            isRefetchingForSettingsTab,
-            assertionEntitySibling,
-        ],
-    );
+    const loadingTabs = [
+        {
+            key: TabType.Summary,
+            label: 'Summary',
+            content: <AssertionSummaryLoading />,
+        },
+        {
+            key: TabType.Note,
+            label: 'Notes',
+            content: <Skeleton />,
+        },
+        {
+            key: TabType.Settings,
+            label: 'Settings',
+            content: <AssertionSettingsLoading />,
+        },
+    ];
+
+    if (isLoading || !assertion) {
+        return (
+            <>
+                <AssertionProfileHeaderLoading />
+                <AssertionTabs selectedTab={selectedTab} setSelectedTab={setSelectedTab} tabs={loadingTabs} />
+                <AssertionProfileFooter />
+            </>
+        );
+    }
+
+    const monitor = assertionData?.assertion?.monitor?.relationships?.[0]?.entity as Maybe<Monitor>;
+    const result = assertion?.runEvents?.runEvents[0]?.result;
+    const canEditAssertion = (assertion.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions;
+    const editAllowed = canEditMonitors && canEditAssertion;
+
+    if (!assertionEntityUrn) {
+        throw new Error(`Assertion entity urn not found for assertion ${assertion?.urn}`);
+    }
+
+    const assertionEntitySibling = getSiblingWithUrn(entity, assertionEntityUrn);
+    if (!assertionEntitySibling) {
+        throw new Error(`Assertion entity sibling not found for assertion ${assertion?.urn} on entity ${entity.urn}`);
+    }
+
+    const tabs = [
+        {
+            key: TabType.Summary,
+            label: 'Summary',
+            content: (
+                <AssertionSummaryTab
+                    assertion={assertion}
+                    monitor={monitor}
+                    openAssertionNote={openAssertionNote}
+                    refreshData={fullRefetch}
+                />
+            ),
+        },
+        {
+            key: TabType.Note,
+            label: 'Notes',
+            content: <AssertionNoteTab assertion={assertion} editAllowed={editAllowed} />,
+        },
+        {
+            key: TabType.Settings,
+            label: 'Settings',
+            content: (
+                <AssertionSettingsTab
+                    assertion={assertion}
+                    entity={assertionEntitySibling}
+                    refetch={fullRefetch}
+                    monitor={monitor}
+                    editable={getAssertionEditabilityType(assertion) !== AssertionEditabilityScopeType.NONE}
+                    editAllowed={editAllowed}
+                />
+            ),
+        },
+    ];
 
     return (
         <>
-            {isLoading || !assertion ? (
-                <AssertionProfileHeaderLoading />
-            ) : (
-                <AssertionProfileHeader
-                    assertion={assertion}
-                    monitor={monitor}
-                    contract={contract}
-                    result={result || undefined}
-                    canEditAssertion={canEditAssertion}
-                    canEditMonitor={canEditMonitors}
-                    canEditContract
-                    refetch={fullRefetch}
-                    close={close}
-                />
-            )}
+            <AssertionProfileHeader
+                assertion={assertion}
+                monitor={monitor}
+                contract={contract}
+                result={result || undefined}
+                canEditAssertion={canEditAssertion}
+                canEditMonitor={canEditMonitors}
+                canEditContract
+                refetch={fullRefetch}
+                close={close}
+            />
             <AssertionTabs selectedTab={selectedTab} setSelectedTab={setSelectedTab} tabs={tabs} />
             <AssertionProfileFooter />
         </>

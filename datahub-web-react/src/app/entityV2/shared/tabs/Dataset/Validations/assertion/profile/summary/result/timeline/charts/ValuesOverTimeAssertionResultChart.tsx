@@ -18,6 +18,7 @@ import {
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { getAnomalyFeedbackContext } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
+import AssertionChartHeader from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionChartHeader';
 import {
     AssertionDataPoint,
     AssertionResultChartData,
@@ -51,7 +52,7 @@ type Props = {
         width: number;
         height: number;
     };
-    renderHeader?: (title?: string) => JSX.Element;
+    onOpenTunePredictionsModal: () => void;
     refreshData?: () => Promise<unknown>;
     openAssertionNote?: () => void;
     onTimeRangeChange?: (startTimeMs: number, endTimeMs: number) => void;
@@ -111,10 +112,10 @@ export const ValuesOverTimeAssertionResultChart = ({
     exclusionWindows,
     timeRange,
     chartDimensions,
-    renderHeader,
     refreshData,
     openAssertionNote,
     onTimeRangeChange,
+    onOpenTunePredictionsModal,
 }: Props) => {
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
     const rawDataPoints = data.dataPoints;
@@ -221,7 +222,13 @@ export const ValuesOverTimeAssertionResultChart = ({
     /* NOTE: the nodes in an svg that are first will have a lower z-index at paint-time */
     return (
         <>
-            {renderHeader?.(data.yAxisLabel ? `${data.yAxisLabel} over time` : getTimeRangeDisplay(timeRange))}
+            <AssertionChartHeader
+                title={data.yAxisLabel ? `${data.yAxisLabel} over time` : getTimeRangeDisplay(timeRange)}
+                timeRange={timeRange}
+                assertion={data.context.assertion}
+                monitor={data.context.monitor}
+                onOpenTunePredictionsModal={onOpenTunePredictionsModal}
+            />
             <ChartInteractionContainer
                 hasSelection={!!onTimeRangeChange}
                 onMouseDown={onTimeRangeChange ? handleMouseDown : undefined}

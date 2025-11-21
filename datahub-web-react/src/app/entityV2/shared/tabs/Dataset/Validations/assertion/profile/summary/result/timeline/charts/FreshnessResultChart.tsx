@@ -13,6 +13,7 @@ import { calculateOverlapBetweenTwoMarkers } from '@app/dataviz/utils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { getAnomalyFeedbackContext } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
+import AssertionChartHeader from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionChartHeader';
 import {
     AssertionDataPoint,
     AssertionResultChartData,
@@ -29,7 +30,7 @@ import { tryGetActualUpdatedTimestampFromAssertionResult } from '@app/entityV2/s
 import { LinkWrapper } from '@app/shared/LinkWrapper';
 import { useAppConfig } from '@app/useAppConfig';
 
-import { AssertionExclusionWindow, AssertionExclusionWindowType, AssertionResultType } from '@types';
+import { AssertionExclusionWindow, AssertionExclusionWindowType, AssertionResultType, Maybe, Monitor } from '@types';
 
 const CHART_HORIZ_MARGIN = 36;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
@@ -38,6 +39,7 @@ const CHART_AXIS_TOP_MARGIN = 24;
 const PRIMARY_CANDLE_STICK_BAR_WIDTH = 5;
 
 type Props = {
+    monitor?: Maybe<Monitor>;
     data: AssertionResultChartData;
     timeRange: TimeRange;
     exclusionWindows?: AssertionExclusionWindow[];
@@ -45,9 +47,9 @@ type Props = {
         width: number;
         height: number;
     };
-    renderHeader?: (title?: string) => JSX.Element;
     refreshData?: () => Promise<unknown>;
     openAssertionNote?: () => void;
+    onOpenTunePredictionsModal: () => void;
 };
 /**
  * Specifically for freshness assertions.
@@ -56,10 +58,10 @@ export const FreshnessResultChart = ({
     data,
     timeRange,
     chartDimensions,
-    renderHeader,
     refreshData,
     openAssertionNote,
     exclusionWindows,
+    onOpenTunePredictionsModal,
 }: Props) => {
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
 
@@ -101,7 +103,13 @@ export const FreshnessResultChart = ({
     const yOffset = 0;
     return (
         <>
-            {renderHeader?.(`${data.yAxisLabel ?? 'Freshness checks'} over time`)}
+            <AssertionChartHeader
+                title={`${data.yAxisLabel ?? 'Freshness checks'} over time`}
+                timeRange={timeRange}
+                assertion={data.context.assertion}
+                monitor={data.context.monitor}
+                onOpenTunePredictionsModal={onOpenTunePredictionsModal}
+            />
             <svg width={chartDimensions.width} height={chartDimensions.height}>
                 <Group left={CHART_HORIZ_MARGIN / 2} top={CHART_AXIS_TOP_MARGIN}>
                     {/* Axis */}

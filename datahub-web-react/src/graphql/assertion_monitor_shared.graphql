@@ -204,6 +204,7 @@ fragment assertionInfo on AssertionInfo {
         }
     }
     externalUrl
+    entityUrn
 }
 
 fragment assertionEvaluationParameters on AssertionEvaluationParameters {

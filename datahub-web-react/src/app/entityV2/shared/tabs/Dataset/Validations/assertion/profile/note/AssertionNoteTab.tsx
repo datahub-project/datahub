@@ -1,5 +1,5 @@
 import { Button, Text, Tooltip } from '@components';
-import { Skeleton, message } from 'antd';
+import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -43,12 +43,11 @@ const Header = styled.div`
 `;
 
 type Props = {
-    loading: boolean;
     assertion: Maybe<Assertion>;
     editAllowed: boolean;
 };
 
-export const AssertionNoteTab = ({ loading, assertion, editAllowed }: Props) => {
+export const AssertionNoteTab = ({ assertion, editAllowed }: Props) => {
     const [updateAssertionMetadata] = useUpdateAssertionMetadataMutation();
 
     const [note, setNote] = useState(assertion?.info?.note || '');
@@ -124,17 +123,13 @@ export const AssertionNoteTab = ({ loading, assertion, editAllowed }: Props) => 
                     </div>
                 </Tooltip>
             </Header>
-            {loading ? (
-                <Skeleton />
-            ) : (
-                <StyledEditor
-                    toolbarStyles={{ width: '100%' }}
-                    content={note}
-                    readOnly={!isEditing}
-                    onChange={(content) => setNote(content)}
-                    placeholder="Add context to help technical owners troubleshoot Data Quality failures."
-                />
-            )}
+            <StyledEditor
+                toolbarStyles={{ width: '100%' }}
+                content={note}
+                readOnly={!isEditing}
+                onChange={(content) => setNote(content)}
+                placeholder="Add context to help technical owners troubleshoot Data Quality failures."
+            />
         </div>
     );
 };

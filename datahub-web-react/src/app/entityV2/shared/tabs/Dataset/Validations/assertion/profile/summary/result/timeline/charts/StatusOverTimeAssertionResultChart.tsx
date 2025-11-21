@@ -9,6 +9,7 @@ import React, { useMemo } from 'react';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
+import AssertionChartHeader from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionChartHeader';
 import {
     AssertionResultChartData,
     TimeRange,
@@ -19,7 +20,6 @@ import {
     getCustomTimeScaleTickValue,
     getFillColor,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
-import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
 import { LinkWrapper } from '@app/shared/LinkWrapper';
 
 type Props = {
@@ -29,7 +29,7 @@ type Props = {
         width: number;
         height: number;
     };
-    renderHeader?: (title?: string) => JSX.Element;
+    onOpenTunePredictionsModal: () => void;
 };
 
 const CHART_HORIZ_MARGIN = 36;
@@ -39,7 +39,12 @@ const CHART_AXIS_BOTTOM_HEIGHT = 40;
  * Assertion run result status displayed on a horizontal timeline.
  * TODO(jayacryl) refactor to a pretty timeline line-view
  */
-export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
+export const StatusOverTimeAssertionResultChart = ({
+    data,
+    timeRange,
+    chartDimensions,
+    onOpenTunePredictionsModal,
+}: Props) => {
     const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT;
     const chartInnerWidth = chartDimensions.width - CHART_HORIZ_MARGIN;
 
@@ -55,7 +60,12 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
     const timeScaleTicks = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs);
     return (
         <>
-            {renderHeader?.(getTimeRangeDisplay(timeRange))}
+            <AssertionChartHeader
+                timeRange={timeRange}
+                assertion={data.context.assertion}
+                monitor={data.context.monitor}
+                onOpenTunePredictionsModal={onOpenTunePredictionsModal}
+            />
             <svg width={chartDimensions.width} height={chartDimensions.height}>
                 <Group left={CHART_HORIZ_MARGIN / 2}>
                     {/* Axis */}
