@@ -180,6 +180,7 @@ type Props = {
         loading: boolean;
         error: ApolloError | undefined;
     };
+    hideDeleteAction?: boolean;
 };
 
 const generateColor = new ColorHash({
@@ -189,7 +190,11 @@ const generateColor = new ColorHash({
 /**
  * Responsible for displaying metadata about a tag
  */
-export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSearchResults }: Props) {
+export default function TagStyleEntity({
+    urn,
+    useGetSearchResults = useWrappedSearchResults,
+    hideDeleteAction = false,
+}: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { error, data, refetch } = useGetTagQuery({ variables: { urn } });
@@ -346,12 +351,14 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                 </div>
                 <ActionButtons>
                     <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
-                    <EntityDropdown
-                        urn={urn}
-                        entityType={EntityType.Tag}
-                        entityData={data?.tag}
-                        menuItems={new Set([EntityMenuItems.DELETE])}
-                    />
+                    {!hideDeleteAction && (
+                        <EntityDropdown
+                            urn={urn}
+                            entityType={EntityType.Tag}
+                            entityData={data?.tag}
+                            menuItems={new Set([EntityMenuItems.DELETE])}
+                        />
+                    )}
                 </ActionButtons>
                 {displayColorPicker && (
                     <ColorPickerPopOver ref={colorPickerRef}>
