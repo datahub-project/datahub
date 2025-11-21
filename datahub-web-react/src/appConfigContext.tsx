@@ -93,6 +93,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         erModelRelationshipFeatureEnabled: false,
         showAccessManagement: false,
         nestedDomainsEnabled: true,
+        contextDocumentsEnabled: false,
         dataContractsEnabled: false,
         aiFeaturesEnabled: false,
         themeV2Enabled: false,
