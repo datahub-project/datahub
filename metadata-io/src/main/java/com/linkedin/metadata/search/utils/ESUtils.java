@@ -1492,7 +1492,6 @@ public class ESUtils {
                   response.getStatusLine().getStatusCode());
             }
           }
-          break;
       }
     } catch (Exception e) {
       log.warn("Error cleaning up PIT {} for {}: {}", pitId, context, e.getMessage());
