@@ -89,8 +89,9 @@ class LineageExtractor:
     ) -> Optional[str]:
         """Extract raw SQL from panel query targets."""
         for target in query_targets:
-            if target.get("rawSql"):
-                return target["rawSql"]
+            raw_sql = target.get("rawSql") or target.get("rawSQL")
+            if raw_sql:
+                return raw_sql
         return None
 
     def _build_dataset_urn(self, ds_type: str, ds_uid: str, panel_id: str) -> str:
