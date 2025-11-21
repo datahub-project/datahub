@@ -206,25 +206,39 @@ class DataplexLineageExtractor:
         self, platform: str, project_id: str, dataset_id: str, entity_id: str
     ) -> str:
         """
-        Construct a fully qualified name for an entity.
+        Construct a fully qualified name for an entity based on platform.
 
-        The FQN format varies by platform:
-        - BigQuery: bigquery:projects/{project}/datasets/{dataset}/tables/{table}
-        - GCS: gs://{bucket}/{path}
-
-        For now, we construct a generic format and will enhance based on asset type.
+        The FQN format varies by platform per Google Cloud Lineage API:
+        - BigQuery: bigquery:{project}.{dataset}.{table}
+        - GCS: gcs:{bucket} or gcs:{bucket}.{path/to/file}
 
         Args:
+            platform: Source platform ("bigquery" or "gcs")
             project_id: GCP project ID
-            entity_id: Entity ID from Dataplex
+            dataset_id: Dataset ID (for BigQuery) or bucket name (for GCS)
+            entity_id: Entity ID (table name for BigQuery, file path for GCS)
 
         Returns:
-            Fully qualified name string
+            Fully qualified name string in the format expected by Google Lineage API
         """
-        # This is a simplified implementation
-        # In production, we should determine the asset type and construct
-        # the appropriate FQN format
-        return f"{platform}:{project_id}.{dataset_id}.{entity_id}"
+        if platform == "bigquery":
+            # BigQuery format: bigquery:{project}.{dataset}.{table}
+            return f"bigquery:{project_id}.{dataset_id}.{entity_id}"
+        elif platform == "gcs":
+            # GCS format: gcs:{bucket} or gcs:{bucket}.{path}
+            # For GCS, entity_id might be empty (bucket-level) or a path
+            if entity_id and entity_id != dataset_id:
+                # If entity_id is a path, construct gcs:{bucket}.{path}
+                return f"gcs:{dataset_id}.{entity_id}"
+            else:
+                # Bucket-level resource
+                return f"gcs:{dataset_id}"
+        else:
+            # Fallback for unknown platforms (shouldn't happen in practice)
+            logger.warning(
+                f"Unknown platform '{platform}' for FQN construction, using generic format"
+            )
+            return f"{platform}:{project_id}.{dataset_id}.{entity_id}"
 
     def build_lineage_map(
         self, project_id: str, entity_data: Iterable[EntityDataTuple]
@@ -284,20 +298,32 @@ class DataplexLineageExtractor:
         """
         Extract entity ID from a fully qualified name.
 
+        Handles platform-specific FQN formats:
+        - BigQuery: bigquery:{project}.{dataset}.{table} -> {project}.{dataset}.{table}
+        - GCS: gcs:{bucket}.{path} -> {bucket}.{path}
+        - GCS: gcs:{bucket} -> {bucket}
+
         Args:
-            fqn: Fully qualified name
+            fqn: Fully qualified name in format "{platform}:{identifier}"
 
         Returns:
-            Entity ID or None if extraction fails
+            Entity ID (everything after the platform prefix) or None if extraction fails
         """
-        # This is a simplified implementation
-        # In production, we should parse different FQN formats correctly
         try:
             if ":" in fqn:
-                _, entity_part = fqn.split(":", 1)
+                platform, entity_part = fqn.split(":", 1)
+
+                # Validate that we have a known platform
+                if platform not in ["bigquery", "gcs", "dataplex"]:
+                    logger.warning(f"Unexpected platform '{platform}' in FQN: {fqn}")
+
                 return entity_part
-            return fqn
-        except Exception:
+            else:
+                # No platform prefix, return as-is (shouldn't happen in practice)
+                logger.warning(f"FQN missing platform prefix: {fqn}")
+                return fqn
+        except Exception as e:
+            logger.error(f"Failed to extract entity ID from FQN '{fqn}': {e}")
             return None
 
     def get_lineage_for_table(

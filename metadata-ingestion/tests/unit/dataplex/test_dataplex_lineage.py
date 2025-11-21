@@ -82,31 +82,85 @@ def test_lineage_extraction_disabled(
     assert result is None
 
 
-def test_construct_fqn(lineage_extractor: DataplexLineageExtractor) -> None:
-    """Test FQN construction."""
+def test_construct_fqn_bigquery(lineage_extractor: DataplexLineageExtractor) -> None:
+    """Test FQN construction for BigQuery tables."""
     fqn = lineage_extractor._construct_fqn(
-        "dataplex", "my-project", "my-dataset", "my-entity"
+        "bigquery", "my-project", "my-dataset", "my-table"
     )
-    assert fqn == "dataplex:my-project.my-dataset.my-entity"
+    assert fqn == "bigquery:my-project.my-dataset.my-table"
 
 
-def test_extract_entity_id_from_fqn(
+def test_construct_fqn_gcs_with_path(
     lineage_extractor: DataplexLineageExtractor,
 ) -> None:
-    """Test entity ID extraction from FQN."""
-    # Test with proper format
-    entity_id = lineage_extractor._extract_entity_id_from_fqn(
-        "dataplex:project-123.entity-456"
+    """Test FQN construction for GCS objects with path."""
+    fqn = lineage_extractor._construct_fqn(
+        "gcs", "my-project", "my-bucket", "path/to/file.csv"
     )
-    assert entity_id == "project-123.entity-456"
+    assert fqn == "gcs:my-bucket.path/to/file.csv"
 
-    # Test without prefix
-    entity_id = lineage_extractor._extract_entity_id_from_fqn("project-123.entity-456")
-    assert entity_id == "project-123.entity-456"
 
-    # Test with invalid format
-    entity_id = lineage_extractor._extract_entity_id_from_fqn("invalid")
-    assert entity_id == "invalid"
+def test_construct_fqn_gcs_bucket_only(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test FQN construction for GCS bucket-level resources."""
+    fqn = lineage_extractor._construct_fqn(
+        "gcs", "my-project", "my-bucket", "my-bucket"
+    )
+    assert fqn == "gcs:my-bucket"
+
+
+def test_construct_fqn_unknown_platform(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test FQN construction for unknown platforms (fallback)."""
+    fqn = lineage_extractor._construct_fqn(
+        "unknown", "my-project", "my-dataset", "my-entity"
+    )
+    assert fqn == "unknown:my-project.my-dataset.my-entity"
+
+
+def test_extract_entity_id_from_fqn_bigquery(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test entity ID extraction from BigQuery FQN."""
+    entity_id = lineage_extractor._extract_entity_id_from_fqn(
+        "bigquery:my-project.my-dataset.my-table"
+    )
+    assert entity_id == "my-project.my-dataset.my-table"
+
+
+def test_extract_entity_id_from_fqn_gcs(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test entity ID extraction from GCS FQN."""
+    # GCS with path
+    entity_id = lineage_extractor._extract_entity_id_from_fqn(
+        "gcs:my-bucket.path/to/file.csv"
+    )
+    assert entity_id == "my-bucket.path/to/file.csv"
+
+    # GCS bucket only
+    entity_id = lineage_extractor._extract_entity_id_from_fqn("gcs:my-bucket")
+    assert entity_id == "my-bucket"
+
+
+def test_extract_entity_id_from_fqn_no_prefix(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test entity ID extraction without platform prefix."""
+    entity_id = lineage_extractor._extract_entity_id_from_fqn(
+        "project-123.dataset.table"
+    )
+    assert entity_id == "project-123.dataset.table"
+
+
+def test_extract_entity_id_from_fqn_invalid(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test entity ID extraction with invalid format."""
+    entity_id = lineage_extractor._extract_entity_id_from_fqn("")
+    assert entity_id == ""
 
 
 def test_lineage_edge_creation() -> None:
@@ -288,3 +342,213 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
 
     assert len(workunits) == 1
     assert workunits[0].metadata.entityUrn == dataset_urn
+
+
+def test_fqn_round_trip_bigquery(lineage_extractor: DataplexLineageExtractor) -> None:
+    """Test FQN construction and parsing round-trip for BigQuery."""
+    # Construct FQN
+    original_project = "my-project"
+    original_dataset = "my-dataset"
+    original_table = "my-table"
+
+    fqn = lineage_extractor._construct_fqn(
+        "bigquery", original_project, original_dataset, original_table
+    )
+
+    # Parse FQN
+    extracted_id = lineage_extractor._extract_entity_id_from_fqn(fqn)
+
+    # Verify round-trip
+    assert fqn == "bigquery:my-project.my-dataset.my-table"
+    assert extracted_id == "my-project.my-dataset.my-table"
+
+    # Verify we can reconstruct the parts
+    parts = extracted_id.split(".")
+    assert len(parts) == 3
+    assert parts[0] == original_project
+    assert parts[1] == original_dataset
+    assert parts[2] == original_table
+
+
+def test_fqn_round_trip_gcs(lineage_extractor: DataplexLineageExtractor) -> None:
+    """Test FQN construction and parsing round-trip for GCS."""
+    # Construct FQN with path
+    original_bucket = "my-bucket"
+    original_path = "data/2024/file.csv"
+
+    fqn = lineage_extractor._construct_fqn(
+        "gcs", "my-project", original_bucket, original_path
+    )
+
+    # Parse FQN
+    extracted_id = lineage_extractor._extract_entity_id_from_fqn(fqn)
+
+    # Verify round-trip
+    assert fqn == "gcs:my-bucket.data/2024/file.csv"
+    assert extracted_id == "my-bucket.data/2024/file.csv"
+
+
+def test_lineage_with_cross_platform_references(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test lineage extraction with cross-platform references (BigQuery -> GCS)."""
+    # Mock BigQuery source with GCS upstream
+    mock_bq_link = Mock()
+    mock_bq_link.source.fully_qualified_name = "gcs:my-bucket.raw/data.csv"
+
+    mock_gcs_link = Mock()
+    mock_gcs_link.target.fully_qualified_name = "bigquery:my-project.analytics.final"
+
+    def search_links_side_effect(request):
+        if hasattr(request, "target") and request.target:
+            return [mock_bq_link]
+        elif hasattr(request, "source") and request.source:
+            return [mock_gcs_link]
+        return []
+
+    lineage_extractor.lineage_client.search_links.side_effect = search_links_side_effect
+
+    test_entity = EntityDataTuple(
+        lake_id="test-lake",
+        zone_id="test-zone",
+        entity_id="test-table",
+        asset_id="test-asset",
+        source_platform="bigquery",
+        dataset_id="analytics",
+    )
+
+    result = lineage_extractor.get_lineage_for_entity("my-project", test_entity)
+
+    assert result is not None
+    assert len(result["upstream"]) == 1
+    assert len(result["downstream"]) == 1
+    assert result["upstream"][0] == "gcs:my-bucket.raw/data.csv"
+    assert result["downstream"][0] == "bigquery:my-project.analytics.final"
+
+
+def test_workunit_urn_structure_validation(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test that generated workunits have correct URN structure."""
+    # Add a lineage edge
+    edge = LineageEdge(
+        entity_id="my-project.my-dataset.upstream-table",
+        audit_stamp=datetime.datetime.now(datetime.timezone.utc),
+        lineage_type=DatasetLineageTypeClass.TRANSFORMED,
+    )
+
+    lineage_extractor.lineage_map["downstream-table"] = {edge}
+
+    # Generate workunit
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dataplex,my-project.my-dataset.downstream-table,PROD)"
+    workunits = list(lineage_extractor.gen_lineage("downstream-table", dataset_urn))
+
+    assert len(workunits) == 1
+    workunit = workunits[0]
+
+    # Validate URN structure
+    assert workunit.metadata.entityUrn == dataset_urn
+    assert workunit.metadata.entityUrn.startswith("urn:li:dataset:")
+    assert "urn:li:dataPlatform:dataplex" in workunit.metadata.entityUrn
+    assert "PROD" in workunit.metadata.entityUrn
+
+    # Validate aspect type
+    from datahub.metadata.schema_classes import UpstreamLineageClass
+
+    assert isinstance(workunit.metadata.aspect, UpstreamLineageClass)
+
+
+def test_workunit_aspect_completeness(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test that workunit aspects contain all required fields."""
+    # Add lineage edges
+    edge1 = LineageEdge(
+        entity_id="my-project.my-dataset.table1",
+        audit_stamp=datetime.datetime.now(datetime.timezone.utc),
+        lineage_type=DatasetLineageTypeClass.TRANSFORMED,
+    )
+    edge2 = LineageEdge(
+        entity_id="my-project.my-dataset.table2",
+        audit_stamp=datetime.datetime.now(datetime.timezone.utc),
+        lineage_type=DatasetLineageTypeClass.COPY,
+    )
+
+    lineage_extractor.lineage_map["target-table"] = {edge1, edge2}
+
+    # Generate workunit
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dataplex,my-project.my-dataset.target-table,PROD)"
+    workunits = list(lineage_extractor.gen_lineage("target-table", dataset_urn))
+
+    assert len(workunits) == 1
+    workunit = workunits[0]
+    aspect = workunit.metadata.aspect
+
+    # Validate UpstreamLineageClass has required fields
+    assert hasattr(aspect, "upstreams")
+    assert aspect.upstreams is not None
+    assert len(aspect.upstreams) == 2
+
+    # Validate each upstream has required fields
+    for upstream in aspect.upstreams:
+        assert hasattr(upstream, "dataset")
+        assert upstream.dataset is not None
+        assert upstream.dataset.startswith("urn:li:dataset:")
+
+        assert hasattr(upstream, "type")
+        assert upstream.type in [
+            DatasetLineageTypeClass.TRANSFORMED,
+            DatasetLineageTypeClass.COPY,
+        ]
+
+        assert hasattr(upstream, "auditStamp")
+        assert upstream.auditStamp is not None
+        assert hasattr(upstream.auditStamp, "time")
+        assert hasattr(upstream.auditStamp, "actor")
+        assert upstream.auditStamp.actor == "urn:li:corpuser:datahub"
+
+
+def test_workunit_upstream_urn_format(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test that upstream URNs in workunits are correctly formatted."""
+    # Add lineage edge with specific entity ID format
+    edge = LineageEdge(
+        entity_id="test-project.sales_dataset.customer_table",
+        audit_stamp=datetime.datetime.now(datetime.timezone.utc),
+        lineage_type=DatasetLineageTypeClass.TRANSFORMED,
+    )
+
+    lineage_extractor.lineage_map["analytics_table"] = {edge}
+    lineage_extractor.config.env = "PROD"
+
+    # Generate workunit
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dataplex,test-project.analytics_dataset.analytics_table,PROD)"
+    workunits = list(lineage_extractor.gen_lineage("analytics_table", dataset_urn))
+
+    assert len(workunits) == 1
+    upstream_urn = workunits[0].metadata.aspect.upstreams[0].dataset
+
+    # Validate upstream URN structure
+    assert upstream_urn.startswith("urn:li:dataset:")
+    assert "urn:li:dataPlatform:dataplex" in upstream_urn
+    assert "test-project" in upstream_urn
+    assert "customer_table" in upstream_urn
+
+    # Parse URN components
+    # Format: urn:li:dataset:(urn:li:dataPlatform:dataplex,{entity_id},PROD)
+    assert upstream_urn.count("(") == 1
+    assert upstream_urn.count(")") == 1
+    assert upstream_urn.count(",") == 2
+
+
+def test_workunit_generation_with_no_lineage(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    """Test that no workunits are generated when there's no lineage."""
+    # Don't add any lineage to the map
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dataplex,my-project.my-dataset.isolated-table,PROD)"
+    workunits = list(lineage_extractor.gen_lineage("isolated-table", dataset_urn))
+
+    # Should generate no workunits
+    assert len(workunits) == 0
