@@ -23,6 +23,7 @@ module.exports = defineConfig({
     specPattern: "cypress/e2e/**/*.{js,jsx,ts,tsx}",
     experimentalStudio: true,
     experimentalMemoryManagement: true,
+    numTestsKeptInMemory: 0,
   },
   reporter: "cypress-junit-reporter",
   reporterOptions: {
