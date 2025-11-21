@@ -10,6 +10,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 from datahub.emitter import mce_builder as builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -23,6 +24,9 @@ from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_li
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
     SourceReport,
+)
+from datahub.ingestion.api.source_helpers import (
+    auto_status_aspect,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fivetran.config import (
@@ -56,6 +60,9 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    MetadataChangeEventClass,
+    MetadataChangeProposalClass,
+    StatusClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -63,9 +70,69 @@ from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.entity import Entity
+from datahub.utilities.urns.urn import guess_entity_type
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+def fivetran_status_aspect(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """
+    Custom status aspect processor that doesn't create status aspects for upstream dataset URNs.
+
+    This prevents the auto_status_aspect processor from creating dataset entities for
+    upstream sources referenced in lineage aspects, which should not exist in DataHub
+    if they're filtered out or don't belong to Fivetran.
+    """
+    all_urns: set[str] = set()
+    status_urns: set[str] = set()
+    upstream_dataset_urns: set[str] = set()
+
+    for wu in stream:
+        urn = wu.get_urn()
+        all_urns.add(urn)
+
+        # Track upstream dataset URNs from lineage aspects to exclude them from status aspect creation
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+            if isinstance(wu.metadata.aspect, UpstreamLineageClass):
+                for upstream in wu.metadata.aspect.upstreams or []:
+                    upstream_urn = upstream.dataset
+                    if guess_entity_type(upstream_urn) == DatasetUrn.ENTITY_TYPE:
+                        upstream_dataset_urns.add(upstream_urn)
+
+        if not wu.is_primary_source:
+            # If this is a non-primary source, we pretend like we've seen the status
+            # aspect so that we don't try to emit a removal for it.
+            status_urns.add(urn)
+        elif isinstance(wu.metadata, MetadataChangeEventClass):
+            if any(
+                isinstance(aspect, StatusClass)
+                for aspect in wu.metadata.proposedSnapshot.aspects
+            ):
+                status_urns.add(urn)
+        elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
+            if isinstance(wu.metadata.aspect, StatusClass):
+                status_urns.add(urn)
+        elif isinstance(wu.metadata, MetadataChangeProposalClass):
+            if wu.metadata.aspectName == StatusClass.ASPECT_NAME:
+                status_urns.add(urn)
+        else:
+            raise ValueError(f"Unexpected type {type(wu.metadata)}")
+
+        yield wu
+
+    # Create status aspects for all URNs except upstream dataset URNs referenced in lineage
+    for urn in sorted(all_urns - status_urns - upstream_dataset_urns):
+        entity_type = guess_entity_type(urn)
+        if not entity_supports_aspect(entity_type, StatusClass):
+            # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
+            continue
+        yield MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
 
 
 @platform_name("Fivetran")
@@ -1745,8 +1812,20 @@ class FivetranSource(StatefulIngestionSourceBase):
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         """Get the workunit processors for this source."""
+        # Get the default processors but replace auto_status_aspect with our custom one
+        default_processors = super().get_workunit_processors()
+
+        # Replace the auto_status_aspect processor with our custom one
+        custom_processors = []
+        for processor in default_processors:
+            if processor is auto_status_aspect:
+                # Use our custom status aspect processor instead of the default one
+                custom_processors.append(fivetran_status_aspect)
+            elif processor is not None:
+                custom_processors.append(processor)  # type: ignore[arg-type]
+
         return [
-            *super().get_workunit_processors(),
+            *custom_processors,
             functools.partial(
                 auto_incremental_lineage, self.config.incremental_lineage
             ),
