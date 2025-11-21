@@ -12,16 +12,30 @@ const StyledSelect = styled(Select)`
 `;
 
 const InputGroup = styled.div`
-    margin-top: 8px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: 8px;
     flex: 1;
+    flex-wrap: wrap;
 `;
 
-const StyledFormItem = styled(Form.Item)`
-    width: 100%;
+const StyledFormItem = styled(Form.Item)<{ $hasAddonBefore?: boolean }>`
+    width: ${(props) => (props.$hasAddonBefore ? '220px' : '100px')};
     margin: 0;
+
+    .ant-input-number-group-addon {
+        font-size: 12px;
+    }
+
+    .ant-input-number {
+        width: 100%;
+    }
+
+    .ant-input-number-input {
+        padding-left: 8px;
+        padding-right: 8px;
+        text-align: left;
+    }
 `;
 
 const StyledNumberInput = styled(InputNumber)`
@@ -85,6 +99,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
         <InputGroup>
             <Typography.Text strong>is at least</Typography.Text>
             <StyledFormItem
+                $hasAddonBefore={isMetricChange}
                 initialValue={minValue}
                 name="sqlParameters.minValue"
                 rules={[
@@ -103,6 +118,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
                     value={minValue}
                     onChange={updateMinValue}
                     disabled={disabled}
+                    controls={false}
                     addonAfter={isPercentage ? '%' : undefined}
                     addonBefore={
                         isMetricChange ? (
@@ -120,6 +136,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
             </StyledFormItem>
             <Typography.Text strong>and at most</Typography.Text>
             <StyledFormItem
+                $hasAddonBefore={isMetricChange}
                 name="sqlParameters.maxValue"
                 initialValue={maxValue}
                 rules={[
@@ -138,6 +155,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
                     value={maxValue}
                     onChange={updateMaxValue}
                     disabled={disabled}
+                    controls={false}
                     addonAfter={isPercentage ? '%' : undefined}
                     addonBefore={
                         isMetricChange ? (

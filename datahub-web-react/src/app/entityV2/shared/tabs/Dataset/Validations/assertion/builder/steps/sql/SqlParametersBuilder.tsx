@@ -12,9 +12,25 @@ const StyledSelect = styled(Select)`
     width: 120px;
 `;
 
-const StyledFormItem = styled(Form.Item)`
+const StyledFormItem = styled(Form.Item)<{ $hasAddonBefore?: boolean }>`
     flex: 1;
     margin: 0;
+    min-width: ${(props) => (props.$hasAddonBefore ? '220px' : '100px')};
+    max-width: ${(props) => (props.$hasAddonBefore ? '220px' : '100px')};
+
+    .ant-input-number-group-addon {
+        font-size: 12px;
+    }
+
+    .ant-input-number {
+        width: 100%;
+    }
+
+    .ant-input-number-input {
+        padding-left: 8px;
+        padding-right: 8px;
+        text-align: left;
+    }
 `;
 
 const StyledNumberInput = styled(InputNumber)`
@@ -79,6 +95,7 @@ export const SqlParametersBuilder = ({ value, onChange, disabled }: Props) => {
 
     return (
         <StyledFormItem
+            $hasAddonBefore={isMetricChange}
             initialValue={selectedValue}
             name="sqlParameters.value"
             rules={[{ required: true, message: 'Required' }]}
@@ -87,6 +104,7 @@ export const SqlParametersBuilder = ({ value, onChange, disabled }: Props) => {
                 value={selectedValue}
                 onChange={updateValue}
                 disabled={disabled}
+                controls={false}
                 addonAfter={isPercentage ? '%' : undefined}
                 addonBefore={
                     isMetricChange ? (
