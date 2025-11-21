@@ -154,6 +154,11 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
 
     // if entity is hard or soft deleted, return no recipients and send no notification
     if (!entityExists(opContext, entityUrn)) {
+      log.warn(
+          "Notification Entity does not exist (hard or soft deleted). entityUrn={}, notificationScenarioType={}, entityChangeType={}",
+          entityUrn,
+          notificationScenarioType,
+          entityChangeType);
       return recipients;
     }
 
@@ -233,6 +238,14 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
 
     final Map<Urn, SubscriptionInfo> subscriptionInfoMapUnfiltered =
         getSubscriptionInfoMap(entityUrn, downstreamEntityUrns, changeType);
+
+    if (subscriptionInfoMapUnfiltered.isEmpty()) {
+      log.debug(
+          "No subscriptions found for entity. entityUrn={}, changeType={}, downstreamEntityCount={}",
+          entityUrn,
+          changeType,
+          downstreamEntityUrns.size());
+    }
 
     // Filter out subscriptions as necessary
     final Map<Urn, SubscriptionInfo> subscriptionInfoMap =

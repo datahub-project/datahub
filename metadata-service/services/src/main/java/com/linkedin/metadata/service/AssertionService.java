@@ -273,18 +273,12 @@ public class AssertionService extends BaseService {
   public @Nullable Urn getEntityUrnForAssertion(
       @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
     try {
-      // Fetch the entity associated with the assertion from the Graph
-      final EntityRelationships relationships =
-          _graphClient.getRelatedEntities(
-              assertionUrn.toString(),
-              ImmutableSet.of(ASSERTS_RELATIONSHIP_NAME),
-              RelationshipDirection.OUTGOING,
-              0,
-              1,
-              opContext.getActorContext().getActorUrn().toString());
-
-      if (relationships.hasRelationships() && !relationships.getRelationships().isEmpty()) {
-        return relationships.getRelationships().get(0).getEntity();
+      // Get AssertionInfo and extract entity URN directly to avoid issues with graph relationships
+      // For custom assertions with fields, graph relationships can return the field URN instead of
+      // the dataset URN, which breaks notifications and other features that expect the dataset URN.
+      final AssertionInfo assertionInfo = getAssertionInfo(opContext, assertionUrn);
+      if (assertionInfo != null) {
+        return assertionInfo.getEntityUrn();
       }
     } catch (Exception e) {
       throw new RuntimeException(

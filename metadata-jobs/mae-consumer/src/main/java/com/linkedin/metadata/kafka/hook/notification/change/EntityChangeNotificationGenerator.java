@@ -707,6 +707,14 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
                 systemOpContext, notificationScenarioType, entityUrn, entityChangeType, actorUrn));
 
     if (recipients.isEmpty()) {
+      log.info(
+          "Entity change notification dropped: No recipients found. entityUrn={}, notificationScenarioType={}, entityChangeType={}, operation={}, modifierType={}, actorUrn={}",
+          entityUrn,
+          notificationScenarioType,
+          entityChangeType,
+          operation,
+          modifierType,
+          actorUrn);
       return;
     }
 
@@ -761,10 +769,13 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
             context);
 
     // 3. Send request.
-    log.debug(
-        String.format(
-            "Broadcasting entity change notification request for entity %s, notification type %s",
-            entityUrn, notificationScenarioType));
+    log.info(
+        "Broadcasting entity change notification. entityUrn={}, notificationScenarioType={}, entityChangeType={}, operation={}, recipientCount={}",
+        entityUrn,
+        notificationScenarioType,
+        entityChangeType,
+        operation,
+        recipients.size());
     sendNotificationRequest(notificationRequest);
   }
 
@@ -862,6 +873,12 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
                 new NotificationRecipientsGeneratorExtraContext().setModifierUrn(assertionUrn)));
 
     if (recipients.isEmpty()) {
+      log.info(
+          "Assertion notification dropped: No recipients found. assertionUrn={}, entityUrn={}, entityChangeType={}, resultType={}",
+          assertionUrn,
+          entityUrn,
+          entityChangeType,
+          result.getType());
       return;
     }
 
@@ -873,9 +890,11 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
 
     if (assertionInfo == null) {
       log.warn(
-          String.format(
-              "Attempted to send assertion change notification for non-existant assertion with urn %s",
-              assertionUrn));
+          "Assertion notification dropped: AssertionInfo not found. assertionUrn={}, entityUrn={}, entityChangeType={}, recipientCount={}",
+          assertionUrn,
+          entityUrn,
+          entityChangeType,
+          recipients.size());
       return;
     }
 
@@ -900,10 +919,13 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
             recipients);
 
     // 3. Send request.
-    log.debug(
-        String.format(
-            "Broadcasting entity change notification request for entity %s, notification type %s",
-            entityUrn, NotificationScenarioType.ASSERTION_STATUS_CHANGE));
+    log.info(
+        "Broadcasting assertion change notification. assertionUrn={}, entityUrn={}, entityChangeType={}, resultType={}, recipientCount={}",
+        assertionUrn,
+        entityUrn,
+        entityChangeType,
+        result.getType(),
+        recipients.size());
     sendNotificationRequest(notificationRequest);
   }
 
