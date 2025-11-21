@@ -1404,6 +1404,7 @@ def _is_stored_procedure_with_unsupported_syntax(
 ) -> bool:
     """
     Check if the SQL is a stored procedure with control flow syntax that sqlglot doesn't support.
+    This specifically targets MSSQL/TSQL stored procedures with control flow statements.
     """
     sql_upper = sql.strip().upper()
 
@@ -1412,6 +1413,10 @@ def _is_stored_procedure_with_unsupported_syntax(
         sql_upper.startswith("CREATE PROCEDURE")
         or sql_upper.startswith("CREATE OR REPLACE PROCEDURE")
     ):
+        return False
+
+    # Only apply TSQL control flow detection for MSSQL dialect
+    if not is_dialect_instance(dialect, "tsql"):
         return False
 
     # Check for TSQL control flow that causes parsing failures
@@ -1475,12 +1480,14 @@ def _parse_stored_procedure_fallback(
             logger.debug(f"Parsing statement: {stmt_stripped[:100]}...")
 
             # Recursively call the parser for this statement
-            result = _sqlglot_lineage_nocache(
+            # Disable fallback parser to prevent infinite recursion
+            result = _sqlglot_lineage_inner(
                 sql=stmt_stripped,
                 schema_resolver=schema_resolver,
                 default_db=default_db,
                 default_schema=default_schema,
                 override_dialect=dialect,
+                _disable_fallback_parser=True,
             )
 
             if result.debug_info.table_error:
@@ -1546,6 +1553,7 @@ def _sqlglot_lineage_inner(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    _disable_fallback_parser: bool = False,
 ) -> SqlParsingResult:
     if override_dialect:
         dialect = get_dialect(override_dialect)
@@ -1568,7 +1576,9 @@ def _sqlglot_lineage_inner(
     # These parse as CREATE PROCEDURE but don't extract lineage from inside TRY/CATCH
     # Check this BEFORE parsing to avoid wasted effort
     sql_string = sql if isinstance(sql, str) else str(sql)
-    if _is_stored_procedure_with_unsupported_syntax(sql_string, dialect):
+    if not _disable_fallback_parser and _is_stored_procedure_with_unsupported_syntax(
+        sql_string, dialect
+    ):
         logger.info(
             "Detected stored procedure with unsupported control flow syntax (TRY/CATCH), using fallback parser to extract DML statements"
         )

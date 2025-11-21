@@ -468,6 +468,18 @@ def test_is_stored_procedure_with_unsupported_syntax() -> None:
         "CREATE PROCEDURE test AS BEGIN BEGIN CATCH SELECT 1 END CATCH END", dialect
     )
 
+    # Should NOT detect MSSQL-specific syntax for non-MSSQL dialects
+    postgres_dialect = get_dialect("postgres")
+    assert not _is_stored_procedure_with_unsupported_syntax(
+        "CREATE PROCEDURE test AS BEGIN SELECT 1 END", postgres_dialect
+    )
+
+    # Should NOT detect MSSQL-specific syntax for other dialects
+    mysql_dialect = get_dialect("mysql")
+    assert not _is_stored_procedure_with_unsupported_syntax(
+        "CREATE PROCEDURE test BEGIN SELECT 1 END", mysql_dialect
+    )
+
 
 def test_fallback_parser_statement_filtering() -> None:
     """Test that control flow statements are properly filtered."""
