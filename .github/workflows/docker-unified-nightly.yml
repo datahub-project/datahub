@@ -344,6 +344,7 @@ jobs:
           TEST_STRATEGY: ${{ matrix.test_strategy }}
           BATCH_COUNT: "1" # since this workflow runs only on schedule trigger, batching isn't really needed.
           BATCH_NUMBER: "0"
+          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ matrix.test_strategy }}-${{ matrix.batch }}"
           PROFILE_NAME: ${{ matrix.profile }}
         run: |
           echo "$DATAHUB_VERSION"
