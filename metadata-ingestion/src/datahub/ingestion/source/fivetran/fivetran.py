@@ -1,6 +1,6 @@
 import functools
 import logging
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urlparse
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -57,6 +57,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetLineageTypeClass
 from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -80,31 +81,39 @@ def fivetran_status_aspect(
     stream: Iterable[MetadataWorkUnit],
 ) -> Iterable[MetadataWorkUnit]:
     """
-    Custom status aspect processor that doesn't create status aspects for upstream dataset URNs.
+    Custom status aspect processor that excludes upstream dataset URNs.
 
-    This prevents the auto_status_aspect processor from creating dataset entities for
-    upstream sources referenced in lineage aspects, which should not exist in DataHub
-    if they're filtered out or don't belong to Fivetran.
+    This prevents creating Status aspects for:
+    1. Upstream sources referenced in UpstreamLineageClass aspects
+    2. Input datasets referenced in DataJobInputOutputClass aspects
+
+    These upstream entities should be managed by their respective platform connectors,
+    not by Fivetran.
     """
-    all_urns: set[str] = set()
-    status_urns: set[str] = set()
-    upstream_dataset_urns: set[str] = set()
+    all_urns: Set[str] = set()
+    status_urns: Set[str] = set()
+    upstream_dataset_urns: Set[str] = set()
 
     for wu in stream:
         urn = wu.get_urn()
         all_urns.add(urn)
 
-        # Track upstream dataset URNs from lineage aspects to exclude them from status aspect creation
+        # Track upstream dataset URNs to exclude from Status aspect creation
         if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+            # From UpstreamLineageClass aspects
             if isinstance(wu.metadata.aspect, UpstreamLineageClass):
                 for upstream in wu.metadata.aspect.upstreams or []:
-                    upstream_urn = upstream.dataset
-                    if guess_entity_type(upstream_urn) == DatasetUrn.ENTITY_TYPE:
-                        upstream_dataset_urns.add(upstream_urn)
+                    if guess_entity_type(upstream.dataset) == DatasetUrn.ENTITY_TYPE:
+                        upstream_dataset_urns.add(upstream.dataset)
 
+            # From DataJobInputOutputClass aspects (input datasets are upstreams)
+            elif isinstance(wu.metadata.aspect, DataJobInputOutputClass):
+                for input_dataset in wu.metadata.aspect.inputDatasets or []:
+                    if guess_entity_type(input_dataset) == DatasetUrn.ENTITY_TYPE:
+                        upstream_dataset_urns.add(input_dataset)
+
+        # Track existing status aspects
         if not wu.is_primary_source:
-            # If this is a non-primary source, we pretend like we've seen the status
-            # aspect so that we don't try to emit a removal for it.
             status_urns.add(urn)
         elif isinstance(wu.metadata, MetadataChangeEventClass):
             if any(
@@ -123,11 +132,12 @@ def fivetran_status_aspect(
 
         yield wu
 
-    # Create status aspects for all URNs except upstream dataset URNs referenced in lineage
+    # Create Status aspects for all URNs except:
+    # 1. Those that already have status
+    # 2. Upstream dataset URNs (managed by other connectors)
     for urn in sorted(all_urns - status_urns - upstream_dataset_urns):
         entity_type = guess_entity_type(urn)
         if not entity_supports_aspect(entity_type, StatusClass):
-            # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
             continue
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
@@ -163,6 +173,33 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Alias for consistency with existing interface
         self.audit_log = self.fivetran_access
+
+        # Track discovered tables (destination datasets that Fivetran is the primary source for)
+        # Used to prevent creating upstream dataset entities that don't exist in DataHub
+        self.discovered_tables: Set[str] = set()
+
+    def _collect_destination_tables_from_connector(self, connector: Connector) -> None:
+        """Pre-populate discovered_tables with all destination URNs from this connector."""
+        if not connector.lineage:
+            return
+
+        for lineage in connector.lineage:
+            try:
+                destination_details = self._build_destination_details(
+                    connector, lineage
+                )
+                dest_urn = self._create_dataset_urn(
+                    lineage.destination_table,
+                    destination_details,
+                    is_source=False,
+                )
+                if dest_urn:
+                    self.discovered_tables.add(str(dest_urn))
+                    logger.debug(f"Pre-registered destination table: {dest_urn}")
+            except Exception as e:
+                logger.debug(
+                    f"Failed to pre-register destination table {lineage.destination_table}: {e}"
+                )
 
     def _get_source_details(self, connector: Connector) -> PlatformDetail:
         """Get source platform details for a connector."""
@@ -1563,6 +1600,10 @@ class FivetranSource(StatefulIngestionSourceBase):
         """Generate workunits for a connector, ensuring lineage works even without job history."""
         self.report.report_connectors_scanned()
 
+        # Pre-populate discovered tables from this connector's destination tables
+        # This is used later to filter upstream lineage and prevent creating unknown upstream entities
+        self._collect_destination_tables_from_connector(connector)
+
         # Create dataflow entity with detailed properties from connector
         dataflow = self._generate_dataflow_from_connector(connector)
         for workunit in dataflow.as_workunits():
@@ -1812,14 +1853,12 @@ class FivetranSource(StatefulIngestionSourceBase):
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         """Get the workunit processors for this source."""
-        # Get the default processors but replace auto_status_aspect with our custom one
         default_processors = super().get_workunit_processors()
 
-        # Replace the auto_status_aspect processor with our custom one
+        # Replace auto_status_aspect with our custom processor that filters upstream datasets
         custom_processors = []
         for processor in default_processors:
             if processor is auto_status_aspect:
-                # Use our custom status aspect processor instead of the default one
                 custom_processors.append(fivetran_status_aspect)
             elif processor is not None:
                 custom_processors.append(processor)  # type: ignore[arg-type]
@@ -1953,82 +1992,19 @@ class FivetranSource(StatefulIngestionSourceBase):
             stats["total_lineage_aspects"] += 1
 
     def _log_ingestion_summary(self, stats: Dict) -> None:
-        """Log comprehensive summary of what was ingested."""
-        logger.info("=" * 80)
-        logger.info("FIVETRAN INGESTION SUMMARY")
-        logger.info("=" * 80)
-
-        # Overall statistics
-        logger.info("OVERALL STATISTICS:")
-        logger.info(f"  • Connectors Processed: {stats['connectors_processed']}")
-        logger.info(f"  • Connectors with Lineage: {stats['connectors_with_lineage']}")
+        """Log summary of what was ingested."""
         logger.info(
-            f"  • Connectors without Lineage: {stats['connectors_without_lineage']}"
+            f"Fivetran ingestion complete: {stats['connectors_processed']} connectors, "
+            f"{stats['total_datasets']} datasets, {stats['total_datajobs']} datajobs, "
+            f"{stats['total_lineage_aspects']} lineage aspects"
         )
-        logger.info(f"  • Total Datasets: {stats['total_datasets']}")
-        logger.info(f"  • Total DataJobs: {stats['total_datajobs']}")
-        logger.info(f"  • Total Lineage Aspects: {stats['total_lineage_aspects']}")
 
-        # Sample inputs (sources)
-        if stats["sample_inputs"]:
-            logger.info("\nSAMPLE INPUT URNS (Sources):")
-            for i, urn in enumerate(stats["sample_inputs"], 1):
-                logger.info(f"  {i}. {urn}")
-        else:
-            logger.warning(
-                "  WARNING: No input URNs found - this may indicate missing source lineage"
-            )
-
-        # Sample outputs (destinations)
-        if stats["sample_outputs"]:
-            logger.info("\nSAMPLE OUTPUT URNS (Destinations):")
-            for i, urn in enumerate(stats["sample_outputs"], 1):
-                logger.info(f"  {i}. {urn}")
-        else:
-            logger.warning(
-                "  WARNING: No output URNs found - this may indicate missing destination lineage"
-            )
-
-        # Sample datajobs
-        if stats["sample_datajobs"]:
-            logger.info("\nSAMPLE DATAJOB URNS (Fivetran Syncs):")
-            for i, urn in enumerate(stats["sample_datajobs"], 1):
-                logger.info(f"  {i}. {urn}")
-        else:
-            logger.warning(
-                "  WARNING: No DataJob URNs found - this may indicate missing job history"
-            )
-
-        # Lineage validation
+        # Log warning only if no lineage was found at all
         if stats["total_lineage_aspects"] == 0:
-            logger.warning("\nLINEAGE VALIDATION:")
-            logger.warning("  WARNING: NO LINEAGE ASPECTS FOUND!")
             logger.warning(
-                "  This means no lineage relationships will be created in DataHub."
+                "No lineage aspects found. Check connector configurations, API permissions, "
+                "and table sync status in Fivetran."
             )
-            logger.warning("  Check:")
-            logger.warning("    1. Connector configurations in Fivetran")
-            logger.warning("    2. API permissions for lineage access")
-            logger.warning("    3. Table sync status and enabled tables")
-            logger.warning("    4. Fivetran connector types support lineage")
-        else:
-            logger.info("\nLINEAGE VALIDATION:")
-            logger.info(
-                f"  Successfully found {stats['total_lineage_aspects']} lineage relationships"
-            )
-
-        # Configuration info
-        logger.info("\nCONFIGURATION:")
-        logger.info(f"  • Incremental Lineage: {self.config.incremental_lineage}")
-        logger.info(f"  • Include Column Lineage: {self.config.include_column_lineage}")
-        logger.info(
-            f"  • History Lookback Days: {self.config.history_sync_lookback_period}"
-        )
-        logger.info(
-            f"  • Max Table Lineage per Connector: {self.config.max_table_lineage_per_connector}"
-        )
-
-        logger.info("=" * 80)
 
     def _create_upstream_lineage_workunits(
         self, connector: Connector
@@ -2075,6 +2051,14 @@ class FivetranSource(StatefulIngestionSourceBase):
 
                 if not dest_urn:
                     logger.warning(f"Failed to create destination URN for {dest_table}")
+                    continue
+
+                # Only emit lineage for destinations that were discovered (passed pattern filters)
+                # This prevents creating lineage for filtered-out destinations
+                if str(dest_urn) not in self.discovered_tables:
+                    logger.debug(
+                        f"Skipping lineage for destination {dest_urn} - not a discovered table"
+                    )
                     continue
 
                 # Create upstream entries
@@ -2153,6 +2137,10 @@ class FivetranSource(StatefulIngestionSourceBase):
                     aspect=upstream_lineage,
                 )
                 workunit = mcp.as_workunit()
+
+                # Mark as non-primary source to prevent creating Status aspects
+                # This allows platform-specific connectors (Snowflake, BigQuery) to be the primary source
+                workunit.is_primary_source = False
 
                 logger.debug(
                     f"Created upstreamLineage aspect for {dest_urn} with {len(upstreams)} upstreams"

@@ -91,22 +91,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,confluent_cloud.my-source-topic,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "fivetran-standard-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
@@ -387,7 +371,7 @@
                 "connector.api.created_by": "reapply_phone"
             },
             "name": "confluent_cloud",
-            "description": "Data pipeline from confluent_cloud to kafka",
+            "description": "Data pipeline from confluent_cloud to snowflake",
             "type": {
                 "string": "COMMAND"
             },
@@ -795,7 +779,7 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "destination_platform": "kafka",
+                "destination_platform": "snowflake",
                 "api.created_by": "reapply_phone",
                 "connector_type": "confluent_cloud",
                 "sync_frequency": "1440",
@@ -803,7 +787,7 @@
                 "destination_id": "my_confluent_cloud_connector_id"
             },
             "name": "confluent_cloud",
-            "description": "Fivetran connector for confluent_cloud to kafka",
+            "description": "Fivetran connector for confluent_cloud to snowflake",
             "env": "PROD"
         }
     },
@@ -830,88 +814,8 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.company,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "fivetran-standard-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.company,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "fivetran-standard-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "fivetran-standard-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "fivetran-standard-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.employee,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "fivetran-standard-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_prod.my-source-topic,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
