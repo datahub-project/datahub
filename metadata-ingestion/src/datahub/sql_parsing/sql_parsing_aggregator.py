@@ -346,6 +346,10 @@ class SqlAggregatorReport(Report):
     num_table_lineage_trimmed_due_to_large_size: int = 0
     num_column_lineage_trimmed_due_to_large_size: int = 0
 
+    # Lineage consistency tracking
+    num_tables_added_from_column_lineage: int = 0
+    num_queries_with_lineage_inconsistencies_fixed: int = 0
+
     # Queries.
     num_queries_entities_generated: int = 0
     num_queries_used_in_lineage: Optional[int] = None
@@ -1348,6 +1352,10 @@ class SqlParsingAggregator(Closeable):
         # mapping of downstream column -> { upstream column -> query id that produced it }
         cll: Dict[str, Dict[SchemaFieldUrn, QueryId]] = defaultdict(dict)
 
+        # FIX: Track tables added from column lineage for metrics
+        tables_added_from_cll: Set[UrnStr] = set()
+        queries_with_inconsistencies: Set[QueryId] = set()
+
         for query in queries:
             # Using setdefault to respect the precedence of queries.
 
@@ -1366,14 +1374,27 @@ class SqlParsingAggregator(Closeable):
 
                 for upstream_ref in lineage_info.upstreams:
                     if upstream_ref.column and upstream_ref.column.strip():
+                        table_urn = upstream_ref.table
+
+                        # FIX: Add table to upstreams if missing (consistency fix)
+                        if table_urn not in upstreams:
+                            logger.debug(f"Found missing table urn {table_urn} in cll. The query_id was: {query.query_id}")
+                            upstreams[table_urn] = query.query_id
+                            queries_with_inconsistencies.add(query.query_id)
+                            self.report.num_tables_added_from_column_lineage += 1
+
                         cll[lineage_info.downstream.column].setdefault(
-                            SchemaFieldUrn(upstream_ref.table, upstream_ref.column),
+                            SchemaFieldUrn(table_urn, upstream_ref.column),
                             query.query_id,
                         )
                     else:
                         logger.debug(
                             f"Skipping empty column reference in lineage for query {query.query_id}"
                         )
+
+        # Log and update metrics if we applied the consistency fix
+        if queries_with_inconsistencies:
+            self.report.num_queries_with_lineage_inconsistencies_fixed += len(queries_with_inconsistencies)
 
         # Finally, we can build our lineage edge.
         required_queries = OrderedSet[QueryId]()
