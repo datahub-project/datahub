@@ -23,7 +23,7 @@ try:
     LINEAGE_AVAILABLE = True
 except ImportError:
     LINEAGE_AVAILABLE = False
-    LineageClient = None  # type: ignore
+    LineageClient = None
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import gen_containers

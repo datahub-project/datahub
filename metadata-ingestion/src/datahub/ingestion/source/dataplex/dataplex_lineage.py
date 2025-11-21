@@ -1,12 +1,17 @@
 """Dataplex lineage extraction module."""
 
+from __future__ import annotations
+
 import collections
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Iterable, Optional, Set
+from typing import TYPE_CHECKING, Dict, Iterable, Optional, Set
 
 from google.cloud import dataplex_v1
+
+if TYPE_CHECKING:
+    from google.cloud.datacatalog.lineage_v1 import LineageClient
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -28,7 +33,6 @@ logger = logging.getLogger(__name__)
 try:
     from google.cloud.datacatalog.lineage_v1 import (
         EntityReference,
-        LineageClient,
         SearchLinksRequest,
     )
 
@@ -36,9 +40,8 @@ try:
     logger.info("Successfully imported lineage client (version 0.2.2 format)")
 except ImportError as e:
     LINEAGE_CLIENT_AVAILABLE = False
-    LineageClient = None  # type: ignore
-    EntityReference = None  # type: ignore
-    SearchLinksRequest = None  # type: ignore
+    EntityReference = None
+    SearchLinksRequest = None
     logger.warning(f"Lineage client not available: {e}")
 
 
