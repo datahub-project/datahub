@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
+from datahub.ingestion.source.dataplex.dataplex_helpers import EntityDataTuple
 from datahub.ingestion.source.dataplex.dataplex_lineage import (
     DataplexLineageExtractor,
     LineageEdge,
@@ -83,8 +84,10 @@ def test_lineage_extraction_disabled(
 
 def test_construct_fqn(lineage_extractor: DataplexLineageExtractor) -> None:
     """Test FQN construction."""
-    fqn = lineage_extractor._construct_fqn("my-project", "my-entity")
-    assert fqn == "dataplex:my-project.my-entity"
+    fqn = lineage_extractor._construct_fqn(
+        "dataplex", "my-project", "my-dataset", "my-entity"
+    )
+    assert fqn == "dataplex:my-project.my-dataset.my-entity"
 
 
 def test_extract_entity_id_from_fqn(
@@ -172,8 +175,18 @@ def test_get_lineage_for_entity_with_upstream(
 
     lineage_extractor.lineage_client.search_links.side_effect = search_links_side_effect
 
+    # Create EntityDataTuple for the test entity
+    test_entity = EntityDataTuple(
+        lake_id="test-lake",
+        zone_id="test-zone",
+        entity_id="test-entity",
+        asset_id="test-asset",
+        source_platform="dataplex",
+        dataset_id="test-dataset",
+    )
+
     # Get lineage
-    result = lineage_extractor.get_lineage_for_entity("test-project", "test-entity")
+    result = lineage_extractor.get_lineage_for_entity("test-project", test_entity)
 
     assert result is not None
     assert "upstream" in result
@@ -188,13 +201,34 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
     """Test building lineage map for multiple entities."""
     # Mock lineage response
     mock_link = Mock()
-    mock_link.source.fully_qualified_name = "dataplex:test-project.upstream-entity"
+    mock_link.source.fully_qualified_name = (
+        "dataplex:test-project.test-dataset.upstream-entity"
+    )
 
     lineage_extractor.lineage_client.search_links.return_value = [mock_link]
 
+    # Create EntityDataTuple objects for test entities
+    entity_data = [
+        EntityDataTuple(
+            lake_id="test-lake",
+            zone_id="test-zone",
+            entity_id="entity1",
+            asset_id="test-asset1",
+            source_platform="dataplex",
+            dataset_id="test-dataset",
+        ),
+        EntityDataTuple(
+            lake_id="test-lake",
+            zone_id="test-zone",
+            entity_id="entity2",
+            asset_id="test-asset2",
+            source_platform="dataplex",
+            dataset_id="test-dataset",
+        ),
+    ]
+
     # Build lineage map
-    entity_ids = ["entity1", "entity2"]
-    lineage_map = lineage_extractor.build_lineage_map("test-project", entity_ids)
+    lineage_map = lineage_extractor.build_lineage_map("test-project", entity_data)
 
     assert isinstance(lineage_map, dict)
     # The map should have entries for entities that have lineage
@@ -219,7 +253,7 @@ def test_get_lineage_for_table_with_lineage(
     """Test getting lineage for table with lineage."""
     # Add a lineage edge to the map
     edge = LineageEdge(
-        entity_id="upstream.entity",
+        entity_id="test-project.test-dataset.upstream-entity",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -229,7 +263,7 @@ def test_get_lineage_for_table_with_lineage(
     # Get lineage
     result = lineage_extractor.get_lineage_for_table(
         "test-entity",
-        "urn:li:dataset:(urn:li:dataPlatform:dataplex,test-project.test-entity,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:dataplex,test-project.test-dataset.test-entity,PROD)",
     )
 
     assert result is not None
@@ -241,7 +275,7 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
     """Test generating lineage workunits."""
     # Add a lineage edge
     edge = LineageEdge(
-        entity_id="upstream.entity",
+        entity_id="test-project.test-dataset.upstream-entity",
         audit_stamp=datetime.datetime.now(datetime.timezone.utc),
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
@@ -249,9 +283,7 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
     lineage_extractor.lineage_map["test-entity"] = {edge}
 
     # Generate workunits
-    dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:dataplex,test-project.test-entity,PROD)"
-    )
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dataplex,test-project.test-dataset.test-entity,PROD)"
     workunits = list(lineage_extractor.gen_lineage("test-entity", dataset_urn))
 
     assert len(workunits) == 1
