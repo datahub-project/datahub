@@ -161,7 +161,7 @@ public class ListExecutionRequestsResolverTest {
     EntityClient mockClient =
         getTestEntityClient(
             new FacetFilterInput(
-                "sourceType", null, ImmutableList.of("SYSTEM"), true, FilterOperator.EQUAL));
+                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL));
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, false);
@@ -179,7 +179,24 @@ public class ListExecutionRequestsResolverTest {
 
   @Test
   public void testGetWithFilteringByAccessibleIngestionSourcesWhenNoPermissions() throws Exception {
-    EntityClient mockClient = getTestEntityClient(null);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // When systemSources is null, no filter is added
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+                Mockito.eq("*"),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(20)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(0)
+                .setNumEntities(0)
+                .setEntities(new SearchEntityArray()));
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, null);
