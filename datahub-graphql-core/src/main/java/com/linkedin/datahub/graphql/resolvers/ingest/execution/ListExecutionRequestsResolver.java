@@ -150,9 +150,7 @@ public class ListExecutionRequestsResolver
             FilterOperator.EQUAL));
   }
 
-  /**
-   * Fetches all system ingestion sources.
-   */
+  /** Fetches all system ingestion sources. */
   private List<Urn> getUrnsOfSystemSources(final QueryContext context) throws Exception {
     List<FacetFilterInput> filters = new ArrayList<>();
 
