@@ -1434,7 +1434,7 @@ export type Event =
     | FileUploadSucceededEvent
     | FileDownloadViewEvent
     | FileUploadLatencyEvent
-    | FileDownloadLatencyEvent;
+    | FileDownloadLatencyEvent
     | CreateDocumentEvent
     | MoveDocumentEvent
     | EditDocumentEvent
