@@ -114,6 +114,14 @@ class DataplexConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         "Set to -1 to disable circuit breaker. Default: 10.",
     )
 
+    lineage_batch_size: int = Field(
+        default=1000,
+        description="Number of entities to process in each lineage extraction batch. "
+        "Lower values reduce memory usage but may increase processing time. "
+        "Set to -1 to disable batching (process all entities at once). "
+        "Recommended: 1000 for large deployments, -1 for small deployments. Default: 1000.",
+    )
+
     create_sibling_relationships: bool = Field(
         default=True,
         description="Whether to create sibling relationships between Dataplex entities and native platform datasets (BigQuery/GCS).",

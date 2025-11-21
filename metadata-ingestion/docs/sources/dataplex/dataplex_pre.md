@@ -127,6 +127,9 @@ When `extract_lineage` is enabled and proper permissions are granted, the connec
 **Lineage Configuration Options:**
 
 - **`extract_lineage`** (default: `true`): Enable table-level lineage extraction
+- **`lineage_fail_fast`** (default: `false`): If true, fail immediately on lineage extraction errors. If false, log errors and continue processing. Recommended: `false` for development, `true` for production
+- **`max_lineage_failures`** (default: `10`): Maximum consecutive lineage extraction failures before stopping (circuit breaker). Set to `-1` to disable circuit breaker
+- **`lineage_batch_size`** (default: `1000`): Number of entities to process in each lineage extraction batch. Lower values reduce memory usage but may increase processing time. Set to `-1` to disable batching. Recommended: `1000` for large deployments (>10k entities), `-1` for small deployments
 
 **Example Configuration:**
 
@@ -140,6 +143,34 @@ source:
 
     # Lineage settings
     extract_lineage: true # Enable lineage extraction
+
+    # Error handling (optional)
+    lineage_fail_fast: false # Continue on errors (development mode)
+    max_lineage_failures: 10 # Circuit breaker after 10 consecutive failures
+
+    # Memory optimization (optional)
+    lineage_batch_size: 1000 # Process 1000 entities per batch
+```
+
+**Advanced Configuration for Large Deployments:**
+
+For deployments with thousands of entities, memory optimization is critical:
+
+```yaml
+source:
+  type: dataplex
+  config:
+    project_ids:
+      - "my-gcp-project"
+    location: "us-central1"
+
+    # Memory optimization for large deployments
+    lineage_batch_size: 1000 # Process 1000 entities at a time
+    max_workers: 10 # Parallelize entity extraction across zones
+
+    # Production error handling
+    lineage_fail_fast: true # Fail fast on errors in production
+    max_lineage_failures: 5 # Lower threshold for production
 ```
 
 **Lineage Limitations:**

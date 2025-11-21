@@ -830,3 +830,308 @@ def test_circuit_breaker_with_fail_fast() -> None:
         extractor.get_lineage_for_entity("test-project", entity)
 
     assert "Failed to get lineage" in str(exc_info.value)
+
+
+# Pagination Tests
+
+
+def test_pagination_automatic_handling() -> None:
+    """Test that pagination is handled automatically by the client library."""
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        extract_lineage=True,
+    )
+    report = DataplexReport()
+
+    # Create a mock pager that simulates multiple pages
+    mock_link1 = MagicMock()
+    mock_link1.source.fully_qualified_name = "bigquery:project.dataset.table1"
+
+    mock_link2 = MagicMock()
+    mock_link2.source.fully_qualified_name = "bigquery:project.dataset.table2"
+
+    mock_link3 = MagicMock()
+    mock_link3.source.fully_qualified_name = "bigquery:project.dataset.table3"
+
+    # Mock client that returns an iterable (simulating pagination)
+    mock_client = MagicMock()
+    # When list() is called on search_links result, it should return all items
+    mock_client.search_links.return_value = [mock_link1, mock_link2, mock_link3]
+
+    extractor = DataplexLineageExtractor(
+        config=config, report=report, lineage_client=mock_client
+    )
+
+    entity = EntityDataTuple(
+        lake_id="test_lake",
+        zone_id="test_zone",
+        entity_id="test_table",
+        asset_id="test_asset",
+        source_platform="bigquery",
+        dataset_id="test_dataset",
+    )
+
+    result = extractor.get_lineage_for_entity("test-project", entity)
+
+    # Verify all items from all "pages" are retrieved
+    assert result is not None
+    assert len(result["upstream"]) == 3
+    assert result["upstream"][0] == "bigquery:project.dataset.table1"
+    assert result["upstream"][1] == "bigquery:project.dataset.table2"
+    assert result["upstream"][2] == "bigquery:project.dataset.table3"
+
+
+def test_pagination_with_large_result_set() -> None:
+    """Test pagination handling with a large number of lineage links."""
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        extract_lineage=True,
+    )
+    report = DataplexReport()
+
+    # Simulate a large result set (e.g., 100 upstream links)
+    mock_links = []
+    for i in range(100):
+        mock_link = MagicMock()
+        mock_link.source.fully_qualified_name = (
+            f"bigquery:project.dataset.upstream_table_{i}"
+        )
+        mock_links.append(mock_link)
+
+    mock_client = MagicMock()
+    mock_client.search_links.return_value = mock_links
+
+    extractor = DataplexLineageExtractor(
+        config=config, report=report, lineage_client=mock_client
+    )
+
+    entity = EntityDataTuple(
+        lake_id="test_lake",
+        zone_id="test_zone",
+        entity_id="target_table",
+        asset_id="test_asset",
+        source_platform="bigquery",
+        dataset_id="analytics",
+    )
+
+    result = extractor.get_lineage_for_entity("test-project", entity)
+
+    # Verify all 100 items are retrieved
+    assert result is not None
+    assert len(result["upstream"]) == 100
+    # Verify first and last items
+    assert result["upstream"][0] == "bigquery:project.dataset.upstream_table_0"
+    assert result["upstream"][99] == "bigquery:project.dataset.upstream_table_99"
+
+
+def test_batched_lineage_processing() -> None:
+    """Test that lineage processing works correctly with batching enabled."""
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        extract_lineage=True,
+        lineage_batch_size=2,  # Small batch size to test batching
+    )
+    report = DataplexReport()
+
+    # Mock lineage client
+    mock_client = MagicMock()
+
+    # Create mock lineage responses for 5 entities
+    def mock_search_links(request):
+        fqn = (
+            request.target.fully_qualified_name
+            if hasattr(request, "target")
+            else request.source.fully_qualified_name
+        )
+        # Extract entity number from FQN
+        if "entity_0" in fqn:
+            mock_link = MagicMock()
+            mock_link.source.fully_qualified_name = (
+                "bigquery:project.dataset.upstream_0"
+            )
+            return [mock_link]
+        elif "entity_1" in fqn:
+            mock_link = MagicMock()
+            mock_link.source.fully_qualified_name = (
+                "bigquery:project.dataset.upstream_1"
+            )
+            return [mock_link]
+        elif "entity_2" in fqn:
+            mock_link = MagicMock()
+            mock_link.source.fully_qualified_name = (
+                "bigquery:project.dataset.upstream_2"
+            )
+            return [mock_link]
+        elif "entity_3" in fqn:
+            mock_link = MagicMock()
+            mock_link.source.fully_qualified_name = (
+                "bigquery:project.dataset.upstream_3"
+            )
+            return [mock_link]
+        elif "entity_4" in fqn:
+            mock_link = MagicMock()
+            mock_link.source.fully_qualified_name = (
+                "bigquery:project.dataset.upstream_4"
+            )
+            return [mock_link]
+        return []
+
+    mock_client.search_links.side_effect = mock_search_links
+
+    extractor = DataplexLineageExtractor(
+        config=config, report=report, lineage_client=mock_client
+    )
+
+    # Create 5 test entities
+    entities = [
+        EntityDataTuple(
+            lake_id="test_lake",
+            zone_id="test_zone",
+            entity_id=f"entity_{i}",
+            asset_id="test_asset",
+            source_platform="bigquery",
+            dataset_id=f"dataset_{i}",
+        )
+        for i in range(5)
+    ]
+
+    # Call get_lineage_workunits which should process entities in batches of 2
+    workunits = list(extractor.get_lineage_workunits("test-project", entities))
+
+    # Should generate 5 workunits (one per entity)
+    assert len(workunits) == 5
+
+    # Verify that lineage was extracted for all entities
+    assert extractor.report.num_lineage_entries_scanned == 5
+
+
+def test_batched_lineage_with_batch_size_larger_than_entities() -> None:
+    """Test that batching is disabled when batch size is larger than entity count."""
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        extract_lineage=True,
+        lineage_batch_size=100,  # Larger than entity count
+    )
+    report = DataplexReport()
+
+    mock_client = MagicMock()
+    # Mock to return some lineage so we can verify entities are processed
+    mock_link = MagicMock()
+    mock_link.source.fully_qualified_name = "bigquery:project.dataset.upstream"
+    mock_client.search_links.return_value = [mock_link]
+
+    extractor = DataplexLineageExtractor(
+        config=config, report=report, lineage_client=mock_client
+    )
+
+    # Create 3 test entities
+    entities = [
+        EntityDataTuple(
+            lake_id="test_lake",
+            zone_id="test_zone",
+            entity_id=f"entity_{i}",
+            asset_id="test_asset",
+            source_platform="bigquery",
+            dataset_id=f"dataset_{i}",
+        )
+        for i in range(3)
+    ]
+
+    # Should process all entities in a single batch
+    workunits = list(extractor.get_lineage_workunits("test-project", entities))
+
+    # Should generate 3 workunits (one per entity)
+    assert len(workunits) == 3
+    # Verify all entities were scanned
+    assert extractor.report.num_lineage_entries_scanned == 3
+
+
+def test_batched_lineage_with_batching_disabled() -> None:
+    """Test that batching can be disabled by setting batch_size to -1."""
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        extract_lineage=True,
+        lineage_batch_size=-1,  # Disable batching
+    )
+    report = DataplexReport()
+
+    mock_client = MagicMock()
+    # Mock to return some lineage so we can verify entities are processed
+    mock_link = MagicMock()
+    mock_link.source.fully_qualified_name = "bigquery:project.dataset.upstream"
+    mock_client.search_links.return_value = [mock_link]
+
+    extractor = DataplexLineageExtractor(
+        config=config, report=report, lineage_client=mock_client
+    )
+
+    # Create 10 test entities
+    entities = [
+        EntityDataTuple(
+            lake_id="test_lake",
+            zone_id="test_zone",
+            entity_id=f"entity_{i}",
+            asset_id="test_asset",
+            source_platform="bigquery",
+            dataset_id=f"dataset_{i}",
+        )
+        for i in range(10)
+    ]
+
+    # Should process all entities at once (no batching)
+    workunits = list(extractor.get_lineage_workunits("test-project", entities))
+
+    # Should generate 10 workunits
+    assert len(workunits) == 10
+    # Verify all entities were scanned
+    assert extractor.report.num_lineage_entries_scanned == 10
+
+
+def test_batched_lineage_memory_cleanup() -> None:
+    """Test that lineage map is cleared between batches to free memory."""
+    config = DataplexConfig(
+        project_ids=["test-project"],
+        extract_lineage=True,
+        lineage_batch_size=2,  # Process 2 entities per batch
+    )
+    report = DataplexReport()
+
+    mock_client = MagicMock()
+
+    # Track lineage map size during processing
+    lineage_map_sizes = []
+
+    def mock_search_links(request):
+        # Record the current lineage map size
+        lineage_map_sizes.append(len(extractor.lineage_map))
+        mock_link = MagicMock()
+        mock_link.source.fully_qualified_name = "bigquery:project.dataset.upstream"
+        return [mock_link]
+
+    mock_client.search_links.side_effect = mock_search_links
+
+    extractor = DataplexLineageExtractor(
+        config=config, report=report, lineage_client=mock_client
+    )
+
+    # Create 6 entities (will be processed in 3 batches of 2)
+    entities = [
+        EntityDataTuple(
+            lake_id="test_lake",
+            zone_id="test_zone",
+            entity_id=f"entity_{i}",
+            asset_id="test_asset",
+            source_platform="bigquery",
+            dataset_id=f"dataset_{i}",
+        )
+        for i in range(6)
+    ]
+
+    # Process entities
+    workunits = list(extractor.get_lineage_workunits("test-project", entities))
+
+    # Should generate 6 workunits
+    assert len(workunits) == 6
+
+    # After processing, lineage map should be empty (cleared after last batch)
+    assert len(extractor.lineage_map) == 0

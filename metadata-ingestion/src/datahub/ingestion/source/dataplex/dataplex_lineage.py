@@ -254,12 +254,16 @@ class DataplexLineageExtractor:
         """
         Search for lineage links where the entity is a target (to find upstream).
 
+        Note: The Google Cloud Lineage API client automatically handles pagination.
+        The search_links() method returns a SearchLinksPager that fetches all pages
+        transparently when converted to a list, so no manual pagination is needed.
+
         Args:
             parent: Parent resource path (projects/{project}/locations/{location})
             fully_qualified_name: FQN of the entity
 
         Returns:
-            Iterator of Link objects
+            List of Link objects (all pages automatically retrieved)
 
         Raises:
             Exception: If the lineage API call fails
@@ -267,6 +271,7 @@ class DataplexLineageExtractor:
         logger.info(f"Searching upstream lineage for FQN: {fully_qualified_name}")
         target = EntityReference(fully_qualified_name=fully_qualified_name)
         request = SearchLinksRequest(parent=parent, target=target)
+        # Convert pager to list - this automatically handles pagination
         results = list(self.lineage_client.search_links(request=request))
         logger.info(
             f"Found {len(results)} upstream lineage link(s) for {fully_qualified_name}"
@@ -279,12 +284,16 @@ class DataplexLineageExtractor:
         """
         Search for lineage links where the entity is a source (to find downstream).
 
+        Note: The Google Cloud Lineage API client automatically handles pagination.
+        The search_links() method returns a SearchLinksPager that fetches all pages
+        transparently when converted to a list, so no manual pagination is needed.
+
         Args:
             parent: Parent resource path (projects/{project}/locations/{location})
             fully_qualified_name: FQN of the entity
 
         Returns:
-            Iterator of Link objects
+            List of Link objects (all pages automatically retrieved)
 
         Raises:
             Exception: If the lineage API call fails
@@ -292,6 +301,7 @@ class DataplexLineageExtractor:
         logger.info(f"Searching downstream lineage for FQN: {fully_qualified_name}")
         source = EntityReference(fully_qualified_name=fully_qualified_name)
         request = SearchLinksRequest(parent=parent, source=source)
+        # Convert pager to list - this automatically handles pagination
         results = list(self.lineage_client.search_links(request=request))
         logger.info(
             f"Found {len(results)} downstream lineage link(s) for {fully_qualified_name}"
@@ -512,9 +522,13 @@ class DataplexLineageExtractor:
         """
         Main entry point to get lineage workunits for multiple entities.
 
+        Processes entities in batches to reduce memory consumption for large deployments.
+        Batch size is controlled by config.lineage_batch_size (default: 1000).
+        Set to -1 to disable batching and process all entities at once.
+
         Args:
             project_id: GCP project ID
-            entity_ids: Iterable of entity IDs
+            entity_data: Iterable of EntityDataTuple objects
 
         Yields:
             MetadataWorkUnit objects containing lineage information
@@ -525,23 +539,80 @@ class DataplexLineageExtractor:
 
         logger.info(f"Extracting lineage for project {project_id}")
 
-        # Build lineage map for all entities
-        self.build_lineage_map(project_id, entity_data)
+        # Convert to list to allow multiple iterations and get total count
+        entity_list = list(entity_data)
+        total_entities = len(entity_list)
 
-        # Generate workunits for each entity
-        for entity in entity_data:
-            dataset_urn = make_entity_dataset_urn(
-                project_id=project_id,
-                entity_id=entity.entity_id,
-                platform=self.platform,
-                env=self.config.env,
-                dataset_id=entity.dataset_id,
+        # Check if batching is disabled (-1) or batch size >= total entities
+        if (
+            self.config.lineage_batch_size == -1
+            or self.config.lineage_batch_size >= total_entities
+        ):
+            logger.info(f"Processing all {total_entities} entities in a single batch")
+            # Process all entities at once (original behavior)
+            self.build_lineage_map(project_id, entity_list)
+
+            for entity in entity_list:
+                dataset_urn = make_entity_dataset_urn(
+                    project_id=project_id,
+                    entity_id=entity.entity_id,
+                    platform=self.platform,
+                    env=self.config.env,
+                    dataset_id=entity.dataset_id,
+                )
+
+                try:
+                    yield from self.gen_lineage(entity.entity_id, dataset_urn)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to generate lineage for {entity.entity_id}: {e}"
+                    )
+                    self.report.num_lineage_entries_failed += 1
+        else:
+            # Process entities in batches
+            batch_size = self.config.lineage_batch_size
+            num_batches = (
+                total_entities + batch_size - 1
+            ) // batch_size  # Ceiling division
+
+            logger.info(
+                f"Processing {total_entities} entities in {num_batches} batches "
+                f"of {batch_size} (memory optimization enabled)"
             )
 
-            try:
-                yield from self.gen_lineage(entity.entity_id, dataset_urn)
-            except Exception as e:
-                logger.warning(
-                    f"Failed to generate lineage for {entity.entity_id}: {e}"
+            for batch_idx in range(num_batches):
+                start_idx = batch_idx * batch_size
+                end_idx = min(start_idx + batch_size, total_entities)
+                batch = entity_list[start_idx:end_idx]
+
+                logger.info(
+                    f"Processing batch {batch_idx + 1}/{num_batches} "
+                    f"({len(batch)} entities: {start_idx} to {end_idx - 1})"
                 )
-                self.report.num_lineage_entries_failed += 1
+
+                # Build lineage map for this batch only
+                self.build_lineage_map(project_id, batch)
+
+                # Generate workunits for entities in this batch
+                for entity in batch:
+                    dataset_urn = make_entity_dataset_urn(
+                        project_id=project_id,
+                        entity_id=entity.entity_id,
+                        platform=self.platform,
+                        env=self.config.env,
+                        dataset_id=entity.dataset_id,
+                    )
+
+                    try:
+                        yield from self.gen_lineage(entity.entity_id, dataset_urn)
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to generate lineage for {entity.entity_id}: {e}"
+                        )
+                        self.report.num_lineage_entries_failed += 1
+
+                # Clear lineage map after processing batch to free memory
+                self.lineage_map.clear()
+                logger.debug(f"Cleared lineage map after batch {batch_idx + 1}")
+
+            logger.info(f"Completed lineage extraction for all {num_batches} batches")
