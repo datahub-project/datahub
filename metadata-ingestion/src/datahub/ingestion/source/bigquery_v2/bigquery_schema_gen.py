@@ -530,9 +530,7 @@ class BigQuerySchemaGenerator:
             logger.debug(
                 f"Lightweight table discovery for dataset {dataset_name} in project {project_id}"
             )
-            table_count = 0
             for table_item in self.schema_api.list_tables(dataset_name, project_id):
-                table_count += 1
                 table_type = getattr(table_item, "table_type", "UNKNOWN")
 
                 identifier = BigqueryTableIdentifier(
@@ -559,9 +557,6 @@ class BigQuerySchemaGenerator:
                     logger.warning(
                         f"Could not create table ref for {table_item.path}: {e}"
                     )
-            logger.debug(
-                f"Lightweight discovery for {dataset_name}: processed {table_count} objects, table_refs now has {len(self.table_refs)} total entries"
-            )
             return
 
         if self.config.include_tables:
