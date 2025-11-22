@@ -1,0 +1,80 @@
+{
+  "data": {
+    "virtualConnectionsConnection": {
+      "nodes": [
+        {
+          "id": "vc-123",
+          "name": "Test Virtual Connection 1",
+          "luid": "vc-luid-123",
+          "description": "Test virtual connection for integration testing",
+          "createdAt": "2021-12-07T07:00:00Z",
+          "updatedAt": "2021-12-07T07:00:00Z",
+          "owner": {
+            "username": "test_user"
+          },
+          "tables": [
+            {
+              "id": "vc-table-1",
+              "name": "test.table1",
+              "columns": [
+                {
+                  "id": "col1",
+                  "name": "customer_id",
+                  "remoteType": "INTEGER",
+                  "description": "Customer identifier",
+                  "upstreamFields": [
+                    {
+                      "id": "upstream-field-1",
+                      "name": "id",
+                      "description": "Source customer ID",
+                      "upstreamDatasources": [
+                        {
+                          "id": "ds-123"
+                        }
+                      ],
+                      "datasource": {
+                        "id": "ds-123",
+                        "name": "customers_db"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "col2",
+                  "name": "customer_name",
+                  "remoteType": "STRING",
+                  "description": "Customer name",
+                  "upstreamFields": [
+                    {
+                      "id": "upstream-field-2",
+                      "name": "name",
+                      "description": "Source customer name",
+                      "upstreamDatasources": [
+                        {
+                          "id": "ds-123"
+                        }
+                      ],
+                      "datasource": {
+                        "id": "ds-123",
+                        "name": "customers_db"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "tags": [
+            {
+              "name": "test_tag"
+            }
+          ]
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      }
+    }
+  }
+}
