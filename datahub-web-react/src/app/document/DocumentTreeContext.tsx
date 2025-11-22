@@ -233,11 +233,6 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (parentUrn === null) {
             // Setting root nodes - merge with existing roots to preserve optimistic updates
             setRootUrns((prevRootUrns) => {
-                console.log('🔄 setNodeChildren for ROOT:', {
-                    existingRootCount: prevRootUrns.length,
-                    serverCount: childNodes.length,
-                });
-
                 // Merge using Map for deduplication
                 const mergedMap = new Map<string, string>();
 
@@ -249,13 +244,11 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 // Add existing roots not in server response (optimistic)
                 prevRootUrns.forEach((urn) => {
                     if (!mergedMap.has(urn)) {
-                        console.log('  ➕ Preserving optimistic root:', urn);
                         mergedMap.set(urn, urn);
                     }
                 });
 
                 const mergedRootUrns = Array.from(mergedMap.values());
-                console.log('  ✅ Merged roots:', mergedRootUrns.length);
 
                 return mergedRootUrns;
             });
@@ -274,13 +267,6 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     // Get existing children (might include optimistic updates)
                     const existingChildren = parent.children || [];
 
-                    console.log('🔄 setNodeChildren for parent:', parentUrn, {
-                        existingCount: existingChildren.length,
-                        serverCount: childNodes.length,
-                        existingUrns: existingChildren.map((c) => c.urn),
-                        serverUrns: childNodes.map((c) => c.urn),
-                    });
-
                     // Merge strategy: Server data takes precedence, preserve optimistic updates not yet on server
                     const mergedMap = new Map<string, DocumentTreeNode>();
 
@@ -292,19 +278,12 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     // Then, add existing children that are NOT in server response (optimistic updates)
                     existingChildren.forEach((existingChild) => {
                         if (!mergedMap.has(existingChild.urn)) {
-                            console.log('  ➕ Preserving optimistic child:', existingChild.urn, existingChild.title);
                             mergedMap.set(existingChild.urn, existingChild);
                         }
                     });
 
                     // Convert back to array (guaranteed unique by URN)
                     const mergedChildren = Array.from(mergedMap.values());
-
-                    console.log('  ✅ Merged children (deduplicated):', {
-                        total: mergedChildren.length,
-                        fromServer: childNodes.length,
-                        optimistic: mergedChildren.length - childNodes.length,
-                    });
 
                     updated.set(parentUrn, {
                         ...parent,

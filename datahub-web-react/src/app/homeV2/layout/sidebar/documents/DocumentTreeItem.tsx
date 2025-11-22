@@ -209,7 +209,9 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                     </IconWrapper>
                 )}
 
-                <Title $isSelected={isSelected}>{title}</Title>
+                <Title $isSelected={isSelected} title={title}>
+                    {title}
+                </Title>
             </LeftContent>
 
             {!hideActions && (

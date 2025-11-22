@@ -42,11 +42,11 @@ export function useLoadDocumentTree() {
     });
 
     // Check if multiple documents have children (batch query)
+    // TODO: Consider refactoring to use useLazyQuery for better type safety
+    // once Apollo is updated to support returning data directly from lazy queries
     const checkForChildren = useCallback(
         async (urns: string[]): Promise<Record<string, boolean>> => {
             if (urns.length === 0) return {};
-
-            console.log('🔍 checkForChildren called with urns:', urns);
 
             try {
                 const result = await apolloClient.query({
@@ -64,28 +64,23 @@ export function useLoadDocumentTree() {
                     fetchPolicy: 'network-only', // Always fetch fresh to check for children
                 });
 
-                console.log('📦 checkForChildren raw result:', result);
-
                 const childrenMap: Record<string, boolean> = {};
                 urns.forEach((urn) => {
                     childrenMap[urn] = false;
                 });
 
                 const children = result.data?.searchDocuments?.documents || [];
-                console.log('👶 checkForChildren found children:', children.length);
 
                 children.forEach((child) => {
                     const parentUrn = child.info?.parentDocument?.document?.urn;
-                    console.log('  - Child', child.urn, 'has parent:', parentUrn);
                     if (parentUrn && childrenMap.hasOwnProperty(parentUrn)) {
                         childrenMap[parentUrn] = true;
                     }
                 });
 
-                console.log('✅ checkForChildren result:', childrenMap);
                 return childrenMap;
             } catch (error) {
-                console.error('❌ Failed to check for children:', error);
+                console.error('Failed to check for children:', error);
                 return {};
             }
         },
@@ -93,6 +88,8 @@ export function useLoadDocumentTree() {
     );
 
     // Load children for a specific parent
+    // TODO: Consider refactoring to use useLazyQuery for better type safety
+    // once Apollo is updated to support returning data directly from lazy queries
     const loadChildren = useCallback(
         async (parentUrn: string | null) => {
             try {
@@ -150,8 +147,6 @@ export function useLoadDocumentTree() {
                 const isTreeEmpty = currentRootNodes.length === 0;
 
                 if (isTreeEmpty) {
-                    console.log('🌳 Initializing document tree with', rootDocuments.length, 'root documents');
-
                     // Sort root documents by creation time (most recent first)
                     const sortedRootDocuments = [...rootDocuments].sort((a, b) => {
                         const timeA = a.info?.created?.time || 0;
@@ -169,9 +164,6 @@ export function useLoadDocumentTree() {
                     );
 
                     initializeTree(rootNodes);
-                    console.log('✅ Tree initialized (first time only)');
-                } else {
-                    console.log('ℹ️ Tree already initialized, skipping initialization');
                 }
             };
 

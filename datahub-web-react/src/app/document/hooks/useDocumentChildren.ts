@@ -18,6 +18,9 @@ export function useDocumentChildren() {
     /**
      * Check if any of the given parent documents have children
      * Returns a map of parentUrn -> hasChildren
+     *
+     * TODO: Consider refactoring to use useLazyQuery for better type safety
+     * once Apollo is updated to support returning data directly from lazy queries
      */
     const checkForChildren = useCallback(
         async (parentUrns: string[]): Promise<Record<string, boolean>> => {
@@ -68,10 +71,12 @@ export function useDocumentChildren() {
 
     /**
      * Fetch all children for a specific parent document
+     *
+     * TODO: Consider refactoring to use useLazyQuery for better type safety
+     * once Apollo is updated to support returning data directly from lazy queries
      */
     const fetchChildren = useCallback(
         async (parentUrn: string): Promise<DocumentChild[]> => {
-            console.log('🔍 fetchChildren called for:', parentUrn);
             try {
                 const result = await client.query({
                     query: SearchDocumentsDocument,
@@ -90,14 +95,6 @@ export function useDocumentChildren() {
                     fetchPolicy: 'cache-first',
                 });
 
-                console.log('📦 fetchChildren raw result:', {
-                    parentUrn,
-                    dataSource: result.data ? 'CACHE or NETWORK' : 'NONE',
-                    error: result.error,
-                    errors: result.errors,
-                    documentsCount: result.data?.searchDocuments?.documents?.length,
-                });
-
                 if (!result || result.error || result.errors) {
                     console.error('Failed to fetch children:', result?.error || result?.errors);
                     return [];
@@ -106,11 +103,6 @@ export function useDocumentChildren() {
                 const { data } = result;
 
                 const documents = data?.searchDocuments?.documents || [];
-                console.log('✅ fetchChildren returning:', {
-                    parentUrn,
-                    documentsCount: documents.length,
-                    documents: documents.map((d) => ({ urn: d.urn, title: d.info?.title })),
-                });
                 return documents.map((doc) => ({
                     urn: doc.urn,
                     title: doc.info?.title || 'New Document',

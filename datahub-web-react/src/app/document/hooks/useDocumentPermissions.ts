@@ -3,8 +3,6 @@ import { useMemo } from 'react';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 
-import { Document } from '@types';
-
 export interface DocumentPermissions {
     canCreate: boolean;
     canEditContents: boolean;
@@ -26,15 +24,14 @@ export interface DocumentPermissions {
 export function useDocumentPermissions(_documentUrn?: string): DocumentPermissions {
     const { entityData } = useEntityData();
     const { platformPrivileges } = useUserContext();
-    const document = entityData as Document;
 
     return useMemo(() => {
         // Platform-level privilege check
         const hasManageDocuments = platformPrivileges?.manageDocuments || false;
 
         // Entity-level privilege checks from document.privileges
-        const canEditDescription = document?.privileges?.canEditDescription || false;
-        const canManageEntity = document?.privileges?.canManageEntity || false;
+        const canEditDescription = entityData?.privileges?.canEditDescription || false;
+        const canManageEntity = entityData?.privileges?.canManageEntity || false;
 
         // Delete and move require either permissions for the entity or management at the platform level.
         const canDelete = canManageEntity || hasManageDocuments;
@@ -50,5 +47,5 @@ export function useDocumentPermissions(_documentUrn?: string): DocumentPermissio
             canDelete,
             canMove,
         };
-    }, [document, platformPrivileges]);
+    }, [entityData, platformPrivileges]);
 }
