@@ -977,6 +977,9 @@ cache:
           telemetryClientId: 86400 # 1 day
 
 graphQL:
+  graphiql:
+    # Enable/disable the GraphiQL interactive query interface at /api/graphiql
+    enabled: ${GRAPHQL_GRAPHIQL_ENABLED:true}
   concurrency:
     separateThreadPool: ${GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL:false} # Enable the separate thread pool, the following configurations only apply if enabled
     stackSize: ${GRAPHQL_CONCURRENCY_STACK_SIZE:256000} # Default to JVM default of 256 KB
