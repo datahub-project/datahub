@@ -91,6 +91,8 @@ coverage*.xml
 .vercel
 .envrc
 **/.claude/settings.local.json
+# Claude agent files (session-specific, not to be committed)
+**/.claude/agents/
 
 # Environment files with credentials
 .env*
