@@ -550,6 +550,10 @@ public class Constants {
   public static final String MDC_ENTITY_TYPE = "entityType";
   public static final String MDC_CHANGE_TYPE = "changeType";
 
+  // Log messages
+  public static final String READ_ONLY_LOG =
+      "DataHub is currently in read only mode and this write will be dropped.";
+
   public static final String RESTLI_SUCCESS = "success";
 
   // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with

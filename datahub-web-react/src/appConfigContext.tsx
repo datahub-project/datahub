@@ -66,6 +66,7 @@ export const DEFAULT_APP_CONFIG = {
         nestedDomainsEnabled: true,
         platformBrowseV2: false,
         businessAttributeEntityEnabled: false,
+        contextDocumentsEnabled: false,
         dataContractsEnabled: false,
         editableDatasetNameEnabled: false,
         themeV2Enabled: false,
