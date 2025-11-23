@@ -600,7 +600,7 @@ public class ESUtils {
 
         // How missing value in documents should be treated in sorting.
         Object missingValue = sortCriterion.data().get("missingValue");
-        if (("_last".equals(missingValue) || "_first".equals(missingValue))) {
+        if ("_last".equals(missingValue) || "_first".equals(missingValue)) {
           sortBuilder.missing(missingValue);
         }
         searchSourceBuilder.sort(sortBuilder);
