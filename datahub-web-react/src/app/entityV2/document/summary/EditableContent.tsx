@@ -236,8 +236,10 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         doNotFocus
                         $hideToolbar={!isEditorFocused}
                         fixedBottomToolbar={isEditorFocused}
-                        uploadFile={uploadFile}
-                        {...uploadFileAnalyticsCallbacks}
+                        uploadFileProps={{
+                            onFileUpload: uploadFile,
+                            ...uploadFileAnalyticsCallbacks,
+                        }}
                     />
                 ) : (
                     <StyledEditor
