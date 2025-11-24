@@ -4,34 +4,22 @@ import { useCallback } from 'react';
 import { useUserContext } from '@app/context/useUserContext';
 import { useExecuteIngestionSource } from '@app/ingestV2/source/hooks/useExecuteIngestionSource';
 import { buildOwnerEntities } from '@app/ingestV2/source/utils';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 
 import { useCreateIngestionSourceMutation } from '@graphql/ingestion.generated';
 import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
-import {
-    Entity,
-    EntityType,
-    IngestionSource,
-    OwnerEntityType,
-    OwnershipTypeEntity,
-    UpdateIngestionSourceInput,
-} from '@types';
+import { Entity, EntityType, IngestionSource, OwnerEntityType, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
 export function useCreateSource() {
     const executeIngestionSource = useExecuteIngestionSource();
     const [createIngestionSource] = useCreateIngestionSourceMutation();
-    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
 
     const [addOwners] = useBatchAddOwnersMutation();
 
-    const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    const defaultOwnerType: OwnershipTypeEntity | undefined = ownershipTypes.length > 0 ? ownershipTypes[0] : undefined;
+    const { defaultOwnershipType } = useOwnershipTypes();
+
     const me = useUserContext();
 
     const createSource = useCallback(
@@ -41,12 +29,11 @@ export function useCreateSource() {
                     ownerUrn: owner.urn,
                     ownerEntityType:
                         owner.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser,
-                    ownershipTypeUrn: defaultOwnerType?.urn,
+                    ownershipTypeUrn: defaultOwnershipType?.urn,
                 };
             });
             try {
                 const result = await createIngestionSource({ variables: { input } });
-                // message.loading({ content: 'Loading...', duration: 2 });
                 const ownersToAdd = ownerInputs?.filter((owner) => owner.ownerUrn !== me.urn);
                 const newUrn = result?.data?.createIngestionSource || PLACEHOLDER_URN;
 
@@ -63,7 +50,7 @@ export function useCreateSource() {
                     executions: null,
                     source: input.source || null,
                     ownership: {
-                        owners: buildOwnerEntities(newUrn, owners, defaultOwnerType),
+                        owners: buildOwnerEntities(newUrn, owners, defaultOwnershipType),
                         lastModified: {
                             time: 0,
                         },
@@ -71,14 +58,6 @@ export function useCreateSource() {
                     },
                     __typename: 'IngestionSource' as const,
                 };
-
-                // addToListIngestionSourcesCache(client, newSource, {
-                //     start: 0,
-                //     count: DEFAULT_PAGE_SIZE,
-                //     // query: undefined,
-                //     filters: [getIngestionSourceSystemFilter(true)],
-                //     // sort: undefined,
-                // });
 
                 if (ownersToAdd?.length) {
                     await addOwners({

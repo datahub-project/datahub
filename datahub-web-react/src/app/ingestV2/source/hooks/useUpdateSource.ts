@@ -3,25 +3,20 @@ import { useCallback } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
 import { useExecuteIngestionSource } from '@app/ingestV2/source/hooks/useExecuteIngestionSource';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 
 import { useUpdateIngestionSourceMutation } from '@graphql/ingestion.generated';
 import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
-import { Entity, EntityType, OwnerEntityType, OwnershipTypeEntity, UpdateIngestionSourceInput } from '@types';
+import { Entity, EntityType, OwnerEntityType, UpdateIngestionSourceInput } from '@types';
 
 export function useUpdateIngestionSource() {
     const executeIngestionSource = useExecuteIngestionSource();
-    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
+
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
 
     const [addOwners] = useBatchAddOwnersMutation();
 
-    const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    const defaultOwnerType: OwnershipTypeEntity | undefined = ownershipTypes.length > 0 ? ownershipTypes[0] : undefined;
+    const { defaultOwnershipType } = useOwnershipTypes();
     // const me = useUserContext();
     // const client = useApolloClient();
 
@@ -32,7 +27,7 @@ export function useUpdateIngestionSource() {
                     ownerUrn: owner.urn,
                     ownerEntityType:
                         owner.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser,
-                    ownershipTypeUrn: defaultOwnerType?.urn,
+                    ownershipTypeUrn: defaultOwnershipType?.urn,
                 };
             });
             updateIngestionSource({ variables: { urn: sourceUrn as string, input } })

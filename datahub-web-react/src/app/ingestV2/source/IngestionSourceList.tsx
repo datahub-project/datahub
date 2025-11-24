@@ -38,6 +38,7 @@ import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOn
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import usePagination from '@app/sharedV2/pagination/usePagination';
 import { PageRoutes } from '@conf/Global';
 
@@ -49,14 +50,12 @@ import {
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import {
     Entity,
     EntityType,
     IngestionSource,
     Owner,
     OwnerEntityType,
-    OwnershipTypeEntity,
     SortCriterion,
     UpdateIngestionSourceInput,
 } from '@types';
@@ -242,14 +241,8 @@ export const IngestionSourceList = ({
         nextFetchPolicy: 'cache-first',
     });
 
-    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
+    const { defaultOwnershipType } = useOwnershipTypes();
 
-    const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    const defaultOwnerType: OwnershipTypeEntity | undefined = ownershipTypes.length > 0 ? ownershipTypes[0] : undefined;
     useEffect(() => {
         const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
         setFinalSources(sources);
@@ -357,7 +350,7 @@ export const IngestionSourceList = ({
         const ownersToAddInputs = ownersToAdd.map((owner) => ({
             ownerUrn: owner.urn,
             ownerEntityType: owner.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser,
-            ownershipTypeUrn: defaultOwnerType?.urn,
+            ownershipTypeUrn: defaultOwnershipType?.urn,
         }));
 
         // excluding `owners` from `existingOwners` to get only removed owners
@@ -402,7 +395,7 @@ export const IngestionSourceList = ({
                         schedule: input.schedule || null,
                         urn: focusSourceUrn,
                         ownership: {
-                            owners: buildOwnerEntities(focusSourceUrn, owners, defaultOwnerType) || [],
+                            owners: buildOwnerEntities(focusSourceUrn, owners, defaultOwnershipType) || [],
                         },
                     };
                     updateListIngestionSourcesCache(client, updatedSource, queryInputs, false);
@@ -455,7 +448,7 @@ export const IngestionSourceList = ({
                         executions: null,
                         source: input.source || null,
                         ownership: {
-                            owners: buildOwnerEntities(newUrn, owners, defaultOwnerType),
+                            owners: buildOwnerEntities(newUrn, owners, defaultOwnershipType),
                             lastModified: {
                                 time: 0,
                             },
