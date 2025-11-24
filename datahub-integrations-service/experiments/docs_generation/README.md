@@ -127,8 +127,8 @@ Environment variables to be set via `.env` created above
 VERTEXAI_PROJECT="acryl-poc"
 VERTEXAI_LOCATION="us-east4"  # or whichever region you're using
 
-DESCRIPTION_GENERATION_MODEL="vertex_ai/gemini-2.5-pro"
-QUERY_DESCRIPTION_GENERATION_MODEL="vertex_ai/gemini-2.5-pro"
+DESCRIPTION_GENERATION_MODEL="google_vertexai/gemini-2.5-flash"
+QUERY_DESCRIPTION_GENERATION_MODEL="google_vertexai/gemini-2.5-flash"
 ```
 
 ## Running prompt engineering experiment run to generate descriptions

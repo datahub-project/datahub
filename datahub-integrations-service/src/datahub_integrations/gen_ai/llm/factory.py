@@ -107,7 +107,7 @@ def _create_llm_wrapper(
             connect_timeout=connect_timeout,
             max_attempts=max_attempts,
         )
-    elif provider in ("gemini", "vertex_ai"):
+    elif provider in ("gemini", "vertex_ai", "google_vertexai"):
         # Lazy import to avoid segfault at module load time
         from datahub_integrations.gen_ai.llm.gemini import GeminiLLMWrapper
 
@@ -120,7 +120,7 @@ def _create_llm_wrapper(
     else:
         raise ValueError(
             f"Unsupported LLM provider: {provider}. "
-            f"Supported providers: bedrock, openai, gemini, vertex_ai"
+            f"Supported providers: bedrock, openai, gemini, vertex_ai, google_vertexai"
         )
 
 
