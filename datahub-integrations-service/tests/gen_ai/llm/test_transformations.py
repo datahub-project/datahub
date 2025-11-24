@@ -39,7 +39,6 @@ class MockLLMWrapper(LLMWrapper):
 
     def converse(
         self,
-        modelId: str,
         system: List[Any],
         messages: List[Any],
         toolConfig: Any = None,

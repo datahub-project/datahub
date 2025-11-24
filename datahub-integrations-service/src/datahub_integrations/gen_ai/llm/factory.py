@@ -47,27 +47,17 @@ from loguru import logger
 
 from datahub_integrations.gen_ai.llm.base import LLMWrapper
 from datahub_integrations.gen_ai.llm.bedrock import BedrockLLMWrapper
+from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+    CustomOpenAIProxyLLMWrapper,
+)
 from datahub_integrations.gen_ai.llm.openai import OpenAILLMWrapper
+from datahub_integrations.gen_ai.llm.utils import parse_model_id
+from datahub_integrations.gen_ai.model_config import (
+    CustomModelProvider,
+    get_custom_model_provider_config,
+)
 
 # Lazy import for Gemini to avoid segfault at module load time
-
-
-def _parse_model_id(model_id: str) -> tuple[str, str]:
-    """
-    Parse model ID to extract provider and model name.
-
-    Args:
-        model_id: Full model identifier (e.g., "bedrock/claude-3-5-sonnet")
-
-    Returns:
-        Tuple of (provider, model_name)
-    """
-    if "/" in model_id:
-        provider, model_name = model_id.split("/", 1)
-        return provider.lower(), model_name
-    else:
-        # Default to bedrock for backward compatibility
-        return "bedrock", model_id
 
 
 def _create_llm_wrapper(
@@ -76,6 +66,7 @@ def _create_llm_wrapper(
     read_timeout: int,
     connect_timeout: int,
     max_attempts: int,
+    custom_model_provider: CustomModelProvider | None = None,
 ) -> LLMWrapper:
     """
     Factory function to create the appropriate LLM wrapper based on provider.
@@ -93,7 +84,15 @@ def _create_llm_wrapper(
     Raises:
         ValueError: If provider is not supported
     """
-    if provider == "bedrock":
+    if provider == "custom":
+        return CustomOpenAIProxyLLMWrapper(
+            model_name=model_name,
+            read_timeout=read_timeout,
+            connect_timeout=connect_timeout,
+            max_attempts=max_attempts,
+            custom_model_provider=custom_model_provider,
+        )
+    elif provider == "bedrock":
         return BedrockLLMWrapper(
             model_name=model_name,
             read_timeout=read_timeout,
@@ -156,8 +155,18 @@ def get_llm_client(
         >>>
         >>> # Gemini
         >>> client = get_llm_client("gemini/gemini-1.5-pro")
+        >>>
+        >>> # Custom, inferred by existence of custom_model_provider
+        >>> client = get_llm_client(model_id="my_custom_model")
     """
-    provider, model_name = _parse_model_id(model_id)
+
+    custom_model_provider = get_custom_model_provider_config()
+    if custom_model_provider:
+        provider = "custom"
+        model_name = model_id
+    else:
+        provider, model_name = parse_model_id(model_id)
+
     logger.info(f"Initializing LLMWrapper with provider={provider}, model={model_name}")
 
     return _create_llm_wrapper(
@@ -166,4 +175,5 @@ def get_llm_client(
         read_timeout=read_timeout,
         connect_timeout=connect_timeout,
         max_attempts=max_attempts,
+        custom_model_provider=custom_model_provider,
     )

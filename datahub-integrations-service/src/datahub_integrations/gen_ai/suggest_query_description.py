@@ -6,9 +6,7 @@ from loguru import logger
 from datahub_integrations.gen_ai.description_v3 import (
     get_extra_documentation_instructions,
 )
-from datahub_integrations.gen_ai.litellm import (
-    LiteLLM,
-)
+from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
 
 
@@ -89,15 +87,19 @@ Additional Requirements:
 </query>
 """
 
-    litellm = LiteLLM(
-        model=model_config.documentation_ai.query_description_model,
-        max_tokens=500,
-        temperature=0.3,
+    model = model_config.documentation_ai.query_description_model
+    llm_client = get_llm_client(model)
+
+    response = llm_client.converse(
+        system=[],
+        messages=[{"role": "user", "content": [{"text": base_prompt}]}],  # type: ignore[list-item]
+        inferenceConfig={
+            "temperature": 0.3,
+            "maxTokens": 500,
+        },
     )
 
-    description = litellm.call_lite_llm(prompt=base_prompt)
-
-    return description
+    return response["output"]["message"]["content"][0]["text"]
 
 
 if __name__ == "__main__":

@@ -149,7 +149,6 @@ Use the rank_entities tool to return the scored results."""
             llm_client = get_llm_client(self.model_id)
 
             response = llm_client.converse(
-                modelId=self.model_id,
                 system=[],  # No system messages for reranking task
                 messages=[{"role": "user", "content": [{"text": prompt}]}],
                 toolConfig={"tools": [rank_tool]},  # type: ignore[list-item]

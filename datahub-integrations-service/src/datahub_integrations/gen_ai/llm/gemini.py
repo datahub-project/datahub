@@ -173,7 +173,6 @@ class GeminiLLMWrapper(LLMWrapper):
 
     def converse(
         self,
-        modelId: str,
         system: List["SystemContentBlockTypeDef"],
         messages: List["MessageUnionTypeDef"],
         toolConfig: Optional[Dict[str, Any]] = None,
@@ -202,7 +201,7 @@ class GeminiLLMWrapper(LLMWrapper):
             "Calling Gemini LLM (streaming)",
             extra={
                 "provider": "gemini",
-                "model": modelId,
+                "model": self.model_name,
                 "temperature": inferenceConfig.get("temperature")
                 if inferenceConfig
                 else None,
@@ -236,7 +235,7 @@ class GeminiLLMWrapper(LLMWrapper):
                 "Gemini LLM call completed (streaming)",
                 extra={
                     "provider": "gemini",
-                    "model": modelId,
+                    "model": self.model_name,
                     "duration_seconds": round(timer.elapsed_seconds(), 3),
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,

@@ -270,10 +270,10 @@ def test_generate_entity_descriptions_for_urn(
     mock_client = mock_graph_client
 
     with patch(
-        "datahub_integrations.gen_ai.litellm.LiteLLM.call_lite_llm"
-    ) as mock_call_litellm:
-        # Set up the mock for call_lite_llm
-        mock_call_litellm.side_effect = mock_litellm_responses
+        "datahub_integrations.gen_ai.description_v3.call_llm_with_prompt_messages"
+    ) as mock_call_llm:
+        # Set up the mock for call_llm_with_prompt_messages
+        mock_call_llm.side_effect = mock_litellm_responses
 
         # Call the function
         result = generate_entity_descriptions_for_urn(mock_client, TEST_URN)
@@ -293,11 +293,11 @@ def test_generate_entity_descriptions_for_urn(
             "[version=2.0].[type=string].address": "Address field",
         }
 
-        # Verify that call_litellm_llm was called with the correct parameters
-        mock_call_litellm.assert_called()
-        assert mock_call_litellm.call_count == 2
-        call1 = mock_call_litellm.call_args_list[0]
-        call2 = mock_call_litellm.call_args_list[1]
+        # Verify that call_llm_with_prompt_messages was called with the correct parameters
+        mock_call_llm.assert_called()
+        assert mock_call_llm.call_count == 2
+        call1 = mock_call_llm.call_args_list[0]
+        call2 = mock_call_llm.call_args_list[1]
 
         # Verify that the extracted_entity_info is correct
         check_graph_to_info_class_mapping(result)
@@ -379,10 +379,12 @@ Provide your output in the following dictionary format:
 Ensure that the dictionary is properly formatted and parsable. Use the column names as keys for the column descriptions.\
 """
         # Verify that the prompt contains the expected information
-        assert isinstance(call1[1]["prompt"], list)
-        assert "".join(p.text for p in call1[1]["prompt"]) == table_prompt
-        assert isinstance(call2[1]["prompt"], list)
-        assert "".join(p.text for p in call2[1]["prompt"]) == column_prompt
+        # call_llm_with_prompt_messages is called with (messages) as positional args
+        # call1[0] = (messages, ...)
+        assert isinstance(call1[0][0], list)  # messages is 1st positional arg
+        assert "".join(p.text for p in call1[0][0]) == table_prompt
+        assert isinstance(call2[0][0], list)
+        assert "".join(p.text for p in call2[0][0]) == column_prompt
 
 
 def check_graph_to_info_class_mapping(result: EntityDescriptionResult) -> None:

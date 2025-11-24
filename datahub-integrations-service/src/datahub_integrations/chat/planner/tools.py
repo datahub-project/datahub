@@ -191,7 +191,6 @@ def _call_planner_llm(prompt: str, tools_summary: str) -> dict:
 
     # Use toolConfig to enforce structured output
     response = llm_client.converse(
-        modelId=PLANNER_MODEL.value,
         system=system_messages,  # type: ignore[arg-type]
         messages=[{"role": "user", "content": [{"text": prompt}]}],
         toolConfig={

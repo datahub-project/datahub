@@ -3,6 +3,7 @@
 import os
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+import httpx
 import openai
 from datahub.utilities.perf_timer import PerfTimer
 from langchain_openai import ChatOpenAI
@@ -25,24 +26,61 @@ if TYPE_CHECKING:
     )
 
 
-class OpenAILLMWrapper(LLMWrapper):
-    """OpenAI LLM wrapper using langchain."""
+class CustomOpenAIProxyLLMWrapper(LLMWrapper):
+    """Custom OpenAI Proxy LLM wrapper using langchain."""
 
     def _initialize_client(self) -> Any:
-        """Initialize OpenAI client via langchain."""
+        """Initialize Custom OpenAI Proxy client via langchain."""
 
         openai_api_key = None
-        # Get API key from environment
-        openai_api_key = os.environ.get("OPENAI_API_KEY")
+        custom_client = None
+        custom_base_url = None
+        if not self.custom_model_provider:
+            raise ValueError(
+                "custom_model_provider provider is required for CustomOpenAIProxyLLMWrapper provider"
+            )
+
+        # create a custom http client if cert file and key file exist
+        if self.custom_model_provider.cert_file and self.custom_model_provider.key_file:
+            custom_client = httpx.Client(
+                cert=(
+                    self.custom_model_provider.cert_file,
+                    self.custom_model_provider.key_file,
+                )
+            )
+
+        # Intentionally creating has_custom_openai_api_key to avoid accidentally logging the api key
+        has_custom_openai_api_key = False
+        if self.custom_model_provider.api_key:
+            openai_api_key = str(self.custom_model_provider.api_key)
+            has_custom_openai_api_key = True
+
+        if self.custom_model_provider.base_url:
+            custom_base_url = self.custom_model_provider.base_url
+
+        # Get API key from environment if not already present
+        if not openai_api_key:
+            openai_api_key = os.environ.get("OPENAI_API_KEY")
 
         if not openai_api_key:
             raise ValueError(
-                "OPENAI_API_KEY environment variable API key is required for OpenAI provider"
+                "OPENAI_API_KEY environment variable or custom model provider API key is required for OpenAI provider"
             )
+
+        logger.info(
+            f"Initializing CustomOpenAIProxyLLMWrapper with model={self.model_name}, \
+            custom_base_url={custom_base_url}, \
+            has_custom_openai_api_key={has_custom_openai_api_key}, \
+            has_custom_http_client={custom_client is not None}, \
+            cert_file={self.custom_model_provider.cert_file}, \
+            key_file={self.custom_model_provider.key_file}"
+        )
 
         return ChatOpenAI(
             model=self.model_name,
             api_key=SecretStr(openai_api_key),  # Wrap in SecretStr for type safety
+            http_client=custom_client,
+            base_url=custom_base_url,
             temperature=0.5,  # Default, can be overridden per-request via invoke kwargs
             timeout=self.read_timeout,
             max_retries=self.max_attempts,

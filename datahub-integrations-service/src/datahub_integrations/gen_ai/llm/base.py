@@ -50,6 +50,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from loguru import logger
 
 from datahub_integrations.gen_ai.llm.types import ConverseResponse, TokenUsage
+from datahub_integrations.gen_ai.model_config import CustomModelProvider
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (
@@ -72,6 +73,7 @@ class LLMWrapper(ABC):
         read_timeout: int = 60,
         connect_timeout: int = 60,
         max_attempts: int = 10,
+        custom_model_provider: CustomModelProvider | None = None,
     ):
         """
         Initialize LLM wrapper.
@@ -81,11 +83,13 @@ class LLMWrapper(ABC):
             read_timeout: Read timeout in seconds
             connect_timeout: Connection timeout in seconds
             max_attempts: Maximum retry attempts
+            custom_model_provider: Custom proxy model configuration
         """
         self.model_name = model_name
         self.read_timeout = read_timeout
         self.connect_timeout = connect_timeout
         self.max_attempts = max_attempts
+        self.custom_model_provider = custom_model_provider
         self._client = self._initialize_client()
 
     @abstractmethod
@@ -112,7 +116,6 @@ class LLMWrapper(ABC):
     @abstractmethod
     def converse(
         self,
-        modelId: str,
         system: List["SystemContentBlockTypeDef"],
         messages: List["MessageUnionTypeDef"],
         toolConfig: Optional[Dict[str, Any]] = None,
@@ -122,7 +125,6 @@ class LLMWrapper(ABC):
         Unified converse API matching Bedrock's interface.
 
         Args:
-            modelId: Model identifier (used for validation)
             system: System messages list
             messages: Conversation messages
             toolConfig: Tool configuration with tools list

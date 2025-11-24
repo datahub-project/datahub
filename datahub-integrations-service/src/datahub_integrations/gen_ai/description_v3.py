@@ -28,10 +28,7 @@ from datahub_integrations.gen_ai.description_context import (
     transform_table_info_for_llm,
 )
 from datahub_integrations.gen_ai.linkify import auto_fix_entity_mention_links
-from datahub_integrations.gen_ai.litellm import (
-    LiteLLM,
-    LiteLLMPromptMessage,
-)
+from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
 
 # Initialize MLflow for @mlflow.trace decorators in this module
@@ -145,6 +142,49 @@ COLUMN_BATCH_INSTRUCTIONS = """\
 Generate descriptions for only the following {num_columns} columns:
 {columns}
 """
+
+
+class PromptMessage:
+    """Message for building prompts with optional caching support."""
+
+    def __init__(self, text: str, cache: bool = False):
+        self.text = text
+        self.cache = cache
+
+
+def call_llm_with_prompt_messages(
+    messages: List[PromptMessage],
+    temperature: float = DEFAULT_TEMPERATURE,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+) -> str:
+    """
+    Call LLM with a list of prompt messages.
+
+    Args:
+        messages: List of PromptMessage objects
+        temperature: Temperature for generation
+        max_tokens: Maximum tokens to generate
+
+    Returns:
+        Generated text response
+    """
+    model = model_config.documentation_ai.model
+    llm_client = get_llm_client(model)
+
+    # Convert PromptMessage list to converse API format
+    # Combine all messages into a single user message
+    combined_text = "\n\n".join(msg.text for msg in messages)
+
+    response = llm_client.converse(
+        system=[],
+        messages=[{"role": "user", "content": [{"text": combined_text}]}],  # type: ignore[list-item]
+        inferenceConfig={
+            "temperature": temperature,
+            "maxTokens": max_tokens,
+        },
+    )
+
+    return response["output"]["message"]["content"][0]["text"]
 
 
 @cachetools.cached(cache=cachetools.TTLCache(maxsize=1, ttl=60 * 5))
@@ -362,20 +402,13 @@ def generate_entity_descriptions_for_urn_eval_v3(
     failure_reason = None
     column_descriptions = None
 
-    litellm = LiteLLM(
-        model=model_config.documentation_ai.model,
-        max_tokens=DEFAULT_MAX_TOKENS,
-        temperature=DEFAULT_TEMPERATURE,
-    )
-
     try:
         table_description = generate_table_description(
-            litellm, table_info, simplified_column_infos, extra_instructions
+            table_info, simplified_column_infos, extra_instructions
         )
         if table_description is not None:
             column_descriptions, failure_reason_columns = (
                 generate_all_columns_description(
-                    litellm,
                     table_info,
                     simplified_column_infos,
                     table_description,
@@ -404,7 +437,6 @@ def generate_entity_descriptions_for_urn_eval_v3(
 
 @mlflow.trace(name="generate_all_columns_description", span_type="function")
 def generate_all_columns_description(
-    litellm: LiteLLM,
     table_info: TableInfo,
     column_infos: Dict[str, ColumnMetadataInfo],
     table_description: str,
@@ -412,7 +444,7 @@ def generate_all_columns_description(
 ) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     column_descriptions, failure_reason_columns = asyncer.syncify(
         generate_column_descriptions, raise_sync_error=False
-    )(litellm, table_info, column_infos, table_description, extra_instructions)
+    )(table_info, column_infos, table_description, extra_instructions)
 
     return column_descriptions, failure_reason_columns
 
@@ -428,7 +460,6 @@ _MAX_ATTEMPTS = 3  # Original attempt + 2 retries
     ),
 )
 def generate_table_description(
-    litellm: LiteLLM,
     table_info: TableInfo,
     column_infos: Dict[str, ColumnMetadataInfo],
     extra_instructions: Optional[str] = None,
@@ -449,18 +480,18 @@ def generate_table_description(
 
     # Build the prompt messages
     messages = [
-        LiteLLMPromptMessage(
+        PromptMessage(
             text=formatted_common_context,
             cache=True,
         ),
-        LiteLLMPromptMessage(
+        PromptMessage(
             text=formatted_columns_context,
             cache=True,
         ),
     ]
 
     messages.append(
-        LiteLLMPromptMessage(
+        PromptMessage(
             text=TABLE_DESC_PROMPT,
             cache=False,
         )
@@ -469,13 +500,13 @@ def generate_table_description(
     # Add extra instructions if provided
     if extra_instructions:
         messages.append(
-            LiteLLMPromptMessage(
+            PromptMessage(
                 text=f"\nADDITIONAL REQUIREMENTS:\n{extra_instructions}\n",
                 cache=False,
             )
         )
 
-    entity_descriptions = litellm.call_lite_llm(prompt=messages)
+    entity_descriptions = call_llm_with_prompt_messages(messages)
 
     table_description = parse_table_desc_llm_output(entity_descriptions)
 
@@ -486,7 +517,6 @@ def generate_table_description(
 
 
 async def generate_column_descriptions(
-    litellm: LiteLLM,
     table_info: TableInfo,
     column_infos: Dict[str, ColumnMetadataInfo],
     generated_table_description: str,
@@ -506,7 +536,6 @@ async def generate_column_descriptions(
         for i in range(len(column_splits)):
             generated_batch_column_descriptions.append(
                 task_group.soonify(generate_column_batch_descriptions)(
-                    litellm,
                     table_info,
                     column_infos,
                     generated_table_description,
@@ -552,7 +581,6 @@ def _return_last_value(
     retry_error_callback=_return_last_value,
 )
 async def generate_column_batch_descriptions(
-    litellm: LiteLLM,
     table_info: TableInfo,
     column_infos: Dict[str, ColumnMetadataInfo],
     generated_table_description: str,
@@ -585,17 +613,17 @@ async def generate_column_batch_descriptions(
 
         # Build the prompt messages
         messages = [
-            LiteLLMPromptMessage(
+            PromptMessage(
                 text=formatted_common_context,
                 cache=True,
             ),
-            LiteLLMPromptMessage(
+            PromptMessage(
                 text=formatted_columns_context,
             ),
         ]
 
         messages.append(
-            LiteLLMPromptMessage(
+            PromptMessage(
                 text=formatted_column_prompt,
                 cache=False,
             )
@@ -604,14 +632,14 @@ async def generate_column_batch_descriptions(
         # Add extra instructions if provided
         if extra_instructions:
             messages.append(
-                LiteLLMPromptMessage(
+                PromptMessage(
                     text=f"\nADDITIONAL REQUIREMENTS:\n{extra_instructions}\n",
                     cache=False,
                 )
             )
 
-        column_descriptions_raw = await asyncer.asyncify(litellm.call_lite_llm)(
-            prompt=messages
+        column_descriptions_raw = await asyncer.asyncify(call_llm_with_prompt_messages)(
+            messages
         )
         logger.debug(f"Finished LLM call for batch {i}")
 

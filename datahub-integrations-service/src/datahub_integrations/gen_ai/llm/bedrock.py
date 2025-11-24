@@ -41,7 +41,6 @@ class BedrockLLMWrapper(LLMWrapper):
 
     def converse(
         self,
-        modelId: str,
         system: List["SystemContentBlockTypeDef"],
         messages: List["MessageUnionTypeDef"],
         toolConfig: Optional[Dict[str, Any]] = None,
@@ -55,8 +54,9 @@ class BedrockLLMWrapper(LLMWrapper):
 
         Catches Bedrock-specific exceptions and translates them to standardized LlmException types.
         """
+
         kwargs: Dict[str, Any] = {
-            "modelId": modelId,
+            "modelId": self.model_name,
             "system": system,
             "messages": messages,
         }
@@ -72,7 +72,7 @@ class BedrockLLMWrapper(LLMWrapper):
             "Calling Bedrock LLM (streaming)",
             extra={
                 "provider": "bedrock",
-                "model": modelId,
+                "model": self.model_name,
                 "temperature": inferenceConfig.get("temperature")
                 if inferenceConfig
                 else None,
@@ -124,7 +124,7 @@ class BedrockLLMWrapper(LLMWrapper):
                 "Bedrock LLM call completed (streaming)",
                 extra={
                     "provider": "bedrock",
-                    "model": modelId,
+                    "model": self.model_name,
                     "duration_seconds": round(timer.elapsed_seconds(), 3),
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,

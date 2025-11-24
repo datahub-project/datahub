@@ -9,8 +9,6 @@ from datahub_integrations.gen_ai.description_v3 import (
     generate_table_description,
     get_extra_documentation_instructions,
 )
-from datahub_integrations.gen_ai.litellm import LiteLLM
-from datahub_integrations.gen_ai.model_config import LiteLLMModel
 from datahub_integrations.gen_ai.suggest_query_description import generate_query_desc
 
 
@@ -174,7 +172,7 @@ class TestExtraDocumentationInstructions:
 class TestTableDescriptionWithInstructions:
     """Test table description generation with extra instructions."""
 
-    @patch("datahub_integrations.gen_ai.litellm.LiteLLM.call_lite_llm")
+    @patch("datahub_integrations.gen_ai.description_v3.call_llm_with_prompt_messages")
     def test_generate_table_description_with_instructions(
         self, mock_llm: MagicMock
     ) -> None:
@@ -204,11 +202,8 @@ class TestTableDescriptionWithInstructions:
             "col1": ColumnMetadataInfo(name="col1", type="STRING"),  # type: ignore[call-arg]
         }
 
-        litellm = LiteLLM(LiteLLMModel.CLAUDE_3_HAIKU, 500, 0.3)
-
         # Call with extra instructions
         result = generate_table_description(
-            litellm,
             table_info,
             column_infos,
             extra_instructions="Always mention data quality",
@@ -222,7 +217,8 @@ class TestTableDescriptionWithInstructions:
 
         # Check that the prompt messages include extra instructions
         call_args = mock_llm.call_args
-        prompt_messages = call_args[1]["prompt"]
+        # First positional arg is model, first is messages list
+        prompt_messages = call_args[0][0]
 
         # Find the extra instructions message
         found_extra_instructions = False
@@ -236,7 +232,7 @@ class TestTableDescriptionWithInstructions:
             "Extra instructions not found in prompt messages"
         )
 
-    @patch("datahub_integrations.gen_ai.litellm.LiteLLM.call_lite_llm")
+    @patch("datahub_integrations.gen_ai.description_v3.call_llm_with_prompt_messages")
     def test_generate_table_description_without_instructions(
         self, mock_llm: MagicMock
     ) -> None:
@@ -266,11 +262,9 @@ class TestTableDescriptionWithInstructions:
             "col1": ColumnMetadataInfo(name="col1", type="STRING"),  # type: ignore[call-arg]
         }
 
-        litellm = LiteLLM(LiteLLMModel.CLAUDE_3_HAIKU, 500, 0.3)
-
         # Call without extra instructions
         result = generate_table_description(
-            litellm, table_info, column_infos, extra_instructions=None
+            table_info, column_infos, extra_instructions=None
         )
 
         # Verify the result
@@ -281,7 +275,8 @@ class TestTableDescriptionWithInstructions:
 
         # Check that no extra instructions are in the prompt
         call_args = mock_llm.call_args
-        prompt_messages = call_args[1]["prompt"]
+        # First positional arg is model, first is messages list
+        prompt_messages = call_args[0][0]
 
         for msg in prompt_messages:
             if hasattr(msg, "text"):
@@ -294,9 +289,9 @@ class TestQueryDescriptionWithInstructions:
     @patch(
         "datahub_integrations.gen_ai.suggest_query_description.get_extra_documentation_instructions"
     )
-    @patch("datahub_integrations.gen_ai.litellm.LiteLLM.call_lite_llm")
+    @patch("datahub_integrations.gen_ai.suggest_query_description.get_llm_client")
     def test_generate_query_desc_with_instructions(
-        self, mock_llm: MagicMock, mock_get_instructions: MagicMock
+        self, mock_get_llm_client: MagicMock, mock_get_instructions: MagicMock
     ) -> None:
         """Test that extra instructions are included in query description prompt."""
         from datahub_integrations.gen_ai.suggest_query_description import QueryContext
@@ -304,8 +299,16 @@ class TestQueryDescriptionWithInstructions:
         # Mock extra instructions
         mock_get_instructions.return_value = "Focus on business impact"
 
-        # Mock LLM response
-        mock_llm.return_value = "This query analyzes sales data."
+        # Mock LLM client and response
+        mock_llm_client = MagicMock()
+        mock_llm_client.converse.return_value = {
+            "output": {
+                "message": {"content": [{"text": "This query analyzes sales data."}]}
+            },
+            "stopReason": "end_turn",
+            "usage": {"inputTokens": 100, "outputTokens": 50},
+        }
+        mock_get_llm_client.return_value = mock_llm_client
 
         # Mock graph
         mock_graph = MagicMock(spec=DataHubGraph)
@@ -323,11 +326,12 @@ class TestQueryDescriptionWithInstructions:
         mock_get_instructions.assert_called_once_with(mock_graph)
 
         # Verify the LLM was called
-        mock_llm.assert_called_once()
+        mock_llm_client.converse.assert_called_once()
 
         # Check that the prompt includes extra instructions
-        call_args = mock_llm.call_args
-        prompt = call_args[1]["prompt"]
+        call_args = mock_llm_client.converse.call_args
+        messages = call_args[1]["messages"]
+        prompt = messages[0]["content"][0]["text"]
 
         assert "CUSTOMER-SPECIFIC REQUIREMENTS:" in prompt
         assert "Focus on business impact" in prompt
@@ -336,9 +340,9 @@ class TestQueryDescriptionWithInstructions:
     @patch(
         "datahub_integrations.gen_ai.suggest_query_description.get_extra_documentation_instructions"
     )
-    @patch("datahub_integrations.gen_ai.litellm.LiteLLM.call_lite_llm")
+    @patch("datahub_integrations.gen_ai.suggest_query_description.get_llm_client")
     def test_generate_query_desc_without_instructions(
-        self, mock_llm: MagicMock, mock_get_instructions: MagicMock
+        self, mock_get_llm_client: MagicMock, mock_get_instructions: MagicMock
     ) -> None:
         """Test that query description works without extra instructions."""
         from datahub_integrations.gen_ai.suggest_query_description import QueryContext
@@ -346,8 +350,16 @@ class TestQueryDescriptionWithInstructions:
         # Mock no extra instructions
         mock_get_instructions.return_value = None
 
-        # Mock LLM response
-        mock_llm.return_value = "This query analyzes sales data."
+        # Mock LLM client and response
+        mock_llm_client = MagicMock()
+        mock_llm_client.converse.return_value = {
+            "output": {
+                "message": {"content": [{"text": "This query analyzes sales data."}]}
+            },
+            "stopReason": "end_turn",
+            "usage": {"inputTokens": 100, "outputTokens": 50},
+        }
+        mock_get_llm_client.return_value = mock_llm_client
 
         # Mock graph
         mock_graph = MagicMock(spec=DataHubGraph)
@@ -365,11 +377,12 @@ class TestQueryDescriptionWithInstructions:
         mock_get_instructions.assert_called_once_with(mock_graph)
 
         # Verify the LLM was called
-        mock_llm.assert_called_once()
+        mock_llm_client.converse.assert_called_once()
 
         # Check that no extra instructions are in the prompt
-        call_args = mock_llm.call_args
-        prompt = call_args[1]["prompt"]
+        call_args = mock_llm_client.converse.call_args
+        messages = call_args[1]["messages"]
+        prompt = messages[0]["content"][0]["text"]
 
         assert "CUSTOMER-SPECIFIC REQUIREMENTS:" not in prompt
         assert result == "This query analyzes sales data."

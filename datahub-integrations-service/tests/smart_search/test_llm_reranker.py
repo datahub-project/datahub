@@ -108,7 +108,6 @@ class TestLLMRerankerRerank:
         # Verify bedrock was called
         mock_client.converse.assert_called_once()
         call_args = mock_client.converse.call_args
-        assert call_args[1]["modelId"] == "test-model"
         assert call_args[1]["inferenceConfig"]["temperature"] == 0.0
 
     @patch("datahub_integrations.smart_search.llm_reranker.get_llm_client")

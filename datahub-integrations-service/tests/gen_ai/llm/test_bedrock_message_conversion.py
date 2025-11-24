@@ -26,9 +26,7 @@ class MockLLMWrapper(LLMWrapper):
     def exceptions(self):
         return Exception
 
-    def converse(
-        self, modelId, system, messages, toolConfig=None, inferenceConfig=None
-    ):
+    def converse(self, system, messages, toolConfig=None, inferenceConfig=None):
         raise NotImplementedError
 
 
@@ -318,7 +316,6 @@ class TestBedrockCacheTokens:
             wrapper = BedrockLLMWrapper(model_name="claude-3-5-sonnet")
 
             response = wrapper.converse(
-                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             )
@@ -368,7 +365,6 @@ class TestBedrockCacheTokens:
             wrapper = BedrockLLMWrapper(model_name="claude-3-5-sonnet")
 
             response = wrapper.converse(
-                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             )
@@ -419,7 +415,6 @@ class TestBedrockCacheTokens:
             wrapper = BedrockLLMWrapper(model_name="claude-3-5-sonnet")
 
             response = wrapper.converse(
-                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             )
@@ -470,7 +465,6 @@ class TestBedrockCacheTokens:
             wrapper = BedrockLLMWrapper(model_name="claude-3-5-sonnet")
 
             response = wrapper.converse(
-                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             )

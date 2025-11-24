@@ -2,11 +2,10 @@
 Unit tests for term_suggestion_v2.py, focusing on custom instructions as system messages.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datahub_integrations.gen_ai.bedrock import BedrockPromptMessage
 from datahub_integrations.gen_ai.term_suggestion_v2 import (
     generate_prompt,
     get_term_recommendations_for_column_splits,
@@ -141,9 +140,26 @@ class TestCustomInstructionsAsSystemMessages:
             }
         )
 
+    @pytest.fixture
+    def mock_llm_client(self):
+        """Create a mock LLM client with standard response."""
+        mock_client = MagicMock()
+        mock_client.converse.return_value = {
+            "output": {
+                "message": {"content": [{"text": '{"table": [], "email": []}'}]}
+            },
+            "stopReason": "end_turn",
+            "usage": {"inputTokens": 100, "outputTokens": 50},
+        }
+        return mock_client
+
     @pytest.mark.asyncio
     async def test_custom_instructions_passed_as_system_messages(
-        self, sample_table_info, sample_column_info, sample_glossary_info
+        self,
+        sample_table_info,
+        sample_column_info,
+        sample_glossary_info,
+        mock_llm_client,
     ):
         """Test that custom instructions are formatted and passed as system messages."""
 
@@ -152,11 +168,9 @@ class TestCustomInstructionsAsSystemMessages:
         )
 
         with patch(
-            "datahub_integrations.gen_ai.term_suggestion_v2.call_bedrock_llm"
-        ) as mock_call_llm:
-            # Mock LLM response
-            mock_call_llm.return_value = '{"table": [], "email": []}'
-
+            "datahub_integrations.gen_ai.term_suggestion_v2.get_llm_client",
+            return_value=mock_llm_client,
+        ):
             # Call the function
             await get_term_recommendations_for_column_splits(
                 column_splits=[["email"]],
@@ -167,39 +181,42 @@ class TestCustomInstructionsAsSystemMessages:
                 custom_instructions=custom_instructions,
             )
 
-            # Verify call_bedrock_llm was called with system_messages
-            assert mock_call_llm.called
-            call_args = mock_call_llm.call_args
+            # Verify converse was called with system messages
+            assert mock_llm_client.converse.called
+            call_args = mock_llm_client.converse.call_args
 
-            # Check that system_messages parameter was passed
-            assert "system_messages" in call_args.kwargs
-            system_messages = call_args.kwargs["system_messages"]
+            # Check that system parameter was passed
+            assert "system" in call_args.kwargs
+            system_messages = call_args.kwargs["system"]
 
             # Verify system_messages structure
             assert system_messages is not None
             assert len(system_messages) == 1
-            assert isinstance(system_messages[0], BedrockPromptMessage)
+            assert isinstance(system_messages[0], dict)
+            assert "text" in system_messages[0]
 
             # Verify the content
-            assert "CUSTOM INSTRUCTIONS" in system_messages[0].text
-            assert custom_instructions in system_messages[0].text
+            assert "CUSTOM INSTRUCTIONS" in system_messages[0]["text"]
+            assert custom_instructions in system_messages[0]["text"]
             assert (
                 "You must follow these in addition to base instructions"
-                in system_messages[0].text
+                in system_messages[0]["text"]
             )
 
     @pytest.mark.asyncio
     async def test_no_system_messages_without_custom_instructions(
-        self, sample_table_info, sample_column_info, sample_glossary_info
+        self,
+        sample_table_info,
+        sample_column_info,
+        sample_glossary_info,
+        mock_llm_client,
     ):
-        """Test that system_messages is None when custom_instructions is not provided."""
+        """Test that system_messages is empty list when custom_instructions is not provided."""
 
         with patch(
-            "datahub_integrations.gen_ai.term_suggestion_v2.call_bedrock_llm"
-        ) as mock_call_llm:
-            # Mock LLM response
-            mock_call_llm.return_value = '{"table": [], "email": []}'
-
+            "datahub_integrations.gen_ai.term_suggestion_v2.get_llm_client",
+            return_value=mock_llm_client,
+        ):
             # Call the function without custom instructions
             await get_term_recommendations_for_column_splits(
                 column_splits=[["email"]],
@@ -210,26 +227,28 @@ class TestCustomInstructionsAsSystemMessages:
                 custom_instructions=None,
             )
 
-            # Verify call_bedrock_llm was called
-            assert mock_call_llm.called
-            call_args = mock_call_llm.call_args
+            # Verify converse was called
+            assert mock_llm_client.converse.called
+            call_args = mock_llm_client.converse.call_args
 
-            # Check that system_messages is None
-            assert "system_messages" in call_args.kwargs
-            assert call_args.kwargs["system_messages"] is None
+            # Check that system is empty list
+            assert "system" in call_args.kwargs
+            assert call_args.kwargs["system"] == []
 
     @pytest.mark.asyncio
     async def test_no_system_messages_with_empty_custom_instructions(
-        self, sample_table_info, sample_column_info, sample_glossary_info
+        self,
+        sample_table_info,
+        sample_column_info,
+        sample_glossary_info,
+        mock_llm_client,
     ):
-        """Test that system_messages is None when custom_instructions is empty string."""
+        """Test that system_messages is empty list when custom_instructions is empty string."""
 
         with patch(
-            "datahub_integrations.gen_ai.term_suggestion_v2.call_bedrock_llm"
-        ) as mock_call_llm:
-            # Mock LLM response
-            mock_call_llm.return_value = '{"table": [], "email": []}'
-
+            "datahub_integrations.gen_ai.term_suggestion_v2.get_llm_client",
+            return_value=mock_llm_client,
+        ):
             # Call the function with empty custom instructions
             await get_term_recommendations_for_column_splits(
                 column_splits=[["email"]],
@@ -240,26 +259,28 @@ class TestCustomInstructionsAsSystemMessages:
                 custom_instructions="",
             )
 
-            # Verify call_bedrock_llm was called
-            assert mock_call_llm.called
-            call_args = mock_call_llm.call_args
+            # Verify converse was called
+            assert mock_llm_client.converse.called
+            call_args = mock_llm_client.converse.call_args
 
-            # Check that system_messages is None for empty string
-            assert "system_messages" in call_args.kwargs
-            assert call_args.kwargs["system_messages"] is None
+            # Check that system is empty list for empty string
+            assert "system" in call_args.kwargs
+            assert call_args.kwargs["system"] == []
 
     @pytest.mark.asyncio
     async def test_no_system_messages_with_whitespace_only_custom_instructions(
-        self, sample_table_info, sample_column_info, sample_glossary_info
+        self,
+        sample_table_info,
+        sample_column_info,
+        sample_glossary_info,
+        mock_llm_client,
     ):
-        """Test that system_messages is None when custom_instructions is whitespace-only."""
+        """Test that system_messages is empty list when custom_instructions is whitespace-only."""
 
         with patch(
-            "datahub_integrations.gen_ai.term_suggestion_v2.call_bedrock_llm"
-        ) as mock_call_llm:
-            # Mock LLM response
-            mock_call_llm.return_value = '{"table": [], "email": []}'
-
+            "datahub_integrations.gen_ai.term_suggestion_v2.get_llm_client",
+            return_value=mock_llm_client,
+        ):
             # Call the function with whitespace-only custom instructions
             await get_term_recommendations_for_column_splits(
                 column_splits=[["email"]],
@@ -270,17 +291,21 @@ class TestCustomInstructionsAsSystemMessages:
                 custom_instructions="   \n  \t  ",
             )
 
-            # Verify call_bedrock_llm was called
-            assert mock_call_llm.called
-            call_args = mock_call_llm.call_args
+            # Verify converse was called
+            assert mock_llm_client.converse.called
+            call_args = mock_llm_client.converse.call_args
 
-            # Check that system_messages is None for whitespace-only
-            assert "system_messages" in call_args.kwargs
-            assert call_args.kwargs["system_messages"] is None
+            # Check that system is empty list for whitespace-only
+            assert "system" in call_args.kwargs
+            assert call_args.kwargs["system"] == []
 
     @pytest.mark.asyncio
     async def test_multiline_custom_instructions_preserved(
-        self, sample_table_info, sample_column_info, sample_glossary_info
+        self,
+        sample_table_info,
+        sample_column_info,
+        sample_glossary_info,
+        mock_llm_client,
     ):
         """Test that multiline custom instructions are preserved in system messages."""
 
@@ -290,11 +315,9 @@ class TestCustomInstructionsAsSystemMessages:
 3. Data privacy considerations"""
 
         with patch(
-            "datahub_integrations.gen_ai.term_suggestion_v2.call_bedrock_llm"
-        ) as mock_call_llm:
-            # Mock LLM response
-            mock_call_llm.return_value = '{"table": [], "email": []}'
-
+            "datahub_integrations.gen_ai.term_suggestion_v2.get_llm_client",
+            return_value=mock_llm_client,
+        ):
             # Call the function
             await get_term_recommendations_for_column_splits(
                 column_splits=[["email"]],
@@ -306,17 +329,21 @@ class TestCustomInstructionsAsSystemMessages:
             )
 
             # Verify system_messages content
-            call_args = mock_call_llm.call_args
-            system_messages = call_args.kwargs["system_messages"]
+            call_args = mock_llm_client.converse.call_args
+            system_messages = call_args.kwargs["system"]
 
             # Verify all lines are preserved
-            assert "PII classification" in system_messages[0].text
-            assert "Conservative confidence scores" in system_messages[0].text
-            assert "Data privacy considerations" in system_messages[0].text
+            assert "PII classification" in system_messages[0]["text"]
+            assert "Conservative confidence scores" in system_messages[0]["text"]
+            assert "Data privacy considerations" in system_messages[0]["text"]
 
     @pytest.mark.asyncio
     async def test_custom_instructions_with_special_characters(
-        self, sample_table_info, sample_column_info, sample_glossary_info
+        self,
+        sample_table_info,
+        sample_column_info,
+        sample_glossary_info,
+        mock_llm_client,
     ):
         """Test that custom instructions with special characters are handled correctly."""
 
@@ -326,11 +353,9 @@ class TestCustomInstructionsAsSystemMessages:
         )
 
         with patch(
-            "datahub_integrations.gen_ai.term_suggestion_v2.call_bedrock_llm"
-        ) as mock_call_llm:
-            # Mock LLM response
-            mock_call_llm.return_value = '{"table": [], "email": []}'
-
+            "datahub_integrations.gen_ai.term_suggestion_v2.get_llm_client",
+            return_value=mock_llm_client,
+        ):
             # Call the function
             await get_term_recommendations_for_column_splits(
                 column_splits=[["email"]],
@@ -342,16 +367,16 @@ class TestCustomInstructionsAsSystemMessages:
             )
 
             # Verify special characters are preserved
-            call_args = mock_call_llm.call_args
-            system_messages = call_args.kwargs["system_messages"]
+            call_args = mock_llm_client.converse.call_args
+            system_messages = call_args.kwargs["system"]
 
-            assert "email@domain.com" in system_messages[0].text
-            assert ">= 8" in system_messages[0].text
-            assert "< 5" in system_messages[0].text
+            assert "email@domain.com" in system_messages[0]["text"]
+            assert ">= 8" in system_messages[0]["text"]
+            assert "< 5" in system_messages[0]["text"]
 
     @pytest.mark.asyncio
     async def test_system_messages_reused_across_splits(
-        self, sample_table_info, sample_glossary_info
+        self, sample_table_info, sample_glossary_info, mock_llm_client
     ):
         """Test that the same system messages are reused for all column and term splits."""
 
@@ -372,11 +397,9 @@ class TestCustomInstructionsAsSystemMessages:
         }
 
         with patch(
-            "datahub_integrations.gen_ai.term_suggestion_v2.call_bedrock_llm"
-        ) as mock_call_llm:
-            # Mock LLM response
-            mock_call_llm.return_value = '{"table": [], "email": [], "phone": []}'
-
+            "datahub_integrations.gen_ai.term_suggestion_v2.get_llm_client",
+            return_value=mock_llm_client,
+        ):
             # Call with multiple column splits
             await get_term_recommendations_for_column_splits(
                 column_splits=[["email"], ["phone"]],
@@ -387,12 +410,12 @@ class TestCustomInstructionsAsSystemMessages:
                 custom_instructions=custom_instructions,
             )
 
-            # Verify call_bedrock_llm was called multiple times
-            assert mock_call_llm.call_count >= 2
+            # Verify converse was called multiple times
+            assert mock_llm_client.converse.call_count >= 2
 
-            # Verify all calls use the same system_messages
-            first_system_messages = mock_call_llm.call_args_list[0].kwargs[
-                "system_messages"
+            # Verify all calls use the same system messages
+            first_system_messages = mock_llm_client.converse.call_args_list[0].kwargs[
+                "system"
             ]
-            for call_args in mock_call_llm.call_args_list:
-                assert call_args.kwargs["system_messages"] == first_system_messages
+            for call_args in mock_llm_client.converse.call_args_list:
+                assert call_args.kwargs["system"] == first_system_messages

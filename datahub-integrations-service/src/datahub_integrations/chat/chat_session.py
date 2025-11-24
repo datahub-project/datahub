@@ -815,7 +815,9 @@ class ChatSession:
         return formatted_messages
 
     def _generate_tool_call(self) -> None:
-        llm_client = get_llm_client(self._get_model_id())
+        llm_client = get_llm_client(
+            model_id=self._get_model_id(),
+        )
 
         messages = self._prepare_messages()
 
@@ -825,7 +827,6 @@ class ChatSession:
 
         try:
             response = llm_client.converse(
-                modelId=self._get_model_id(),
                 system=self._get_system_messages(),
                 messages=messages,  # type: ignore
                 toolConfig={

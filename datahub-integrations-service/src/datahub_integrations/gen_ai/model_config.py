@@ -77,6 +77,24 @@ class LiteLLMModel(enum.Enum):
         return self.value
 
 
+class CustomModelProvider(BaseModel):
+    base_url: Optional[str] = Field(
+        description="Base URL for custom Open AI model Proxy provider"
+    )
+    api_key: Optional[str] = Field(
+        description="API key for custom Open AI model Proxy provider"
+    )
+    cert_file: Optional[str] = Field(
+        description="mTLS cert file for custom Open AI model Proxy provider"
+    )
+    key_file: Optional[str] = Field(
+        description="mTLS key file for custom Open AI model Proxy provider"
+    )
+
+    def __hash__(self):
+        return hash((self.base_url, self.api_key, self.cert_file, self.key_file))
+
+
 def get_litellm_model_env_variable(
     env_var: str, default_model: LiteLLMModel, alternate_env_var: Optional[str] = None
 ) -> LiteLLMModel | str:
@@ -136,6 +154,10 @@ class ModelConfig(BaseModel):
         description="Configuration for term suggestion"
     )
 
+    custom_model_provider: Optional[CustomModelProvider] = Field(
+        description="Configuration for custom model provider"
+    )
+
 
 @functools.lru_cache(maxsize=1)
 def get_model_config() -> ModelConfig:
@@ -149,10 +171,14 @@ def get_model_config() -> ModelConfig:
     # Chat Assistant AI Configuration
     chat_assistant_config = get_chat_assistant_config()
 
+    # Custom Model Configuration
+    custom_model_provider_config = get_custom_model_provider_config()
+
     config = ModelConfig(
         documentation_ai=docs_ai_config,
         term_suggestion_ai=terms_suggestion_config,
         chat_assistant_ai=chat_assistant_config,
+        custom_model_provider=custom_model_provider_config,
     )
 
     logger.info("AI model configuration: {}", config.model_dump())
@@ -224,6 +250,25 @@ def get_chat_assistant_config() -> ChatAssistantAIConfig:
     )
 
     return chat_assistant_config
+
+
+@functools.lru_cache(maxsize=1)
+def get_custom_model_provider_config() -> CustomModelProvider | None:
+    custom_base_url = os.getenv("MODEL_CUSTOM_BASE_URL")
+    if custom_base_url is not None:
+        api_key = os.getenv("MODEL_CUSTOM_API_KEY")
+        cert_file = os.getenv("MODEL_CUSTOM_CERT_FILE")
+        key_file = os.getenv("MODEL_CUSTOM_KEY_FILE")
+        custom_model_provider = CustomModelProvider(
+            base_url=custom_base_url,
+            api_key=api_key,
+            cert_file=cert_file,
+            key_file=key_file,
+        )
+
+        return custom_model_provider
+
+    return None
 
 
 # Module-level instance for all model configurations

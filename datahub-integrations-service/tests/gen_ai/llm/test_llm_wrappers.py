@@ -16,11 +16,15 @@ Key testing areas:
 Note: Bedrock tests require AWS credentials and are skipped in environments without them.
 """
 
+import os
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
 from datahub_integrations.gen_ai.llm.bedrock import BedrockLLMWrapper
+from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+    CustomOpenAIProxyLLMWrapper,
+)
 from datahub_integrations.gen_ai.llm.exceptions import (
     LlmAuthenticationException,
     LlmInputTooLongException,
@@ -28,6 +32,7 @@ from datahub_integrations.gen_ai.llm.exceptions import (
     LlmValidationException,
 )
 from datahub_integrations.gen_ai.llm.openai import OpenAILLMWrapper
+from datahub_integrations.gen_ai.llm.utils import parse_model_id
 
 
 class TestBedrockLLMWrapper:
@@ -86,7 +91,6 @@ class TestBedrockLLMWrapper:
         wrapper = BedrockLLMWrapper(model_name="claude-3-5-sonnet")
 
         response = wrapper.converse(
-            modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"temperature": 0.5, "maxTokens": 4096},
@@ -95,7 +99,6 @@ class TestBedrockLLMWrapper:
         # Verify converse_stream was called with correct parameters
         mock_client.converse_stream.assert_called_once()
         call_kwargs = mock_client.converse_stream.call_args.kwargs
-        assert call_kwargs["modelId"] == "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
         assert call_kwargs["system"] == [{"text": "You are helpful"}]
         assert call_kwargs["messages"] == [
             {"role": "user", "content": [{"text": "Hello"}]}
@@ -173,7 +176,6 @@ class TestBedrockLLMWrapper:
         }
 
         response = wrapper.converse(
-            modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Search for datasets"}]}],
             toolConfig=tool_config,
@@ -219,7 +221,6 @@ class TestBedrockLLMWrapper:
 
         with pytest.raises(LlmInputTooLongException) as exc_info:
             wrapper.converse(
-                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "x" * 100000}]}],
             )
@@ -248,7 +249,6 @@ class TestBedrockLLMWrapper:
 
         with pytest.raises(LlmValidationException) as exc_info:
             wrapper.converse(
-                modelId="invalid-model-id",
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             )
@@ -277,7 +277,6 @@ class TestBedrockLLMWrapper:
 
         with pytest.raises(LlmRateLimitException) as exc_info:
             wrapper.converse(
-                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             )
@@ -306,7 +305,6 @@ class TestBedrockLLMWrapper:
 
         with pytest.raises(LlmAuthenticationException) as exc_info:
             wrapper.converse(
-                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             )
@@ -347,7 +345,6 @@ class TestBedrockLLMWrapper:
 
         # Should NOT raise an exception
         response = wrapper.converse(
-            modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"maxTokens": 200},
@@ -420,7 +417,6 @@ class TestOpenAILLMWrapper:
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
 
         response = wrapper.converse(
-            modelId="gpt-4o",
             system=[{"text": "You are a helpful assistant"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"temperature": 0.7, "maxTokens": 2048},
@@ -463,7 +459,6 @@ class TestOpenAILLMWrapper:
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
 
         wrapper.converse(
-            modelId="gpt-4o",
             system=[
                 {"text": "You are a helpful assistant"},
                 {"text": "Always be concise"},
@@ -535,7 +530,6 @@ class TestOpenAILLMWrapper:
         }
 
         response = wrapper.converse(
-            modelId="gpt-4o",
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Find datasets"}]}],
             toolConfig=tool_config,
@@ -579,7 +573,6 @@ class TestOpenAILLMWrapper:
 
             with pytest.raises(LlmAuthenticationException) as exc_info:
                 wrapper.converse(
-                    modelId="gpt-4o",
                     system=[{"text": "You are helpful"}],
                     messages=[{"role": "user", "content": [{"text": "Hello"}]}],
                 )
@@ -603,7 +596,6 @@ class TestOpenAILLMWrapper:
 
             with pytest.raises(LlmRateLimitException) as exc_info:
                 wrapper.converse(
-                    modelId="gpt-4o",
                     system=[{"text": "You are helpful"}],
                     messages=[{"role": "user", "content": [{"text": "Hello"}]}],
                 )
@@ -629,7 +621,6 @@ class TestOpenAILLMWrapper:
 
             with pytest.raises(LlmInputTooLongException) as exc_info:
                 wrapper.converse(
-                    modelId="gpt-4o",
                     system=[{"text": "You are helpful"}],
                     messages=[{"role": "user", "content": [{"text": "x" * 100000}]}],
                 )
@@ -660,7 +651,6 @@ class TestOpenAILLMWrapper:
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
 
         wrapper.converse(
-            modelId="gpt-4o",
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"temperature": 0.9, "maxTokens": 1024},
@@ -717,7 +707,6 @@ class TestOpenAILLMWrapper:
         }
 
         wrapper.converse(
-            modelId="gpt-4o",
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             toolConfig=tool_config,
@@ -816,7 +805,6 @@ class TestGeminiLLMWrapper:
         wrapper = GeminiLLMWrapper(model_name="gemini-1.5-pro")
 
         response = wrapper.converse(
-            modelId="gemini-1.5-pro",
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"temperature": 0.7, "maxTokens": 2048},
@@ -862,7 +850,6 @@ class TestGeminiLLMWrapper:
         wrapper = GeminiLLMWrapper(model_name="gemini-1.5-pro")
 
         wrapper.converse(
-            modelId="gemini-1.5-pro",
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"temperature": 0.9, "maxTokens": 1024},
@@ -875,14 +862,232 @@ class TestGeminiLLMWrapper:
         assert call_kwargs["max_tokens"] == 1024
 
 
+class TestCustomOpenAIProxyLLMWrapper:
+    """Tests for CustomOpenAIProxyLLMWrapper - Langchain-based custom proxy wrapper."""
+
+    @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_initialization_with_custom_provider(self, mock_chat_openai: Mock) -> None:
+        """Test CustomOpenAI wrapper initialization with custom model provider."""
+        from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+            CustomOpenAIProxyLLMWrapper,
+        )
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-custom-key",
+            cert_file=None,
+            key_file=None,
+        )
+
+        wrapper = CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4",
+            read_timeout=90,
+            connect_timeout=20,
+            max_attempts=3,
+            custom_model_provider=custom_provider,
+        )
+
+        # Verify wrapper properties are set correctly
+        assert wrapper.model_name == "custom-gpt-4"
+        assert wrapper.read_timeout == 90
+        assert wrapper.connect_timeout == 20
+        assert wrapper.max_attempts == 3
+        assert wrapper.custom_model_provider == custom_provider
+
+        # Verify ChatOpenAI was initialized with correct custom params
+        mock_chat_openai.assert_called_once()
+        call_kwargs = mock_chat_openai.call_args.kwargs
+        assert call_kwargs["model"] == "custom-gpt-4"
+        assert call_kwargs["api_key"].get_secret_value() == "test-custom-key"
+        assert call_kwargs["base_url"] == "https://custom.api.com/v1"
+        assert call_kwargs["timeout"] == 90
+        assert call_kwargs["max_retries"] == 3
+        assert call_kwargs["http_client"] is None  # No cert/key files
+
+    @patch.dict(
+        "os.environ",
+        {
+            "MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1",
+            "OPENAI_API_KEY": "env-key",
+        },
+    )
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_initialization_fallback_to_env_api_key(
+        self, mock_chat_openai: Mock
+    ) -> None:
+        """Test that CustomOpenAI wrapper falls back to OPENAI_API_KEY env var."""
+        from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+            CustomOpenAIProxyLLMWrapper,
+        )
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+
+        # Custom provider without API key
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key=None,
+            cert_file=None,
+            key_file=None,
+        )
+
+        CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4",
+            custom_model_provider=custom_provider,
+        )
+
+        # Verify it used env var API key
+        call_kwargs = mock_chat_openai.call_args.kwargs
+        assert call_kwargs["api_key"].get_secret_value() == "env-key"
+
+    @patch.dict("os.environ", {}, clear=True)
+    def test_initialization_without_custom_provider_raises_error(self) -> None:
+        """Test that missing custom_model_provider raises ValueError."""
+        from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+            CustomOpenAIProxyLLMWrapper,
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            CustomOpenAIProxyLLMWrapper(
+                model_name="custom-gpt-4",
+                custom_model_provider=None,
+            )
+
+        assert "custom_model_provider provider is required" in str(exc_info.value)
+
+    @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_initialization_without_api_key_raises_error(
+        self, mock_chat_openai: Mock
+    ) -> None:
+        """Test that missing API key (both custom and env) raises ValueError."""
+        from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+            CustomOpenAIProxyLLMWrapper,
+        )
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key=None,
+            cert_file=None,
+            key_file=None,
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            CustomOpenAIProxyLLMWrapper(
+                model_name="custom-gpt-4",
+                custom_model_provider=custom_provider,
+            )
+
+        assert "OPENAI_API_KEY" in str(exc_info.value)
+
+    @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.Client")
+    def test_initialization_with_cert_files(
+        self, mock_httpx_client: Mock, mock_chat_openai: Mock
+    ) -> None:
+        """Test that cert_file and key_file create custom httpx client."""
+        from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+            CustomOpenAIProxyLLMWrapper,
+        )
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+        mock_http_client = MagicMock()
+        mock_httpx_client.return_value = mock_http_client
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file="/path/to/cert.pem",
+            key_file="/path/to/key.pem",
+        )
+
+        CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4",
+            custom_model_provider=custom_provider,
+        )
+
+        # Verify httpx Client was created with cert files
+        mock_httpx_client.assert_called_once_with(
+            cert=("/path/to/cert.pem", "/path/to/key.pem")
+        )
+
+        # Verify ChatOpenAI was initialized with custom http_client
+        call_kwargs = mock_chat_openai.call_args.kwargs
+        assert call_kwargs["http_client"] == mock_http_client
+
+    @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_successful_converse_call(self, mock_chat_openai: Mock) -> None:
+        """Test successful custom proxy converse call with format transformation."""
+        from langchain_core.messages import AIMessageChunk
+
+        from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+            CustomOpenAIProxyLLMWrapper,
+        )
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+
+        # Mock streaming response - now using .stream() instead of .invoke()
+        def mock_stream(messages, **kwargs):
+            chunk = AIMessageChunk(content="Hello! How can I help you today?")
+            chunk.usage_metadata = {
+                "input_tokens": 20,
+                "output_tokens": 10,
+                "total_tokens": 30,
+            }
+            chunk.response_metadata = {"finish_reason": "stop"}
+            yield chunk
+
+        mock_client.stream.side_effect = mock_stream
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file=None,
+            key_file=None,
+        )
+
+        wrapper = CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4",
+            custom_model_provider=custom_provider,
+        )
+
+        response = wrapper.converse(
+            system=[{"text": "You are a helpful assistant"}],
+            messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+            inferenceConfig={"temperature": 0.7, "maxTokens": 2048},
+        )
+
+        # Verify response was transformed to Bedrock format
+        assert response["stopReason"] == "end_turn"
+        assert response["usage"]["inputTokens"] == 20
+        assert response["usage"]["outputTokens"] == 10
+        assert response["output"]["message"]["role"] == "assistant"
+        assert (
+            response["output"]["message"]["content"][0]["text"]
+            == "Hello! How can I help you today?"
+        )
+
+
 class TestLLMFactory:
     """Tests for LLM factory functions."""
 
     def test_parse_model_id_with_bedrock_prefix(self) -> None:
         """Test parsing model ID with bedrock/ prefix."""
-        from datahub_integrations.gen_ai.llm.factory import _parse_model_id
 
-        provider, model_name = _parse_model_id(
+        provider, model_name = parse_model_id(
             "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0"
         )
         assert provider == "bedrock"
@@ -890,9 +1095,8 @@ class TestLLMFactory:
 
     def test_parse_model_id_without_prefix(self) -> None:
         """Test parsing model ID without prefix defaults to bedrock."""
-        from datahub_integrations.gen_ai.llm.factory import _parse_model_id
 
-        provider, model_name = _parse_model_id(
+        provider, model_name = parse_model_id(
             "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
         )
         assert provider == "bedrock"
@@ -900,25 +1104,22 @@ class TestLLMFactory:
 
     def test_parse_model_id_with_openai_prefix(self) -> None:
         """Test parsing model ID with openai/ prefix."""
-        from datahub_integrations.gen_ai.llm.factory import _parse_model_id
 
-        provider, model_name = _parse_model_id("openai/gpt-4o")
+        provider, model_name = parse_model_id("openai/gpt-4o")
         assert provider == "openai"
         assert model_name == "gpt-4o"
 
     def test_parse_model_id_with_gemini_prefix(self) -> None:
         """Test parsing model ID with gemini/ prefix."""
-        from datahub_integrations.gen_ai.llm.factory import _parse_model_id
 
-        provider, model_name = _parse_model_id("gemini/gemini-1.5-pro")
+        provider, model_name = parse_model_id("gemini/gemini-1.5-pro")
         assert provider == "gemini"
         assert model_name == "gemini-1.5-pro"
 
     def test_parse_model_id_with_vertex_ai_prefix(self) -> None:
         """Test parsing model ID with vertex_ai/ prefix."""
-        from datahub_integrations.gen_ai.llm.factory import _parse_model_id
 
-        provider, model_name = _parse_model_id("vertex_ai/gemini-1.5-pro")
+        provider, model_name = parse_model_id("vertex_ai/gemini-1.5-pro")
         assert provider == "vertex_ai"
         assert model_name == "gemini-1.5-pro"
 
@@ -1039,3 +1240,307 @@ class TestLLMFactory:
         assert client1 is not client2
         assert type(client1).__name__ == "BedrockLLMWrapper"
         assert type(client2).__name__ == "OpenAILLMWrapper"
+
+    @patch.dict(
+        os.environ,
+        {
+            "MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1",
+            "MODEL_CUSTOM_API_KEY": "test-key",
+        },
+    )
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_get_llm_client_custom_provider(self, mock_chat_openai: Mock) -> None:
+        """Test that get_llm_client returns CustomOpenAIProxyLLMWrapper for custom provider."""
+        from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+            CustomOpenAIProxyLLMWrapper,
+        )
+        from datahub_integrations.gen_ai.llm.factory import (
+            get_llm_client,
+        )
+        from datahub_integrations.gen_ai.model_config import (
+            CustomModelProvider,
+            get_custom_model_provider_config,
+        )
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+
+        # Clear cache to ensure fresh instance
+        get_llm_client.cache_clear()
+        get_custom_model_provider_config.cache_clear()
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file=None,
+            key_file=None,
+        )
+
+        client = get_llm_client(
+            model_id="custom-gpt-4",
+        )
+
+        assert isinstance(client, CustomOpenAIProxyLLMWrapper)
+        assert client.model_name == "custom-gpt-4"
+        assert client.custom_model_provider == custom_provider
+
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_converse_with_tool_calling_custom_openai(
+        self, mock_chat_openai: Mock
+    ) -> None:
+        """Test OpenAI tool calling with format transformation."""
+        from langchain_core.messages import AIMessageChunk
+
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+        mock_llm_with_tools = MagicMock()
+        mock_client.bind_tools.return_value = mock_llm_with_tools
+
+        # Mock streaming response - now using .stream() instead of .invoke()
+        def mock_stream(messages, **kwargs):
+            chunk = AIMessageChunk(content="I'll search for that")
+            chunk.tool_calls = [
+                {
+                    "name": "search_entities",
+                    "args": {"query": "datasets", "limit": 10},
+                    "id": "call_abc123",
+                }
+            ]
+            chunk.usage_metadata = {
+                "input_tokens": 100,
+                "output_tokens": 30,
+                "total_tokens": 130,
+            }
+            chunk.response_metadata = {"finish_reason": "tool_calls"}
+            yield chunk
+
+        mock_llm_with_tools.stream.side_effect = mock_stream
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file=None,
+            key_file=None,
+        )
+
+        wrapper = CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4o", custom_model_provider=custom_provider
+        )
+
+        tool_config = {
+            "tools": [
+                {
+                    "toolSpec": {
+                        "name": "search_entities",
+                        "description": "Search for entities",
+                        "inputSchema": {
+                            "json": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {"type": "string"},
+                                    "limit": {"type": "integer"},
+                                },
+                                "required": ["query"],
+                            }
+                        },
+                    }
+                }
+            ]
+        }
+
+        response = wrapper.converse(
+            system=[{"text": "You are helpful"}],
+            messages=[{"role": "user", "content": [{"text": "Find datasets"}]}],
+            toolConfig=tool_config,
+        )
+
+        # Verify tools were bound
+        mock_client.bind_tools.assert_called_once()
+        bound_tools = mock_client.bind_tools.call_args[0][0]
+        assert len(bound_tools) == 1
+        assert bound_tools[0]["function"]["name"] == "search_entities"
+
+        # Verify response was transformed to Bedrock format
+        assert response["stopReason"] == "tool_use"
+        assert len(response["output"]["message"]["content"]) == 2
+        assert (
+            response["output"]["message"]["content"][0]["text"]
+            == "I'll search for that"
+        )
+        assert "toolUse" in response["output"]["message"]["content"][1]
+        tool_use = response["output"]["message"]["content"][1]["toolUse"]
+        assert tool_use["name"] == "search_entities"
+        assert tool_use["toolUseId"] == "call_abc123"
+        assert tool_use["input"]["query"] == "datasets"
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-api-key"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_cache_point_markers_filtered_out(self, mock_chat_openai: Mock) -> None:
+        """Test that Bedrock cachePoint markers are filtered from tools list."""
+        from langchain_core.messages import AIMessage
+
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+        mock_llm_with_tools = MagicMock()
+        mock_client.bind_tools.return_value = mock_llm_with_tools
+
+        mock_response = AIMessage(
+            content="Response",
+            usage_metadata={
+                "input_tokens": 50,
+                "output_tokens": 10,
+                "total_tokens": 60,
+            },
+        )
+        mock_llm_with_tools.invoke.return_value = mock_response
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file=None,
+            key_file=None,
+        )
+
+        wrapper = CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4o", custom_model_provider=custom_provider
+        )
+
+        # Tool config with cachePoint markers
+        tool_config = {
+            "tools": [
+                {
+                    "toolSpec": {
+                        "name": "tool1",
+                        "inputSchema": {"json": {"type": "object", "properties": {}}},
+                    }
+                },
+                {"cachePoint": {"type": "default"}},  # Should be filtered
+                {
+                    "toolSpec": {
+                        "name": "tool2",
+                        "inputSchema": {"json": {"type": "object", "properties": {}}},
+                    }
+                },
+            ]
+        }
+
+        wrapper.converse(
+            system=[{"text": "You are helpful"}],
+            messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+            toolConfig=tool_config,
+        )
+
+        # Verify only actual tools were bound (cachePoint filtered out)
+        bound_tools = mock_client.bind_tools.call_args[0][0]
+        assert len(bound_tools) == 2
+        assert all("function" in tool for tool in bound_tools)
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-api-key"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_authentication_error(self, mock_chat_openai: Mock) -> None:
+        """Test that OpenAI AuthenticationError raises LlmAuthenticationException."""
+        import openai
+
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+
+        # Create proper OpenAI exception class and instance
+        AuthenticationError = type("AuthenticationError", (Exception,), {})
+        mock_client.stream.side_effect = AuthenticationError("Invalid API key")
+
+        # Patch the openai module's exception class for isinstance check
+        with patch.object(openai, "AuthenticationError", AuthenticationError):
+            custom_provider = CustomModelProvider(
+                base_url="https://custom.api.com/v1",
+                api_key="test-key",
+                cert_file=None,
+                key_file=None,
+            )
+
+            wrapper = CustomOpenAIProxyLLMWrapper(
+                model_name="custom-gpt-4o", custom_model_provider=custom_provider
+            )
+
+            with pytest.raises(LlmAuthenticationException) as exc_info:
+                wrapper.converse(
+                    system=[{"text": "You are helpful"}],
+                    messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                )
+
+            assert "Invalid API key" in str(exc_info.value)
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-api-key"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_rate_limit_error(self, mock_chat_openai: Mock) -> None:
+        """Test that OpenAI RateLimitError raises LlmRateLimitException."""
+        import openai
+
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+
+        RateLimitError = type("RateLimitError", (Exception,), {})
+        mock_client.stream.side_effect = RateLimitError("Rate limit exceeded")
+
+        with patch.object(openai, "RateLimitError", RateLimitError):
+            custom_provider = CustomModelProvider(
+                base_url="https://custom.api.com/v1",
+                api_key="test-key",
+                cert_file=None,
+                key_file=None,
+            )
+
+            wrapper = CustomOpenAIProxyLLMWrapper(
+                model_name="custom-gpt-4o", custom_model_provider=custom_provider
+            )
+
+            with pytest.raises(LlmRateLimitException) as exc_info:
+                wrapper.converse(
+                    system=[{"text": "You are helpful"}],
+                    messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                )
+
+            assert "Rate limit exceeded" in str(exc_info.value)
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-api-key"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_context_length_exceeded_error(self, mock_chat_openai: Mock) -> None:
+        """Test that OpenAI context_length_exceeded error raises LlmInputTooLongException."""
+        import openai
+
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+
+        BadRequestError = type("BadRequestError", (Exception,), {})
+        mock_client.stream.side_effect = BadRequestError(
+            "This model's maximum context length is 4096 tokens"
+        )
+
+        with patch.object(openai, "BadRequestError", BadRequestError):
+            custom_provider = CustomModelProvider(
+                base_url="https://custom.api.com/v1",
+                api_key="test-key",
+                cert_file=None,
+                key_file=None,
+            )
+
+            wrapper = CustomOpenAIProxyLLMWrapper(
+                model_name="custom-gpt-4o", custom_model_provider=custom_provider
+            )
+
+            with pytest.raises(LlmInputTooLongException) as exc_info:
+                wrapper.converse(
+                    system=[{"text": "You are helpful"}],
+                    messages=[{"role": "user", "content": [{"text": "x" * 100000}]}],
+                )
+
+            assert "maximum context length" in str(exc_info.value)

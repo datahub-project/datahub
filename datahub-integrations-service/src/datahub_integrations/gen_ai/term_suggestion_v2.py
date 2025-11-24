@@ -3,7 +3,7 @@ import collections
 import os
 import pathlib
 import re
-from typing import Any, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 import asyncer
 import more_itertools
@@ -11,18 +11,20 @@ from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
 from pydantic import BaseModel, Field, ValidationError
 
-from datahub_integrations.gen_ai.bedrock import (
-    BedrockPromptMessage,
-    call_bedrock_llm,
-)
 from datahub_integrations.gen_ai.description_context import (
     ColumnMetadataInfo,
     TableInfo,
     extract_metadata_for_urn,
     transform_table_info_for_llm,
 )
+from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.gen_ai.term_suggestion_v2_context import GlossaryInfo
+
+if TYPE_CHECKING:
+    from mypy_boto3_bedrock_runtime.type_defs import (
+        SystemContentBlockTypeDef,
+    )
 
 # The AWS quota is 1000 requests per minute for Haiku 3 and
 # 20-50 (depending on region) for Claude Sonnet models (3.7/4/4.5).
@@ -205,13 +207,30 @@ async def get_term_recommendations_for_column_splits(
     logger.debug(f"Term splits: {len(term_splits)}")
 
     # Prepare system messages if custom instructions are provided
-    system_messages = None
+    system_messages: list[SystemContentBlockTypeDef] = []
     if custom_instructions and custom_instructions.strip():
         formatted_instructions = (
             f"CUSTOM INSTRUCTIONS - You must follow these in addition to base instructions:\n\n"
             f"{custom_instructions.strip()}"
         )
-        system_messages = [BedrockPromptMessage(text=formatted_instructions)]
+        system_messages = [{"text": formatted_instructions}]
+
+    # Get LLM client
+    llm_client = get_llm_client(
+        model_id=model_config.term_suggestion_ai.model,
+    )
+
+    # Helper function to call LLM using the new client
+    def call_llm(prompt: str) -> str:
+        response = llm_client.converse(
+            system=system_messages,
+            messages=[{"role": "user", "content": [{"text": prompt}]}],  # type: ignore[list-item]
+            inferenceConfig={
+                "temperature": TEMPERATURE,
+                "maxTokens": 4096,
+            },
+        )
+        return response["output"]["message"]["content"][0]["text"]
 
     # Run the LLM calls in parallel.
     raw_llm_responses: Dict[int, Dict[int, asyncer.SoonValue[str]]] = (
@@ -232,14 +251,8 @@ async def get_term_recommendations_for_column_splits(
                 )
 
                 raw_llm_responses[col_split_idx][term_split_idx] = task_group.soonify(
-                    asyncer.asyncify(call_bedrock_llm)
-                )(
-                    prompt=prompt,
-                    model=model_config.term_suggestion_ai.model,
-                    max_tokens=5000,
-                    temperature=TEMPERATURE,
-                    system_messages=system_messages,
-                )
+                    asyncer.asyncify(call_llm)
+                )(prompt)
 
     column_terms: Dict[str, List[TermSuggestionBundle]] | None = None
     table_terms: List[TermSuggestionBundle] | None = None
@@ -255,13 +268,7 @@ async def get_term_recommendations_for_column_splits(
                     raw_llm_response=raw_llm_response_for_column_split
                 )
 
-                raw_llm_response_for_column_split = call_bedrock_llm(
-                    prompt=extraction_prompt,
-                    model=model_config.term_suggestion_ai.model,
-                    max_tokens=5000,
-                    temperature=TEMPERATURE,
-                    system_messages=system_messages,
-                )
+                raw_llm_response_for_column_split = call_llm(extraction_prompt)
 
             table_terms, column_split_terms = parse_llm_output(
                 raw_llm_response_for_column_split

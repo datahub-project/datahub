@@ -266,3 +266,34 @@ def test_planning_mode_disabled_explicitly() -> None:
 
         # Test that planning mode is disabled
         assert not planning_model_config.chat_assistant_ai.planning_mode_enabled
+
+
+def test_custom_model_provider_config() -> None:
+    # Test that new environment variables work correctly with custom model provider format
+    # Current state
+    env_vars = {
+        "ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX": "us",
+        "DESCRIPTION_GENERATION_MODEL": "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        "QUERY_DESCRIPTION_GENERATION_MODEL": "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        # old env vars below
+        "TERM_SUGGESTION_MODEL": "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0",
+        "CHATBOT_MODEL": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_API_KEY": "1234",
+        "MODEL_CUSTOM_CERT_FILE": "/path/to/cert.crt",
+        "MODEL_CUSTOM_KEY_FILE": "/path/to/key.crt",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        # Reload the module after setting the environment variables
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        # Test that new env vars are used with LiteLLM format
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.base_url == "https://test_url.com"
+        assert new_model_config.custom_model_provider.api_key == "1234"
+        assert new_model_config.custom_model_provider.cert_file == "/path/to/cert.crt"
+        assert new_model_config.custom_model_provider.key_file == "/path/to/key.crt"
