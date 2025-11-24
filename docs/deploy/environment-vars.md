@@ -61,6 +61,7 @@ Reference Links:
 | `UI_INGESTION_ENABLED`                      | `true`  | Enable UI-based ingestion                                                                        | GMS, MAE Consumer |
 | `INGESTION_BATCH_REFRESH_COUNT`             | `100`   | Number of entities to refresh in a single batch when refreshing entities after ingestion         | GMS               |
 | `INGESTION_SOURCE_REFRESH_INTERVAL_SECONDS` | `43200` | Interval at which the ingestion source scheduler will check for new or updated ingestion sources | GMS               |
+| `DATAHUB_KAFKA_DISABLE_AUTO_SCHEMA_REGISTRATION` | `false` | Disable automatic schema registration for Kafka sink. When `true`, requires schemas to be pre-registered in the Schema Registry. | Python Ingestion |
 
 ## Telemetry & Analytics
 
