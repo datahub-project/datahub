@@ -619,7 +619,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         upstream_urns.append(upstream_urn)
 
             # Store for use in column lineage generation
-            semantic_view._upstream_urns = upstream_urns
+            semantic_view.resolved_upstream_urns = upstream_urns
             logger.info(
                 f"Pre-computed {len(upstream_urns)} upstream URNs for semantic view {semantic_view.name}"
             )
@@ -656,7 +656,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     )
 
                 # Update report counter
-                upstream_urns = getattr(semantic_view, "_upstream_urns", [])
+                upstream_urns = semantic_view.resolved_upstream_urns
                 self.report.num_table_to_view_edges_scanned += len(upstream_urns)
 
                 logger.info(
@@ -1140,7 +1140,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
                     # Emit lineage directly as an MCP to bypass aggregator's auto-generation
                     # Get the upstream URNs that were stored earlier
-                    upstream_urns = getattr(semantic_view, "_upstream_urns", [])
+                    upstream_urns = semantic_view.resolved_upstream_urns
                     logger.info(
                         f"Preparing to emit explicit lineage for {semantic_view.name}: "
                         f"{len(column_lineages)} column lineages, {len(upstream_urns)} upstream tables"
@@ -1914,6 +1914,27 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
             logger.info(f"✅ Successfully registered lineage for {semantic_view.name}")
 
+    def _is_table_allowed(
+        self, db_name: str, schema_name: str, table_name: str
+    ) -> bool:
+        """
+        Check if table passes filter patterns.
+
+        Args:
+            db_name: Database name
+            schema_name: Schema name
+            table_name: Table name
+
+        Returns:
+            True if table is allowed by patterns, False otherwise
+        """
+        table_identifier = self.identifiers.get_dataset_identifier(
+            table_name, schema_name, db_name
+        )
+        return self.filters.is_dataset_pattern_allowed(
+            table_identifier, SnowflakeObjectDomain.TABLE
+        )
+
     def _verify_column_exists_in_table(
         self, db_name: str, schema_name: str, table_name: str, column_name: str
     ) -> bool:
@@ -2166,9 +2187,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
 
                 if not base_table_tuple:
-                    logger.warning(
+                    msg = (
                         f"Could not find physical table mapping for logical table '{logical_table_name}'. "
                         f"Available mappings: {list(semantic_view.logical_to_physical_table.keys())}"
+                    )
+                    logger.warning(msg)
+                    self.report.report_warning(
+                        semantic_view.name,
+                        f"Missing logical table mapping: {logical_table_name}",
                     )
                     continue
 
@@ -2178,6 +2204,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     base_table, base_schema, base_db
                 )
                 base_table_urn = self.identifiers.gen_dataset_urn(base_table_identifier)
+
+                # Check if the base table is filtered out by table patterns
+                if not self._is_table_allowed(base_db, base_schema, base_table):
+                    logger.debug(
+                        f"Skipping lineage from {col_name_upper} to {base_table_full_name}: "
+                        f"table is filtered by table_pattern"
+                    )
+                    continue
 
                 # CRITICAL: Verify the column actually exists in the upstream table
                 logger.info(

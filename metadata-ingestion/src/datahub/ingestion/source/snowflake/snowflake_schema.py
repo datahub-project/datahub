@@ -183,7 +183,7 @@ class SnowflakeSemanticView(BaseView):
     # Each relationship is a dict with: name, left_table, left_columns, right_table, right_columns
     relationships: List[Dict[str, Any]] = field(default_factory=list)
     # Pre-computed upstream dataset URNs for column lineage generation
-    _upstream_urns: List[str] = field(default_factory=list)
+    resolved_upstream_urns: List[str] = field(default_factory=list)
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.SEMANTIC_VIEW
@@ -894,6 +894,36 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     )
                     # Continue without definition - it's not critical
 
+    def _parse_json_array(
+        self, value: Optional[str], field_name: str, context: str
+    ) -> List[str]:
+        """
+        Safely parse JSON array from Snowflake system views.
+
+        Args:
+            value: JSON string to parse (may be None)
+            field_name: Name of the field being parsed (for logging)
+            context: Context string for logging (e.g., "table_name in view_name")
+
+        Returns:
+            List of strings from JSON array, or empty list if parsing fails
+        """
+        if not value:
+            return []
+        try:
+            parsed = json.loads(value) if isinstance(value, str) else value
+            if isinstance(parsed, list):
+                return [str(item) for item in parsed]
+            logger.warning(
+                f"Expected list for {field_name} in {context}, got {type(parsed).__name__}: {parsed}"
+            )
+            return []
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(
+                f"Failed to parse {field_name} as JSON in {context}. Value: {value!r}. Error: {e}"
+            )
+            return []
+
     def _populate_semantic_view_base_tables(
         self, db_name: str, semantic_views: Dict[str, List[SnowflakeSemanticView]]
     ) -> None:
@@ -958,73 +988,62 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
                 # Parse PRIMARY_KEYS JSON array (e.g., '["col1", "col2"]')
                 primary_keys_raw = row.get("PRIMARY_KEYS")
-                if primary_keys_raw:
-                    try:
-                        import json
-
-                        primary_keys = (
-                            json.loads(primary_keys_raw)
-                            if isinstance(primary_keys_raw, str)
-                            else primary_keys_raw
-                        )
-                        if primary_keys:
-                            # Add all primary keys to the set (uppercase for consistency)
-                            for pk_col in primary_keys:
-                                semantic_view_obj.primary_key_columns.add(
-                                    pk_col.upper()
-                                )
-                            logger.info(
-                                f"Added primary keys {primary_keys} for {schema_name}.{view_name}"
-                            )
-                    except (json.JSONDecodeError, TypeError) as e:
-                        logger.debug(
-                            f"Failed to parse PRIMARY_KEYS for {schema_name}.{view_name}: {e}"
-                        )
+                primary_keys = self._parse_json_array(
+                    primary_keys_raw,
+                    "PRIMARY_KEYS",
+                    f"{schema_name}.{view_name}",
+                )
+                if primary_keys:
+                    # Add all primary keys to the set (uppercase for consistency)
+                    for pk_col in primary_keys:
+                        semantic_view_obj.primary_key_columns.add(pk_col.upper())
+                    logger.info(
+                        f"Added primary keys {primary_keys} for {schema_name}.{view_name}"
+                    )
 
                 # Parse table-level SYNONYMS JSON array (e.g., '["alias1", "alias2"]')
                 # These are alternative names for the logical table within the semantic view
                 synonyms_raw = row.get("SYNONYMS")
-                logger.info(
-                    f"SYNONYMS raw value for {logical_table_name} in {schema_name}.{view_name}: {synonyms_raw!r} (type: {type(synonyms_raw).__name__})"
+                logger.debug(
+                    f"SYNONYMS raw value for {logical_table_name} in {schema_name}.{view_name}: {synonyms_raw!r}"
                 )
-                if synonyms_raw:
-                    try:
-                        import json
-
-                        synonyms = (
-                            json.loads(synonyms_raw)
-                            if isinstance(synonyms_raw, str)
-                            else synonyms_raw
-                        )
-                        if synonyms and logical_table_name:
-                            # Store synonyms by logical table name (uppercase for consistency)
-                            logical_table_upper = logical_table_name.upper()
-                            if (
-                                logical_table_upper
-                                not in semantic_view_obj.table_synonyms
-                            ):
-                                semantic_view_obj.table_synonyms[
-                                    logical_table_upper
-                                ] = []
-                            semantic_view_obj.table_synonyms[
-                                logical_table_upper
-                            ].extend(synonyms)
-                            logger.info(
-                                f"Added table synonyms {synonyms} for logical table {logical_table_name} in {schema_name}.{view_name}"
-                            )
-                    except (json.JSONDecodeError, TypeError) as e:
-                        logger.debug(
-                            f"Failed to parse SYNONYMS for {schema_name}.{view_name}: {e}"
-                        )
+                synonyms = self._parse_json_array(
+                    synonyms_raw,
+                    "SYNONYMS",
+                    f"{logical_table_name} in {schema_name}.{view_name}",
+                )
+                if synonyms and logical_table_name:
+                    # Store synonyms by logical table name (uppercase for consistency)
+                    logical_table_upper = logical_table_name.upper()
+                    if logical_table_upper not in semantic_view_obj.table_synonyms:
+                        semantic_view_obj.table_synonyms[logical_table_upper] = []
+                    semantic_view_obj.table_synonyms[logical_table_upper].extend(
+                        synonyms
+                    )
+                    logger.info(
+                        f"Added table synonyms {synonyms} for logical table {logical_table_name} in {schema_name}.{view_name}"
+                    )
 
             logger.info(
                 f"Populated base tables for semantic views in database {db_name}. Processed {row_count} rows."
             )
         except Exception as e:
-            logger.warning(
-                f"Failed to fetch semantic tables for database {db_name}: {e}",
-                exc_info=True,
-            )
+            error_msg = str(e).lower()
+            if (
+                "semantic_tables" in error_msg
+                or "does not exist" in error_msg
+                or "insufficient privileges" in error_msg
+            ):
+                logger.warning(
+                    f"Cannot access INFORMATION_SCHEMA.SEMANTIC_TABLES for database {db_name}. "
+                    f"This requires Snowflake Enterprise Edition and appropriate permissions. "
+                    f"Skipping semantic view base table ingestion. Error: {e}"
+                )
+            else:
+                logger.warning(
+                    f"Failed to fetch semantic tables for database {db_name}: {e}",
+                    exc_info=True,
+                )
             # Continue without base table information - lineage won't be as complete but not critical
 
     def _merge_column_metadata(
@@ -1114,21 +1133,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
                 # Parse SYNONYMS JSON array (e.g., '["alias1", "alias2"]')
                 synonyms_raw = row.get("SYNONYMS")
-                synonyms = []
-                if synonyms_raw:
-                    try:
-                        import json
-
-                        synonyms = (
-                            json.loads(synonyms_raw)
-                            if isinstance(synonyms_raw, str)
-                            else synonyms_raw
-                        )
-                    except (json.JSONDecodeError, TypeError):
-                        logger.debug(
-                            f"Failed to parse SYNONYMS for {col_name}: {synonyms_raw}"
-                        )
-                        synonyms = []
+                synonyms = self._parse_json_array(
+                    synonyms_raw, "SYNONYMS", f"dimension {col_name}"
+                )
 
                 column_data[view_key][col_name_upper].append(
                     {
@@ -1327,10 +1334,24 @@ class SnowflakeDataDictionary(SupportsAsObj):
             )
 
         except Exception as e:
-            logger.warning(
-                f"Failed to fetch semantic view columns for database {db_name}: {e}",
-                exc_info=True,
-            )
+            error_msg = str(e).lower()
+            if (
+                "semantic_dimensions" in error_msg
+                or "semantic_facts" in error_msg
+                or "semantic_metrics" in error_msg
+                or "does not exist" in error_msg
+                or "insufficient privileges" in error_msg
+            ):
+                logger.warning(
+                    f"Cannot access INFORMATION_SCHEMA semantic view system tables for database {db_name}. "
+                    f"This requires Snowflake Enterprise Edition and appropriate permissions. "
+                    f"Skipping semantic view column ingestion. Error: {e}"
+                )
+            else:
+                logger.warning(
+                    f"Failed to fetch semantic view columns for database {db_name}: {e}",
+                    exc_info=True,
+                )
             # Continue without column information - not critical
 
     def _populate_semantic_view_relationships(
@@ -1371,21 +1392,16 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 foreign_keys_raw = row.get("FOREIGN_KEYS")
                 ref_keys_raw = row.get("REF_KEYS")
 
-                foreign_keys = []
-                if foreign_keys_raw:
-                    try:
-                        foreign_keys = json.loads(foreign_keys_raw)
-                    except json.JSONDecodeError:
-                        logger.warning(
-                            f"Failed to parse FOREIGN_KEYS JSON: {foreign_keys_raw}"
-                        )
-
-                ref_keys = []
-                if ref_keys_raw:
-                    try:
-                        ref_keys = json.loads(ref_keys_raw)
-                    except json.JSONDecodeError:
-                        logger.warning(f"Failed to parse REF_KEYS JSON: {ref_keys_raw}")
+                foreign_keys = self._parse_json_array(
+                    foreign_keys_raw,
+                    "FOREIGN_KEYS",
+                    f"relationship {row.get('NAME')} in {schema_name}.{view_name}",
+                )
+                ref_keys = self._parse_json_array(
+                    ref_keys_raw,
+                    "REF_KEYS",
+                    f"relationship {row.get('NAME')} in {schema_name}.{view_name}",
+                )
 
                 # Store relationship
                 relationship = {
@@ -1408,10 +1424,22 @@ class SnowflakeDataDictionary(SupportsAsObj):
             )
 
         except Exception as e:
-            logger.warning(
-                f"Failed to fetch semantic view relationships for database {db_name}: {e}",
-                exc_info=True,
-            )
+            error_msg = str(e).lower()
+            if (
+                "semantic_relationships" in error_msg
+                or "does not exist" in error_msg
+                or "insufficient privileges" in error_msg
+            ):
+                logger.warning(
+                    f"Cannot access INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS for database {db_name}. "
+                    f"This requires Snowflake Enterprise Edition and appropriate permissions. "
+                    f"Skipping semantic view relationship ingestion. Error: {e}"
+                )
+            else:
+                logger.warning(
+                    f"Failed to fetch semantic view relationships for database {db_name}: {e}",
+                    exc_info=True,
+                )
             # Continue without relationship information - not critical
 
     def _get_semantic_views_for_database_using_information_schema(
