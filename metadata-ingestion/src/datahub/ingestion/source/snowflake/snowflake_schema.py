@@ -179,9 +179,6 @@ class SnowflakeSemanticView(BaseView):
     logical_to_physical_table: Dict[str, Tuple[str, str, str]] = field(
         default_factory=dict
     )
-    # Relationships: List of relationships between logical tables (like foreign keys)
-    # Each relationship is a dict with: name, left_table, left_columns, right_table, right_columns
-    relationships: List[Dict[str, Any]] = field(default_factory=list)
     # Pre-computed upstream dataset URNs for column lineage generation
     resolved_upstream_urns: List[str] = field(default_factory=list)
 
@@ -829,9 +826,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # Fetch columns (dimensions, facts, metrics) from system views
             self._populate_semantic_view_columns(db_name, semantic_views)
 
-            # Fetch relationships between logical tables
-            self._populate_semantic_view_relationships(db_name, semantic_views)
-
             return semantic_views
         except Exception as e:
             logger.warning(
@@ -1354,92 +1348,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             # Continue without column information - not critical
 
-    def _populate_semantic_view_relationships(
-        self, db_name: str, semantic_views: Dict[str, List[SnowflakeSemanticView]]
-    ) -> None:
-        """
-        Populates the relationships field for semantic views by querying SEMANTIC_RELATIONSHIPS.
-
-        Relationships define how logical tables join together (like foreign key constraints).
-        Each relationship specifies:
-        - name: Relationship name
-        - left_table: Left logical table name
-        - left_columns: JSON array of left table columns
-        - right_table: Right logical table name
-        - right_columns: JSON array of right table columns
-        """
-        try:
-            # Build lookup map for semantic views
-            semantic_view_map: Dict[Tuple[str, str], SnowflakeSemanticView] = {}
-            for schema_name, views in semantic_views.items():
-                for semantic_view in views:
-                    semantic_view_map[(schema_name, semantic_view.name)] = semantic_view
-
-            # Query SEMANTIC_RELATIONSHIPS
-            query = SnowflakeQuery.get_semantic_relationships_for_database(db_name)
-            cur = self.connection.query(query)
-
-            relationship_count = 0
-            for row in cur:
-                schema_name = row["SEMANTIC_VIEW_SCHEMA"]
-                view_name = row["SEMANTIC_VIEW_NAME"]
-
-                semantic_view = semantic_view_map.get((schema_name, view_name))  # type: ignore[assignment]
-                if not semantic_view:
-                    continue
-
-                # Parse column arrays (they're JSON arrays)
-                foreign_keys_raw = row.get("FOREIGN_KEYS")
-                ref_keys_raw = row.get("REF_KEYS")
-
-                foreign_keys = self._parse_json_array(
-                    foreign_keys_raw,
-                    "FOREIGN_KEYS",
-                    f"relationship {row.get('NAME')} in {schema_name}.{view_name}",
-                )
-                ref_keys = self._parse_json_array(
-                    ref_keys_raw,
-                    "REF_KEYS",
-                    f"relationship {row.get('NAME')} in {schema_name}.{view_name}",
-                )
-
-                # Store relationship
-                relationship = {
-                    "name": row.get("NAME"),
-                    "left_table": row.get("TABLE_NAME"),
-                    "left_columns": foreign_keys,
-                    "right_table": row.get("REF_TABLE_NAME"),
-                    "right_columns": ref_keys,
-                }
-                semantic_view.relationships.append(relationship)
-                relationship_count += 1
-
-                logger.debug(
-                    f"Added relationship '{relationship['name']}' to semantic view "
-                    f"{schema_name}.{view_name}: {relationship['left_table']} -> {relationship['right_table']}"
-                )
-
-            logger.info(
-                f"Populated {relationship_count} relationships for semantic views in database {db_name}"
-            )
-
-        except Exception as e:
-            error_msg = str(e).lower()
-            if (
-                "semantic_relationships" in error_msg
-                or "does not exist" in error_msg
-                or "insufficient privileges" in error_msg
-            ):
-                logger.warning(
-                    f"Cannot access INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS for database {db_name}. "
-                    f"This requires Snowflake Enterprise Edition and appropriate permissions. "
-                    f"Skipping semantic view relationship ingestion. Error: {e}"
-                )
-            else:
-                logger.warning(
-                    f"Failed to fetch semantic view relationships for database {db_name}: {e}",
-                    exc_info=True,
-                )
             # Continue without relationship information - not critical
 
     def _get_semantic_views_for_database_using_information_schema(

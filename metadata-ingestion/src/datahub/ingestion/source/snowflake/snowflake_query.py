@@ -519,41 +519,6 @@ ORDER BY semantic_view_name, name
 """
 
     @staticmethod
-    def get_semantic_relationships_for_database(db_name: str) -> str:
-        """Generate query to get all semantic relationships for a database."""
-        return f"""\
-SELECT
-  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
-  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
-  semantic_view_name AS "SEMANTIC_VIEW_NAME",
-  name AS "NAME",
-  table_name AS "TABLE_NAME",
-  foreign_keys AS "FOREIGN_KEYS",
-  ref_table_name AS "REF_TABLE_NAME",
-  ref_keys AS "REF_KEYS"
-FROM "{db_name}".information_schema.semantic_relationships
-ORDER BY semantic_view_schema, semantic_view_name, name
-"""
-
-    @staticmethod
-    def get_semantic_relationships_for_schema(db_name: str, schema_name: str) -> str:
-        """Generate query to get semantic relationships for a specific schema."""
-        return f"""\
-SELECT
-  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
-  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
-  semantic_view_name AS "SEMANTIC_VIEW_NAME",
-  name AS "NAME",
-  table_name AS "TABLE_NAME",
-  foreign_keys AS "FOREIGN_KEYS",
-  ref_table_name AS "REF_TABLE_NAME",
-  ref_keys AS "REF_KEYS"
-FROM "{db_name}".information_schema.semantic_relationships
-WHERE semantic_view_schema = '{schema_name}'
-ORDER BY semantic_view_name, name
-"""
-
-    @staticmethod
     def columns_for_schema(
         schema_name: str,
         db_name: str,
