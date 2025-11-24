@@ -8,7 +8,7 @@ including creating, updating, searching, and managing document lifecycle.
 import logging
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.graph.client import DataHubGraph
@@ -260,7 +260,8 @@ class OwnerInput(ConfigModel):
         description="Ownership type (e.g., TECHNICAL_OWNER, BUSINESS_OWNER)"
     )
 
-    @validator("owner")
+    @field_validator("owner")
+    @classmethod
     def validate_owner_urn(cls, v):
         """Validate that owner is a proper URN."""
         if not v:
