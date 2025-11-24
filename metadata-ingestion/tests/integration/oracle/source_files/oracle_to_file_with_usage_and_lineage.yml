@@ -1,4 +1,4 @@
-run_id: oracle-stored-procedures-test
+run_id: oracle-usage-lineage-test
 
 source:
   type: oracle
@@ -7,25 +7,33 @@ source:
     password: example
     host_port: localhost:51521
     service_name: XEPDB1
+    
+    # Enable all new features
     include_stored_procedures: true
     include_materialized_views: true
+    include_usage_stats: true
+    include_operational_stats: true
     
-    # Enable lineage features to test stored procedure lineage
+    # Enable lineage features
     include_view_lineage: true
     include_view_column_lineage: true
     
-    data_dictionary_mode: "ALL"  # Use ALL views (SYSTEM user doesn't have DBA access in PDB)
+    data_dictionary_mode: "ALL"
+    
     schema_pattern:
       allow:
         - "^HR_SCHEMA$"
         - "^SALES_SCHEMA$"
         - "^ANALYTICS_SCHEMA$"
         - "^SYSTEM$"
+    
     procedure_pattern:
       allow:
         - ".*"
+        
     profiling:
       enabled: false
+      
 sink:
   type: file
   config:

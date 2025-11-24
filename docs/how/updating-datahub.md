@@ -69,8 +69,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
-### Breaking Changes
-
 ### Other Notable Changes
 
 - #15118: (Ingestion) The Oracle source now includes stored procedures, functions, packages, and materialized views with automatic lineage generation. Use `procedure_pattern` to filter procedures if needed. See the Oracle source documentation for permissions and configuration details.
