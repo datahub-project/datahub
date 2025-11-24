@@ -210,49 +210,53 @@ def test_populate_semantic_view_base_tables(mock_connection):
     """Test populating base tables for semantic views from INFORMATION_SCHEMA.SEMANTIC_TABLES."""
     # Mock the connection for semantic views query
     mock_semantic_views_cursor = MagicMock()
-    mock_semantic_views_cursor.__iter__ = MagicMock(
-        return_value=iter(
-            [
-                {
-                    "name": "test_semantic_view",
-                    "schema_name": "PUBLIC",
-                    "created_on": datetime.datetime.now(),
-                    "comment": "Test semantic view",
-                },
-            ]
-        )
+    mock_semantic_views_cursor.__iter__ = lambda: iter(
+        [
+            {
+                "name": "test_semantic_view",
+                "schema_name": "PUBLIC",
+                "created_on": datetime.datetime.now(),
+                "comment": "Test semantic view",
+            },
+        ]
     )
 
     # Mock the connection for semantic tables query
+    # Use lambda to return a fresh iterator each time (important for proper iteration)
+    semantic_tables_data = [
+        {
+            "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "test_semantic_view",
+            "SEMANTIC_TABLE_NAME": "customers_table",
+            "BASE_TABLE_CATALOG": "TEST_DB",
+            "BASE_TABLE_SCHEMA": "PUBLIC",
+            "BASE_TABLE_NAME": "CUSTOMERS",
+            "PRIMARY_KEYS": None,
+            "UNIQUE_KEYS": None,
+            "COMMENT": None,
+            "SYNONYMS": None,
+        },
+        {
+            "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "test_semantic_view",
+            "SEMANTIC_TABLE_NAME": "orders_table",
+            "BASE_TABLE_CATALOG": "TEST_DB",
+            "BASE_TABLE_SCHEMA": "PUBLIC",
+            "BASE_TABLE_NAME": "ORDERS",
+            "PRIMARY_KEYS": None,
+            "UNIQUE_KEYS": None,
+            "COMMENT": None,
+            "SYNONYMS": None,
+        },
+    ]
     mock_semantic_tables_cursor = MagicMock()
-    mock_semantic_tables_cursor.__iter__ = MagicMock(
-        return_value=iter(
-            [
-                {
-                    "SEMANTIC_VIEW_CATALOG": "TEST_DB",
-                    "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
-                    "SEMANTIC_VIEW_NAME": "test_semantic_view",
-                    "SEMANTIC_TABLE_NAME": "customers_table",
-                    "BASE_TABLE_CATALOG": "TEST_DB",
-                    "BASE_TABLE_SCHEMA": "PUBLIC",
-                    "BASE_TABLE_NAME": "CUSTOMERS",
-                },
-                {
-                    "SEMANTIC_VIEW_CATALOG": "TEST_DB",
-                    "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
-                    "SEMANTIC_VIEW_NAME": "test_semantic_view",
-                    "SEMANTIC_TABLE_NAME": "orders_table",
-                    "BASE_TABLE_CATALOG": "TEST_DB",
-                    "BASE_TABLE_SCHEMA": "PUBLIC",
-                    "BASE_TABLE_NAME": "ORDERS",
-                },
-            ]
-        )
-    )
+    mock_semantic_tables_cursor.__iter__ = lambda: iter(semantic_tables_data)
 
     # Mock DDL query to return empty
     mock_ddl_cursor = MagicMock()
-    mock_ddl_cursor.__iter__ = MagicMock(return_value=iter([]))
+    mock_ddl_cursor.__iter__ = lambda: iter([])
 
     mock_connection_instance = MagicMock()
 
