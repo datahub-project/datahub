@@ -1,6 +1,5 @@
 import logging
-from collections import defaultdict
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from datahub.emitter.mce_builder import (
     make_chart_urn,
@@ -26,19 +25,15 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
-    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    SchemaFieldClass,
     SchemaMetadataClass,
     StatusClass,
     TagAssociationClass,
-    UpstreamClass,
-    UpstreamLineageClass,
 )
 
 
@@ -85,14 +80,14 @@ def build_chart_mcps(
         )
     )
 
-    # Get input datasets (datasource-level, shared across panels)
+    # Get input datasets (per-panel with global uniqueness)
     input_datasets = []
     if panel.datasource_ref:
         ds_type = panel.datasource_ref.type or "unknown"
         ds_uid = panel.datasource_ref.uid or "unknown"
 
-        # Add Grafana datasource (shared entity, not per-panel)
-        dataset_name = f"{ds_type}.{ds_uid}"
+        # Add Grafana per-panel dataset (globally unique)
+        dataset_name = f"{ds_type}.{ds_uid}.{dashboard.uid}.{panel.id}"
         ds_urn = make_dataset_urn_with_platform_instance(
             platform=platform,
             name=dataset_name,
@@ -288,68 +283,6 @@ def _build_ownership(dashboard: Dashboard) -> Optional[OwnershipClass]:
     return OwnershipClass(owners=owners) if owners else None
 
 
-def _consolidate_schema_fields(
-    panels: List[Panel],
-    connection_to_platform_map: Dict[str, Any],
-    graph: Optional[DataHubGraph],
-    report: GrafanaSourceReport,
-) -> Dict[str, SchemaFieldClass]:
-    """Consolidate schema fields from multiple panels."""
-    all_schema_fields: Dict[str, SchemaFieldClass] = {}
-    for panel in panels:
-        schema_fields = extract_fields_from_panel(
-            panel,
-            connection_to_platform_map,
-            graph,
-            report,
-        )
-        if schema_fields:
-            for field in schema_fields:
-                all_schema_fields[field.fieldPath] = field
-    return all_schema_fields
-
-
-def _consolidate_datasource_lineage(
-    panels: List[Panel],
-    dashboard_uid: str,
-    lineage_extractor: Optional[LineageExtractor],
-    logger: logging.Logger,
-    report: GrafanaSourceReport,
-) -> Tuple[Set[str], List[Any]]:
-    """Extract and consolidate lineage from multiple panels."""
-    all_upstreams: Set[str] = set()
-    fine_grained_lineage_set: Set[Tuple[Tuple[Any, ...], Tuple[Any, ...]]] = set()
-    all_fine_grained_lineages: List = []
-
-    if not lineage_extractor:
-        return all_upstreams, all_fine_grained_lineages
-
-    for panel in panels:
-        try:
-            lineage = lineage_extractor.extract_panel_lineage(panel, dashboard_uid)
-            if lineage and lineage.aspect:
-                if hasattr(lineage.aspect, "upstreams"):
-                    for upstream in lineage.aspect.upstreams:
-                        all_upstreams.add(upstream.dataset)
-                if (
-                    hasattr(lineage.aspect, "fineGrainedLineages")
-                    and lineage.aspect.fineGrainedLineages
-                ):
-                    for fg_lineage in lineage.aspect.fineGrainedLineages:
-                        # Deduplicate based on downstream/upstream field URNs
-                        lineage_key = (
-                            tuple(sorted(fg_lineage.downstreams or [])),
-                            tuple(sorted(fg_lineage.upstreams or [])),
-                        )
-                        if lineage_key not in fine_grained_lineage_set:
-                            fine_grained_lineage_set.add(lineage_key)
-                            all_fine_grained_lineages.append(fg_lineage)
-        except Exception as e:
-            logger.warning(f"Failed to extract lineage for panel {panel.id}: {e}")
-            report.report_lineage_extraction_failure()
-    return all_upstreams, all_fine_grained_lineages
-
-
 def build_datasource_mcps(
     dashboard: Dashboard,
     dashboard_container_key: ContainerKey,
@@ -366,26 +299,20 @@ def build_datasource_mcps(
         [ContainerKey, str], Iterable[MetadataWorkUnit]
     ],
 ) -> Iterable[MetadataWorkUnit]:
-    """Build datasource MCPs (one per unique datasource, shared across panels)."""
-    datasource_panels: Dict[str, List[Panel]] = defaultdict(list)
-    datasource_types: Dict[str, str] = {}
-
+    """Build per-panel dataset MCPs with globally unique URNs."""
     for panel in dashboard.panels:
-        if panel.datasource_ref:
-            ds_type = panel.datasource_ref.type or "unknown"
-            ds_uid = panel.datasource_ref.uid or "unknown"
+        if not panel.datasource_ref:
+            continue
 
-            if ds_type == "unknown" or ds_uid == "unknown":
-                report.report_datasource_warning()
-                continue
+        ds_type = panel.datasource_ref.type or "unknown"
+        ds_uid = panel.datasource_ref.uid or "unknown"
 
-            datasource_panels[ds_uid].append(panel)
-            datasource_types[ds_uid] = ds_type
+        if ds_type == "unknown" or ds_uid == "unknown":
+            report.report_datasource_warning()
+            continue
 
-    for ds_uid, panels in datasource_panels.items():
-        ds_type = datasource_types[ds_uid]
-        dataset_name = f"{ds_type}.{ds_uid}"
-
+        # Global uniqueness: include dashboard_uid and panel_id
+        dataset_name = f"{ds_type}.{ds_uid}.{dashboard.uid}.{panel.id}"
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=platform,
             name=dataset_name,
@@ -406,21 +333,18 @@ def build_datasource_mcps(
             ),
         ).as_workunit()
 
-        panel_count = len(panels)
-        panel_titles = [p.title or f"Panel {p.id}" for p in panels[:3]]
-        panel_info = ", ".join(panel_titles)
-        if panel_count > 3:
-            panel_info += f" and {panel_count - 3} more"
-
+        panel_title = panel.title or f"Panel {panel.id}"
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=DatasetPropertiesClass(
-                name=f"{ds_uid}",
-                description=f"Grafana datasource used by {panel_count} panel(s): {panel_info}",
+                name=panel_title,
+                description=f"Grafana panel '{panel_title}' in dashboard '{dashboard.title}' using datasource {ds_uid}",
                 customProperties={
                     "type": ds_type,
-                    "uid": ds_uid,
-                    "panel_count": str(panel_count),
+                    "datasource_uid": ds_uid,
+                    "panel_id": str(panel.id),
+                    "dashboard_uid": dashboard.uid,
+                    "dashboard_title": dashboard.title,
                 },
             ),
         ).as_workunit()
@@ -430,17 +354,21 @@ def build_datasource_mcps(
             aspect=StatusClass(removed=False),
         ).as_workunit()
 
-        all_schema_fields = _consolidate_schema_fields(
-            panels, connection_to_platform_map, graph, report
+        # Extract schema from this specific panel
+        schema_fields = extract_fields_from_panel(
+            panel,
+            connection_to_platform_map,
+            graph,
+            report,
         )
-        if all_schema_fields:
+        if schema_fields:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=SchemaMetadataClass(
-                    schemaName=f"{ds_type}.{ds_uid}",
+                    schemaName=f"{ds_type}.{ds_uid}.{panel.id}",
                     platform=make_data_platform_urn(platform),
                     version=0,
-                    fields=list(all_schema_fields.values()),
+                    fields=schema_fields,
                     hash="",
                     platformSchema=OtherSchemaClass(rawSchema=""),
                 ),
@@ -464,26 +392,15 @@ def build_datasource_mcps(
             dataset_urn,
         )
 
+        # Extract lineage for this specific panel
         if config.include_lineage and lineage_extractor:
-            all_upstreams, all_fine_grained_lineages = _consolidate_datasource_lineage(
-                panels, dashboard.uid, lineage_extractor, logger, report
-            )
-            if all_upstreams:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=UpstreamLineageClass(
-                        upstreams=[
-                            UpstreamClass(
-                                dataset=upstream_urn,
-                                type=DatasetLineageTypeClass.TRANSFORMED,
-                            )
-                            for upstream_urn in sorted(all_upstreams)
-                        ],
-                        fineGrainedLineages=all_fine_grained_lineages
-                        if all_fine_grained_lineages
-                        else None,
-                    ),
-                ).as_workunit()
-                report.report_lineage_extracted()
-            else:
-                report.report_no_lineage()
+            try:
+                lineage = lineage_extractor.extract_panel_lineage(panel, dashboard.uid)
+                if lineage:
+                    yield lineage.as_workunit()
+                    report.report_lineage_extracted()
+                else:
+                    report.report_no_lineage()
+            except Exception as e:
+                logger.warning(f"Failed to extract lineage for panel {panel.id}: {e}")
+                report.report_lineage_extraction_failure()

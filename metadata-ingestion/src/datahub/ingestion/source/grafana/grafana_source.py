@@ -323,6 +323,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 dataset_urn=make_container_urn(dashboard_container_key),
             )
 
+        # Process panels and create per-panel datasets
         yield from build_datasource_mcps(
             dashboard=dashboard,
             dashboard_container_key=dashboard_container_key,
