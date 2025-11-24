@@ -12,6 +12,7 @@ from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
 )
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.snowflake_config import (
     QueryDedupStrategyType,
     SnowflakeIdentifierConfig,
@@ -23,6 +24,7 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeFilter,
     SnowflakeIdentifierBuilder,
 )
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -965,3 +967,289 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
             mock_fetch_users.assert_called_once()
             mock_fetch_copy_history.assert_called_once()
             mock_fetch_query_log.assert_called_once()
+
+
+class TestMultiTableInsert:
+    """Test handling of conditional multi-table INSERT statements (issue #14929)."""
+
+    def _create_mock_extractor(self) -> SnowflakeQueriesExtractor:
+        """Helper to create a SnowflakeQueriesExtractor with mocked dependencies."""
+        mock_connection = Mock()
+        mock_connection.query.return_value = []
+
+        config = SnowflakeQueriesExtractorConfig(
+            window=BaseTimeWindowConfig(
+                start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
+            ),
+        )
+
+        mock_report = Mock(spec=SourceReport)
+        mock_filters = Mock(spec=SnowflakeFilter)
+
+        # Create real identifiers for actual parsing
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=SnowflakeIdentifierConfig(),
+            structured_reporter=mock_report,
+        )
+
+        extractor = SnowflakeQueriesExtractor(
+            connection=mock_connection,
+            config=config,
+            structured_report=mock_report,
+            filters=mock_filters,
+            identifiers=identifiers,
+            redundant_run_skip_handler=None,
+        )
+        return extractor
+
+    def test_multi_table_insert_returns_list(self):
+        """Test that multi-table INSERT returns a list of PreparsedQuery entries."""
+        extractor = self._create_mock_extractor()
+
+        # Simulate Snowflake audit log row with conditional multi-table INSERT
+        row = {
+            "QUERY_ID": "test-query-123",
+            "QUERY_TEXT": """
+INSERT OVERWRITE ALL
+    WHEN reservation_id_number IS NOT NULL THEN INTO reporting.tmp_reservation_ids (id) VALUES (reservation_id_number) 
+    WHEN created IS NOT NULL THEN INTO reporting.tmp_order_item_created (created) VALUES (created)
+SELECT oi.bundle_order_item_id, TRY_TO_NUMBER(oi.reservation_id) AS reservation_id_number, created
+FROM reporting.updated_orders uo JOIN minerva_pii.order_item_pii oi USING (order_num);
+            """.strip(),
+            "QUERY_START_TIME": datetime(2021, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+            "QUERY_TYPE": "INSERT",
+            "ROWS_INSERTED": 100,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "USER_NAME": "TEST_USER",
+            "ROLE_NAME": "TEST_ROLE",
+            "SESSION_ID": 12345,
+            "WAREHOUSE_NAME": "TEST_WH",
+            "DATABASE_NAME": "REPORTING",
+            "SCHEMA_NAME": "PUBLIC",
+            "DEFAULT_DB": "REPORTING",
+            "DEFAULT_SCHEMA": "PUBLIC",
+            "ROOT_QUERY_ID": None,
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": None,
+            "QUERY_DURATION": 1000,  # milliseconds
+            # Multiple objects_modified (the key part)
+            "OBJECTS_MODIFIED": json.dumps(
+                [
+                    {
+                        "objectName": "REPORTING.PUBLIC.TMP_RESERVATION_IDS",
+                        "objectDomain": "Table",
+                        "columns": [
+                            {
+                                "columnName": "ID",
+                                "directSources": [
+                                    {
+                                        "objectName": "REPORTING.PUBLIC.UPDATED_ORDERS",
+                                        "objectDomain": "Table",
+                                        "columnName": "RESERVATION_ID",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    {
+                        "objectName": "REPORTING.PUBLIC.TMP_ORDER_ITEM_CREATED",
+                        "objectDomain": "Table",
+                        "columns": [
+                            {
+                                "columnName": "CREATED",
+                                "directSources": [
+                                    {
+                                        "objectName": "MINERVA_PII.PUBLIC.ORDER_ITEM_PII",
+                                        "objectDomain": "Table",
+                                        "columnName": "CREATED",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                ]
+            ),
+            "DIRECT_OBJECTS_ACCESSED": json.dumps(
+                [
+                    {
+                        "objectName": "REPORTING.PUBLIC.UPDATED_ORDERS",
+                        "objectDomain": "Table",
+                        "columns": [
+                            {"columnName": "ORDER_NUM"},
+                            {"columnName": "RESERVATION_ID"},
+                        ],
+                    },
+                    {
+                        "objectName": "MINERVA_PII.PUBLIC.ORDER_ITEM_PII",
+                        "objectDomain": "Table",
+                        "columns": [
+                            {"columnName": "ORDER_NUM"},
+                            {"columnName": "CREATED"},
+                        ],
+                    },
+                ]
+            ),
+            "OBJECT_MODIFIED_BY_DDL": None,
+        }
+
+        users = {}
+        result = extractor._parse_audit_log_row(row, users)
+
+        # Should return a list of PreparsedQuery entries
+        assert isinstance(result, list)
+        assert len(result) == 2
+
+        # Check first entry
+        entry1 = result[0]
+        assert isinstance(entry1, PreparsedQuery)
+        assert entry1.downstream is not None
+        assert "tmp_reservation_ids" in entry1.downstream.lower()
+        assert entry1.column_lineage is not None
+        assert len(entry1.column_lineage) == 1
+        assert entry1.column_lineage[0].downstream.column == "id"
+
+        # Check second entry
+        entry2 = result[1]
+        assert isinstance(entry2, PreparsedQuery)
+        assert entry2.downstream is not None
+        assert "tmp_order_item_created" in entry2.downstream.lower()
+        assert entry2.column_lineage is not None
+        assert len(entry2.column_lineage) == 1
+        assert entry2.column_lineage[0].downstream.column == "created"
+
+        # Both entries should have same query text and upstreams
+        assert entry1.query_text == entry2.query_text
+        assert entry1.upstreams == entry2.upstreams
+        assert len(entry1.upstreams) == 2
+
+    def test_single_table_insert_returns_single_entry(self):
+        """Test that single-table INSERT still returns a single PreparsedQuery (backward compatibility)."""
+        extractor = self._create_mock_extractor()
+
+        # Simulate Snowflake audit log row with single-table INSERT
+        row = {
+            "QUERY_ID": "test-query-456",
+            "QUERY_TEXT": "INSERT INTO reporting.test_table SELECT * FROM reporting.source_table",
+            "QUERY_START_TIME": datetime(2021, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+            "QUERY_TYPE": "INSERT",
+            "ROWS_INSERTED": 50,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "USER_NAME": "TEST_USER",
+            "ROLE_NAME": "TEST_ROLE",
+            "SESSION_ID": 12345,
+            "WAREHOUSE_NAME": "TEST_WH",
+            "DATABASE_NAME": "REPORTING",
+            "SCHEMA_NAME": "PUBLIC",
+            "DEFAULT_DB": "REPORTING",
+            "DEFAULT_SCHEMA": "PUBLIC",
+            "ROOT_QUERY_ID": None,
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": None,
+            "QUERY_DURATION": 500,  # milliseconds
+            # Single object_modified
+            "OBJECTS_MODIFIED": json.dumps(
+                [
+                    {
+                        "objectName": "REPORTING.PUBLIC.TEST_TABLE",
+                        "objectDomain": "Table",
+                        "columns": [],
+                    }
+                ]
+            ),
+            "DIRECT_OBJECTS_ACCESSED": json.dumps(
+                [
+                    {
+                        "objectName": "REPORTING.PUBLIC.SOURCE_TABLE",
+                        "objectDomain": "Table",
+                        "columns": [],
+                    }
+                ]
+            ),
+            "OBJECT_MODIFIED_BY_DDL": None,
+        }
+
+        users = {}
+        result = extractor._parse_audit_log_row(row, users)
+
+        # Should return a single PreparsedQuery (not a list)
+        assert isinstance(result, PreparsedQuery)
+        assert not isinstance(result, list)
+        assert result.downstream is not None
+        assert "test_table" in result.downstream.lower()
+
+    def test_three_table_insert_returns_list(self):
+        """Test that INSERT with 3+ tables returns a list of PreparsedQuery entries."""
+        extractor = self._create_mock_extractor()
+
+        # Simulate Snowflake audit log row with 3 downstream tables
+        row = {
+            "QUERY_ID": "test-query-789",
+            "QUERY_TEXT": "INSERT ALL INTO t1 VALUES (...) INTO t2 VALUES (...) INTO t3 VALUES (...) SELECT * FROM source",
+            "QUERY_START_TIME": datetime(2021, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+            "QUERY_TYPE": "INSERT",
+            "ROWS_INSERTED": 150,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "USER_NAME": "TEST_USER",
+            "ROLE_NAME": "TEST_ROLE",
+            "SESSION_ID": 12345,
+            "WAREHOUSE_NAME": "TEST_WH",
+            "DATABASE_NAME": "REPORTING",
+            "SCHEMA_NAME": "PUBLIC",
+            "DEFAULT_DB": "REPORTING",
+            "DEFAULT_SCHEMA": "PUBLIC",
+            "ROOT_QUERY_ID": None,
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": None,
+            "QUERY_DURATION": 1500,
+            "OBJECTS_MODIFIED": json.dumps(
+                [
+                    {
+                        "objectName": "REPORTING.PUBLIC.TABLE1",
+                        "objectDomain": "Table",
+                        "columns": [],
+                    },
+                    {
+                        "objectName": "REPORTING.PUBLIC.TABLE2",
+                        "objectDomain": "Table",
+                        "columns": [],
+                    },
+                    {
+                        "objectName": "REPORTING.PUBLIC.TABLE3",
+                        "objectDomain": "Table",
+                        "columns": [],
+                    },
+                ]
+            ),
+            "DIRECT_OBJECTS_ACCESSED": json.dumps(
+                [
+                    {
+                        "objectName": "REPORTING.PUBLIC.SOURCE_TABLE",
+                        "objectDomain": "Table",
+                        "columns": [],
+                    },
+                ]
+            ),
+            "OBJECT_MODIFIED_BY_DDL": None,
+        }
+
+        users = {}
+        result = extractor._parse_audit_log_row(row, users)
+
+        # Should return a list with 3 entries
+        assert isinstance(result, list)
+        assert len(result) == 3
+
+        # Verify all are PreparsedQuery and have different downstreams
+        downstreams = []
+        for entry in result:
+            assert isinstance(entry, PreparsedQuery)
+            assert entry.downstream is not None
+            downstreams.append(entry.downstream.lower())
+
+        assert "table1" in downstreams[0]
+        assert "table2" in downstreams[1]
+        assert "table3" in downstreams[2]
