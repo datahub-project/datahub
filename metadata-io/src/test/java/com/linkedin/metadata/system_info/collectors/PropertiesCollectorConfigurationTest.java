@@ -500,7 +500,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showHomePageRedesign",
           "featureFlags.showHomepageUserRole",
           "featureFlags.showIngestionPageRedesign",
-          "featureFlags.showIngestionOnboardingRedesign",
+          "featureFlags.ingestionOnboardingRedesignV1",
           "featureFlags.showIntroducePage",
           "featureFlags.showLineageExpandMore",
           "featureFlags.showManageStructuredProperties",

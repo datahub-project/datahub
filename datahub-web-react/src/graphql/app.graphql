@@ -118,7 +118,7 @@ query appConfig {
             showHomepageUserRole
             assetSummaryPageV1
             datasetSummaryPageV1
-            showIngestionOnboardingRedesign
+            ingestionOnboardingRedesignV1
             documentationFileUploadV1
             contextDocumentsEnabled
         }

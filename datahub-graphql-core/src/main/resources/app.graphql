@@ -837,8 +837,7 @@ type FeatureFlagsConfig {
   """
   Enables displaying the ingestion onboarding redesign
   """
-  showIngestionOnboardingRedesign: Boolean!
-
+  ingestionOnboardingRedesignV1: Boolean!
 
   """
   If enabled, allows uploading of files for documentation.

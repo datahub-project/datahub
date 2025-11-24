@@ -1,14 +1,14 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useShowIngestionOnboardingRedesign } from '@app/ingestV2/hooks/useShowIngestionOnboardingRedesign';
+import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import { useAppConfig } from '@app/useAppConfig';
 
 vi.mock('@app/useAppConfig', () => ({
     useAppConfig: vi.fn(),
 }));
 
-describe('useShowIngestionOnboardingRedesign', () => {
+describe('useIngestionOnboardingRedesignV1', () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
@@ -18,12 +18,12 @@ describe('useShowIngestionOnboardingRedesign', () => {
             loaded: true,
             config: {
                 featureFlags: {
-                    showIngestionOnboardingRedesign: true,
+                    ingestionOnboardingRedesignV1: true,
                 },
             },
         });
 
-        const { result } = renderHook(() => useShowIngestionOnboardingRedesign());
+        const { result } = renderHook(() => useIngestionOnboardingRedesignV1());
         expect(result.current).toBe(true);
     });
 
@@ -32,12 +32,12 @@ describe('useShowIngestionOnboardingRedesign', () => {
             loaded: true,
             config: {
                 featureFlags: {
-                    showIngestionOnboardingRedesign: false,
+                    ingestionOnboardingRedesignV1: false,
                 },
             },
         });
 
-        const { result } = renderHook(() => useShowIngestionOnboardingRedesign());
+        const { result } = renderHook(() => useIngestionOnboardingRedesignV1());
         expect(result.current).toBe(false);
     });
 
@@ -49,7 +49,7 @@ describe('useShowIngestionOnboardingRedesign', () => {
             },
         });
 
-        const { result } = renderHook(() => useShowIngestionOnboardingRedesign());
+        const { result } = renderHook(() => useIngestionOnboardingRedesignV1());
         expect(result.current).toBe(undefined);
     });
 });
