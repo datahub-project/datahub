@@ -914,7 +914,11 @@ module.exports = {
       type: "category",
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
-      items: ["docs/cli-commands/dataset", "docs/datahub_lite"],
+      items: [
+        "docs/cli-commands/dataset",
+        "docs/cli-commands/document",
+        "docs/datahub_lite",
+      ],
     },
     {
       type: "category",
@@ -961,6 +965,7 @@ module.exports = {
     {
       Guides: [
         "docs/api/tutorials/datasets",
+        "docs/api/tutorials/documents",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/custom-properties",
