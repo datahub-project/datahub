@@ -10,10 +10,13 @@ import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.gene
 import { EntityType, PageTemplateScope, PageTemplateSurfaceType, SummaryElement, SummaryElementType } from '@types';
 
 const CREATED = { elementType: SummaryElementType.Created };
+const LAST_MODIFIED = { elementType: SummaryElementType.LastModified };
 const OWNERS = { elementType: SummaryElementType.Owners };
 const DOMAIN = { elementType: SummaryElementType.Domain };
 const TAGS = { elementType: SummaryElementType.Tags };
 const GLOSSARY_TERMS = { elementType: SummaryElementType.GlossaryTerms };
+const DOCUMENT_STATUS = { elementType: SummaryElementType.DocumentStatus };
+const DOCUMENT_TYPE = { elementType: SummaryElementType.DocumentType };
 
 export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTemplateFragment {
     let rows: { modules: PageModuleFragment[] }[] = [{ modules: [] }];
@@ -39,6 +42,10 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
         case EntityType.Dataset:
             rows = [{ modules: [LINEAGE_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Document:
+            rows = [{ modules: [] }];
+            summaryElements = [DOCUMENT_TYPE, DOCUMENT_STATUS, CREATED, LAST_MODIFIED, OWNERS];
             break;
         default:
             break;
