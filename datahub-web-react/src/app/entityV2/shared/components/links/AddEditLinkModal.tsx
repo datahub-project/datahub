@@ -1,7 +1,10 @@
-import { Button, Checkbox, Input, Modal, Text } from '@components';
+import { Button, Checkbox, Modal, Text } from '@components';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { LinkFormWrapper } from '@app/entityV2/shared/components/links/LinkFormWrapper';
+import { LinkFormData } from '@app/entityV2/shared/components/links/types';
 
 const FooterContainer = styled.div`
     display: flex;
@@ -31,11 +34,7 @@ const FooterCheckboxLabel = styled(Text)`
 interface Props {
     variant: 'create' | 'update';
     form: FormInstance;
-    initialValues?: {
-        url?: string;
-        label?: string;
-        showInAssetPreview?: boolean;
-    };
+    initialValues?: Partial<LinkFormData>;
     onClose: () => void;
     onSubmit: () => void;
     showInAssetPreview: boolean;
@@ -58,7 +57,12 @@ export default function AddEditLinkModal({
             footer={
                 <FooterContainer>
                     <FooterCheckboxContainer>
-                        <Checkbox isChecked={showInAssetPreview} setIsChecked={setShowInAssetPreview} size="sm" />
+                        <Checkbox
+                            isChecked={showInAssetPreview}
+                            setIsChecked={setShowInAssetPreview}
+                            size="sm"
+                            dataTestId="show-in-asset-preview-checkbox"
+                        />
                         <FooterCheckboxLabel color="gray" onClick={() => setShowInAssetPreview(!showInAssetPreview)}>
                             Add to asset header
                         </FooterCheckboxLabel>
@@ -76,37 +80,7 @@ export default function AddEditLinkModal({
             destroyOnClose
         >
             <Form form={form} initialValues={initialValues} autoComplete="off">
-                <Form.Item
-                    name="url"
-                    rules={[
-                        {
-                            required: true,
-                            message: 'A URL is required.',
-                        },
-                        {
-                            type: 'url',
-                            message: 'This field must be a valid url.',
-                        },
-                    ]}
-                >
-                    <Input label="URL" placeholder="https://" inputTestId="url-input" isRequired />
-                </Form.Item>
-                <Form.Item
-                    name="label"
-                    rules={[
-                        {
-                            required: true,
-                            message: 'A label is required.',
-                        },
-                    ]}
-                >
-                    <Input
-                        label="Label"
-                        placeholder="A short label for this link"
-                        inputTestId="label-input"
-                        isRequired
-                    />
-                </Form.Item>
+                <LinkFormWrapper initialValues={initialValues} />
             </Form>
         </Modal>
     );
