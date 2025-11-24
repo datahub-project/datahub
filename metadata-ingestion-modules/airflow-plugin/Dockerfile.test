@@ -26,11 +26,13 @@ ARG PYTHON_VERSION=3.11
 FROM python:${PYTHON_VERSION}-slim
 
 # Install system dependencies required for building Python packages
+# Also install gosu for switching users (Airflow 3.x requirement)
 RUN apt-get update && apt-get install -y \
     git \
     build-essential \
     libpq-dev \
     curl \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Set initial working directory
@@ -49,18 +51,46 @@ RUN pip install --no-cache-dir tox uv
 # Set default tox environment
 ENV TOX_ENV=py311-airflow31
 
-# Create entrypoint script
+# Set UV cache directory to /tmp (writable by all users)
+ENV UV_CACHE_DIR=/tmp/.uv-cache
+
+# Create entrypoint script that handles user creation for Airflow 3.x
+# This script runs as root, creates a user matching the host UID/GID, then switches to that user
 RUN echo '#!/bin/bash\n\
 set -e\n\
-if [ $# -eq 0 ]; then\n\
-  # No args: run default tox env\n\
-  exec tox -e "$TOX_ENV"\n\
-elif [[ "$1" == py* ]]; then\n\
-  # First arg is a tox env (starts with py): pass all args to tox\n\
-  exec tox -e "$@"\n\
+\n\
+# Airflow 3.x requires a real user with username and home directory\n\
+# If USER_ID and GROUP_ID are provided via environment, create that user\n\
+if [ -n "$USER_ID" ] && [ -n "$GROUP_ID" ]; then\n\
+  echo "[Entrypoint] Creating testuser with UID=$USER_ID GID=$GROUP_ID"\n\
+  \n\
+  # Create group if it does not exist\n\
+  if ! getent group $GROUP_ID > /dev/null 2>&1; then\n\
+    groupadd -g $GROUP_ID testgroup\n\
+  fi\n\
+  \n\
+  # Create user with the specified UID/GID\n\
+  if ! id testuser > /dev/null 2>&1; then\n\
+    useradd -u $USER_ID -g $GROUP_ID -d /tmp -s /bin/bash testuser\n\
+  fi\n\
+  \n\
+  # Run tox as the created user using gosu\n\
+  if [ $# -eq 0 ]; then\n\
+    exec gosu testuser tox -e "$TOX_ENV"\n\
+  elif [[ "$1" == py* ]]; then\n\
+    exec gosu testuser tox -e "$@"\n\
+  else\n\
+    exec gosu testuser tox -e "$TOX_ENV" -- "$@"\n\
+  fi\n\
 else\n\
-  # First arg is not a tox env: assume pytest args\n\
-  exec tox -e "$TOX_ENV" -- "$@"\n\
+  # No USER_ID/GROUP_ID provided, run as root (or current user)\n\
+  if [ $# -eq 0 ]; then\n\
+    exec tox -e "$TOX_ENV"\n\
+  elif [[ "$1" == py* ]]; then\n\
+    exec tox -e "$@"\n\
+  else\n\
+    exec tox -e "$TOX_ENV" -- "$@"\n\
+  fi\n\
 fi' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Default command: run tox with the default environment

@@ -43,14 +43,20 @@ fi
 # Prepare docker run command with automatic volume mounts
 DOCKER_CMD=(
     docker run --rm
-    # Mount source code (read-only for safety)
-    -v "$REPO_ROOT/metadata-ingestion:/app/metadata-ingestion:ro"
-    # Mount airflow plugin (read-write for golden files)
+    # Mount source code (read-write for editable installs)
+    -v "$REPO_ROOT/metadata-ingestion:/app/metadata-ingestion"
+    # Mount airflow plugin (read-write for golden files and .tox)
     -v "$REPO_ROOT/metadata-ingestion-modules/airflow-plugin:/app/metadata-ingestion-modules/airflow-plugin"
     # Set working directory
     -w /app/metadata-ingestion-modules/airflow-plugin
-    # Use current user to avoid permission issues
-    --user "$(id -u):$(id -g)"
+    # Pass current user ID/GID for Airflow 3.x compatibility
+    # (entrypoint will create a user with these IDs)
+    -e USER_ID="$(id -u)"
+    -e GROUP_ID="$(id -g)"
+    # Set HOME to /tmp so all cache directories are writable
+    -e HOME=/tmp
+    # Set UV cache directory to a writable location
+    -e UV_CACHE_DIR=/tmp/.uv-cache
 )
 
 # Add image name

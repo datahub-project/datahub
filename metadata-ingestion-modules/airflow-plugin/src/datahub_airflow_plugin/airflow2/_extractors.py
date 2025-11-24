@@ -21,7 +21,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub_airflow_plugin._constants import SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 from datahub_airflow_plugin.airflow2._openlineage_compat import (
-    IS_AIRFLOW_3,
+    USE_OPENLINEAGE_PROVIDER,
     BaseExtractor,
     OLExtractorManager,
     OperatorLineage,
@@ -57,7 +57,7 @@ _DATAHUB_GRAPH_CONTEXT_KEY = "datahub_graph"
 
 # Runtime type alias for the return type of extract() methods
 if not TYPE_CHECKING:
-    if IS_AIRFLOW_3:
+    if USE_OPENLINEAGE_PROVIDER:
         ExtractResult = OperatorLineage
     else:
         ExtractResult = TaskMetadata
@@ -68,11 +68,26 @@ class ExtractorManager(OLExtractorManager):
     # When available, we should use that instead. The same goe for most of the OL
     # extractors.
 
-    def __init__(self):
+    def __init__(
+        self,
+        patch_sql_parser: bool = True,
+        patch_snowflake_schema: bool = True,
+        extract_athena_operator: bool = True,
+        extract_bigquery_insert_job_operator: bool = True,
+    ):
         super().__init__()
 
-        # Airflow 3 changed the API - no task_to_extractor attribute
-        if not IS_AIRFLOW_3:
+        # Store patch/extractor configuration
+        self._patch_sql_parser = patch_sql_parser
+        self._patch_snowflake_schema = patch_snowflake_schema
+        self._extract_athena_operator = extract_athena_operator
+        self._extract_bigquery_insert_job_operator = (
+            extract_bigquery_insert_job_operator
+        )
+
+        # Legacy OpenLineage has task_to_extractor attribute, OpenLineage Provider doesn't
+        # Register custom extractors only for Legacy OpenLineage (Provider has its own)
+        if not USE_OPENLINEAGE_PROVIDER:
             _sql_operator_overrides = [
                 # The OL BigQuery extractor has some complex logic to fetch detect
                 # the BigQuery job_id and fetch lineage from there. However, it can't
@@ -88,21 +103,24 @@ class ExtractorManager(OLExtractorManager):
             for operator in _sql_operator_overrides:
                 self.task_to_extractor.extractors[operator] = GenericSqlExtractor  # type: ignore[attr-defined]
 
-            self.task_to_extractor.extractors["AthenaOperator"] = (  # type: ignore[attr-defined]
-                AthenaOperatorExtractor
-            )
+            # Register custom extractors based on configuration
+            if self._extract_athena_operator:
+                self.task_to_extractor.extractors["AthenaOperator"] = (  # type: ignore[attr-defined]
+                    AthenaOperatorExtractor
+                )
 
-            self.task_to_extractor.extractors["BigQueryInsertJobOperator"] = (  # type: ignore[attr-defined]
-                BigQueryInsertJobOperatorExtractor
-            )
+            if self._extract_bigquery_insert_job_operator:
+                self.task_to_extractor.extractors["BigQueryInsertJobOperator"] = (  # type: ignore[attr-defined]
+                    BigQueryInsertJobOperatorExtractor
+                )
 
         self._graph: Optional["DataHubGraph"] = None
 
     @contextlib.contextmanager
     def _patch_extractors(self):
         with contextlib.ExitStack() as stack:
-            # Patch the SqlExtractor.extract() method if available
-            if SqlExtractor is not None:
+            # Patch the SqlExtractor.extract() method if configured and available
+            if self._patch_sql_parser and SqlExtractor is not None:
                 stack.enter_context(
                     unittest.mock.patch.object(
                         SqlExtractor,
@@ -111,8 +129,8 @@ class ExtractorManager(OLExtractorManager):
                     )
                 )
 
-            # Patch the SnowflakeExtractor.default_schema property if available
-            if SnowflakeExtractor is not None:
+            # Patch the SnowflakeExtractor.default_schema property if configured and available
+            if self._patch_snowflake_schema and SnowflakeExtractor is not None:
                 stack.enter_context(
                     unittest.mock.patch.object(
                         SnowflakeExtractor,
@@ -120,11 +138,6 @@ class ExtractorManager(OLExtractorManager):
                         property(_snowflake_default_schema),
                     )
                 )
-
-            # TODO: Override the BigQuery extractor to use the DataHub SQL parser.
-            # self.extractor_manager.add_extractor()
-
-            # TODO: Override the Athena extractor to use the DataHub SQL parser.
 
             yield
 
@@ -139,8 +152,8 @@ class ExtractorManager(OLExtractorManager):
     ) -> ExtractResult:
         self._graph = graph
         with self._patch_extractors():
-            if IS_AIRFLOW_3:
-                # Airflow 3: Use TaskInstanceState enum instead of bool
+            if USE_OPENLINEAGE_PROVIDER:
+                # OpenLineage Provider: Use TaskInstanceState enum instead of bool
                 from airflow.utils.state import TaskInstanceState
 
                 task_instance_state = (
@@ -150,7 +163,7 @@ class ExtractorManager(OLExtractorManager):
                     dagrun, task, task_instance_state, task_instance
                 )
             else:
-                # Airflow 2: Use bool for complete parameter
+                # Legacy OpenLineage: Use bool for complete parameter
                 return super().extract_metadata(  # type: ignore[call-arg,arg-type]
                     dagrun,
                     task,
@@ -162,7 +175,7 @@ class ExtractorManager(OLExtractorManager):
     def _get_extractor(self, task: "Operator") -> Optional[BaseExtractor]:
         # By adding this, we can use the generic extractor as a fallback for
         # any operator that inherits from SQLExecuteQueryOperator.
-        if not IS_AIRFLOW_3:
+        if not USE_OPENLINEAGE_PROVIDER:
             clazz = get_operator_class(task)  # type: ignore[arg-type]
             SQLExecuteQueryOperator = try_import_from_string(
                 "airflow.providers.common.sql.operators.sql.SQLExecuteQueryOperator"
@@ -173,8 +186,8 @@ class ExtractorManager(OLExtractorManager):
                 )
 
         extractor = super()._get_extractor(task)
-        if extractor and not IS_AIRFLOW_3:
-            # set_context only exists in Airflow 2
+        if extractor and not USE_OPENLINEAGE_PROVIDER:
+            # set_context only exists in Legacy OpenLineage
             extractor.set_context(_DATAHUB_GRAPH_CONTEXT_KEY, self._graph)  # type: ignore[attr-defined]
         return extractor
 
@@ -264,9 +277,9 @@ def _create_lineage_metadata(
     run_facets: Dict[str, Any],
     job_facets: Dict[str, Any],
 ) -> Optional[ExtractResult]:
-    """Create TaskMetadata (Airflow 2) or OperatorLineage (Airflow 3)"""
-    if IS_AIRFLOW_3:
-        # Airflow 3: Return OperatorLineage (no name field)
+    """Create TaskMetadata (Legacy OpenLineage) or OperatorLineage (OpenLineage Provider)"""
+    if USE_OPENLINEAGE_PROVIDER:
+        # OpenLineage Provider: Return OperatorLineage (no name field)
         return OperatorLineage(  # type: ignore
             inputs=[],
             outputs=[],
@@ -274,7 +287,7 @@ def _create_lineage_metadata(
             job_facets=job_facets,
         )
     else:
-        # Airflow 2: Return TaskMetadata (with name field)
+        # Legacy OpenLineage: Return TaskMetadata (with name field)
         return TaskMetadata(  # type: ignore
             name=task_name,
             inputs=[],

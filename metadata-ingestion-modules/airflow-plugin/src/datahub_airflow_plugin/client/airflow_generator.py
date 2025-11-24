@@ -41,6 +41,34 @@ if TYPE_CHECKING:
     TaskType = Union[OperatorType, Any]  # type: ignore[misc]
 
 
+def _get_base_url() -> str:
+    """
+    Get the Airflow base URL for constructing web UI links.
+
+    Tries multiple configuration sources for backward compatibility:
+    1. webserver.base_url (Airflow 2.x and 3.x with computed default)
+    2. api.base_url (Airflow 3.x alternative configuration)
+    3. Fallback to http://localhost:8080 (safe default)
+
+    Returns:
+        str: The base URL for the Airflow web UI
+    """
+    # Try webserver.base_url first (works in both Airflow 2.x and 3.x)
+    # In Airflow 3.x, this is computed from web_server_host + web_server_port
+    base_url = conf.get("webserver", "base_url", fallback=None)
+    if base_url:
+        return base_url
+
+    # Fallback to api.base_url for environments that use it
+    # Some Airflow 3.x deployments may set this explicitly
+    api_base_url = conf.get("api", "base_url", fallback=None)
+    if api_base_url:
+        return api_base_url
+
+    # Final fallback to localhost (safe default for development/testing)
+    return "http://localhost:8080"
+
+
 def _task_downstream_task_ids(operator: "Operator") -> Set[str]:
     if hasattr(operator, "downstream_task_ids"):
         return operator.downstream_task_ids
@@ -227,7 +255,7 @@ class AirflowGenerator:
                 flow_property_bag[key] = _serialize_dag_property(value)
 
         data_flow.properties = flow_property_bag
-        base_url = conf.get("webserver", "base_url")
+        base_url = _get_base_url()
         data_flow.url = f"{base_url}/tree?dag_id={dag.dag_id}"
 
         if config.capture_ownership_info and dag.owner:
@@ -338,7 +366,7 @@ class AirflowGenerator:
                     break
 
         datajob.properties = job_property_bag
-        base_url = conf.get("webserver", "base_url")
+        base_url = _get_base_url()
 
         if config and config.datajob_url_link == DatajobUrl.GRID:
             datajob.url = f"{base_url}/dags/{dag.dag_id}/grid?task_id={task.task_id}"

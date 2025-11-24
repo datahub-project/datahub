@@ -43,8 +43,6 @@ plugins: Dict[str, Set[str]] = {
     "datahub-file": {
         f"acryl-datahub[sync-file-emitter]{_self_pin}",
     },
-    "plugin-v1": set(),
-    # New module names (preferred)
     # airflow2: For Airflow 2.x, use standalone openlineage-airflow package
     "airflow2": {
         "openlineage-airflow>=1.2.0",
@@ -52,10 +50,6 @@ plugins: Dict[str, Set[str]] = {
     # airflow3: For Airflow 3.x, use native OpenLineage provider
     "airflow3": {
         "apache-airflow-providers-openlineage>=1.0.0",
-    },
-    # Backward compatibility aliases
-    "plugin-v2": {
-        "openlineage-airflow>=1.2.0",
     },
 }
 

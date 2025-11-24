@@ -50,6 +50,29 @@ class DatahubLineageConfig(ConfigModel):
 
     enable_extractors: bool
 
+    # OpenLineage extractor patching/override controls (only apply when enable_extractors=True)
+    # These allow fine-grained control over DataHub's enhancements to OpenLineage extractors
+
+    # If true (default), patch SqlExtractor to use DataHub's SQL parser
+    # This enables column-level lineage extraction from SQL queries
+    # Works with both Legacy OpenLineage and OpenLineage Provider
+    patch_sql_parser: bool
+
+    # If true (default), patch SnowflakeExtractor's default_schema property
+    # Fixes schema detection issues in Snowflake operators
+    # Works with both Legacy OpenLineage and OpenLineage Provider
+    patch_snowflake_schema: bool
+
+    # If true (default), use DataHub's custom AthenaOperatorExtractor
+    # Provides better Athena lineage with DataHub's SQL parser
+    # Only applies to Legacy OpenLineage (OpenLineage Provider has its own)
+    extract_athena_operator: bool
+
+    # If true (default), use DataHub's custom BigQueryInsertJobOperatorExtractor
+    # Handles BigQuery job configuration and destination tables
+    # Only applies to Legacy OpenLineage (OpenLineage Provider has its own)
+    extract_bigquery_insert_job_operator: bool
+
     # If true, ti.render_templates() will be called in the listener.
     # Makes extraction of jinja-templated fields more accurate.
     render_templates: bool
@@ -108,6 +131,20 @@ def get_lineage_config() -> DatahubLineageConfig:
     capture_executions = conf.get("datahub", "capture_executions", fallback=True)
     materialize_iolets = conf.get("datahub", "materialize_iolets", fallback=True)
     enable_extractors = conf.get("datahub", "enable_extractors", fallback=True)
+
+    # OpenLineage extractor patching/override configuration
+    # These only apply when enable_extractors=True
+    patch_sql_parser = conf.get("datahub", "patch_sql_parser", fallback=True)
+    patch_snowflake_schema = conf.get(
+        "datahub", "patch_snowflake_schema", fallback=True
+    )
+    extract_athena_operator = conf.get(
+        "datahub", "extract_athena_operator", fallback=True
+    )
+    extract_bigquery_insert_job_operator = conf.get(
+        "datahub", "extract_bigquery_insert_job_operator", fallback=True
+    )
+
     log_level = conf.get("datahub", "log_level", fallback=None)
     debug_emitter = conf.get("datahub", "debug_emitter", fallback=False)
 
@@ -152,6 +189,10 @@ def get_lineage_config() -> DatahubLineageConfig:
         capture_executions=capture_executions,
         materialize_iolets=materialize_iolets,
         enable_extractors=enable_extractors,
+        patch_sql_parser=patch_sql_parser,
+        patch_snowflake_schema=patch_snowflake_schema,
+        extract_athena_operator=extract_athena_operator,
+        extract_bigquery_insert_job_operator=extract_bigquery_insert_job_operator,
         log_level=log_level,
         debug_emitter=debug_emitter,
         disable_openlineage_plugin=disable_openlineage_plugin,

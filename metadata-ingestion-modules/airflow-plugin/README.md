@@ -26,9 +26,21 @@ The installation command varies depending on your Airflow version due to differe
 pip install 'acryl-datahub-airflow-plugin[airflow2]'
 ```
 
-This installs the plugin with `openlineage-airflow>=1.2.0`, which is required for Airflow 2.x lineage extraction.
+This installs the plugin with Legacy OpenLineage (`openlineage-airflow>=1.2.0`), which is required for Airflow 2.x lineage extraction.
 
-**Backward compatibility**: `plugin-v2` is still supported as an alias for `airflow2`.
+#### Alternative: Using Native OpenLineage Provider on Airflow 2.7+
+
+If your Airflow 2.7+ environment rejects the Legacy OpenLineage package (e.g., due to dependency conflicts), you can use the native OpenLineage provider instead:
+
+```bash
+# Install the native Airflow provider first
+pip install 'apache-airflow-providers-openlineage>=1.0.0'
+
+# Then install the DataHub plugin without OpenLineage extras
+pip install acryl-datahub-airflow-plugin
+```
+
+The plugin will automatically detect and use `apache-airflow-providers-openlineage` when available, providing the same functionality.
 
 ### For Airflow 3.x (3.1+)
 
@@ -60,9 +72,8 @@ pip install 'acryl-datahub-airflow-plugin[airflow2,datahub-file]'
 
 Available extras:
 
-- `airflow2`: OpenLineage support for Airflow 2.x (preferred)
-- `airflow3`: OpenLineage support for Airflow 3.x (preferred)
-- `plugin-v2`: Alias for `airflow2` (backward compatibility)
+- `airflow2`: OpenLineage support for Airflow 2.x
+- `airflow3`: OpenLineage support for Airflow 3.x
 - `datahub-kafka`: Kafka-based metadata emission
 - `datahub-file`: File-based metadata emission (useful for testing)
 
@@ -70,10 +81,99 @@ Available extras:
 
 Airflow 2.x and 3.x have different OpenLineage integrations:
 
-- **Airflow 2.x** uses the standalone `openlineage-airflow` package
-- **Airflow 3.x** has native OpenLineage support via `apache-airflow-providers-openlineage`
+- **Airflow 2.x (2.5-2.6)** typically uses Legacy OpenLineage (`openlineage-airflow` package)
+- **Airflow 2.x (2.7+)** can use either Legacy OpenLineage or native OpenLineage Provider (`apache-airflow-providers-openlineage`)
+- **Airflow 3.x** uses native OpenLineage Provider (`apache-airflow-providers-openlineage`)
 
-The plugin automatically detects your Airflow version and uses the appropriate integration.
+The plugin automatically detects which OpenLineage variant is installed and uses it accordingly. This means:
+
+1. **With extras** (`[airflow2]` or `[airflow3]`): The appropriate OpenLineage dependency is installed automatically
+2. **Without extras**: You provide your own OpenLineage installation, and the plugin auto-detects it
+
+This flexibility allows you to adapt to different Airflow environments and dependency constraints.
+
+## Configuration
+
+The plugin can be configured via `airflow.cfg` under the `[datahub]` section. Below are the key configuration options:
+
+### Extractor Patching (OpenLineage Enhancements)
+
+When `enable_extractors=True` (default), the DataHub plugin enhances OpenLineage extractors to provide better lineage. You can fine-tune these enhancements:
+
+```ini
+[datahub]
+# Enable/disable all OpenLineage extractors
+enable_extractors = True  # Default: True
+
+# Fine-grained control over DataHub's OpenLineage enhancements
+
+# --- Patches (work with both Legacy OpenLineage and OpenLineage Provider) ---
+
+# Patch SqlExtractor to use DataHub's advanced SQL parser (enables column-level lineage)
+patch_sql_parser = True  # Default: True
+
+# Patch SnowflakeExtractor to fix default schema detection
+patch_snowflake_schema = True  # Default: True
+
+# --- Custom Extractors (only apply to Legacy OpenLineage) ---
+
+# Use DataHub's custom AthenaOperatorExtractor (better Athena lineage)
+extract_athena_operator = True  # Default: True
+
+# Use DataHub's custom BigQueryInsertJobOperatorExtractor (handles BQ job configuration)
+extract_bigquery_insert_job_operator = True  # Default: True
+```
+
+**How it works:**
+
+**Patches** (apply to both Legacy OpenLineage and OpenLineage Provider):
+
+- Apply **monkey-patching** to OpenLineage extractor/operator classes at runtime
+- Work on **both Airflow 2.x and Airflow 3.x**
+- When `patch_sql_parser=True`:
+  - **Airflow 2**: Patches `SqlExtractor.extract()` method
+  - **Airflow 3**: Patches `SQLParser.generate_openlineage_metadata_from_sql()` method
+  - Provides: More accurate lineage extraction, column-level lineage (CLL), better SQL dialect support
+- When `patch_snowflake_schema=True`:
+  - **Airflow 2**: Patches `SnowflakeExtractor.default_schema` property
+  - **Airflow 3**: Currently not needed (handled by Airflow's native support)
+  - Fixes Snowflake schema detection issues
+
+**Custom Extractors/Operator Patches**:
+
+- Register DataHub's custom implementations for specific operators
+- Work on **both Airflow 2.x and Airflow 3.x**
+- `extract_athena_operator`:
+  - **Airflow 2 (Legacy OpenLineage only)**: Registers `AthenaOperatorExtractor`
+  - **Airflow 3**: Patches `AthenaOperator.get_openlineage_facets_on_complete()`
+  - Uses DataHub's SQL parser for better Athena lineage
+- `extract_bigquery_insert_job_operator`:
+  - **Airflow 2 (Legacy OpenLineage only)**: Registers `BigQueryInsertJobOperatorExtractor`
+  - **Airflow 3**: Patches `BigQueryInsertJobOperator.get_openlineage_facets_on_complete()`
+  - Handles BigQuery job configuration and destination tables
+
+**Example use cases:**
+
+Disable DataHub's SQL parser to use OpenLineage's native parsing:
+
+```ini
+[datahub]
+enable_extractors = True
+patch_sql_parser = False  # Use OpenLineage's native SQL parser
+patch_snowflake_schema = True  # Still fix Snowflake schema detection
+```
+
+Disable custom Athena extractor (only relevant for Legacy OpenLineage):
+
+```ini
+[datahub]
+enable_extractors = True
+extract_athena_operator = False  # Use OpenLineage's default Athena extractor
+```
+
+### Other Configuration Options
+
+For a complete list of configuration options, see the [DataHub Airflow documentation](https://docs.datahub.com/docs/lineage/airflow#configuration).
 
 ## Developing
 

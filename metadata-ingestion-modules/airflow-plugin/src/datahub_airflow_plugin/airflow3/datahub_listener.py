@@ -142,6 +142,7 @@ def _get_dagrun_from_task_instance(task_instance: "TaskInstance") -> "DagRun":
 
 _airflow_listener_initialized = False
 _airflow_listener: Optional["DataHubListener"] = None
+_airflow_listener_lock = threading.Lock()
 
 # Threading is enabled by default for better performance
 # It prevents slow lineage extraction from blocking task completion
@@ -159,11 +160,27 @@ KILL_SWITCH_VARIABLE_NAME = "datahub_airflow_plugin_disable_listener"
 
 
 def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
-    # Using globals instead of functools.lru_cache to make testing easier.
+    """
+    Get or initialize the DataHub listener singleton.
+
+    Uses double-checked locking pattern for thread-safe lazy initialization.
+    This prevents race conditions when multiple worker threads try to initialize
+    the listener simultaneously.
+    """
     global _airflow_listener_initialized
     global _airflow_listener
 
-    if not _airflow_listener_initialized:
+    # Fast path: if already initialized, return immediately without acquiring lock
+    if _airflow_listener_initialized:
+        return _airflow_listener
+
+    # Slow path: acquire lock for initialization
+    with _airflow_listener_lock:
+        # Double-check: another thread might have initialized while we waited for lock
+        if _airflow_listener_initialized:
+            return _airflow_listener
+
+        # Now safe to initialize - we hold the lock and confirmed not initialized
         _airflow_listener_initialized = True
 
         plugin_config = get_lineage_config()

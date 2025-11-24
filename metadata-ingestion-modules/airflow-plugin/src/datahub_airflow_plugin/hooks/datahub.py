@@ -1,7 +1,5 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
-import airflow
-import packaging.version
 from airflow.exceptions import AirflowException
 
 # BaseHook import - prefer new location in Airflow 3.x
@@ -17,9 +15,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-
-AIRFLOW_VERSION = packaging.version.parse(airflow.__version__)
-IS_AIRFLOW_3_OR_HIGHER = AIRFLOW_VERSION >= packaging.version.parse("3.0.0")
+from datahub_airflow_plugin._airflow_version_specific import IS_AIRFLOW_3_OR_HIGHER
 
 if TYPE_CHECKING:
     if IS_AIRFLOW_3_OR_HIGHER:

@@ -1,16 +1,20 @@
 """
-Compatibility layer for OpenLineage imports across Airflow 2 and Airflow 3.
+Compatibility layer for OpenLineage imports in Airflow 2.x.
 
-This module centralizes all OpenLineage-related imports to avoid mypy redefinition
-errors when the same classes are imported from different packages depending on the
-Airflow version.
+This module handles two different OpenLineage variants that can be used with Airflow 2.x:
+1. Legacy OpenLineage (openlineage-airflow package) - used in Airflow 2.5-2.6
+2. OpenLineage Provider (apache-airflow-providers-openlineage) - used in Airflow 2.7+
+
+The module detects which variant is installed and imports the appropriate classes.
+
+Note: This file is only used for Airflow 2.x. Airflow 3.x has its own separate module.
 """
 
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     # For type checking, use proper types based on what's available
-    # Try Airflow 3 first, fall back to Airflow 2
+    # Try OpenLineage Provider first, fall back to Legacy OpenLineage
     try:
         from airflow.providers.openlineage.extractors.base import (
             BaseExtractor,
@@ -29,9 +33,9 @@ if TYPE_CHECKING:
         )
         from openlineage.airflow.extractors import TaskMetadata
 
-        IS_AIRFLOW_3: bool = True
+        USE_OPENLINEAGE_PROVIDER: bool = True
     except ImportError:
-        # Airflow 2 types
+        # Legacy OpenLineage types
         from openlineage.airflow.extractors import (  # type: ignore[no-redef]
             BaseExtractor,
             ExtractorManager as OLExtractorManager,
@@ -48,15 +52,16 @@ if TYPE_CHECKING:
             try_import_from_string,
         )
 
-        OperatorLineage: Any  # type: ignore[no-redef]  # Doesn't exist in Airflow 2
-        IS_AIRFLOW_3: bool = False  # type: ignore[no-redef]
+        OperatorLineage: Any  # type: ignore[no-redef]  # Doesn't exist in Legacy OpenLineage
+        USE_OPENLINEAGE_PROVIDER: bool = False  # type: ignore[no-redef]
 
 else:
-    # Runtime imports - conditionally import based on Airflow version
-    IS_AIRFLOW_3 = False
+    # Runtime imports - detect which OpenLineage variant is installed
+    USE_OPENLINEAGE_PROVIDER = False
 
     try:
-        # Airflow 3.x: Use native OpenLineage provider
+        # Try OpenLineage Provider (apache-airflow-providers-openlineage)
+        # Available in Airflow 2.7+ when installed with [airflow2-provider] extra
         from airflow.providers.openlineage.extractors.base import (
             BaseExtractor,
             OperatorLineage,
@@ -69,7 +74,7 @@ else:
             try_import_from_string,
         )
 
-        IS_AIRFLOW_3 = True
+        USE_OPENLINEAGE_PROVIDER = True
 
         try:
             from airflow.providers.openlineage.extractors.snowflake import (
@@ -83,12 +88,12 @@ else:
         except ImportError:
             SqlExtractor = None  # type: ignore
 
-        # For Airflow 3, TaskMetadata doesn't exist (replaced by OperatorLineage)
-        # Set to None explicitly to indicate unavailability
+        # OpenLineage Provider uses OperatorLineage, not TaskMetadata
         TaskMetadata = None  # type: ignore
 
     except (ImportError, ModuleNotFoundError):
-        # Airflow 2.x: Use standalone openlineage-airflow package
+        # Fall back to Legacy OpenLineage (openlineage-airflow package)
+        # Used in Airflow 2.5-2.6 or when installed with [airflow2] extra
         from openlineage.airflow.extractors import (
             BaseExtractor,
             ExtractorManager as OLExtractorManager,
@@ -100,14 +105,13 @@ else:
         from openlineage.airflow.extractors.sql_extractor import SqlExtractor
         from openlineage.airflow.utils import get_operator_class, try_import_from_string
 
-        # For Airflow 2, OperatorLineage doesn't exist (only in Airflow 3)
-        # Set to None explicitly to indicate unavailability
+        # Legacy OpenLineage uses TaskMetadata, not OperatorLineage
         OperatorLineage = None  # type: ignore
 
 
 # Export all symbols
 __all__ = [
-    "IS_AIRFLOW_3",
+    "USE_OPENLINEAGE_PROVIDER",
     "BaseExtractor",
     "OperatorLineage",
     "TaskMetadata",
