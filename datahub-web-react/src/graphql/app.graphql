@@ -88,6 +88,7 @@ query appConfig {
             nestedDomainsEnabled
             platformBrowseV2
             businessAttributeEntityEnabled
+            contextDocumentsEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
             themeV2Enabled
@@ -118,6 +119,7 @@ query appConfig {
             assetSummaryPageV1
             datasetSummaryPageV1
             documentationFileUploadV1
+            contextDocumentsEnabled
         }
         chromeExtensionConfig {
             enabled
