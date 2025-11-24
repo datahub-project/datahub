@@ -1,6 +1,7 @@
 import { Pagination, SearchBar, SimpleSelect } from '@components';
 import { InputRef, message } from 'antd';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -12,6 +13,7 @@ import CancelExecutionConfirmation from '@app/ingestV2/executions/components/col
 import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
 import { ExecutionCancelInfo } from '@app/ingestV2/executions/types';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
+import { useShowIngestionOnboardingRedesign } from '@app/ingestV2/hooks/useShowIngestionOnboardingRedesign';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetcher';
@@ -24,13 +26,20 @@ import {
     removeFromListIngestionSourcesCache,
     updateListIngestionSourcesCache,
 } from '@app/ingestV2/source/cacheUtils';
-import { buildOwnerEntities, getIngestionSourceSystemFilter, getSortInput } from '@app/ingestV2/source/utils';
+import {
+    buildOwnerEntities,
+    getIngestionSourceSystemFilter,
+    getSortInput,
+    mapSourceTypeAliases,
+    removeExecutionsFromIngestionSource,
+} from '@app/ingestV2/source/utils';
 import { TabType } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import usePagination from '@app/sharedV2/pagination/usePagination';
+import { PageRoutes } from '@conf/Global';
 
 import {
     useCreateIngestionExecutionRequestMutation,
@@ -114,30 +123,6 @@ export enum IngestionSourceType {
 
 const DEFAULT_PAGE_SIZE = 25;
 
-const mapSourceTypeAliases = <T extends { type: string }>(source?: T): T | undefined => {
-    if (source) {
-        let { type } = source;
-        if (type === 'unity-catalog') {
-            type = 'databricks';
-        }
-        return { ...source, type };
-    }
-    return undefined;
-};
-
-const removeExecutionsFromIngestionSource = (source) => {
-    if (source) {
-        return {
-            name: source.name,
-            type: source.type,
-            schedule: source.schedule,
-            config: source.config,
-            source: source.source,
-        };
-    }
-    return undefined;
-};
-
 interface Props {
     showCreateModal: boolean;
     setShowCreateModal: (show: boolean) => void;
@@ -168,6 +153,11 @@ export const IngestionSourceList = ({
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<InputRef>(null);
+
+    const showIngestionOnboardingRedesign = useShowIngestionOnboardingRedesign();
+
+    const history = useHistory();
+    const location = useLocation();
 
     // Initialize search input from URL parameter
     useEffect(() => {
@@ -599,10 +589,14 @@ export const IngestionSourceList = ({
 
     const onEdit = useCallback(
         (urn: string) => {
-            setShowCreateModal(true);
-            setFocusSourceUrn(urn);
+            if (showIngestionOnboardingRedesign) {
+                history.push(PageRoutes.INGESTION_UPDATE.replace(':urn', urn));
+            } else {
+                setShowCreateModal(true);
+                setFocusSourceUrn(urn);
+            }
         },
-        [setShowCreateModal],
+        [setShowCreateModal, showIngestionOnboardingRedesign, history],
     );
 
     const onView = useCallback((urn: string) => {
@@ -691,7 +685,7 @@ export const IngestionSourceList = ({
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
                 </HeaderContainer>
-                {!loading && data?.listIngestionSources?.total === 0 ? (
+                {!location.state?.create && !loading && data?.listIngestionSources?.total === 0 ? (
                     <EmptySources sourceType="sources" isEmptySearchResult={!!query} />
                 ) : (
                     <>
@@ -706,7 +700,9 @@ export const IngestionSourceList = ({
                                 onDelete={onDelete}
                                 onChangeSort={onChangeSort}
                                 isLoading={
-                                    loading && (!data || data?.listIngestionSources?.ingestionSources?.length === 0)
+                                    !location.state?.create &&
+                                    loading &&
+                                    (!data || data?.listIngestionSources?.ingestionSources?.length === 0)
                                 }
                                 shouldPreserveParams={shouldPreserveParams}
                                 isLastPage={isLastPage}
