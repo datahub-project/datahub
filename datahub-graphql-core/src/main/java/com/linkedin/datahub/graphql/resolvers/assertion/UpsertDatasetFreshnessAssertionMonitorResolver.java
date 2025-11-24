@@ -73,6 +73,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolver
 
     final Urn entityUrn, monitorUrn, assertionUrn;
     final AssertionSource assertionSource;
+    final String appSource = ResolverUtils.resolveAppSource(context);
 
     boolean isCreate = maybeAssertionUrn == null;
     if (isCreate) {
@@ -126,7 +127,8 @@ public class UpsertDatasetFreshnessAssertionMonitorResolver
                 input.getActions() != null
                     ? AssertionUtils.createAssertionActions(input.getActions())
                     : null,
-                assertionSource);
+                assertionSource,
+                appSource);
 
             // Then, upsert the monitor
             try {
@@ -139,6 +141,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolver
                   createFreshnessAssertionEvaluationParameters(input.getEvaluationParameters()),
                   MonitorMode.valueOf(input.getMode().toString()),
                   input.getExecutorId(),
+                  appSource,
                   MonitorMapper.mapGraphqlAdjustmentSettingsToMonitorSettings(
                       input.getInferenceSettings()));
             } catch (Exception e) {

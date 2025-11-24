@@ -46,6 +46,7 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
             environment.getArgument("input"), CreateAssertionMonitorInput.class);
     final Urn assertionUrn = UrnUtils.getUrn(input.getAssertionUrn());
     final Urn entityUrn = UrnUtils.getUrn(input.getEntityUrn());
+    final String appSource = ResolverUtils.resolveAppSource(context);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -59,7 +60,8 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
                       assertionUrn,
                       createCronSchedule(input.getSchedule()),
                       createAssertionEvaluationParameters(input.getParameters()),
-                      input.getExecutorId());
+                      input.getExecutorId(),
+                      appSource);
 
               // Then, return the new monitor
               return MonitorMapper.map(

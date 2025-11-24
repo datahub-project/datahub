@@ -129,7 +129,8 @@ public class CreateDatasetAssertionResolverTest {
             Mockito.eq(TEST_ASSERTION_INFO.getDatasetAssertion().getAggregation()),
             Mockito.eq(TEST_ASSERTION_INFO.getDatasetAssertion().getOperator()),
             Mockito.eq(TEST_ASSERTION_INFO.getDatasetAssertion().getParameters()),
-            Mockito.eq(TEST_ASSERTION_ACTIONS));
+            Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -164,7 +165,8 @@ public class CreateDatasetAssertionResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any());
+            Mockito.any(),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     CreateDatasetAssertionResolver resolver = new CreateDatasetAssertionResolver(mockService);
 
@@ -188,7 +190,8 @@ public class CreateDatasetAssertionResolverTest {
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any()))
+                Mockito.any(),
+                Mockito.eq(Constants.METADATA_TESTS_SOURCE)))
         .thenReturn(TEST_ASSERTION_URN);
 
     Mockito.when(

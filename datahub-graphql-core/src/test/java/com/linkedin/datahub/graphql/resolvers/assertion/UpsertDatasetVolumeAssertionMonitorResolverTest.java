@@ -297,7 +297,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.eq(TEST_ASSERTION_INFO.getSource()));
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     // Validate that we created the monitor
     Mockito.verify(monitorService, Mockito.times(1))
@@ -311,7 +312,9 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
                 TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
             Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
             Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
-            Mockito.eq(TEST_MONITOR_INFO.getAssertionMonitor().getSettings()));
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.<AssertionMonitorSettings>eq(
+                TEST_MONITOR_INFO.getAssertionMonitor().getSettings()));
   }
 
   @Test
@@ -342,7 +345,9 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
                     TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
                 Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
                 Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
-                Mockito.eq(TEST_MONITOR_INFO.getAssertionMonitor().getSettings())))
+                Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+                Mockito.<AssertionMonitorSettings>eq(
+                    TEST_MONITOR_INFO.getAssertionMonitor().getSettings())))
         .thenThrow(RemoteInvocationException.class);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -356,7 +361,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.eq(TEST_ASSERTION_INFO.getSource()));
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     // Validate that we deleted the assertion
     Mockito.verify(assertionService, Mockito.times(1))
@@ -391,7 +397,9 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
                     TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
                 Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
                 Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
-                Mockito.eq(TEST_MONITOR_INFO.getAssertionMonitor().getSettings())))
+                Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+                Mockito.<AssertionMonitorSettings>eq(
+                    TEST_MONITOR_INFO.getAssertionMonitor().getSettings())))
         .thenThrow(
             new RuntimeException(AcrylConstants.MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX));
 
@@ -411,7 +419,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.eq(TEST_ASSERTION_INFO.getSource()));
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     // Validate that we deleted the assertion
     Mockito.verify(assertionService, Mockito.times(1))
@@ -539,7 +548,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.eq(TEST_ASSERTION_INFO.getSource()));
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     // Validate that we created the monitor
     Mockito.verify(monitorService, Mockito.times(1))
@@ -552,7 +562,9 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq(evaluationSpec.getParameters()),
             Mockito.eq(MonitorMode.ACTIVE),
             Mockito.eq(TEST_EXECUTOR_ID),
-            Mockito.eq(TEST_MONITOR_INFO.getAssertionMonitor().getSettings()));
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.<AssertionMonitorSettings>eq(
+                TEST_MONITOR_INFO.getAssertionMonitor().getSettings()));
   }
 
   private GraphClient initMockGraphClient() {
@@ -689,6 +701,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
+            Mockito.any(),
             Mockito.any());
 
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
@@ -717,6 +730,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
     Mockito.when(
             service.upsertDatasetVolumeAssertion(
                 any(OperationContext.class),
+                Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),

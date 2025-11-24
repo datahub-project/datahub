@@ -72,6 +72,7 @@ public class UpsertDatasetFieldAssertionMonitorResolver
     final Urn entityUrn, monitorUrn, assertionUrn;
     final AssertionSource assertionSource;
 
+    final String appSource = ResolverUtils.resolveAppSource(context);
     boolean isCreate = maybeAssertionUrn == null;
     if (isCreate) {
       // Create Assertion - only entityUrn is known. Generate new assertionUrn and monitorUrn.
@@ -118,7 +119,8 @@ public class UpsertDatasetFieldAssertionMonitorResolver
                 input.getActions() != null
                     ? AssertionUtils.createAssertionActions(input.getActions())
                     : null,
-                assertionSource);
+                assertionSource,
+                appSource);
 
             // Then, upsert the monitor
             try {
@@ -131,6 +133,7 @@ public class UpsertDatasetFieldAssertionMonitorResolver
                   createFieldAssertionEvaluationParameters(input.getEvaluationParameters()),
                   MonitorMode.valueOf(input.getMode().toString()),
                   input.getExecutorId(),
+                  appSource,
                   MonitorMapper.mapGraphqlAdjustmentSettingsToMonitorSettings(
                       input.getInferenceSettings()));
             } catch (Exception e) {

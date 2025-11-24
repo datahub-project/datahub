@@ -79,6 +79,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolver
 
     final Urn entityUrn, monitorUrn, assertionUrn;
     final AssertionSource assertionSource;
+    final String appSource = ResolverUtils.resolveAppSource(context);
 
     boolean isCreate = maybeAssertionUrn == null;
     if (isCreate) {
@@ -124,7 +125,8 @@ public class UpsertDatasetSchemaAssertionMonitorResolver
                 input.getActions() != null
                     ? AssertionUtils.createAssertionActions(input.getActions())
                     : null,
-                assertionSource);
+                assertionSource,
+                appSource);
 
             // Then, upsert the monitor -> In our case the monitor is not a scheduled monitor. It's
             // an event based
@@ -140,7 +142,9 @@ public class UpsertDatasetSchemaAssertionMonitorResolver
                       : DEFAULT_CRON_SCHEDULE,
                   mapEvaluationParameters(input.getEvaluationParameters()),
                   MonitorMode.valueOf(input.getMode().toString()),
-                  input.getExecutorId());
+                  input.getExecutorId(),
+                  appSource,
+                  null);
             } catch (Exception e) {
               log.error("Failed to upsert Assertion monitor!", e);
               if (isCreate) {

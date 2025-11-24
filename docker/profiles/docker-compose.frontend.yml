@@ -1,4 +1,3 @@
-
 x-datahub-frontend-service: &datahub-frontend-service
   hostname: datahub-frontend-react
   image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-frontend-react}:${DATAHUB_VERSION:-head}

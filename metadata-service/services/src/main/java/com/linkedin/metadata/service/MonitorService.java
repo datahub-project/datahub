@@ -167,10 +167,11 @@ public class MonitorService extends BaseService {
       @Nonnull final Urn assertionUrn,
       @Nonnull final CronSchedule schedule,
       @Nonnull final AssertionEvaluationParameters parameters,
-      @Nullable final String executorId)
+      @Nullable final String executorId,
+      @Nonnull final String appSource)
       throws Exception {
     return createAssertionMonitor(
-        opContext, entityUrn, assertionUrn, schedule, parameters, executorId, null);
+        opContext, entityUrn, assertionUrn, schedule, parameters, executorId, appSource, null);
   }
 
   /**
@@ -187,6 +188,7 @@ public class MonitorService extends BaseService {
       @Nonnull final CronSchedule schedule,
       @Nonnull final AssertionEvaluationParameters parameters,
       @Nullable final String executorId,
+      @Nonnull final String appSource,
       @Nullable final AssertionMonitorSettings monitorSettings)
       throws Exception {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
@@ -194,6 +196,8 @@ public class MonitorService extends BaseService {
     Objects.requireNonNull(schedule, "schedule must not be null");
     Objects.requireNonNull(parameters, "parameters must not be null");
     Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
 
     // Verify that the target entity actually exists.
     validateEntity(opContext, entityUrn);
@@ -228,8 +232,11 @@ public class MonitorService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, monitorInfo));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, monitorInfo)
+            : AspectUtils.buildMetadataChangeProposal(
+                monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, monitorInfo));
 
     try {
       this.entityClient.batchIngestProposals(opContext, aspects, false);
@@ -248,7 +255,8 @@ public class MonitorService extends BaseService {
       @Nonnull final CronSchedule schedule,
       @Nonnull final AssertionEvaluationParameters parameters,
       @Nonnull final MonitorMode mode,
-      @Nullable final String executorId)
+      @Nullable final String executorId,
+      @Nonnull final String appSource)
       throws Exception {
     return upsertAssertionMonitor(
         opContext,
@@ -259,6 +267,7 @@ public class MonitorService extends BaseService {
         parameters,
         mode,
         executorId,
+        appSource,
         null);
   }
 
@@ -277,6 +286,7 @@ public class MonitorService extends BaseService {
       @Nonnull final AssertionEvaluationParameters parameters,
       @Nonnull final MonitorMode mode,
       @Nullable final String executorId,
+      @Nonnull final String appSource,
       @Nullable final AssertionMonitorSettings monitorSettings)
       throws Exception {
     Objects.requireNonNull(monitorUrn, "monitorUrn must not be null");
@@ -285,7 +295,8 @@ public class MonitorService extends BaseService {
     Objects.requireNonNull(schedule, "schedule must not be null");
     Objects.requireNonNull(parameters, "parameters must not be null");
     Objects.requireNonNull(opContext, "opContext must not be null");
-
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
     // Verify that the target assertion actually exists.
     validateEntity(opContext, assertionUrn);
 
@@ -337,8 +348,11 @@ public class MonitorService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, monitorInfo));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, monitorInfo)
+            : AspectUtils.buildMetadataChangeProposal(
+                monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, monitorInfo));
 
     try {
       this.entityClient.batchIngestProposals(opContext, aspects, false);

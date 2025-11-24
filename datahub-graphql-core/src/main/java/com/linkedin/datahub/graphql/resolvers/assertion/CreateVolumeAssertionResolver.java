@@ -35,6 +35,7 @@ public class CreateVolumeAssertionResolver implements DataFetcher<CompletableFut
         ResolverUtils.bindArgument(
             environment.getArgument("input"), CreateVolumeAssertionInput.class);
     final Urn asserteeUrn = UrnUtils.getUrn(input.getEntityUrn());
+    final String appSource = ResolverUtils.resolveAppSource(context);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -49,7 +50,8 @@ public class CreateVolumeAssertionResolver implements DataFetcher<CompletableFut
                     VolumeAssertionUtils.createVolumeAssertionInfo(input),
                     input.getActions() != null
                         ? AssertionUtils.createAssertionActions(input.getActions())
-                        : null);
+                        : null,
+                    appSource);
 
             // Then, return the new assertion
             return AssertionMapper.map(

@@ -117,7 +117,8 @@ public class CreateSqlAssertionResolverTest {
             Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion().getType()),
             Mockito.eq(TEST_ASSERTION_INFO.getDescription()),
             Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion()),
-            Mockito.eq(TEST_ASSERTION_ACTIONS));
+            Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -150,7 +151,8 @@ public class CreateSqlAssertionResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any());
+            Mockito.any(),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     CreateSqlAssertionResolver resolver = new CreateSqlAssertionResolver(mockService);
 
@@ -172,7 +174,8 @@ public class CreateSqlAssertionResolverTest {
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any()))
+                Mockito.any(),
+                Mockito.eq(Constants.METADATA_TESTS_SOURCE)))
         .thenReturn(TEST_ASSERTION_URN);
 
     Mockito.when(

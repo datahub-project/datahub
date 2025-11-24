@@ -127,7 +127,8 @@ public class CreateVolumeAssertionResolverTest {
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion().getEntity()),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion().getType()),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
-            Mockito.eq(TEST_ASSERTION_ACTIONS));
+            Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -159,7 +160,8 @@ public class CreateVolumeAssertionResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any());
+            Mockito.any(),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     CreateVolumeAssertionResolver resolver = new CreateVolumeAssertionResolver(mockService);
 
@@ -180,7 +182,8 @@ public class CreateVolumeAssertionResolverTest {
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any()))
+                Mockito.any(),
+                Mockito.eq(Constants.METADATA_TESTS_SOURCE)))
         .thenReturn(TEST_ASSERTION_URN);
 
     Mockito.when(

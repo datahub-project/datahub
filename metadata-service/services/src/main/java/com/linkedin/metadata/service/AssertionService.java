@@ -502,8 +502,8 @@ public class AssertionService extends BaseService {
   public List<AssertionRunEvent> getAssertionRunEvents(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn assertionUrn,
-      @Nonnull final long startTimeMillis,
-      @Nonnull final long endTimeMillis) {
+      final long startTimeMillis,
+      final long endTimeMillis) {
     Objects.requireNonNull(opContext, "opContext must not be null");
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(startTimeMillis, "startTimeMillis must not be null");
@@ -579,11 +579,14 @@ public class AssertionService extends BaseService {
       @Nonnull final FreshnessAssertionType type,
       @Nonnull final FreshnessAssertionSchedule schedule,
       @Nullable final DatasetFilter filter,
-      @Nullable final AssertionActions actions) {
+      @Nullable final AssertionActions actions,
+      @Nonnull final String appSource) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(schedule, "schedule must not be null");
     Objects.requireNonNull(opContext, "authentication must not be null");
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
     Urn actorUrn = null;
     try {
       actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
@@ -608,12 +611,18 @@ public class AssertionService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion)
+            : AspectUtils.buildMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
     if (actions != null) {
       aspects.add(
-          AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+          useSynchronousMcp
+              ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions)
+              : AspectUtils.buildMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
     }
 
     try {
@@ -637,11 +646,14 @@ public class AssertionService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final VolumeAssertionType type,
       @Nonnull final VolumeAssertionInfo info,
-      @Nullable final AssertionActions actions) {
+      @Nullable final AssertionActions actions,
+      @Nonnull final String appSource) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(info, "info must not be null");
     Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
     Urn actorUrn = null;
     try {
       actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
@@ -682,12 +694,18 @@ public class AssertionService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion)
+            : AspectUtils.buildMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
     if (actions != null) {
       aspects.add(
-          AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+          useSynchronousMcp
+              ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions)
+              : AspectUtils.buildMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
     }
 
     try {
@@ -711,12 +729,15 @@ public class AssertionService extends BaseService {
       @Nonnull final SqlAssertionType type,
       @Nonnull final String description,
       @Nonnull final SqlAssertionInfo info,
-      @Nullable final AssertionActions actions) {
+      @Nullable final AssertionActions actions,
+      @Nonnull final String appSource) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(description, "description must not be null");
     Objects.requireNonNull(info, "info must not be null");
     Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
     Urn actorUrn = null;
     try {
       actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
@@ -735,12 +756,18 @@ public class AssertionService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion)
+            : AspectUtils.buildMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
     if (actions != null) {
       aspects.add(
-          AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+          useSynchronousMcp
+              ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions)
+              : AspectUtils.buildMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
     }
 
     try {
@@ -761,10 +788,13 @@ public class AssertionService extends BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final FieldAssertionInfo info,
-      @Nullable final AssertionActions actions) {
+      @Nullable final AssertionActions actions,
+      @Nonnull final String appSource) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(info, "info must not be null");
     Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
     Urn actorUrn = null;
     try {
       actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
@@ -782,12 +812,18 @@ public class AssertionService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion)
+            : AspectUtils.buildMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
     if (actions != null) {
       aspects.add(
-          AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+          useSynchronousMcp
+              ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions)
+              : AspectUtils.buildMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
     }
 
     try {
@@ -813,11 +849,14 @@ public class AssertionService extends BaseService {
       @Nullable final AssertionStdAggregation aggregation,
       @Nonnull final AssertionStdOperator operator,
       @Nullable final AssertionStdParameters parameters,
-      @Nullable final AssertionActions actions) {
+      @Nullable final AssertionActions actions,
+      @Nonnull final String appSource) {
     Objects.requireNonNull(datasetUrn, "datasetUrn must not be null");
     Objects.requireNonNull(scope, "scope must not be null");
     Objects.requireNonNull(operator, "operator must not be null");
     Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
     Urn actorUrn = null;
     try {
       actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
@@ -844,12 +883,18 @@ public class AssertionService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion)
+            : AspectUtils.buildMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
     if (actions != null) {
       aspects.add(
-          AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+          useSynchronousMcp
+              ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions)
+              : AspectUtils.buildMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
     }
 
     try {
@@ -876,8 +921,11 @@ public class AssertionService extends BaseService {
       @Nullable final FreshnessAssertionSchedule schedule,
       @Nullable final DatasetFilter filter,
       @Nullable final AssertionActions actions,
-      @Nonnull final AssertionSource assertionSource) {
+      @Nonnull final AssertionSource assertionSource,
+      @Nonnull final String appSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(opContext, "authentication must not be null");
     if (assertionSource == null || assertionSource.getType() != AssertionSourceType.INFERRED) {
@@ -907,12 +955,18 @@ public class AssertionService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion)
+            : AspectUtils.buildMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
     if (actions != null) {
       aspects.add(
-          AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+          useSynchronousMcp
+              ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions)
+              : AspectUtils.buildMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
     }
 
     try {
@@ -936,8 +990,11 @@ public class AssertionService extends BaseService {
       @Nullable final String description,
       @Nonnull final VolumeAssertionInfo info,
       @Nullable final AssertionActions actions,
-      @Nonnull final AssertionSource assertionSource) {
+      @Nonnull final AssertionSource assertionSource,
+      @Nonnull final String appSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(info.getType(), "type must not be null");
     Objects.requireNonNull(info, "info must not be null");
@@ -973,12 +1030,18 @@ public class AssertionService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion)
+            : AspectUtils.buildMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
     if (actions != null) {
       aspects.add(
-          AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+          useSynchronousMcp
+              ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions)
+              : AspectUtils.buildMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
     }
 
     try {
@@ -1003,8 +1066,11 @@ public class AssertionService extends BaseService {
       @Nonnull final String description,
       @Nonnull final SqlAssertionInfo info,
       @Nullable final AssertionActions actions,
-      @Nonnull final AssertionSource assertionSource) {
+      @Nonnull final AssertionSource assertionSource,
+      @Nonnull final String appSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(description, "description must not be null");
@@ -1027,12 +1093,18 @@ public class AssertionService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion)
+            : AspectUtils.buildMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
     if (actions != null) {
       aspects.add(
-          AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+          useSynchronousMcp
+              ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions)
+              : AspectUtils.buildMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
     }
 
     try {
@@ -1056,11 +1128,14 @@ public class AssertionService extends BaseService {
       @Nullable final String description,
       @Nonnull final FieldAssertionInfo info,
       @Nullable final AssertionActions actions,
-      @Nonnull final AssertionSource assertionSource) {
+      @Nonnull final AssertionSource assertionSource,
+      @Nonnull final String appSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(info, "info must not be null");
     Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
     Urn actorUrn = null;
     try {
       actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
@@ -1078,12 +1153,18 @@ public class AssertionService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion)
+            : AspectUtils.buildMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
     if (actions != null) {
       aspects.add(
-          AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+          useSynchronousMcp
+              ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions)
+              : AspectUtils.buildMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
     }
 
     try {
@@ -1106,8 +1187,11 @@ public class AssertionService extends BaseService {
       @Nonnull final SchemaAssertionCompatibility compatibility,
       @Nonnull final SchemaMetadata schema,
       @Nullable final AssertionActions actions,
-      @Nonnull final AssertionSource assertionSource) {
+      @Nonnull final AssertionSource assertionSource,
+      @Nonnull final String appSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(appSource, "appSource must not be null");
+    boolean useSynchronousMcp = appSource.equals(Constants.UI_SOURCE);
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(compatibility, "compatibility must not be null");
     Objects.requireNonNull(schema, "schema must not be null");
@@ -1135,12 +1219,18 @@ public class AssertionService extends BaseService {
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
-        AspectUtils.buildMetadataChangeProposal(
-            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+        useSynchronousMcp
+            ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion)
+            : AspectUtils.buildMetadataChangeProposal(
+                assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
     if (actions != null) {
       aspects.add(
-          AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+          useSynchronousMcp
+              ? AspectUtils.buildSynchronousMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions)
+              : AspectUtils.buildMetadataChangeProposal(
+                  assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
     }
 
     try {

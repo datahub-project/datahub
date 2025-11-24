@@ -74,6 +74,7 @@ public class UpsertDatasetSqlAssertionMonitorResolver
 
     final Urn entityUrn, monitorUrn, assertionUrn;
     final AssertionSource assertionSource;
+    final String appSource = ResolverUtils.resolveAppSource(context);
 
     boolean isCreate = maybeAssertionUrn == null;
     if (isCreate) {
@@ -115,7 +116,8 @@ public class UpsertDatasetSqlAssertionMonitorResolver
                 input.getActions() != null
                     ? AssertionUtils.createAssertionActions(input.getActions())
                     : null,
-                assertionSource);
+                assertionSource,
+                appSource);
 
             // Then, upsert the monitor
             try {
@@ -129,6 +131,7 @@ public class UpsertDatasetSqlAssertionMonitorResolver
                       .setType(AssertionEvaluationParametersType.DATASET_SQL),
                   MonitorMode.valueOf(input.getMode().toString()),
                   input.getExecutorId(),
+                  appSource,
                   input.getInferenceSettings() != null
                       ? MonitorMapper.mapGraphqlAdjustmentSettingsToMonitorSettings(
                           input.getInferenceSettings())

@@ -205,7 +205,13 @@ public class MonitorServiceTest {
     // Test method
     Urn result =
         service.createAssertionMonitor(
-            mock(OperationContext.class), entityUrn, assertionUrn, schedule, parameters, null);
+            mock(OperationContext.class),
+            entityUrn,
+            assertionUrn,
+            schedule,
+            parameters,
+            null,
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "monitor");
@@ -240,7 +246,13 @@ public class MonitorServiceTest {
         IllegalArgumentException.class,
         () ->
             service.createAssertionMonitor(
-                mock(OperationContext.class), entityUrn, assertionUrn, schedule, parameters, null));
+                mock(OperationContext.class),
+                entityUrn,
+                assertionUrn,
+                schedule,
+                parameters,
+                null,
+                Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -276,7 +288,13 @@ public class MonitorServiceTest {
         IllegalArgumentException.class,
         () ->
             service.createAssertionMonitor(
-                mock(OperationContext.class), entityUrn, assertionUrn, schedule, parameters, null));
+                mock(OperationContext.class),
+                entityUrn,
+                assertionUrn,
+                schedule,
+                parameters,
+                null,
+                Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -348,7 +366,8 @@ public class MonitorServiceTest {
             schedule,
             parameters,
             monitorMode,
-            null);
+            null,
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result, TEST_MONITOR_URN);
@@ -425,7 +444,8 @@ public class MonitorServiceTest {
             schedule,
             parameters,
             monitorMode,
-            executorId);
+            executorId,
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result, TEST_MONITOR_URN);
@@ -467,7 +487,8 @@ public class MonitorServiceTest {
                 schedule,
                 parameters,
                 MonitorMode.ACTIVE,
-                null));
+                null,
+                Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -511,7 +532,8 @@ public class MonitorServiceTest {
                 schedule,
                 parameters,
                 MonitorMode.ACTIVE,
-                null));
+                null,
+                Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -544,7 +566,8 @@ public class MonitorServiceTest {
                     new CronSchedule(),
                     new AssertionEvaluationParameters(),
                     MonitorMode.ACTIVE,
-                    null));
+                    null,
+                    Constants.METADATA_TESTS_SOURCE));
     assertEquals(
         e.getMessage(),
         String.format(
@@ -1293,6 +1316,7 @@ public class MonitorServiceTest {
             parameters,
             mode,
             null,
+            Constants.METADATA_TESTS_SOURCE,
             null);
 
     // Verify
@@ -1388,6 +1412,7 @@ public class MonitorServiceTest {
             parameters,
             mode,
             null,
+            Constants.METADATA_TESTS_SOURCE,
             newSettings);
 
     // Sleep a short time to allow the async operation to complete
@@ -1470,6 +1495,7 @@ public class MonitorServiceTest {
             parameters,
             mode,
             null,
+            Constants.METADATA_TESTS_SOURCE,
             newSettings);
 
     // Sleep to allow the async operation to complete (increased for CI environments)
@@ -1532,6 +1558,7 @@ public class MonitorServiceTest {
             parameters,
             mode,
             null,
+            Constants.METADATA_TESTS_SOURCE,
             null);
 
     // Verify

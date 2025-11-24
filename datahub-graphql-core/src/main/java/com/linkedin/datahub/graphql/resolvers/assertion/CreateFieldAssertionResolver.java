@@ -34,6 +34,7 @@ public class CreateFieldAssertionResolver implements DataFetcher<CompletableFutu
         ResolverUtils.bindArgument(
             environment.getArgument("input"), CreateFieldAssertionInput.class);
     final Urn asserteeUrn = UrnUtils.getUrn(input.getEntityUrn());
+    final String appSource = ResolverUtils.resolveAppSource(context);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -47,7 +48,8 @@ public class CreateFieldAssertionResolver implements DataFetcher<CompletableFutu
                     FieldAssertionUtils.createFieldAssertionInfo(input),
                     input.getActions() != null
                         ? AssertionUtils.createAssertionActions(input.getActions())
-                        : null);
+                        : null,
+                    appSource);
 
             // Then, return the new assertion
             return AssertionMapper.map(

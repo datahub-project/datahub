@@ -309,7 +309,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
                         && source.getType() == AssertionSourceType.NATIVE
                         && source.getCreated() != null
                         && source.getCreated().getTime() == TEST_TIME
-                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)));
+                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     // Validate that we created the monitor
     Mockito.verify(monitorService, Mockito.times(1))
@@ -323,6 +324,7 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
                 TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
             Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
             Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
             Mockito.isNull());
   }
 
@@ -444,7 +446,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
             Mockito.eq(TEST_ASSERTION_INFO.getDescription()),
             Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.eq(TEST_ASSERTION_INFO.getSource()));
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     // Validate that we created the monitor
     Mockito.verify(monitorService, Mockito.times(1))
@@ -457,6 +460,7 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
             Mockito.eq(evaluationSpec.getParameters()),
             Mockito.eq(MonitorMode.ACTIVE),
             Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
             Mockito.isNull());
   }
 
@@ -569,6 +573,7 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
                     TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
                 Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
                 Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
+                Mockito.eq(Constants.METADATA_TESTS_SOURCE),
                 Mockito.isNull()))
         .thenThrow(RemoteInvocationException.class);
 
@@ -590,7 +595,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
                         && source.getType() == AssertionSourceType.NATIVE
                         && source.getCreated() != null
                         && source.getCreated().getTime() == TEST_TIME
-                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)));
+                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     // Validate that we deleted the assertion
     Mockito.verify(assertionService, Mockito.times(1))
@@ -626,6 +632,7 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
                     TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
                 Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
                 Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
+                Mockito.eq(Constants.METADATA_TESTS_SOURCE),
                 Mockito.isNull()))
         .thenThrow(
             new RuntimeException(AcrylConstants.MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX));
@@ -653,7 +660,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
                         && source.getType() == AssertionSourceType.NATIVE
                         && source.getCreated() != null
                         && source.getCreated().getTime() == TEST_TIME
-                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)));
+                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     // Validate that we deleted the assertion
     Mockito.verify(assertionService, Mockito.times(1))
@@ -705,6 +713,7 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
         .when(mockService)
         .upsertDatasetSqlAssertion(
             any(OperationContext.class),
+            Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
@@ -789,7 +798,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
             Mockito.eq(TEST_ASSERTION_INFO.getDescription()),
             Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.isNull()); // Null source should be preserved
+            Mockito.isNull(), // Null source should be preserved
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     // Validate that we updated the monitor
     Mockito.verify(monitorService, Mockito.times(1))
@@ -802,6 +812,7 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
             Mockito.eq(evaluationSpec.getParameters()),
             Mockito.eq(MonitorMode.ACTIVE),
             Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
             Mockito.isNull());
   }
 
@@ -877,7 +888,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
                         && source.getType() == AssertionSourceType.INFERRED
                         && source.getCreated() != null
                         && source.getCreated().getTime() == TEST_TIME
-                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)));
+                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     // Validate that we updated the monitor
     Mockito.verify(monitorService, Mockito.times(1))
@@ -890,6 +902,7 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
             Mockito.eq(evaluationSpec.getParameters()),
             Mockito.eq(MonitorMode.ACTIVE),
             Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
             Mockito.isNull());
   }
 
@@ -901,6 +914,7 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
     Mockito.when(
             service.upsertDatasetSqlAssertion(
                 any(OperationContext.class),
+                Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),

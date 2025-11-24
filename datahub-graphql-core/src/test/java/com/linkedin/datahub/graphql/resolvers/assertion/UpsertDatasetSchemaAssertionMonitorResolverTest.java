@@ -137,7 +137,8 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
             Mockito.eq(com.linkedin.assertion.SchemaAssertionCompatibility.SUPERSET),
             Mockito.any(SchemaMetadata.class),
             Mockito.any(AssertionActions.class),
-            Mockito.any(AssertionSource.class));
+            Mockito.any(AssertionSource.class),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
     verify(monitorService, times(1))
         .upsertAssertionMonitor(
             any(OperationContext.class),
@@ -152,7 +153,9 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
                         new DatasetSchemaAssertionParameters()
                             .setSourceType(DatasetSchemaSourceType.DATAHUB_SCHEMA))),
             Mockito.eq(com.linkedin.monitor.MonitorMode.ACTIVE),
-            Mockito.eq(null));
+            Mockito.eq(null),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull());
   }
 
   @Test
@@ -236,7 +239,8 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
             Mockito.eq(com.linkedin.assertion.SchemaAssertionCompatibility.SUPERSET),
             Mockito.any(SchemaMetadata.class),
             Mockito.any(AssertionActions.class),
-            Mockito.any(AssertionSource.class));
+            Mockito.any(AssertionSource.class),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
     verify(monitorService, times(1))
         .upsertAssertionMonitor(
             any(OperationContext.class),
@@ -251,7 +255,9 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
                         new DatasetSchemaAssertionParameters()
                             .setSourceType(DatasetSchemaSourceType.DATAHUB_SCHEMA))),
             Mockito.eq(com.linkedin.monitor.MonitorMode.ACTIVE),
-            Mockito.eq(null));
+            Mockito.eq(null),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull());
   }
 
   @Test
@@ -360,7 +366,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
     // Mock monitor service to throw limit exceeded exception
     Mockito.when(
             mockMonitorService.upsertAssertionMonitor(
-                any(), any(), any(), any(), any(), any(), any(), any()))
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(
             new RuntimeException(AcrylConstants.MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX));
 

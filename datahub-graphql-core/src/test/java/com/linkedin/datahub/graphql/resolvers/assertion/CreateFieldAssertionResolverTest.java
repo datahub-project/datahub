@@ -134,7 +134,8 @@ public class CreateFieldAssertionResolverTest {
             any(OperationContext.class),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion().getEntity()),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
-            Mockito.eq(TEST_ASSERTION_ACTIONS));
+            Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -162,7 +163,11 @@ public class CreateFieldAssertionResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .createFieldAssertion(
-            any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
+            any(OperationContext.class),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     CreateFieldAssertionResolver resolver = new CreateFieldAssertionResolver(mockService);
 
@@ -179,7 +184,11 @@ public class CreateFieldAssertionResolverTest {
     AssertionService service = Mockito.mock(AssertionService.class);
     Mockito.when(
             service.createFieldAssertion(
-                any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any()))
+                any(OperationContext.class),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(Constants.METADATA_TESTS_SOURCE)))
         .thenReturn(TEST_ASSERTION_URN);
 
     Mockito.when(

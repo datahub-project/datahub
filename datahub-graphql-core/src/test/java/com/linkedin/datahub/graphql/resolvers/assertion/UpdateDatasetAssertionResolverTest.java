@@ -202,6 +202,7 @@ public class UpdateDatasetAssertionResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
+            Mockito.any(),
             Mockito.any());
 
     UpdateDatasetAssertionResolver resolver = new UpdateDatasetAssertionResolver(mockService);

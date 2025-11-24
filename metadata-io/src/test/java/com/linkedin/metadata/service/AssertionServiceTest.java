@@ -352,7 +352,13 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.createFreshnessAssertion(
-            opContext, entityUrn, freshnessAssertionType, schedule, null, null);
+            opContext,
+            entityUrn,
+            freshnessAssertionType,
+            schedule,
+            null,
+            null,
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -392,7 +398,13 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.createFreshnessAssertion(
-            opContext, entityUrn, freshnessAssertionType, schedule, filter, actions);
+            opContext,
+            entityUrn,
+            freshnessAssertionType,
+            schedule,
+            filter,
+            actions,
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -425,7 +437,8 @@ public class AssertionServiceTest {
 
     // Test method
     Urn result =
-        service.createVolumeAssertion(opContext, entityUrn, volumeAssertionType, info, null);
+        service.createVolumeAssertion(
+            opContext, entityUrn, volumeAssertionType, info, null, Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -469,7 +482,13 @@ public class AssertionServiceTest {
 
     // Test method
     Urn result =
-        service.createVolumeAssertion(opContext, entityUrn, volumeAssertionType, info, actions);
+        service.createVolumeAssertion(
+            opContext,
+            entityUrn,
+            volumeAssertionType,
+            info,
+            actions,
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -499,7 +518,15 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.createDatasetAssertion(
-            opContext, entityUrn, scope, null, null, operator, null, null);
+            opContext,
+            entityUrn,
+            scope,
+            null,
+            null,
+            operator,
+            null,
+            null,
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -541,7 +568,15 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.createDatasetAssertion(
-            opContext, entityUrn, scope, fields, aggregation, operator, parameters, actions);
+            opContext,
+            entityUrn,
+            scope,
+            fields,
+            aggregation,
+            operator,
+            parameters,
+            actions,
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -600,7 +635,8 @@ public class AssertionServiceTest {
             schedule,
             null,
             null,
-            createAssertionSource());
+            createAssertionSource(),
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result, TEST_FRESHNESS_ASSERTION_URN);
@@ -678,7 +714,8 @@ public class AssertionServiceTest {
             schedule,
             filter,
             actions,
-            createAssertionSource());
+            createAssertionSource(),
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result, TEST_FRESHNESS_ASSERTION_URN);
@@ -740,7 +777,8 @@ public class AssertionServiceTest {
             "description",
             info,
             null,
-            createAssertionSource());
+            createAssertionSource(),
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -824,7 +862,8 @@ public class AssertionServiceTest {
             "description",
             info,
             actions,
-            createAssertionSource());
+            createAssertionSource(),
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -896,7 +935,8 @@ public class AssertionServiceTest {
             description,
             info,
             null,
-            createAssertionSource());
+            createAssertionSource(),
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -981,7 +1021,8 @@ public class AssertionServiceTest {
             description,
             info,
             actions,
-            createAssertionSource());
+            createAssertionSource(),
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -1060,7 +1101,8 @@ public class AssertionServiceTest {
             "description",
             info,
             null,
-            createAssertionSource());
+            createAssertionSource(),
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -1152,7 +1194,8 @@ public class AssertionServiceTest {
             "description",
             info,
             actions,
-            createAssertionSource());
+            createAssertionSource(),
+            Constants.METADATA_TESTS_SOURCE);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -1629,20 +1672,24 @@ public class AssertionServiceTest {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
     GraphClient mockGraphClient = mock(GraphClient.class);
 
+    AssertionInfo assertionInfo = mockAssertionInfo();
+    assertionInfo.setEntityUrn(TEST_DATASET_URN);
+
     Mockito.when(
-            mockGraphClient.getRelatedEntities(
-                Mockito.eq(TEST_ASSERTION_URN.toString()),
-                Mockito.eq(ImmutableSet.of("Asserts")),
-                Mockito.eq(RelationshipDirection.OUTGOING),
-                Mockito.eq(0),
-                Mockito.eq(1),
-                Mockito.anyString()))
+            mockClient.getV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(TEST_ASSERTION_URN),
+                Mockito.any()))
         .thenReturn(
-            new EntityRelationships()
-                .setTotal(1)
-                .setRelationships(
-                    new EntityRelationshipArray(
-                        ImmutableList.of(new EntityRelationship().setEntity(TEST_DATASET_URN)))));
+            new EntityResponse()
+                .setUrn(TEST_ASSERTION_URN)
+                .setEntityName(ASSERTION_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(assertionInfo.data()))))));
 
     final AssertionService service =
         new AssertionService(mockClient, mockGraphClient, mock(OpenApiClient.class), objectMapper);

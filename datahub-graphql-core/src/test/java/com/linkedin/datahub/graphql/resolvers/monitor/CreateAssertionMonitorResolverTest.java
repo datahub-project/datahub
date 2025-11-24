@@ -266,7 +266,8 @@ public class CreateAssertionMonitorResolverTest {
             Mockito.eq(evaluationSpec.getAssertion()),
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
-            Mockito.eq(TEST_EXECUTOR_ID));
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -301,7 +302,8 @@ public class CreateAssertionMonitorResolverTest {
             Mockito.eq(evaluationSpec.getAssertion()),
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
-            Mockito.eq(TEST_EXECUTOR_ID));
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -336,7 +338,8 @@ public class CreateAssertionMonitorResolverTest {
             Mockito.eq(evaluationSpec.getAssertion()),
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
-            Mockito.eq(TEST_EXECUTOR_ID));
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     // Ensure that we retrieved the assertion info to check whether it is of type SQL.
     Mockito.verify(mockAssertionService, Mockito.times(1))
@@ -385,7 +388,8 @@ public class CreateAssertionMonitorResolverTest {
             Mockito.eq(evaluationSpec.getAssertion()),
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
-            Mockito.eq(TEST_EXECUTOR_ID));
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -424,7 +428,8 @@ public class CreateAssertionMonitorResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any());
+            Mockito.any(),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     CreateAssertionMonitorResolver resolver =
         new CreateAssertionMonitorResolver(mockService, mockAssertionService);
@@ -447,7 +452,8 @@ public class CreateAssertionMonitorResolverTest {
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any()))
+                Mockito.any(),
+                Mockito.eq(Constants.METADATA_TESTS_SOURCE)))
         .thenReturn(TEST_MONITOR_URN);
 
     Mockito.when(

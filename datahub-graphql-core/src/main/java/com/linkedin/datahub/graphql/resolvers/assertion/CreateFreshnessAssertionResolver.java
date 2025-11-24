@@ -35,6 +35,7 @@ public class CreateFreshnessAssertionResolver implements DataFetcher<Completable
         ResolverUtils.bindArgument(
             environment.getArgument("input"), CreateFreshnessAssertionInput.class);
     final Urn asserteeUrn = UrnUtils.getUrn(input.getEntityUrn());
+    final String appSource = ResolverUtils.resolveAppSource(context);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -52,7 +53,8 @@ public class CreateFreshnessAssertionResolver implements DataFetcher<Completable
                         : null,
                     input.getActions() != null
                         ? AssertionUtils.createAssertionActions(input.getActions())
-                        : null);
+                        : null,
+                    appSource);
 
             // Then, return the new assertion
             return AssertionMapper.map(

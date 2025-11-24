@@ -28,9 +28,11 @@ import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -238,5 +240,31 @@ public class ResolverUtils {
       _logger.error("Error when filtering urns when getting entities", e);
       return false;
     }
+  }
+
+  @Nonnull
+  public static String resolveAppSource(@Nonnull final QueryContext context) {
+    final OperationContext opContext = context.getOperationContext();
+    if (opContext == null) {
+      return UI_SOURCE;
+    }
+    final RequestContext requestContext = opContext.getRequestContext();
+    if (requestContext == null) {
+      return UI_SOURCE;
+    }
+    if (RequestContext.RequestAPI.TEST.equals(requestContext.getRequestAPI())) {
+      return METADATA_TESTS_SOURCE;
+    }
+    final String agentClass = requestContext.getAgentClass();
+    if (agentClass == null || agentClass.trim().isEmpty()) {
+      return UI_SOURCE;
+    }
+    if ("browser".equalsIgnoreCase(agentClass)) {
+      return UI_SOURCE;
+    }
+    if ("unknown".equalsIgnoreCase(agentClass)) {
+      return UI_SOURCE;
+    }
+    return agentClass.toLowerCase(Locale.ROOT);
   }
 }

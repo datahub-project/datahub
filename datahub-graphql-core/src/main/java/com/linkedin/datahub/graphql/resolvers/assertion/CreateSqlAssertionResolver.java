@@ -34,6 +34,7 @@ public class CreateSqlAssertionResolver implements DataFetcher<CompletableFuture
     final CreateSqlAssertionInput input =
         ResolverUtils.bindArgument(environment.getArgument("input"), CreateSqlAssertionInput.class);
     final Urn asserteeUrn = UrnUtils.getUrn(input.getEntityUrn());
+    final String appSource = ResolverUtils.resolveAppSource(context);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -49,7 +50,8 @@ public class CreateSqlAssertionResolver implements DataFetcher<CompletableFuture
                     SqlAssertionUtils.createSqlAssertionInfo(input),
                     input.getActions() != null
                         ? AssertionUtils.createAssertionActions(input.getActions())
-                        : null);
+                        : null,
+                    appSource);
 
             // Then, return the new assertion
             return AssertionMapper.map(

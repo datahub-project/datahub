@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.METADATA_TESTS_SOURCE;
+import static com.linkedin.metadata.Constants.UI_SOURCE;
 import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.Mockito.doThrow;
@@ -29,6 +31,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -190,5 +193,53 @@ public class ResolverUtilsTest {
 
     assertFalse(result);
     verify(mockEntityClient).exists(mockOpContext, testUrn);
+  }
+
+  @Test
+  public void testResolveAppSourceBrowser() {
+    QueryContext context = mock(QueryContext.class);
+    OperationContext opContext = mock(OperationContext.class);
+    RequestContext requestContext = mock(RequestContext.class);
+    when(context.getOperationContext()).thenReturn(opContext);
+    when(opContext.getRequestContext()).thenReturn(requestContext);
+    when(requestContext.getRequestAPI()).thenReturn(RequestContext.RequestAPI.GRAPHQL);
+    when(requestContext.getAgentClass()).thenReturn("Browser");
+
+    assertEquals(resolveAppSource(context), UI_SOURCE);
+  }
+
+  @Test
+  public void testResolveAppSourceCli() {
+    QueryContext context = mock(QueryContext.class);
+    OperationContext opContext = mock(OperationContext.class);
+    RequestContext requestContext = mock(RequestContext.class);
+    when(context.getOperationContext()).thenReturn(opContext);
+    when(opContext.getRequestContext()).thenReturn(requestContext);
+    when(requestContext.getRequestAPI()).thenReturn(RequestContext.RequestAPI.GRAPHQL);
+    when(requestContext.getAgentClass()).thenReturn("CLI");
+
+    assertEquals(resolveAppSource(context), "cli");
+  }
+
+  @Test
+  public void testResolveAppSourceMetadataTests() {
+    QueryContext context = mock(QueryContext.class);
+    OperationContext opContext = mock(OperationContext.class);
+    RequestContext requestContext = mock(RequestContext.class);
+    when(context.getOperationContext()).thenReturn(opContext);
+    when(opContext.getRequestContext()).thenReturn(requestContext);
+    when(requestContext.getRequestAPI()).thenReturn(RequestContext.RequestAPI.TEST);
+
+    assertEquals(resolveAppSource(context), METADATA_TESTS_SOURCE);
+  }
+
+  @Test
+  public void testResolveAppSourceDefaultsToUi() {
+    QueryContext context = mock(QueryContext.class);
+    OperationContext opContext = mock(OperationContext.class);
+    when(context.getOperationContext()).thenReturn(opContext);
+    when(opContext.getRequestContext()).thenReturn(null);
+
+    assertEquals(resolveAppSource(context), UI_SOURCE);
   }
 }

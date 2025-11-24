@@ -119,7 +119,8 @@ public class CreateFreshnessAssertionResolverTest {
             Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getType()),
             Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getSchedule()),
             Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getFilter()),
-            Mockito.eq(TEST_ASSERTION_ACTIONS));
+            Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
   }
 
   @Test
@@ -152,7 +153,8 @@ public class CreateFreshnessAssertionResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any());
+            Mockito.any(),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
 
     CreateFreshnessAssertionResolver resolver = new CreateFreshnessAssertionResolver(mockService);
 
@@ -174,7 +176,8 @@ public class CreateFreshnessAssertionResolverTest {
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any()))
+                Mockito.any(),
+                Mockito.eq(Constants.METADATA_TESTS_SOURCE)))
         .thenReturn(TEST_ASSERTION_URN);
 
     Mockito.when(
