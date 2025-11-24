@@ -117,18 +117,54 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                                        | Required | Default                | Description                                                                                                                                              |
-| -------------------------------------------- | -------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `connection.bootstrap`                       | ✅       |                        | Kafka bootstrap URL.                                                                                                                                     |
-| `connection.producer_config.<option>`        |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer                  |
-| `connection.schema_registry_url`             | ✅       |                        | URL of schema registry being used.                                                                                                                       |
-| `connection.schema_registry_config.<option>` |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient |
-| `topic_routes.MetadataChangeEvent`           |          | MetadataChangeEvent    | Overridden Kafka topic name for the MetadataChangeEvent                                                                                                  |
-| `topic_routes.MetadataChangeProposal`        |          | MetadataChangeProposal | Overridden Kafka topic name for the MetadataChangeProposal                                                                                               |
+| Field                                         | Required | Default                | Description                                                                                                                                                                                                                                                                                |
+| --------------------------------------------- | -------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `connection.bootstrap`                        | ✅       |                        | Kafka bootstrap URL.                                                                                                                                                                                                                                                                       |
+| `connection.producer_config.<option>`         |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer                                                                                                                                                    |
+| `connection.schema_registry_url`              | ✅       |                        | URL of schema registry being used.                                                                                                                                                                                                                                                         |
+| `connection.schema_registry_config.<option>`  |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient                                                                                                                                   |
+| `connection.disable_auto_schema_registration` |          | `false`                | Disable automatic schema registration with Kafka Schema Registry. When `true`, requires schemas to be pre-registered. Useful for production environments with read-only Schema Registry access. Can also be set via `DATAHUB_KAFKA_DISABLE_AUTO_SCHEMA_REGISTRATION` environment variable. |
+| `topic_routes.MetadataChangeEvent`            |          | MetadataChangeEvent    | Overridden Kafka topic name for the MetadataChangeEvent                                                                                                                                                                                                                                    |
+| `topic_routes.MetadataChangeProposal`         |          | MetadataChangeProposal | Overridden Kafka topic name for the MetadataChangeProposal                                                                                                                                                                                                                                 |
 
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
 
 For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.dhub.yaml).
+
+### Using Pre-Registered Schemas
+
+In production environments, you may want to disable automatic schema registration to:
+
+- Enforce schema governance (schemas reviewed before registration)
+- Use read-only Schema Registry access for ingestion users
+- Avoid accidental schema changes from ingestion jobs
+
+To disable auto-registration:
+
+**Option 1: Environment Variable (recommended for Helm/Kubernetes deployments)**
+
+```bash
+export DATAHUB_KAFKA_DISABLE_AUTO_SCHEMA_REGISTRATION=true
+```
+
+**Option 2: Recipe Configuration**
+
+```yaml
+sink:
+  type: datahub-kafka
+  config:
+    connection:
+      bootstrap: "broker:9092"
+      schema_registry_url: "http://schema-registry:8081"
+      disable_auto_schema_registration: true
+```
+
+**Important**: When auto-registration is disabled, you must pre-register the following schemas in your Schema Registry before running ingestion:
+
+- Subject: `MetadataChangeEvent_v4-value` (or your custom MCE topic name + `-value`)
+- Subject: `MetadataChangeProposal_v1-value` (or your custom MCP topic name + `-value`)
+
+The Avro schema definitions can be found in the DataHub repository under `metadata-events/mxe-utils-avro/src/main/resources/`.
 
 ## DataHub Lite (experimental)
 

@@ -186,6 +186,19 @@ def get_kafka_schema_registry_url() -> Optional[str]:
     return os.getenv("KAFKA_SCHEMAREGISTRY_URL")
 
 
+def get_kafka_disable_auto_schema_registration() -> bool:
+    """Disable automatic schema registration with Kafka Schema Registry.
+
+    When enabled, requires schemas to be pre-registered in the Schema Registry.
+    This is useful for production environments where the ingestion user has
+    read-only access to the Schema Registry.
+    """
+    return os.getenv("DATAHUB_KAFKA_DISABLE_AUTO_SCHEMA_REGISTRATION", "").lower() in (
+        "true",
+        "1",
+    )
+
+
 def get_spark_version() -> Optional[str]:
     """Spark version (for S3 source)."""
     return os.getenv("SPARK_VERSION")

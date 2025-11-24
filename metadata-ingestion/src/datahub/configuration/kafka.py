@@ -3,6 +3,7 @@ from pydantic import Field, field_validator
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.configuration.env_vars import (
     get_gms_base_path,
+    get_kafka_disable_auto_schema_registration,
     get_kafka_schema_registry_url,
 )
 from datahub.configuration.kafka_consumer_config import CallableConsumerConfig
@@ -20,6 +21,31 @@ def _get_schema_registry_url() -> str:
         base_path = ""
 
     return f"http://localhost:8080{base_path}/schema-registry/api/"
+
+
+def _resolve_kafka_oauth_callback(config: dict) -> dict:
+    """
+    Resolve OAuth callback string paths to callable functions.
+
+    This helper resolves the oauth_cb configuration parameter from a string
+    path (e.g., "module:function") to an actual callable function. This is
+    used for OAuth authentication mechanisms like AWS MSK IAM.
+
+    Args:
+        config: Dictionary that may contain an oauth_cb key with a string value
+
+    Returns:
+        The config dictionary with oauth_cb resolved to a callable if present
+
+    Raises:
+        ConfigurationError: If oauth_cb validation or resolution fails
+    """
+    if CallableConsumerConfig.is_callable_config(config):
+        try:
+            config = CallableConsumerConfig(config).callable_config()
+        except Exception as e:
+            raise ConfigurationError(e) from e
+    return config
 
 
 class _KafkaConnectionConfig(ConfigModel):
@@ -61,12 +87,7 @@ class KafkaConsumerConnectionConfig(_KafkaConnectionConfig):
     @field_validator("consumer_config", mode="after")
     @classmethod
     def resolve_callback(cls, value: dict) -> dict:
-        if CallableConsumerConfig.is_callable_config(value):
-            try:
-                value = CallableConsumerConfig(value).callable_config()
-            except Exception as e:
-                raise ConfigurationError(e) from e
-        return value
+        return _resolve_kafka_oauth_callback(value)
 
 
 class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
@@ -75,4 +96,19 @@ class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
     producer_config: dict = Field(
         default_factory=dict,
         description="Extra producer config serialized as JSON. These options will be passed into Kafka's SerializingProducer. See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serializingproducer and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md .",
+    )
+
+    @field_validator("producer_config", mode="after")
+    @classmethod
+    def resolve_callback(cls, value: dict) -> dict:
+        return _resolve_kafka_oauth_callback(value)
+
+    disable_auto_schema_registration: bool = Field(
+        default_factory=get_kafka_disable_auto_schema_registration,
+        description=(
+            "Disable automatic schema registration with Kafka Schema Registry. "
+            "When enabled (true), requires schemas to be pre-registered in the Schema Registry. "
+            "This is useful for production environments where the ingestion user has read-only access "
+            "to the Schema Registry. Can be set via DATAHUB_KAFKA_DISABLE_AUTO_SCHEMA_REGISTRATION environment variable."
+        ),
     )
