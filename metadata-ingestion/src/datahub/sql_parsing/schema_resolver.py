@@ -1,9 +1,12 @@
 import contextlib
+import logging
 import pathlib
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Protocol, Set, Tuple
 
 from typing_extensions import TypedDict
+
+logger = logging.getLogger(__name__)
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
