@@ -6,8 +6,6 @@ from typing import Dict, List, Optional, Protocol, Set, Tuple
 
 from typing_extensions import TypedDict
 
-logger = logging.getLogger(__name__)
-
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     make_dataset_urn_with_platform_instance,
@@ -21,6 +19,8 @@ from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+
+logger = logging.getLogger(__name__)
 
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
