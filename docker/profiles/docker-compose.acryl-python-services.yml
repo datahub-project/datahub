@@ -51,7 +51,8 @@ x-datahub-integrations-service-dev: &datahub-integrations-service-dev
     - ../../metadata-ingestion/src:/metadata-ingestion/src
     - ../../datahub-actions/src:/datahub-actions/src
     - ../../datahub-integrations-service:/datahub-integrations-service
-    - ~/.aws:/home/datahub/.aws:rw  # Mount AWS credentials for Bedrock SSO support
+    - ~/.aws:/home/datahub/.aws:rw # Mount AWS credentials for Bedrock SSO support
+    - ~/.config/gcloud:/home/datahub/.config/gcloud:rw # Mount GCP credentials for Gemini SSO support
 
 x-datahub-integrations-service-dev-head: &datahub-integrations-service-dev-head
   <<: *datahub-integrations-service-dev
@@ -119,7 +120,7 @@ services:
   datahub-integrations-debug-aws-dev:
     <<: *datahub-integrations-service-dev
     environment:
-      <<: [*localstack-env, *datahub-integrations-service-dev-env]
+      <<: [ *localstack-env, *datahub-integrations-service-dev-env ]
     profiles:
       - debug-aws
     depends_on:
@@ -212,7 +213,7 @@ services:
   datahub-executor-debug-aws-dev:
     <<: *datahub-executor-dev
     environment:
-      <<: [*localstack-env, *datahub-executor-dev-env]
+      <<: [ *localstack-env, *datahub-executor-dev-env ]
     profiles:
       - debug-aws
     depends_on:

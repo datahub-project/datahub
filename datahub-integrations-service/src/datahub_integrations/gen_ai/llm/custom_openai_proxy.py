@@ -80,11 +80,11 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
             model=self.model_name,
             api_key=SecretStr(openai_api_key),  # Wrap in SecretStr for type safety
             http_client=custom_client,
+            http_async_client=custom_client,  # Langchain requires a separate custom http client for async calls
             base_url=custom_base_url,
             temperature=0.5,  # Default, can be overridden per-request via invoke kwargs
             timeout=self.read_timeout,
             max_retries=self.max_attempts,
-            reasoning_effort="minimal",
             # Note: max_tokens is not set here - it's passed to invoke() per-request
             # use_responses_api=True,
         )

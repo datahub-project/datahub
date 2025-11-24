@@ -72,6 +72,13 @@ class LiteLLMModel(enum.Enum):
     # Recommended: Claude Sonnet 4.5 is the latest and most capable model
     CLAUDE_45_SONNET = f"bedrock/{BedrockModel.CLAUDE_45_SONNET.value}"
 
+    # Open AI Models
+    GPT_5 = "openai/gpt-5"
+    GPT_5_NANO = "openai/gpt-5-nano"
+
+    # GEMINI Models
+    GEMINI_25_FLASH = "google_vertexai/gemini-2.5-flash"
+
     def __str__(self) -> str:
         """Return the model ID string when converted to string."""
         return self.value
@@ -211,9 +218,9 @@ def get_docs_ai_config() -> DocumentationAIConfig:
 
 def get_term_suggestion_config() -> TermSuggestionConfig:
     term_suggestion_model = _get_model_value(
-        get_bedrock_model_env_variable(
+        get_litellm_model_env_variable(
             "TERM_SUGGESTION_MODEL",
-            BedrockModel.CLAUDE_45_SONNET,
+            LiteLLMModel.CLAUDE_45_SONNET,
             "TERM_SUGGESTION_GENERATION_BEDROCK_MODEL",
         )
     )
@@ -226,15 +233,15 @@ def get_chat_assistant_config() -> ChatAssistantAIConfig:
     # when these usecases are implemented with litellm and then populate them
     # in datahub-helm-fork and datahub-apps
     chat_model = _get_model_value(
-        get_bedrock_model_env_variable(
+        get_litellm_model_env_variable(
             "CHATBOT_MODEL",
-            BedrockModel.CLAUDE_45_SONNET,
+            LiteLLMModel.CLAUDE_45_SONNET,
         )
     )
     chat_summary_model = _get_model_value(
-        get_bedrock_model_env_variable(
+        get_litellm_model_env_variable(
             "CHAT_SUMMARIZATION_MODEL",
-            BedrockModel.CLAUDE_45_SONNET,
+            LiteLLMModel.CLAUDE_45_SONNET,
         )
     )
 

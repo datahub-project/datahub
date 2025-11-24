@@ -82,11 +82,11 @@ def test_no_env_vars_set() -> None:
         )
         assert (
             model_config.chat_assistant_ai.model
-            == "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+            == "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
         assert (
             model_config.term_suggestion_ai.model
-            == "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+            == "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
         assert model_config.chat_assistant_ai.planning_mode_enabled
 
@@ -113,11 +113,11 @@ def test_only_region_prefix_set_to_eu() -> None:
         )
         assert (
             eu_model_config.chat_assistant_ai.model
-            == "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+            == "bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
         assert (
             eu_model_config.term_suggestion_ai.model
-            == "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+            == "bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
         assert eu_model_config.chat_assistant_ai.planning_mode_enabled
 
@@ -126,8 +126,8 @@ def test_all_env_vars_set_legacy() -> None:
     # Test that legacy environment variables work correctly with APAC region
     env_vars = {
         "ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX": "apac",
-        "CHATBOT_MODEL": "apac.anthropic.claude-sonnet-4-20250514-v1:0",
-        "TERM_SUGGESTION_MODEL": "apac.anthropic.claude-3-5-haiku-20241022-v1:0",
+        "CHATBOT_MODEL": "bedrock/apac.anthropic.claude-sonnet-4-20250514-v1:0",
+        "TERM_SUGGESTION_MODEL": "bedrock/apac.anthropic.claude-3-5-haiku-20241022-v1:0",
     }
 
     with patch.dict(os.environ, env_vars, clear=True):
@@ -148,11 +148,11 @@ def test_all_env_vars_set_legacy() -> None:
         )
         assert (
             legacy_model_config.term_suggestion_ai.model
-            == "apac.anthropic.claude-3-5-haiku-20241022-v1:0"
+            == "bedrock/apac.anthropic.claude-3-5-haiku-20241022-v1:0"
         )
         assert (
             legacy_model_config.chat_assistant_ai.model
-            == "apac.anthropic.claude-sonnet-4-20250514-v1:0"
+            == "bedrock/apac.anthropic.claude-sonnet-4-20250514-v1:0"
         )
         assert legacy_model_config.chat_assistant_ai.planning_mode_enabled
 
@@ -165,8 +165,8 @@ def test_current_env_vars_setup() -> None:
         "DESCRIPTION_GENERATION_MODEL": "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         "QUERY_DESCRIPTION_GENERATION_MODEL": "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         # old env vars below
-        "TERM_SUGGESTION_MODEL": "us.anthropic.claude-sonnet-4-20250514-v1:0",
-        "CHATBOT_MODEL": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+        "TERM_SUGGESTION_MODEL": "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0",
+        "CHATBOT_MODEL": "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0",
     }
 
     with patch.dict(os.environ, env_vars, clear=True):
@@ -187,11 +187,11 @@ def test_current_env_vars_setup() -> None:
         )
         assert (
             new_model_config.chat_assistant_ai.model
-            == "us.anthropic.claude-sonnet-4-20250514-v1:0"
+            == "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0"
         )
         assert (
             new_model_config.term_suggestion_ai.model
-            == "us.anthropic.claude-sonnet-4-20250514-v1:0"
+            == "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0"
         )
         assert new_model_config.chat_assistant_ai.planning_mode_enabled
 
@@ -225,11 +225,11 @@ def test_ideal_env_vars_setup() -> None:
         )
         assert (
             new_model_config.chat_assistant_ai.model
-            == "us.anthropic.claude-sonnet-4-20250514-v1:0"
+            == "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0"
         )
         assert (
             new_model_config.term_suggestion_ai.model
-            == "us.anthropic.claude-sonnet-4-20250514-v1:0"
+            == "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0"
         )
         assert new_model_config.chat_assistant_ai.planning_mode_enabled
 
@@ -277,7 +277,7 @@ def test_custom_model_provider_config() -> None:
         "QUERY_DESCRIPTION_GENERATION_MODEL": "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         # old env vars below
         "TERM_SUGGESTION_MODEL": "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0",
-        "CHATBOT_MODEL": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+        "CHATBOT_MODEL": "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0",
         "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
         "MODEL_CUSTOM_API_KEY": "1234",
         "MODEL_CUSTOM_CERT_FILE": "/path/to/cert.crt",
