@@ -22,6 +22,13 @@ export FE_ID=1
 
 echo "Starting Doris FE with FE_SERVERS=${FE_SERVERS} FE_ID=${FE_ID}"
 
+# Ensure JAVA_OPTS is exported for the Doris startup script
+# This workaround fixes Java 17 cgroup v2 incompatibility
+if [ -n "$JAVA_OPTS" ]; then
+    echo "Applying JAVA_OPTS: $JAVA_OPTS"
+    export JAVA_OPTS
+fi
+
 # Call the original Doris entrypoint
 exec bash init_fe.sh
 

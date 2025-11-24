@@ -29,6 +29,13 @@ export BE_ADDR="${BE_IP}:9050"
 
 echo "Starting Doris BE with FE_SERVERS=${FE_SERVERS} BE_ADDR=${BE_ADDR}"
 
+# Ensure JAVA_OPTS is exported for the Doris startup script
+# This workaround fixes Java 17 cgroup v2 incompatibility
+if [ -n "$JAVA_OPTS" ]; then
+    echo "Applying JAVA_OPTS: $JAVA_OPTS"
+    export JAVA_OPTS
+fi
+
 # Call the original Doris entrypoint
 exec bash entry_point.sh
 
