@@ -173,6 +173,8 @@ def test_query_urn_generation():
 
     # Check that URNs are properly formatted
     first_query_urn = mcps[0].entityUrn
+    assert first_query_urn is not None
+    assert isinstance(first_query_urn, str)
     assert first_query_urn.startswith("urn:li:query:")
     # URN should have special characters replaced with underscores
     assert "model_test_test_model" in first_query_urn
@@ -270,6 +272,8 @@ def test_query_entity_with_invalid_description():
     # Should still emit query but without description
     assert len(mcps) == 2
     query_properties = mcps[0].aspect
+    assert query_properties is not None
+    assert isinstance(query_properties, QueryPropertiesClass)
     assert query_properties.description is None
     assert source.report.num_queries_emitted == 1
 
