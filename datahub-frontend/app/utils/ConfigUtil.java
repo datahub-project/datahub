@@ -57,10 +57,7 @@ public class ConfigUtil {
   public static final String DEFAULT_METADATA_SERVICE_SSL_PROTOCOL =
       Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR);
 
-    /**
-     * Standard AES/GCM decryptor for ENC(...) values.
-     * Format: ENC(Base64(IV + Ciphertext + Tag))
-     */
+  /** Standard AES/GCM decryptor for ENC(...) values. Format: ENC(Base64(IV + Ciphertext + Tag)) */
   public static String decryptGCM(String encValue, String base64Key) throws Exception {
     if (encValue == null) {
       return null;
