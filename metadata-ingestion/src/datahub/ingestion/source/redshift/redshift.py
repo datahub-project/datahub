@@ -6,7 +6,6 @@ from typing import Dict, Iterable, List, Optional, Type, Union
 import humanfriendly
 
 # These imports verify that the dependencies are available.
-import pydantic
 import redshift_connector
 
 from datahub.configuration.common import AllowDenyPattern
@@ -233,10 +232,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            RedshiftConfig.Config.extra = (
-                pydantic.Extra.allow
-            )  # we are okay with extra fields during this stage
-            config = RedshiftConfig.model_validate(config_dict)
+            # We are okay with extra fields during this stage
+            config = RedshiftConfig.parse_obj_allow_extras(config_dict)
             # source = RedshiftSource(config, report)
             connection: redshift_connector.Connection = (
                 RedshiftSource.get_redshift_connection(config)

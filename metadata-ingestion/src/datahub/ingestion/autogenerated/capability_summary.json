@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-10T12:13:43.145292+00:00",
+  "generated_at": "2025-11-14T14:26:00.526772+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -2181,10 +2181,34 @@
     "openapi": {
       "capabilities": [
         {
-          "capability": "PLATFORM_INSTANCE",
-          "description": "",
+          "capability": "DESCRIPTIONS",
+          "description": "Extracts endpoint descriptions and summaries from OpenAPI specifications",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Does not currently support domain assignment",
           "subtype_modifier": null,
           "supported": false
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Does not currently support extracting ownership",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "TAGS",
+          "description": "Extracts tags from OpenAPI specifications",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Extracts schemas from OpenAPI specifications for GET, POST, PUT, and PATCH methods",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.openapi.OpenApiSource",
