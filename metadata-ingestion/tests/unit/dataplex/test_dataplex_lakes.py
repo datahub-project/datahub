@@ -24,6 +24,53 @@ class MockGoogleAPICallError(Exception):
         self.message = message
 
 
+class MockPager:
+    """Mock pager that simulates Google Cloud API pagination behavior.
+
+    This class simulates the behavior of Google Cloud API pagers which
+    automatically handle pagination when iterated. It can simulate:
+    - Multi-page results
+    - Pagination tokens
+    - Incomplete results (if iteration stops mid-way)
+    """
+
+    def __init__(self, items: list, page_size: int = 2, fail_at: int = None):
+        """Initialize mock pager.
+
+        Args:
+            items: List of items to paginate
+            page_size: Number of items per page
+            fail_at: If set, raise exception when reaching this item index
+        """
+        self.items = items
+        self.page_size = page_size
+        self.fail_at = fail_at
+        self.pages_fetched = []
+        self.current_page_token = None
+
+    def __iter__(self):
+        """Iterate over all items, simulating pagination."""
+        page_num = 0
+        for i, item in enumerate(self.items):
+            if self.fail_at is not None and i >= self.fail_at:
+                raise MockGoogleAPICallError("Pagination interrupted", code=500)
+
+            # Simulate page boundaries
+            if i % self.page_size == 0:
+                page_num += 1
+                self.current_page_token = f"page_token_{page_num}"
+                self.pages_fetched.append(self.current_page_token)
+
+            yield item
+
+    @property
+    def next_page_token(self):
+        """Return the next page token if more pages exist."""
+        if len(self.pages_fetched) * self.page_size < len(self.items):
+            return f"page_token_{len(self.pages_fetched) + 1}"
+        return None
+
+
 @pytest.fixture
 def dataplex_config() -> DataplexConfig:
     """Create a test configuration."""
@@ -315,3 +362,71 @@ def test_get_lakes_mcps_extract_lakes_disabled(
     workunits = list(source._get_lakes_mcps("test-project"))
 
     assert len(workunits) == 5
+
+
+def test_get_lakes_mcps_pagination_multiple_pages(
+    dataplex_source: DataplexSource,
+) -> None:
+    """Test that pagination handles multiple pages correctly."""
+    # Create 5 lakes to simulate multiple pages (with page_size=2, this is 3 pages)
+    mock_lakes = [create_mock_lake(f"lake-{i}") for i in range(1, 6)]
+    mock_pager = MockPager(mock_lakes, page_size=2)
+
+    # Use side_effect to ensure the pager is returned correctly
+    dataplex_source.dataplex_client.list_lakes.side_effect = lambda **kwargs: mock_pager
+
+    workunits = list(dataplex_source._get_lakes_mcps("test-project"))
+
+    # Verify all 5 lakes are processed (5 lakes × 5 workunits = 25 workunits)
+    assert len(workunits) == 25
+    assert dataplex_source.report.num_lakes_scanned == 5
+    # Verify pagination occurred (should have fetched multiple pages)
+    assert len(mock_pager.pages_fetched) >= 2
+
+
+def test_get_lakes_mcps_pagination_token_passing(
+    dataplex_source: DataplexSource,
+) -> None:
+    """Test that all items are processed across multiple pages."""
+    # Create lakes across multiple pages
+    mock_lakes = [create_mock_lake(f"lake-{i}") for i in range(1, 4)]
+    mock_pager = MockPager(mock_lakes, page_size=1)
+
+    # Use side_effect to ensure the pager is returned correctly
+    dataplex_source.dataplex_client.list_lakes.side_effect = lambda **kwargs: mock_pager
+
+    workunits = list(dataplex_source._get_lakes_mcps("test-project"))
+
+    # Verify all lakes are processed across multiple pages
+    assert len(workunits) == 15  # 3 lakes × 5 workunits
+    assert dataplex_source.report.num_lakes_scanned == 3
+    # Verify pagination occurred (multiple pages were fetched)
+    assert len(mock_pager.pages_fetched) >= 2
+
+
+def test_get_lakes_mcps_pagination_incomplete_result(
+    dataplex_source: DataplexSource, monkeypatch
+) -> None:
+    """Test handling of incomplete pagination results (e.g., API failure mid-pagination)."""
+    # Patch the exception type in the dataplex module to use our mock
+    import datahub.ingestion.source.dataplex.dataplex as dataplex_module
+
+    monkeypatch.setattr(
+        dataplex_module.exceptions, "GoogleAPICallError", MockGoogleAPICallError
+    )
+
+    # Create a pager that fails after 2 items (simulating incomplete pagination)
+    mock_lakes = [create_mock_lake(f"lake-{i}") for i in range(1, 5)]
+    mock_pager = MockPager(mock_lakes, page_size=2, fail_at=2)
+
+    # Use side_effect to ensure the pager is returned correctly
+    dataplex_source.dataplex_client.list_lakes.side_effect = lambda **kwargs: mock_pager
+
+    # Should handle the error gracefully
+    workunits = list(dataplex_source._get_lakes_mcps("test-project"))
+
+    # Should have processed items before failure, but then stopped
+    # With fail_at=2, first 2 lakes (lake-1, lake-2) should be processed = 10 workunits
+    # Then exception is raised when trying to process lake-3
+    assert len(workunits) == 10  # 2 lakes × 5 workunits = 10 workunits before failure
+    assert len(dataplex_source.report.failures) > 0
