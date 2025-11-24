@@ -60,7 +60,7 @@ class LineageExtractor:
 
         ds_type, ds_uid = self._extract_datasource_info(panel.datasource_ref)
         raw_sql = self._extract_raw_sql(panel.query_targets)
-        ds_urn = self._build_dataset_urn(ds_type, ds_uid, dashboard_uid, panel.id)
+        ds_urn = self._build_dataset_urn(ds_type, ds_uid)
 
         # Handle platform-specific lineage
         if ds_uid in self.connection_map:
@@ -95,11 +95,9 @@ class LineageExtractor:
                     return value
         return None
 
-    def _build_dataset_urn(
-        self, ds_type: str, ds_uid: str, dashboard_uid: str, panel_id: str
-    ) -> str:
-        """Build dataset URN with dashboard scope for global uniqueness."""
-        dataset_name = f"{ds_type}.{ds_uid}.{dashboard_uid}.{panel_id}"
+    def _build_dataset_urn(self, ds_type: str, ds_uid: str) -> str:
+        """Build dataset URN for a Grafana datasource (shared across all panels)."""
+        dataset_name = f"{ds_type}.{ds_uid}"
         return make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=dataset_name,
@@ -187,9 +185,8 @@ class LineageExtractor:
                         ],
                         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                         upstreams=[
-                            make_schema_field_urn(upstream_dataset, col.column)
+                            make_schema_field_urn(col.table, col.column)
                             for col in col_lineage.upstreams
-                            for upstream_dataset in parsed_sql.in_tables
                         ],
                     )
                 )
