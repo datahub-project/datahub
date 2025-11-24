@@ -101,13 +101,22 @@ describe('LargeModule', () => {
         expect(screen.getByTestId('module-inner-content')).toBeInTheDocument();
     });
 
-    it('should render view all button when onClickViewAll is provided', () => {
+    it('should render view all button with default text when onClickViewAll is provided and viewAllText is not provided', () => {
         const mockOnClickViewAll = vi.fn();
         render(<LargeModule {...defaultProps} onClickViewAll={mockOnClickViewAll} />);
 
         const viewAllButton = screen.getByTestId('view-all');
         expect(viewAllButton).toBeInTheDocument();
         expect(viewAllButton).toHaveTextContent('View all');
+    });
+
+    it('should render view all button with custom text when onClickViewAll and viewAllText are provided', () => {
+        const mockOnClickViewAll = vi.fn();
+        render(<LargeModule {...defaultProps} onClickViewAll={mockOnClickViewAll} viewAllText="View in Columns" />);
+
+        const viewAllButton = screen.getByTestId('view-all');
+        expect(viewAllButton).toBeInTheDocument();
+        expect(viewAllButton).toHaveTextContent('View in Columns');
     });
 
     it('should not render view all button when onClickViewAll is not provided', () => {
