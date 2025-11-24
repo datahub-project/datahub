@@ -51,6 +51,8 @@ public class FeatureFlags {
   private boolean logicalModelsEnabled = false;
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;
+  private boolean datasetSummaryPageV1 = false;
   private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
+  private boolean contextDocumentsEnabled = false;
 }

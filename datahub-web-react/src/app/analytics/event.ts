@@ -167,6 +167,12 @@ export enum EventType {
     FileUploadFailedEvent,
     FileUploadSucceededEvent,
     FileDownloadViewEvent,
+    FileUploadLatencyEvent,
+    FileDownloadLatencyEvent,
+    CreateDocumentEvent,
+    MoveDocumentEvent,
+    EditDocumentEvent,
+    DeleteDocumentEvent,
 }
 
 /**
@@ -1220,6 +1226,68 @@ export interface FileDownloadViewEvent extends BaseEvent {
     schemaFieldUrn?: string;
 }
 
+export interface FileUploadLatencyEvent extends BaseEvent {
+    type: EventType.FileUploadLatencyEvent;
+    url: string;
+    duration: number;
+}
+
+export interface FileDownloadLatencyEvent extends BaseEvent {
+    type: EventType.FileDownloadLatencyEvent;
+    url: string;
+    duration: number;
+}
+
+/**
+ * Logged when a user creates a new document.
+ */
+export interface CreateDocumentEvent extends BaseEvent {
+    type: EventType.CreateDocumentEvent;
+    documentUrn: string;
+    documentType?: string;
+    hasParent: boolean;
+    parentDocumentUrn?: string;
+}
+
+/**
+ * Logged when a user moves a document to a different parent.
+ */
+export interface MoveDocumentEvent extends BaseEvent {
+    type: EventType.MoveDocumentEvent;
+    documentUrn: string;
+    oldParentDocumentUrn?: string;
+    newParentDocumentUrn?: string;
+}
+
+/**
+ * Describes what kind of edit was made to a document.
+ */
+export enum DocumentEditType {
+    Title = 'Title',
+    Contents = 'Contents',
+    PublishState = 'PublishState',
+    Type = 'Type',
+}
+
+/**
+ * Logged when a user edits a document.
+ */
+export interface EditDocumentEvent extends BaseEvent {
+    type: EventType.EditDocumentEvent;
+    documentUrn: string;
+    editType: DocumentEditType;
+    documentType?: string;
+}
+
+/**
+ * Logged when a user deletes a document.
+ */
+export interface DeleteDocumentEvent extends BaseEvent {
+    type: EventType.DeleteDocumentEvent;
+    documentUrn: string;
+    documentType?: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1364,4 +1432,10 @@ export type Event =
     | FileUploadAttemptEvent
     | FileUploadFailedEvent
     | FileUploadSucceededEvent
-    | FileDownloadViewEvent;
+    | FileDownloadViewEvent
+    | FileUploadLatencyEvent
+    | FileDownloadLatencyEvent
+    | CreateDocumentEvent
+    | MoveDocumentEvent
+    | EditDocumentEvent
+    | DeleteDocumentEvent;
