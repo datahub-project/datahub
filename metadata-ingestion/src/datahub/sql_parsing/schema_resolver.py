@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import pathlib
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Protocol, Set, Tuple
@@ -18,6 +19,8 @@ from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+
+logger = logging.getLogger(__name__)
 
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
@@ -168,7 +171,10 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                 self._track_cache_hit()
                 return urn_mixed, schema_info
 
-        # Track cache miss for the final attempt
+        logger.debug(
+            f"Schema resolution failed for table {table}. Tried URNs: "
+            f"primary={urn}, lower={urn_lower}, mixed={urn_mixed}"
+        )
         self._track_cache_miss()
 
         if self._prefers_urn_lower():
