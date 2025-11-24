@@ -1094,7 +1094,7 @@ FROM reporting.updated_orders uo JOIN minerva_pii.order_item_pii oi USING (order
             "OBJECT_MODIFIED_BY_DDL": None,
         }
 
-        users = {}
+        users: dict = {}
         result = extractor._parse_audit_log_row(row, users)
 
         # Should return a list of PreparsedQuery entries
@@ -1171,7 +1171,7 @@ FROM reporting.updated_orders uo JOIN minerva_pii.order_item_pii oi USING (order
             "OBJECT_MODIFIED_BY_DDL": None,
         }
 
-        users = {}
+        users: dict = {}
         result = extractor._parse_audit_log_row(row, users)
 
         # Should return a single PreparsedQuery (not a list)
@@ -1236,7 +1236,7 @@ FROM reporting.updated_orders uo JOIN minerva_pii.order_item_pii oi USING (order
             "OBJECT_MODIFIED_BY_DDL": None,
         }
 
-        users = {}
+        users: dict = {}
         result = extractor._parse_audit_log_row(row, users)
 
         # Should return a list with 3 entries

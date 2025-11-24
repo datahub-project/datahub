@@ -735,8 +735,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             return downstream_entries
 
         # Single or no downstream table - use original logic (backward compatible)
-        downstream = None
-        column_lineage = None
+        downstream: Optional[str] = None
+        column_lineage: Optional[List[ColumnLineageInfo]] = None
         for obj in objects_modified:
             downstream = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
