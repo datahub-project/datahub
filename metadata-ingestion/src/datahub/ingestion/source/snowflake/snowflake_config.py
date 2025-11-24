@@ -125,6 +125,14 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         " use the regex 'Analytics.public.dashboard.*'",
     )
 
+    semantic_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for semantic views to filter in ingestion. "
+        "Specify regex to match the entire semantic view name in database.schema.semantic_view format. "
+        "e.g. to match all semantic views starting with sales in Analytics database and public schema,"
+        " use the regex 'Analytics.public.sales.*'",
+    )
+
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
@@ -328,6 +336,16 @@ class SnowflakeV2Config(
     include_streamlits: bool = Field(
         default=False,
         description="If enabled, Streamlit apps will be ingested as dashboards.",
+    )
+
+    include_semantic_views: bool = Field(
+        default=True,
+        description="If enabled, semantic views will be ingested as datasets.",
+    )
+
+    include_semantic_view_column_lineage: bool = Field(
+        default=True,
+        description="If enabled, column-level lineage will be generated for semantic views, mapping dimensions, facts, and metrics to their source columns in base tables. Only applicable when include_semantic_views is True.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(

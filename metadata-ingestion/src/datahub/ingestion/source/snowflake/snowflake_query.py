@@ -31,11 +31,17 @@ def create_deny_regex_sql_filter(
 
 
 class SnowflakeQuery:
+    # NOTE: Semantic views are intentionally excluded from ACCESS_HISTORY tracking.
+    # Snowflake semantic views are metadata constructs (not queryable SQL views) and cannot be
+    # directly queried with SELECT statements. They will never appear in ACCESS_HISTORY.
+    # Semantic views are used by BI tools, Snowflake Cortex, and semantic layer engines
+    # to understand business logic, relationships, and metric definitions.
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS = {
         SnowflakeObjectDomain.TABLE.capitalize(),
         SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
         SnowflakeObjectDomain.VIEW.capitalize(),
         SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
+        # SnowflakeObjectDomain.SEMANTIC_VIEW - Excluded: Not queryable, won't appear in ACCESS_HISTORY
         SnowflakeObjectDomain.ICEBERG_TABLE.capitalize(),
         SnowflakeObjectDomain.STREAM.capitalize(),
         SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
@@ -309,6 +315,243 @@ WHERE TABLE_CATALOG = '{db_name}'
             FROM SNOWFLAKE.ACCOUNT_USAGE.VIEWS
             WHERE IS_SECURE = 'YES' AND VIEW_DEFINITION !='' AND DELETED IS NULL
         """
+
+    @staticmethod
+    def show_semantic_views_for_database(
+        db_name: str,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
+        semantic_view_pagination_marker: Optional[str] = None,
+    ) -> str:
+        # SHOW SEMANTIC VIEWS can return a maximum of 10000 rows.
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
+
+        # To work around this, we paginate through the results using the FROM clause.
+        from_clause = (
+            f"""FROM '{semantic_view_pagination_marker}'"""
+            if semantic_view_pagination_marker
+            else ""
+        )
+        return f"""\
+SHOW SEMANTIC VIEWS IN DATABASE "{db_name}"
+LIMIT {limit} {from_clause};
+"""
+
+    @staticmethod
+    def get_semantic_views_for_database(db_name: str) -> str:
+        # Query semantic views from information_schema
+        return f"""\
+SELECT
+  TABLE_CATALOG as "SEMANTIC_VIEW_CATALOG",
+  TABLE_SCHEMA as "SEMANTIC_VIEW_SCHEMA",
+  TABLE_NAME as "SEMANTIC_VIEW_NAME",
+  COMMENT,
+  CREATED,
+  LAST_ALTERED
+FROM "{db_name}".information_schema.tables
+WHERE TABLE_CATALOG = '{db_name}'
+  AND TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+  AND TABLE_TYPE = 'SEMANTIC VIEW'
+"""
+
+    @staticmethod
+    def get_semantic_views_for_schema(db_name: str, schema_name: str) -> str:
+        return f"""\
+{SnowflakeQuery.get_semantic_views_for_database(db_name).rstrip()}
+  AND TABLE_SCHEMA = '{schema_name}'
+"""
+
+    @staticmethod
+    def get_semantic_view_ddl(
+        db_name: str, schema_name: str, semantic_view_name: str
+    ) -> str:
+        """Generate query to get the DDL definition of a semantic view."""
+        return f"""SELECT GET_DDL('SEMANTIC_VIEW', '"{db_name}"."{schema_name}"."{semantic_view_name}"') AS "DDL";"""
+
+    @staticmethod
+    def get_semantic_tables_for_database(db_name: str) -> str:
+        """Generate query to get semantic tables (base table mappings) for all semantic views in a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "SEMANTIC_TABLE_NAME",
+  base_table_catalog AS "BASE_TABLE_CATALOG",
+  base_table_schema AS "BASE_TABLE_SCHEMA",
+  base_table_name AS "BASE_TABLE_NAME",
+  primary_keys AS "PRIMARY_KEYS",
+  unique_keys AS "UNIQUE_KEYS",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_tables
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_tables_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic tables for semantic views in a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "SEMANTIC_TABLE_NAME",
+  base_table_catalog AS "BASE_TABLE_CATALOG",
+  base_table_schema AS "BASE_TABLE_SCHEMA",
+  base_table_name AS "BASE_TABLE_NAME",
+  primary_keys AS "PRIMARY_KEYS",
+  unique_keys AS "UNIQUE_KEYS",
+  comment AS "COMMENT"
+FROM "{db_name}".information_schema.semantic_tables
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_dimensions_for_database(db_name: str) -> str:
+        """Generate query to get all semantic dimensions for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_dimensions
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_dimensions_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic dimensions for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_dimensions
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_facts_for_database(db_name: str) -> str:
+        """Generate query to get all semantic facts for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_facts
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_facts_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic facts for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_facts
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_metrics_for_database(db_name: str) -> str:
+        """Generate query to get all semantic metrics for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_metrics
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_metrics_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic metrics for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_metrics
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_relationships_for_database(db_name: str) -> str:
+        """Generate query to get all semantic relationships for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "NAME",
+  table_name AS "TABLE_NAME",
+  foreign_keys AS "FOREIGN_KEYS",
+  ref_table_name AS "REF_TABLE_NAME",
+  ref_keys AS "REF_KEYS"
+FROM "{db_name}".information_schema.semantic_relationships
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_relationships_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic relationships for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "NAME",
+  table_name AS "TABLE_NAME",
+  foreign_keys AS "FOREIGN_KEYS",
+  ref_table_name AS "REF_TABLE_NAME",
+  ref_keys AS "REF_KEYS"
+FROM "{db_name}".information_schema.semantic_relationships
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
 
     @staticmethod
     def columns_for_schema(

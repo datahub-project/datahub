@@ -51,6 +51,7 @@ class SnowflakeObjectDomain(StrEnum):
     EXTERNAL_TABLE = "external table"
     VIEW = "view"
     MATERIALIZED_VIEW = "materialized view"
+    SEMANTIC_VIEW = "semantic view"
     DATABASE = "database"
     SCHEMA = "schema"
     COLUMN = "column"
