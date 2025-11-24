@@ -533,7 +533,89 @@ def test_DataHubValidationAction_spark(
         data_asset=ge_validator_spark,
     ) == {"datahub_notification_result": "DataHub notification succeeded"}
 
-    mock_emitter.assert_called()
+    mock_emitter.assert_has_calls(
+        [
+            mock.call(
+                mock.ANY,
+                MetadataChangeProposalWrapper(
+                    entityType="assertion",
+                    changeType="UPSERT",
+                    entityUrn="urn:li:assertion:5f0a1761a5e0d1b7acb7ec622f778ebc",
+                    aspectName="assertionInfo",
+                    aspect=AssertionInfoClass(
+                        type=AssertionTypeClass.DATASET,
+                        customProperties={"expectation_suite_name": "test_suite"},
+                        datasetAssertion=DatasetAssertionInfoClass(
+                            dataset=(
+                                "urn:li:dataset:(urn:li:dataPlatform:custom_platefrom_spark,"
+                                "foobar_spark_df,PROD)"
+                            ),
+                            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+                            fields=[
+                                "urn:li:schemaField:("
+                                "urn:li:dataset:(urn:li:dataPlatform:custom_platefrom_spark,"
+                                "foobar_spark_df,PROD),foo)"
+                            ],
+                            aggregation="IDENTITY",
+                            operator="NOT_NULL",
+                            nativeType="expect_column_values_to_not_be_null",
+                            nativeParameters={"column": "foo"},
+                        ),
+                    ),
+                ),
+            ),
+            mock.call(
+                mock.ANY,
+                MetadataChangeProposalWrapper(
+                    entityType="assertion",
+                    changeType="UPSERT",
+                    entityUrn="urn:li:assertion:5f0a1761a5e0d1b7acb7ec622f778ebc",
+                    aspectName="dataPlatformInstance",
+                    aspect=DataPlatformInstanceClass(
+                        platform="urn:li:dataPlatform:great-expectations"
+                    ),
+                ),
+            ),
+            mock.call(
+                mock.ANY,
+                MetadataChangeProposalWrapper(
+                    entityType="assertion",
+                    changeType="UPSERT",
+                    entityUrn="urn:li:assertion:5f0a1761a5e0d1b7acb7ec622f778ebc",
+                    aspectName="assertionRunEvent",
+                    aspect=AssertionRunEventClass(
+                        timestampMillis=mock.ANY,
+                        runId=mock.ANY,
+                        assertionUrn="urn:li:assertion:5f0a1761a5e0d1b7acb7ec622f778ebc",
+                        asserteeUrn=(
+                            "urn:li:dataset:(urn:li:dataPlatform:custom_platefrom_spark,"
+                            "foobar_spark_df,PROD)"
+                        ),
+                        status=AssertionRunStatusClass.COMPLETE,
+                        result=AssertionResultClass(
+                            type=AssertionResultTypeClass.SUCCESS,
+                            rowCount=2,
+                            unexpectedCount=0,
+                            nativeResults={},
+                        ),
+                        batchSpec=BatchSpecClass(
+                            customProperties={
+                                "data_asset_name": "foobar_spark_df",
+                                "datasource_name": "my_sparkdf_datasource",
+                            },
+                            nativeBatchId="hive-default.menu_silver",
+                            query="",
+                        ),
+                        partitionSpec=PartitionSpecClass(
+                            type="FULL_TABLE",
+                            partition="FULL_TABLE_SNAPSHOT",
+                            timePartition=None,
+                        ),
+                    ),
+                ),
+            ),
+        ]
+    )
 
 
 def test_DataHubValidationAction_graceful_failure(
