@@ -500,8 +500,9 @@ class TeamsNotificationSink(NotificationSink):
             not self.teams_connection_config
             or not self.teams_connection_config.app_details
         ):
-            logger.error("Teams configuration not available for sending notification")
-            return
+            error_msg = "Teams configuration not available for sending notification"
+            logger.error(error_msg)
+            raise Exception(error_msg)
 
         try:
             # Determine if this is a channel or user
@@ -600,8 +601,9 @@ class TeamsNotificationSink(NotificationSink):
             not self.teams_connection_config
             or not self.teams_connection_config.app_details
         ):
-            logger.error("Teams configuration not available for sending notification")
-            return
+            error_msg = "Teams configuration not available for sending notification"
+            logger.error(error_msg)
+            raise Exception(error_msg)
 
         try:
             # Determine if this is a channel or user
@@ -676,8 +678,9 @@ class TeamsNotificationSink(NotificationSink):
             not self.teams_connection_config
             or not self.teams_connection_config.app_details
         ):
-            logger.error("Teams configuration not available for sending notification")
-            return
+            error_msg = "Teams configuration not available for sending notification"
+            logger.error(error_msg)
+            raise Exception(error_msg)
 
         try:
             # Determine if this is a channel or user
@@ -1260,11 +1263,12 @@ class TeamsNotificationSink(NotificationSink):
                 logger.info(f"Successfully sent Teams direct message to {recipient}")
                 return
             else:
-                logger.warning(
-                    f"No existing conversation found for {recipient}. User may need to install the bot as a personal app or interact with it first."
+                error_msg = (
+                    f"No existing conversation found for {recipient}. "
+                    f"User may need to install the bot as a personal app or interact with it first."
                 )
-                # Could potentially fallback to other notification methods here
-                return
+                logger.error(error_msg)
+                raise Exception(error_msg)
 
         except Exception as e:
             logger.error(f"Failed to send direct message to {recipient}: {e}")
@@ -1335,11 +1339,12 @@ class TeamsNotificationSink(NotificationSink):
                     )
                     raise Exception("Failed to send adaptive card to conversation")
             else:
-                logger.warning(
-                    f"No existing conversation found for {recipient}. User may need to install the bot as a personal app or interact with it first."
+                error_msg = (
+                    f"No existing conversation found for {recipient}. "
+                    f"User may need to install the bot as a personal app or interact with it first."
                 )
-                # Could potentially fallback to other notification methods here
-                return
+                logger.error(error_msg)
+                raise Exception(error_msg)
 
         except Exception as e:
             logger.error(f"Failed to send adaptive card to {recipient}: {e}")

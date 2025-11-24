@@ -1677,14 +1677,13 @@ async def test_send_message_to_recipient_user_activity_feed_success(
 async def test_send_message_to_recipient_no_config(
     teams_sink: TeamsNotificationSink,
 ) -> None:
-    """Test _send_message_to_recipient() handles missing configuration gracefully."""
+    """Test _send_message_to_recipient() raises exception when configuration is missing."""
     # Setup - no config
     teams_sink.teams_connection_config = None
 
-    # Execute - should not raise exception
-    await teams_sink._send_message_to_recipient("user1@example.com", "Test message")  # type: ignore
-
-    # Should log error but not crash
+    # Execute - should raise exception with clear error message
+    with pytest.raises(Exception, match="Teams configuration not available"):
+        await teams_sink._send_message_to_recipient("user1@example.com", "Test message")  # type: ignore
 
 
 @patch.object(TeamsNotificationSink, "_is_channel_recipient")
@@ -4507,3 +4506,115 @@ class TestTeamsSinkTimeBasedThrottling:
         result = sink._is_test_notification(params)
 
         assert result is False
+
+
+# Tests for error handling improvements
+
+
+@patch.object(TeamsNotificationSink, "_find_existing_bot_conversation")
+@pytest.mark.asyncio
+async def test_send_direct_message_raises_when_no_conversation_found(
+    mock_find_conversation: MagicMock,
+    teams_sink: TeamsNotificationSink,
+) -> None:
+    """Test _send_direct_message raises exception when no conversation exists."""
+    # Setup
+    mock_find_conversation.return_value = None
+
+    teams_sink.teams_connection_config = TeamsConnection(
+        app_details=TeamsAppDetails(
+            app_id="test_app_id",
+            app_password="test_password",
+            tenant_id="test_tenant_id",
+        )
+    )
+
+    # Execute and verify exception is raised
+    with pytest.raises(
+        Exception,
+        match="No existing conversation found for.*User may need to install the bot",
+    ):
+        await teams_sink._send_direct_message("user_id", "Test message")  # type: ignore
+
+    # Verify the conversation lookup was attempted
+    mock_find_conversation.assert_called_once()
+
+
+@patch.object(TeamsNotificationSink, "_is_channel_recipient")
+@patch.object(TeamsNotificationSink, "_find_existing_bot_conversation")
+@pytest.mark.asyncio
+async def test_send_direct_adaptive_card_raises_when_no_conversation_found(
+    mock_find_conversation: MagicMock,
+    mock_is_channel: MagicMock,
+    teams_sink: TeamsNotificationSink,
+) -> None:
+    """Test _send_direct_adaptive_card raises exception when no conversation exists for user DMs."""
+    # Setup
+    mock_is_channel.return_value = False
+    mock_find_conversation.return_value = None
+
+    teams_sink.teams_connection_config = TeamsConnection(
+        app_details=TeamsAppDetails(
+            app_id="test_app_id",
+            app_password="test_password",
+            tenant_id="test_tenant_id",
+        )
+    )
+
+    adaptive_card = {"type": "AdaptiveCard", "body": []}
+
+    # Mock Graph API client to fail (triggering Bot Framework fallback)
+    with patch(
+        "datahub_integrations.teams.graph_api.GraphApiClient"
+    ) as mock_graph_client:
+        mock_graph_client.return_value._get_graph_access_token.side_effect = Exception(
+            "Failed to create chat: 403"
+        )
+
+        # Execute and verify exception is raised
+        with pytest.raises(
+            Exception,
+            match="No existing conversation found for.*User may need to install the bot",
+        ):
+            await teams_sink._send_direct_adaptive_card("user_id", adaptive_card)  # type: ignore
+
+
+@pytest.mark.asyncio
+async def test_send_adaptive_card_to_recipient_raises_when_no_config(
+    teams_sink: TeamsNotificationSink,
+) -> None:
+    """Test _send_adaptive_card_to_recipient raises exception when config is missing."""
+    # Setup - no config
+    teams_sink.teams_connection_config = None
+
+    adaptive_card = {"type": "AdaptiveCard", "body": []}
+
+    # Execute - should raise exception with clear error message
+    with pytest.raises(Exception, match="Teams configuration not available"):
+        await teams_sink._send_adaptive_card_to_recipient(
+            "user1@example.com", adaptive_card
+        )  # type: ignore
+
+
+@pytest.mark.asyncio
+async def test_send_adaptive_card_to_recipient_with_request_raises_when_no_config(
+    teams_sink: TeamsNotificationSink,
+) -> None:
+    """Test _send_adaptive_card_to_recipient_with_request raises exception when config is missing."""
+    # Setup - no config
+    teams_sink.teams_connection_config = None
+
+    adaptive_card = {"type": "AdaptiveCard", "body": []}
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="CUSTOM",
+            parameters={"title": "Test"},
+        ),
+        recipients=[],
+    )
+
+    # Execute - should raise exception with clear error message
+    with pytest.raises(Exception, match="Teams configuration not available"):
+        await teams_sink._send_adaptive_card_to_recipient_with_request(  # type: ignore
+            "user1@example.com", adaptive_card, request
+        )
