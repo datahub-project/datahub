@@ -815,6 +815,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 Stream.concat(
                         COMMON.stream(), Stream.of("parentInstance", "parentTemplate", "status"))
                     .collect(Collectors.toSet()))
+            .put(
+                EntityType.DOCUMENT,
+                Stream.concat(
+                        COMMON.stream(),
+                        Stream.of("parentDocument", "relatedAssets", "relatedDocuments", "text"))
+                    .collect(Collectors.toSet()))
             .build();
 
     for (EntityType entityType : SEARCHABLE_ENTITY_TYPES) {
