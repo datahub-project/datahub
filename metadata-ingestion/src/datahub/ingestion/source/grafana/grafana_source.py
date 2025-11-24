@@ -392,7 +392,9 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 for panel in dashboard.panels:
                     # Process lineage
                     try:
-                        lineage = self.lineage_extractor.extract_panel_lineage(panel)
+                        lineage = self.lineage_extractor.extract_panel_lineage(
+                            panel, dashboard.uid
+                        )
                         if lineage:
                             yield lineage.as_workunit()
                             self.report.report_lineage_extracted()
@@ -484,8 +486,8 @@ class GrafanaSource(StatefulIngestionSourceBase):
         if ds_type == "unknown" or ds_uid == "unknown":
             self.report.report_datasource_warning()
 
-        # Build dataset name
-        dataset_name = f"{ds_type}.{ds_uid}.{panel.id}"
+        # Build dataset name with dashboard scope for global uniqueness
+        dataset_name = f"{ds_type}.{ds_uid}.{dashboard_uid}.{panel.id}"
 
         # Create dataset URN
         dataset_urn = make_dataset_urn_with_platform_instance(

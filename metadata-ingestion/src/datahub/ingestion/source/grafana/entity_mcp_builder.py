@@ -75,8 +75,8 @@ def build_chart_mcps(
         ds_type = panel.datasource_ref.type or "unknown"
         ds_uid = panel.datasource_ref.uid or "unknown"
 
-        # Add Grafana dataset
-        dataset_name = f"{ds_type}.{ds_uid}.{panel.id}"
+        # Add Grafana dataset with dashboard scope for global uniqueness
+        dataset_name = f"{ds_type}.{ds_uid}.{dashboard.uid}.{panel.id}"
         ds_urn = make_dataset_urn_with_platform_instance(
             platform=platform,
             name=dataset_name,
