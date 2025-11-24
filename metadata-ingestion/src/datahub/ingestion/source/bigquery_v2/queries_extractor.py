@@ -255,7 +255,7 @@ class BigQueryQueriesExtractor(Closeable):
                 not in self.discovered_tables
             ):
                 logger.debug(
-                    f"Inferred as temp table {name} (is_allowed?{self.filters.is_allowed(table)}"
+                    f"Inferred as temp table {name} (is_allowed?{self.filters.is_allowed(table)})"
                 )
                 self.report.inferred_temp_tables.add(name)
                 return True
