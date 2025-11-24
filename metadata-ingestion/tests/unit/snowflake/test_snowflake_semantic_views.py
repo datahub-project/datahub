@@ -210,20 +210,18 @@ def test_populate_semantic_view_base_tables(mock_connection):
     """Test populating base tables for semantic views from INFORMATION_SCHEMA.SEMANTIC_TABLES."""
     # Mock the connection for semantic views query
     mock_semantic_views_cursor = MagicMock()
-    mock_semantic_views_cursor.__iter__ = lambda: iter(
-        [
-            {
-                "name": "test_semantic_view",
-                "schema_name": "PUBLIC",
-                "created_on": datetime.datetime.now(),
-                "comment": "Test semantic view",
-            },
-        ]
-    )
+    mock_semantic_views_cursor.__iter__.return_value = [
+        {
+            "name": "test_semantic_view",
+            "schema_name": "PUBLIC",
+            "created_on": datetime.datetime.now(),
+            "comment": "Test semantic view",
+        },
+    ]
 
     # Mock the connection for semantic tables query
-    # Use lambda to return a fresh iterator each time (important for proper iteration)
-    semantic_tables_data = [
+    mock_semantic_tables_cursor = MagicMock()
+    mock_semantic_tables_cursor.__iter__.return_value = [
         {
             "SEMANTIC_VIEW_CATALOG": "TEST_DB",
             "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
@@ -251,20 +249,43 @@ def test_populate_semantic_view_base_tables(mock_connection):
             "SYNONYMS": None,
         },
     ]
-    mock_semantic_tables_cursor = MagicMock()
-    mock_semantic_tables_cursor.__iter__ = lambda: iter(semantic_tables_data)
 
     # Mock DDL query to return empty
     mock_ddl_cursor = MagicMock()
-    mock_ddl_cursor.__iter__ = lambda: iter([])
+    mock_ddl_cursor.__iter__.return_value = []
+
+    # Mock dimensions query to return empty
+    mock_dimensions_cursor = MagicMock()
+    mock_dimensions_cursor.__iter__.return_value = []
+
+    # Mock facts query to return empty
+    mock_facts_cursor = MagicMock()
+    mock_facts_cursor.__iter__.return_value = []
+
+    # Mock metrics query to return empty
+    mock_metrics_cursor = MagicMock()
+    mock_metrics_cursor.__iter__.return_value = []
+
+    # Mock relationships query to return empty
+    mock_relationships_cursor = MagicMock()
+    mock_relationships_cursor.__iter__.return_value = []
 
     mock_connection_instance = MagicMock()
 
     # Set up query to return different cursors based on the query
     def query_side_effect(query_str):
-        if "SEMANTIC_TABLES" in query_str:
+        query_lower = query_str.lower()
+        if "semantic_tables" in query_lower:
             return mock_semantic_tables_cursor
-        elif "GET_DDL" in query_str:
+        elif "semantic_dimensions" in query_lower:
+            return mock_dimensions_cursor
+        elif "semantic_facts" in query_lower:
+            return mock_facts_cursor
+        elif "semantic_metrics" in query_lower:
+            return mock_metrics_cursor
+        elif "semantic_relationships" in query_lower:
+            return mock_relationships_cursor
+        elif "get_ddl" in query_lower:
             return mock_ddl_cursor
         else:
             return mock_semantic_views_cursor
