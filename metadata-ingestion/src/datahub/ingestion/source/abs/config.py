@@ -112,14 +112,16 @@ class DataLakeSourceConfig(
     @field_validator("path_specs", mode="before")
     @classmethod
     def check_path_specs_not_empty(
-        cls, path_specs: List[Any], info: ValidationInfo
-    ) -> List[Any]:
+        cls, path_specs: List[Union[Dict[str, Any], PathSpec]], info: ValidationInfo
+    ) -> List[Union[Dict[str, Any], PathSpec]]:
         if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
         return path_specs
 
     @staticmethod
-    def _infer_platform_from_path_spec(path_spec: Optional[Union[Dict, PathSpec]]) -> str:
+    def _infer_platform_from_path_spec(
+        path_spec: Optional[Union[Dict, PathSpec]],
+    ) -> str:
         """
         Determine the platform represented by a PathSpec or its raw dict form.
 
