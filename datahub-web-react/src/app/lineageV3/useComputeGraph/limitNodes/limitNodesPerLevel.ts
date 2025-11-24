@@ -26,7 +26,7 @@ interface Props {
     maxPerLevel?: number;
 }
 
-export function limitEntityNodesPerLevel({
+export function limitNodesPerLevel({
     nodes,
     rootUrn,
     rootType,

@@ -472,7 +472,7 @@ describe('useAddModuleMenu', () => {
         });
 
         it('should show default modules for other entity types', () => {
-            mockUseEntityData.mockReturnValue({ entityType: EntityType.Dataset });
+            mockUseEntityData.mockReturnValue({ entityType: EntityType.Application });
 
             const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
             const defaultChildren = getChildren(result.current.items?.[1]);
