@@ -6,7 +6,7 @@ import collections
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Dict, Iterable, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Set
 
 from google.cloud import dataplex_v1
 
@@ -75,6 +75,7 @@ class DataplexLineageExtractor:
         report: DataplexReport,
         lineage_client: Optional[LineageClient] = None,
         dataplex_client: Optional[dataplex_v1.DataplexServiceClient] = None,
+        redundant_run_skip_handler: Optional[Any] = None,
     ):
         """
         Initialize the lineage extractor.
@@ -83,11 +84,14 @@ class DataplexLineageExtractor:
             config: Dataplex source configuration
             report: Source report for tracking metrics
             lineage_client: Optional pre-configured LineageClient
+            dataplex_client: Optional pre-configured DataplexServiceClient
+            redundant_run_skip_handler: Optional handler to skip redundant lineage runs
         """
         self.config = config
         self.report = report
         self.lineage_client = lineage_client
         self.dataplex_client = dataplex_client
+        self.redundant_run_skip_handler = redundant_run_skip_handler
         self.platform = "dataplex"
 
         # Cache for lineage information

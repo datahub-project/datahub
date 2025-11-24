@@ -3,12 +3,14 @@
 from dataclasses import dataclass, field
 from typing import Dict
 
-from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+)
 from datahub.utilities.perf_timer import PerfTimer
 
 
 @dataclass
-class DataplexReport(SQLSourceReport):
+class DataplexReport(StaleEntityRemovalSourceReport):
     """Report for Dataplex ingestion."""
 
     num_lakes_scanned: int = 0

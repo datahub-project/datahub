@@ -12,6 +12,10 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulLineageConfigMixin,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +44,12 @@ class DataplexFilterConfig(ConfigModel):
     )
 
 
-class DataplexConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
+class DataplexConfig(
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+    StatefulIngestionConfigBase,
+    StatefulLineageConfigMixin,
+):
     """Configuration for Google Dataplex source."""
 
     credential: Optional[GCPCredential] = Field(

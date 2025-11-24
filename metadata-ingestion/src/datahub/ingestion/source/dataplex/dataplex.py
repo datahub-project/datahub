@@ -35,7 +35,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceCapability
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
@@ -53,6 +58,15 @@ from datahub.ingestion.source.dataplex.dataplex_helpers import (
 )
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantLineageRunSkipHandler,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -86,13 +100,21 @@ logger = logging.getLogger(__name__)
     SourceCapability.LINEAGE_COARSE,
     "Extract lineage from Dataplex Lineage API",
 )
-class DataplexSource(Source):
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Enabled by default when stateful ingestion is configured",
+)
+@capability(
+    SourceCapability.TEST_CONNECTION,
+    "Verifies connectivity to Dataplex API",
+)
+class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     """Source to ingest metadata from Google Dataplex."""
 
     platform: str = "dataplex"
 
     def __init__(self, ctx: PipelineContext, config: DataplexConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = DataplexReport()
 
@@ -116,6 +138,18 @@ class DataplexSource(Source):
         # Catalog client for Phase 2: Entry Groups and Entries extraction
         self.catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
 
+        # Initialize redundant lineage run skip handler for stateful lineage ingestion
+        redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
+            None
+        )
+        if self.config.enable_stateful_lineage_ingestion:
+            redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+
         if self.config.extract_lineage:
             if not LINEAGE_AVAILABLE:
                 logger.warning(
@@ -131,6 +165,7 @@ class DataplexSource(Source):
                     report=self.report,
                     lineage_client=self.lineage_client,
                     dataplex_client=self.dataplex_client,
+                    redundant_run_skip_handler=redundant_lineage_run_skip_handler,
                 )
         else:
             self.lineage_client = None
@@ -138,9 +173,58 @@ class DataplexSource(Source):
 
         self.asset_metadata = {}
 
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        """Test connection to Dataplex API."""
+        test_report = TestConnectionReport()
+        try:
+            config = DataplexConfig.model_validate(config_dict)
+            creds = config.get_credentials()
+            credentials = (
+                service_account.Credentials.from_service_account_info(creds)
+                if creds
+                else None
+            )
+
+            # Test connection by attempting to create a client and list one project
+            dataplex_client = dataplex_v1.DataplexServiceClient(credentials=credentials)
+            if config.project_ids:
+                project_id = config.project_ids[0]
+                # Try to list lakes to verify access
+                parent = f"projects/{project_id}/locations/{config.location}"
+                list(dataplex_client.list_lakes(parent=parent, page_size=1))
+
+            test_report.basic_connectivity = TestConnectionReport.Capability(
+                capable=True
+            )
+        except exceptions.GoogleAPICallError as e:
+            test_report.basic_connectivity = TestConnectionReport.Capability(
+                capable=False, failure_reason=f"Failed to connect to Dataplex: {e}"
+            )
+        except Exception as e:
+            test_report.basic_connectivity = TestConnectionReport.Capability(
+                capable=False, failure_reason=f"Unexpected error: {e}"
+            )
+
+        return test_report
+
     def get_report(self) -> DataplexReport:
         """Return the ingestion report."""
         return self.report
+
+    def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
+        """
+        Get workunit processors for stateful ingestion.
+
+        Returns processors for:
+        - Stale entity removal (deletion detection)
+        """
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main function to fetch and yield workunits for various Dataplex resources."""
