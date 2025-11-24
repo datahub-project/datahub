@@ -119,7 +119,7 @@ class DataLakeSourceConfig(
         return path_specs
 
     @staticmethod
-    def _infer_platform_from_path_spec(path_spec: Any) -> str:
+    def _infer_platform_from_path_spec(path_spec: Optional[Union[Dict, PathSpec]]) -> str:
         """
         Determine the platform represented by a PathSpec or its raw dict form.
 
