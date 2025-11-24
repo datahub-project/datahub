@@ -32,7 +32,7 @@ import SearchControl from '@app/lineageV3/controls/SearchControl';
 import ZoomControls from '@app/lineageV3/controls/ZoomControls';
 import LineageSVGs from '@app/lineageV3/lineageSVGs';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
-import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodesPerLevel';
+import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 
 const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edgesOnTop: boolean }>`
     ${({ isDraggingBoundingBox }) =>

@@ -7,7 +7,7 @@ import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBui
 import computeDataFlowGraph from '@app/lineageV3/useComputeGraph/computeDataFlowGraph';
 import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
-import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodesPerLevel';
+import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 
 import { EntityType } from '@types';
 

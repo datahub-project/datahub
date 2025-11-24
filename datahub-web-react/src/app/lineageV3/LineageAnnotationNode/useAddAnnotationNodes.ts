@@ -2,8 +2,9 @@ import { useCallback } from 'react';
 import { Edge, Node } from 'reactflow';
 
 import { LINEAGE_ANNOTATION_NODE } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
+import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
 import type { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
-import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodesPerLevel';
+import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 
 export function useAddAnnotationNodes() {
     return useCallback(
@@ -34,16 +35,28 @@ export function useAddAnnotationNodes() {
 
                 if (levelInfo.hiddenEntities <= 0) return;
 
-                const nodesAtLevel = nodesWithLevel.filter((node) => node.data?.level === level);
-                if (nodesAtLevel.length === 0) return;
+                const entityNodesAtLevel = nodesWithLevel.filter(
+                    (node) => node.data?.level === level && node.type === LINEAGE_ENTITY_NODE_NAME,
+                );
 
-                const minX = Math.min(...nodesAtLevel.map((node) => node.position.x));
-                const minY = Math.min(...nodesAtLevel.map((node) => node.position.y));
+                if (!entityNodesAtLevel || entityNodesAtLevel.length === 0) {
+                    return;
+                }
+
+                // Compute annotation position over the entity nodes only
+                const xs = entityNodesAtLevel.map((node) => node.position.x);
+                const ys = entityNodesAtLevel.map((node) => node.position.y);
+
+                const minX = Math.min(...xs);
+                const minY = Math.min(...ys);
+
+                const annotationX = minX;
+                const annotationY = minY - 40;
 
                 annotationNodes.push({
                     id: `annotation-${level}`,
                     type: LINEAGE_ANNOTATION_NODE,
-                    position: { x: minX, y: minY - 40 },
+                    position: { x: annotationX, y: annotationY },
                     data: {
                         label: `${levelInfo.shownEntities} of ${levelInfo.totalEntities} shown`,
                     },

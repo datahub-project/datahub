@@ -2,7 +2,7 @@ import { GraphStoreFields, LineageEntity, LineageToggles, NodeContext } from '@a
 import NodeBuilder from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 import getDisplayedNodes from '@app/lineageV3/useComputeGraph/getDisplayedNodes';
-import { limitEntityNodesPerLevel } from '@app/lineageV3/useComputeGraph/limitNodesPerLevel';
+import { limitEntityNodesPerLevel } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesPerLevel';
 import orderNodes from '@app/lineageV3/useComputeGraph/orderNodes';
 
 import { EntityType, LineageDirection } from '@types';
@@ -68,16 +68,12 @@ export default function computeImpactAnalysisGraph(
     let levelsInfo = {};
     let levelsMap = new Map<string, number>();
 
-    const originalNodes = [...orderedNodes.UPSTREAM, ...orderedNodes.DOWNSTREAM, rootNode].filter(
-        (entity): entity is LineageEntity => Boolean(entity),
-    );
-
     // Limit entity nodes per level in module view
     if (isModuleView) {
         const result = limitEntityNodesPerLevel({
-            displayedNodes,
-            originalNodes,
+            nodes: displayedNodes,
             rootUrn: urn,
+            rootType,
             adjacencyList,
             maxPerLevel: 2,
         });
