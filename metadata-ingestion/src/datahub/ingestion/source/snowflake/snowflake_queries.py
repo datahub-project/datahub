@@ -486,7 +486,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
                 assert isinstance(row, dict)
                 try:
-                    entry = self._parse_audit_log_row(row, users)
+                    parsed_result = self._parse_audit_log_row(row, users)
                 except Exception as e:
                     self.structured_reporter.warning(
                         "Error parsing query log row",
@@ -494,13 +494,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         exc=e,
                     )
                 else:
-                    if entry:
+                    if parsed_result:
                         # Handle both single entries and lists of entries (for multi-table INSERT)
-                        if isinstance(entry, list):
-                            for e in entry:
-                                yield e
+                        if isinstance(parsed_result, list):
+                            for entry in parsed_result:
+                                yield entry
                         else:
-                            yield entry
+                            yield parsed_result
 
     @classmethod
     def _has_temp_keyword(cls, query_text: str) -> bool:
@@ -675,17 +675,17 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             downstream_entries = []
 
             for obj in objects_modified:
-                downstream = self.identifiers.gen_dataset_urn(
+                obj_downstream = self.identifiers.gen_dataset_urn(
                     self.identifiers.get_dataset_identifier_from_qualified_name(
                         obj["objectName"]
                     )
                 )
-                column_lineage = []
+                obj_column_lineage = []
                 for modified_column in obj["columns"]:
-                    column_lineage.append(
+                    obj_column_lineage.append(
                         ColumnLineageInfo(
                             downstream=DownstreamColumnRef(
-                                dataset=downstream,
+                                dataset=obj_downstream,
                                 column=self.identifiers.snowflake_identifier(
                                     modified_column["columnName"]
                                 ),
@@ -717,8 +717,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     ),
                     query_text=query_text,
                     upstreams=upstreams,
-                    downstream=downstream,
-                    column_lineage=column_lineage,
+                    downstream=obj_downstream,
+                    column_lineage=obj_column_lineage,
                     column_usage=column_usage,
                     inferred_schema=None,
                     confidence_score=1.0,
