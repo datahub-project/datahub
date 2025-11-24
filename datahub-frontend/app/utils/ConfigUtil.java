@@ -2,10 +2,17 @@ package utils;
 
 import com.linkedin.util.Configuration;
 import com.typesafe.config.Config;
+import java.util.Base64;
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 public class ConfigUtil {
 
   private static final String ALGO = "AES";
+  private static final String CIPHER_ALGO = "AES/GCM/NoPadding";
+  private static final int GCM_TAG_LENGTH = 128; // bits
+  private static final int IV_LENGTH = 12; // bytes
 
   private ConfigUtil() {}
 
@@ -50,35 +57,55 @@ public class ConfigUtil {
   public static final String DEFAULT_METADATA_SERVICE_SSL_PROTOCOL =
       Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR);
 
-  private static String decrypt(String value) {
-    if (value == null) {
+ /**
+   * Public AES/GCM decryptor so it can be reused anywhere (tests, other utils, etc.). Format:
+   * ENC(Base64(IV + Ciphertext + Tag))
+   */
+  public static String decryptGCM(String encValue, String base64Key) throws Exception {
+    if (encValue == null) {
       return null;
     }
 
-    if (!value.startsWith("ENC(") && !value.endsWith(")")) {
-      return value;
+    if (!encValue.startsWith("ENC(") || !encValue.endsWith(")")) {
+      return encValue; // not encrypted
     }
 
+    String cipherTextBase64 = encValue.substring(4, encValue.length() - 1);
+    byte[] cipherMessage = Base64.getDecoder().decode(cipherTextBase64);
+
+    if (cipherMessage.length < (IV_LENGTH + 16)) {
+      throw new IllegalStateException(
+          "Ciphertext too short to be valid AES/GCM. Re-encrypt using AES/GCM with a 12-byte IV.");
+    }
+
+    // Extract IV
+    byte[] iv = new byte[IV_LENGTH];
+    System.arraycopy(cipherMessage, 0, iv, 0, IV_LENGTH);
+
+    // Extract ciphertext + tag
+    byte[] cipherText = new byte[cipherMessage.length - IV_LENGTH];
+    System.arraycopy(cipherMessage, IV_LENGTH, cipherText, 0, cipherText.length);
+
+    // Init AES/GCM cipher
+    SecretKeySpec keySpec = new SecretKeySpec(Base64.getDecoder().decode(base64Key), ALGO);
+    Cipher cipher = Cipher.getInstance(CIPHER_ALGO);
+    GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+    cipher.init(Cipher.DECRYPT_MODE, keySpec, spec);
+
+    byte[] decryptedBytes = cipher.doFinal(cipherText);
+    return new String(decryptedBytes);
+  }
+
+  /** Internal wrapper for config decryption — reads key from ENV. */
+  private static String decrypt(String value) {
     try {
       String base64Key = System.getenv("CONFIG_ENCRYPTION_KEY");
       if (base64Key == null || base64Key.isEmpty()) {
         throw new IllegalStateException("CONFIG_ENCRYPTION_KEY is required for encrypted config");
       }
-
-      String cipherText = value.substring(4, value.length() - 1);
-
-      byte[] keyBytes = java.util.Base64.getDecoder().decode(base64Key);
-      javax.crypto.spec.SecretKeySpec keySpec = new javax.crypto.spec.SecretKeySpec(keyBytes, ALGO);
-
-      javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance(ALGO);
-      cipher.init(javax.crypto.Cipher.DECRYPT_MODE, keySpec);
-
-      byte[] decrypted = cipher.doFinal(java.util.Base64.getDecoder().decode(cipherText));
-
-      return new String(decrypted);
-
+      return decryptGCM(value, base64Key);
     } catch (Exception e) {
-      throw new RuntimeException("Failed to decrypt config value: " + value, e);
+      throw new RuntimeException("Failed to decrypt config value (GCM only): " + value, e);
     }
   }
 
