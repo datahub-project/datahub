@@ -66,7 +66,6 @@ export const DEFAULT_APP_CONFIG = {
         nestedDomainsEnabled: true,
         platformBrowseV2: false,
         businessAttributeEntityEnabled: false,
-        contextDocumentsEnabled: false,
         dataContractsEnabled: false,
         editableDatasetNameEnabled: false,
         themeV2Enabled: false,
@@ -97,6 +96,7 @@ export const DEFAULT_APP_CONFIG = {
         assetSummaryPageV1: false,
         datasetSummaryPageV1: false,
         documentationFileUploadV1: false,
+        contextDocumentsEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

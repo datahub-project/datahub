@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><p><strong>CONTEXT:</strong> The Future of Agentic AI is On Demand</p><a href="https://datahub.com/resources/context/?utm_term=docs" target="_blank" class="button"><div>Watch Now<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><p><strong>CONTEXT:</strong> December Town Hall 12/2</p><a href="https://events.datahub.com/december-townhall-2025/?utm_term=docs" target="_blank" class="button"><div>Register<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
@@ -144,14 +144,6 @@ module.exports = {
             {
               type: 'html',
               value: '<div class="dropdown__link"><b>Archived versions</b></div>',
-            },
-            {
-              value: `
-                     <a class="dropdown__link" href="https://docs-website-j2wcc9mjw-acryldata.vercel.app/docs/features">1.3.0
-                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                     </a>
-                     `,
-              type: "html",
             },
             {
               value: `
