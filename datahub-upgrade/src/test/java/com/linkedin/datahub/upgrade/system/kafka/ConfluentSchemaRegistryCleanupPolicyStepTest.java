@@ -8,7 +8,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -64,10 +66,7 @@ public class ConfluentSchemaRegistryCleanupPolicyStepTest {
     kafkaConfiguration.getSetup().setUseConfluentSchemaRegistry(false);
 
     UpgradeContext mockContext = mock(UpgradeContext.class);
-    UpgradeStepResult result = step.executable().apply(mockContext);
-
-    assertNotNull(result);
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    assertTrue(step.skip(mockContext));
   }
 
   @Test
@@ -76,10 +75,7 @@ public class ConfluentSchemaRegistryCleanupPolicyStepTest {
     kafkaConfiguration.setSetup(null);
 
     UpgradeContext mockContext = mock(UpgradeContext.class);
-    UpgradeStepResult result = step.executable().apply(mockContext);
-
-    assertNotNull(result);
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    assertTrue(step.skip(mockContext));
   }
 
   @Test
@@ -88,10 +84,7 @@ public class ConfluentSchemaRegistryCleanupPolicyStepTest {
     kafkaConfiguration.getSetup().setPreCreateTopics(false);
 
     UpgradeContext mockContext = mock(UpgradeContext.class);
-    UpgradeStepResult result = step.executable().apply(mockContext);
-
-    assertNotNull(result);
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    assertTrue(step.skip(mockContext));
   }
 
   @Test
@@ -100,10 +93,14 @@ public class ConfluentSchemaRegistryCleanupPolicyStepTest {
     kafkaConfiguration.getSetup().setApplySchemaRegistryCleanupPolicy(false);
 
     UpgradeContext mockContext = mock(UpgradeContext.class);
-    UpgradeStepResult result = step.executable().apply(mockContext);
+    assertTrue(step.skip(mockContext));
+  }
 
-    assertNotNull(result);
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+  @Test
+  public void testDoNotSkipWhenAllEnabled() {
+    // All settings enabled (default)
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    assertFalse(step.skip(mockContext));
   }
 
   @Test
