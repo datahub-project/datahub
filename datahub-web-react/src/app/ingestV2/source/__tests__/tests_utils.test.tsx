@@ -3,8 +3,6 @@ import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { SortingState } from '@components/components/Table/types';
-
 import {
     EXECUTION_REQUEST_STATUS_LOADING,
     EXECUTION_REQUEST_STATUS_PENDING,
@@ -18,13 +16,12 @@ import {
     getEntitiesIngestedByTypeOrSubtype,
     getIngestionContents,
     getOtherIngestionContents,
-    getSortInput,
     getSourceStatus,
     getStructuredReport,
     getTotalEntitiesIngested,
 } from '@app/ingestV2/source/utils';
 
-import { EntityType, ExecutionRequest, ExecutionRequestResult, IngestionSource, SortOrder } from '@types';
+import { EntityType, ExecutionRequest, ExecutionRequestResult, IngestionSource } from '@types';
 
 // Mock entity registry for tests
 const mockEntityRegistry = {
@@ -413,26 +410,6 @@ describe('getAspectsBySubtypes', () => {
         const result = getAspectsBySubtypes(structuredReportObject, mockEntityRegistry);
 
         expect(result).toEqual({});
-    });
-});
-
-describe('getSortInput', () => {
-    it('returns undefined for original sorting', () => {
-        expect(getSortInput('name', SortingState.ORIGINAL)).toBeUndefined();
-    });
-
-    it('returns ascending sort input', () => {
-        expect(getSortInput('name', SortingState.ASCENDING)).toEqual({
-            sortOrder: SortOrder.Ascending,
-            field: 'name',
-        });
-    });
-
-    it('returns descending sort input', () => {
-        expect(getSortInput('name', SortingState.DESCENDING)).toEqual({
-            sortOrder: SortOrder.Descending,
-            field: 'name',
-        });
     });
 });
 
