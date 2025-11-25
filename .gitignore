@@ -35,6 +35,7 @@ MANIFEST
 .python-version
 Pipfile
 Pipfile.lock
+fix-failing-tests/
 
 # Generated files
 **/bin
@@ -65,6 +66,7 @@ smoke-test/spark-smoke-test/__pycache__/
 # cypress integration test generated files
 **/cypress/videos
 **/cypress/screenshots
+**/cypress/results
 **/cypress/node_modules
 
 # Metadata Ingestion Generated

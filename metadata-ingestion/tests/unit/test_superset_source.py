@@ -5,7 +5,7 @@ from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
 
 def test_default_values():
-    config = SupersetConfig.parse_obj({})
+    config = SupersetConfig.model_validate({})
 
     assert config.connect_uri == "http://localhost:8088"
     assert config.display_uri == "http://localhost:8088"
@@ -22,7 +22,7 @@ def test_default_values():
 def test_set_display_uri():
     display_uri = "some_host:1234"
 
-    config = SupersetConfig.parse_obj({"display_uri": display_uri})
+    config = SupersetConfig.model_validate({"display_uri": display_uri})
 
     assert config.connect_uri == "http://localhost:8088"
     assert config.display_uri == display_uri

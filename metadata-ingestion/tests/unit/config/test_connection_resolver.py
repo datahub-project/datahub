@@ -17,7 +17,7 @@ class MyConnectionType(ConfigModel):
 
 def test_auto_connection_resolver():
     # Test a normal config.
-    config = MyConnectionType.parse_obj(
+    config = MyConnectionType.model_validate(
         {"username": "test_user", "password": "test_password"}
     )
     assert config.username == "test_user"
@@ -25,7 +25,7 @@ def test_auto_connection_resolver():
 
     # No graph context -> should raise an error.
     with pytest.raises(pydantic.ValidationError, match=r"requires a .*graph"):
-        config = MyConnectionType.parse_obj(
+        config = MyConnectionType.model_validate(
             {
                 "connection": "test_connection",
             }
@@ -38,7 +38,7 @@ def test_auto_connection_resolver():
         set_graph_context(fake_graph),
         pytest.raises(pydantic.ValidationError, match=r"not found"),
     ):
-        config = MyConnectionType.parse_obj(
+        config = MyConnectionType.model_validate(
             {
                 "connection": "urn:li:dataHubConnection:missing-connection",
             }
@@ -47,7 +47,7 @@ def test_auto_connection_resolver():
     # Bad connection config -> should raise an error.
     fake_graph.get_connection_json.return_value = {"bad_key": "bad_value"}
     with set_graph_context(fake_graph), pytest.raises(pydantic.ValidationError):
-        config = MyConnectionType.parse_obj(
+        config = MyConnectionType.model_validate(
             {
                 "connection": "urn:li:dataHubConnection:bad-connection",
             }
@@ -59,7 +59,7 @@ def test_auto_connection_resolver():
         "password": "test_password",
     }
     with set_graph_context(fake_graph):
-        config = MyConnectionType.parse_obj(
+        config = MyConnectionType.model_validate(
             {
                 "connection": "urn:li:dataHubConnection:good-connection",
                 "username": "override_user",

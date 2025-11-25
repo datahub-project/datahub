@@ -2,11 +2,14 @@ import { useApolloClient } from '@apollo/client';
 
 import { PRODUCT_ASSETS_FOLDER } from '@app/shared/constants';
 import useCreateFile from '@app/shared/hooks/useCreateFile';
-import { useAppConfig } from '@src/app/useAppConfig';
+import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
 import { UploadDownloadScenario } from '@types';
+
+// keep this consistent with same const in li-utils/src/main/java/com/linkedin/metadata/Constants.java
+const S3_FILE_ID_NAME_SEPARATOR = '__';
 
 interface Props {
     scenario: UploadDownloadScenario;
@@ -16,7 +19,7 @@ interface Props {
 
 export default function useFileUpload({ scenario, assetUrn, schemaField }: Props) {
     const client = useApolloClient();
-    const { config } = useAppConfig();
+    const isDocumentationFileUploadV1Enabled = useIsDocumentationFileUploadV1Enabled();
     const { createFile } = useCreateFile({ scenario, assetUrn, schemaField });
 
     const uploadFile = async (file: File) => {
@@ -53,7 +56,8 @@ export default function useFileUpload({ scenario, assetUrn, schemaField }: Props
 
         // Confirming of file uploading
         try {
-            await createFile(fileId, file);
+            const uuidFromFileId = fileId.split(S3_FILE_ID_NAME_SEPARATOR)[0];
+            await createFile(uuidFromFileId, file);
         } catch (error) {
             throw new Error(`Failed to upload file: ${error}`);
         }
@@ -61,5 +65,5 @@ export default function useFileUpload({ scenario, assetUrn, schemaField }: Props
         return resolveRuntimePath(`/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${fileId}`);
     };
 
-    return config.featureFlags.documentationFileUploadV1 ? { uploadFile } : { uploadFile: undefined };
+    return isDocumentationFileUploadV1Enabled ? { uploadFile } : { uploadFile: undefined };
 }

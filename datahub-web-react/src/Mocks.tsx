@@ -347,7 +347,7 @@ export const dataset1 = {
         },
     ],
     domain: null,
-    application: null,
+    applications: null,
     container: null,
     health: [],
     assertions: null,
@@ -360,6 +360,7 @@ export const dataset1 = {
     structuredProperties: null,
     forms: null,
     activeIncidents: null,
+    settings: null,
 };
 
 export const dataset2 = {
@@ -446,7 +447,7 @@ export const dataset2 = {
         },
     ],
     domain: null,
-    application: null,
+    applications: null,
     container: null,
     health: [],
     assertions: null,
@@ -460,6 +461,7 @@ export const dataset2 = {
     structuredProperties: null,
     forms: null,
     activeIncidents: null,
+    settings: null,
 };
 
 export const dataset3 = {
@@ -700,7 +702,7 @@ export const dataset3 = {
         },
     ],
     domain: null,
-    application: null,
+    applications: null,
     container: null,
     lineage: null,
     relationships: null,
@@ -725,6 +727,7 @@ export const dataset3 = {
     upstream: null,
     downstream: null,
     versionProperties: null,
+    settings: null,
 } as Dataset;
 
 export const dataset3WithSchema = {
@@ -1446,7 +1449,7 @@ export const dataFlow1 = {
         },
     },
     domain: null,
-    application: null,
+    applications: null,
     deprecation: null,
     autoRenderAspects: [],
     activeIncidents: null,
@@ -1537,7 +1540,7 @@ export const dataJob1 = {
         ],
     },
     domain: null,
-    application: null,
+    applications: null,
     status: null,
     deprecation: null,
     autoRenderAspects: [],
@@ -1712,7 +1715,7 @@ export const dataJob2 = {
         ],
     },
     domain: null,
-    application: null,
+    applications: null,
     upstream: null,
     downstream: null,
     deprecation: null,
@@ -1789,7 +1792,7 @@ export const dataJob3 = {
         ],
     },
     domain: null,
-    application: null,
+    applications: null,
     upstream: null,
     downstream: null,
     status: null,
@@ -3793,6 +3796,7 @@ export const mocks = [
                         manageApplications: true,
                         manageFeatures: true,
                         manageHomePageTemplates: true,
+                        manageDocuments: true,
                     },
                 },
             },
@@ -4075,6 +4079,7 @@ export const platformPrivileges: PlatformPrivileges = {
     manageGlobalAnnouncements: true,
     createBusinessAttributes: true,
     manageBusinessAttributes: true,
+    manageDocuments: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
     manageApplications: true,

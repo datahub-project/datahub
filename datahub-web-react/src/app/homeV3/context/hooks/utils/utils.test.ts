@@ -123,8 +123,38 @@ describe('getDefaultSummaryPageTemplate', () => {
         expect(result.properties.rows[0].modules).toHaveLength(1);
     });
 
-    it('should return template with empty arrays for unsupported entity types', () => {
+    it('should return correct template for Dataset entity type', () => {
         const result = getDefaultSummaryPageTemplate(EntityType.Dataset);
+
+        expect(result).toEqual({
+            urn: 'urn:li:dataHubPageTemplate:asset_summary_default',
+            type: EntityType.DatahubPageTemplate,
+            properties: {
+                visibility: {
+                    scope: PageTemplateScope.Personal,
+                },
+                surface: {
+                    surfaceType: PageTemplateSurfaceType.AssetSummary,
+                },
+                rows: [{ modules: expect.any(Array) }],
+                assetSummary: {
+                    summaryElements: [
+                        { elementType: SummaryElementType.Created },
+                        { elementType: SummaryElementType.Owners },
+                        { elementType: SummaryElementType.Domain },
+                        { elementType: SummaryElementType.Tags },
+                        { elementType: SummaryElementType.GlossaryTerms },
+                    ],
+                },
+            },
+        });
+
+        // Verify modules array has content (but don't test specific content since it will change)
+        expect(result.properties.rows[0].modules).toHaveLength(1);
+    });
+
+    it('should return template with empty arrays for unsupported entity types', () => {
+        const result = getDefaultSummaryPageTemplate(EntityType.Chart);
 
         expect(result).toEqual({
             urn: 'urn:li:dataHubPageTemplate:asset_summary_default',
@@ -149,7 +179,7 @@ describe('getDefaultSummaryPageTemplate', () => {
             EntityType.DataProduct,
             EntityType.GlossaryTerm,
             EntityType.GlossaryNode,
-            EntityType.Dataset, // unsupported type
+            EntityType.Dataset,
         ];
 
         entityTypes.forEach((entityType) => {
@@ -174,6 +204,7 @@ describe('getDefaultSummaryPageTemplate', () => {
         const domainResult = getDefaultSummaryPageTemplate(EntityType.Domain);
         const dataProductResult = getDefaultSummaryPageTemplate(EntityType.DataProduct);
         const glossaryTermResult = getDefaultSummaryPageTemplate(EntityType.GlossaryTerm);
+        const datasetResult = getDefaultSummaryPageTemplate(EntityType.Dataset);
 
         // Domain should have 2 elements
         expect(domainResult?.properties?.assetSummary?.summaryElements).toHaveLength(2);
@@ -183,6 +214,9 @@ describe('getDefaultSummaryPageTemplate', () => {
 
         // GlossaryTerm should have 3 elements
         expect(glossaryTermResult?.properties?.assetSummary?.summaryElements).toHaveLength(3);
+
+        // Dataset should have 5 elements
+        expect(datasetResult?.properties?.assetSummary?.summaryElements).toHaveLength(5);
 
         // Verify they're actually different
         expect(domainResult?.properties?.assetSummary?.summaryElements).not.toEqual(
