@@ -96,9 +96,9 @@ public class ConfigUtil {
   /** Internal wrapper for config decryption — reads key from ENV. */
   private static String decrypt(String value) {
     try {
-      String base64Key = System.getenv("CONFIG_ENCRYPTION_KEY");
+      String base64Key = System.getenv("SECRET_SERVICE_ENCRYPTION_KEY");
       if (base64Key == null || base64Key.isEmpty()) {
-        throw new IllegalStateException("CONFIG_ENCRYPTION_KEY is required for encrypted config");
+        throw new IllegalStateException("SECRET_SERVICE_ENCRYPTION_KEY is required for encrypted config");
       }
       return decryptGCM(value, base64Key);
     } catch (Exception e) {
