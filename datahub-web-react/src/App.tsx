@@ -69,6 +69,24 @@ const client = new ApolloClient({
                     },
                 },
             },
+            ActionWorkflowFormRequestField: {
+                keyFields: false, // Disable normalization for this type
+            },
+            Assertion: {
+                keyFields: ['urn'],
+                fields: {
+                    runEvents: {
+                        // Disable caching this field until we deep dive into
+                        // all the places where it is used.
+                        merge: false,
+                    },
+                    relationships: {
+                        // Disable caching this field until we deep dive into
+                        // all the places where it is used.
+                        merge: false,
+                    },
+                },
+            },
         },
         // need to define possibleTypes to allow us to use Apollo cache with union types
         possibleTypes: possibleTypesResult.possibleTypes,

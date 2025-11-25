@@ -22,11 +22,11 @@ import {
     getResultText,
 } from '@app/entity/shared/tabs/Dataset/Validations/assertionUtils';
 import { isAssertionPartOfContract } from '@app/entity/shared/tabs/Dataset/Validations/contract/utils';
+import { useDeleteAssertionMutationWithCache } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import CopyUrnMenuItem from '@app/shared/share/items/CopyUrnMenuItem';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 import { Assertion, AssertionRunStatus, DataContract, EntityType } from '@types';
 
 const ResultContainer = styled.div`
@@ -97,7 +97,7 @@ export const DatasetAssertionsList = ({
     contract,
 }: Props) => {
     const entityData = useEntityData();
-    const [deleteAssertionMutation] = useDeleteAssertionMutation();
+    const [deleteAssertionMutation] = useDeleteAssertionMutationWithCache();
     const entityRegistry = useEntityRegistry();
 
     const deleteAssertion = async (urn: string) => {

@@ -8,7 +8,6 @@ import {
     ActionsColumn,
     DetailsColumn,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
-import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
 
@@ -110,15 +109,6 @@ export const AcrylAssertionsTable = ({
     const { entityData } = useEntityData();
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
 
-    const focusedAssertion = assertions.find((assertion) => assertion.urn === focusAssertionUrn);
-    const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion) : undefined;
-    const focusedAssertionEntity =
-        focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
-
-    if (focusAssertionUrn && !focusedAssertion) {
-        setFocusAssertionUrn(null);
-    }
-
     useOpenAssertionDetailModal(setFocusAssertionUrn);
 
     const assertionsTableData = assertions.map((assertion) => ({
@@ -142,8 +132,6 @@ export const AcrylAssertionsTable = ({
             assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
             assertion.runEvents.runEvents[0].result?.externalUrl,
         assertion,
-        monitor:
-            (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0]?.entity,
     }));
 
     const assertionsTableCols = [
@@ -225,12 +213,12 @@ export const AcrylAssertionsTable = ({
                 showHeader={false}
                 pagination={false}
             />
-            {focusAssertionUrn && focusedAssertionEntity && (
+            {focusAssertionUrn && entityData && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
-                    contract={contract}
+                    entity={entityData}
+                    canEditAssertions={entityData?.privileges?.canEditAssertions || false}
                     closeDrawer={() => setFocusAssertionUrn(null)}
-                    refetch={refetch}
                 />
             )}
         </>

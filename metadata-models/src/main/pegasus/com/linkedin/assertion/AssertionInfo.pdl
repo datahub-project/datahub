@@ -3,6 +3,9 @@ namespace com.linkedin.assertion
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+
 
 /**
  * Information about an assertion
@@ -16,7 +19,8 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     */
     @Searchable = {
       "fieldName": "assertionType",
-      "fieldType": "KEYWORD"
+      "fieldType": "KEYWORD",
+      "addToFilters": true
     }
     type: AssertionType
 
@@ -86,6 +90,15 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       "hasValuesFieldName": "hasAssertionDescription",
     }
     description: optional string
+
+    /**
+    * The entity targeted by this assertion. Newly added field, automatically set by mutation
+    */
+    @Searchable = {
+      "fieldType": "URN",
+      "fieldName": "entity"
+    }
+    entityUrn: optional Urn
 
     /**
     * An optional note to give technical owners more context about the assertion, and how to troubleshoot it.
