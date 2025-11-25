@@ -14,10 +14,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.grafana.field_utils import extract_fields_from_panel
 from datahub.ingestion.source.grafana.grafana_config import GrafanaSourceConfig
 from datahub.ingestion.source.grafana.lineage import LineageExtractor
-from datahub.ingestion.source.grafana.models import Dashboard, Panel
+from datahub.ingestion.source.grafana.models import Dashboard, Panel, QueryInfo
 from datahub.ingestion.source.grafana.report import GrafanaSourceReport
 from datahub.ingestion.source.grafana.types import CHART_TYPE_MAPPINGS
 from datahub.metadata.schema_classes import (
@@ -33,8 +34,32 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaMetadataClass,
     StatusClass,
+    SubTypesClass,
     TagAssociationClass,
+    ViewPropertiesClass,
 )
+from datahub.sql_parsing.sqlglot_utils import try_format_query
+
+# Mapping of Grafana datasource types to their query languages
+DATASOURCE_TO_QUERY_LANGUAGE: Dict[str, str] = {
+    "prometheus": "PromQL",
+    "postgres": "SQL",
+    "mysql": "SQL",
+    "mssql": "SQL",
+    "athena": "SQL",
+    "cloudwatch": "CloudWatch Metrics",
+    "elasticsearch": "Lucene",
+    "influxdb": "InfluxQL",
+    "graphite": "Graphite",
+}
+
+# Mapping of Grafana datasource types to DataHub platform names for SQL formatting
+DATASOURCE_TO_PLATFORM: Dict[str, str] = {
+    "postgres": "postgres",
+    "mysql": "mysql",
+    "mssql": "mssql",
+    "athena": "athena",
+}
 
 
 def build_chart_mcps(
@@ -212,6 +237,95 @@ def build_dashboard_mcps(
     return dashboard_urn, mcps
 
 
+def _format_sql_query(query: str, datasource_type: Optional[str]) -> str:
+    """
+    Format SQL query using sqlglot if possible.
+
+    Args:
+        query: The SQL query to format
+        datasource_type: The Grafana datasource type (e.g., 'postgres', 'athena')
+
+    Returns:
+        Formatted SQL query, or original query if formatting fails
+    """
+    if not datasource_type:
+        return query
+
+    platform = DATASOURCE_TO_PLATFORM.get(datasource_type.lower())
+    if not platform:
+        return query
+
+    # Use sqlglot to format the query with proper indentation
+    return try_format_query(query, platform, raises=False)
+
+
+def _extract_query_from_panel(panel: Panel) -> Optional[QueryInfo]:
+    """
+    Extract query logic from panel targets.
+
+    Returns:
+        QueryInfo object containing query text and language, or None if no query found.
+        Supported languages: SQL, PromQL, etc.
+    """
+    if not panel.query_targets:
+        return None
+
+    ds_type = panel.datasource_ref.type if panel.datasource_ref else None
+
+    for target in panel.query_targets:
+        # Check for SQL queries (case-insensitive)
+        for key, value in target.items():
+            if key.lower() == "rawsql" and value:
+                sql_query = str(value).strip()
+                if not sql_query:  # Skip empty queries
+                    continue
+                # Format SQL query for better readability
+                formatted_query = _format_sql_query(sql_query, ds_type)
+                try:
+                    return QueryInfo(query=formatted_query, language="SQL")
+                except ValueError as e:
+                    logging.getLogger(__name__).warning(
+                        f"Invalid SQL query in panel: {e}"
+                    )
+                    continue
+
+        # Check for Prometheus queries
+        expr = target.get("expr")
+        if expr:
+            expr_str = str(expr).strip()
+            if not expr_str:  # Skip empty queries
+                continue
+            try:
+                return QueryInfo(query=expr_str, language="PromQL")
+            except ValueError as e:
+                logging.getLogger(__name__).warning(
+                    f"Invalid PromQL query in panel: {e}"
+                )
+                continue
+
+        # Check for other common query fields
+        query = target.get("query")
+        if query and isinstance(query, str):
+            query_str = str(query).strip()
+            if not query_str:  # Skip empty queries
+                continue
+            # Try to detect the query language from datasource type
+            if ds_type:
+                query_lang = DATASOURCE_TO_QUERY_LANGUAGE.get(ds_type.lower(), "Query")
+                # Format SQL queries
+                if query_lang == "SQL":
+                    query_str = _format_sql_query(query_str, ds_type)
+            else:
+                query_lang = "Query"
+            try:
+                return QueryInfo(query=query_str, language=query_lang)
+            except ValueError as e:
+                logging.getLogger(__name__).warning(f"Invalid query in panel: {e}")
+                continue
+
+    return None
+
+
 def _build_custom_properties(panel: Panel) -> Dict[str, str]:
     """Build custom properties for chart"""
     props = {}
@@ -353,6 +467,34 @@ def build_datasource_mcps(
             entityUrn=dataset_urn,
             aspect=StatusClass(removed=False),
         ).as_workunit()
+
+        # Extract query logic if available
+        query_info = _extract_query_from_panel(panel)
+        if query_info:
+            # Emit VIEW subtype when we have query logic
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SubTypesClass(
+                    typeNames=[DatasetSubTypes.VIEW, DatasetSubTypes.GRAFANA_DATASET]
+                ),
+            ).as_workunit()
+
+            # Emit ViewProperties with the query
+            # QueryInfo fields are guaranteed to be non-empty due to Pydantic validation
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=ViewPropertiesClass(
+                    materialized=False,
+                    viewLanguage=query_info.language,
+                    viewLogic=query_info.query,
+                ),
+            ).as_workunit()
+        else:
+            # No query logic available, just emit GRAFANA_DATASET subtype
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SubTypesClass(typeNames=[DatasetSubTypes.GRAFANA_DATASET]),
+            ).as_workunit()
 
         # Extract schema from this specific panel
         schema_fields = extract_fields_from_panel(

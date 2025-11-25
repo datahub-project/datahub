@@ -153,6 +153,25 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View",
+                "Grafana Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
     "changeType": "UPSERT",
@@ -160,6 +179,24 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT\n  time,\n  value,\n  dimension\nFROM test_metrics\nWHERE\n  metric = 'response_time' AND time > CURRENT_TIMESTAMP - INTERVAL '1 HOUR'\nORDER BY\n  time ASC",
+            "viewLanguage": "SQL"
         }
     },
     "systemMetadata": {
@@ -388,12 +425,49 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View",
+                "Grafana Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
             "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT\n  time,\n  metric,\n  value,\n  dimension\nFROM test_metrics\nWHERE\n  time > CURRENT_TIMESTAMP - INTERVAL '1 HOUR'\nORDER BY\n  time DESC\nLIMIT 10",
+            "viewLanguage": "SQL"
         }
     },
     "systemMetadata": {
@@ -690,6 +764,25 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View",
+                "Grafana Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
@@ -736,6 +829,24 @@
                     "isPartOfKey": false
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT\n  COUNT(*) AS count\nFROM test_metrics\nWHERE\n  time > CURRENT_TIMESTAMP - INTERVAL '1 HOUR'",
+            "viewLanguage": "SQL"
         }
     },
     "systemMetadata": {
@@ -804,6 +915,25 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View",
+                "Grafana Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
@@ -819,6 +949,24 @@
                     "type": "TRANSFORMED"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "rate(process_cpu_seconds_total[5m])",
+            "viewLanguage": "PromQL"
         }
     },
     "systemMetadata": {
