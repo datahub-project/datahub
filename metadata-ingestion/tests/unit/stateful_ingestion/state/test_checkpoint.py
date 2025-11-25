@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from typing import Dict, List
 
-import pydantic
 import pytest
+from pydantic import model_validator
 
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.sql_common_state import (
@@ -188,7 +188,8 @@ def test_state_forward_compatibility(serde: str) -> None:
     class NextState(CheckpointStateBase):
         list_stuff: List[str]
 
-        @pydantic.root_validator(pre=True, allow_reuse=True)
+        @model_validator(mode="before")
+        @classmethod
         def _migrate(cls, values: dict) -> dict:
             values.setdefault("list_stuff", [])
             values["list_stuff"] += values.pop("list_a", [])

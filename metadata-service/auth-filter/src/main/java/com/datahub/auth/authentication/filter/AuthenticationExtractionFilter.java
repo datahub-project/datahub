@@ -29,6 +29,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.metadata.context.OperationContext;
 import jakarta.inject.Named;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -84,6 +85,10 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
   @Named("dataHubTokenService")
   private StatefulTokenService _tokenService;
 
+  @Autowired
+  @Named("systemOperationContext")
+  private OperationContext _systemOperationContext;
+
   @Value("#{new Boolean('${authentication.logAuthenticatorExceptions}')}")
   private boolean _logAuthenticatorExceptions;
 
@@ -114,7 +119,12 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
     final AuthenticatorContext authenticatorContext =
         new AuthenticatorContext(
             ImmutableMap.of(
-                ENTITY_SERVICE, this._entityService, TOKEN_SERVICE, this._tokenService));
+                ENTITY_SERVICE,
+                this._entityService,
+                TOKEN_SERVICE,
+                this._tokenService,
+                "systemOperationContext",
+                this._systemOperationContext));
 
     if (isAuthEnabled) {
       log.info("Auth is enabled. Building extraction authenticator chain...");

@@ -26,20 +26,22 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
     entityTypeName,
     options,
 }) => {
-    const [debouncedSearchText, setDebouncedSearchText] = useState(searchText);
+    const [localSearchText, setLocalSearchText] = useState(searchText);
+
     useDebounce(
         () => {
-            debouncedSetFilterText(debouncedSearchText);
+            debouncedSetFilterText(localSearchText);
         },
         500,
-        [debouncedSearchText],
+        [localSearchText],
     );
+
     return (
         <SearchContainer>
             <StyledInput
-                value={searchText}
+                value={localSearchText}
                 placeholder={options?.placeholder || 'Search...'}
-                onChange={(e) => setDebouncedSearchText(e.target.value)}
+                onChange={(e) => setLocalSearchText(e.target.value)}
                 icon={options?.hidePrefix ? undefined : { icon: 'MagnifyingGlass', source: 'phosphor' }}
                 label=""
             />

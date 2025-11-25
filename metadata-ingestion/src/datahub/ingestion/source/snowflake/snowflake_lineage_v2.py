@@ -2,9 +2,19 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Collection, Iterable, List, Optional, Set, Tuple, Type
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Collection,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+)
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from datahub.configuration.datetimes import parse_absolute_time
 from datahub.ingestion.api.closeable import Closeable
@@ -44,6 +54,9 @@ from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.time import ts_millis_to_datetime
 
+if TYPE_CHECKING:
+    from pydantic.deprecated.class_validators import V1Validator
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 EXTERNAL_LINEAGE = "external_lineage"
@@ -51,13 +64,13 @@ TABLE_LINEAGE = "table_lineage"
 VIEW_LINEAGE = "view_lineage"
 
 
-def pydantic_parse_json(field: str) -> classmethod:
+def pydantic_parse_json(field: str) -> "V1Validator":
     def _parse_from_json(cls: Type, v: Any) -> dict:
         if isinstance(v, str):
             return json.loads(v)
         return v
 
-    return validator(field, pre=True, allow_reuse=True)(_parse_from_json)
+    return field_validator(field, mode="before")(_parse_from_json)
 
 
 class UpstreamColumnNode(BaseModel):
@@ -366,7 +379,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 # To avoid that causing a pydantic error we are setting it to an empty list
                 # instead of a list with an empty object
                 db_row["QUERIES"] = "[]"
-            return UpstreamLineageEdge.parse_obj(db_row)
+            return UpstreamLineageEdge.model_validate(db_row)
         except Exception as e:
             self.report.num_upstream_lineage_edge_parsing_failed += 1
             upstream_tables = db_row.get("UPSTREAM_TABLES")

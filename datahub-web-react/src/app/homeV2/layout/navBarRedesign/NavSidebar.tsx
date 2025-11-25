@@ -29,6 +29,7 @@ import {
     NavBarMenuItems,
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
+import { useContextMenuItems } from '@app/homeV2/layout/sidebar/documents/useContextMenuItems';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
@@ -43,6 +44,7 @@ import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateE
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { EntityType } from '@src/types.generated';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import AcrylIcon from '@images/acryl-light-mark.svg?react';
 
@@ -57,11 +59,51 @@ const Container = styled.div`
 const Content = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     flex-direction: column;
-    padding: 17px 8px 17px 16px;
     height: 100%;
     width: ${(props) => (props.isCollapsed ? '60px' : '264px')};
     transition: width 250ms ease-in-out;
     overflow-x: hidden;
+`;
+
+const Header = styled.div`
+    padding: 17px 8px 8px 16px;
+    border-bottom: 1px solid ${colors.gray[100]};
+`;
+
+const ScrollableContent = styled.div`
+    display: flex;
+    flex-direction: column;
+    padding: 0px 8px 0px 16px;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+
+    /* Custom scrollbar styling */
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: #a9adbd;
+        border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background: #81879f;
+    }
+
+    scrollbar-width: thin;
+    scrollbar-color: #a9adbd transparent;
+`;
+
+const Footer = styled.div`
+    padding: 8px 8px 17px 8px;
+    border-top: 1px solid ${colors.gray[100]};
 `;
 
 const CustomLogo = styled.img`
@@ -72,15 +114,12 @@ const CustomLogo = styled.img`
     min-width: 20px;
 `;
 
-const Spacer = styled.div`
-    flex: 1;
-`;
-
-const DEFAULT_LOGO = '/assets/logos/acryl-dark-mark.svg';
+const DEFAULT_LOGO = 'assets/logos/acryl-dark-mark.svg';
 
 const MenuWrapper = styled.div`
     margin-top: 14px;
-    height: 100%;
+    display: flex;
+    flex-direction: column;
 `;
 
 export const NavSidebar = () => {
@@ -94,6 +133,7 @@ export const NavSidebar = () => {
     const isHomePage = useIsHomePage();
     const location = useLocation();
     const showHomepageRedesign = useShowHomePageRedesign();
+    const contextMenuItems = useContextMenuItems();
 
     const { isUserInitializing } = useContext(OnboardingContext);
     const { triggerModalTour } = useOnboardingTour();
@@ -138,7 +178,7 @@ export const NavSidebar = () => {
         }
     }
 
-    const mainMenu: NavBarMenuItems = {
+    const headerMenu: NavBarMenuItems = {
         items: [
             {
                 type: NavBarMenuItemTypes.Item,
@@ -150,6 +190,11 @@ export const NavSidebar = () => {
                 onlyExactPathMapping: true,
                 onClick: () => handleHomeclick(),
             },
+        ],
+    };
+
+    const mainContentMenu: NavBarMenuItems = {
+        items: [
             {
                 type: NavBarMenuItemTypes.Group,
                 key: 'govern',
@@ -238,11 +283,12 @@ export const NavSidebar = () => {
                     },
                 ],
             },
-            {
-                type: NavBarMenuItemTypes.Custom,
-                key: 'spacer',
-                render: () => <Spacer />,
-            },
+            ...(contextMenuItems ? [contextMenuItems] : []),
+        ],
+    };
+
+    const footerMenu: NavBarMenuItems = {
+        items: [
             {
                 type: NavBarMenuItemTypes.Item,
                 title: 'Profile',
@@ -288,7 +334,7 @@ export const NavSidebar = () => {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: 'GraphQL',
                         description: 'Explore the GraphQL API',
-                        link: HelpLinkRoutes.GRAPHIQL || null,
+                        link: resolveRuntimePath(HelpLinkRoutes.GRAPHIQL),
                         isExternalLink: true,
                         key: 'helpGraphQL',
                     },
@@ -296,7 +342,7 @@ export const NavSidebar = () => {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: 'OpenAPI',
                         description: 'Explore the OpenAPI endpoints',
-                        link: HelpLinkRoutes.OPENAPI,
+                        link: resolveRuntimePath(HelpLinkRoutes.OPENAPI),
                         isExternalLink: true,
                         key: 'helpOpenAPI',
                     },
@@ -317,12 +363,17 @@ export const NavSidebar = () => {
                 icon: <SignOut data-testid="log-out-menu-item" />,
                 key: 'signOut',
                 onClick: logout,
-                href: '/logOut',
+                href: resolveRuntimePath('/logOut'),
                 dataTestId: 'nav-sidebar-sign-out',
             },
         ],
     };
-    const sk = useSelectedKey(mainMenu);
+
+    // Combine all menus for selected key calculation
+    const allMenuItems: NavBarMenuItems = {
+        items: [...headerMenu.items, ...mainContentMenu.items, ...footerMenu.items],
+    };
+    const sk = useSelectedKey(allMenuItems);
 
     useEffect(() => setSelectedKey(sk), [sk, setSelectedKey]);
 
@@ -351,10 +402,24 @@ export const NavSidebar = () => {
                     <NavSkeleton isCollapsed={isCollapsed} />
                 ) : (
                     <>
-                        <NavBarHeader logotype={logoComponent} />
-                        <MenuWrapper>
-                            <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={mainMenu} />
-                        </MenuWrapper>
+                        <Header>
+                            <NavBarHeader logotype={logoComponent} />
+                            <MenuWrapper>
+                                <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={headerMenu} />
+                            </MenuWrapper>
+                        </Header>
+                        <ScrollableContent>
+                            <MenuWrapper>
+                                <NavBarMenu
+                                    selectedKey={selectedKey}
+                                    isCollapsed={isCollapsed}
+                                    menu={mainContentMenu}
+                                />
+                            </MenuWrapper>
+                        </ScrollableContent>
+                        <Footer>
+                            <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={footerMenu} />
+                        </Footer>
                     </>
                 )}
             </Content>

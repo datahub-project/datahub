@@ -64,6 +64,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               return getDashboardPrivileges(urn, context);
             case Constants.DATA_JOB_ENTITY_NAME:
               return getDataJobPrivileges(urn, context);
+            case Constants.DOCUMENT_ENTITY_NAME:
+              return getDocumentPrivileges(urn, context);
             default:
               log.warn(
                   "Tried to get entity privileges for entity type {}. Adding common privileges only.",
@@ -161,6 +163,14 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     return result;
   }
 
+  private EntityPrivileges getDocumentPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    // Document-specific: canManageEntity includes ability to delete/move documents
+    result.setCanManageEntity(AuthorizationUtils.canEditDocument(urn, context));
+    return result;
+  }
+
   private void addCommonPrivileges(
       @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
     result.setCanEditLineage(canEditEntityLineage(urn, context));
@@ -181,5 +191,6 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditOwners(OwnerUtils.isAuthorizedToUpdateOwners(context, urn));
     result.setCanEditDescription(DescriptionUtils.isAuthorizedToUpdateDescription(context, urn));
     result.setCanEditLinks(LinkUtils.isAuthorizedToUpdateLinks(context, urn));
+    result.setCanManageAssetSummary(AuthorizationUtils.canManageAssetSummary(context, urn));
   }
 }

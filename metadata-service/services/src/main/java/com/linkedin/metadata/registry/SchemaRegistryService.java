@@ -12,6 +12,15 @@ public interface SchemaRegistryService {
 
   Optional<Integer> getSchemaIdForTopic(final String topicName);
 
+  /**
+   * Get schema ID for a specific topic and version This is critical for proper schema resolution
+   *
+   * @param topicName the topic name
+   * @param version the schema version
+   * @return Optional containing the schema ID if found
+   */
+  Optional<Integer> getSchemaIdForTopicAndVersion(final String topicName, final int version);
+
   Optional<Schema> getSchemaForTopic(final String topicName);
 
   Optional<Schema> getSchemaForId(final int id);

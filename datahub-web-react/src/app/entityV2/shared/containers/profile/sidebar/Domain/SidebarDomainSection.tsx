@@ -12,9 +12,13 @@ import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { ENTITY_PROFILE_DOMAINS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 
 import { useUnsetDomainMutation } from '@graphql/mutations.generated';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 const Content = styled.div`
     display: flex;
@@ -41,13 +45,15 @@ interface Props {
 
 export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     const updateOnly = properties?.updateOnly;
-    const { entityData } = useEntityData();
+    const { entityData, entityType } = useEntityData();
     const refetch = useRefetch();
     const urn = useMutationUrn();
     const [unsetDomainMutation] = useUnsetDomainMutation();
     const [showModal, setShowModal] = useState(false);
     const [domainToRemove, setDomainToRemove] = useState<string | undefined>();
     const domain = entityData?.domain?.domain;
+
+    const { reloadByKeyType } = useReloadableContext();
 
     const canEditDomains = !!entityData?.privileges?.canEditDomains;
 
@@ -56,6 +62,19 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
             .then(() => {
                 message.success({ content: 'Removed Domain.', duration: 2 });
                 refetch?.();
+                // Reload modules
+                // Assets - as assets module in domain summary tab could be updated
+                reloadByKeyType(
+                    [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                    3000,
+                );
+                // DataProduct - as data products module in domain summary tab could be updated
+                if (entityType === EntityType.DataProduct) {
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.DataProducts)],
+                        3000,
+                    );
+                }
             })
             .catch((e: unknown) => {
                 message.destroy();
@@ -98,6 +117,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                             event.stopPropagation();
                         }}
                         actionPrivilege={canEditDomains}
+                        dataTestId="set-domain-button"
                     />
                 }
             />

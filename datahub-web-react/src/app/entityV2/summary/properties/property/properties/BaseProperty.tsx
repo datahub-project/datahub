@@ -3,9 +3,10 @@ import { Skeleton } from 'antd';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
-import useAssetPropertiesContext from '@app/entityV2/summary/properties/context/useAssetPropertiesContext';
 import usePropertyMenuItems from '@app/entityV2/summary/properties/menuProperty/usePropertyMenuItems';
+import { filterCurrentItemInReplaceMenu } from '@app/entityV2/summary/properties/property/properties/utils';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
 const PropertyWrapper = styled.div`
     display: flex;
@@ -14,14 +15,12 @@ const PropertyWrapper = styled.div`
     height: 52px;
 `;
 
-const Content = styled.div`
-    padding: 0 4px;
-`;
+const Content = styled.div``;
 
 const ValuesWrapper = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
 `;
 
 const PopoverValueWrapper = styled(ValuesWrapper)`
@@ -81,9 +80,11 @@ export default function BaseProperty<T>({
     restItemsPillBorderType = 'none',
     loading,
 }: Props<T>) {
-    const { editable } = useAssetPropertiesContext();
+    const { isTemplateEditable } = usePageTemplateContext();
 
-    const menuItems = usePropertyMenuItems(position);
+    const menuItems = usePropertyMenuItems(position, property.type);
+
+    const filteredItems = filterCurrentItemInReplaceMenu(menuItems, property);
 
     const valuesToShow = useMemo(() => values.slice(0, maxValues ?? DEFAULT_MAX_ITEMS), [values, maxValues]);
     const valuesToShowInPopover = useMemo(() => values.slice(maxValues ?? DEFAULT_MAX_ITEMS), [values, maxValues]);
@@ -93,9 +94,6 @@ export default function BaseProperty<T>({
 
         const popoverContent = (
             <PopoverWrapper>
-                <Text color="gray" weight="bold" size="sm">
-                    {property.name}
-                </Text>
                 <PopoverValueWrapper>
                     {valuesToShowInPopover.map((item) =>
                         renderValueInTooltip ? renderValueInTooltip(item) : renderValue(item),
@@ -123,17 +121,25 @@ export default function BaseProperty<T>({
                 </PillWrapper>
             </Popover>
         );
-    }, [valuesToShowInPopover, renderValueInTooltip, restItemsPillBorderType, renderValue, property.name]);
+    }, [valuesToShowInPopover, renderValueInTooltip, restItemsPillBorderType, renderValue]);
 
     return (
-        <PropertyWrapper>
-            <Menu items={menuItems} trigger={['click']} disabled={!editable}>
-                <Title weight="bold" color="gray" size="sm" colorLevel={1700} $clickable={editable} type="div">
+        <PropertyWrapper data-testid={`property-${property.type}`}>
+            <Menu items={filteredItems} trigger={['click']} disabled={!isTemplateEditable}>
+                <Title
+                    weight="bold"
+                    color="gray"
+                    size="sm"
+                    colorLevel={600}
+                    $clickable={isTemplateEditable}
+                    type="div"
+                    data-testid="property-title"
+                >
                     {property.name}
                 </Title>
             </Menu>
             <Content>
-                <ValuesWrapper>
+                <ValuesWrapper data-testid="property-value">
                     {loading ? (
                         <Skeleton.Button active />
                     ) : (

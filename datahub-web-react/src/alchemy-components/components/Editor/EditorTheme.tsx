@@ -47,7 +47,11 @@ export const EditorTheme: RemirrorThemeType = {
     },
 };
 
-export const EditorContainer = styled.div`
+export const EditorContainer = styled.div<{
+    $readOnly?: boolean;
+    $hideBorder?: boolean;
+    $fixedBottomToolbar?: boolean;
+}>`
     ${extensionBlockquoteStyledCss}
     ${extensionCalloutStyledCss}
     ${extensionCodeBlockStyledCss}
@@ -63,14 +67,16 @@ export const EditorContainer = styled.div`
     font-weight: 400;
     display: flex;
     flex: 1 1 auto;
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: ${(props) => (props.$readOnly || props.$hideBorder ? `none` : `1px solid ${ANTD_GRAY[4.5]}`)};
     border-radius: 12px;
+    padding-bottom: ${(props) => (props.$fixedBottomToolbar ? '100px' : '0')};
 
     .remirror-theme,
     .remirror-editor-wrapper {
         flex: 1 1 100%;
         display: flex;
         flex-direction: column;
+        max-width: 100%;
     }
 
     .remirror-editor.ProseMirror {
@@ -83,6 +89,7 @@ export const EditorContainer = styled.div`
         line-height: 1.5;
         white-space: pre-wrap;
         margin: 0;
+        color: ${colors.gray[600]};
 
         a {
             font-weight: 500;
@@ -132,5 +139,9 @@ export const EditorContainer = styled.div`
 
     .remirror-floating-popover {
         z-index: 100;
+    }
+
+    .remirror-is-empty::before {
+        font-style: normal !important;
     }
 `;

@@ -1,20 +1,14 @@
+import { Editor, Modal, colors } from '@components';
 import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { EditorProps } from '@components/components/Editor/types';
 import { ModalButton } from '@components/components/Modal/Modal';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { Modal } from '@src/alchemy-components';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
     font-weight: bold;
-`;
-
-const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4.5]};
 `;
 
 const StyledViewer = styled(Editor)`
@@ -27,6 +21,13 @@ const OriginalDocumentation = styled(Form.Item)`
     margin-bottom: 12px;
 `;
 
+const EditorContainer = styled.div`
+    height: 200px;
+    overflow: auto;
+    border: 1px solid ${colors.gray[100]};
+    border-radius: 12px;
+`;
+
 type Props = {
     title: string;
     description?: string;
@@ -35,6 +36,7 @@ type Props = {
     onClose: () => void;
     onSubmit: (description: string) => void;
     isAddDesc?: boolean;
+    editorProps?: Partial<EditorProps>;
 };
 
 export default function UpdateDescriptionModal({
@@ -45,6 +47,7 @@ export default function UpdateDescriptionModal({
     onClose,
     onSubmit,
     isAddDesc,
+    editorProps,
 }: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
 
@@ -84,7 +87,15 @@ export default function UpdateDescriptionModal({
                     </OriginalDocumentation>
                 )}
                 <Form.Item>
-                    <StyledEditor content={updatedDesc} onChange={setDesc} />
+                    <EditorContainer>
+                        <Editor
+                            content={updatedDesc}
+                            onChange={setDesc}
+                            dataTestId="description-editor"
+                            hideBorder
+                            {...editorProps}
+                        />
+                    </EditorContainer>
                 </Form.Item>
             </Form>
         </Modal>

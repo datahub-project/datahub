@@ -14,6 +14,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
@@ -36,7 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -63,11 +63,11 @@ public class ESAggregatedStatsDAO {
   private static final String ES_AGG_MAX_TIMESTAMP =
       ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
   private static final int MAX_TERM_BUCKETS = 24 * 60; // minutes in a day.
-  private final RestHighLevelClient searchClient;
+  private final SearchClientShim<?> searchClient;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
 
   public ESAggregatedStatsDAO(
-      @Nonnull RestHighLevelClient searchClient,
+      @Nonnull SearchClientShim<?> searchClient,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     this.searchClient = searchClient;
     this.queryFilterRewriteChain = queryFilterRewriteChain;

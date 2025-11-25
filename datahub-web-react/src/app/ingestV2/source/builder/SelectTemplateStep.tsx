@@ -1,5 +1,5 @@
 import { FormOutlined, SearchOutlined } from '@ant-design/icons';
-import { Input } from 'antd';
+import { Input, InputRef } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -9,7 +9,6 @@ import { CUSTOM } from '@app/ingestV2/source/builder/constants';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { SourceBuilderState, SourceConfig, StepProps } from '@app/ingestV2/source/builder/types';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
-import { Button } from '@src/alchemy-components';
 
 const Container = styled.div`
     max-height: 82vh;
@@ -54,6 +53,17 @@ const PlatformListContainer = styled.div`
     padding-right: 12px;
 `;
 
+const NoResultsMessage = styled.div`
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+    color: #666;
+    font-size: 16px;
+    text-align: center;
+`;
+
 interface SourceOptionProps {
     source: SourceConfig;
     onClick: () => void;
@@ -82,8 +92,21 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
 /**
  * Component responsible for selecting the mechanism for constructing a new Ingestion Source
  */
-export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestionSources }: StepProps) => {
+export const SelectTemplateStep = ({
+    state,
+    updateState,
+    goTo,
+    ingestionSources,
+    setSelectedSourceType,
+}: StepProps) => {
     const [searchFilter, setSearchFilter] = useState('');
+
+    // Callback ref that focuses immediately when the element is attached
+    const searchInputCallbackRef = (node: InputRef | null) => {
+        if (node) {
+            node.focus();
+        }
+    };
 
     const onSelectTemplate = (type: string) => {
         const newState: SourceBuilderState = {
@@ -93,6 +116,7 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
         };
         updateState(newState);
         goTo(IngestionSourceBuilderStep.DEFINE_RECIPE);
+        setSelectedSourceType?.(type);
     };
 
     const filteredSources = ingestionSources.filter(
@@ -118,6 +142,7 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
             <Section>
                 <SearchBarContainer>
                     <StyledSearchBar
+                        ref={searchInputCallbackRef}
                         placeholder="Search data sources..."
                         value={searchFilter}
                         onChange={(e) => setSearchFilter(e.target.value)}
@@ -126,14 +151,19 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
                     />
                 </SearchBarContainer>
                 <PlatformListContainer data-testid="data-source-options">
-                    {filteredSources.map((source) => (
-                        <SourceOption key={source.urn} source={source} onClick={() => onSelectTemplate(source.name)} />
-                    ))}
+                    {filteredSources.length > 0 ? (
+                        filteredSources.map((source) => (
+                            <SourceOption
+                                key={source.urn}
+                                source={source}
+                                onClick={() => onSelectTemplate(source.name)}
+                            />
+                        ))
+                    ) : (
+                        <NoResultsMessage>Data Source with name &quot;{searchFilter}&quot; not found.</NoResultsMessage>
+                    )}
                 </PlatformListContainer>
             </Section>
-            <Button variant="text" color="gray" onClick={cancel}>
-                Cancel
-            </Button>
         </Container>
     );
 };

@@ -29,6 +29,7 @@ interface Props {
     modalText?: string | React.ReactNode;
     closeButtonText?: string;
     confirmButtonText?: string;
+    isDeleteModal?: boolean;
 }
 
 export const ConfirmationModal = ({
@@ -39,6 +40,7 @@ export const ConfirmationModal = ({
     modalText,
     closeButtonText,
     confirmButtonText,
+    isDeleteModal,
 }: Props) => {
     return (
         <StyledModal

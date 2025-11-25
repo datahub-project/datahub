@@ -159,13 +159,14 @@ public class EntityIncidentsResolverTest {
     assertEquals(incident.getDescription(), expectedInfo.getDescription());
     assertEquals(incident.getCustomType(), expectedInfo.getCustomType());
     assertEquals(
-        incident.getStatus().getState().toString(), expectedInfo.getStatus().getState().toString());
-    assertEquals(incident.getStatus().getMessage(), expectedInfo.getStatus().getMessage());
+        incident.getIncidentStatus().getState().toString(),
+        expectedInfo.getStatus().getState().toString());
+    assertEquals(incident.getIncidentStatus().getMessage(), expectedInfo.getStatus().getMessage());
     assertEquals(
-        incident.getStatus().getLastUpdated().getTime(),
+        incident.getIncidentStatus().getLastUpdated().getTime(),
         expectedInfo.getStatus().getLastUpdated().getTime());
     assertEquals(
-        incident.getStatus().getLastUpdated().getActor(),
+        incident.getIncidentStatus().getLastUpdated().getActor(),
         expectedInfo.getStatus().getLastUpdated().getActor().toString());
     assertEquals(
         incident.getSource().getType().toString(), expectedInfo.getSource().getType().toString());
@@ -308,20 +309,22 @@ public class EntityIncidentsResolverTest {
     assertEquals(incident.getDescription(), expectedInfo.getDescription());
     assertEquals(incident.getCustomType(), expectedInfo.getCustomType());
     assertEquals(
-        incident.getStatus().getState().toString(), expectedInfo.getStatus().getState().toString());
+        incident.getIncidentStatus().getState().toString(),
+        expectedInfo.getStatus().getState().toString());
     assertEquals(
-        incident.getStatus().getStage().toString(), expectedInfo.getStatus().getStage().toString());
+        incident.getIncidentStatus().getStage().toString(),
+        expectedInfo.getStatus().getStage().toString());
     assertEquals(incident.getPriority(), IncidentPriority.CRITICAL);
     assertEquals(incident.getAssignees().size(), 1);
     assertEquals(
         ((CorpUser) incident.getAssignees().get(0)).getUrn(),
         expectedInfo.getAssignees().get(0).getActor().toString());
-    assertEquals(incident.getStatus().getMessage(), expectedInfo.getStatus().getMessage());
+    assertEquals(incident.getIncidentStatus().getMessage(), expectedInfo.getStatus().getMessage());
     assertEquals(
-        incident.getStatus().getLastUpdated().getTime(),
+        incident.getIncidentStatus().getLastUpdated().getTime(),
         expectedInfo.getStatus().getLastUpdated().getTime());
     assertEquals(
-        incident.getStatus().getLastUpdated().getActor(),
+        incident.getIncidentStatus().getLastUpdated().getActor(),
         expectedInfo.getStatus().getLastUpdated().getActor().toString());
     assertEquals(
         incident.getSource().getType().toString(), expectedInfo.getSource().getType().toString());

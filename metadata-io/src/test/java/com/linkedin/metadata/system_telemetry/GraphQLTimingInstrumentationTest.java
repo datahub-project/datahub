@@ -30,7 +30,6 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -97,7 +96,7 @@ public class GraphQLTimingInstrumentationTest {
 
     // Setup real GraphQL configuration for GraphQLEngine
     graphQLConfiguration = createDefaultConfiguration();
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
   }
 
   @Test

@@ -7,9 +7,12 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import OwnershipTypesSelect from '@app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToAutoCompleteInput } from '@app/shared/userSearchUtils';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
@@ -18,7 +21,7 @@ import { getModalDomContainer } from '@utils/focus';
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { CorpUser, Entity, EntityType, OwnerEntityType } from '@types';
+import { CorpUser, DataHubPageModuleType, Entity, EntityType, OwnerEntityType } from '@types';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -77,7 +80,7 @@ export const EditOwnersModal = ({
     defaultValues,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { setReloadHomepageModules } = usePageTemplateContext();
+    const { reloadByKeyType } = useReloadableContext();
     const { user } = useUserContext();
 
     // Renders a search result in the select dropdown.
@@ -86,7 +89,7 @@ export const EditOwnersModal = ({
             (entity.type === EntityType.CorpUser && (entity as CorpUser).editableProperties?.pictureLink) || undefined;
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
         return (
-            <Select.Option value={entity.urn} key={entity.urn} data-testid={`owner-${displayName}`}>
+            <Select.Option value={entity.urn} key={entity.urn} data-testid={`owner-option-${displayName}`}>
                 <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
             </Select.Option>
         );
@@ -151,13 +154,18 @@ export const EditOwnersModal = ({
     // Invokes the search API as the owner types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
         if (text) {
+            const input = addUserFiltersToAutoCompleteInput(
+                {
+                    type,
+                    query: text,
+                    limit: 10,
+                },
+                type,
+            );
+
             searchQuery({
                 variables: {
-                    input: {
-                        type,
-                        query: text,
-                        limit: 10,
-                    },
+                    input,
                 },
             });
         }
@@ -339,7 +347,13 @@ export const EditOwnersModal = ({
             batchRemoveOwners(inputs);
         }
         const isCurrentUserUpdated = user?.urn && inputs.map((input) => input.ownerUrn).includes(user?.urn);
-        if (isCurrentUserUpdated) setReloadHomepageModules(true);
+        // Reload modules
+        // OwnedAssets - as your assets module could be updated
+        if (isCurrentUserUpdated)
+            reloadByKeyType(
+                [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.OwnedAssets)],
+                3000,
+            );
     };
 
     function handleBlur() {

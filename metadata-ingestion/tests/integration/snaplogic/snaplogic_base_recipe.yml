@@ -1,0 +1,16 @@
+pipeline_name: snaplogic_base_pipeline
+source:
+  type: snaplogic
+  config:
+    username: example@snaplogic.com
+    password: dummy_password
+    base_url: https://elastic.snaplogic.com
+    org_name: TEST_ORG
+    stateful_ingestion:
+      enabled: True
+      remove_stale_metadata: False
+
+sink:
+  type: file
+  config:
+    filename: "/tmp/snaplogic_mces.json"

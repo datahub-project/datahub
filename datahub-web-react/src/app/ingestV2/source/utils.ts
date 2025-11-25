@@ -134,33 +134,39 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
             .filter((item) => item != null);
     };
 
+    /* Extract items from a report (source or sink) */
+    const extractItemsFromReport = (report: any): StructuredReportLogEntry[] => {
+        if (!report) {
+            return [];
+        }
+
+        const failures = Array.isArray(report.failures)
+            ? mapItemArray(report.failures || [], StructuredReportItemLevel.ERROR)
+            : mapItemObject(report.failures || {}, StructuredReportItemLevel.ERROR);
+
+        const warnings = Array.isArray(report.warnings)
+            ? mapItemArray(report.warnings || [], StructuredReportItemLevel.WARN)
+            : mapItemObject(report.warnings || {}, StructuredReportItemLevel.WARN);
+
+        const infos = Array.isArray(report.infos)
+            ? mapItemArray(report.infos || [], StructuredReportItemLevel.INFO)
+            : mapItemObject(report.infos || {}, StructuredReportItemLevel.INFO);
+
+        return [...failures, ...warnings, ...infos];
+    };
+
     try {
         const sourceReport = structuredReportObj.source?.report;
+        const sinkReport = structuredReportObj.sink?.report;
 
-        if (!sourceReport) {
+        if (!sourceReport && !sinkReport) {
             return null;
         }
 
-        // Else fallback to using the legacy fields
-        const failures = Array.isArray(sourceReport.failures)
-            ? /* Use V2 failureList if present */
-              mapItemArray(sourceReport.failures || [], StructuredReportItemLevel.ERROR)
-            : /* Else use the legacy object type */
-              mapItemObject(sourceReport.failures || {}, StructuredReportItemLevel.ERROR);
+        const sourceItems = extractItemsFromReport(sourceReport);
+        const sinkItems = extractItemsFromReport(sinkReport);
 
-        const warnings = Array.isArray(sourceReport.warnings)
-            ? /* Use V2 warning if present */
-              mapItemArray(sourceReport.warnings || [], StructuredReportItemLevel.WARN)
-            : /* Else use the legacy object type */
-              mapItemObject(sourceReport.warnings || {}, StructuredReportItemLevel.WARN);
-
-        const infos = Array.isArray(sourceReport.infos)
-            ? /* Use V2 infos if present */
-              mapItemArray(sourceReport.infos || [], StructuredReportItemLevel.INFO)
-            : /* Else use the legacy object type */
-              mapItemObject(sourceReport.infos || {}, StructuredReportItemLevel.INFO);
-
-        return createStructuredReport([...failures, ...warnings, ...infos]);
+        return createStructuredReport([...sourceItems, ...sinkItems]);
     } catch (e) {
         console.warn('Failed to extract structured report from ingestion report!', e);
         return null;

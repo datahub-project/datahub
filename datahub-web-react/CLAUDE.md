@@ -194,4 +194,17 @@ yarn type-check
 
 # Run tests
 yarn test
+
+# Run specific test file
+yarn test path/to/file.test.tsx --run
 ```
+
+## Writing Tests - Best Practices & Common Pitfalls
+
+### Test Setup Essentials
+
+**Always use the existing test infrastructure:**
+
+- Use `TestPageContainer` from `@utils/test-utils/TestPageContainer` - it provides all necessary providers
+- Use `MockedProvider` from `@apollo/client/testing` for GraphQL components
+- Use Vitest with React Testing Library

@@ -2,6 +2,7 @@ import Icon from '@ant-design/icons/lib/components/Icon';
 import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import EntityIcon from '@app/entity/shared/components/styled/EntityIcon';
@@ -117,6 +118,7 @@ interface Props {
     isFieldColumn?: boolean;
     size?: number;
     hydratedEntityMap?: Record<string, Entity>;
+    dataTestId?: string;
     attribution?: MetadataAttribution | null;
 }
 
@@ -128,6 +130,7 @@ export default function StructuredPropertyValue({
     isFieldColumn,
     size = 12,
     hydratedEntityMap,
+    dataTestId,
     attribution,
 }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -152,9 +155,9 @@ export default function StructuredPropertyValue({
                     <EntityName ellipsis={{ tooltip: true }}>
                         {entityRegistry.getDisplayName(value.entity.type, value.entity)}
                     </EntityName>
-                    <Typography.Link href={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
+                    <Link to={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
                         <StyledIcon component={ExternalLink} />
-                    </Typography.Link>
+                    </Link>
                 </EntityWrapper>
             );
         }
@@ -162,7 +165,7 @@ export default function StructuredPropertyValue({
 
     return (
         <Tooltip title={attribution && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}>
-            <ValueText size={size}>
+            <ValueText size={size} data-testid={dataTestId}>
                 {value.entity ? (
                     valueEntityRender
                 ) : (

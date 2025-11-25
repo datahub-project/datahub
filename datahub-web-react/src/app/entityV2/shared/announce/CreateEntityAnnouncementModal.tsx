@@ -2,7 +2,6 @@ import { Form, Input, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { PostEntry } from '@app/settings/posts/PostsListColumns';
 import {
     CREATE_POST_BUTTON_ID,
@@ -12,7 +11,7 @@ import {
 } from '@app/settings/posts/constants';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Modal } from '@src/alchemy-components';
+import { Editor, Modal } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
 import { MediaType, PostContentType, PostType, SubResourceType } from '@types';

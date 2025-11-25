@@ -16,6 +16,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     DashboardSnapshot,
 )
 from datahub.metadata.schema_classes import ChartInfoClass, DashboardInfoClass
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingDebugInfo
 
 mock_dashboard_response = {
     "tags": [],
@@ -724,3 +725,30 @@ def test_get_chart_snapshot_parse_table_names_from_sql(mocked_data_source):
     )
 
     assert result == expected
+
+
+@patch("datahub.ingestion.source.redash.create_lineage_sql_parsed_result")
+@patch("datahub.ingestion.source.redash.RedashSource._get_chart_data_source")
+def test_sql_parsing_error_generates_warning(mocked_data_source, mocked_sql_parser):
+    mocked_data_source.return_value = {
+        **mock_mysql_data_source_response,
+        "syntax": "sql",
+    }
+
+    class MockResult:
+        def __init__(self):
+            self.in_tables = []
+            self.debug_info = SqlParsingDebugInfo()
+            self.debug_info.table_error = Exception("Invalid SQL syntax")
+
+    mocked_sql_parser.return_value = MockResult()
+
+    source = redash_source_parse_table_names_from_sql()
+    result = source._get_datasource_urns(
+        mocked_data_source.return_value,
+        {"id": 123, "query": "SELECT * FROM invalid_table;"},
+    )
+
+    assert result is None
+    assert "123" in source.report.queries_problem_parsing
+    assert len(source.report.warnings) > 0

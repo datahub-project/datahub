@@ -1,32 +1,32 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import useAssetPropertiesContext from '@app/entityV2/summary/properties/context/useAssetPropertiesContext';
 import AddPropertyButton from '@app/entityV2/summary/properties/menuAddProperty/AddPropertyButton';
 import PropertyRenderer from '@app/entityV2/summary/properties/property/PropertyRenderer';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
 const Container = styled.div`
     display: flex;
-    gap: 16px;
+    gap: 24px;
     flex-wrap: wrap;
     align-items: center;
 `;
 
 export default function Properties() {
-    const { properties, editable } = useAssetPropertiesContext();
+    const { summaryElements, isTemplateEditable } = usePageTemplateContext();
 
     const propertyItems = useMemo(
         () =>
-            properties?.map((property, index) => ({
+            summaryElements?.map((property, index) => ({
                 property,
                 key: `${property.type}-${index}`,
                 index,
             })) ?? [],
-        [properties],
+        [summaryElements],
     );
 
     return (
-        <Container>
+        <Container data-testid="properties-section">
             {propertyItems.map((propertyItem) => (
                 <PropertyRenderer
                     property={propertyItem.property}
@@ -34,7 +34,7 @@ export default function Properties() {
                     key={propertyItem.key}
                 />
             ))}
-            {editable && <AddPropertyButton />}
+            {isTemplateEditable && <AddPropertyButton />}
         </Container>
     );
 }

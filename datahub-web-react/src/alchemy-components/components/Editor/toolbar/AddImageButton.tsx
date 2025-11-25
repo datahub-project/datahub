@@ -37,7 +37,7 @@ export const AddImageButton = () => {
         <>
             <CommandButton
                 active={false}
-                icon={<Image size={24} color={colors.gray[1800]} />}
+                icon={<Image size={20} color={colors.gray[1800]} />}
                 commandName="insertImage"
                 onClick={handleButtonClick}
             />
@@ -52,6 +52,7 @@ export const AddImageButton = () => {
                         onClick: handleOk,
                     },
                 ]}
+                zIndex={1200}
             >
                 <Form form={form} layout="vertical" colon={false} requiredMark={false}>
                     <Form.Item

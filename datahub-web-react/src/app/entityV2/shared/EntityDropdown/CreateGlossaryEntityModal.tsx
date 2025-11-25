@@ -1,7 +1,7 @@
 import { EditOutlined } from '@ant-design/icons';
 import { Collapse, Form, Input, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
@@ -32,6 +32,7 @@ interface Props {
     // acryl-main only prop
     canCreateGlossaryEntity: boolean;
     canSelectParentUrn?: boolean;
+    isCloning?: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
@@ -42,7 +43,7 @@ function CreateGlossaryEntityModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [stagedName, setStagedName] = useState('');
-    const [selectedParentUrn, setSelectedParentUrn] = useState(entityData.urn);
+    const [selectedParentUrn, setSelectedParentUrn] = useState(props.isCloning ? '' : entityData.urn);
     const [documentation, setDocumentation] = useState('');
     const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
     const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
@@ -50,6 +51,21 @@ function CreateGlossaryEntityModal(props: Props) {
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
     const [createGlossaryNodeMutation] = useCreateGlossaryNodeMutation();
+
+    useEffect(() => {
+        if (props.isCloning && entityData.entityData) {
+            const { properties } = entityData.entityData;
+
+            if (properties?.name) {
+                setStagedName(`${properties.name} (copy)`);
+                form.setFieldValue('name', `${properties.name} (copy)`);
+            }
+
+            if (properties?.description) {
+                setDocumentation(properties.description);
+            }
+        }
+    }, [props.isCloning, entityData.entityData, form]);
 
     function createGlossaryEntity() {
         const mutation =

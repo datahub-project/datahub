@@ -6,11 +6,14 @@ import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import DomainParentSelect from '@app/entityV2/shared/EntityDropdown/DomainParentSelect';
 import { useHandleMoveDomainComplete } from '@app/entityV2/shared/EntityDropdown/useHandleMoveDomainComplete';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 
 import { useMoveDomainMutation } from '@graphql/domain.generated';
-import { EntityType } from '@types';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -32,6 +35,7 @@ function MoveDomainModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const [selectedParentUrn, setSelectedParentUrn] = useState('');
     const refetch = useRefetch();
+    const { reloadByKeyType } = useReloadableContext();
 
     const [moveDomainMutation] = useMoveDomainMutation();
 
@@ -58,6 +62,11 @@ function MoveDomainModal(props: Props) {
                         duration: 2,
                     });
                     refetch();
+                    // Reload modules
+                    // ChildHierarchy - as module in domain summary tab could be updated
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.ChildHierarchy),
+                    ]);
                 }, 2000);
             })
             .catch((e) => {

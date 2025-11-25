@@ -49,7 +49,7 @@ def test_unique_key_gen(pipeline_config, expected_key):
 
 
 def test_default_config():
-    typed_config = DatahubIngestionRunSummaryProviderConfig.parse_obj({})
+    typed_config = DatahubIngestionRunSummaryProviderConfig.model_validate({})
     assert typed_config.sink is None
     assert typed_config.report_recipe is True
 

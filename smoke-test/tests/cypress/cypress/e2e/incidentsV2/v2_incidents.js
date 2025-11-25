@@ -15,6 +15,19 @@ const EDITED_INCIDENT_VALUES = {
   STATE: "Resolved",
 };
 
+function expandGroupIfNeeded(group) {
+  cy.get(`[data-testid="incident-group-${group}"]`)
+    .find('[data-testid="group-header-collapsed-icon"]')
+    .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
+    .then(($icon) => {
+      if ($icon.length > 0 && $icon.is(":visible")) {
+        cy.wrap($icon).should("be.visible").click();
+      } else {
+        cy.log("Collapsed icon not found or not visible, skipping click");
+      }
+    });
+}
+
 describe("incidents", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
@@ -42,11 +55,13 @@ describe("incidents", () => {
       newIncidentNameWithTimeStamp,
     );
 
-    cy.get(".remirror-editor")
-      .should("exist")
-      .click({ force: true })
-      .type(NEW_INCIDENT_VALUES.DESCRIPTION)
-      .should("contain.text", NEW_INCIDENT_VALUES.DESCRIPTION);
+    cy.get(".remirror-editor").should("exist");
+    cy.get(".remirror-editor").click({ force: true });
+    cy.get(".remirror-editor").type(NEW_INCIDENT_VALUES.DESCRIPTION);
+    cy.get(".remirror-editor").should(
+      "contain.text",
+      NEW_INCIDENT_VALUES.DESCRIPTION,
+    );
 
     cy.get('[data-testid="category-select-input-type"]').click();
     cy.get('[data-testid="category-options-list"]')
@@ -70,6 +85,7 @@ describe("incidents", () => {
       .first()
       .click();
     cy.get('[data-testid="incident-create-button"]').click();
+    expandGroupIfNeeded("CRITICAL");
     // Wait for the incident to be created and appear in the list
     cy.get(`[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`, {
       timeout: 15000,
@@ -106,15 +122,18 @@ describe("incidents", () => {
       .should("be.visible")
       .click();
 
-    cy.get('[data-testid="incident-name-input"]')
-      .clear()
-      .type(editedIncidentNameWithTimeStamp);
-    cy.get(".remirror-editor")
-      .should("exist")
-      .click()
-      .clear()
-      .type(EDITED_INCIDENT_VALUES.DESCRIPTION)
-      .should("contain.text", EDITED_INCIDENT_VALUES.DESCRIPTION);
+    cy.get('[data-testid="incident-name-input"]').clear();
+    cy.get('[data-testid="incident-name-input"]').type(
+      editedIncidentNameWithTimeStamp,
+    );
+    cy.get(".remirror-editor").should("exist");
+    cy.get(".remirror-editor").click();
+    cy.get(".remirror-editor").clear();
+    cy.get(".remirror-editor").type(EDITED_INCIDENT_VALUES.DESCRIPTION);
+    cy.get(".remirror-editor").should(
+      "contain.text",
+      EDITED_INCIDENT_VALUES.DESCRIPTION,
+    );
     cy.get('[data-testid="priority-select-input-type"]').click();
     cy.get('[data-testid="priority-options-list"]')
       .contains(EDITED_INCIDENT_VALUES.PRIORITY)
@@ -135,26 +154,11 @@ describe("incidents", () => {
     cy.get('[data-testid="status-select-input-type"]').click();
     cy.get('[data-testid="status-options-list"]').contains("Resolved").click();
     cy.get('[data-testid="incident-create-button"]').click();
-    // Wait for the incident to be updated and page to reload
-    cy.get('[data-testid="nested-options-dropdown-container"]', {
-      timeout: 15000,
-    })
-      .should("be.visible")
-      .click();
+    cy.get('[data-testid="filter-base"]').click();
     cy.get('[data-testid="child-option-RESOLVED"]').click();
-    cy.get('[data-testid="nested-options-dropdown-container"]').click();
+    cy.get('[data-testid="filter-base"]').click();
     cy.get('[data-testid="incident-group-HIGH"]').scrollIntoView();
-    cy.get('[data-testid="incident-group-HIGH"]').within(() => {
-      cy.get('[data-testid="group-header-collapsed-icon"]')
-        .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
-        .then(($icon) => {
-          if ($icon.length > 0 && $icon.is(":visible")) {
-            cy.wrap($icon).click();
-          } else {
-            cy.log("Collapsed icon not found or not visible, skipping click");
-          }
-        });
-    });
+    expandGroupIfNeeded("HIGH");
     cy.get(`[data-testid="incident-row-${editedIncidentNameWithTimeStamp}"]`)
       .scrollIntoView()
       .should("exist");
@@ -177,7 +181,7 @@ describe("incidents", () => {
   it("Create V2 incident with all fields set and separate_siblings=false", () => {
     cy.login();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)/Incidents?is_lineage_mode=false&separate_siblings=false",
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)/Incidents?is_lineage_mode=false",
     );
 
     // Wait for loading to complete and use the correct test ID for sibling mode
@@ -204,11 +208,11 @@ describe("incidents", () => {
       newIncidentNameWithTimeStamp,
     );
 
+    cy.get(".remirror-editor").should("exist");
+    cy.get(".remirror-editor").eq(1).click({ force: true });
+    cy.get(".remirror-editor").eq(1).type(NEW_INCIDENT_VALUES.DESCRIPTION);
     cy.get(".remirror-editor")
-      .should("exist")
       .eq(1)
-      .click({ force: true })
-      .type(NEW_INCIDENT_VALUES.DESCRIPTION)
       .should("contain.text", NEW_INCIDENT_VALUES.DESCRIPTION);
 
     cy.get('[data-testid="category-select-input-type"]').click();
@@ -228,6 +232,8 @@ describe("incidents", () => {
       .first()
       .click();
 
+    // NOTE: Brittle selector pattern (.children().first()) - consider using a more specific selector
+    // This clicks outside dropdowns to dismiss them before submitting
     cy.get('[data-testid="incident-editor-form-container"]')
       .children()
       .first()
@@ -237,17 +243,7 @@ describe("incidents", () => {
     cy.get('[data-testid="incident-group-CRITICAL"]', { timeout: 15000 })
       .should("exist")
       .scrollIntoView();
-    cy.get('[data-testid="incident-group-CRITICAL"]').within(() => {
-      cy.get('[data-testid="group-header-collapsed-icon"]')
-        .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
-        .then(($icon) => {
-          if ($icon.length > 0 && $icon.is(":visible")) {
-            cy.wrap($icon).click();
-          } else {
-            cy.log("Collapsed icon not found or not visible, skipping click");
-          }
-        });
-    });
+    expandGroupIfNeeded("CRITICAL");
     cy.get(
       `[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`,
     ).should("exist");
@@ -279,11 +275,13 @@ describe("incidents", () => {
       `${newIncidentNameWithTimeStamp}-New`,
     );
 
-    cy.get(".remirror-editor")
-      .should("exist")
-      .click({ force: true })
-      .type(NEW_INCIDENT_VALUES.DESCRIPTION)
-      .should("contain.text", NEW_INCIDENT_VALUES.DESCRIPTION);
+    cy.get(".remirror-editor").should("exist");
+    cy.get(".remirror-editor").click({ force: true });
+    cy.get(".remirror-editor").type(NEW_INCIDENT_VALUES.DESCRIPTION);
+    cy.get(".remirror-editor").should(
+      "contain.text",
+      NEW_INCIDENT_VALUES.DESCRIPTION,
+    );
 
     cy.get('[data-testid="category-select-input-type"]').click();
     cy.get('[data-testid="category-options-list"]')
@@ -311,17 +309,7 @@ describe("incidents", () => {
     cy.get('[data-testid="incident-group-CRITICAL"]', { timeout: 15000 })
       .should("exist")
       .scrollIntoView();
-    cy.get('[data-testid="incident-group-CRITICAL"]').within(() => {
-      cy.get('[data-testid="group-header-collapsed-icon"]')
-        .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
-        .then(($icon) => {
-          if ($icon.length > 0 && $icon.is(":visible")) {
-            cy.wrap($icon).click();
-          } else {
-            cy.log("Collapsed icon not found or not visible, skipping click");
-          }
-        });
-    });
+    expandGroupIfNeeded("CRITICAL");
     cy.get(
       `[data-testid="incident-row-${newIncidentNameWithTimeStamp}-New"]`,
     ).should("exist");

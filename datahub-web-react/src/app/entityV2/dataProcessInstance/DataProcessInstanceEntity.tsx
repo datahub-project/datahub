@@ -75,12 +75,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             // useUpdateQuery={useUpdateDataProcessInstanceMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={
-                new Set([
-                    EntityMenuItems.UPDATE_DEPRECATION,
-                    EntityMenuItems.RAISE_INCIDENT,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.EXTERNAL_URL,
-                ])
+                new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT, EntityMenuItems.SHARE])
             }
             tabs={[
                 {
@@ -134,7 +129,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         };
     };
 
-    renderPreview = (_: PreviewType, data: DataProcessInstance) => {
+    renderPreview = (previewType: PreviewType, data: DataProcessInstance) => {
         const genericProperties = this.getGenericEntityProperties(data);
         const parentEntities = getParentEntities(data);
         return (
@@ -152,6 +147,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 externalUrl={data.properties?.externalUrl}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
+                previewType={previewType}
             />
         );
     };

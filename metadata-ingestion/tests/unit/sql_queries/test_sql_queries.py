@@ -447,7 +447,7 @@ class TestSqlQueriesSourceConfig:
     def test_incremental_lineage_default(self):
         """Test that incremental_lineage defaults to False."""
         config_dict = {"query_file": "test.jsonl", "platform": "snowflake"}
-        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(config_dict)
         assert config.incremental_lineage is False
 
     def test_incremental_lineage_enabled(self):
@@ -457,7 +457,7 @@ class TestSqlQueriesSourceConfig:
             "platform": "snowflake",
             "incremental_lineage": True,
         }
-        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(config_dict)
         assert config.incremental_lineage is True
 
     def test_incremental_lineage_disabled_explicitly(self):
@@ -467,7 +467,7 @@ class TestSqlQueriesSourceConfig:
             "platform": "snowflake",
             "incremental_lineage": False,
         }
-        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(config_dict)
         assert config.incremental_lineage is False
 
 
@@ -477,8 +477,23 @@ class TestSqlQueriesSource:
     @pytest.fixture
     def mock_graph(self):
         """Create a mock DataHubGraph."""
+        from datahub.sql_parsing.schema_resolver import SchemaResolver
+
         mock_graph = Mock(spec=DataHubGraph)
         mock_graph.initialize_schema_resolver_from_datahub.return_value = None
+
+        # Mock _make_schema_resolver to return a real SchemaResolver
+        def mock_make_schema_resolver(
+            platform, platform_instance, env, include_graph=True
+        ):
+            return SchemaResolver(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                graph=mock_graph if include_graph else None,
+            )
+
+        mock_graph._make_schema_resolver = mock_make_schema_resolver
         return mock_graph
 
     @pytest.fixture
@@ -526,16 +541,20 @@ class TestSqlQueriesSource:
 
         source = SqlQueriesSource(pipeline_context, config)
 
-        # Generate MCPs (these will be converted to workunits by the processors)
-        mcps = list(source.get_workunits_internal())
+        # Generate work units
+        work_units = list(source.get_workunits_internal())
 
-        # Should generate some MCPs (exact number depends on SQL aggregator behavior)
-        assert len(mcps) >= 0  # At minimum, no errors should occur
+        # Should generate some work units (exact number depends on SQL aggregator behavior)
+        assert len(work_units) >= 0  # At minimum, no errors should occur
 
-        # All items should be MCPs
-        for mcp in mcps:
-            # Should be MetadataChangeProposalWrapper objects
-            assert hasattr(mcp, "aspectName") or hasattr(mcp, "aspect")
+        # All items should be work units (MetadataWorkUnit or MetadataChangeProposalWrapper)
+        for work_unit in work_units:
+            # Should be MetadataWorkUnit or MetadataChangeProposalWrapper objects
+            assert (
+                hasattr(work_unit, "metadata")
+                or hasattr(work_unit, "aspectName")
+                or hasattr(work_unit, "aspect")
+            )
 
     @pytest.mark.parametrize("incremental_lineage", [None, True, False])
     def test_workunit_processors_with_incremental_lineage(
@@ -593,7 +612,7 @@ class TestSqlQueriesSource:
             "usage": {"bucket_duration": "DAY"},
         }
 
-        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(config_dict)
         source = SqlQueriesSource(pipeline_context, config)
 
         # Should default to False

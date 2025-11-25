@@ -1,3 +1,4 @@
+import { Icon } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
@@ -10,6 +11,7 @@ import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useRemoveTagMutation } from '@graphql/mutations.generated';
 import { EntityType, SubResourceType, TagAssociation } from '@types';
@@ -138,7 +140,10 @@ export default function Tag({
                     <StyledTag
                         onClick={() => {
                             if (isEmbeddedProfile) {
-                                window.open(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn), '_blank');
+                                window.open(
+                                    resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)),
+                                    '_blank',
+                                );
                             } else if (!options?.shouldNotOpenDrawerOnClick) {
                                 showTagProfileDrawer(tag?.tag?.urn);
                             }
@@ -152,6 +157,18 @@ export default function Tag({
                             onOpenModal?.();
                             setShowConfirmDelete(true);
                         }}
+                        closeIcon={
+                            <Icon
+                                icon="X"
+                                source="phosphor"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    removeTag(tag);
+                                }}
+                                size="sm"
+                                data-testid="remove-icon"
+                            />
+                        }
                         fontSize={fontSize}
                         $highlightTag={highlightTag}
                         $showOneAndCount={showOneAndCount}

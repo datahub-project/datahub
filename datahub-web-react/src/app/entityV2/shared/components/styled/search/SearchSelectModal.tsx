@@ -74,6 +74,7 @@ export const SearchSelectModal = ({
                         disabled: selectedEntities.length === 0,
                     },
                 ]}
+                data-testid="search-select-modal"
             >
                 <SearchSelect
                     fixedEntityTypes={fixedEntityTypes}

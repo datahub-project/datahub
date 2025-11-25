@@ -3,19 +3,22 @@ import contextlib
 import dataclasses
 import functools
 import logging
-import os
 import threading
-import time
 import uuid
 from enum import auto
 from typing import List, Optional, Tuple, Union
 
 import pydantic
+from pydantic import field_validator
 
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigurationError,
     OperationalError,
+)
+from datahub.configuration.env_vars import (
+    get_rest_sink_default_max_threads,
+    get_rest_sink_default_mode,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -48,9 +51,7 @@ from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_REST_SINK_MAX_THREADS = int(
-    os.getenv("DATAHUB_REST_SINK_DEFAULT_MAX_THREADS", 15)
-)
+_DEFAULT_REST_SINK_MAX_THREADS = get_rest_sink_default_max_threads()
 
 
 class RestSinkMode(ConfigEnum):
@@ -63,8 +64,8 @@ class RestSinkMode(ConfigEnum):
     ASYNC_BATCH = auto()
 
 
-_DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
-    RestSinkMode, os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE", RestSinkMode.ASYNC_BATCH)
+_DEFAULT_REST_SINK_MODE = pydantic.TypeAdapter(RestSinkMode).validate_python(
+    get_rest_sink_default_mode() or RestSinkMode.ASYNC_BATCH
 )
 
 
@@ -80,8 +81,9 @@ class DatahubRestSinkConfig(DatahubClientConfig):
     # Only applies in async batch mode.
     max_per_batch: pydantic.PositiveInt = 100
 
-    @pydantic.validator("max_per_batch", always=True)
-    def validate_max_per_batch(cls, v):
+    @field_validator("max_per_batch", mode="before")
+    @classmethod
+    def validate_max_per_batch(cls, v: int) -> int:
         if v > BATCH_INGEST_MAX_PAYLOAD_LENGTH:
             raise ValueError(
                 f"max_per_batch must be less than or equal to {BATCH_INGEST_MAX_PAYLOAD_LENGTH}"
@@ -349,18 +351,11 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             RecordEnvelope(item, metadata={}), NoopWriteCallback()
         )
 
-    def flush(self) -> None:
-        """Wait for all pending records to be written."""
-        i = 0
-        while self.report.pending_requests > 0:
-            time.sleep(0.1)
-            i += 1
-            if i % 1000 == 0:
-                logger.info(
-                    f"Waiting for {self.report.pending_requests} records to be written"
-                )
-
     def close(self):
+        # Execute pre-shutdown callbacks first (handled by parent class)
+        super().close()
+
+        # Then perform sink-specific shutdown
         with self.report.main_thread_blocking_timer:
             self.executor.shutdown()
 

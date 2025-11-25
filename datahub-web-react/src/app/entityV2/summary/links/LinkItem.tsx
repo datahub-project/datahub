@@ -4,7 +4,9 @@ import styled from 'styled-components';
 
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
 
+import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
+import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -40,19 +42,23 @@ type Props = {
     link: InstitutionalMemoryMetadata;
     setSelectedLink: (link: InstitutionalMemoryMetadata | null) => void;
     setShowConfirmDelete: (show: boolean) => void;
+    setShowEditLinkModal: (show: boolean) => void;
 };
 
-export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete }: Props) {
+export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, setShowEditLinkModal }: Props) {
     const entityRegistry = useEntityRegistryV2();
+    const hasLinkPermissions = useLinkPermission();
+
     const createdBy = link.actor;
+    const label = link.description || link.label;
 
     return (
-        <a href={link.url} target="_blank" rel="noreferrer">
+        <a href={link.url} target="_blank" rel="noreferrer" data-testid={`${link.url}-${label}`}>
             <LinkContainer>
                 <LeftSection>
-                    <Icon icon="LinkSimple" source="phosphor" color="primary" size="lg" />
-                    <Text color="primary" lineHeight="normal">
-                        {link.description || link.label}
+                    <LinkIcon url={link.url} />
+                    <Text color="primary" lineHeight="normal" data-testid="link-label">
+                        {label}
                     </Text>
                 </LeftSection>
                 <RightSection>
@@ -60,18 +66,34 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete }
                         Added {formatDateString(link.created.time)} by{' '}
                     </Text>
                     <AvatarPillWithLinkAndHover user={createdBy} size="sm" entityRegistry={entityRegistry} />
-                    <StyledIcon icon="PencilSimpleLine" source="phosphor" color="gray" size="md" />
-                    <StyledIcon
-                        icon="Trash"
-                        source="phosphor"
-                        color="red"
-                        size="md"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            setSelectedLink(link);
-                            setShowConfirmDelete(true);
-                        }}
-                    />
+                    {hasLinkPermissions && (
+                        <>
+                            <StyledIcon
+                                icon="PencilSimpleLine"
+                                source="phosphor"
+                                color="gray"
+                                size="md"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    setSelectedLink(link);
+                                    setShowEditLinkModal(true);
+                                }}
+                                data-testid="edit-link-button"
+                            />
+                            <StyledIcon
+                                icon="Trash"
+                                source="phosphor"
+                                color="red"
+                                size="md"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    setSelectedLink(link);
+                                    setShowConfirmDelete(true);
+                                }}
+                                data-testid="remove-link-button"
+                            />
+                        </>
+                    )}
                 </RightSection>
             </LinkContainer>
         </a>

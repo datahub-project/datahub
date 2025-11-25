@@ -36,6 +36,7 @@ from datahub.cli.docker_check import (
 from datahub.cli.quickstart_versioning import (
     QuickstartVersionMappingConfig,
 )
+from datahub.configuration.env_vars import get_docker_compose_base
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -363,7 +364,7 @@ EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
 ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
 GRAPH_SERVICE_IMPL=elasticsearch
 KAFKA_BOOTSTRAP_SERVER=broker:29092
-KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
+KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH}/schema-registry/api/
 SCHEMA_REGISTRY_TYPE=INTERNAL
 
 ELASTICSEARCH_HOST=search
@@ -792,8 +793,9 @@ def quickstart(
 
 
 def get_docker_compose_base_url(version_tag: str) -> str:
-    if os.environ.get("DOCKER_COMPOSE_BASE"):
-        return os.environ["DOCKER_COMPOSE_BASE"]
+    docker_compose_base = get_docker_compose_base()
+    if docker_compose_base:
+        return docker_compose_base
 
     return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
 

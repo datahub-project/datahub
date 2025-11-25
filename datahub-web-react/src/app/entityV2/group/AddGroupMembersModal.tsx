@@ -7,6 +7,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToSearchInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getModalDomContainer } from '@src/utils/focus';
 
@@ -55,14 +56,19 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
     const inputEl = useRef(null);
 
     const handleUserSearch = (text: string) => {
+        const input = addUserFiltersToSearchInput(
+            {
+                type: EntityType.CorpUser,
+                query: text,
+                start: 0,
+                count: 5,
+            },
+            EntityType.CorpUser,
+        );
+
         userSearch({
             variables: {
-                input: {
-                    type: EntityType.CorpUser,
-                    query: text,
-                    start: 0,
-                    count: 5,
-                },
+                input,
             },
         });
     };

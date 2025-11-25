@@ -20,12 +20,16 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.key.DataHubPageTemplateKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.template.DataHubPageTemplateAssetSummary;
 import com.linkedin.template.DataHubPageTemplateProperties;
 import com.linkedin.template.DataHubPageTemplateRow;
 import com.linkedin.template.DataHubPageTemplateSurface;
 import com.linkedin.template.DataHubPageTemplateVisibility;
 import com.linkedin.template.PageTemplateScope;
 import com.linkedin.template.PageTemplateSurfaceType;
+import com.linkedin.template.SummaryElement;
+import com.linkedin.template.SummaryElementArray;
+import com.linkedin.template.SummaryElementType;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import java.util.Arrays;
@@ -131,6 +135,57 @@ public class PageTemplateServiceTest {
         rows,
         PageTemplateScope.GLOBAL,
         PageTemplateSurfaceType.HOME_PAGE);
+  }
+
+  @Test
+  public void testUpsertPageTemplateWithAssetSummary() throws Exception {
+    when(mockEntityClient.batchIngestProposals(any(), anyList(), eq(false))).thenReturn(null);
+    when(mockEntityClient.exists(any(), any())).thenReturn(true);
+
+    // Create a test asset summary
+    DataHubPageTemplateAssetSummary assetSummary = createTestAssetSummary();
+
+    List<DataHubPageTemplateRow> rows = createTestRows();
+
+    Urn urn =
+        service.upsertPageTemplate(
+            mockOpContext,
+            templateUrn.toString(),
+            rows,
+            PageTemplateScope.GLOBAL,
+            PageTemplateSurfaceType.HOME_PAGE,
+            assetSummary);
+
+    assertNotNull(urn);
+    assertEquals(urn.toString(), templateUrn.toString());
+
+    // Verify that batchIngestProposals was called
+    verify(mockEntityClient, times(1)).batchIngestProposals(any(), anyList(), eq(false));
+    verify(mockEntityClient, times(2)).exists(any(), any()); // 2 modules in test rows
+
+    // Now verify the assetSummary was properly set by retrieving the template properties
+    // Mock the getPageTemplateProperties call to return properties with the assetSummary
+    DataHubPageTemplateProperties expectedProperties = createTestTemplateProperties();
+    expectedProperties.setAssetSummary(assetSummary);
+
+    PageTemplateService spyService = spy(service);
+    doReturn(expectedProperties)
+        .when(spyService)
+        .getPageTemplateProperties(mockOpContext, templateUrn);
+
+    DataHubPageTemplateProperties retrievedProperties =
+        spyService.getPageTemplateProperties(mockOpContext, templateUrn);
+    assertNotNull(retrievedProperties);
+    assertNotNull(retrievedProperties.getAssetSummary());
+    assertEquals(retrievedProperties.getAssetSummary().getSummaryElements().size(), 3);
+
+    // Verify the specific elements in the asset summary
+    SummaryElementArray summaryElements =
+        retrievedProperties.getAssetSummary().getSummaryElements();
+    assertEquals(summaryElements.get(0).getElementType(), SummaryElementType.CREATED);
+    assertEquals(summaryElements.get(1).getElementType(), SummaryElementType.TAGS);
+    assertEquals(summaryElements.get(2).getElementType(), SummaryElementType.STRUCTURED_PROPERTY);
+    assertNotNull(summaryElements.get(2).getStructuredPropertyUrn());
   }
 
   @Test
@@ -427,5 +482,32 @@ public class PageTemplateServiceTest {
                 UrnUtils.getUrn("urn:li:dataHubPageModule:module1"),
                 UrnUtils.getUrn("urn:li:dataHubPageModule:module2"))));
     return Collections.singletonList(row);
+  }
+
+  private DataHubPageTemplateAssetSummary createTestAssetSummary() {
+    DataHubPageTemplateAssetSummary assetSummary = new DataHubPageTemplateAssetSummary();
+
+    // Create a summary element array with a few test elements
+    SummaryElementArray summaryElements = new SummaryElementArray();
+
+    // Add a CREATED element
+    SummaryElement createdElement = new SummaryElement();
+    createdElement.setElementType(SummaryElementType.CREATED);
+    summaryElements.add(createdElement);
+
+    // Add a TAGS element
+    SummaryElement tagsElement = new SummaryElement();
+    tagsElement.setElementType(SummaryElementType.TAGS);
+    summaryElements.add(tagsElement);
+
+    // Add a STRUCTURED_PROPERTY element
+    SummaryElement structuredPropertyElement = new SummaryElement();
+    structuredPropertyElement.setElementType(SummaryElementType.STRUCTURED_PROPERTY);
+    structuredPropertyElement.setStructuredPropertyUrn(
+        UrnUtils.getUrn("urn:li:structuredProperty:test-property"));
+    summaryElements.add(structuredPropertyElement);
+
+    assetSummary.setSummaryElements(summaryElements);
+    return assetSummary;
   }
 }

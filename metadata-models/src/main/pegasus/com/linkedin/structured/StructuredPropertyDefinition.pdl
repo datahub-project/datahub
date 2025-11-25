@@ -11,22 +11,28 @@ record StructuredPropertyDefinition {
     /**
     * The fully qualified name of the property. e.g. io.acryl.datahub.myProperty
     */
-    @Searchable = {}
+    @Searchable = {
+      "fieldType": "KEYWORD",
+      "searchTier": 1,
+      "searchLabel": "qualifiedName"
+    }
     qualifiedName: string
 
     /**
     * The display name of the property. This is the name that will be shown in the UI and can be used to look up the property id.
     */
-    @Searchable = {}
+    @Searchable = {
+      "enableAutocomplete": true,
+      "fieldType": "WORD_GRAM",
+      "searchTier": 1,
+      "searchLabel": "entityName"
+      }
     displayName: optional string
 
     /**
     * The value type of the property. Must be a dataType.
     * e.g. To indicate that the property is of type DATE, use urn:li:dataType:datahub.date
     */
-    @Searchable = {
-      "fieldType": "URN"
-    }
     @UrnValidation = {
       "exist": true,
       "strict": true,
@@ -107,7 +113,8 @@ record StructuredPropertyDefinition {
     @Searchable = {
       "/time": {
         "fieldName": "createdTime",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "searchLabel": "createdAt"
       }
     }
     created: optional AuditStamp
@@ -118,7 +125,8 @@ record StructuredPropertyDefinition {
     @Searchable = {
       "/time": {
        "fieldName": "lastModified",
-       "fieldType": "DATETIME"
+       "fieldType": "DATETIME",
+       "searchLabel": "lastModifiedAt"
       }
     }
     lastModified: optional AuditStamp

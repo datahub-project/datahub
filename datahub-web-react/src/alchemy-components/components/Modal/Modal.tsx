@@ -90,7 +90,7 @@ export function Modal({
             open
             centered
             onCancel={onCancel}
-            closeIcon={<Icon icon="X" source="phosphor" />}
+            closeIcon={<Icon icon="X" source="phosphor" data-testid="modal-close-icon" />}
             hasChildren={!!children}
             data-testid={dataTestId}
             title={

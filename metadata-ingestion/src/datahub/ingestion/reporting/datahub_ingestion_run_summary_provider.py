@@ -82,7 +82,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         ctx: PipelineContext,
         sink: Sink,
     ) -> PipelineRunListener:
-        reporter_config = DatahubIngestionRunSummaryProviderConfig.parse_obj(
+        reporter_config = DatahubIngestionRunSummaryProviderConfig.model_validate(
             config_dict or {}
         )
         if reporter_config.sink:
@@ -268,4 +268,4 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             entity_urn=self.execution_request_input_urn,
             aspect_value=execution_result_aspect,
         )
-        self.sink.close()
+        # Note: sink.close() is handled by the pipeline's context manager

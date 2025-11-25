@@ -37,6 +37,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.CLONE,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
 ]);
@@ -148,6 +149,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                       {
                           name: 'Summary',
                           component: SummaryTab,
+                          id: 'asset-summary-tab',
                       },
                   ]
                 : []),

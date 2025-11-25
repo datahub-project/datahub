@@ -46,6 +46,7 @@ public class AuthServiceClient {
 
   private final String metadataServiceHost;
   private final Integer metadataServicePort;
+  private final String metadataServiceBasePath;
   private final Boolean metadataServiceUseSsl;
   private final Authentication systemAuthentication;
   private final CloseableHttpClient httpClient;
@@ -54,11 +55,13 @@ public class AuthServiceClient {
   public AuthServiceClient(
       @Nonnull final String metadataServiceHost,
       @Nonnull final Integer metadataServicePort,
+      @Nonnull final String metadataServiceBasePath,
       @Nonnull final Boolean useSsl,
       @Nonnull final Authentication systemAuthentication,
       @Nonnull final CloseableHttpClient httpClient) {
     this.metadataServiceHost = Objects.requireNonNull(metadataServiceHost);
     this.metadataServicePort = Objects.requireNonNull(metadataServicePort);
+    this.metadataServiceBasePath = Objects.requireNonNull(metadataServiceBasePath);
     this.metadataServiceUseSsl = Objects.requireNonNull(useSsl);
     this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
     this.httpClient = Objects.requireNonNull(httpClient);
@@ -81,10 +84,11 @@ public class AuthServiceClient {
       final HttpPost request =
           new HttpPost(
               String.format(
-                  "%s://%s:%s/%s",
+                  "%s://%s:%s%s/%s",
                   protocol,
                   this.metadataServiceHost,
                   this.metadataServicePort,
+                  this.metadataServiceBasePath,
                   GENERATE_SESSION_TOKEN_ENDPOINT));
 
       log.info("Requesting session token for user: {}", userId);
@@ -150,8 +154,12 @@ public class AuthServiceClient {
       final HttpPost request =
           new HttpPost(
               String.format(
-                  "%s://%s:%s/%s",
-                  protocol, this.metadataServiceHost, this.metadataServicePort, SIGN_UP_ENDPOINT));
+                  "%s://%s:%s%s/%s",
+                  protocol,
+                  this.metadataServiceHost,
+                  this.metadataServicePort,
+                  this.metadataServiceBasePath,
+                  SIGN_UP_ENDPOINT));
 
       // Build JSON request to sign up a native user.
       final ObjectMapper objectMapper = new ObjectMapper();
@@ -215,10 +223,11 @@ public class AuthServiceClient {
       final HttpPost request =
           new HttpPost(
               String.format(
-                  "%s://%s:%s/%s",
+                  "%s://%s:%s%s/%s",
                   protocol,
                   this.metadataServiceHost,
                   this.metadataServicePort,
+                  this.metadataServiceBasePath,
                   RESET_NATIVE_USER_CREDENTIALS_ENDPOINT));
 
       // Build JSON request to verify credentials for a native user.
@@ -272,10 +281,11 @@ public class AuthServiceClient {
       final HttpPost request =
           new HttpPost(
               String.format(
-                  "%s://%s:%s/%s",
+                  "%s://%s:%s%s/%s",
                   protocol,
                   this.metadataServiceHost,
                   this.metadataServicePort,
+                  this.metadataServiceBasePath,
                   VERIFY_NATIVE_USER_CREDENTIALS_ENDPOINT));
 
       // Build JSON request to verify credentials for a native user.

@@ -5,8 +5,7 @@ import styled from 'styled-components';
 import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
-import { Editor as MarkdownEditor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { Modal } from '@src/alchemy-components';
+import { Editor, Modal } from '@src/alchemy-components';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -41,7 +40,7 @@ const QueryTitle = styled(Typography.Title)<{ secondary?: boolean }>`
     }
 `;
 
-const StyledViewer = styled(MarkdownEditor)<{ secondary?: boolean }>`
+const StyledViewer = styled(Editor)<{ secondary?: boolean }>`
     .remirror-editor.ProseMirror {
         padding: 0;
         color: ${(props) => (props.secondary && ANTD_GRAY[6]) || undefined};

@@ -71,6 +71,7 @@ export const LinkModal = (props: LinkModalProps) => {
                     onClick: handleOk,
                 },
             ]}
+            zIndex={1200}
         >
             <Form
                 form={form}
