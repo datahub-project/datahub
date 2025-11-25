@@ -62,7 +62,8 @@ def parse_procedure_code(
             )
         )
     else:
-        # For regular SQL scripts, split into individual statements
+        # For procedure bodies without CREATE headers (Snowflake, MySQL), split into individual statements
+        # These databases return only the procedure body from their system catalogs
         for query in split_statements(code):
             # TODO: We should take into account `USE x` statements.
             aggregator.add_observed_query(
