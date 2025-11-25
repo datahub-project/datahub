@@ -69,6 +69,16 @@ public class InferDocumentationResolver
             inferredDocumentation ->
                 GraphQLConcurrencyUtils.supplyAsync(
                     () -> {
+                      if (inferredDocumentation == null) {
+                        log.error(
+                            "Failed to infer documentation for entity {}. The integrations service returned null. "
+                                + "Check integrations service logs for details.",
+                            targetUrn);
+                        throw new RuntimeException(
+                            "The AI service encountered an error. "
+                                + "Please try again in a few moments. If the issue persists, contact your DataHub administrator.");
+                      }
+
                       if (saveResult) {
                         saveInferredDocumentation(
                             context.getOperationContext(),
