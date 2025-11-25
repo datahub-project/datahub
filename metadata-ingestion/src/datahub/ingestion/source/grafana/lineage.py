@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, List, Optional, Tuple
 
 from datahub.emitter.mce_builder import (
@@ -28,6 +29,61 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Precompiled regex patterns for Grafana template variable cleaning
+# These patterns remove Grafana-specific template syntax to make SQL parseable
+_GRAFANA_TIME_MACRO_PATTERN = re.compile(r"\$__time[A-Z]\w*\([^)]*\)")
+_GRAFANA_FILTER_MACRO_PATTERN = re.compile(r"\$__[a-z]+Filter\([^)]*\)")
+_GRAFANA_GENERIC_MACRO_PATTERN = re.compile(r"\$__\w+\([^)]*\)")
+_GRAFANA_BRACKET_VAR_PATTERN = re.compile(r"\[\[[^\]]+\]\]")
+_GRAFANA_BRACED_VAR_PATTERN = re.compile(r"\$\{[^}]+\}")
+_GRAFANA_SIMPLE_VAR_PATTERN = re.compile(r"\$[a-zA-Z_][a-zA-Z0-9_]*")
+
+
+def _clean_grafana_template_variables(query: str) -> str:
+    """
+    Remove Grafana template variables from SQL query for parsing.
+
+    Grafana supports multiple variable syntaxes that break SQL parsers:
+    - ${variable} or ${variable:format}
+    - [[variable]] (deprecated)
+    - $variable (simple format)
+    - $__macro(...) (built-in macros like $__timeFilter)
+
+    Replace with valid SQL placeholders to maintain parseability for lineage extraction.
+
+    Replacement strategy:
+    - Time macros ($__timeFilter, $__timeFrom, etc.) -> TRUE (valid condition)
+    - Value variables (${...}, $var) -> 'grafana_var' (string literal, safe in most contexts)
+    - [[identifier]] -> grafana_identifier (valid identifier)
+
+    Examples:
+        ${__from:date:'YYYY/MM/DD'} -> 'grafana_var'
+        [[table_name]] -> grafana_identifier
+        $__timeFilter(column) -> TRUE
+        WHERE status = '$status' -> WHERE status = 'grafana_var'
+    """
+
+    # Replace time/filter macros with TRUE (common in WHERE clauses)
+    # $__timeFilter, $__timeFrom, $__timeTo, $__timeGroup, etc.
+    query = _GRAFANA_TIME_MACRO_PATTERN.sub("TRUE", query)
+    query = _GRAFANA_FILTER_MACRO_PATTERN.sub("TRUE", query)
+
+    # Replace other macros with TRUE (safe for conditions)
+    query = _GRAFANA_GENERIC_MACRO_PATTERN.sub("TRUE", query)
+
+    # Replace [[...]] with identifier (deprecated syntax, often used for table/column names)
+    query = _GRAFANA_BRACKET_VAR_PATTERN.sub("grafana_identifier", query)
+
+    # Replace ${...} with string literal (handles ${var} and ${var:format})
+    # String literal is safer than identifier as it works in WHERE clauses too
+    query = _GRAFANA_BRACED_VAR_PATTERN.sub("'grafana_var'", query)
+
+    # Replace simple $variable format with string literal
+    # This must come after ${...} to avoid double-replacement
+    query = _GRAFANA_SIMPLE_VAR_PATTERN.sub("'grafana_var'", query)
+
+    return query
 
 
 class LineageExtractor:
@@ -147,8 +203,12 @@ class LineageExtractor:
             return None
 
         try:
+            # Clean Grafana template variables before parsing
+            # Variables like ${__from}, $datasource, [[var]] break SQL parsers
+            cleaned_sql = _clean_grafana_template_variables(sql)
+
             return create_lineage_sql_parsed_result(
-                query=sql,
+                query=cleaned_sql,
                 platform=platform_config.platform,
                 platform_instance=platform_config.platform_instance,
                 env=platform_config.env,

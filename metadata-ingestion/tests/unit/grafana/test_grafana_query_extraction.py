@@ -3,10 +3,10 @@
 import pytest
 
 from datahub.ingestion.source.grafana.entity_mcp_builder import (
-    _clean_grafana_template_variables,
     _extract_query_from_panel,
     _format_sql_query,
 )
+from datahub.ingestion.source.grafana.lineage import _clean_grafana_template_variables
 from datahub.ingestion.source.grafana.models import Panel, QueryInfo
 
 
@@ -170,3 +170,14 @@ class TestSqlFormatting:
         invalid = "SELECT * FROM"
         result = _format_sql_query(invalid, "postgres")
         assert result == invalid or "SELECT" in result
+
+    def test_preserves_grafana_variables_for_display(self):
+        """Test that SQL formatting preserves Grafana template variables for human readability."""
+        # View definition should show original query with variables intact
+        query_with_vars = "SELECT * FROM users WHERE created > ${__from:date}"
+
+        formatted = _format_sql_query(query_with_vars, "postgres")
+
+        # Should still contain the original Grafana variable
+        assert "${__from:date}" in formatted
+        assert "SELECT" in formatted
