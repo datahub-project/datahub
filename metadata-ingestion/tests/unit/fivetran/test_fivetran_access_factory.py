@@ -29,7 +29,9 @@ class FivetranAccessFactoryTests(unittest.TestCase):
         access = create_fivetran_access(config)
 
         # Verify correct implementation was created
-        mock_log_api.assert_called_once_with(config.fivetran_log_config)
+        mock_log_api.assert_called_once_with(
+            config.fivetran_log_config, config.max_column_lineage_per_connector
+        )
         self.assertIsInstance(access, mock_log_api.return_value.__class__)
 
     @patch("datahub.ingestion.source.fivetran.fivetran_api_client.FivetranAPIClient")
@@ -109,7 +111,9 @@ class FivetranAccessFactoryTests(unittest.TestCase):
             access = create_fivetran_access(config)
 
         # Verify enterprise implementation was created
-        mock_log_api.assert_called_once_with(config.fivetran_log_config)
+        mock_log_api.assert_called_once_with(
+            config.fivetran_log_config, config.max_column_lineage_per_connector
+        )
         self.assertIsInstance(access, mock_log_api_instance.__class__)
 
         # Verify standard API was not created
@@ -150,7 +154,9 @@ class FivetranAccessFactoryTests(unittest.TestCase):
             access = create_fivetran_access(config)
 
         # Verify enterprise implementation was tried first but failed
-        mock_log_api.assert_called_once_with(config.fivetran_log_config)
+        mock_log_api.assert_called_once_with(
+            config.fivetran_log_config, config.max_column_lineage_per_connector
+        )
         mock_log_api_instance.test_connection.assert_called_once()
 
         # Verify standard API was used as fallback
@@ -223,4 +229,6 @@ class FivetranAccessFactoryTests(unittest.TestCase):
         create_fivetran_access(config)
 
         # Verify enterprise implementation was created without testing connection
-        mock_log_api.assert_called_once_with(config.fivetran_log_config)
+        mock_log_api.assert_called_once_with(
+            config.fivetran_log_config, config.max_column_lineage_per_connector
+        )

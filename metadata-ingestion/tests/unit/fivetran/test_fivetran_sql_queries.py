@@ -4,12 +4,12 @@ Unit tests for fivetran_query.py
 
 import pytest
 
-from datahub.ingestion.source.fivetran.fivetran_query import (
+from datahub.ingestion.source.fivetran.fivetran_constants import (
+    DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
     MAX_COLUMN_LINEAGE_PER_CONNECTOR,
     MAX_JOBS_PER_CONNECTOR,
-    MAX_TABLE_LINEAGE_PER_CONNECTOR,
-    FivetranLogQuery,
 )
+from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 
 class TestFivetranLogQuery:
@@ -153,7 +153,7 @@ class TestFivetranLogQuery:
         assert "source_schema" in query
         assert "destination_schema" in query
         assert "'connector_1', 'connector_2'" in query
-        assert f"<= {MAX_TABLE_LINEAGE_PER_CONNECTOR}" in query
+        assert f"<= {DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR}" in query
         assert "table_combo_rn = 1" in query
 
     def test_get_table_lineage_query_unlimited(self, query_builder):
@@ -181,7 +181,7 @@ class TestFivetranLogQuery:
         assert '"test_schema".destination_schema' in query
 
     def test_get_column_lineage_query(self, query_builder):
-        """Test get_column_lineage_query method."""
+        """Test get_column_lineage_query method with default limit."""
         connector_ids = ["connector_1", "connector_2"]
 
         query = query_builder.get_column_lineage_query(connector_ids)
@@ -197,7 +197,7 @@ class TestFivetranLogQuery:
         assert "destination_column" in query
         assert "source_table" in query
         assert "'connector_1', 'connector_2'" in query
-        assert f"<= {MAX_COLUMN_LINEAGE_PER_CONNECTOR}" in query
+        # Default behavior should NOT include QUALIFY limit (None = unlimited by default)
         assert "column_combo_rn = 1" in query
 
     def test_get_column_lineage_query_with_schema(self, query_builder):
@@ -230,6 +230,61 @@ class TestFivetranLogQuery:
         # Should still generate valid query structure
         assert "SELECT" in query
         assert "connection_id IN ()" in query
+
+    def test_get_column_lineage_query_unlimited(self, query_builder):
+        """Test get_column_lineage_query with unlimited lineage (None)."""
+        connector_ids = ["connector_1"]
+
+        query = query_builder.get_column_lineage_query(
+            connector_ids, max_column_lineage=None
+        )
+
+        # Should NOT contain QUALIFY clause for limiting
+        assert "QUALIFY ROW_NUMBER()" not in query
+        # Should still have deduplication
+        assert "column_combo_rn = 1" in query
+        # Should have ORDER BY
+        assert "ORDER BY connection_id, created_at DESC" in query
+
+    def test_get_column_lineage_query_custom_limit(self, query_builder):
+        """Test get_column_lineage_query with custom limit."""
+        connector_ids = ["connector_1", "connector_2"]
+        custom_limit = 5000
+
+        query = query_builder.get_column_lineage_query(
+            connector_ids, max_column_lineage=custom_limit
+        )
+
+        # Should contain QUALIFY clause with custom limit
+        assert "QUALIFY ROW_NUMBER()" in query
+        assert f"<= {custom_limit}" in query
+        # Should still have deduplication
+        assert "column_combo_rn = 1" in query
+
+    def test_get_column_lineage_query_default_limit(self, query_builder):
+        """Test get_column_lineage_query with explicit default limit."""
+        connector_ids = ["connector_1"]
+
+        query = query_builder.get_column_lineage_query(
+            connector_ids, max_column_lineage=MAX_COLUMN_LINEAGE_PER_CONNECTOR
+        )
+
+        # Should contain QUALIFY clause with default limit
+        assert "QUALIFY ROW_NUMBER()" in query
+        assert f"<= {MAX_COLUMN_LINEAGE_PER_CONNECTOR}" in query
+        assert "column_combo_rn = 1" in query
+
+    def test_get_column_lineage_query_zero_limit(self, query_builder):
+        """Test get_column_lineage_query with zero limit."""
+        connector_ids = ["connector_1"]
+
+        query = query_builder.get_column_lineage_query(
+            connector_ids, max_column_lineage=0
+        )
+
+        # Should contain QUALIFY clause even with 0 (which would return no results)
+        assert "QUALIFY ROW_NUMBER()" in query
+        assert "<= 0" in query
 
     def test_connector_ids_formatting(self, query_builder):
         """Test that connector IDs are properly formatted in queries."""
