@@ -505,8 +505,39 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         email_domain = f"@{email_domain}" if email_domain else ""
 
         return f"""
-        WITH object_access_history AS
+        WITH object_access_history_for_stats AS
         (
+            -- This CTE is used for calculating statistics (field counts, basic usage)
+            -- It does NOT apply email filtering to ensure statistics are always generated
+            select
+                object.value : "objectName"::varchar AS object_name,
+                object.value : "objectDomain"::varchar AS object_domain,
+                object.value : "columns" AS object_columns,
+                query_start_time,
+                query_id,
+                user_name
+            from
+                (
+                    select
+                        query_id,
+                        query_start_time,
+                        user_name,
+                        {objects_column}
+                    from
+                        snowflake.account_usage.access_history
+                    WHERE
+                        query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
+                )
+                t,
+                lateral flatten(input => t.{objects_column}) object
+            {("where " + temp_table_filter) if temp_table_filter else ""}
+        )
+        ,
+        object_access_history_for_users AS
+        (
+            -- This CTE is used for user-specific information
+            -- It DOES apply email filtering to respect privacy requirements
             select
                 object.value : "objectName"::varchar AS object_name,
                 object.value : "objectDomain"::varchar AS object_domain,
@@ -545,7 +576,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 o.*,
                 col.value : "columnName"::varchar AS column_name
             from
-                object_access_history o,
+                object_access_history_for_stats o,
                 lateral flatten(input => o.object_columns) col
         )
         ,
@@ -558,7 +589,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 count(distinct(query_id)) AS total_queries,
                 count( distinct(user_name) ) AS total_users
             FROM
-                object_access_history
+                object_access_history_for_stats
             GROUP BY
                 bucket_start_time,
                 object_name
@@ -588,7 +619,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 user_name,
                 ANY_VALUE(users.email) AS user_email
             FROM
-                object_access_history
+                object_access_history_for_users
                 LEFT JOIN
                     snowflake.account_usage.users users
                     ON user_name = users.name
@@ -606,7 +637,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 query_history.query_text AS query_text,
                 count(distinct(access_history.query_id)) AS total_queries
             FROM
-                object_access_history access_history
+                object_access_history_for_stats access_history
             LEFT JOIN
                 (
                     SELECT * FROM snowflake.account_usage.query_history
