@@ -64,8 +64,8 @@ public class EbeanAspectDaoTest {
   @DataProvider(name = "writabilityConfig")
   public Object[][] writabilityConfigProvider() {
     return new Object[][] {
-        {true, "Writable"}, // canWrite = true, description
-        {false, "ReadOnly"} // canWrite = false, description
+      {true, "Writable"}, // canWrite = true, description
+      {false, "ReadOnly"} // canWrite = false, description
     };
   }
 
@@ -88,16 +88,21 @@ public class EbeanAspectDaoTest {
         LoggedSql.stop().stream()
             .filter(str -> str.contains("testGetNextVersionForUpdate"))
             .toList();
-    assertEquals(sql.size(), 2, String.format("Found: %s", sql));
     if (canWrite) {
-      assertTrue(sql.get(0).contains("for update;"), String.format("Did not find `for update` in %s ", sql));
+      assertEquals(sql.size(), 2, String.format("Found: %s", sql));
+      assertTrue(
+          sql.get(0).contains("for update;"),
+          String.format("Did not find `for update` in %s ", sql));
     } else {
-      assertFalse(sql.get(0).contains("for update;"), String.format("Found `for update` in %s ", sql));
+      assertEquals(sql.size(), 1, String.format("Found: %s", sql));
+      assertFalse(
+          sql.get(0).contains("for update;"), String.format("Found `for update` in %s ", sql));
     }
   }
 
   @Test(dataProvider = "writabilityConfig")
-  public void testGetLatestAspectsForUpdate(boolean canWrite, String description) throws JsonProcessingException {
+  public void testGetLatestAspectsForUpdate(boolean canWrite, String description)
+      throws JsonProcessingException {
     testDao.setWritable(canWrite);
     LoggedSql.start();
 
@@ -120,14 +125,18 @@ public class EbeanAspectDaoTest {
     assertEquals(
         sql.size(), 1, String.format("Found: %s", new ObjectMapper().writeValueAsString(sql)));
     if (canWrite) {
-      assertTrue(sql.get(0).contains("for update;"), String.format("Did not find `for update` in %s ", sql));
+      assertTrue(
+          sql.get(0).contains("for update;"),
+          String.format("Did not find `for update` in %s ", sql));
     } else {
-      assertFalse(sql.get(0).contains("for update;"), String.format("Found `for update` in %s ", sql));
+      assertFalse(
+          sql.get(0).contains("for update;"), String.format("Found `for update` in %s ", sql));
     }
   }
 
   @Test(dataProvider = "writabilityConfig")
-  public void testbatchGetForUpdate(boolean canWrite, String description) throws JsonProcessingException {
+  public void testbatchGetForUpdate(boolean canWrite, String description)
+      throws JsonProcessingException {
     testDao.setWritable(canWrite);
     LoggedSql.start();
 
@@ -160,9 +169,12 @@ public class EbeanAspectDaoTest {
     assertEquals(
         sql.size(), 1, String.format("Found: %s", new ObjectMapper().writeValueAsString(sql)));
     if (canWrite) {
-      assertTrue(sql.get(0).contains("FOR UPDATE;"), String.format("Did not find `for update` in %s ", sql));
+      assertTrue(
+          sql.get(0).contains("FOR UPDATE;"),
+          String.format("Did not find `for update` in %s ", sql));
     } else {
-      assertFalse(sql.get(0).contains("FOR UPDATE;"), String.format("Found `for update` in %s ", sql));
+      assertFalse(
+          sql.get(0).contains("FOR UPDATE;"), String.format("Found `for update` in %s ", sql));
     }
   }
 
