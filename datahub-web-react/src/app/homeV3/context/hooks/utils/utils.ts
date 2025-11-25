@@ -1,6 +1,7 @@
 import {
     ASSETS_MODULE,
     CHILD_HIERARCHY_MODULE,
+    COLUMNS_MODULE,
     DATA_PRODUCTS_MODULE,
     LINEAGE_MODULE,
     RELATED_TERMS_MODULE,
@@ -40,7 +41,7 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             summaryElements = [CREATED, OWNERS];
             break;
         case EntityType.Dataset:
-            rows = [{ modules: [LINEAGE_MODULE] }];
+            rows = [{ modules: [LINEAGE_MODULE] }, { modules: [COLUMNS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.Document:
