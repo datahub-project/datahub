@@ -73,7 +73,8 @@ public class DocumentService {
    * @param relatedAssetUrns optional list of related asset URNs
    * @param relatedDocumentUrns optional list of related document URNs
    * @param draftOfUrn optional URN of the published document this is a draft of
-   * @param settings optional document settings (defaults to showInGlobalContext=true if not provided)
+   * @param settings optional document settings (defaults to showInGlobalContext=true if not
+   *     provided)
    * @param actorUrn the URN of the user creating the document
    * @return the URN of the created document
    * @throws Exception if creation fails
