@@ -17,8 +17,6 @@ export function useUpdateIngestionSource() {
     const [addOwners] = useBatchAddOwnersMutation();
 
     const { defaultOwnershipType } = useOwnershipTypes();
-    // const me = useUserContext();
-    // const client = useApolloClient();
 
     const createSource = useCallback(
         async (sourceUrn: string, input: UpdateIngestionSourceInput, owners?: Entity[], shouldRun?: boolean) => {
@@ -43,21 +41,6 @@ export function useUpdateIngestionSource() {
                         });
                     }
 
-                    // const updatedSource = {
-                    //     config: {
-                    //         ...input.config,
-                    //         version: null,
-                    //     },
-                    //     name: input.name,
-                    //     type: input.type,
-                    //     schedule: input.schedule || null,
-                    //     urn: sourceUrn,
-                    //     ownership: {
-                    //         owners: buildOwnerEntities(sourceUrn, owners, defaultOwnerType) || [],
-                    //     },
-                    // };
-                    // updateListIngestionSourcesCache(client, updatedSource, queryInputs, false);
-
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
@@ -80,8 +63,7 @@ export function useUpdateIngestionSource() {
                     });
                 });
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [],
+        [addOwners, defaultOwnershipType?.urn, executeIngestionSource, updateIngestionSource],
     );
 
     return createSource;
