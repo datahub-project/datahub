@@ -30,9 +30,9 @@ public class DecryptingEnvironmentPostProcessor implements EnvironmentPostProces
   @Override
   public void postProcessEnvironment(
       ConfigurableEnvironment environment, SpringApplication application) {
-    String base64Key = System.getenv("CONFIG_ENCRYPTION_KEY");
+    String base64Key = System.getenv("SECRET_SERVICE_ENCRYPTION_KEY");
     if (base64Key == null || base64Key.isEmpty()) {
-      log.info("[Decryptor] No CONFIG_ENCRYPTION_KEY set — skipping decryption.");
+      log.info("[Decryptor] No SECRET_SERVICE_ENCRYPTION_KEY set — skipping decryption.");
       return;
     }
 
