@@ -116,7 +116,9 @@ class TestGetForeignTableMetadata:
         assert result.table_name == "external_sales"
         assert result.server_name == "sqlserver1"
         assert result.fdw_name == "tds_fdw"
+        assert result.server_options is not None
         assert "host=sqlserver.example.com" in result.server_options
+        assert result.table_options is not None
         assert "schema_name=dbo" in result.table_options
 
     def test_get_foreign_table_metadata_not_found(self, postgres_source):
