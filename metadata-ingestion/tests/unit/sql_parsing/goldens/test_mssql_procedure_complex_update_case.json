@@ -1,0 +1,155 @@
+{
+    "query_type": "CREATE_OTHER",
+    "query_type_props": {
+        "kind": "PROCEDURE"
+    },
+    "query_fingerprint": null,
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.updatemonthlyreturns,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+                "column": "return_month_1",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
+                    "column": "return_month_1"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
+                    "column": "update_map"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN [src].[update_map] & 1 = 1 THEN NULL ELSE [dst].[return_month_1] END AS [return_month_1]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+                "column": "return_month_2",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
+                    "column": "return_month_2"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
+                    "column": "update_map"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN [src].[update_map] & 2 = 2 THEN NULL ELSE [dst].[return_month_2] END AS [return_month_2]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+                "column": "return_month_3",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
+                    "column": "return_month_3"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
+                    "column": "update_map"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN [src].[update_map] & 4 = 4 THEN NULL ELSE [dst].[return_month_3] END AS [return_month_3]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+                "column": "return_month_4",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
+                    "column": "return_month_4"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
+                    "column": "update_map"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN [src].[update_map] & 8 = 8 THEN NULL ELSE [dst].[return_month_4] END AS [return_month_4]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+                "column": "return_month_5",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
+                    "column": "return_month_5"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
+                    "column": "update_map"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN [src].[update_map] & 16 = 16 THEN NULL ELSE [dst].[return_month_5] END AS [return_month_5]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+                "column": "return_month_6",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
+                    "column": "return_month_6"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
+                    "column": "update_map"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN [src].[update_map] & 32 = 32 THEN NULL ELSE [dst].[return_month_6] END AS [return_month_6]"
+            }
+        }
+    ],
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.5,
+        "generalized_statement": "CREATE PROCEDURE (parsed 2 statements via fallback)"
+    }
+}

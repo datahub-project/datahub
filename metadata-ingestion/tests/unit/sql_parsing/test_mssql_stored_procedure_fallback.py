@@ -507,3 +507,205 @@ def test_fallback_parser_confidence_score() -> None:
     # The confidence should be 0.5 for fallback parsing
     # This is tested by comparing the debug_info in golden files
     pass  # Implicit test via golden files
+
+
+# Real-world test cases based on customer issues
+
+
+def test_mssql_procedure_update_with_alias_pattern() -> None:
+    """Test UPDATE dst FROM table dst pattern that caused phantom table references.
+
+    This pattern is common in MSSQL and was causing 'Resolved 2 of 3 table schemas' errors.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.UpdateMetricsFromStaging
+@IsSnapshot VARCHAR(5) = 'NO'
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        -- Update existing records using MSSQL-specific UPDATE alias syntax
+        UPDATE dst
+        SET metric_value = src.metric_value,
+            metric_date = src.metric_date,
+            last_updated = GETDATE()
+        FROM Production.dbo.metrics dst
+        INNER JOIN Staging.dbo.staging_metrics src
+          ON dst.metric_id = src.metric_id
+        WHERE src.record_action IS NULL;
+
+    END TRY
+    BEGIN CATCH
+        THROW;
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_update_alias_pattern.json",
+    )
+
+
+def test_mssql_procedure_delete_with_alias_pattern() -> None:
+    """Test DELETE dst FROM table dst pattern.
+
+    Similar to UPDATE, this MSSQL-specific syntax was causing schema resolution issues.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.DeleteMarkedRecords
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        -- Delete records marked for deletion using MSSQL alias syntax
+        DELETE dst
+        FROM Production.dbo.customer_data dst
+        INNER JOIN Staging.dbo.staging_customer_data src WITH (TABLOCK)
+          ON src.customer_id = dst.customer_id
+         AND src.effective_date = dst.effective_date
+        WHERE src.record_action = 'DELETE';
+
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorMessage NVARCHAR(4000);
+        SELECT @ErrorMessage = ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_delete_alias_pattern.json",
+    )
+
+
+def test_mssql_procedure_complex_update_with_case() -> None:
+    """Test complex UPDATE with multiple CASE expressions.
+
+    This pattern with many CASE WHEN expressions was common in customer logs.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.UpdateMonthlyReturns
+AS
+BEGIN
+    BEGIN TRY
+        UPDATE dst
+        SET return_month_1 = CASE WHEN src.update_map & 1 = 1 THEN NULL ELSE dst.return_month_1 END,
+            return_month_2 = CASE WHEN src.update_map & 2 = 2 THEN NULL ELSE dst.return_month_2 END,
+            return_month_3 = CASE WHEN src.update_map & 4 = 4 THEN NULL ELSE dst.return_month_3 END,
+            return_month_4 = CASE WHEN src.update_map & 8 = 8 THEN NULL ELSE dst.return_month_4 END,
+            return_month_5 = CASE WHEN src.update_map & 16 = 16 THEN NULL ELSE dst.return_month_5 END,
+            return_month_6 = CASE WHEN src.update_map & 32 = 32 THEN NULL ELSE dst.return_month_6 END
+        FROM Analytics.dbo.monthly_returns dst
+        INNER JOIN Staging.dbo.staging_returns src
+          ON dst.asset_id = src.asset_id
+         AND dst.period_id = src.period_id;
+    END TRY
+    BEGIN CATCH
+        THROW;
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_complex_update_case.json",
+    )
+
+
+def test_mssql_procedure_multi_dml_pattern() -> None:
+    """Test procedure with DELETE, UPDATE, and INSERT in sequence.
+
+    This represents the common ETL pattern seen in customer logs where a procedure
+    performs multiple DML operations. Should produce both inputs AND outputs.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.SyncDimensionTable
+@IsSnapshot VARCHAR(5) = 'NO'
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        -- Delete obsolete records
+        DELETE dst
+        FROM DataWarehouse.dbo.dim_product dst
+        INNER JOIN Staging.dbo.staging_dim_product src
+          ON dst.product_key = src.product_key
+        WHERE src.record_action = 'DELETE';
+
+        -- Update changed records
+        UPDATE dst
+        SET product_name = src.product_name,
+            category = src.category,
+            last_modified = GETDATE()
+        FROM DataWarehouse.dbo.dim_product dst
+        INNER JOIN Staging.dbo.staging_dim_product src
+          ON dst.product_key = src.product_key
+        WHERE src.record_action = 'UPDATE';
+
+        -- Insert new records
+        INSERT INTO DataWarehouse.dbo.dim_product
+            (product_key, product_name, category, last_modified)
+        SELECT
+            src.product_key,
+            src.product_name,
+            src.category,
+            GETDATE()
+        FROM Staging.dbo.staging_dim_product src
+        LEFT JOIN DataWarehouse.dbo.dim_product dst
+          ON dst.product_key = src.product_key
+        WHERE dst.product_key IS NULL
+          AND src.record_action = 'INSERT';
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_multi_dml_pattern.json",
+    )
+
+
+def test_mssql_procedure_snapshot_cleanup_pattern() -> None:
+    """Test snapshot cleanup pattern with conditional DELETE.
+
+    This pattern uses LEFT JOIN with NULL checks for cleanup operations.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.CleanupSnapshotData
+@IsSnapshot VARCHAR(10) = 'YES'
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        -- Delete records not in current snapshot
+        DELETE dst
+        FROM TimeSeries.dbo.financial_metrics dst
+        LEFT JOIN Staging.dbo.staging_financial_metrics src WITH (TABLOCK)
+          ON src.metric_id = dst.metric_id
+         AND src.snapshot_date = dst.snapshot_date
+        WHERE src.snapshot_date IS NULL
+          AND src.metric_id IS NULL
+          AND @IsSnapshot = 'YES';
+
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorNumber INT;
+        DECLARE @ErrorMessage NVARCHAR(4000);
+        SELECT @ErrorNumber = ERROR_NUMBER(), @ErrorMessage = ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_snapshot_cleanup.json",
+    )

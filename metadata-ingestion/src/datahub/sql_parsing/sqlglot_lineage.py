@@ -102,6 +102,10 @@ TSQL_CONTROL_FLOW_KEYWORDS = {
     "PRINT",
     "RAISERROR",
     "WAITFOR",
+    # Note: CREATE PROCEDURE/FUNCTION are NOT included here because:
+    # 1. Recursion is prevented by _disable_fallback_parser=True flag
+    # 2. Tests expect CREATE PROCEDURE headers to be attempted for parsing
+    # 3. They fail gracefully if they don't contain DML
 }
 
 Urn = str
@@ -700,7 +704,7 @@ def _column_level_lineage(
 ) -> _ColumnLineageWithDebugInfo:
     # Simplify the input statement for column-level lineage generation.
     try:
-        select_statement = _try_extract_select(statement)
+        select_statement = _try_extract_select(statement, dialect=dialect)
     except Exception as e:
         raise SqlUnderstandingError(
             f"Failed to extract select from statement: {e}"
@@ -1152,6 +1156,7 @@ _UPDATE_FROM_TABLE_ARGS_TO_MOVE = {"joins", "laterals", "pivot"}
 
 def _extract_select_from_update(
     statement: sqlglot.exp.Update,
+    dialect: Optional[sqlglot.Dialect] = None,
 ) -> sqlglot.exp.Select:
     statement = statement.copy()
 
@@ -1200,11 +1205,31 @@ def _extract_select_from_update(
     )
 
     # Update statements always implicitly have the updated table in context.
-    # TODO: Retain table name alias, if one was present.
+    # For MSSQL/TSQL, the UPDATE target (statement.this) is often just an alias
+    # that refers to a table already in the FROM clause (e.g., "UPDATE dst FROM table dst").
+    # We should not add it as a cross join if it's already present.
     if select_statement.args.get("from"):
-        select_statement = select_statement.join(
-            statement.this, append=True, join_kind="cross"
-        )
+        should_add_cross_join = True
+
+        # MSSQL-specific handling: check if UPDATE target is just an alias
+        if dialect and is_dialect_instance(dialect, "tsql"):
+            update_target = statement.this
+            # If it's a simple identifier without db/catalog qualification, it's likely an alias
+            is_simple_alias = (
+                isinstance(update_target, sqlglot.exp.Table)
+                and not update_target.db
+                and not update_target.catalog
+                and update_target.this
+                and isinstance(update_target.this, sqlglot.exp.Identifier)
+            )
+            if is_simple_alias:
+                # Don't add as cross join - the alias already refers to a table in FROM
+                should_add_cross_join = False
+
+        if should_add_cross_join:
+            select_statement = select_statement.join(
+                statement.this, append=True, join_kind="cross"
+            )
     else:
         select_statement = select_statement.from_(statement.this)
 
@@ -1213,6 +1238,7 @@ def _extract_select_from_update(
 
 def _try_extract_select(
     statement: sqlglot.exp.Expression,
+    dialect: Optional[sqlglot.Dialect] = None,
 ) -> sqlglot.exp.Expression:
     # Try to extract the core select logic from a more complex statement.
     # If it fails, just return the original statement.
@@ -1234,7 +1260,7 @@ def _try_extract_select(
                 statement = statement.with_(alias=cte.alias, as_=cte.this)
     elif isinstance(statement, sqlglot.exp.Update):
         # Assumption: the output table is already captured in the modified tables list.
-        statement = _extract_select_from_update(statement)
+        statement = _extract_select_from_update(statement, dialect=dialect)
     elif isinstance(statement, sqlglot.exp.Create):
         # TODO May need to map column renames.
         # Assumption: the output table is already captured in the modified tables list.
