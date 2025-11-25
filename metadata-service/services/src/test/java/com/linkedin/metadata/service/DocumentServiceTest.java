@@ -834,7 +834,8 @@ public class DocumentServiceTest {
           null,
           null,
           publishedDocUrn, // draftOf
-          true, // showInGlobalContext
+          new com.linkedin.knowledge.DocumentSettings()
+              .setShowInGlobalContext(true), // showInGlobalContext
           TEST_USER_URN);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
@@ -864,7 +865,8 @@ public class DocumentServiceTest {
             null, // no related assets
             null, // no related documents
             null, // no draftOfUrn
-            false, // showInGlobalContext = false
+            new com.linkedin.knowledge.DocumentSettings()
+                .setShowInGlobalContext(false), // showInGlobalContext = false
             TEST_USER_URN);
 
     // Verify the URN was created
@@ -915,7 +917,11 @@ public class DocumentServiceTest {
     final DocumentService service = new DocumentService(mockClient);
 
     // Test updating document settings
-    service.updateDocumentSettings(opContext, TEST_DOCUMENT_URN, false, TEST_USER_URN);
+    service.updateDocumentSettings(
+        opContext,
+        TEST_DOCUMENT_URN,
+        new com.linkedin.knowledge.DocumentSettings().setShowInGlobalContext(false),
+        TEST_USER_URN);
 
     // Verify batch ingest was called (settings + documentInfo for lastModified)
     verify(mockClient, times(1))
@@ -931,7 +937,11 @@ public class DocumentServiceTest {
 
     // Test updating settings for a non-existent document
     try {
-      service.updateDocumentSettings(opContext, TEST_DOCUMENT_URN, true, TEST_USER_URN);
+      service.updateDocumentSettings(
+          opContext,
+          TEST_DOCUMENT_URN,
+          new com.linkedin.knowledge.DocumentSettings().setShowInGlobalContext(true),
+          TEST_USER_URN);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));

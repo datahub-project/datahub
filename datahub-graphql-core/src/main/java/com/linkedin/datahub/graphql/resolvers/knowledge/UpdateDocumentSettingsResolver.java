@@ -44,10 +44,14 @@ public class UpdateDocumentSettingsResolver implements DataFetcher<CompletableFu
           }
 
           try {
+            final com.linkedin.knowledge.DocumentSettings settings =
+                new com.linkedin.knowledge.DocumentSettings();
+            settings.setShowInGlobalContext(input.getShowInGlobalContext());
+
             _documentService.updateDocumentSettings(
                 context.getOperationContext(),
                 documentUrn,
-                input.getShowInGlobalContext(),
+                settings,
                 UrnUtils.getUrn(context.getActorUrn()));
 
             return true;

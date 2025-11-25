@@ -402,6 +402,42 @@ public class SearchDocumentsResolverTest {
   }
 
   @Test
+  public void testSearchDocumentsWithRelatedAssets() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setRelatedAssets(ImmutableList.of("urn:li:dataset:test"));
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            filterCaptor.capture(),
+            any(),
+            eq(0),
+            eq(10));
+
+    Filter filter = filterCaptor.getValue();
+    assertNotNull(filter, "Filter should not be null");
+
+    boolean hasRelatedAssets =
+        filter.getOr().stream()
+            .flatMap(cc -> cc.getAnd().stream())
+            .anyMatch(
+                c ->
+                    "relatedAssets".equals(c.getField())
+                        && c.getValues() != null
+                        && c.getValues().contains("urn:li:dataset:test")
+                        && c.getCondition() == Condition.EQUAL);
+
+    assertTrue(hasRelatedAssets, "Filter should contain relatedAssets=urn:li:dataset:test");
+  }
+
+  @Test
   public void testSearchDocumentsDefaultSourceType() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(mockEnv.getContext()).thenReturn(mockContext);

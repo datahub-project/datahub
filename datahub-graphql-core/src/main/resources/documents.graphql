@@ -630,6 +630,12 @@ input SearchDocumentsInput {
   domains: [String!]
 
   """
+  Optional list of related asset URNs to filter by (ANDed with other filters).
+  Returns documents that are related to ANY of the provided asset URNs.
+  """
+  relatedAssets: [String!]
+
+  """
   DEPRECATED: This field is no longer used for filtering.
 
   Document visibility is now automatically determined by ownership:

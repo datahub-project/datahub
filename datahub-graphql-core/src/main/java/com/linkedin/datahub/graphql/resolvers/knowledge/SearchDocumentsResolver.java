@@ -221,6 +221,13 @@ public class SearchDocumentsResolver
       criteria.add(CriterionUtils.buildCriterion("domains", Condition.EQUAL, input.getDomains()));
     }
 
+    // Add relatedAssets filter if provided
+    if (input.getRelatedAssets() != null && !input.getRelatedAssets().isEmpty()) {
+      criteria.add(
+          CriterionUtils.buildCriterion(
+              "relatedAssets", Condition.EQUAL, input.getRelatedAssets()));
+    }
+
     // NOTE: State filtering is handled in buildCombinedFilter with ownership logic
     // Do not add state filters here
 

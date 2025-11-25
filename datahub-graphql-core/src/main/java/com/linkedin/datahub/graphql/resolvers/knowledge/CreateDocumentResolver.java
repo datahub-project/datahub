@@ -94,10 +94,15 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                     : null;
 
             // Extract settings (defaults to true if not provided)
-            final Boolean showInGlobalContext =
-                input.getSettings() != null && input.getSettings().getShowInGlobalContext() != null
-                    ? input.getSettings().getShowInGlobalContext()
-                    : true;
+            com.linkedin.knowledge.DocumentSettings settings = null;
+            if (input.getSettings() != null) {
+              settings = new com.linkedin.knowledge.DocumentSettings();
+              if (input.getSettings().getShowInGlobalContext() != null) {
+                settings.setShowInGlobalContext(input.getSettings().getShowInGlobalContext());
+              } else {
+                settings.setShowInGlobalContext(true);
+              }
+            }
 
             // Create document using service (draftFor parameter will handle draft logic)
             final Urn draftForUrnParsed = draftForUrn != null ? UrnUtils.getUrn(draftForUrn) : null;
@@ -114,7 +119,7 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                     relatedAssetUrns,
                     relatedDocumentUrns,
                     draftForUrnParsed,
-                    showInGlobalContext,
+                    settings,
                     UrnUtils.getUrn(context.getActorUrn()));
 
             // Set ownership

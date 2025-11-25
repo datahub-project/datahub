@@ -73,7 +73,7 @@ public class DocumentService {
    * @param relatedAssetUrns optional list of related asset URNs
    * @param relatedDocumentUrns optional list of related document URNs
    * @param draftOfUrn optional URN of the published document this is a draft of
-   * @param showInGlobalContext optional visibility setting (defaults to true if not provided)
+   * @param settings optional document settings (defaults to showInGlobalContext=true if not provided)
    * @param actorUrn the URN of the user creating the document
    * @return the URN of the created document
    * @throws Exception if creation fails
@@ -91,7 +91,7 @@ public class DocumentService {
       @Nullable List<Urn> relatedAssetUrns,
       @Nullable List<Urn> relatedDocumentUrns,
       @Nullable Urn draftOfUrn,
-      @Nullable Boolean showInGlobalContext,
+      @Nullable com.linkedin.knowledge.DocumentSettings settings,
       @Nonnull Urn actorUrn)
       throws Exception {
 
@@ -214,18 +214,20 @@ public class DocumentService {
     }
 
     // Create synchronous MCP for document settings (defaults to showInGlobalContext=true)
-    final com.linkedin.knowledge.DocumentSettings settings =
-        new com.linkedin.knowledge.DocumentSettings();
-    settings.setShowInGlobalContext(showInGlobalContext != null ? showInGlobalContext : true);
+    final com.linkedin.knowledge.DocumentSettings finalSettings =
+        settings != null ? settings : new com.linkedin.knowledge.DocumentSettings();
+    if (settings == null) {
+      finalSettings.setShowInGlobalContext(true);
+    }
 
     final AuditStamp settingsAuditStamp = new AuditStamp();
     settingsAuditStamp.setTime(System.currentTimeMillis());
     settingsAuditStamp.setActor(actorUrn);
-    settings.setLastModified(settingsAuditStamp, SetMode.IGNORE_NULL);
+    finalSettings.setLastModified(settingsAuditStamp, SetMode.IGNORE_NULL);
 
     final MetadataChangeProposal settingsMcp =
         AspectUtils.buildSynchronousMetadataChangeProposal(
-            documentUrn, Constants.DOCUMENT_SETTINGS_ASPECT_NAME, settings);
+            documentUrn, Constants.DOCUMENT_SETTINGS_ASPECT_NAME, finalSettings);
     mcps.add(settingsMcp);
 
     // Ingest the document with all aspects
@@ -547,14 +549,14 @@ public class DocumentService {
    *
    * @param opContext the operation context
    * @param documentUrn the URN of the document to update
-   * @param showInGlobalContext whether the document should be visible in the global context
+   * @param settings the new settings
    * @param actorUrn the URN of the user updating the settings
    * @throws Exception if update fails
    */
   public void updateDocumentSettings(
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
-      boolean showInGlobalContext,
+      @Nonnull com.linkedin.knowledge.DocumentSettings settings,
       @Nonnull Urn actorUrn)
       throws Exception {
 
@@ -563,11 +565,6 @@ public class DocumentService {
       throw new IllegalArgumentException(
           String.format("Document with URN %s does not exist", documentUrn));
     }
-
-    // Create DocumentSettings aspect
-    final com.linkedin.knowledge.DocumentSettings settings =
-        new com.linkedin.knowledge.DocumentSettings();
-    settings.setShowInGlobalContext(showInGlobalContext);
 
     // Set last modified
     final AuditStamp lastModified = new AuditStamp();
@@ -606,10 +603,7 @@ public class DocumentService {
       entityClient.ingestProposal(opContext, settingsMcp, false);
     }
 
-    log.debug(
-        "Updated settings for document {}: showInGlobalContext={}",
-        documentUrn,
-        showInGlobalContext);
+    log.debug("Updated settings for document {}", documentUrn);
   }
 
   /**
