@@ -32,9 +32,10 @@ logger = logging.getLogger(__name__)
 
 # Precompiled regex patterns for Grafana template variable cleaning
 # These patterns remove Grafana-specific template syntax to make SQL parseable
-_GRAFANA_TIME_MACRO_PATTERN = re.compile(r"\$__time[A-Z]\w*\([^)]*\)")
-_GRAFANA_FILTER_MACRO_PATTERN = re.compile(r"\$__[a-z]+Filter\([^)]*\)")
-_GRAFANA_GENERIC_MACRO_PATTERN = re.compile(r"\$__\w+\([^)]*\)")
+# Note: Parentheses are optional for macros (e.g., $__timeFilter vs $__timeFilter(column))
+_GRAFANA_TIME_MACRO_PATTERN = re.compile(r"\$__time[A-Z]\w*(?:\([^)]*\))?")
+_GRAFANA_FILTER_MACRO_PATTERN = re.compile(r"\$__[a-z]+Filter(?:\([^)]*\))?")
+_GRAFANA_GENERIC_MACRO_PATTERN = re.compile(r"\$__\w+(?:\([^)]*\))?")
 _GRAFANA_BRACKET_VAR_PATTERN = re.compile(r"\[\[[^\]]+\]\]")
 _GRAFANA_BRACED_VAR_PATTERN = re.compile(r"\$\{[^}]+\}")
 _GRAFANA_SIMPLE_VAR_PATTERN = re.compile(r"\$[a-zA-Z_][a-zA-Z0-9_]*")
@@ -45,22 +46,34 @@ def _clean_grafana_template_variables(query: str) -> str:
     Remove Grafana template variables from SQL query for parsing.
 
     Grafana supports multiple variable syntaxes that break SQL parsers:
-    - ${variable} or ${variable:format}
-    - [[variable]] (deprecated)
-    - $variable (simple format)
-    - $__macro(...) (built-in macros like $__timeFilter)
+    - ${variable} or ${variable:format} - Modern syntax with optional formatting
+    - [[variable]] - Deprecated bracket syntax
+    - $variable - Simple dollar syntax
+    - $__macro(...) or $__macro - Built-in macros (with/without parentheses)
+
+    Supported formatting options (in ${var:format}):
+    - csv, pipe, json, raw, etc.
+
+    Supported built-in macros and variables:
+    - Time macros: $__timeFilter, $__timeFrom, $__timeTo, $__timeGroup
+    - Global variables: $__interval, $__range, $__dashboard, $__user, $__org
+    - Advanced: $__interval_ms, $__range_s, $__rate_interval
 
     Replace with valid SQL placeholders to maintain parseability for lineage extraction.
 
     Replacement strategy:
-    - Time macros ($__timeFilter, $__timeFrom, etc.) -> TRUE (valid condition)
-    - Value variables (${...}, $var) -> 'grafana_var' (string literal, safe in most contexts)
-    - [[identifier]] -> grafana_identifier (valid identifier)
+    - All $__xxx macros -> TRUE (valid condition)
+    - ${...} variables -> 'grafana_var' (string literal)
+    - [[...]] identifiers -> grafana_identifier (valid identifier)
+    - $simple variables -> 'grafana_var' (string literal)
 
     Examples:
         ${__from:date:'YYYY/MM/DD'} -> 'grafana_var'
+        ${servers:csv} -> 'grafana_var'
         [[table_name]] -> grafana_identifier
         $__timeFilter(column) -> TRUE
+        $__timeFilter -> TRUE
+        $__interval -> TRUE
         WHERE status = '$status' -> WHERE status = 'grafana_var'
     """
 

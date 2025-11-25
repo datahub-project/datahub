@@ -135,6 +135,21 @@ class TestGrafanaTemplateVariableCleaning:
                 "WHERE $__timeFrom() < timestamp AND $__timeTo() > timestamp",
                 "WHERE TRUE < timestamp AND TRUE > timestamp",
             ),
+            # Macro without parentheses (common usage)
+            (
+                "WHERE event_timestamp $__timeFilter AND status = 'active'",
+                "WHERE event_timestamp TRUE AND status = 'active'",
+            ),
+            # Variable inside quotes (gets double-quoted but valid SQL)
+            (
+                "WHERE lower(sensor_serial) = lower('$serial')",
+                "WHERE lower(sensor_serial) = lower(''grafana_var'')",
+            ),
+            # Real-world user query with macro without parens
+            (
+                "select cast(event_timestamp as timestamp) from datalake_agg.devices where event_timestamp $__timeFilter and lower(sensor_serial) = lower('$serial') order by 1",
+                "select cast(event_timestamp as timestamp) from datalake_agg.devices where event_timestamp TRUE and lower(sensor_serial) = lower(''grafana_var'') order by 1",
+            ),
         ],
         ids=[
             "braced_with_format",
@@ -145,6 +160,9 @@ class TestGrafanaTemplateVariableCleaning:
             "realworld_complex",
             "no_variables",
             "time_macros",
+            "macro_without_parens",
+            "variable_in_quotes",
+            "realworld_user_query",
         ],
     )
     def test_removes_all_grafana_variable_formats(self, input_query, expected_pattern):
