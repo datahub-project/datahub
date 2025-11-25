@@ -51,17 +51,23 @@ async function mountMFE({
     const { module, remoteEntry } = config;
     const mountStart = performance.now();
 
-    console.log('MFE id: ', config.id, ' Mounting start ');
+    if (import.meta.env.DEV) {
+        console.log('MFE id: ', config.id, ' Mounting start ');
+    }
     try {
-        console.log('[HOST] mount path: ', module);
-        console.log('[HOST] attempting mount');
+        if (import.meta.env.DEV) {
+            console.log('[HOST] mount path: ', module);
+            console.log('[HOST] attempting mount');
+        }
 
         // Parse module string, something like: "myapp/mount"
         const [remoteName, modulePath] = module.split('/');
         const modulePathWithDot = `./${modulePath}`; // Convert "mount" to "./mount"
 
-        console.log('[HOST] parsed remote name: ', remoteName);
-        console.log('[HOST] parsed module path: ', modulePathWithDot);
+        if (import.meta.env.DEV) {
+            console.log('[HOST] parsed remote name: ', remoteName);
+            console.log('[HOST] parsed module path: ', modulePathWithDot);
+        }
 
         // Configure the dynamic remote
         const remoteConfig = {
@@ -81,17 +87,23 @@ async function mountMFE({
 
         // Race between getRemote and timeout
         const fetchStart = performance.now();
-        console.log('[HOST] Attempting to load remote module with config:', remoteConfig);
+        if (import.meta.env.DEV) {
+            console.log('[HOST] Attempting to load remote module with config:', remoteConfig);
+        }
         const remoteModule = await Promise.race([getRemote(remoteName, modulePathWithDot), timeoutPromise]);
         const fetchEnd = performance.now();
-        console.log(`latency for remote module fetch: ${config.id}`, fetchEnd - fetchStart, 'ms');
-        console.log('[HOST] Remote module loaded, unwrapping...');
+        if (import.meta.env.DEV) {
+            console.log(`latency for remote module fetch: ${config.id}`, fetchEnd - fetchStart, 'ms');
+            console.log('[HOST] Remote module loaded, unwrapping...');
+        }
         const unwrapStart = performance.now();
         const mod = await unwrapModule(remoteModule);
         const unwrapEnd = performance.now();
-        console.log(`latency for module unwrap: ${config.id}`, unwrapEnd - unwrapStart, 'ms');
-        console.log('[HOST] imported mod: ', mod);
-        console.log('[HOST] mod type: ', typeof mod);
+        if (import.meta.env.DEV) {
+            console.log(`latency for module unwrap: ${config.id}`, unwrapEnd - unwrapStart, 'ms');
+            console.log('[HOST] imported mod: ', mod);
+            console.log('[HOST] mod type: ', typeof mod);
+        }
 
         const maybeFn =
             typeof mod === 'function'
@@ -116,22 +128,30 @@ async function mountMFE({
         }
 
         if (typeof maybeFn !== 'function') {
-            console.warn('MFE id: ', config.id, ' Mounting failed');
-            console.warn('[HOST] mount is not a function; got: ', maybeFn);
+            if (import.meta.env.DEV) {
+                console.warn('MFE id: ', config.id, ' Mounting failed');
+                console.warn('[HOST] mount is not a function; got: ', maybeFn);
+            }
             return undefined;
         }
         const mountFnStart = performance.now();
         const cleanup = maybeFn(containerElement, {});
         const mountFnEnd = performance.now();
-        console.log(`latency for mount function execution: ${config.id}`, mountFnEnd - mountFnStart, 'ms');
-        console.log('[HOST] mount called');
+        if (import.meta.env.DEV) {
+            console.log(`latency for mount function execution: ${config.id}`, mountFnEnd - mountFnStart, 'ms');
+            console.log('[HOST] mount called');
+        }
         const mountEnd = performance.now();
         const latency = mountEnd - mountStart;
-        console.log(`latency for successful MFE id: ${config.id}`, latency, 'ms');
+        if (import.meta.env.DEV) {
+            console.log(`latency for successful MFE id: ${config.id}`, latency, 'ms');
+        }
         return cleanup;
     } catch (e) {
-        console.log(`latency for unsuccessful MFE id: ${config.id}`, performance.now() - mountStart, 'ms');
-        console.error('[HOST] import/mount failed:', e);
+        if (import.meta.env.DEV) {
+            console.log(`latency for unsuccessful MFE id: ${config.id}`, performance.now() - mountStart, 'ms');
+            console.error('[HOST] import/mount failed:', e);
+        }
         if (aliveRef.current) {
             onError();
         }
@@ -163,11 +183,15 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
         return () => {
             aliveRef.current = false;
             if (cleanup) {
-                console.log('[HOST] Executing cleanup method provided by mount');
+                if (import.meta.env.DEV) {
+                    console.log('[HOST] Executing cleanup method provided by mount');
+                }
                 const cleanupStart = performance.now();
                 cleanup();
                 const cleanupEnd = performance.now();
-                console.log(`latency for cleanup execution: ${config.id}`, cleanupEnd - cleanupStart, 'ms');
+                if (import.meta.env.DEV) {
+                    console.log(`latency for cleanup execution: ${config.id}`, cleanupEnd - cleanupStart, 'ms');
+                }
             }
         };
     }, [config, history]);
