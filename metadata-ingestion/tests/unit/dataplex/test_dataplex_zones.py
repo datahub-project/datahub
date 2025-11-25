@@ -77,7 +77,7 @@ def dataplex_config() -> DataplexConfig:
     return DataplexConfig(
         project_ids=["test-project"],
         location="us-central1",
-        extract_zones=True,
+        include_zones=True,
     )
 
 
@@ -457,8 +457,8 @@ def test_get_zones_mcps_extract_zones_disabled(
     mock_dataplex_client: Mock,
     mock_metadata_client: Mock,
 ) -> None:
-    """Test that zones are not extracted when extract_zones is False."""
-    dataplex_config.extract_zones = False
+    """Test that zones are not extracted when include_zones is False."""
+    dataplex_config.include_zones = False
 
     ctx = PipelineContext(run_id="test-run")
     source = DataplexSource(ctx, dataplex_config)
@@ -467,7 +467,7 @@ def test_get_zones_mcps_extract_zones_disabled(
     source.catalog_client = Mock()
     source.report = dataplex_report
 
-    # This should not be called when extract_zones is False
+    # This should not be called when include_zones is False
     # But if it is called, it should work
     mock_lake = create_mock_lake("lake-1")
     mock_zone = create_mock_zone("zone-1", "lake-1")

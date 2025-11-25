@@ -73,35 +73,35 @@ class DataplexConfig(
         description="Filters to control which Dataplex resources are ingested.",
     )
 
-    extract_lakes: bool = Field(
+    include_lakes: bool = Field(
         default=True,
-        description="Whether to extract Lake metadata as Containers.",
+        description="Whether to include Lake metadata as Containers.",
     )
 
-    extract_zones: bool = Field(
+    include_zones: bool = Field(
         default=True,
-        description="Whether to extract Zone metadata as Containers.",
+        description="Whether to include Zone metadata as Containers.",
     )
 
-    extract_assets: bool = Field(
+    include_assets: bool = Field(
         default=True,
-        description="Whether to extract Asset metadata as Containers.",
+        description="Whether to include Asset metadata as Containers.",
     )
 
-    extract_entities: bool = Field(
+    include_entities: bool = Field(
         default=True,
-        description="Whether to extract Entity metadata (discovered tables/filesets) as Datasets.",
+        description="Whether to include Entity metadata (discovered tables/filesets) as Datasets.",
     )
 
-    extract_entry_groups: bool = Field(
-        default=False,
-        description="Whether to extract Entry Groups from Universal Catalog. (Phase 2 feature)",
-    )
+    # extract_entry_groups: bool = Field(
+    #     default=False,
+    #     description="Whether to extract Entry Groups from Universal Catalog. (Phase 2 feature)",
+    # )
 
-    extract_entries: bool = Field(
-        default=False,
-        description="Whether to extract Entries from Universal Catalog. (Phase 2 feature)",
-    )
+    # extract_entries: bool = Field(
+    #     default=False,
+    #     description="Whether to extract Entries from Universal Catalog. (Phase 2 feature)",
+    # )
 
     extract_lineage: bool = Field(
         default=True,

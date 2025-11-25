@@ -237,23 +237,23 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         """Process all Dataplex resources for a single project."""
         yield from self._gen_project_workunits(project_id)
 
-        if self.config.extract_lakes:
+        if self.config.include_lakes:
             yield from auto_workunit(self._get_lakes_mcps(project_id))
 
-        if self.config.extract_zones:
+        if self.config.include_zones:
             yield from auto_workunit(self._get_zones_mcps(project_id))
 
-        if self.config.extract_assets:
+        if self.config.include_assets:
             yield from auto_workunit(self._get_assets_mcps(project_id))
 
-        if self.config.extract_entities:
+        if self.config.include_entities:
             yield from auto_workunit(self._get_entities_mcps(project_id))
 
-        if self.config.extract_entry_groups:
-            yield from auto_workunit(self._get_entry_groups_mcps(project_id))
+        # if self.config.extract_entry_groups:
+        #     yield from auto_workunit(self._get_entry_groups_mcps(project_id))
 
-        if self.config.extract_entries:
-            yield from auto_workunit(self._get_entries_mcps(project_id))
+        # if self.config.extract_entries:
+        #     yield from auto_workunit(self._get_entries_mcps(project_id))
 
         # Extract lineage for entities (after entities have been processed)
         if self.config.extract_lineage and self.lineage_extractor:
