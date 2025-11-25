@@ -175,6 +175,15 @@ public class SearchDocumentsResolver
       criteria.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, stateStrings));
     }
 
+    // Add source type filter if provided (if null, search all)
+    if (input.getSourceType() != null) {
+      criteria.add(
+          CriterionUtils.buildCriterion(
+              "sourceType",
+              Condition.EQUAL,
+              Collections.singletonList(input.getSourceType().toString())));
+    }
+
     // Exclude documents that are drafts by default, unless explicitly requested
     if (input.getIncludeDrafts() == null || !input.getIncludeDrafts()) {
       Criterion notDraftCriterion = new Criterion();
