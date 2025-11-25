@@ -120,7 +120,7 @@ class FivetranLogAPI:
 
     def _get_column_lineage_metadata(
         self, connector_ids: List[str], max_column_lineage: Optional[int] = None
-    ) -> Tuple[Dict[Tuple[str, str], List], Dict[str, int]]:
+    ) -> Tuple[Dict[Tuple[str, str], List[Dict]], Dict[str, int]]:
         """
         Returns dict of column lineage metadata with key as (<SOURCE_TABLE_ID>, <DESTINATION_TABLE_ID>)
         and a dict of row counts per connector.
@@ -131,10 +131,10 @@ class FivetranLogAPI:
 
         Returns:
             Tuple of:
-            - Dict mapping (source_table_id, dest_table_id) to list of column lineages
+            - Dict mapping (source_table_id, dest_table_id) to list of column lineage rows
             - Dict mapping connector_id to count of column lineage rows returned
         """
-        all_column_lineage: Dict[Tuple[str, str], List] = defaultdict(list)
+        all_column_lineage: Dict[Tuple[str, str], List[Dict]] = defaultdict(list)
         connector_row_counts: Dict[str, int] = defaultdict(int)
 
         if not connector_ids:
@@ -154,17 +154,15 @@ class FivetranLogAPI:
             )
             all_column_lineage[key].append(column_lineage)
 
-            # We need to get the connector_id from the result
-            # The query should include connection_id in the results
-            connector_id = column_lineage.get(Constant.CONNECTOR_ID)
-            if connector_id:
-                connector_row_counts[connector_id] += 1
+            # Track row counts per connector for truncation detection
+            connector_id = column_lineage[Constant.CONNECTOR_ID]
+            connector_row_counts[connector_id] += 1
 
         return dict(all_column_lineage), dict(connector_row_counts)
 
     def _get_table_lineage_metadata(
         self, connector_ids: List[str], max_table_lineage: Optional[int] = None
-    ) -> Tuple[Dict[str, List], Dict[str, int]]:
+    ) -> Tuple[Dict[str, List[Dict]], Dict[str, int]]:
         """
         Returns dict of table lineage metadata with key as 'CONNECTOR_ID'
         and a dict of row counts per connector.
@@ -175,10 +173,10 @@ class FivetranLogAPI:
 
         Returns:
             Tuple of:
-            - Dict mapping connector_id to list of table lineages
+            - Dict mapping connector_id to list of table lineage rows
             - Dict mapping connector_id to count of table lineage rows returned
         """
-        connectors_table_lineage_metadata: Dict[str, List] = defaultdict(list)
+        connectors_table_lineage_metadata: Dict[str, List[Dict]] = defaultdict(list)
         connector_row_counts: Dict[str, int] = defaultdict(int)
 
         if not connector_ids:
@@ -198,8 +196,8 @@ class FivetranLogAPI:
 
     def _extract_connector_lineage(
         self,
-        table_lineage_result: Optional[List],
-        column_lineage_metadata: Dict[Tuple[str, str], List],
+        table_lineage_result: Optional[List[Dict]],
+        column_lineage_metadata: Dict[Tuple[str, str], List[Dict]],
     ) -> List[TableLineage]:
         table_lineage_list: List[TableLineage] = []
         if table_lineage_result is None:

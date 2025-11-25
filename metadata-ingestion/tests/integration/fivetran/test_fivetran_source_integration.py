@@ -61,7 +61,9 @@ def default_query_results(
         return []
     elif query == fivetran_log_query.get_connectors_query():
         return connector_query_results
-    elif query.startswith("SELECT\n    *\nFROM ("):
+    elif query.startswith("SELECT\n    *\nFROM (") or query.startswith(
+        "SELECT\n    connection_id,\n    source_table_id,\n    source_table_name,"
+    ):
         return [
             {
                 "connection_id": "calendar_elected",
@@ -92,28 +94,36 @@ def default_query_results(
             },
         ]
     elif query == fivetran_log_query.get_column_lineage_query(
-        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
+        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"],
+        max_column_lineage=None,
+    ) or query == fivetran_log_query.get_column_lineage_query(
+        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"],
+        max_column_lineage=10000,
     ):
         return [
             {
+                "connection_id": "calendar_elected",
                 "source_table_id": "10040",
                 "destination_table_id": "7779",
                 "source_column_name": "id",
                 "destination_column_name": "id",
             },
             {
+                "connection_id": "calendar_elected",
                 "source_table_id": "10040",
                 "destination_table_id": "7779",
                 "source_column_name": "name",
                 "destination_column_name": "name",
             },
             {
+                "connection_id": "calendar_elected",
                 "source_table_id": "10041",
                 "destination_table_id": "7780",
                 "source_column_name": "id",
                 "destination_column_name": "id",
             },
             {
+                "connection_id": "calendar_elected",
                 "source_table_id": "10041",
                 "destination_table_id": "7780",
                 "source_column_name": "name",
