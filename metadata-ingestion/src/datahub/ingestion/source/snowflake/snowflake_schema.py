@@ -82,6 +82,7 @@ class SnowflakeColumn(BaseColumn):
     character_maximum_length: Optional[int]
     numeric_precision: Optional[int]
     numeric_scale: Optional[int]
+    expression: Optional[str] = None  # SQL expression for derived columns
 
     def get_precise_native_type(self):
         precise_native_type = self.data_type
@@ -1083,6 +1084,15 @@ class SnowflakeDataDictionary(SupportsAsObj):
         unique_subtypes = sorted(set(subtypes))  # Deduplicate and sort
         merged_subtype = ",".join(unique_subtypes)
 
+        # For FACT and METRIC columns, append expression if available
+        if any(subtype in ["FACT", "METRIC"] for subtype in unique_subtypes):
+            expression = occurrences[0].get("expression")
+            if expression:
+                if merged_comment:
+                    merged_comment = f"{merged_comment}\n\nExpression: {expression}"
+                else:
+                    merged_comment = f"Expression: {expression}"
+
         return (data_type, merged_comment, merged_subtype)
 
     def _populate_semantic_view_columns(  # noqa: C901
@@ -1288,6 +1298,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                             character_maximum_length=None,
                             numeric_precision=None,
                             numeric_scale=None,
+                            expression=occurrences[0].get(
+                                "expression"
+                            ),  # Store for derived column lineage
                         )
                     )
                     semantic_view.column_subtypes[col_name_upper] = merged_subtype
