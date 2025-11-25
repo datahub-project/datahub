@@ -18,6 +18,9 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
 from datahub.ingestion.source.datahub.state import PartitionOffset
+from datahub.ingestion.source.kafka.kafka_ssl_helper import (
+    prepare_schema_registry_config,
+)
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 
 logger = logging.getLogger(__name__)
@@ -40,6 +43,16 @@ class DataHubKafkaReader(Closeable):
         self.ctx = ctx
 
     def __enter__(self) -> "DataHubKafkaReader":
+        # Prepare schema registry configuration
+        # Convert ssl.ca.location from string path to SSL context
+        # (required for confluent-kafka-python >= 2.8.0)
+        schema_registry_config = prepare_schema_registry_config(
+            {
+                "url": self.connection_config.schema_registry_url,
+                **self.connection_config.schema_registry_config,
+            }
+        )
+
         self.consumer = DeserializingConsumer(
             {
                 "group.id": self.group_id,
@@ -48,9 +61,7 @@ class DataHubKafkaReader(Closeable):
                 "auto.offset.reset": "earliest",
                 "enable.auto.commit": False,
                 "value.deserializer": AvroDeserializer(
-                    schema_registry_client=SchemaRegistryClient(
-                        {"url": self.connection_config.schema_registry_url}
-                    ),
+                    schema_registry_client=SchemaRegistryClient(schema_registry_config),
                     return_record_name=True,
                 ),
             }

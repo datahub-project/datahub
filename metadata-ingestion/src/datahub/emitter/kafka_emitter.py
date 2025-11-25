@@ -14,6 +14,9 @@ from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.closeable import Closeable
+from datahub.ingestion.source.kafka.kafka_ssl_helper import (
+    prepare_schema_registry_config,
+)
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
     MetadataChangeProposalClass as MetadataChangeProposal,
@@ -61,10 +64,15 @@ class KafkaEmitterConfig(ConfigModel):
 class DatahubKafkaEmitter(Closeable, Emitter):
     def __init__(self, config: KafkaEmitterConfig):
         self.config = config
-        schema_registry_conf = {
-            "url": self.config.connection.schema_registry_url,
-            **self.config.connection.schema_registry_config,
-        }
+        # Prepare schema registry configuration
+        # Convert ssl.ca.location from string path to SSL context
+        # (required for confluent-kafka-python >= 2.8.0)
+        schema_registry_conf = prepare_schema_registry_config(
+            {
+                "url": self.config.connection.schema_registry_url,
+                **self.config.connection.schema_registry_config,
+            }
+        )
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
         def convert_mce_to_dict(
