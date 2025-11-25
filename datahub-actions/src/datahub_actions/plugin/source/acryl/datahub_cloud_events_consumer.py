@@ -83,12 +83,15 @@ class DataHubEventsConsumer:
         else:
             logger.debug("Starting DataHub Events Consumer with no consumer ID.")
 
+    # The consumer pool that services this request can have upto 10 consumers. IF there is some reason that causes
+    # the connections in the consumer to go stale (transient kafka disconnects), upto 10 consumers have to reconnect
+    # and hence upto 10 calls may fail/timeout. So increasing max retries.
     @retry(
         retry=retry_if_exception_type(
             (HTTPError, ConnectionError, ChunkedEncodingError, Timeout)
         ),
-        wait=wait_exponential(multiplier=1, min=2, max=30),
-        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=60),
+        stop=stop_after_attempt(15),
         reraise=True,
     )
     def poll_events(
