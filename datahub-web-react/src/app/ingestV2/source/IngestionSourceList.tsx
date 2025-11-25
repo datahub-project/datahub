@@ -13,7 +13,6 @@ import CancelExecutionConfirmation from '@app/ingestV2/executions/components/col
 import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
 import { ExecutionCancelInfo } from '@app/ingestV2/executions/types';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
-import { useShowIngestionOnboardingRedesign } from '@app/ingestV2/hooks/useShowIngestionOnboardingRedesign';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetcher';
@@ -59,6 +58,7 @@ import {
     SortCriterion,
     UpdateIngestionSourceInput,
 } from '@types';
+import { useIngestionOnboardingRedesignV1 } from '../hooks/useIngestionOnboardingRedesignV1';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -153,7 +153,7 @@ export const IngestionSourceList = ({
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<InputRef>(null);
 
-    const showIngestionOnboardingRedesign = useShowIngestionOnboardingRedesign();
+    const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     const history = useHistory();
     const location = useLocation();
@@ -582,14 +582,14 @@ export const IngestionSourceList = ({
 
     const onEdit = useCallback(
         (urn: string) => {
-            if (showIngestionOnboardingRedesign) {
+            if (showIngestionOnboardingRedesignV1) {
                 history.push(PageRoutes.INGESTION_UPDATE.replace(':urn', urn));
             } else {
                 setShowCreateModal(true);
                 setFocusSourceUrn(urn);
             }
         },
-        [setShowCreateModal, showIngestionOnboardingRedesign, history],
+        [setShowCreateModal, showIngestionOnboardingRedesignV1, history],
     );
 
     const onView = useCallback((urn: string) => {
