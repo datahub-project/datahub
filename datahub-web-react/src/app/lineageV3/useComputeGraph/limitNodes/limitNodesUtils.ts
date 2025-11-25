@@ -50,7 +50,7 @@ export function buildAdjacency(
     return map;
 }
 
-// Collapse transform nodes until reaching next entity node
+// Collapse transform nodes until next entity node is reached
 export function collapseTransformPath(
     startId: string,
     adjacency: Map<string, Set<string>>,

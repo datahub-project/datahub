@@ -23,7 +23,7 @@ interface Props {
     rootUrn: string;
     rootType: EntityType;
     adjacencyList: Record<LineageDirection, Map<string, Set<string>>>;
-    maxPerLevel?: number;
+    maxPerLevel: number;
 }
 
 export function limitNodesPerLevel({
