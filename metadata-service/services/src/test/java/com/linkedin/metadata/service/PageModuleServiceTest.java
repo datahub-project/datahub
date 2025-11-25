@@ -276,7 +276,8 @@ public class PageModuleServiceTest {
       "urn:li:dataHubPageModule:assets",
       "urn:li:dataHubPageModule:child_hierarchy",
       "urn:li:dataHubPageModule:data_products",
-      "urn:li:dataHubPageModule:related_terms"
+      "urn:li:dataHubPageModule:related_terms",
+      "urn:li:dataHubPageModule:columns"
     };
 
     for (String defaultModuleUrn : defaultModuleUrns) {
