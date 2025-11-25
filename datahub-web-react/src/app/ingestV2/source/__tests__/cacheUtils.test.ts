@@ -36,11 +36,11 @@ describe('mergeSources', () => {
         expect(result).toEqual([updatedSource]);
     });
 
-    it('should deep merge arrays by concatenation', () => {
+    it('should deep merge arrays by replacing', () => {
         const sources = [{ urn: 'a', owners: ['foo'], data: { arr: [1, 2] } }];
         const updatedSource = { urn: 'a', owners: ['bar'], data: { arr: [3] } };
         const result = mergeSources(updatedSource, sources, false);
-        expect(result[0].owners).toEqual(['foo', 'bar']);
-        expect(result[0].data.arr).toEqual([1, 2, 3]);
+        expect(result[0].owners).toEqual(['bar']);
+        expect(result[0].data.arr).toEqual([3]);
     });
 });

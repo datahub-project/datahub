@@ -86,7 +86,7 @@ Features aimed at making it easy to discover data assets at your organization an
 | Subscribe to assets, activity, and notifications                                                     | ❌      | ✅            |
 | Email, Slack, & Microsoft Teams notifications                                                        | ❌      | ✅            |
 | Customizable Home Page and Asset Summaries                                                           | ❌      | ✅ **(beta)** |
-| **Ask DataHub** - AI assistant in Slack & Microsoft Teams                                            | ❌      | ✅ **(beta)** |
+| **Ask DataHub** - AI assistant                                                                       | ❌      | ✅ **(beta)** |
 | Invite Users via Email & User Invite Recommendations                                                 | ❌      | ✅            |
 
 ## Data Observability
