@@ -37,6 +37,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
+    DBTContract,
     DBTExposure,
     DBTNode,
     DBTSourceBase,
@@ -936,6 +937,16 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 )
             )
 
+        # Check if contract info is in meta (dbt Cloud doesn't expose it directly in API)
+        contract = None
+        contract_meta = meta.get("contract") or meta.get("datahub_contract")
+        if contract_meta and contract_meta.get("enforced"):
+            contract = DBTContract(
+                enforced=True,
+                alias_types=contract_meta.get("alias_types", True),
+                checksum=contract_meta.get("checksum"),
+            )
+
         test_info = None
         test_result = None
         if resource_type == "test":
@@ -974,6 +985,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_results=[test_result] if test_result else [],
             model_performances=[],  # TODO: support model performance with dbt Cloud
             freshness_info=freshness_info,
+            contract=contract,
+            model_constraints=[],  # dbt Cloud doesn't expose constraints via API
         )
 
     def _parse_into_dbt_column(
@@ -991,6 +1004,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             data_type=column["type"],
             meta=column["meta"],
             tags=column["tags"],
+            constraints=[],  # dbt Cloud doesn't expose column constraints via API
         )
 
     def _parse_into_dbt_exposure(self, exposure: Dict) -> DBTExposure:
