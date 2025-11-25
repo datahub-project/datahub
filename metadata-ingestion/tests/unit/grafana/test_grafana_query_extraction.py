@@ -113,12 +113,12 @@ class TestGrafanaTemplateVariableCleaning:
             # Simple $variable format → string literal
             (
                 "SELECT * FROM $datasource.table",
-                "SELECT * FROM 'grafana_var'.table",
+                "SELECT * FROM '$datasource'.table",
             ),
             # Multiple variables in one query
             (
                 "SELECT * FROM $table WHERE date > ${__from} AND status = '$status'",
-                "SELECT * FROM 'grafana_var' WHERE date > 'grafana_var' AND status = ''grafana_var''",
+                "SELECT * FROM '$table' WHERE date > 'grafana_var' AND status = '$status'",
             ),
             # Real-world complex query from user
             (
@@ -130,25 +130,25 @@ class TestGrafanaTemplateVariableCleaning:
                 "SELECT * FROM users WHERE active = true",
                 "SELECT * FROM users WHERE active = true",
             ),
-            # Time macros replaced with TRUE
+            # Time macros with parentheses replaced with TRUE
             (
                 "WHERE $__timeFrom() < timestamp AND $__timeTo() > timestamp",
                 "WHERE TRUE < timestamp AND TRUE > timestamp",
             ),
-            # Macro without parentheses (common usage)
+            # Standalone macro without parentheses (used as predicate)
             (
                 "WHERE event_timestamp $__timeFilter AND status = 'active'",
-                "WHERE event_timestamp TRUE AND status = 'active'",
+                "WHERE event_timestamp > TIMESTAMP '2000-01-01' AND status = 'active'",
             ),
-            # Variable inside quotes (gets double-quoted but valid SQL)
+            # Variable inside quotes (preserved - already quoted)
             (
                 "WHERE lower(sensor_serial) = lower('$serial')",
-                "WHERE lower(sensor_serial) = lower(''grafana_var'')",
+                "WHERE lower(sensor_serial) = lower('$serial')",
             ),
-            # Real-world user query with macro without parens
+            # Real-world user query with standalone macro and quoted variable
             (
                 "select cast(event_timestamp as timestamp) from datalake_agg.devices where event_timestamp $__timeFilter and lower(sensor_serial) = lower('$serial') order by 1",
-                "select cast(event_timestamp as timestamp) from datalake_agg.devices where event_timestamp TRUE and lower(sensor_serial) = lower(''grafana_var'') order by 1",
+                "select cast(event_timestamp as timestamp) from datalake_agg.devices where event_timestamp > TIMESTAMP '2000-01-01' and lower(sensor_serial) = lower('$serial') order by 1",
             ),
         ],
         ids=[

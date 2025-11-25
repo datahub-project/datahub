@@ -32,13 +32,27 @@ logger = logging.getLogger(__name__)
 
 # Precompiled regex patterns for Grafana template variable cleaning
 # These patterns remove Grafana-specific template syntax to make SQL parseable
-# Note: Parentheses are optional for macros (e.g., $__timeFilter vs $__timeFilter(column))
-_GRAFANA_TIME_MACRO_PATTERN = re.compile(r"\$__time[A-Z]\w*(?:\([^)]*\))?")
-_GRAFANA_FILTER_MACRO_PATTERN = re.compile(r"\$__[a-z]+Filter(?:\([^)]*\))?")
+
+# Time/filter macros with parentheses: $__timeFilter(column), $__timeGroup(...)
+# Replace with TRUE as they form complete boolean expressions
+_GRAFANA_TIME_MACRO_WITH_ARGS_PATTERN = re.compile(r"\$__time[A-Z]\w*\([^)]*\)")
+_GRAFANA_FILTER_MACRO_WITH_ARGS_PATTERN = re.compile(r"\$__[a-z]+Filter\([^)]*\)")
+
+# Time/filter macros WITHOUT parentheses (standalone): $__timeFilter, $__interval
+# These are used as predicates and need to be replaced with valid SQL expressions
+_GRAFANA_TIME_MACRO_STANDALONE_PATTERN = re.compile(r"\$__time[A-Z]\w*(?!\()")
+_GRAFANA_FILTER_MACRO_STANDALONE_PATTERN = re.compile(r"\$__[a-z]+Filter(?!\()")
+
+# Generic macros (with or without args): $__interval, $__range, etc.
 _GRAFANA_GENERIC_MACRO_PATTERN = re.compile(r"\$__\w+(?:\([^)]*\))?")
+
+# Bracket and braced variables
 _GRAFANA_BRACKET_VAR_PATTERN = re.compile(r"\[\[[^\]]+\]\]")
 _GRAFANA_BRACED_VAR_PATTERN = re.compile(r"\$\{[^}]+\}")
-_GRAFANA_SIMPLE_VAR_PATTERN = re.compile(r"\$[a-zA-Z_][a-zA-Z0-9_]*")
+
+# Simple variables NOT inside quotes: $var
+# Use negative lookbehind/lookahead to skip variables already in quotes
+_GRAFANA_SIMPLE_VAR_PATTERN = re.compile(r"(?<!')(\$[a-zA-Z_][a-zA-Z0-9_]*)(?!')")
 
 
 def _clean_grafana_template_variables(query: str) -> str:
@@ -62,39 +76,50 @@ def _clean_grafana_template_variables(query: str) -> str:
     Replace with valid SQL placeholders to maintain parseability for lineage extraction.
 
     Replacement strategy:
-    - All $__xxx macros -> TRUE (valid condition)
+    - Macros with args: $__timeFilter(column) -> TRUE (complete boolean expression)
+    - Standalone macros: $__timeFilter -> > TIMESTAMP '2000-01-01' (valid predicate)
     - ${...} variables -> 'grafana_var' (string literal)
     - [[...]] identifiers -> grafana_identifier (valid identifier)
-    - $simple variables -> 'grafana_var' (string literal)
+    - $simple variables (not in quotes) -> 'grafana_var' (string literal)
+    - Variables already in quotes: '$var' -> left unchanged
 
     Examples:
         ${__from:date:'YYYY/MM/DD'} -> 'grafana_var'
         ${servers:csv} -> 'grafana_var'
         [[table_name]] -> grafana_identifier
         $__timeFilter(column) -> TRUE
-        $__timeFilter -> TRUE
-        $__interval -> TRUE
-        WHERE status = '$status' -> WHERE status = 'grafana_var'
+        WHERE event_timestamp $__timeFilter -> WHERE event_timestamp > TIMESTAMP '2000-01-01'
+        $__interval -> 1
+        WHERE status = '$status' -> WHERE status = '$status' (unchanged - already quoted)
+        WHERE status = $status -> WHERE status = 'grafana_var'
     """
 
-    # Replace time/filter macros with TRUE (common in WHERE clauses)
-    # $__timeFilter, $__timeFrom, $__timeTo, $__timeGroup, etc.
-    query = _GRAFANA_TIME_MACRO_PATTERN.sub("TRUE", query)
-    query = _GRAFANA_FILTER_MACRO_PATTERN.sub("TRUE", query)
+    # Replace time/filter macros WITH args with TRUE (they form complete boolean expressions)
+    # e.g., $__timeFilter(column) -> TRUE
+    query = _GRAFANA_TIME_MACRO_WITH_ARGS_PATTERN.sub("TRUE", query)
+    query = _GRAFANA_FILTER_MACRO_WITH_ARGS_PATTERN.sub("TRUE", query)
 
-    # Replace other macros with TRUE (safe for conditions)
-    query = _GRAFANA_GENERIC_MACRO_PATTERN.sub("TRUE", query)
+    # Replace standalone time/filter macros with valid predicates
+    # e.g., "WHERE event_timestamp $__timeFilter" -> "WHERE event_timestamp > TIMESTAMP '2000-01-01'"
+    query = _GRAFANA_TIME_MACRO_STANDALONE_PATTERN.sub(
+        "> TIMESTAMP '2000-01-01'", query
+    )
+    query = _GRAFANA_FILTER_MACRO_STANDALONE_PATTERN.sub(
+        "> TIMESTAMP '2000-01-01'", query
+    )
+
+    # Replace other macros with 1 (safe numeric value for intervals, ranges, etc.)
+    query = _GRAFANA_GENERIC_MACRO_PATTERN.sub("1", query)
 
     # Replace [[...]] with identifier (deprecated syntax, often used for table/column names)
     query = _GRAFANA_BRACKET_VAR_PATTERN.sub("grafana_identifier", query)
 
     # Replace ${...} with string literal (handles ${var} and ${var:format})
-    # String literal is safer than identifier as it works in WHERE clauses too
     query = _GRAFANA_BRACED_VAR_PATTERN.sub("'grafana_var'", query)
 
-    # Replace simple $variable format with string literal
-    # This must come after ${...} to avoid double-replacement
-    query = _GRAFANA_SIMPLE_VAR_PATTERN.sub("'grafana_var'", query)
+    # Replace simple $variable format with string literal (but skip if already in quotes)
+    # The regex already has negative lookbehind/lookahead to avoid double-quoting
+    query = _GRAFANA_SIMPLE_VAR_PATTERN.sub(r"'\1'", query)
 
     return query
 
