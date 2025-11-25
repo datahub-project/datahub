@@ -89,8 +89,10 @@ class LineageExtractor:
     ) -> Optional[str]:
         """Extract raw SQL from panel query targets."""
         for target in query_targets:
-            if target.get("rawSql"):
-                return target["rawSql"]
+            # Handle case variations: rawSql, rawSQL, etc.
+            for key, value in target.items():
+                if key.lower() == "rawsql" and value:
+                    return value
         return None
 
     def _build_dataset_urn(self, ds_type: str, ds_uid: str, panel_id: str) -> str:
@@ -164,28 +166,31 @@ class LineageExtractor:
         dataset_urn: str,
         parsed_sql: SqlParsingResult,
     ) -> Optional[MetadataChangeProposalWrapper]:
-        """Create column-level lineage"""
-        if not parsed_sql.column_lineage or not self.include_column_lineage:
+        """Create column-level lineage and dataset-level lineage from parsed SQL"""
+        # Always create dataset-level lineage if we have upstream tables
+        if not parsed_sql.in_tables:
             return None
 
         upstream_lineages = []
-        for col_lineage in parsed_sql.column_lineage:
-            upstream_lineages.append(
-                FineGrainedLineageClass(
-                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                    downstreams=[
-                        make_schema_field_urn(
-                            dataset_urn, col_lineage.downstream.column
-                        )
-                    ],
-                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=[
-                        make_schema_field_urn(upstream_dataset, col.column)
-                        for col in col_lineage.upstreams
-                        for upstream_dataset in parsed_sql.in_tables
-                    ],
+        # Add column-level lineage if available and enabled
+        if parsed_sql.column_lineage and self.include_column_lineage:
+            for col_lineage in parsed_sql.column_lineage:
+                upstream_lineages.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            make_schema_field_urn(
+                                dataset_urn, col_lineage.downstream.column
+                            )
+                        ],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            make_schema_field_urn(upstream_dataset, col.column)
+                            for col in col_lineage.upstreams
+                            for upstream_dataset in parsed_sql.in_tables
+                        ],
+                    )
                 )
-            )
 
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -197,6 +202,6 @@ class LineageExtractor:
                     )
                     for table in parsed_sql.in_tables
                 ],
-                fineGrainedLineages=upstream_lineages,
+                fineGrainedLineages=upstream_lineages if upstream_lineages else None,
             ),
         )
