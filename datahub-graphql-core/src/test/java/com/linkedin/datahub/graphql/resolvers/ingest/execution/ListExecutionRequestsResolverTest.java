@@ -140,7 +140,8 @@ public class ListExecutionRequestsResolverTest {
     EntityClient mockClient =
         getTestEntityClient(
             new FacetFilterInput(
-                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL));
+                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL),
+            false);
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, true);
@@ -161,7 +162,8 @@ public class ListExecutionRequestsResolverTest {
     EntityClient mockClient =
         getTestEntityClient(
             new FacetFilterInput(
-                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL));
+                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL),
+            true);
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, false);
@@ -218,7 +220,8 @@ public class ListExecutionRequestsResolverTest {
     EntityClient mockClient =
         getTestEntityClient(
             new FacetFilterInput(
-                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL));
+                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL),
+            false);
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, true);
@@ -233,8 +236,8 @@ public class ListExecutionRequestsResolverTest {
     assertEquals(result.getExecutionRequests().size(), 0);
   }
 
-  private EntityClient getTestEntityClient(@Nullable FacetFilterInput ingestionSourceFilter)
-      throws Exception {
+  private EntityClient getTestEntityClient(
+      @Nullable FacetFilterInput ingestionSourceFilter, boolean negationFlag) throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
@@ -275,7 +278,7 @@ public class ListExecutionRequestsResolverTest {
                                     "ingestionSource",
                                     null,
                                     ImmutableList.of("urn:li:dataHubIngestionSource:id-1"),
-                                    false,
+                                    negationFlag,
                                     FilterOperator.EQUAL))
                             .toList(),
                         Collections.emptyList())),
