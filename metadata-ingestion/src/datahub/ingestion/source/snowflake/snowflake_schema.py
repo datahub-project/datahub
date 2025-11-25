@@ -1071,12 +1071,20 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 # Add context about multiple occurrences
                 merged_comment = f"{merged_comment}\n\n(Appears in {len(occurrences)} logical table(s))"
         else:
-            # Different descriptions - show all
+            # Different descriptions - show all with inline expressions
             comment_parts = []
-            for i, occ in enumerate(occurrences, 1):
+            for occ in occurrences:
                 subtype = occ["subtype"]
                 comment = occ.get("comment", "(no description)")
-                comment_parts.append(f"• {subtype} #{i}: {comment}")
+                expression = occ.get("expression")
+
+                # For FACT and METRIC, include expression inline if available
+                if subtype in ["FACT", "METRIC"] and expression:
+                    comment_parts.append(
+                        f"• {subtype}: {comment} [Expression: {expression}]"
+                    )
+                else:
+                    comment_parts.append(f"• {subtype}: {comment}")
             merged_comment = "\n".join(comment_parts)
 
         # Collect all subtypes (comma-separated for display)
@@ -1084,8 +1092,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         unique_subtypes = sorted(set(subtypes))  # Deduplicate and sort
         merged_subtype = ",".join(unique_subtypes)
 
-        # For FACT and METRIC columns, append expression if available
-        if any(subtype in ["FACT", "METRIC"] for subtype in unique_subtypes):
+        # For single occurrence FACT/METRIC columns, append expression if available
+        # (This handles the case where there's only one description)
+        if len(unique_comments) <= 1 and any(
+            subtype in ["FACT", "METRIC"] for subtype in unique_subtypes
+        ):
             expression = occurrences[0].get("expression")
             if expression:
                 if merged_comment:

@@ -1500,6 +1500,40 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return json.dumps(json_props)
         return None
 
+    def _build_semantic_view_tags(
+        self,
+        col_name: str,
+        column_subtypes: Dict[str, str],
+        existing_tags: Optional[GlobalTags],
+    ) -> Optional[GlobalTags]:
+        """
+        Build GlobalTags for semantic view columns.
+
+        Adds DIMENSION, FACT, and METRIC tags based on column subtypes.
+        Merges with existing Snowflake tags if present.
+        """
+        from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+
+        # Start with existing tags if any
+        tag_associations = []
+        if existing_tags and existing_tags.tags:
+            tag_associations.extend(existing_tags.tags)
+
+        # Add subtype tags (DIMENSION, FACT, METRIC)
+        if col_name in column_subtypes:
+            subtype_str = column_subtypes[col_name]
+            # Handle comma-separated subtypes (e.g., "DIMENSION,FACT")
+            subtypes = [s.strip() for s in subtype_str.split(",")]
+
+            for subtype in subtypes:
+                tag_urn = make_tag_urn(subtype)
+                tag_associations.append(TagAssociationClass(tag=tag_urn))
+
+        # Return GlobalTags if we have any tags
+        if tag_associations:
+            return GlobalTagsClass(tags=tag_associations)
+        return None
+
     def gen_schema_metadata(
         self,
         table: Union[
@@ -1568,19 +1602,45 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         )
                     ),
                     globalTags=(
-                        GlobalTags(
-                            [
-                                TagAssociation(
-                                    make_tag_urn(
-                                        self.snowflake_identifier(tag.tag_identifier())
+                        # For semantic views, add DIMENSION/FACT/METRIC tags
+                        self._build_semantic_view_tags(
+                            col.name,
+                            column_subtypes,
+                            GlobalTags(
+                                [
+                                    TagAssociation(
+                                        make_tag_urn(
+                                            self.snowflake_identifier(
+                                                tag.tag_identifier()
+                                            )
+                                        )
                                     )
-                                )
-                                for tag in table.column_tags[col.name]
-                            ]
+                                    for tag in table.column_tags[col.name]
+                                ]
+                            )
+                            if col.name in table.column_tags
+                            and not self.config.extract_tags_as_structured_properties
+                            else None,
                         )
-                        if col.name in table.column_tags
-                        and not self.config.extract_tags_as_structured_properties
-                        else None
+                        if isinstance(table, SnowflakeSemanticView)
+                        # For regular tables, use existing Snowflake tags
+                        else (
+                            GlobalTags(
+                                [
+                                    TagAssociation(
+                                        make_tag_urn(
+                                            self.snowflake_identifier(
+                                                tag.tag_identifier()
+                                            )
+                                        )
+                                    )
+                                    for tag in table.column_tags[col.name]
+                                ]
+                            )
+                            if col.name in table.column_tags
+                            and not self.config.extract_tags_as_structured_properties
+                            else None
+                        )
                     ),
                     # Add column subtype and synonyms for semantic views
                     jsonProps=(
