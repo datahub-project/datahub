@@ -37,7 +37,7 @@ public class ListExecutionRequestsResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
-    EntityClient mockClient = getTestEntityClient(null);
+    EntityClient mockClient = getTestEntityClient(null, false);
 
     // Mock search response
     Mockito.when(
@@ -83,7 +83,7 @@ public class ListExecutionRequestsResolverTest {
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
-    EntityClient mockClient = getTestEntityClient(null);
+    EntityClient mockClient = getTestEntityClient(null, false);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .search(
@@ -102,7 +102,7 @@ public class ListExecutionRequestsResolverTest {
 
   @Test
   public void testGetWithCustomQuery() throws Exception {
-    EntityClient mockClient = getTestEntityClient(null);
+    EntityClient mockClient = getTestEntityClient(null, false);
 
     ListExecutionRequestsInput customInput =
         new ListExecutionRequestsInput(0, 20, "custom-query", null, null, null);
@@ -140,7 +140,8 @@ public class ListExecutionRequestsResolverTest {
     EntityClient mockClient =
         getTestEntityClient(
             new FacetFilterInput(
-                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL));
+                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL),
+            false);
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, true);
@@ -161,7 +162,8 @@ public class ListExecutionRequestsResolverTest {
     EntityClient mockClient =
         getTestEntityClient(
             new FacetFilterInput(
-                "sourceType", null, ImmutableList.of("SYSTEM"), true, FilterOperator.EQUAL));
+                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL),
+            true);
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, false);
@@ -179,7 +181,24 @@ public class ListExecutionRequestsResolverTest {
 
   @Test
   public void testGetWithFilteringByAccessibleIngestionSourcesWhenNoPermissions() throws Exception {
-    EntityClient mockClient = getTestEntityClient(null);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // When systemSources is null, no filter is added
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+                Mockito.eq("*"),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(20)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(0)
+                .setNumEntities(0)
+                .setEntities(new SearchEntityArray()));
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, null);
@@ -201,7 +220,8 @@ public class ListExecutionRequestsResolverTest {
     EntityClient mockClient =
         getTestEntityClient(
             new FacetFilterInput(
-                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL));
+                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL),
+            false);
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, true);
@@ -216,8 +236,8 @@ public class ListExecutionRequestsResolverTest {
     assertEquals(result.getExecutionRequests().size(), 0);
   }
 
-  private EntityClient getTestEntityClient(@Nullable FacetFilterInput ingestionSourceFilter)
-      throws Exception {
+  private EntityClient getTestEntityClient(
+      @Nullable FacetFilterInput ingestionSourceFilter, boolean negationFlag) throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
@@ -258,7 +278,7 @@ public class ListExecutionRequestsResolverTest {
                                     "ingestionSource",
                                     null,
                                     ImmutableList.of("urn:li:dataHubIngestionSource:id-1"),
-                                    false,
+                                    negationFlag,
                                     FilterOperator.EQUAL))
                             .toList(),
                         Collections.emptyList())),

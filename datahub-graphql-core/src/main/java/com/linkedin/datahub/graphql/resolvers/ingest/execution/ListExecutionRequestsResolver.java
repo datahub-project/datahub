@@ -42,7 +42,8 @@ public class ListExecutionRequestsResolver
   private static final String EXECUTION_REQUEST_INGESTION_SOURCE_FIELD = "ingestionSource";
   private static final String INGESTION_SOURCE_SOURCE_TYPE_FIELD = "sourceType";
   private static final String INGESTION_SOURCE_SOURCE_TYPE_SYSTEM = "SYSTEM";
-  private static final Integer NUMBER_OF_INGESTION_SOURCES_TO_CHECK = 1000;
+  // Assumes system sources are always < 1000
+  private static final Integer SYSTEM_INGESTION_SOURCES_LIMIT = 1000;
 
   private final EntityClient _entityClient;
 
@@ -123,52 +124,53 @@ public class ListExecutionRequestsResolver
     return results;
   }
 
+  /**
+   * Saas only: This method adds a filter based on systemSources parameter to restrict execution
+   * requests to system or non-system sources.
+   */
   private void addDefaultFilters(
       final QueryContext context,
       List<FacetFilterInput> filters,
       @Nullable final Boolean systemSources)
       throws Exception {
-    addAccessibleIngestionSourceFilter(context, filters, systemSources); // Saas only
-  }
+    // Only add filter when systemSources is explicitly set
+    if (systemSources == null) {
+      return;
+    }
 
-  private void addAccessibleIngestionSourceFilter(
-      QueryContext context, List<FacetFilterInput> filters, @Nullable Boolean systemSources)
-      throws Exception {
-    // Saas only
-    // Users can see only executions of system/nonsystem ingestion sources accessible by policy
-    // rules
-    List<Urn> sourceUrns = getUrnsOfIngestionSources(context, systemSources);
+    List<Urn> systemSourceUrns = getUrnsOfSystemSources(context);
+
+    // Add filter with negation flag to toggle between system and non-system sources
     filters.add(
         new FacetFilterInput(
             EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
             null,
-            sourceUrns.stream().map(Urn::toString).toList(),
-            false,
+            systemSourceUrns.stream().map(Urn::toString).toList(),
+            !systemSources,
             FilterOperator.EQUAL));
   }
 
-  private List<Urn> getUrnsOfIngestionSources(
-      final QueryContext context, @Nullable final Boolean systemSources) throws Exception {
-    List<FacetFilterInput> filters =
-        systemSources != null
-            ? List.of(
-                new FacetFilterInput(
-                    INGESTION_SOURCE_SOURCE_TYPE_FIELD,
-                    null,
-                    ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
-                    !systemSources,
-                    FilterOperator.EQUAL))
-            : Collections.emptyList();
+  /** Fetches all system ingestion sources. */
+  private List<Urn> getUrnsOfSystemSources(final QueryContext context) throws Exception {
+    List<FacetFilterInput> filters = new ArrayList<>();
+
+    filters.add(
+        new FacetFilterInput(
+            INGESTION_SOURCE_SOURCE_TYPE_FIELD,
+            null,
+            ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
+            false,
+            FilterOperator.EQUAL));
 
     final SearchResult gmsResult =
         _entityClient.search(
-            context.getOperationContext(),
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             Constants.INGESTION_SOURCE_ENTITY_NAME,
             DEFAULT_QUERY,
             buildFilter(filters, Collections.emptyList()),
             null,
             0,
-            NUMBER_OF_INGESTION_SOURCES_TO_CHECK);
+            SYSTEM_INGESTION_SOURCES_LIMIT);
 
     return gmsResult.getEntities().stream().map(SearchEntity::getEntity).toList();
   }
