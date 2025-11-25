@@ -41,10 +41,10 @@ source:
     #       - "temp-.*"
 
     # Optional: Feature flags (all default to true)
-    # extract_lakes: true
-    # extract_zones: true
-    # extract_assets: true
-    # extract_entities: true
+    # include_lakes: true
+    # include_zones: true
+    # include_assets: true
+    # include_entities: true
     # extract_lineage: true
 
     # Optional: Sibling relationships

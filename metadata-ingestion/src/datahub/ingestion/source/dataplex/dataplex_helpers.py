@@ -1,6 +1,6 @@
 """Helper functions and utilities for Dataplex source."""
 
-from collections import namedtuple
+from dataclasses import dataclass
 from typing import Dict, Optional
 
 from google.api_core import exceptions
@@ -60,10 +60,19 @@ class DataplexAssetKey(DataplexZoneKey):
     asset_id: str
 
 
-EntityDataTuple = namedtuple(
-    "EntityDataTuple",
-    ["lake_id", "zone_id", "entity_id", "asset_id", "source_platform", "dataset_id"],
-)
+@dataclass(frozen=True)
+class EntityDataTuple:
+    """Immutable data structure for tracking entity metadata.
+
+    Used in sets for lineage extraction, so must be hashable (frozen=True).
+    """
+
+    lake_id: str
+    zone_id: str
+    entity_id: str
+    asset_id: str
+    source_platform: str
+    dataset_id: str
 
 
 def make_project_container_key(
@@ -114,13 +123,6 @@ def make_asset_container_key(
         platform=platform,
         env=env,
     )
-
-
-def make_asset_data_product_urn(
-    project_id: str, lake_id: str, zone_id: str, asset_id: str
-) -> str:
-    """Create URN for an asset as a data product."""
-    return builder.make_data_product_urn(f"{project_id}.{lake_id}.{zone_id}.{asset_id}")
 
 
 def make_entity_dataset_urn(

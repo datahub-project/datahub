@@ -34,7 +34,7 @@ If you want to extract lineage information, you'll also need:
 | `datalineage.links.get`    | Allows a user to view lineage links       |
 | `datalineage.links.search` | Allows a user to search for lineage links |
 
-Default GCP Role for lineage: [roles/datalineage.viewer](https://cloud.google.com/data-catalog/docs/how-to/lineage#required-permissions)
+Default GCP Role for lineage: [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
 
 #### Create a service account and assign roles
 
@@ -179,6 +179,7 @@ source:
 - Lineage retention period: 30 days (Dataplex limitation)
 - Cross-region lineage is not supported by Dataplex
 - Lineage is only available for entities with active lineage tracking enabled
+  For more details on lineage limitations, refer to [GCP docs](https://docs.cloud.google.com/dataplex/docs/about-data-lineage#current-feature-limitations).
 
 ### Python Dependencies
 

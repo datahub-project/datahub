@@ -77,7 +77,7 @@ def dataplex_config() -> DataplexConfig:
     return DataplexConfig(
         project_ids=["test-project"],
         location="us-central1",
-        extract_lakes=True,
+        include_lakes=True,
     )
 
 
@@ -344,8 +344,8 @@ def test_get_lakes_mcps_extract_lakes_disabled(
     mock_dataplex_client: Mock,
     mock_metadata_client: Mock,
 ) -> None:
-    """Test that lakes are not extracted when extract_lakes is False."""
-    dataplex_config.extract_lakes = False
+    """Test that lakes are not extracted when include_lakes is False."""
+    dataplex_config.include_lakes = False
 
     ctx = PipelineContext(run_id="test-run")
     source = DataplexSource(ctx, dataplex_config)
@@ -354,7 +354,7 @@ def test_get_lakes_mcps_extract_lakes_disabled(
     source.catalog_client = Mock()
     source.report = dataplex_report
 
-    # This should not be called when extract_lakes is False
+    # This should not be called when include_lakes is False
     # But if it is called, it should work
     mock_lake = create_mock_lake("lake-1")
     mock_dataplex_client.list_lakes.return_value = [mock_lake]
