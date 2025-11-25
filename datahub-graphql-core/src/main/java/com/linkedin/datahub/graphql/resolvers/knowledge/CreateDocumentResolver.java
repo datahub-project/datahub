@@ -93,6 +93,12 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                     ? java.util.Collections.singletonList(input.getSubType())
                     : null;
 
+            // Extract settings (defaults to true if not provided)
+            final Boolean showInGlobalContext =
+                input.getSettings() != null && input.getSettings().getShowInGlobalContext() != null
+                    ? input.getSettings().getShowInGlobalContext()
+                    : true;
+
             // Create document using service (draftFor parameter will handle draft logic)
             final Urn draftForUrnParsed = draftForUrn != null ? UrnUtils.getUrn(draftForUrn) : null;
             final Urn documentUrn =
@@ -108,6 +114,7 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                     relatedAssetUrns,
                     relatedDocumentUrns,
                     draftForUrnParsed,
+                    showInGlobalContext,
                     UrnUtils.getUrn(context.getActorUrn()));
 
             // Set ownership

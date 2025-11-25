@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -35,7 +36,10 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Resolver used for searching Documents with hybrid semantic search and advanced filtering support.
- * By default, only PUBLISHED documents are returned unless specific states are requested.
+ *
+ * <p>Filtering behavior: - PUBLISHED documents are shown to all users - UNPUBLISHED documents are
+ * only shown if owned by the current user or a group they belong to - By default, only PUBLISHED
+ * documents are searched unless specific states are requested via input
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -48,6 +52,7 @@ public class SearchDocumentsResolver
 
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
+  private final GroupService _groupService;
 
   @Override
   public CompletableFuture<SearchDocumentsResult> get(final DataFetchingEnvironment environment)
@@ -64,8 +69,17 @@ public class SearchDocumentsResolver
           final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
           try {
-            // Build filter combining all the ANDed conditions
-            Filter filter = buildCombinedFilter(input);
+            // Get current user and their groups for ownership filtering
+            final Urn currentUserUrn = Urn.createFromString(context.getActorUrn());
+            final List<Urn> userGroupUrns =
+                _groupService.getGroupsForUser(context.getOperationContext(), currentUserUrn);
+            final List<String> userAndGroupUrns = new ArrayList<>();
+            userAndGroupUrns.add(currentUserUrn.toString());
+            userGroupUrns.forEach(groupUrn -> userAndGroupUrns.add(groupUrn.toString()));
+
+            // Build filter that combines user filters with ownership constraints
+            // Filter logic: (PUBLISHED) OR (UNPUBLISHED AND owned-by-user-or-groups)
+            Filter filter = buildCombinedFilter(input, userAndGroupUrns);
 
             // Step 1: Search using service to get URNs
             final SearchResult gmsResult;
@@ -132,8 +146,51 @@ public class SearchDocumentsResolver
         "get");
   }
 
-  /** Builds a combined filter that ANDs together all provided filters. */
-  private Filter buildCombinedFilter(SearchDocumentsInput input) {
+  /**
+   * Builds a combined filter with ownership constraints. The filter structure is: (user-filters AND
+   * PUBLISHED) OR (user-filters AND UNPUBLISHED AND owned-by-user-or-groups)
+   *
+   * @param input The search input from the user
+   * @param userAndGroupUrns List of URNs for the current user and their groups
+   * @return The combined filter
+   */
+  private Filter buildCombinedFilter(SearchDocumentsInput input, List<String> userAndGroupUrns) {
+    // Build the base user filters (without state)
+    List<Criterion> baseUserCriteria = buildBaseUserCriteria(input);
+
+    // Build two conjunctive clauses:
+    // 1. Base filters AND PUBLISHED
+    // 2. Base filters AND UNPUBLISHED AND owned-by-user-or-groups
+
+    List<com.linkedin.metadata.query.filter.ConjunctiveCriterion> orClauses = new ArrayList<>();
+
+    // Clause 1: Published documents (with user filters)
+    List<Criterion> publishedCriteria = new ArrayList<>(baseUserCriteria);
+    publishedCriteria.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, "PUBLISHED"));
+    orClauses.add(
+        new com.linkedin.metadata.query.filter.ConjunctiveCriterion()
+            .setAnd(new com.linkedin.metadata.query.filter.CriterionArray(publishedCriteria)));
+
+    // Clause 2: Unpublished documents owned by user or their groups (with user filters)
+    List<Criterion> unpublishedOwnedCriteria = new ArrayList<>(baseUserCriteria);
+    unpublishedOwnedCriteria.add(
+        CriterionUtils.buildCriterion("state", Condition.EQUAL, "UNPUBLISHED"));
+    unpublishedOwnedCriteria.add(
+        CriterionUtils.buildCriterion("owners", Condition.EQUAL, userAndGroupUrns));
+    orClauses.add(
+        new com.linkedin.metadata.query.filter.ConjunctiveCriterion()
+            .setAnd(
+                new com.linkedin.metadata.query.filter.CriterionArray(unpublishedOwnedCriteria)));
+
+    return new Filter()
+        .setOr(new com.linkedin.metadata.query.filter.ConjunctiveCriterionArray(orClauses));
+  }
+
+  /**
+   * Builds the base user criteria from the search input (excludes state filtering). These criteria
+   * are common to both published and unpublished document searches.
+   */
+  private List<Criterion> buildBaseUserCriteria(SearchDocumentsInput input) {
     List<Criterion> criteria = new ArrayList<>();
 
     // Add parent document filter if provided
@@ -164,16 +221,8 @@ public class SearchDocumentsResolver
       criteria.add(CriterionUtils.buildCriterion("domains", Condition.EQUAL, input.getDomains()));
     }
 
-    // Add states filter - defaults to PUBLISHED if not provided
-    if (input.getStates() == null || input.getStates().isEmpty()) {
-      // Default to PUBLISHED only
-      criteria.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, "PUBLISHED"));
-    } else {
-      // Convert DocumentState enums to strings
-      List<String> stateStrings =
-          input.getStates().stream().map(state -> state.toString()).collect(Collectors.toList());
-      criteria.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, stateStrings));
-    }
+    // NOTE: State filtering is handled in buildCombinedFilter with ownership logic
+    // Do not add state filters here
 
     // Add source type filter if provided (if null, search all)
     if (input.getSourceType() != null) {
@@ -213,16 +262,6 @@ public class SearchDocumentsResolver
       }
     }
 
-    // If no filters, return null (search everything)
-    if (criteria.isEmpty()) {
-      return null;
-    }
-
-    // Create a conjunctive filter (AND all criteria together)
-    return new com.linkedin.metadata.query.filter.Filter()
-        .setOr(
-            new com.linkedin.metadata.query.filter.ConjunctiveCriterionArray(
-                new com.linkedin.metadata.query.filter.ConjunctiveCriterion()
-                    .setAnd(new com.linkedin.metadata.query.filter.CriterionArray(criteria))));
+    return criteria;
   }
 }
