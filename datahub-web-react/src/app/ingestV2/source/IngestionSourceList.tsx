@@ -13,6 +13,7 @@ import CancelExecutionConfirmation from '@app/ingestV2/executions/components/col
 import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
 import { ExecutionCancelInfo } from '@app/ingestV2/executions/types';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
+import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetcher';
@@ -58,7 +59,6 @@ import {
     SortCriterion,
     UpdateIngestionSourceInput,
 } from '@types';
-import { useIngestionOnboardingRedesignV1 } from '../hooks/useIngestionOnboardingRedesignV1';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
