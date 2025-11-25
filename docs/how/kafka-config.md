@@ -87,6 +87,10 @@ the System Update container for topic setup:
 - (Deprecated) `METADATA_AUDIT_EVENT_NAME`: The name of the metadata audit event topic.
 - (Deprecated) `FAILED_METADATA_CHANGE_EVENT_NAME`: The name of the failed metadata change event topic.
 
+#### Topic Setup
+
+- `DATAHUB_PRECREATE_TOPICS`: Defaults to true, set this to false if you intend to create and configure the topics yourself and not have datahub create them.
+
 ### MCE Consumer (datahub-mce-consumer)
 
 - `METADATA_CHANGE_PROPOSAL_TOPIC_NAME`: The name of the topic for Metadata Change Proposals emitted by the ingestion framework.
@@ -273,9 +277,6 @@ Examples:
    `KAFKA_TOPICDEFAULTS_CONFIGPROPERTIES_max_message_bytes=10000`
 
 Configurations specified in `topicDefaults` are applied to all topics by merging them with any configs defined per topic, with the per-topic config taking precedence over those specified in `topicDefault`.
-
-If you intend to create and configure the topics yourself and not have datahub create them, the kafka setup process of
-datahub-system-update can be turned off by setting env var DATAHUB_PRECREATE_TOPICS to false
 
 ### Schema Registry Topic Configuration
 

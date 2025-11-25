@@ -471,15 +471,15 @@ describe('useAddModuleMenu', () => {
             expect(defaultChildren[1]).toHaveProperty('key', 'relatedTerms');
         });
 
-        it('should show default modules for other entity types', () => {
+        it('should show Dataset-specific modules for Dataset entity', () => {
             mockUseEntityData.mockReturnValue({ entityType: EntityType.Dataset });
 
             const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
             const defaultChildren = getChildren(result.current.items?.[1]);
 
-            // Other entities should have only: assets
+            // Dataset should have: columns
             expect(defaultChildren).toHaveLength(1);
-            expect(defaultChildren[0]).toHaveProperty('key', 'assets');
+            expect(defaultChildren[0]).toHaveProperty('key', 'columns');
         });
     });
 
