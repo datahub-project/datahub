@@ -274,7 +274,7 @@ def test_fallback_path_strips_reasoning_tags(monkeypatch) -> None:
     }
 
     # Call _handle_text_content with is_end_turn=True to trigger fallback path
-    session._handle_text_content(
+    session._agent_runner._handle_text_content(
         content_block=cast(Any, content_block), is_end_turn=True, is_last_block=True
     )
 
@@ -308,7 +308,7 @@ def test_fallback_path_strips_nested_reasoning_xml(monkeypatch) -> None:
     }
 
     # Call _handle_text_content with is_end_turn=True
-    session._handle_text_content(
+    session._agent_runner._handle_text_content(
         content_block=cast(Any, content_block), is_end_turn=True, is_last_block=True
     )
 

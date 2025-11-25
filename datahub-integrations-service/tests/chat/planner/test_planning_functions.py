@@ -9,7 +9,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datahub_integrations.chat.chat_session import ChatSession
+from datahub_integrations.chat.agent import (
+    AgentConfig,
+    AgentRunner,
+    StaticPromptBuilder,
+)
 from datahub_integrations.chat.planner.models import Constraints, Plan, Step
 from datahub_integrations.chat.planner.tools import (
     create_plan,
@@ -23,14 +27,20 @@ class TestGetPlanById:
     """Tests for get_plan_by_id function."""
 
     @pytest.fixture
-    def mock_session(self) -> ChatSession:
-        """Create a mock session with a plan cache."""
-        session = MagicMock(spec=ChatSession)
-        session.session_id = "test_session"
-        session.plan_cache = {}
-        return session
+    def mock_agent(self) -> AgentRunner:
+        """Create a mock agent with a plan cache."""
+        config = AgentConfig(
+            model_id="test-model",
+            system_prompt_builder=StaticPromptBuilder("Test"),
+            tools=[],
+            plannable_tools=[],
+        )
+        client = MagicMock()
+        agent = AgentRunner(config=config, client=client)
+        agent.session_id = "test_agent"
+        return agent
 
-    def test_get_plan_by_id_found(self, mock_session: ChatSession) -> None:
+    def test_get_plan_by_id_found(self, mock_agent: AgentRunner) -> None:
         """Test retrieving an existing plan."""
         plan = Plan(
             plan_id="plan_123",
@@ -42,23 +52,23 @@ class TestGetPlanById:
             steps=[],
             expected_deliverable="Result",
         )
-        mock_session.plan_cache["plan_123"] = {"plan": plan, "progress": {}}
+        mock_agent.plan_cache["plan_123"] = {"plan": plan, "progress": {}}
 
-        result = get_plan_by_id("plan_123", mock_session)
+        result = get_plan_by_id("plan_123", mock_agent)
 
         assert result is not None
         assert result.plan_id == "plan_123"
         assert result.title == "Test Plan"
 
-    def test_get_plan_by_id_not_found(self, mock_session: ChatSession) -> None:
+    def test_get_plan_by_id_not_found(self, mock_agent: AgentRunner) -> None:
         """Test retrieving a non-existent plan returns None."""
-        result = get_plan_by_id("nonexistent", mock_session)
+        result = get_plan_by_id("nonexistent", mock_agent)
         assert result is None
 
-    def test_get_plan_by_id_empty_cache(self, mock_session: ChatSession) -> None:
+    def test_get_plan_by_id_empty_cache(self, mock_agent: AgentRunner) -> None:
         """Test retrieving from empty cache returns None."""
-        mock_session.plan_cache = {}
-        result = get_plan_by_id("any_id", mock_session)
+        mock_agent.plan_cache = {}
+        result = get_plan_by_id("any_id", mock_agent)
         assert result is None
 
 
@@ -66,13 +76,18 @@ class TestCreatePlan:
     """Tests for create_plan function."""
 
     @pytest.fixture
-    def mock_session(self) -> ChatSession:
-        """Create a mock session."""
-        session = MagicMock(spec=ChatSession)
-        session.session_id = "test_session"
-        session.plan_cache = {}
-        session.get_plannable_tools = MagicMock(return_value=[])
-        return session
+    def mock_agent(self) -> AgentRunner:
+        """Create a mock agent."""
+        config = AgentConfig(
+            model_id="test-model",
+            system_prompt_builder=StaticPromptBuilder("Test"),
+            tools=[],
+            plannable_tools=[],
+        )
+        client = MagicMock()
+        agent = AgentRunner(config=config, client=client)
+        agent.session_id = "test_agent"
+        return agent
 
     @pytest.fixture
     def mock_llm_response(self) -> dict:
@@ -93,7 +108,7 @@ class TestCreatePlan:
         }
 
     def test_create_plan_success(
-        self, mock_session: ChatSession, mock_llm_response: dict
+        self, mock_agent: AgentRunner, mock_llm_response: dict
     ) -> None:
         """Test successful plan creation."""
         with patch(
@@ -102,7 +117,7 @@ class TestCreatePlan:
             mock_llm.return_value = mock_llm_response
 
             plan = create_plan(
-                session=mock_session,
+                agent=mock_agent,
                 task="Find orders dataset",
                 max_steps=5,
             )
@@ -116,13 +131,13 @@ class TestCreatePlan:
             assert plan.steps[0].description == "Search for dataset"
 
             # Verify plan is stored in cache
-            assert plan.plan_id in mock_session.plan_cache
-            cached = mock_session.plan_cache[plan.plan_id]
+            assert plan.plan_id in mock_agent.plan_cache
+            cached = mock_agent.plan_cache[plan.plan_id]
             assert cached["plan"] == plan
             assert cached["progress"] == {}
 
     def test_create_plan_with_context_and_evidence(
-        self, mock_session: ChatSession, mock_llm_response: dict
+        self, mock_agent: AgentRunner, mock_llm_response: dict
     ) -> None:
         """Test plan creation with context and evidence."""
         evidence = {
@@ -136,7 +151,7 @@ class TestCreatePlan:
             mock_llm.return_value = mock_llm_response
 
             plan = create_plan(
-                session=mock_session,
+                agent=mock_agent,
                 task="Analyze impact",
                 context="User wants to deprecate dataset",
                 evidence=evidence,
@@ -150,7 +165,7 @@ class TestCreatePlan:
             assert "dataset_urn" in call_args
 
     def test_create_plan_with_markdown_wrapped_json(
-        self, mock_session: ChatSession
+        self, mock_agent: AgentRunner
     ) -> None:
         """Test that _call_planner_llm handles markdown-wrapped JSON (it returns a dict)."""
         # _call_planner_llm handles parsing internally and returns a dict
@@ -166,12 +181,12 @@ class TestCreatePlan:
         ) as mock_llm:
             mock_llm.return_value = parsed_response
 
-            plan = create_plan(session=mock_session, task="Test task")
+            plan = create_plan(agent=mock_agent, task="Test task")
 
             assert plan.title == "Test Plan"
             assert len(plan.steps) == 1
 
-    def test_create_plan_json_parse_error(self, mock_session: ChatSession) -> None:
+    def test_create_plan_json_parse_error(self, mock_agent: AgentRunner) -> None:
         """Test error handling when _call_planner_llm raises an error."""
         with patch(
             "datahub_integrations.chat.planner.tools._call_planner_llm"
@@ -180,11 +195,9 @@ class TestCreatePlan:
             mock_llm.side_effect = ValueError("Could not parse text response as JSON")
 
             with pytest.raises(ValueError, match="Could not parse"):
-                create_plan(session=mock_session, task="Test task")
+                create_plan(agent=mock_agent, task="Test task")
 
-    def test_create_plan_json_with_trailing_text(
-        self, mock_session: ChatSession
-    ) -> None:
+    def test_create_plan_json_with_trailing_text(self, mock_agent: AgentRunner) -> None:
         """
         Test that _call_planner_llm handles JSON with trailing text.
 
@@ -238,7 +251,7 @@ class TestCreatePlan:
             mock_llm.return_value = parsed_response
 
             plan = create_plan(
-                session=mock_session,
+                agent=mock_agent,
                 task="Find organizations on premium pricing plans",
             )
 
@@ -250,7 +263,7 @@ class TestCreatePlan:
             assert plan.steps[6].id == "s6"
             assert "premium pricing" in plan.expected_deliverable.lower()
 
-    def test_create_plan_generates_unique_ids(self, mock_session: ChatSession) -> None:
+    def test_create_plan_generates_unique_ids(self, mock_agent: AgentRunner) -> None:
         """Test that multiple plans get unique IDs."""
         mock_response = {
             "title": "Plan",
@@ -265,22 +278,29 @@ class TestCreatePlan:
         ) as mock_llm:
             mock_llm.return_value = mock_response
 
-            plan1 = create_plan(session=mock_session, task="Task 1")
-            plan2 = create_plan(session=mock_session, task="Task 2")
+            plan1 = create_plan(agent=mock_agent, task="Task 1")
+            plan2 = create_plan(agent=mock_agent, task="Task 2")
 
             assert plan1.plan_id != plan2.plan_id
-            assert plan1.plan_id in mock_session.plan_cache
-            assert plan2.plan_id in mock_session.plan_cache
+            assert plan1.plan_id in mock_agent.plan_cache
+            assert plan2.plan_id in mock_agent.plan_cache
 
 
 class TestRevisePlan:
     """Tests for revise_plan function."""
 
     @pytest.fixture
-    def mock_session_with_plan(self) -> ChatSession:
-        """Create a mock session with an existing plan."""
-        session = MagicMock(spec=ChatSession)
-        session.session_id = "test_session"
+    def mock_agent_with_plan(self) -> AgentRunner:
+        """Create a mock agent with an existing plan."""
+        config = AgentConfig(
+            model_id="test-model",
+            system_prompt_builder=StaticPromptBuilder("Test"),
+            tools=[],
+            plannable_tools=[],
+        )
+        client = MagicMock()
+        agent = AgentRunner(config=config, client=client)
+        agent.session_id = "test_agent"
 
         # Create an initial plan
         plan = Plan(
@@ -302,7 +322,7 @@ class TestRevisePlan:
             expected_deliverable="Analysis report",
         )
 
-        session.plan_cache = {
+        agent.plan_cache = {
             "plan_abc": {
                 "plan": plan,
                 "progress": {
@@ -310,11 +330,10 @@ class TestRevisePlan:
                 },
             }
         }
-        session.get_plannable_tools = MagicMock(return_value=[])
 
-        return session
+        return agent
 
-    def test_revise_plan_success(self, mock_session_with_plan: ChatSession) -> None:
+    def test_revise_plan_success(self, mock_agent_with_plan: AgentRunner) -> None:
         """Test successful plan revision."""
         revision_response = {
             "assumptions": ["Dataset exists", "Need broader search"],
@@ -339,7 +358,7 @@ class TestRevisePlan:
             mock_llm.return_value = revision_response
 
             revised_plan = revise_plan(
-                session=mock_session_with_plan,
+                agent=mock_agent_with_plan,
                 plan_id="plan_abc",
                 completed_steps=["s0"],
                 current_step="s1",
@@ -356,20 +375,18 @@ class TestRevisePlan:
             assert revised_plan.steps[1].description is not None
             assert "more hops" in revised_plan.steps[1].description
 
-    def test_revise_plan_not_found(self, mock_session_with_plan: ChatSession) -> None:
+    def test_revise_plan_not_found(self, mock_agent_with_plan: AgentRunner) -> None:
         """Test revising a non-existent plan raises error."""
-        with pytest.raises(ValueError, match="not found in session cache"):
+        with pytest.raises(ValueError, match="not found in agent cache"):
             revise_plan(
-                session=mock_session_with_plan,
+                agent=mock_agent_with_plan,
                 plan_id="nonexistent",
                 completed_steps=[],
                 current_step="s0",
                 issue="Test issue",
             )
 
-    def test_revise_plan_updates_cache(
-        self, mock_session_with_plan: ChatSession
-    ) -> None:
+    def test_revise_plan_updates_cache(self, mock_agent_with_plan: AgentRunner) -> None:
         """Test that revised plan updates the cache."""
         revision_response = {
             "assumptions": ["Updated"],
@@ -383,7 +400,7 @@ class TestRevisePlan:
             mock_llm.return_value = revision_response
 
             revised_plan = revise_plan(
-                session=mock_session_with_plan,
+                agent=mock_agent_with_plan,
                 plan_id="plan_abc",
                 completed_steps=["s0"],
                 current_step="s1",
@@ -391,7 +408,7 @@ class TestRevisePlan:
             )
 
             # Verify cache is updated
-            cached_plan = mock_session_with_plan.plan_cache["plan_abc"]["plan"]
+            cached_plan = mock_agent_with_plan.plan_cache["plan_abc"]["plan"]
             assert cached_plan.version == 2
             assert cached_plan == revised_plan
 
@@ -400,10 +417,17 @@ class TestReportStepProgress:
     """Tests for report_step_progress function."""
 
     @pytest.fixture
-    def mock_session_with_plan(self) -> ChatSession:
-        """Create a mock session with a plan."""
-        session = MagicMock(spec=ChatSession)
-        session.session_id = "test_session"
+    def mock_agent_with_plan(self) -> AgentRunner:
+        """Create a mock agent with a plan."""
+        config = AgentConfig(
+            model_id="test-model",
+            system_prompt_builder=StaticPromptBuilder("Test"),
+            tools=[],
+            plannable_tools=[],
+        )
+        client = MagicMock()
+        agent = AgentRunner(config=config, client=client)
+        agent.session_id = "test_agent"
 
         plan = Plan(
             plan_id="plan_xyz",
@@ -420,14 +444,14 @@ class TestReportStepProgress:
             expected_deliverable="Result",
         )
 
-        session.plan_cache = {"plan_xyz": {"plan": plan, "progress": {}}}
+        agent.plan_cache = {"plan_xyz": {"plan": plan, "progress": {}}}
 
-        return session
+        return agent
 
-    def test_report_step_completed(self, mock_session_with_plan: ChatSession) -> None:
+    def test_report_step_completed(self, mock_agent_with_plan: AgentRunner) -> None:
         """Test reporting a completed step."""
         message = report_step_progress(
-            session=mock_session_with_plan,
+            agent=mock_agent_with_plan,
             plan_id="plan_xyz",
             step_id="s0",
             status="completed",
@@ -441,15 +465,15 @@ class TestReportStepProgress:
         assert "1/3 complete" in message
 
         # Verify progress is stored
-        progress = mock_session_with_plan.plan_cache["plan_xyz"]["progress"]
+        progress = mock_agent_with_plan.plan_cache["plan_xyz"]["progress"]
         assert "s0" in progress
         assert progress["s0"]["status"] == "completed"
         assert progress["s0"]["confidence"] == 1.0
 
-    def test_report_step_failed(self, mock_session_with_plan: ChatSession) -> None:
+    def test_report_step_failed(self, mock_agent_with_plan: AgentRunner) -> None:
         """Test reporting a failed step."""
         message = report_step_progress(
-            session=mock_session_with_plan,
+            agent=mock_agent_with_plan,
             plan_id="plan_xyz",
             step_id="s1",
             status="failed",
@@ -464,18 +488,18 @@ class TestReportStepProgress:
         assert "revise_plan" in message
 
     def test_report_last_step_completed(
-        self, mock_session_with_plan: ChatSession
+        self, mock_agent_with_plan: AgentRunner
     ) -> None:
         """Test reporting completion of the last step."""
         # Complete first two steps
         report_step_progress(
-            session=mock_session_with_plan,
+            agent=mock_agent_with_plan,
             plan_id="plan_xyz",
             step_id="s0",
             status="completed",
         )
         report_step_progress(
-            session=mock_session_with_plan,
+            agent=mock_agent_with_plan,
             plan_id="plan_xyz",
             step_id="s1",
             status="completed",
@@ -483,7 +507,7 @@ class TestReportStepProgress:
 
         # Complete last step
         message = report_step_progress(
-            session=mock_session_with_plan,
+            agent=mock_agent_with_plan,
             plan_id="plan_xyz",
             step_id="s2",
             status="completed",
@@ -494,33 +518,33 @@ class TestReportStepProgress:
         assert "3 steps" in message
 
     def test_report_step_invalid_plan_id(
-        self, mock_session_with_plan: ChatSession
+        self, mock_agent_with_plan: AgentRunner
     ) -> None:
         """Test reporting progress for non-existent plan raises error."""
-        with pytest.raises(ValueError, match="not found in session cache"):
+        with pytest.raises(ValueError, match="not found in agent cache"):
             report_step_progress(
-                session=mock_session_with_plan,
+                agent=mock_agent_with_plan,
                 plan_id="nonexistent",
                 step_id="s0",
                 status="started",
             )
 
     def test_report_step_invalid_step_id(
-        self, mock_session_with_plan: ChatSession
+        self, mock_agent_with_plan: AgentRunner
     ) -> None:
         """Test reporting progress for non-existent step raises error."""
         with pytest.raises(ValueError, match="not found in plan"):
             report_step_progress(
-                session=mock_session_with_plan,
+                agent=mock_agent_with_plan,
                 plan_id="plan_xyz",
                 step_id="s999",
                 status="started",
             )
 
-    def test_report_step_in_progress(self, mock_session_with_plan: ChatSession) -> None:
+    def test_report_step_in_progress(self, mock_agent_with_plan: AgentRunner) -> None:
         """Test reporting a step in progress."""
         message = report_step_progress(
-            session=mock_session_with_plan,
+            agent=mock_agent_with_plan,
             plan_id="plan_xyz",
             step_id="s0",
             status="in_progress",
@@ -531,12 +555,12 @@ class TestReportStepProgress:
         assert "0/3 complete" in message
 
     def test_report_multiple_steps_tracks_progress(
-        self, mock_session_with_plan: ChatSession
+        self, mock_agent_with_plan: AgentRunner
     ) -> None:
         """Test that reporting multiple steps correctly tracks progress."""
         # Complete s0
         msg1 = report_step_progress(
-            session=mock_session_with_plan,
+            agent=mock_agent_with_plan,
             plan_id="plan_xyz",
             step_id="s0",
             status="completed",
@@ -545,7 +569,7 @@ class TestReportStepProgress:
 
         # Complete s1
         msg2 = report_step_progress(
-            session=mock_session_with_plan,
+            agent=mock_agent_with_plan,
             plan_id="plan_xyz",
             step_id="s1",
             status="completed",
@@ -553,7 +577,7 @@ class TestReportStepProgress:
         assert "2/3 complete" in msg2
 
         # Verify progress cache has both
-        progress = mock_session_with_plan.plan_cache["plan_xyz"]["progress"]
+        progress = mock_agent_with_plan.plan_cache["plan_xyz"]["progress"]
         assert len(progress) == 2
         assert progress["s0"]["status"] == "completed"
         assert progress["s1"]["status"] == "completed"

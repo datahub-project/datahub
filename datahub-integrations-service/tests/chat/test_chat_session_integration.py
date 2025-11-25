@@ -25,6 +25,8 @@ class TestChatSessionIntegration:
         mock_client._graph = mock_graph
 
         # Create ChatSession
+        # NOTE: This will call get_extra_llm_instructions during AgentRunner init
+        # for token estimation (line 186 in agent_runner.py)
         chat_session = ChatSession(
             tools=[mcp],
             client=mock_client,
@@ -32,7 +34,8 @@ class TestChatSessionIntegration:
         )
 
         # Get system messages
-        system_messages = chat_session._get_system_messages()
+        # NOTE: This will call get_extra_llm_instructions again
+        system_messages = chat_session._agent_runner._get_system_messages()
 
         # Verify
         assert len(system_messages) == 2  # Base prompt + extra instructions
@@ -40,7 +43,9 @@ class TestChatSessionIntegration:
         assert "Always be concise and technical." in system_messages[1]["text"]
 
         # Verify the function was called with the client
-        mock_get_instructions.assert_called_once_with(mock_client)
+        # It's called twice: once during init (token estimation), once during _get_system_messages
+        assert mock_get_instructions.call_count >= 1
+        mock_get_instructions.assert_called_with(mock_client)
 
     @patch("datahub_integrations.chat.chat_session.get_extra_llm_instructions")
     def test_chat_session_handles_no_extra_instructions(
@@ -62,7 +67,7 @@ class TestChatSessionIntegration:
         )
 
         # Get system messages
-        system_messages = chat_session._get_system_messages()
+        system_messages = chat_session._agent_runner._get_system_messages()
 
         # Verify
         assert len(system_messages) == 1  # Only base prompt
@@ -91,7 +96,7 @@ class TestChatSessionIntegration:
             "datahub_integrations.chat.chat_session.get_extra_llm_instructions"
         ) as mock_get:
             mock_get.return_value = "GraphQL instructions - should not be used"
-            system_messages = chat_session._get_system_messages()
+            system_messages = chat_session._agent_runner._get_system_messages()
 
             # Verify override is used and GraphQL function is not called
             assert len(system_messages) == 2
@@ -118,7 +123,7 @@ class TestChatSessionIntegration:
         )
 
         # Get system messages should handle gracefully (return None)
-        system_messages = chat_session._get_system_messages()
+        system_messages = chat_session._agent_runner._get_system_messages()
 
         # Should work fine with no extra instructions (returns None on error)
         assert len(system_messages) == 1  # Only base prompt

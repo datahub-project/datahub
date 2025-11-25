@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from loguru import logger
 
 if TYPE_CHECKING:
-    from datahub_integrations.chat.chat_session import ChatSession
+    from datahub_integrations.chat.agent.agent_runner import AgentRunner
     from datahub_integrations.chat.planner.tools import get_plan_by_id
 else:
     # Import at runtime to avoid circular dependency
@@ -56,11 +56,11 @@ class ParsedReasoning:
     plan_step: Optional[str] = None
     step_status: Optional[str] = None
 
-    def to_user_visible_message(self, session: Optional["ChatSession"] = None) -> str:
+    def to_user_visible_message(self, session: Optional["AgentRunner"] = None) -> str:
         """
         Create a user-visible message from the parsed reasoning.
 
-        If plan fields are present and session is provided, formats the message
+        If plan fields are present and agent/session is provided, formats the message
         as a plan progress display with step indicators.
 
         Otherwise, prioritizes showing:
@@ -69,12 +69,13 @@ class ParsedReasoning:
         3. Confidence level if medium or low
 
         Args:
-            session: Optional ChatSession to retrieve plan information
+            session: Optional AgentRunner to retrieve plan information
+                    (parameter name kept as 'session' for compatibility)
 
         Returns:
             A human-readable string suitable for showing to users
         """
-        # If plan fields are present and we have a session, show plan progress
+        # If plan fields are present and we have an agent, show plan progress
         if self.plan_id and session:
             # Get basic reasoning message to show under current step
             parts = self._format_message_parts()
@@ -85,7 +86,7 @@ class ParsedReasoning:
                 plan_id=self.plan_id,
                 current_step_id=self.plan_step,
                 step_status=self.step_status,
-                session=session,
+                agent=session,
                 reasoning_message=basic_reasoning,
             )
 
@@ -270,7 +271,7 @@ def format_plan_progress(
     plan_id: str,
     current_step_id: Optional[str],
     step_status: Optional[str],
-    session: "ChatSession",
+    agent: "AgentRunner",
     reasoning_message: str,
 ) -> str:
     """
@@ -287,14 +288,14 @@ def format_plan_progress(
         plan_id: The plan identifier
         current_step_id: ID of the currently executing step (e.g., "s1")
         step_status: Status of current step (e.g., "in_progress", "completed")
-        session: ChatSession to retrieve the plan from
+        agent: AgentRunner to retrieve the plan from
         reasoning_message: The reasoning message to display under the current step
 
     Returns:
         Formatted string with plan progress display
     """
     # Retrieve the plan
-    plan = get_plan_by_id(plan_id, session)
+    plan = get_plan_by_id(plan_id, agent)
     if not plan:
         # Plan not found, just return the reasoning message
         return reasoning_message

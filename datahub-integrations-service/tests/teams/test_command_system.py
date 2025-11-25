@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from datahub.ingestion.graph.client import DataHubGraph
 
+from datahub_integrations.chat.chat_history import ChatHistory
 from datahub_integrations.teams.command.ask import handle_ask_command_teams
 from datahub_integrations.teams.command.get import handle_get_command_teams
 from datahub_integrations.teams.command.help import handle_help_command_teams
@@ -465,7 +466,7 @@ class TestAskCommand:
         # Mock get_llm_client to simulate API failure
         with (
             patch(
-                "datahub_integrations.chat.chat_session.get_llm_client"
+                "datahub_integrations.gen_ai.llm.factory.get_llm_client"
             ) as mock_bedrock_fn,
             patch("datahub_integrations.teams.config.teams_config") as mock_config,
         ):
@@ -624,24 +625,31 @@ class TestAskCommand:
 
         with (
             patch(
-                "datahub_integrations.chat.chat_session.get_llm_client"
-            ) as mock_bedrock_fn,
+                "datahub_integrations.teams.command.ask.ChatSession"
+            ) as mock_chat_session_cls,
             patch("datahub_integrations.teams.config.teams_config") as mock_config,
         ):
-            # Mock Bedrock client directly
-            mock_bedrock_client = MagicMock()
-            mock_bedrock_fn.return_value = mock_bedrock_client
+            # Mock ChatSession and its methods
+            mock_chat_session = MagicMock()
+            mock_chat_session_cls.return_value = mock_chat_session
 
-            mock_bedrock_client.converse.return_value = {
-                "output": {
-                    "message": {
-                        "content": [{"text": "Response with history context"}],
-                        "role": "assistant",
-                    }
-                },
-                "stopReason": "end_turn",
-                "usage": {"inputTokens": 75, "outputTokens": 30, "totalTokens": 105},
-            }
+            # Mock the response from generate_next_message
+            from datahub_integrations.chat.chat_session import NextMessage
+
+            mock_response = NextMessage(
+                text="Response with history context", suggestions=[]
+            )
+            mock_chat_session.generate_next_message.return_value = mock_response
+
+            # Mock context manager for progress callback
+            mock_context_manager = MagicMock()
+            mock_chat_session.set_progress_callback.return_value = mock_context_manager
+            mock_context_manager.__enter__.return_value = None
+            mock_context_manager.__exit__.return_value = None
+
+            # Mock the history attribute
+
+            mock_chat_session.history = ChatHistory()
 
             # Mock config with history enabled
             config = MagicMock()
@@ -649,8 +657,6 @@ class TestAskCommand:
             mock_config.get_config.return_value = config
 
             # Mock history cache with proper ChatHistory object
-            from datahub_integrations.chat.chat_history import ChatHistory
-
             history_cache = MagicMock()
             conv_history = MagicMock()
             chat_history = ChatHistory()  # Use real ChatHistory object

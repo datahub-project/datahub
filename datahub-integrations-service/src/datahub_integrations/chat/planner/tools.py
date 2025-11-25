@@ -35,14 +35,14 @@ from datahub_integrations.mcp.mcp_server import get_datahub_client
 from datahub_integrations.mcp_integration.tool import ToolWrapper, async_background
 
 if TYPE_CHECKING:
-    from datahub_integrations.chat.chat_session import ChatSession
+    from datahub_integrations.chat.agent.agent_runner import AgentRunner
 
 # Planner configuration
 PLANNER_MODEL = BedrockModel.CLAUDE_37_SONNET
 PLANNER_TEMPERATURE = 0.3  # Low temperature for consistent structured output
 
 
-def get_plan_by_id(plan_id: str, session: "ChatSession") -> Optional[Plan]:
+def get_plan_by_id(plan_id: str, agent: "AgentRunner") -> Optional[Plan]:
     """
     Retrieve a plan from the session's cache by its ID.
 
@@ -53,7 +53,7 @@ def get_plan_by_id(plan_id: str, session: "ChatSession") -> Optional[Plan]:
     Returns:
         The Plan object if found, None otherwise
     """
-    plan_data = session.plan_cache.get(plan_id)
+    plan_data = agent.plan_cache.get(plan_id)
     if plan_data:
         return plan_data.get("plan")
     return None
@@ -86,16 +86,15 @@ important for search-based tasks - use them in param_hints to ensure thorough co
 Return ONLY valid JSON matching this structure - no additional text or explanation."""
 
 
-def _get_available_tools(session: "ChatSession") -> List[str]:
+def _get_available_tools(agent: "AgentRunner") -> List[str]:
     """Get list of available tool names with proper datahub__ prefixes."""
-    return [tool.name for tool in session.get_plannable_tools()]
+    return [tool.name for tool in agent.get_plannable_tools()]
 
 
-def _get_tool_descriptions(session: "ChatSession") -> Dict[str, str]:
+def _get_tool_descriptions(agent: "AgentRunner") -> Dict[str, str]:
     """Get tool names and their descriptions with proper datahub__ prefixes."""
     return {
-        tool.name: tool._tool.description or ""
-        for tool in session.get_plannable_tools()
+        tool.name: tool._tool.description or "" for tool in agent.get_plannable_tools()
     }
 
 
@@ -270,7 +269,7 @@ def _call_planner_llm(prompt: str, tools_summary: str) -> dict:
 
 
 def create_plan(
-    session: "ChatSession",
+    agent: "AgentRunner",
     task: str,
     context: Optional[str] = None,
     evidence: Optional[Dict[str, Any]] = None,
@@ -366,9 +365,9 @@ def create_plan(
     # Generate unique plan ID
     plan_id = f"plan_{uuid.uuid4().hex[:8]}"
 
-    # Get available tools from session (correct prefixed names)
-    tool_allowlist = _get_available_tools(session)
-    tool_descriptions = _get_tool_descriptions(session)
+    # Get available tools from agent (correct prefixed names)
+    tool_allowlist = _get_available_tools(agent)
+    tool_descriptions = _get_tool_descriptions(agent)
 
     logger.info(
         f"Creating plan for task: {task[:100]}... with {len(tool_allowlist)} available tools"
@@ -451,8 +450,8 @@ Use the create_execution_plan tool to return the structured plan."""
             )
         raise
 
-    # Store in session cache
-    session.plan_cache[plan_id] = {
+    # Store in agent cache
+    agent.plan_cache[plan_id] = {
         "plan": plan,
         "progress": {},  # Will store {step_id: {status, evidence, confidence, timestamp}}
     }
@@ -464,7 +463,7 @@ Use the create_execution_plan tool to return the structured plan."""
 
 
 def revise_plan(
-    session: "ChatSession",
+    agent: "AgentRunner",
     plan_id: str,
     completed_steps: List[str],
     current_step: str,
@@ -554,11 +553,11 @@ def revise_plan(
         - Only regenerates steps from current_step onward (completed steps preserved)
         - The revised plan may have more, fewer, or different remaining steps
     """
-    # Retrieve original plan from session cache
-    if plan_id not in session.plan_cache:
-        raise ValueError(f"Plan {plan_id} not found in session cache")
+    # Retrieve original plan from agent cache
+    if plan_id not in agent.plan_cache:
+        raise ValueError(f"Plan {plan_id} not found in agent cache")
 
-    cached_entry = session.plan_cache[plan_id]
+    cached_entry = agent.plan_cache[plan_id]
     original_plan = cached_entry["plan"]
 
     logger.info(
@@ -568,7 +567,7 @@ def revise_plan(
 
     # Get tool descriptions for replanning (correct prefixed names)
     # Include FULL descriptions (same as create_plan)
-    tool_descriptions = _get_tool_descriptions(session)
+    tool_descriptions = _get_tool_descriptions(agent)
     tools_summary = "\n\n".join(
         [
             f"Tool: {name}\n{desc}"
@@ -655,8 +654,8 @@ Use the create_execution_plan tool to return the revised plan structure with:
         logger.error(f"Failed to revise plan {plan_id}: {e}")
         raise
 
-    # Update session cache
-    session.plan_cache[plan_id]["plan"] = revised_plan
+    # Update agent cache
+    agent.plan_cache[plan_id]["plan"] = revised_plan
 
     logger.info(
         f"Revised plan {plan_id} to version {revised_plan.version} with {len(revised_plan.steps)} steps"
@@ -665,7 +664,7 @@ Use the create_execution_plan tool to return the revised plan structure with:
 
 
 def report_step_progress(
-    session: "ChatSession",
+    agent: "AgentRunner",
     plan_id: str,
     step_id: str,
     status: Annotated[
@@ -802,11 +801,11 @@ def report_step_progress(
         - Multiple reports for the same step are allowed (updates status)
         - Useful for tracking but not required - plans can execute without progress reporting
     """
-    # Retrieve plan from session cache
-    if plan_id not in session.plan_cache:
-        raise ValueError(f"Plan {plan_id} not found in session cache")
+    # Retrieve plan from agent cache
+    if plan_id not in agent.plan_cache:
+        raise ValueError(f"Plan {plan_id} not found in agent cache")
 
-    cached_entry = session.plan_cache[plan_id]
+    cached_entry = agent.plan_cache[plan_id]
     plan = cached_entry["plan"]
     progress = cached_entry["progress"]
 
@@ -853,20 +852,20 @@ def report_step_progress(
     return message
 
 
-def get_planning_tool_wrappers(session: "ChatSession") -> list[ToolWrapper]:
+def get_planning_tool_wrappers(agent: "AgentRunner") -> list[ToolWrapper]:
     """
-    Get planning tools as ToolWrappers for internal ChatSession use only.
+    Get planning tools as ToolWrappers for agent use.
 
     These tools are NOT registered on the customer-facing MCP server.
-    They are automatically added to ChatSession in chat_session.py.
+    They are internal tools for agents that support planning.
 
     Args:
-        session: The ChatSession instance to bind to planning tools
+        agent: The AgentRunner instance to bind to planning tools
 
     Returns:
         List of ToolWrapper objects for create_plan, revise_plan, and report_step_progress
     """
-    # Create wrapper functions that bind the session parameter
+    # Create wrapper functions that bind the agent parameter
     # We can't use functools.partial because FastMCP's tool introspection
     # (using Pydantic) can't handle partial objects properly
 
@@ -876,7 +875,7 @@ def get_planning_tool_wrappers(session: "ChatSession") -> list[ToolWrapper]:
         evidence: Optional[Dict[str, Any]] = None,
         max_steps: int = 10,
     ) -> Plan:
-        return create_plan(session, task, context, evidence, max_steps)
+        return create_plan(agent, task, context, evidence, max_steps)
 
     def _revise_plan_wrapper(
         plan_id: str,
@@ -886,7 +885,7 @@ def get_planning_tool_wrappers(session: "ChatSession") -> list[ToolWrapper]:
         evidence: Optional[Dict] = None,
     ) -> Plan:
         return revise_plan(
-            session, plan_id, completed_steps, current_step, issue, evidence
+            agent, plan_id, completed_steps, current_step, issue, evidence
         )
 
     def _report_step_progress_wrapper(
@@ -902,7 +901,7 @@ def get_planning_tool_wrappers(session: "ChatSession") -> list[ToolWrapper]:
         confidence: Optional[float] = None,
     ) -> str:
         return report_step_progress(
-            session,
+            agent,
             plan_id,
             step_id,
             status,

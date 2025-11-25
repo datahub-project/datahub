@@ -4,7 +4,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datahub_integrations.chat.chat_session import ChatSession
+from datahub_integrations.chat.agent import (
+    AgentConfig,
+    AgentRunner,
+    StaticPromptBuilder,
+)
 from datahub_integrations.chat.planner.models import Constraints, Plan, Step
 from datahub_integrations.chat.planner.tools import get_plan_by_id
 from datahub_integrations.chat.utils import ParsedReasoning, format_plan_progress
@@ -14,11 +18,17 @@ class TestFormatPlanProgress:
     """Tests for the format_plan_progress function."""
 
     @pytest.fixture
-    def mock_session(self) -> ChatSession:
-        """Create a mock ChatSession with a sample plan."""
-        session = MagicMock(spec=ChatSession)
-        session.plan_cache = {}
-        return session
+    def mock_agent(self) -> AgentRunner:
+        """Create a mock AgentRunner with a sample plan."""
+        config = AgentConfig(
+            model_id="test-model",
+            system_prompt_builder=StaticPromptBuilder("Test"),
+            tools=[],
+            plannable_tools=[],
+        )
+        client = MagicMock()
+        agent = AgentRunner(config=config, client=client)
+        return agent
 
     @pytest.fixture
     def sample_plan(self) -> Plan:
@@ -59,16 +69,16 @@ class TestFormatPlanProgress:
         )
 
     def test_format_plan_progress_with_current_step_at_beginning(
-        self, mock_session: ChatSession, sample_plan: Plan
+        self, mock_agent: AgentRunner, sample_plan: Plan
     ) -> None:
         """Test format_plan_progress with current step at the beginning."""
-        mock_session.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
+        mock_agent.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
 
         result = format_plan_progress(
             plan_id="plan_test123",
             current_step_id="s0",
             step_status="in_progress",
-            session=mock_session,
+            agent=mock_agent,
             reasoning_message="Searching for the dataset",
         )
 
@@ -84,16 +94,16 @@ class TestFormatPlanProgress:
         assert "\n\n" in result
 
     def test_format_plan_progress_with_current_step_in_middle(
-        self, mock_session: ChatSession, sample_plan: Plan
+        self, mock_agent: AgentRunner, sample_plan: Plan
     ) -> None:
         """Test format_plan_progress with current step in the middle."""
-        mock_session.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
+        mock_agent.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
 
         result = format_plan_progress(
             plan_id="plan_test123",
             current_step_id="s2",
             step_status="in_progress",
-            session=mock_session,
+            agent=mock_agent,
             reasoning_message="Filtering Looker assets",
         )
 
@@ -104,16 +114,16 @@ class TestFormatPlanProgress:
         assert "• Compile report" in result
 
     def test_format_plan_progress_with_current_step_at_end(
-        self, mock_session: ChatSession, sample_plan: Plan
+        self, mock_agent: AgentRunner, sample_plan: Plan
     ) -> None:
         """Test format_plan_progress with current step at the end."""
-        mock_session.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
+        mock_agent.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
 
         result = format_plan_progress(
             plan_id="plan_test123",
             current_step_id="s3",
             step_status="in_progress",
-            session=mock_session,
+            agent=mock_agent,
             reasoning_message="Generating final report",
         )
 
@@ -124,16 +134,16 @@ class TestFormatPlanProgress:
         assert "> _Generating final report_" in result
 
     def test_format_plan_progress_with_no_current_step(
-        self, mock_session: ChatSession, sample_plan: Plan
+        self, mock_agent: AgentRunner, sample_plan: Plan
     ) -> None:
         """Test format_plan_progress with no current step (all pending)."""
-        mock_session.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
+        mock_agent.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
 
         result = format_plan_progress(
             plan_id="plan_test123",
             current_step_id=None,
             step_status=None,
-            session=mock_session,
+            agent=mock_agent,
             reasoning_message="Plan created",
         )
 
@@ -147,16 +157,16 @@ class TestFormatPlanProgress:
         assert "▶" not in result
 
     def test_format_plan_progress_with_invalid_step_id(
-        self, mock_session: ChatSession, sample_plan: Plan
+        self, mock_agent: AgentRunner, sample_plan: Plan
     ) -> None:
         """Test format_plan_progress with hallucinated/invalid step ID (graceful degradation)."""
-        mock_session.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
+        mock_agent.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
 
         result = format_plan_progress(
             plan_id="plan_test123",
             current_step_id="s999",  # Invalid step ID
             step_status="in_progress",
-            session=mock_session,
+            agent=mock_agent,
             reasoning_message="Processing",
         )
 
@@ -166,15 +176,13 @@ class TestFormatPlanProgress:
         assert "• Filter for Looker dashboards" in result
         assert "• Compile report" in result
 
-    def test_format_plan_progress_plan_not_found(
-        self, mock_session: ChatSession
-    ) -> None:
+    def test_format_plan_progress_plan_not_found(self, mock_agent: AgentRunner) -> None:
         """Test format_plan_progress when plan is not found in cache."""
         result = format_plan_progress(
             plan_id="plan_nonexistent",
             current_step_id="s0",
             step_status="in_progress",
-            session=mock_session,
+            agent=mock_agent,
             reasoning_message="Just the reasoning",
         )
 
@@ -182,16 +190,16 @@ class TestFormatPlanProgress:
         assert result == "Just the reasoning"
 
     def test_format_plan_progress_with_empty_reasoning_message(
-        self, mock_session: ChatSession, sample_plan: Plan
+        self, mock_agent: AgentRunner, sample_plan: Plan
     ) -> None:
         """Test format_plan_progress with empty reasoning message."""
-        mock_session.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
+        mock_agent.plan_cache["plan_test123"] = {"plan": sample_plan, "progress": {}}
 
         result = format_plan_progress(
             plan_id="plan_test123",
             current_step_id="s1",
             step_status="in_progress",
-            session=mock_session,
+            agent=mock_agent,
             reasoning_message="",
         )
 
@@ -200,7 +208,7 @@ class TestFormatPlanProgress:
         assert "> _" not in result
 
     def test_format_plan_progress_with_single_step_plan(
-        self, mock_session: ChatSession
+        self, mock_agent: AgentRunner
     ) -> None:
         """Test format_plan_progress with a plan containing only one step."""
         single_step_plan = Plan(
@@ -219,7 +227,7 @@ class TestFormatPlanProgress:
             ],
             expected_deliverable="Task result",
         )
-        mock_session.plan_cache["plan_single"] = {
+        mock_agent.plan_cache["plan_single"] = {
             "plan": single_step_plan,
             "progress": {},
         }
@@ -228,7 +236,7 @@ class TestFormatPlanProgress:
             plan_id="plan_single",
             current_step_id="s0",
             step_status="in_progress",
-            session=mock_session,
+            agent=mock_agent,
             reasoning_message="Working on it",
         )
 
@@ -237,7 +245,7 @@ class TestFormatPlanProgress:
         assert "> _Working on it_" in result
 
     def test_format_plan_progress_with_special_characters_in_description(
-        self, mock_session: ChatSession
+        self, mock_agent: AgentRunner
     ) -> None:
         """Test format_plan_progress with special characters in step descriptions."""
         special_plan = Plan(
@@ -261,7 +269,7 @@ class TestFormatPlanProgress:
             ],
             expected_deliverable="Results",
         )
-        mock_session.plan_cache["plan_special"] = {
+        mock_agent.plan_cache["plan_special"] = {
             "plan": special_plan,
             "progress": {},
         }
@@ -270,7 +278,7 @@ class TestFormatPlanProgress:
             plan_id="plan_special",
             current_step_id="s0",
             step_status="in_progress",
-            session=mock_session,
+            agent=mock_agent,
             reasoning_message="Processing...",
         )
 
@@ -283,13 +291,19 @@ class TestGetPlanById:
     """Tests for the get_plan_by_id function."""
 
     @pytest.fixture
-    def mock_session(self) -> ChatSession:
-        """Create a mock ChatSession."""
-        session = MagicMock(spec=ChatSession)
-        session.plan_cache = {}
-        return session
+    def mock_agent(self) -> AgentRunner:
+        """Create a mock AgentRunner."""
+        config = AgentConfig(
+            model_id="test-model",
+            system_prompt_builder=StaticPromptBuilder("Test"),
+            tools=[],
+            plannable_tools=[],
+        )
+        client = MagicMock()
+        agent = AgentRunner(config=config, client=client)
+        return agent
 
-    def test_get_plan_by_id_plan_found(self, mock_session: ChatSession) -> None:
+    def test_get_plan_by_id_plan_found(self, mock_agent: AgentRunner) -> None:
         """Test get_plan_by_id returns plan when it exists in cache."""
         plan = Plan(
             plan_id="plan_exists",
@@ -301,25 +315,25 @@ class TestGetPlanById:
             steps=[],
             expected_deliverable="Result",
         )
-        mock_session.plan_cache["plan_exists"] = {"plan": plan, "progress": {}}
+        mock_agent.plan_cache["plan_exists"] = {"plan": plan, "progress": {}}
 
-        result = get_plan_by_id("plan_exists", mock_session)
+        result = get_plan_by_id("plan_exists", mock_agent)
 
         assert result is not None
         assert result.plan_id == "plan_exists"
         assert result.title == "Test Plan"
 
-    def test_get_plan_by_id_plan_not_found(self, mock_session: ChatSession) -> None:
+    def test_get_plan_by_id_plan_not_found(self, mock_agent: AgentRunner) -> None:
         """Test get_plan_by_id returns None when plan doesn't exist."""
-        result = get_plan_by_id("plan_nonexistent", mock_session)
+        result = get_plan_by_id("plan_nonexistent", mock_agent)
 
         assert result is None
 
-    def test_get_plan_by_id_empty_cache(self, mock_session: ChatSession) -> None:
+    def test_get_plan_by_id_empty_cache(self, mock_agent: AgentRunner) -> None:
         """Test get_plan_by_id with empty cache."""
-        mock_session.plan_cache = {}
+        mock_agent.plan_cache = {}
 
-        result = get_plan_by_id("any_plan_id", mock_session)
+        result = get_plan_by_id("any_plan_id", mock_agent)
 
         assert result is None
 
@@ -328,9 +342,16 @@ class TestParsedReasoningWithPlanProgress:
     """Tests for ParsedReasoning.to_user_visible_message with plan progress."""
 
     @pytest.fixture
-    def mock_session(self) -> ChatSession:
-        """Create a mock ChatSession with a sample plan."""
-        session = MagicMock(spec=ChatSession)
+    def mock_agent(self) -> AgentRunner:
+        """Create a mock AgentRunner with a sample plan."""
+        config = AgentConfig(
+            model_id="test-model",
+            system_prompt_builder=StaticPromptBuilder("Test"),
+            tools=[],
+            plannable_tools=[],
+        )
+        client = MagicMock()
+        agent = AgentRunner(config=config, client=client)
         plan = Plan(
             plan_id="plan_abc",
             version=1,
@@ -344,11 +365,11 @@ class TestParsedReasoningWithPlanProgress:
             ],
             expected_deliverable="Result",
         )
-        session.plan_cache = {"plan_abc": {"plan": plan, "progress": {}}}
-        return session
+        agent.plan_cache = {"plan_abc": {"plan": plan, "progress": {}}}
+        return agent
 
     def test_to_user_visible_message_with_plan_shows_progress(
-        self, mock_session: ChatSession
+        self, mock_agent: AgentRunner
     ) -> None:
         """Test that to_user_visible_message shows plan progress when plan_id present."""
         parsed = ParsedReasoning(
@@ -359,7 +380,7 @@ class TestParsedReasoningWithPlanProgress:
             raw_text="<reasoning>test</reasoning>",
         )
 
-        result = parsed.to_user_visible_message(session=mock_session)
+        result = parsed.to_user_visible_message(session=mock_agent)
 
         # Should show plan progress, not just the action
         assert "**Plan: Test Plan**" in result
@@ -383,7 +404,7 @@ class TestParsedReasoningWithPlanProgress:
         assert "**Plan:" not in result
 
     def test_to_user_visible_message_without_plan_id_uses_normal_formatting(
-        self, mock_session: ChatSession
+        self, mock_agent: AgentRunner
     ) -> None:
         """Test that to_user_visible_message uses normal formatting when no plan_id."""
         parsed = ParsedReasoning(
@@ -392,14 +413,14 @@ class TestParsedReasoningWithPlanProgress:
             raw_text="<reasoning>test</reasoning>",
         )
 
-        result = parsed.to_user_visible_message(session=mock_session)
+        result = parsed.to_user_visible_message(session=mock_agent)
 
         # Should use normal formatting
         assert result == "Search for dataset"
         assert "**Plan:" not in result
 
     def test_to_user_visible_message_with_plan_includes_warnings(
-        self, mock_session: ChatSession
+        self, mock_agent: AgentRunner
     ) -> None:
         """Test that warnings are preserved in plan progress display."""
         parsed = ParsedReasoning(
@@ -411,7 +432,7 @@ class TestParsedReasoningWithPlanProgress:
             raw_text="<reasoning>test</reasoning>",
         )
 
-        result = parsed.to_user_visible_message(session=mock_session)
+        result = parsed.to_user_visible_message(session=mock_agent)
 
         # Plan progress should be shown with warning in reasoning
         assert "**Plan: Test Plan**" in result

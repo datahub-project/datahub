@@ -1,10 +1,14 @@
-"""Tests to verify planning tool specs hide session parameter from LLM."""
+"""Tests to verify planning tool specs hide agent parameter from LLM."""
 
 from unittest.mock import MagicMock
 
 import pytest
 
-from datahub_integrations.chat.chat_session import ChatSession
+from datahub_integrations.chat.agent import (
+    AgentConfig,
+    AgentRunner,
+    StaticPromptBuilder,
+)
 from datahub_integrations.chat.planner.tools import get_planning_tool_wrappers
 
 
@@ -12,19 +16,24 @@ class TestPlanningToolSpecs:
     """Tests for planning tool specifications (MCP tool specs)."""
 
     @pytest.fixture
-    def mock_session(self) -> ChatSession:
-        """Create a mock ChatSession for testing tool wrappers."""
-        # Create a minimal mock session with required attributes
-        session = MagicMock(spec=ChatSession)
-        session.plan_cache = {}
-        session.session_id = "test_session_123"
-        return session
+    def mock_agent(self) -> AgentRunner:
+        """Create a mock AgentRunner for testing tool wrappers."""
+        config = AgentConfig(
+            model_id="test-model",
+            system_prompt_builder=StaticPromptBuilder("Test"),
+            tools=[],
+            plannable_tools=[],
+        )
+        client = MagicMock()
+        agent = AgentRunner(config=config, client=client)
+        agent.session_id = "test_agent_123"
+        return agent
 
-    def test_create_plan_spec_hides_session_parameter(
-        self, mock_session: ChatSession
+    def test_create_plan_spec_hides_agent_parameter(
+        self, mock_agent: AgentRunner
     ) -> None:
-        """Test that create_plan tool spec does not expose session parameter to LLM."""
-        wrappers = get_planning_tool_wrappers(mock_session)
+        """Test that create_plan tool spec does not expose agent parameter to LLM."""
+        wrappers = get_planning_tool_wrappers(mock_agent)
 
         # Find create_plan wrapper
         create_plan_wrapper = next(
@@ -53,10 +62,10 @@ class TestPlanningToolSpecs:
         assert "max_steps" in parameters, "max_steps parameter should be present"
 
     def test_revise_plan_spec_hides_session_parameter(
-        self, mock_session: ChatSession
+        self, mock_agent: AgentRunner
     ) -> None:
         """Test that revise_plan tool spec does not expose session parameter to LLM."""
-        wrappers = get_planning_tool_wrappers(mock_session)
+        wrappers = get_planning_tool_wrappers(mock_agent)
 
         # Find revise_plan wrapper
         revise_plan_wrapper = next(
@@ -82,10 +91,10 @@ class TestPlanningToolSpecs:
         assert "evidence" in parameters
 
     def test_report_step_progress_spec_hides_session_parameter(
-        self, mock_session: ChatSession
+        self, mock_agent: AgentRunner
     ) -> None:
         """Test that report_step_progress tool spec does not expose session parameter to LLM."""
-        wrappers = get_planning_tool_wrappers(mock_session)
+        wrappers = get_planning_tool_wrappers(mock_agent)
 
         # Find report_step_progress wrapper
         report_progress_wrapper = next(
@@ -116,10 +125,10 @@ class TestPlanningToolSpecs:
         assert "confidence" in parameters
 
     def test_all_planning_tools_have_descriptions(
-        self, mock_session: ChatSession
+        self, mock_agent: AgentRunner
     ) -> None:
         """Test that all planning tools have descriptions."""
-        wrappers = get_planning_tool_wrappers(mock_session)
+        wrappers = get_planning_tool_wrappers(mock_agent)
 
         assert len(wrappers) == 3, "Should have exactly 3 planning tools"
 
@@ -132,9 +141,9 @@ class TestPlanningToolSpecs:
                 f"Tool {wrapper.name} description should be substantial"
             )
 
-    def test_planning_tools_have_correct_names(self, mock_session: ChatSession) -> None:
+    def test_planning_tools_have_correct_names(self, mock_agent: AgentRunner) -> None:
         """Test that planning tools have the expected names."""
-        wrappers = get_planning_tool_wrappers(mock_session)
+        wrappers = get_planning_tool_wrappers(mock_agent)
 
         tool_names = {w.name for w in wrappers}
         expected_names = {"create_plan", "revise_plan", "report_step_progress"}
@@ -143,9 +152,9 @@ class TestPlanningToolSpecs:
             f"Expected tools {expected_names}, got {tool_names}"
         )
 
-    def test_parameter_types_preserved(self, mock_session: ChatSession) -> None:
+    def test_parameter_types_preserved(self, mock_agent: AgentRunner) -> None:
         """Test that parameter type hints are correctly preserved after partial binding."""
-        wrappers = get_planning_tool_wrappers(mock_session)
+        wrappers = get_planning_tool_wrappers(mock_agent)
 
         create_plan_wrapper = next(
             (w for w in wrappers if w.name == "create_plan"), None

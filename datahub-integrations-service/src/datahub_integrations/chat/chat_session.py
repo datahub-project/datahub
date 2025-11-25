@@ -1,18 +1,12 @@
-from datahub_integrations.gen_ai.mlflow_init import initialize_mlflow, is_mlflow_enabled
+from datahub_integrations.gen_ai.mlflow_init import initialize_mlflow
 
 import contextlib
 import functools
-import json
 import os
-import platform
 import re
-import socket
-import uuid
-from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Dict,
     Iterable,
     Iterator,
@@ -24,24 +18,34 @@ from typing import (
 )
 
 import cachetools
-import mlflow
-import mlflow.entities
-import mlflow.tracing
-from bs4 import BeautifulSoup
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.sdk.main_client import DataHubClient
-from datahub.utilities.perf_timer import PerfTimer
 from fastmcp import FastMCP
 from loguru import logger
 from pydantic import BaseModel, field_validator
 
+from datahub_integrations.chat.agent import (
+    AgentConfig,
+    AgentError,
+    AgentMaxTokensExceededError,
+    AgentMaxToolCallsExceededError,
+    AgentOutputMaxTokensExceededError,
+    AgentRunner,
+)
+from datahub_integrations.chat.agent.agent_runner import _strip_reasoning_tag
+from datahub_integrations.chat.agent.conversational_parser import (
+    XmlReasoningParser,
+)
+from datahub_integrations.chat.agent.progress_tracker import (
+    ProgressCallback,
+    ProgressUpdate,
+)
 from datahub_integrations.chat.chat_history import (
     AssistantMessage,
     ChatHistory,
     HumanMessage,
     Message,
     ReasoningMessage,
-    SummaryMessage,
     ToolCallRequest,
     ToolResult,
     ToolResultError,
@@ -49,13 +53,6 @@ from datahub_integrations.chat.chat_history import (
 from datahub_integrations.chat.chat_session_formatter import format_message
 from datahub_integrations.chat.context_reducer import (
     ChatContextReducer,
-    ContextReducerConfig,
-)
-from datahub_integrations.chat.reducers.conversation_summarizer import (
-    ConversationSummarizer,
-)
-from datahub_integrations.chat.reducers.sliding_window_reducer import (
-    SlidingWindowReducer,
 )
 from datahub_integrations.chat.types import ChatType
 from datahub_integrations.chat.utils import parse_reasoning_message
@@ -63,15 +60,11 @@ from datahub_integrations.gen_ai.bedrock import (
     get_bedrock_client,
 )
 from datahub_integrations.gen_ai.linkify import auto_fix_chat_links
-from datahub_integrations.gen_ai.llm.exceptions import LlmInputTooLongException
-from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
-from datahub_integrations.mcp._token_estimator import TokenCountEstimator
 from datahub_integrations.mcp.mcp_server import (
     get_datahub_client,
     mcp,
     register_all_tools,
-    with_datahub_client,
 )
 from datahub_integrations.mcp_integration.tool import (
     ToolWrapper,
@@ -80,17 +73,13 @@ from datahub_integrations.mcp_integration.tool import (
 )
 from datahub_integrations.slack.utils.string import truncate
 from datahub_integrations.smart_search.smart_search import smart_search
-from datahub_integrations.telemetry.chat_events import ChatbotToolCallEvent
-from datahub_integrations.telemetry.telemetry import track_saas_event
 
 # Register MCP tools with Cloud features (thread-safe, idempotent)
 register_all_tools(is_oss=False)
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (
-        ContentBlockOutputTypeDef,
         SystemContentBlockTypeDef,
-        TokenUsageTypeDef,
     )
 
 # Initialize MLflow for @mlflow.trace decorators in this module
@@ -161,36 +150,12 @@ _MAX_SUGGESTIONS = 4
 CLAUDE_TOKEN_LIMIT = int(200e3)
 
 
-@dataclass
-class ProgressUpdate:
-    """
-    Structured progress update with both text content and message type.
-
-    This replaces the old string-only progress updates to avoid losing
-    type information and having to reconstruct it later.
-    """
-
-    text: str
-    message_type: Literal["THINKING", "TOOL_CALL", "TOOL_RESULT", "TEXT"]
-
-
-ProgressCallback = Callable[[List[ProgressUpdate]], None]
-
-
-class ChatSessionMaxTokensExceededError(Exception):
-    pass
-
-
-class ChatOutputMaxTokensExceededError(Exception):
-    pass
-
-
-class ChatSessionError(Exception):
-    pass
-
-
-class ChatMaxToolCallsExceededError(Exception):
-    pass
+# Backward compatible exception aliases (simple references to agent exceptions)
+# These allow existing code (Slack, Teams, tests) to continue using ChatSession-prefixed names
+ChatSessionMaxTokensExceededError = AgentMaxTokensExceededError
+ChatOutputMaxTokensExceededError = AgentOutputMaxTokensExceededError
+ChatSessionError = AgentError
+ChatMaxToolCallsExceededError = AgentMaxToolCallsExceededError
 
 
 class NextMessage(BaseModel):
@@ -216,30 +181,6 @@ class NextMessage(BaseModel):
             return v[:_MAX_SUGGESTIONS]
 
         return v
-
-
-def _strip_reasoning_tag(text: str) -> str:
-    """
-    Remove <reasoning> tags and their contents from the text.
-
-    This is used to handle cases where the LLM includes a <reasoning> tag
-    with internal thoughts that should not be shown to the user.
-
-    Example:
-        Input: "<reasoning>thinking...</reasoning>Here is the answer"
-        Output: "Here is the answer"
-    """
-    try:
-        soup = BeautifulSoup(text, "html.parser")
-        # Find and remove all <reasoning> tags and their contents
-        for reasoning_tag in soup.find_all("reasoning"):
-            reasoning_tag.decompose()  # Remove tag and all its contents
-        # Return the remaining text (strips any other HTML/XML tags too)
-        return soup.get_text()
-    except Exception as e:
-        # If parsing fails, log and return original text
-        logger.warning(f"Failed to strip reasoning tag from response: {e}")
-        return text
 
 
 def respond_to_user(
@@ -314,7 +255,7 @@ Break down complex information into bullet points for better readability.""",
 )
 
 
-def _get_internal_chatbot_tools(session: "ChatSession") -> List[ToolWrapper]:
+def _get_internal_chatbot_tools(agent: AgentRunner) -> List[ToolWrapper]:
     """
     Get internal chatbot tools that are always available.
 
@@ -325,7 +266,7 @@ def _get_internal_chatbot_tools(session: "ChatSession") -> List[ToolWrapper]:
     These tools are NOT exposed on the customer-facing MCP server.
 
     Args:
-        session: The ChatSession instance to bind to planning tools
+        agent: The AgentRunner instance to bind to planning tools
     """
     tools = [_respond_to_user_tool]
 
@@ -334,7 +275,7 @@ def _get_internal_chatbot_tools(session: "ChatSession") -> List[ToolWrapper]:
         # (planner.tools imports from chat_session for get_extra_llm_instructions)
         from datahub_integrations.chat.planner.tools import get_planning_tool_wrappers
 
-        tools.extend(get_planning_tool_wrappers(session))
+        tools.extend(get_planning_tool_wrappers(agent))
 
     return tools
 
@@ -530,6 +471,48 @@ def get_extra_llm_instructions(client: DataHubClient) -> Optional[str]:
         return None
 
 
+class DataHubSystemPromptBuilder:
+    """
+    System prompt builder for DataHub ChatSession.
+
+    Builds the DataHub-specific system prompt including:
+    - Base DataHub AI assistant prompt
+    - Optional extra instructions from GraphQL API
+    """
+
+    def __init__(self, extra_instructions_override: Optional[str] = None):
+        """
+        Initialize DataHub system prompt builder.
+
+        Args:
+            extra_instructions_override: Optional override for extra instructions
+                                        (skips GraphQL fetch if provided)
+        """
+        self.extra_instructions_override = extra_instructions_override
+
+    def build_system_messages(
+        self, client: DataHubClient
+    ) -> List["SystemContentBlockTypeDef"]:
+        """Build system messages for DataHub ChatSession."""
+        system_messages: List["SystemContentBlockTypeDef"] = [{"text": _SYSTEM_PROMPT}]
+
+        # Use override if provided, otherwise fetch from GraphQL
+        extra_instructions = (
+            self.extra_instructions_override
+            if self.extra_instructions_override is not None
+            else get_extra_llm_instructions(client)
+        )
+
+        if extra_instructions:
+            formatted_instructions = (
+                f"CUSTOMER-SPECIFIC REQUIREMENTS - You must follow these in addition to base instructions:\n\n"
+                f"{extra_instructions}"
+            )
+            system_messages.append({"text": formatted_instructions})
+
+        return system_messages
+
+
 class FilteredProgressListener:
     # Not super happy with the naming of this. But the purpose is to
     # 1. encapsulate the history -> progress message logic
@@ -538,12 +521,12 @@ class FilteredProgressListener:
         self,
         history: ChatHistory,
         progress_callback: Optional[ProgressCallback],
-        session: Optional["ChatSession"] = None,
+        agent: Optional[AgentRunner] = None,
         start_offset: int = 0,
     ):
         self.history = history
         self.progress_callback = progress_callback
-        self.session = session
+        self.agent = agent
         self.start_offset = start_offset
 
         self._last_progress_updates: Optional[List[ProgressUpdate]] = None
@@ -559,7 +542,7 @@ class FilteredProgressListener:
         history: ChatHistory,
         *,
         start_offset: int,
-        session: Optional["ChatSession"] = None,
+        agent: Optional[AgentRunner] = None,
     ) -> List[ProgressUpdate]:
         """Get current progress updates derived from chat history with type information"""
         updates = []
@@ -572,7 +555,7 @@ class FilteredProgressListener:
                 message_type = "THINKING"
                 # Parse the reasoning message to extract user-friendly text
                 parsed = parse_reasoning_message(message.text)
-                user_visible_text = parsed.to_user_visible_message(session=session)
+                user_visible_text = parsed.to_user_visible_message(session=agent)
 
                 # Sanitize and truncate progress messages
                 # Max 1000 chars per step: generous buffer since parsed messages are
@@ -601,7 +584,7 @@ class FilteredProgressListener:
 
     def _handle_history_updated(self) -> None:
         current_updates = self.get_progress_updates(
-            self.history, start_offset=self.start_offset, session=self.session
+            self.history, start_offset=self.start_offset, agent=self.agent
         )
         if current_updates != self._last_progress_updates:
             self._last_progress_updates = current_updates
@@ -610,6 +593,13 @@ class FilteredProgressListener:
 
 
 class ChatSession:
+    """
+    DataHub-specific chat session that uses AgentRunner infrastructure.
+
+    This class maintains backward compatibility with existing code while
+    using the new composable agent infrastructure internally.
+    """
+
     def __init__(
         self,
         tools: Sequence[ToolWrapper | FastMCP],
@@ -619,15 +609,23 @@ class ChatSession:
         chat_type: ChatType = ChatType.DEFAULT,
         # Custom context reducers can be supported in future
     ):
-        self.session_id = str(uuid.uuid4())  # TODO: use uuid7 in the future
+        """
+        Initialize ChatSession with DataHub-specific configuration.
+
+        Args:
+            tools: Base tools to provide to the agent (typically [mcp])
+            client: DataHub client for tool execution and GraphQL queries
+            history: Optional existing chat history to continue from
+            extra_instructions_override: Optional override for extra instructions
+            chat_type: Type of chat (UI, Slack, Teams, etc.)
+        """
+        # Store ChatSession-specific attributes
         self.client = client
         self.extra_instructions_override = extra_instructions_override
-        self.history: ChatHistory = history or ChatHistory()
-        self.plan_cache: Dict[str, Dict[str, Any]] = {}
         self.chat_type = chat_type
 
-        # Build plannable tools (data-gathering tools from MCP, etc.)
-        self._plannable_tools: List[ToolWrapper] = [
+        # Prepare plannable tools (public tools from MCP)
+        plannable_tools: List[ToolWrapper] = [
             tool
             for entry in tools
             for tool in (
@@ -635,11 +633,9 @@ class ChatSession:
             )
         ]
 
-        # Add smart_search to plannable tools (if enabled)
-        # This is a data-gathering tool that should be available for planning
-        # Wrap with async_background since it makes blocking Bedrock API calls for reranking
+        # Add smart_search if enabled (BEFORE storing to _plannable_tools)
         if _is_smart_search_enabled():
-            self._plannable_tools.append(
+            plannable_tools.append(
                 ToolWrapper.from_function(
                     fn=async_background(smart_search),
                     name="smart_search",
@@ -648,49 +644,114 @@ class ChatSession:
                 )
             )
 
-        # Build full tool list: plannable tools + internal tools
-        self.tools: List[ToolWrapper] = (
-            self._plannable_tools + _get_internal_chatbot_tools(session=self)
+        # Store for get_plannable_tools() - includes smart_search if enabled
+        self._plannable_tools = plannable_tools.copy()
+
+        # Note: Internal tools will be created by AgentRunner after initialization
+        # We'll add them via a post-init step since they need the runner instance
+        internal_tools: List[ToolWrapper] = []
+
+        # Combine all tools
+        all_tools = plannable_tools + internal_tools
+
+        # Create agent configuration
+        config = AgentConfig(
+            model_id=model_config.chat_assistant_ai.model,
+            system_prompt_builder=DataHubSystemPromptBuilder(
+                extra_instructions_override
+            ),
+            tools=all_tools,
+            plannable_tools=plannable_tools,  # Subset for planning (excludes internal)
+            context_reducers=None,  # Will use defaults
+            conversational_parser=XmlReasoningParser(),  # DataHub's XML reasoning format
+            use_prompt_caching=True,
+            max_tool_calls=MAX_TOOL_CALLS,
+            temperature=0.5,
+            max_tokens=4096,
+            agent_name="DataHub ChatSession",
         )
 
-        self.context_reducers: Iterable[ChatContextReducer] = (
-            create_default_context_reducer_chain(
-                self._get_model_id(), self._get_tools_config()
-            )
+        # Create the underlying agent runner
+        self._agent_runner = AgentRunner(
+            config=config,
+            client=client,
+            history=history,
         )
 
-        # Create a dummy progress listener to start with.
+        # Add internal tools after AgentRunner is created (they need the runner instance)
+        internal_tools_to_add = _get_internal_chatbot_tools(self._agent_runner)
+        self._agent_runner.tools.extend(internal_tools_to_add)
+
+        # Create a dummy progress listener to start with (for backward compat)
         self._progress_listener = FilteredProgressListener(
-            history=self.history, progress_callback=None, session=self
+            history=self._agent_runner.history,
+            progress_callback=None,
+            agent=self._agent_runner,
         )
 
-        # This requires a model that supports prompt caching.
-        # See https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html#prompt-caching-models
-        self._use_prompt_caching = True
+    # Properties that delegate to AgentRunner
+    @property
+    def session_id(self) -> str:
+        """Get session identifier from underlying agent runner."""
+        return self._agent_runner.session_id
+
+    @property
+    def history(self) -> ChatHistory:
+        """Get chat history from underlying agent runner."""
+        return self._agent_runner.history
+
+    @history.setter
+    def history(self, value: ChatHistory) -> None:
+        """Set chat history on underlying agent runner."""
+        self._agent_runner.history = value
+        # Update progress listener to track new history
+        self._progress_listener = FilteredProgressListener(
+            history=self._agent_runner.history,
+            progress_callback=None,
+            agent=self._agent_runner,
+        )
+
+    @property
+    def tools(self) -> List[ToolWrapper]:
+        """Get all tools (plannable + internal) from underlying agent runner."""
+        return self._agent_runner.tools
 
     @property
     def tool_map(self) -> Dict[str, ToolWrapper]:
-        return {tool.name: tool for tool in self.tools}
+        """Get mapping of tool names to tool instances."""
+        return self._agent_runner.tool_map
 
+    @property
+    def context_reducers(self) -> Iterable[ChatContextReducer]:
+        """Get context reducers from underlying agent runner."""
+        return self._agent_runner.context_reducers
+
+    @property
+    def plan_cache(self) -> Dict[str, Dict[str, Any]]:
+        """Get plan cache from underlying agent runner (backward compatibility)."""
+        return self._agent_runner.plan_cache
+
+    # ChatSession-specific methods
     def get_plannable_tools(self) -> List[ToolWrapper]:
         """
         Get tools that can be used in execution plans.
 
-        Returns the base set of data-gathering/processing tools,
-        excluding internal tools like respond_to_user and planning tools.
+        Delegates to AgentRunner which stores the plannable tools
+        configured at initialization.
 
         Returns:
             List of ToolWrapper objects suitable for planning
         """
-        return self._plannable_tools
+        return self._agent_runner.get_plannable_tools()
 
     def _get_tools_config(self) -> dict:
+        """Get tools configuration for token estimation (backward compat)."""
         return {
             "tools": [tool.to_bedrock_spec() for tool in self.tools],
         }
 
     def _get_model_id(self) -> str:
-        # Use the new model configuration for chat assistant
+        """Get model ID (backward compat)."""
         return model_config.chat_assistant_ai.model
 
     @classmethod
@@ -701,372 +762,81 @@ class ChatSession:
         )
 
     def _add_message(self, message: Message) -> None:
-        # Log messages for debugging purposes.
-        if isinstance(message, ToolResult):
-            logger.debug(
-                f"Adding ToolResult for {message.tool_request.tool_name}: {truncate(str(message), max_length=1000, show_length=True)}"
-            )
-        elif isinstance(message, ToolResultError):
-            logger.debug(
-                f"Adding ToolResultError for {message.tool_request.tool_name}: {truncate(str(message), max_length=1000, show_length=True)}"
-            )
-        else:
-            logger.debug(
-                f"Adding {type(message).__name__} message: {truncate(str(message), max_length=400, show_length=True)}"
-            )
+        """
+        Add a message to history (backward compatibility method).
 
-        self.history.add_message(message)
-        self._progress_listener._handle_history_updated()
+        This delegates to the underlying AgentRunner's _add_message method.
+        Kept for backward compatibility with existing code that calls this directly.
+
+        Args:
+            message: Message to add to history
+        """
+        self._agent_runner._add_message(message)
 
     @contextlib.contextmanager
     def set_progress_callback(
         self, progress_callback: ProgressCallback
     ) -> Iterator[None]:
+        """
+        Set a callback for progress updates during generation.
+
+        This delegates to the underlying AgentRunner while maintaining
+        the FilteredProgressListener for backward compatibility.
+        """
         prev_progress_listener = self._progress_listener
         self._progress_listener = FilteredProgressListener(
             history=self.history,
             progress_callback=progress_callback,
-            session=self,
+            agent=self._agent_runner,
             start_offset=len(self.history.messages),
         )
         try:
-            yield
+            # Also set on the agent runner
+            with self._agent_runner.set_progress_callback(progress_callback):
+                yield
         finally:
             self._progress_listener = prev_progress_listener
 
-    def _get_system_messages(self) -> List["SystemContentBlockTypeDef"]:
-        """
-        Get the system messages for the LLM.
-
-        Returns a list of system messages, including the base prompt and any
-        optional extra instructions as separate messages.
-        """
-        system_messages: List["SystemContentBlockTypeDef"] = [{"text": _SYSTEM_PROMPT}]
-
-        # Use override if provided, otherwise fall back to standard retrieval
-        extra_instructions = (
-            self.extra_instructions_override
-            if self.extra_instructions_override is not None
-            else get_extra_llm_instructions(self.client)
-        )
-
-        if extra_instructions:
-            # Add a concise header to indicate these are customer-specific requirements
-            formatted_instructions = (
-                f"CUSTOMER-SPECIFIC REQUIREMENTS - You must follow these in addition to base instructions:\n\n"
-                f"{extra_instructions}"
-            )
-            system_messages.append({"text": formatted_instructions})
-
-        return system_messages
-
-    def _prepare_messages(self) -> list[dict]:
-        # Message history will have something like this. Potential locations
-        # for cache points are marked with <cachepoint>. In general, potential
-        # locations are after any HumanMessage, AssistantMessage, or ToolResult{,Error}.
-        #
-        # - HumanMessage
-        #    <cachepoint>
-        # - ReasoningMessage #1
-        # - ToolCallRequest  -> model returns
-        # - ToolResult / ToolResultError
-        #    <cachepoint>
-        # - ReasoningMessage #2
-        # - ToolCallRequest  -> model returns
-        # - ToolResult / ToolResultError
-        # - AssistantMessage
-        #    <cachepoint>
-        #
-        # We want there to be at most 2 message cache points in each request to the model.
-        # The first cache point should make the query fast, and the second cache point
-        # sets us up to handle a subsequent request quickly. As long as a cache is used
-        # once, prompt caching will also be cheaper.
-
-        # Apply context reduction if configured
-        for reducer in self.context_reducers:
-            reducer.reduce(self.history)
-
-        formatted_messages = [
-            message.to_obj() for message in self.history.context_messages
-        ]
-
-        if self._use_prompt_caching:
-            potential_cache_point_indexes = [
-                i
-                for i, message in enumerate(self.history.context_messages)
-                if isinstance(
-                    message,
-                    (
-                        HumanMessage,
-                        AssistantMessage,
-                        SummaryMessage,
-                        ToolResult,
-                        ToolResultError,
-                    ),
-                )
-            ]
-            if len(potential_cache_point_indexes) > 2:
-                potential_cache_point_indexes = potential_cache_point_indexes[-2:]
-            for index in potential_cache_point_indexes:
-                formatted_messages[index]["content"].append(
-                    {"cachePoint": {"type": "default"}}
-                )
-
-        return formatted_messages
-
-    def _generate_tool_call(self) -> None:
-        llm_client = get_llm_client(
-            model_id=self._get_model_id(),
-        )
-
-        messages = self._prepare_messages()
-
-        tools = [tool.to_bedrock_spec() for tool in self.tools]
-        if self._use_prompt_caching:
-            tools.append({"cachePoint": {"type": "default"}})
-
-        try:
-            response = llm_client.converse(
-                system=self._get_system_messages(),
-                messages=messages,  # type: ignore
-                toolConfig={
-                    "tools": tools,  # type: ignore
-                },
-                inferenceConfig={
-                    "temperature": 0.5,
-                    "maxTokens": 4096,
-                },
-            )
-        except LlmInputTooLongException as e:
-            # Input exceeded model's context window
-            # Each provider detects this from their specific error messages
-            raise ChatSessionMaxTokensExceededError(str(e)) from e
-
-        log_tokens_usage(response["usage"])  # type: ignore[arg-type]
-        is_end_turn = False
-        output = response["output"]
-        stop_reason = response["stopReason"]
-        if stop_reason == "max_tokens":
-            # Output was truncated - this is a valid stop reason, not an exception
-            raise ChatOutputMaxTokensExceededError(str(response))
-        elif stop_reason == "tool_use":
-            # Expected - we'll handle this below.
-            pass
-        elif stop_reason == "end_turn":
-            is_end_turn = True
-        else:
-            raise ChatSessionError(f"Unknown stop reason {stop_reason}: {response}")
-
-        message = output.get("message")
-        if message is None:
-            raise ChatSessionError(f"No message in response {response}")
-        response_content = message["content"]
-
-        # Check for multiple tool calls in a single response
-        tool_use_blocks = [block for block in response_content if "toolUse" in block]
-        if len(tool_use_blocks) > 1:
-            logger.warning(
-                f"LLM returned {len(tool_use_blocks)} tool calls in a single response. "
-                f"Agent loop may not handle this correctly. "
-                f"Tools: {[block['toolUse']['name'] for block in tool_use_blocks]}"
-            )
-
-        for i, content_block in enumerate(response_content):
-            is_last_block = i == len(response_content) - 1
-            if "text" in content_block:
-                self._handle_text_content(content_block, is_end_turn, is_last_block)
-            elif "toolUse" in content_block:
-                self._handle_tool_call_request(content_block)
-            else:
-                raise ChatSessionError(f"Unknown content block type {content_block}")
-
-    def _handle_text_content(
-        self,
-        content_block: "ContentBlockOutputTypeDef",
-        is_end_turn: bool,
-        is_last_block: bool,
-    ) -> None:
-        is_final_response = is_last_block and is_end_turn
-        if is_final_response:
-            # This is a fallback case where LLM outputs text without using respond_to_user tool
-            # We log this to track when it happens (unexpected behavior)
-            response_text = content_block["text"]
-            # Strip any XML tags (like <reasoning>) that might be present
-            response_text = _strip_reasoning_tag(response_text)
-            logger.info(f"Adding AssistantMessage: {response_text}")
-            self._add_message(AssistantMessage(text=response_text))
-
-            # Log final response as MLflow span to track unexpected direct responses
-            attributes = {
-                "response_length": len(response_text),
-                "message_index": len(self.history.messages),
-                "is_unexpected_direct_response": True,  # Flag that this bypassed respond_to_user
-            }
-
-            # Use message count as span suffix. This is safe because:
-            # 1. history.messages is append-only (even with context reduction)
-            # 2. Each generate_next_message() call creates a new trace
-            # 3. Message count provides useful debugging context
-            with mlflow.start_span(
-                f"assistant_message_{len(self.history.messages)}",
-                span_type=mlflow.entities.SpanType.LLM,
-                attributes=attributes,
-            ) as span:
-                span.set_inputs(
-                    {"context": "Direct LLM response (bypassed respond_to_user tool)"}
-                )
-                span.set_outputs({"response": response_text})
-        else:
-            reasoning_text = content_block["text"]
-            self._add_message(ReasoningMessage(text=reasoning_text))
-
-            # Log reasoning as MLflow span (full XML preserved in outputs)
-            attributes = {
-                "reasoning_length": len(reasoning_text),
-                "message_index": len(self.history.messages),
-            }
-
-            # Use message count as span suffix. This is safe because:
-            # 1. history.messages is append-only (even with context reduction)
-            # 2. Each generate_next_message() call creates a new trace
-            # 3. Message count provides useful debugging context
-            with mlflow.start_span(
-                f"reasoning_step_{len(self.history.messages)}",
-                span_type=mlflow.entities.SpanType.LLM,
-                attributes=attributes,
-            ) as span:
-                span.set_inputs({"context": "LLM internal thinking"})
-                span.set_outputs({"reasoning": reasoning_text})
-
-    def _handle_tool_call_request(
-        self, content_block: "ContentBlockOutputTypeDef"
-    ) -> None:
-        tool_use = content_block["toolUse"]
-        tool_name = tool_use["name"]
-
-        tool_request = ToolCallRequest(
-            tool_use_id=tool_use["toolUseId"],
-            tool_name=tool_name,
-            tool_input=tool_use["input"],
-        )
-        self._add_message(tool_request)
-        result = None
-        error = None
-        timer = PerfTimer()
-
-        try:
-            tool = self.tool_map[tool_name]
-            with timer, with_datahub_client(self.client):
-                result = tool.run(arguments=tool_request.tool_input)
-
-        except Exception as e:
-            logger.exception(
-                f"Tool execution failed for {tool_name} in session {self.session_id}"
-            )
-            error = f"{type(e).__name__}: {e}"
-            self._add_message(
-                ToolResultError(
-                    tool_request=tool_request,
-                    error=error,
-                    # raw_error=e,
-                )
-            )
-        else:
-            self._add_message(ToolResult(tool_request=tool_request, result=result))
-
-        track_saas_event(
-            ChatbotToolCallEvent(
-                chat_session_id=self.session_id,
-                tool_name=tool_name,
-                tool_execution_duration_sec=timer.elapsed_seconds(),
-                tool_result_length=len(str(result)) if result else None,
-                tool_result_is_error=error is not None,
-                tool_error=error,
-            )
-        )
-
-    @mlflow.trace
     def generate_next_message(self) -> NextMessage:
-        if is_mlflow_enabled():
-            # Add session and machine/environment metadata tags for tracking and debugging
-            mlflow.update_current_trace(
-                tags={
-                    "session_id": self.session_id,
-                    "machine.hostname": socket.gethostname(),
-                    "machine.user": os.getenv("USER")
-                    or os.getenv("USERNAME")
-                    or "unknown",
-                    "machine.os": f"{platform.system()} {platform.release()}",
-                    "machine.python_version": platform.python_version(),
-                }
+        """
+        Generate the next message via agentic loop.
+
+        This delegates to AgentRunner for the core agentic loop while
+        maintaining ChatSession-specific logic for respond_to_user detection
+        and chat_type formatting.
+
+        Returns:
+            NextMessage with formatted text and optional suggestions
+        """
+
+        # Define completion check for DataHub ChatSession
+        def is_complete(message: Message) -> bool:
+            # Complete if we got respond_to_user or direct AssistantMessage
+            return self.is_respond_to_user(message) or isinstance(
+                message, AssistantMessage
             )
 
-        logger.info(
-            f"Generating next message for session {self.session_id}, currently have {len(self.history.messages)} messages/tool calls in chat history"
-        )
-        for i in range(MAX_TOOL_CALLS):
-            logger.info(f"Generating tool call {i} for session {self.session_id}")
-            self._generate_tool_call()
-
-            if not self.history.messages:
-                raise ChatSessionError("No messages in chat history")
-            last_message = self.history.messages[-1]
-            if self.is_respond_to_user(last_message):
-                logger.info(
-                    f"Respond to user call received for session {self.session_id}"
-                )
-                return NextMessage.model_validate(last_message.result)
-            elif isinstance(last_message, AssistantMessage):
-                logger.info(f"End turn message received for session {self.session_id}")
-                formatted_text = format_message(last_message.text, self.chat_type)
-                return NextMessage(
-                    text=formatted_text,
-                    suggestions=[],
-                )
-
-        raise ChatMaxToolCallsExceededError(
-            f"Failed to generate next message after {MAX_TOOL_CALLS} tool calls"
+        # Delegate to AgentRunner with custom completion check
+        last_message = self._agent_runner.generate_next_message(
+            completion_check=is_complete
         )
 
+        # Handle respond_to_user tool result
+        if self.is_respond_to_user(last_message):
+            logger.info(f"Respond to user call received for session {self.session_id}")
+            return NextMessage.model_validate(last_message.result)
 
-def create_default_context_reducer_chain(
-    model_id: str,
-    tools_config: dict,
-) -> Iterable[ChatContextReducer]:
-    estimator = TokenCountEstimator(model_id)
+        # Handle direct AssistantMessage (fallback case)
+        elif isinstance(last_message, AssistantMessage):
+            logger.info(f"End turn message received for session {self.session_id}")
+            formatted_text = format_message(last_message.text, self.chat_type)
+            return NextMessage(
+                text=formatted_text,
+                suggestions=[],
+            )
 
-    config = ContextReducerConfig(
-        llm_token_limit=CLAUDE_TOKEN_LIMIT if "claude" in model_id else int(100e3),
-        safety_buffer=int(CLAUDE_TOKEN_LIMIT * 0.1),
-        system_message_tokens=estimator.estimate_tokens(_SYSTEM_PROMPT),
-        tool_config_tokens=estimator.estimate_tokens(json.dumps(tools_config)),
-    )
-
-    # Return iterable of reducers: ConversationSummarizer first, then SlidingWindowReducer
-    return [
-        ConversationSummarizer(
-            estimator,
-            config,
-            max_num_messages_to_keep=5,
-            min_num_messages_to_keep=3,
-            summarization_model=model_config.chat_assistant_ai.summary_model,
-        ),
-        SlidingWindowReducer(estimator, config, max_messages=10),
-    ]
-
-
-def log_tokens_usage(response: "TokenUsageTypeDef") -> None:
-    input_tokens = response["inputTokens"]
-    output_tokens = response["outputTokens"]
-    cache_read_input_tokens = response.get("cacheReadInputTokens", 0)
-    cache_creation_input_tokens = response.get("cacheWriteInputTokens", 0)
-    total_input_tokens = (
-        input_tokens + cache_read_input_tokens + cache_creation_input_tokens
-    )
-
-    logger.info(
-        f"Tokens usage: total input tokens: {total_input_tokens}, total output tokens: {output_tokens}"
-    )
+        # Should not reach here due to completion check
+        raise ChatSessionError(f"Unexpected message type: {type(last_message)}")
 
 
 if __name__ == "__main__":

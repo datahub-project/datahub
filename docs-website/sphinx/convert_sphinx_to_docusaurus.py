@@ -23,6 +23,7 @@ HTML_TAGS = {
 REPLACEMENTS = [
     ("<function ", "&lt;function "),
     ("<disabled ", "&lt;disabled "),
+    ("<not given>", "&lt;not given&gt;"),
     ("MDXContent.isMDXComponent = true", ""),
     (".md#", ".mdx#"),
 ]
