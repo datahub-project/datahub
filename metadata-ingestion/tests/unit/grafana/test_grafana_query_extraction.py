@@ -3,6 +3,7 @@
 import pytest
 
 from datahub.ingestion.source.grafana.entity_mcp_builder import (
+    _clean_grafana_template_variables,
     _extract_query_from_panel,
     _format_sql_query,
 )
@@ -86,6 +87,70 @@ class TestExtractQueryFromPanel:
         )
         result = _extract_query_from_panel(panel)
         assert result is not None and result.language == expected_language
+
+
+class TestGrafanaTemplateVariableCleaning:
+    """Test Grafana template variable removal for SQL parsing."""
+
+    @pytest.mark.parametrize(
+        "input_query,expected_pattern",
+        [
+            # ${...} format with formatting → string literal
+            (
+                "WHERE time > ${__from:date:'YYYY/MM/DD'}",
+                "WHERE time > 'grafana_var'",
+            ),
+            # [[...]] deprecated format → identifier (often table/column names)
+            (
+                "SELECT * FROM [[table_name]]",
+                "SELECT * FROM grafana_identifier",
+            ),
+            # $__timeFilter macro → TRUE (boolean condition)
+            (
+                "WHERE $__timeFilter(timestamp_column)",
+                "WHERE TRUE",
+            ),
+            # Simple $variable format → string literal
+            (
+                "SELECT * FROM $datasource.table",
+                "SELECT * FROM 'grafana_var'.table",
+            ),
+            # Multiple variables in one query
+            (
+                "SELECT * FROM $table WHERE date > ${__from} AND status = '$status'",
+                "SELECT * FROM 'grafana_var' WHERE date > 'grafana_var' AND status = ''grafana_var''",
+            ),
+            # Real-world complex query from user
+            (
+                "cast(date_trunc('day', from_unixtime(event_timestamp)) as varchar) as event_day WHERE from_unixtime(event_timestamp) > cast (replace(${__from:date:'YYYY/MM/DD'}, '/','-') as timestamp)",
+                "cast(date_trunc('day', from_unixtime(event_timestamp)) as varchar) as event_day WHERE from_unixtime(event_timestamp) > cast (replace('grafana_var', '/','-') as timestamp)",
+            ),
+            # No variables - query unchanged
+            (
+                "SELECT * FROM users WHERE active = true",
+                "SELECT * FROM users WHERE active = true",
+            ),
+            # Time macros replaced with TRUE
+            (
+                "WHERE $__timeFrom() < timestamp AND $__timeTo() > timestamp",
+                "WHERE TRUE < timestamp AND TRUE > timestamp",
+            ),
+        ],
+        ids=[
+            "braced_with_format",
+            "deprecated_brackets",
+            "time_filter_macro",
+            "simple_dollar",
+            "multiple_variables",
+            "realworld_complex",
+            "no_variables",
+            "time_macros",
+        ],
+    )
+    def test_removes_all_grafana_variable_formats(self, input_query, expected_pattern):
+        """Test all Grafana variable formats are replaced with context-appropriate values."""
+        result = _clean_grafana_template_variables(input_query)
+        assert result == expected_pattern
 
 
 class TestSqlFormatting:
