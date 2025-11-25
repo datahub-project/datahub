@@ -32,6 +32,8 @@ from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
+    DBTConstraint,
+    DBTContract,
     DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
@@ -155,6 +157,16 @@ def get_columns(
         tags = manifest_column.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
+        # Extract column constraints
+        column_constraints = [
+            DBTConstraint(
+                type=constraint_dict.get("type", "unknown"),
+                name=constraint_dict.get("name"),
+                expression=constraint_dict.get("expression"),
+            )
+            for constraint_dict in manifest_column.get("constraints", [])
+        ]
+
         dbtCol = DBTColumn(
             name=catalog_column["name"],
             comment=catalog_column.get("comment", ""),
@@ -163,6 +175,7 @@ def get_columns(
             index=catalog_column["index"],
             meta=meta,
             tags=tags,
+            constraints=column_constraints,
         )
         columns.append(dbtCol)
     return columns
@@ -275,6 +288,28 @@ def extract_dbt_entities(
                 kw_args=kw_args,
             )
 
+        # Extract contract configuration
+        contract = None
+        contract_config = manifest_node.get("config", {}).get("contract", {})
+        if contract_config.get("enforced"):
+            top_level_contract = manifest_node.get("contract", {})
+            contract = DBTContract(
+                enforced=True,
+                alias_types=contract_config.get("alias_types", True),
+                checksum=top_level_contract.get("checksum"),
+            )
+
+        # Extract model-level constraints
+        model_constraints = [
+            DBTConstraint(
+                type=constraint_dict.get("type", "unknown"),
+                name=constraint_dict.get("name"),
+                expression=constraint_dict.get("expression"),
+                columns=constraint_dict.get("columns"),
+            )
+            for constraint_dict in manifest_node.get("constraints", [])
+        ]
+
         dbtNode = DBTNode(
             dbt_name=key,
             dbt_adapter=manifest_adapter,
@@ -306,6 +341,8 @@ def extract_dbt_entities(
                 "compiled_code", manifest_node.get("compiled_sql")
             ),  # Backward compatibility dbt <=v1.2
             test_info=test_info,
+            contract=contract,
+            model_constraints=model_constraints,
         )
 
         # Load columns from catalog, and override some properties from manifest.
