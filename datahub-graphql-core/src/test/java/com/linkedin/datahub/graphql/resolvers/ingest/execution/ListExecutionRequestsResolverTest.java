@@ -37,7 +37,7 @@ public class ListExecutionRequestsResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
-    EntityClient mockClient = getTestEntityClient(null);
+    EntityClient mockClient = getTestEntityClient(null, false);
 
     // Mock search response
     Mockito.when(
@@ -83,7 +83,7 @@ public class ListExecutionRequestsResolverTest {
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
-    EntityClient mockClient = getTestEntityClient(null);
+    EntityClient mockClient = getTestEntityClient(null, false);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .search(
@@ -102,7 +102,7 @@ public class ListExecutionRequestsResolverTest {
 
   @Test
   public void testGetWithCustomQuery() throws Exception {
-    EntityClient mockClient = getTestEntityClient(null);
+    EntityClient mockClient = getTestEntityClient(null, false);
 
     ListExecutionRequestsInput customInput =
         new ListExecutionRequestsInput(0, 20, "custom-query", null, null, null);
