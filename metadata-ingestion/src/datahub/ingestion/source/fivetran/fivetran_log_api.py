@@ -30,9 +30,11 @@ class FivetranLogAPI:
         self,
         fivetran_log_config: FivetranLogConfig,
         max_column_lineage_per_connector: Optional[int] = None,
+        max_table_lineage_per_connector: Optional[int] = None,
     ) -> None:
         self.fivetran_log_config = fivetran_log_config
         self.max_column_lineage_per_connector = max_column_lineage_per_connector
+        self.max_table_lineage_per_connector = max_table_lineage_per_connector
         (
             self.engine,
             self.fivetran_log_query,
@@ -160,23 +162,39 @@ class FivetranLogAPI:
 
         return dict(all_column_lineage), dict(connector_row_counts)
 
-    def _get_table_lineage_metadata(self, connector_ids: List[str]) -> Dict[str, List]:
+    def _get_table_lineage_metadata(
+        self, connector_ids: List[str], max_table_lineage: Optional[int] = None
+    ) -> Tuple[Dict[str, List], Dict[str, int]]:
         """
         Returns dict of table lineage metadata with key as 'CONNECTOR_ID'
+        and a dict of row counts per connector.
+
+        Args:
+            connector_ids: List of connector IDs to fetch table lineage for
+            max_table_lineage: Maximum number of table lineage entries per connector. None means unlimited.
+
+        Returns:
+            Tuple of:
+            - Dict mapping connector_id to list of table lineages
+            - Dict mapping connector_id to count of table lineage rows returned
         """
         connectors_table_lineage_metadata: Dict[str, List] = defaultdict(list)
+        connector_row_counts: Dict[str, int] = defaultdict(int)
 
         if not connector_ids:
-            return dict(connectors_table_lineage_metadata)
+            return dict(connectors_table_lineage_metadata), dict(connector_row_counts)
 
         table_lineage_result = self._query(
-            self.fivetran_log_query.get_table_lineage_query(connector_ids=connector_ids)
+            self.fivetran_log_query.get_table_lineage_query(
+                connector_ids=connector_ids, max_lineage=max_table_lineage
+            )
         )
         for table_lineage in table_lineage_result:
-            connectors_table_lineage_metadata[
-                table_lineage[Constant.CONNECTOR_ID]
-            ].append(table_lineage)
-        return dict(connectors_table_lineage_metadata)
+            connector_id = table_lineage[Constant.CONNECTOR_ID]
+            connectors_table_lineage_metadata[connector_id].append(table_lineage)
+            connector_row_counts[connector_id] += 1
+
+        return dict(connectors_table_lineage_metadata), dict(connector_row_counts)
 
     def _extract_connector_lineage(
         self,
@@ -287,6 +305,7 @@ class FivetranLogAPI:
         self,
         connectors: List[Connector],
         max_column_lineage: Optional[int] = None,
+        max_table_lineage: Optional[int] = None,
         report: Optional[FivetranSourceReport] = None,
     ) -> None:
         # Create 2 filtered connector_ids lists - one for table lineage and one for column lineage
@@ -296,11 +315,11 @@ class FivetranLogAPI:
             tll_connector_ids.append(connector.connector_id)
             if connector.connector_type not in DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES:
                 cll_connector_ids.append(connector.connector_id)
-        table_lineage_metadata = self._get_table_lineage_metadata(tll_connector_ids)
-        column_lineage_metadata, connector_row_counts = (
-            self._get_column_lineage_metadata(
-                cll_connector_ids, max_column_lineage=max_column_lineage
-            )
+        table_lineage_metadata, table_row_counts = self._get_table_lineage_metadata(
+            tll_connector_ids, max_table_lineage=max_table_lineage
+        )
+        column_lineage_metadata, column_row_counts = self._get_column_lineage_metadata(
+            cll_connector_ids, max_column_lineage=max_column_lineage
         )
         for connector in connectors:
             connector.lineage = self._extract_connector_lineage(
@@ -308,13 +327,31 @@ class FivetranLogAPI:
                 column_lineage_metadata=column_lineage_metadata,
             )
 
+            # Warn if table lineage was truncated
+            if (
+                max_table_lineage is not None
+                and report is not None
+                and connector.connector_id in table_row_counts
+            ):
+                row_count = table_row_counts[connector.connector_id]
+                # If we got back exactly the limit (or very close), we likely hit the truncation
+                if row_count >= max_table_lineage * 0.95:  # Within 95% of limit
+                    report.warning(
+                        title="Table lineage may be truncated",
+                        message=f"The connector returned {row_count} table lineage entries, "
+                        f"which is at or near the configured limit of {max_table_lineage}. "
+                        f"Some table lineage may have been omitted. "
+                        f"Consider increasing 'max_table_lineage_per_connector' in your config or setting it to null for unlimited.",
+                        context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+                    )
+
             # Warn if column lineage was truncated
             if (
                 max_column_lineage is not None
                 and report is not None
-                and connector.connector_id in connector_row_counts
+                and connector.connector_id in column_row_counts
             ):
-                row_count = connector_row_counts[connector.connector_id]
+                row_count = column_row_counts[connector.connector_id]
                 # If we got back exactly the limit (or very close), we likely hit the truncation
                 if row_count >= max_column_lineage * 0.95:  # Within 95% of limit
                     report.warning(
@@ -389,6 +426,7 @@ class FivetranLogAPI:
             self._fill_connectors_lineage(
                 connectors,
                 max_column_lineage=self.max_column_lineage_per_connector,
+                max_table_lineage=self.max_table_lineage_per_connector,
                 report=report,
             )
         with report.metadata_extraction_perf.connectors_jobs_extraction_sec:

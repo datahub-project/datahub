@@ -22,6 +22,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.fivetran.fivetran_constants import (
+    DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
     MAX_COLUMN_LINEAGE_PER_CONNECTOR,
     DataJobMode,
     FivetranMode,
@@ -262,16 +263,16 @@ class FivetranSourceConfig(
         description="Populates table->table column lineage.",
     )
 
-    max_table_lineage_per_connector: int = Field(
-        default=120,
-        description="Maximum number of table lineage entries to process per connector.",
+    max_table_lineage_per_connector: Optional[int] = Field(
+        default=DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
+        description="Maximum number of table lineage entries to process per connector. "
+        "Set to null for unlimited table lineage extraction.",
     )
 
     max_column_lineage_per_connector: Optional[int] = Field(
         default=MAX_COLUMN_LINEAGE_PER_CONNECTOR,
-        description=f"Maximum number of column lineage entries to process per connector. "
-        f"Defaults to {MAX_COLUMN_LINEAGE_PER_CONNECTOR}. "
-        f"Set to null/None for unlimited column lineage extraction (may impact performance with very large schemas).",
+        description="Maximum number of column lineage entries to process per connector. "
+        "Set to null for unlimited column lineage extraction (may impact performance with very large schemas).",
     )
 
     # Configuration for stateful ingestion

@@ -478,7 +478,10 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Handle lineage truncation if needed
         max_lineage_limit = self.config.max_table_lineage_per_connector
-        if max_lineage_limit != -1 and len(connector.lineage) >= max_lineage_limit:
+        if (
+            max_lineage_limit is not None
+            and len(connector.lineage) >= max_lineage_limit
+        ):
             self._report_lineage_truncation(connector)
 
         # Process each table lineage entry (already filtered by destination patterns)
@@ -1843,11 +1846,13 @@ class FivetranSource(StatefulIngestionSourceBase):
     def _report_lineage_truncation(self, connector: Connector) -> None:
         """Report warning about truncated lineage."""
         max_lineage_limit = self.config.max_table_lineage_per_connector
+        if max_lineage_limit is None:
+            return  # Should not happen, but be defensive
         self.report.warning(
             title="Table lineage truncated",
             message=f"The connector had more than {max_lineage_limit} table lineage entries. "
             f"Only the most recent {max_lineage_limit} entries were ingested. "
-            f"You can increase the limit by setting 'max_table_lineage_per_connector' in your config.",
+            f"You can increase the limit by setting 'max_table_lineage_per_connector' in your config, or set it to null for unlimited.",
             context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
         )
 

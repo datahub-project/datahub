@@ -133,7 +133,7 @@ class TestFivetranLogQuery:
         assert "connection_id IN ()" in query
 
     def test_get_table_lineage_query(self, query_builder):
-        """Test get_table_lineage_query method."""
+        """Test get_table_lineage_query method with default (unlimited)."""
         connector_ids = ["connector_1", "connector_2"]
 
         query = query_builder.get_table_lineage_query(connector_ids)
@@ -153,18 +153,49 @@ class TestFivetranLogQuery:
         assert "source_schema" in query
         assert "destination_schema" in query
         assert "'connector_1', 'connector_2'" in query
-        assert f"<= {DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR}" in query
+        # Default behavior should NOT include QUALIFY limit (None = unlimited by default)
         assert "table_combo_rn = 1" in query
 
     def test_get_table_lineage_query_unlimited(self, query_builder):
-        """Test get_table_lineage_query with unlimited lineage (-1)."""
+        """Test get_table_lineage_query with unlimited lineage (None)."""
         connector_ids = ["connector_1"]
 
-        query = query_builder.get_table_lineage_query(connector_ids, max_lineage=-1)
+        query = query_builder.get_table_lineage_query(connector_ids, max_lineage=None)
 
-        # Should not contain QUALIFY clause for limiting
+        # Should NOT contain QUALIFY clause for limiting
         assert "QUALIFY ROW_NUMBER()" not in query
-        assert "table_combo_rn = 1" in query  # But should still have deduplication
+        # Should still have deduplication
+        assert "table_combo_rn = 1" in query
+        # Should have ORDER BY
+        assert "ORDER BY connection_id, created_at DESC" in query
+
+    def test_get_table_lineage_query_custom_limit(self, query_builder):
+        """Test get_table_lineage_query with custom limit."""
+        connector_ids = ["connector_1", "connector_2"]
+        custom_limit = 50
+
+        query = query_builder.get_table_lineage_query(
+            connector_ids, max_lineage=custom_limit
+        )
+
+        # Should contain QUALIFY clause with custom limit
+        assert "QUALIFY ROW_NUMBER()" in query
+        assert f"<= {custom_limit}" in query
+        # Should still have deduplication
+        assert "table_combo_rn = 1" in query
+
+    def test_get_table_lineage_query_default_limit(self, query_builder):
+        """Test get_table_lineage_query with explicit default limit."""
+        connector_ids = ["connector_1"]
+
+        query = query_builder.get_table_lineage_query(
+            connector_ids, max_lineage=DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR
+        )
+
+        # Should contain QUALIFY clause with default limit
+        assert "QUALIFY ROW_NUMBER()" in query
+        assert f"<= {DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR}" in query
+        assert "table_combo_rn = 1" in query
 
     def test_get_table_lineage_query_with_schema(self, query_builder):
         """Test get_table_lineage_query with schema clause."""
@@ -296,7 +327,9 @@ class TestFivetranLogQuery:
         ]
 
         sync_query = query_builder.get_sync_logs_query(7, connector_ids)
-        table_query = query_builder.get_table_lineage_query(connector_ids, 100)
+        table_query = query_builder.get_table_lineage_query(
+            connector_ids, max_lineage=100
+        )
         column_query = query_builder.get_column_lineage_query(connector_ids)
 
         # All queries should properly quote the connector IDs
@@ -316,7 +349,7 @@ class TestFivetranLogQuery:
         connectors_query = query_builder.get_connectors_query()
         users_query = query_builder.get_users_query()
         sync_query = query_builder.get_sync_logs_query(7, ["test"])
-        table_query = query_builder.get_table_lineage_query(["test"], 100)
+        table_query = query_builder.get_table_lineage_query(["test"], max_lineage=100)
         column_query = query_builder.get_column_lineage_query(["test"])
 
         # All queries should use the same schema clause
@@ -336,7 +369,7 @@ class TestFivetranLogQuery:
             query_builder.get_connectors_query(),
             query_builder.get_users_query(),
             query_builder.get_sync_logs_query(7, connector_ids),
-            query_builder.get_table_lineage_query(connector_ids, 100),
+            query_builder.get_table_lineage_query(connector_ids, max_lineage=100),
             query_builder.get_column_lineage_query(connector_ids),
         ]
 

@@ -77,7 +77,9 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
             raise ValueError("Enterprise mode requires fivetran_log_config")
         logger.info("Using enterprise mode with log tables")
         return FivetranLogAPI(
-            config.fivetran_log_config, config.max_column_lineage_per_connector
+            config.fivetran_log_config,
+            config.max_column_lineage_per_connector,
+            config.max_table_lineage_per_connector,
         )  # type: ignore
 
     # Explicit standard mode selection
@@ -107,7 +109,9 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
             if config.fivetran_log_config is None:
                 raise ValueError("Fivetran log config is None")
             enterprise_impl = FivetranLogAPI(
-                config.fivetran_log_config, config.max_column_lineage_per_connector
+                config.fivetran_log_config,
+                config.max_column_lineage_per_connector,
+                config.max_table_lineage_per_connector,
             )
             enterprise_impl.test_connection()  # Test the connection for fallback compatibility
             logger.info("Successfully connected using enterprise mode")
@@ -137,7 +141,9 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
             if config.fivetran_log_config is None:
                 raise ValueError("Fivetran log config is None")
             enterprise_impl = FivetranLogAPI(
-                config.fivetran_log_config, config.max_column_lineage_per_connector
+                config.fivetran_log_config,
+                config.max_column_lineage_per_connector,
+                config.max_table_lineage_per_connector,
             )
             # Note: FivetranLogAPI doesn't have test_connection method
             logger.info("Successfully connected using enterprise mode")

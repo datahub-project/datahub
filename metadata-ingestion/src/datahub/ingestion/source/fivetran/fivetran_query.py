@@ -1,7 +1,6 @@
 from typing import Any, Dict, List, Optional
 
 from datahub.ingestion.source.fivetran.fivetran_constants import (
-    DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
     MAX_JOBS_PER_CONNECTOR,
 )
 
@@ -108,7 +107,7 @@ ORDER BY connection_id, end_time DESC
     def get_table_lineage_query(
         self,
         connector_ids: List[str],
-        max_lineage: int = DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
+        max_lineage: Optional[int] = None,
     ) -> str:
         # Format connector_ids as a comma-separated string of quoted IDs
         formatted_connector_ids = ", ".join(f"'{id}'" for id in connector_ids)
@@ -116,7 +115,13 @@ ORDER BY connection_id, end_time DESC
         # Build base query
         base_query = f"""\
 SELECT
-    *
+    connection_id,
+    source_table_id,
+    source_table_name,
+    source_schema_name,
+    destination_table_id,
+    destination_table_name,
+    destination_schema_name
 FROM (
     SELECT
         stm.connection_id as connection_id,
@@ -138,11 +143,14 @@ FROM (
 -- Ensure that we only get back one entry per source and destination pair.
 WHERE table_combo_rn = 1"""
 
-        # Add QUALIFY clause only if max_lineage is positive (not unlimited)
-        if max_lineage > 0:
-            base_query += f"\nQUALIFY ROW_NUMBER() OVER (PARTITION BY connection_id ORDER BY created_at DESC) <= {max_lineage}"
+        # Add QUALIFY clause only if max_lineage is specified (not None)
+        if max_lineage is not None:
+            base_query += f"""
+QUALIFY ROW_NUMBER() OVER (PARTITION BY connection_id ORDER BY created_at DESC) <= {max_lineage}"""
 
-        base_query += "\nORDER BY connection_id, created_at DESC"
+        base_query += """
+ORDER BY connection_id, created_at DESC
+"""
 
         return base_query
 
