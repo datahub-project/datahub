@@ -2,16 +2,13 @@ import { PageTitle } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-
-const Card = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+const Card = styled.div`
     background-color: #ffffff;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-radius: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};`}
+    border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
+    box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
 `;
 
 const PageWrapper = styled(Card)<{ $hasBottomPanel?: boolean }>`
@@ -73,15 +70,12 @@ export function PageLayout({
     rightPanelContent,
     buttomPanelContent,
 }: React.PropsWithChildren<Props>) {
-    const isShowNavBarRedesign = useShowNavBarRedesign();
     return (
         <VerticalContainer>
             <HorizontalContainer>
-                {leftPanelContent && (
-                    <SidePannel $isShowNavBarRedesign={isShowNavBarRedesign}>{leftPanelContent}</SidePannel>
-                )}
+                {leftPanelContent && <SidePannel>{leftPanelContent}</SidePannel>}
 
-                <PageWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $hasBottomPanel={!!buttomPanelContent}>
+                <PageWrapper $hasBottomPanel={!!buttomPanelContent}>
                     {title && (
                         <PageTitleWrapper>
                             <PageTitle title={title} subTitle={subTitle} />
@@ -90,13 +84,9 @@ export function PageLayout({
                     <ContentWrapper>{children}</ContentWrapper>
                 </PageWrapper>
 
-                {rightPanelContent && (
-                    <SidePannel $isShowNavBarRedesign={isShowNavBarRedesign}>{rightPanelContent}</SidePannel>
-                )}
+                {rightPanelContent && <SidePannel>{rightPanelContent}</SidePannel>}
             </HorizontalContainer>
-            {buttomPanelContent && (
-                <BottomPanel $isShowNavBarRedesign={isShowNavBarRedesign}>{buttomPanelContent}</BottomPanel>
-            )}
+            {buttomPanelContent && <BottomPanel>{buttomPanelContent}</BottomPanel>}
         </VerticalContainer>
     );
 }

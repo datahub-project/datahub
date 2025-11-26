@@ -13,7 +13,7 @@ import { mapSourceTypeAliases, removeExecutionsFromIngestionSource } from '@app/
 import { PageRoutes } from '@conf/Global';
 
 import { useGetIngestionSourceQuery } from '@graphql/ingestion.generated';
-import { StringMapEntryInput } from '@types';
+import { IngestionSource, StringMapEntryInput } from '@types';
 
 const STEPS: IngestionSourceFormStep[] = [
     {
@@ -47,7 +47,7 @@ export function IngestionSourceUpdatePage() {
         },
     });
 
-    const createIngestionSource = useUpdateIngestionSource();
+    const updateIngestionSource = useUpdateIngestionSource();
 
     const formatExtraArgs = (extraArgs): StringMapEntryInput[] => {
         if (extraArgs === null || extraArgs === undefined) return [];
@@ -59,30 +59,34 @@ export function IngestionSourceUpdatePage() {
     const onSubmit = useCallback(
         async (data: SourceBuilderState | undefined) => {
             if (data) {
-                await createIngestionSource(urn, {
-                    type: data.type as string,
-                    name: data.name as string,
-                    config: {
-                        recipe: data.config?.recipe as string,
-                        version: (data.config?.version?.length && (data.config?.version as string)) || undefined,
-                        executorId:
-                            (data.config?.executorId?.length && (data.config?.executorId as string)) ||
-                            DEFAULT_EXECUTOR_ID,
-                        debugMode: data.config?.debugMode || false,
-                        extraArgs: formatExtraArgs(data.config?.extraArgs || []),
+                const source = ingestionSourceData?.ingestionSource as IngestionSource | undefined;
+                await updateIngestionSource(
+                    urn,
+                    {
+                        type: data.type as string,
+                        name: data.name as string,
+                        config: {
+                            recipe: data.config?.recipe as string,
+                            version: (data.config?.version?.length && (data.config?.version as string)) || undefined,
+                            executorId:
+                                (data.config?.executorId?.length && (data.config?.executorId as string)) ||
+                                DEFAULT_EXECUTOR_ID,
+                            debugMode: data.config?.debugMode || false,
+                            extraArgs: formatExtraArgs(data.config?.extraArgs || []),
+                        },
+                        schedule: data.schedule && {
+                            interval: data.schedule?.interval as string,
+                            timezone: data.schedule?.timezone as string,
+                        },
                     },
-                    schedule: data.schedule && {
-                        interval: data.schedule?.interval as string,
-                        timezone: data.schedule?.timezone as string,
-                    },
-                });
+                    [],
+                    source?.ownership?.owners || [],
+                );
             }
 
-            history.push(PageRoutes.INGESTION, {
-                create: true,
-            });
+            history.push(PageRoutes.INGESTION);
         },
-        [createIngestionSource, urn, history],
+        [updateIngestionSource, urn, history, ingestionSourceData],
     );
 
     const onCancel = useCallback(() => {

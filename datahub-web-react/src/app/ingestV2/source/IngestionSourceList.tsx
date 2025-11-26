@@ -1,7 +1,7 @@
 import { Pagination, SearchBar, SimpleSelect } from '@components';
 import { InputRef, message } from 'antd';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
+import { useHistory } from 'react-router';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -38,7 +38,9 @@ import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOn
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { useAddOwners } from '@app/sharedV2/owners/useAddOwners';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
+import { useUpdateOwners } from '@app/sharedV2/owners/useUpdateOwners';
 import usePagination from '@app/sharedV2/pagination/usePagination';
 import { PageRoutes } from '@conf/Global';
 
@@ -49,16 +51,7 @@ import {
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
-import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
-import {
-    Entity,
-    EntityType,
-    IngestionSource,
-    Owner,
-    OwnerEntityType,
-    SortCriterion,
-    UpdateIngestionSourceInput,
-} from '@types';
+import { Entity, IngestionSource, Owner, SortCriterion, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -156,7 +149,6 @@ export const IngestionSourceList = ({
     const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     const history = useHistory();
-    const location = useLocation();
 
     // Initialize search input from URL parameter
     useEffect(() => {
@@ -251,8 +243,9 @@ export const IngestionSourceList = ({
 
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
-    const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
-    const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
+
+    const addOwners = useAddOwners();
+    const updateOwners = useUpdateOwners();
 
     // Execution Request queries
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
@@ -343,47 +336,11 @@ export const IngestionSourceList = ({
     ) => {
         setIsModalWaiting(true);
 
-        // excluding `existingOwners` from `owners` to get only added owners
-        const ownersToAdd: Entity[] = (owners ?? []).filter(
-            (owner) => !(existingOwners ?? []).some((existingOwner) => existingOwner.owner.urn === owner.urn),
-        );
-        const ownersToAddInputs = ownersToAdd.map((owner) => ({
-            ownerUrn: owner.urn,
-            ownerEntityType: owner.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser,
-            ownershipTypeUrn: defaultOwnershipType?.urn,
-        }));
-
-        // excluding `owners` from `existingOwners` to get only removed owners
-        const ownersToRemove: Owner[] = (existingOwners ?? []).filter(
-            (existingOwner) => !owners?.some((owner) => existingOwner.owner.urn === owner.urn),
-        );
-        const ownersToRemoveUrns: string[] = ownersToRemove.map((owner) => owner.owner.urn);
-
         if (focusSourceUrn) {
             // Update
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
-                    if (ownersToAddInputs?.length) {
-                        batchAddOwnersMutation({
-                            variables: {
-                                input: {
-                                    owners: ownersToAddInputs,
-                                    resources: [{ resourceUrn: focusSourceUrn }],
-                                },
-                            },
-                        });
-                    }
-
-                    if (ownersToRemoveUrns?.length) {
-                        batchRemoveOwnersMutation({
-                            variables: {
-                                input: {
-                                    ownerUrns: ownersToRemoveUrns,
-                                    resources: [{ resourceUrn: focusSourceUrn }],
-                                },
-                            },
-                        });
-                    }
+                    updateOwners(owners, existingOwners, focusSourceUrn);
 
                     const updatedSource = {
                         config: {
@@ -457,17 +414,7 @@ export const IngestionSourceList = ({
                         __typename: 'IngestionSource' as const,
                     };
 
-                    if (ownersToAdd?.length) {
-                        batchAddOwnersMutation({
-                            variables: {
-                                input: {
-                                    owners: ownersToAddInputs,
-                                    resources: [{ resourceUrn: newSource.urn }],
-                                },
-                            },
-                        });
-                    }
-
+                    addOwners(owners, newSource.urn);
                     addToListIngestionSourcesCache(client, newSource, queryInputs);
                     setFinalSources((currSources) => [newSource, ...currSources]);
 
@@ -476,7 +423,7 @@ export const IngestionSourceList = ({
                         sourceType: input.type,
                         sourceUrn: newSource.urn,
                         interval: input.schedule?.interval,
-                        numOwners: ownersToAdd?.length,
+                        numOwners: owners?.length,
                         outcome: shouldRun ? 'save_and_run' : 'save',
                     });
                     message.success({
@@ -678,7 +625,7 @@ export const IngestionSourceList = ({
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
                 </HeaderContainer>
-                {!location.state?.create && !loading && data?.listIngestionSources?.total === 0 ? (
+                {!loading && data?.listIngestionSources?.total === 0 ? (
                     <EmptySources sourceType="sources" isEmptySearchResult={!!query} />
                 ) : (
                     <>
@@ -693,9 +640,7 @@ export const IngestionSourceList = ({
                                 onDelete={onDelete}
                                 onChangeSort={onChangeSort}
                                 isLoading={
-                                    !location.state?.create &&
-                                    loading &&
-                                    (!data || data?.listIngestionSources?.ingestionSources?.length === 0)
+                                    loading && (!data || data?.listIngestionSources?.ingestionSources?.length === 0)
                                 }
                                 shouldPreserveParams={shouldPreserveParams}
                                 isLastPage={isLastPage}

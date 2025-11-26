@@ -4,17 +4,15 @@ import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useExecuteIngestionSource } from '@app/ingestV2/source/hooks/useExecuteIngestionSource';
 import { useUpdateIngestionSource } from '@app/ingestV2/source/hooks/useUpdateSource';
-import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
+import { useUpdateOwners } from '@app/sharedV2/owners/useUpdateOwners';
 
 import { useUpdateIngestionSourceMutation } from '@graphql/ingestion.generated';
-import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
 import { EntityType, UpdateIngestionSourceInput } from '@types';
 
 // Mock all dependencies
 vi.mock('@app/ingestV2/source/hooks/useExecuteIngestionSource');
-vi.mock('@app/sharedV2/owners/useOwnershipTypes');
 vi.mock('@graphql/ingestion.generated');
-vi.mock('@graphql/mutations.generated');
+vi.mock('@app/sharedV2/owners/useUpdateOwners');
 vi.mock('antd', async () => {
     const actual = await vi.importActual('antd');
     return {
@@ -38,21 +36,17 @@ vi.mock('@app/analytics', () => ({
 }));
 
 describe('useUpdateIngestionSource', () => {
-    const mockDefaultOwnershipType = { urn: 'urn:li:ownershipType:default' };
     const mockExecuteSource = vi.fn();
     const mockUpdateIngestionSource = vi.fn();
-    const mockAddOwners = vi.fn();
+    const mockUpdateOwners = vi.fn();
 
     beforeEach(() => {
         vi.clearAllMocks();
 
         // Set up mock implementations
         (useExecuteIngestionSource as Mock).mockReturnValue(mockExecuteSource);
-        (useOwnershipTypes as Mock).mockReturnValue({
-            defaultOwnershipType: mockDefaultOwnershipType,
-        });
         (useUpdateIngestionSourceMutation as Mock).mockReturnValue([mockUpdateIngestionSource]);
-        (useBatchAddOwnersMutation as Mock).mockReturnValue([mockAddOwners]);
+        (useUpdateOwners as Mock).mockReturnValue(mockUpdateOwners);
     });
 
     it('should return a function', () => {
@@ -91,7 +85,7 @@ describe('useUpdateIngestionSource', () => {
         });
     });
 
-    it('should add owners when provided', async () => {
+    it('should update owners when provided', async () => {
         const mockSourceUrn = 'urn:li:ingestionSource:test-source';
         const mockInput: UpdateIngestionSourceInput = {
             name: 'Updated Source',
@@ -113,6 +107,17 @@ describe('useUpdateIngestionSource', () => {
             },
         ];
 
+        const mockExistingOwners = [
+            {
+                owner: {
+                    urn: 'urn:li:corpuser:existing-owner1',
+                    type: EntityType.CorpUser,
+                    username: 'existing-owner1',
+                },
+                associatedUrn: mockSourceUrn,
+            },
+        ];
+
         const mockUpdateResult = {
             data: {
                 updateIngestionSource: true,
@@ -124,7 +129,7 @@ describe('useUpdateIngestionSource', () => {
         const { result } = renderHook(() => useUpdateIngestionSource());
 
         await act(async () => {
-            await result.current(mockSourceUrn, mockInput, mockOwners);
+            await result.current(mockSourceUrn, mockInput, mockOwners, mockExistingOwners);
         });
 
         // Verify update was called
@@ -132,26 +137,8 @@ describe('useUpdateIngestionSource', () => {
             variables: { urn: mockSourceUrn, input: mockInput },
         });
 
-        // Verify addOwners was called with the correct parameters
-        expect(mockAddOwners).toHaveBeenCalledWith({
-            variables: {
-                input: {
-                    owners: [
-                        {
-                            ownerUrn: 'urn:li:corpuser:owner1',
-                            ownerEntityType: EntityType.CorpUser,
-                            ownershipTypeUrn: mockDefaultOwnershipType.urn,
-                        },
-                        {
-                            ownerUrn: 'urn:li:corpuser:owner2',
-                            ownerEntityType: EntityType.CorpUser,
-                            ownershipTypeUrn: mockDefaultOwnershipType.urn,
-                        },
-                    ],
-                    resources: [{ resourceUrn: mockSourceUrn }],
-                },
-            },
-        });
+        // Verify updateOwners was called with the correct parameters
+        expect(mockUpdateOwners).toHaveBeenCalledWith(mockOwners, mockExistingOwners, mockSourceUrn);
     });
 
     it('should handle CorpGroup entity type for owners', async () => {
@@ -172,6 +159,8 @@ describe('useUpdateIngestionSource', () => {
             },
         ];
 
+        const mockExistingOwners = [];
+
         const mockUpdateResult = {
             data: {
                 updateIngestionSource: true,
@@ -183,23 +172,10 @@ describe('useUpdateIngestionSource', () => {
         const { result } = renderHook(() => useUpdateIngestionSource());
 
         await act(async () => {
-            await result.current(mockSourceUrn, mockInput, mockOwnerGroup);
+            await result.current(mockSourceUrn, mockInput, mockOwnerGroup, mockExistingOwners);
         });
 
-        expect(mockAddOwners).toHaveBeenCalledWith({
-            variables: {
-                input: {
-                    owners: [
-                        {
-                            ownerUrn: 'urn:li:corpGroup:testgroup',
-                            ownerEntityType: 'CORP_GROUP',
-                            ownershipTypeUrn: mockDefaultOwnershipType.urn,
-                        },
-                    ],
-                    resources: [{ resourceUrn: mockSourceUrn }],
-                },
-            },
-        });
+        expect(mockUpdateOwners).toHaveBeenCalledWith(mockOwnerGroup, mockExistingOwners, mockSourceUrn);
     });
 
     it('should trigger execution when shouldRun is true', async () => {
@@ -224,7 +200,7 @@ describe('useUpdateIngestionSource', () => {
         const { result } = renderHook(() => useUpdateIngestionSource());
 
         await act(async () => {
-            await result.current(mockSourceUrn, mockInput, undefined, true);
+            await result.current(mockSourceUrn, mockInput, undefined, undefined, true);
         });
 
         expect(mockExecuteSource).toHaveBeenCalledWith(mockSourceUrn);
@@ -252,7 +228,7 @@ describe('useUpdateIngestionSource', () => {
         const { result } = renderHook(() => useUpdateIngestionSource());
 
         await act(async () => {
-            await result.current(mockSourceUrn, mockInput, undefined, false);
+            await result.current(mockSourceUrn, mockInput, undefined, undefined, false);
         });
 
         expect(mockExecuteSource).not.toHaveBeenCalled();
@@ -355,6 +331,58 @@ describe('useUpdateIngestionSource', () => {
         });
     });
 
+    it('should send analytics event with owners count when provided', async () => {
+        const mockSourceUrn = 'urn:li:ingestionSource:test-source';
+        const mockInput = {
+            name: 'Updated Source',
+            type: 'test-type',
+            schedule: { interval: '0 0 * * *', timezone: 'UTC' },
+            config: {
+                executorId: 'test',
+                recipe: 'test',
+            },
+        };
+
+        const mockOwners = [
+            {
+                urn: 'urn:li:corpuser:owner1',
+                type: EntityType.CorpUser,
+            },
+            {
+                urn: 'urn:li:corpuser:owner2',
+                type: EntityType.CorpUser,
+            },
+        ];
+
+        const mockExistingOwners = [];
+
+        const mockUpdateResult = {
+            data: {
+                updateIngestionSource: true,
+            },
+        };
+
+        mockUpdateIngestionSource.mockResolvedValue(mockUpdateResult);
+
+        // Mock analytics
+        const { result } = renderHook(() => useUpdateIngestionSource());
+
+        await act(async () => {
+            await result.current(mockSourceUrn, mockInput, mockOwners, mockExistingOwners);
+        });
+
+        // Get the actual analytics module to check the call
+        const analytics = await import('@app/analytics');
+        expect(analytics.default.event).toHaveBeenCalledWith({
+            type: 'UpdateIngestionSourceEvent',
+            sourceType: 'test-type',
+            sourceUrn: mockSourceUrn,
+            interval: '0 0 * * *',
+            numOwners: 2,
+            outcome: 'save',
+        });
+    });
+
     it('should send analytics event with save_and_run outcome when shouldRun is true', async () => {
         const mockSourceUrn = 'urn:li:ingestionSource:test-source';
         const mockInput = {
@@ -379,7 +407,7 @@ describe('useUpdateIngestionSource', () => {
         const { result } = renderHook(() => useUpdateIngestionSource());
 
         await act(async () => {
-            await result.current(mockSourceUrn, mockInput, undefined, true);
+            await result.current(mockSourceUrn, mockInput, undefined, undefined, true);
         });
 
         // Get the actual analytics module to check the call
@@ -391,40 +419,6 @@ describe('useUpdateIngestionSource', () => {
             interval: '0 0 * * *',
             numOwners: undefined,
             outcome: 'save_and_run',
-        });
-    });
-
-    it('should handle default ownership type being undefined', async () => {
-        (useOwnershipTypes as Mock).mockReturnValue({
-            defaultOwnershipType: undefined,
-        });
-
-        const mockSourceUrn = 'urn:li:ingestionSource:test-source';
-        const mockInput = {
-            name: 'Updated Source',
-            type: 'test-type',
-            config: {
-                executorId: 'test',
-                recipe: 'test',
-            },
-        };
-
-        const mockUpdateResult = {
-            data: {
-                updateIngestionSource: true,
-            },
-        };
-
-        mockUpdateIngestionSource.mockResolvedValue(mockUpdateResult);
-
-        const { result } = renderHook(() => useUpdateIngestionSource());
-
-        await act(async () => {
-            await result.current(mockSourceUrn, mockInput);
-        });
-
-        expect(mockUpdateIngestionSource).toHaveBeenCalledWith({
-            variables: { urn: mockSourceUrn, input: mockInput },
         });
     });
 });

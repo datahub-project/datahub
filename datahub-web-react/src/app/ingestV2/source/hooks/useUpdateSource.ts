@@ -3,43 +3,29 @@ import { useCallback } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
 import { useExecuteIngestionSource } from '@app/ingestV2/source/hooks/useExecuteIngestionSource';
-import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
+import { useUpdateOwners } from '@app/sharedV2/owners/useUpdateOwners';
 
 import { useUpdateIngestionSourceMutation } from '@graphql/ingestion.generated';
-import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
-import { Entity, EntityType, OwnerEntityType, UpdateIngestionSourceInput } from '@types';
+import { Entity, Owner, UpdateIngestionSourceInput } from '@types';
 
 export function useUpdateIngestionSource() {
     const executeIngestionSource = useExecuteIngestionSource();
 
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
 
-    const [addOwners] = useBatchAddOwnersMutation();
-
-    const { defaultOwnershipType } = useOwnershipTypes();
+    const updateOwners = useUpdateOwners();
 
     const createSource = useCallback(
-        async (sourceUrn: string, input: UpdateIngestionSourceInput, owners?: Entity[], shouldRun?: boolean) => {
-            const ownerInputs = owners?.map((owner) => {
-                return {
-                    ownerUrn: owner.urn,
-                    ownerEntityType:
-                        owner.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser,
-                    ownershipTypeUrn: defaultOwnershipType?.urn,
-                };
-            });
+        async (
+            sourceUrn: string,
+            input: UpdateIngestionSourceInput,
+            owners?: Entity[],
+            existingOwners?: Owner[],
+            shouldRun?: boolean,
+        ) => {
             updateIngestionSource({ variables: { urn: sourceUrn as string, input } })
                 .then(() => {
-                    if (ownerInputs?.length) {
-                        addOwners({
-                            variables: {
-                                input: {
-                                    owners: ownerInputs,
-                                    resources: [{ resourceUrn: sourceUrn }],
-                                },
-                            },
-                        });
-                    }
+                    updateOwners(owners, existingOwners, sourceUrn);
 
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
@@ -63,7 +49,7 @@ export function useUpdateIngestionSource() {
                     });
                 });
         },
-        [addOwners, defaultOwnershipType?.urn, executeIngestionSource, updateIngestionSource],
+        [updateOwners, executeIngestionSource, updateIngestionSource],
     );
 
     return createSource;
