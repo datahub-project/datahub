@@ -94,6 +94,7 @@ Supported operators:
 - `RedshiftSQLOperator`
 - `SnowflakeOperator` and `SnowflakeOperatorAsync`
 - `SqliteOperator`
+- `TeradataOperator`
 - `TrinoOperator`
 
 <!--
