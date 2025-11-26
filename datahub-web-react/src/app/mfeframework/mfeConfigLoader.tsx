@@ -20,27 +20,10 @@ export interface MFEConfig {
     navIcon: string;
 }
 
-/**
- * InvalidMFEConfig: Type for an invalid micro frontend config entry.
- * - invalid: true
- * - errorMessages: array of validation errors for this entry
- * - id: optional, for easier debugging/logging
- * - [key: string]: any; allows for partial/invalid configs
- */
-export interface InvalidMFEConfig {
-    invalid: true;
-    errorMessages: string[];
-    id?: string;
-    [key: string]: any;
-}
-
-// MFEConfigEntry: Union type for either a valid or invalid config entry.
-export type MFEConfigEntry = MFEConfig | InvalidMFEConfig;
-
-// MFESchema: The overall config schema, with a union array for microFrontends.
+// MFESchema: The overall config schema.
 export interface MFESchema {
     subNavigationMode: boolean;
-    microFrontends: MFEConfigEntry[];
+    microFrontends: MFEConfig[];
 }
 
 const REQUIRED_FIELDS: (keyof MFEConfig)[] = ['id', 'label', 'path', 'remoteEntry', 'module', 'flags', 'navIcon'];
@@ -49,10 +32,9 @@ const REQUIRED_FIELDS: (keyof MFEConfig)[] = ['id', 'label', 'path', 'remoteEntr
  * validateMFEConfig:
  * - Validates a single micro frontend config entry.
  * - Collects all validation errors for the entry.
- * - Returns a valid MFEConfig if no errors, otherwise returns InvalidMFEConfig with all error messages.
- * - This allows the loader to keep all entries (valid and invalid) and not throw on the first error.
+ * - Returns the valid MFEConfig if no errors, otherwise returns null and logs all errors.
  */
-export function validateMFEConfig(config: any): MFEConfigEntry {
+export function validateMFEConfig(config: any): MFEConfig | null {
     const errors: string[] = [];
 
     REQUIRED_FIELDS.forEach((field) => {
@@ -75,13 +57,10 @@ export function validateMFEConfig(config: any): MFEConfigEntry {
         errors.push('[MFE Loader] navIcon must be a non-empty string');
     }
 
-    // If any errors, return as InvalidMFEConfig (with all errors collected)
+    // If any errors, log them and return null
     if (errors.length > 0) {
-        return {
-            ...config,
-            invalid: true,
-            errorMessages: errors,
-        };
+        console.error(`[MFE Loader] Invalid config for entry (id: ${config.id || 'unknown'}):`, errors);
+        return null;
     }
     // Otherwise, return as valid MFEConfig
     return config as MFEConfig;
@@ -90,8 +69,8 @@ export function validateMFEConfig(config: any): MFEConfigEntry {
 /**
  * loadMFEConfigFromYAML:
  * - Loads and parses the YAML config string.
- * - Validates each micro frontend entry, collecting errors but not throwing for individual entries.
- * - Returns the parsed schema with both valid and invalid entries.
+ * - Validates each micro frontend entry, logging errors for invalid entries.
+ * - Returns the parsed schema with only valid entries.
  * - Throws only if the overall YAML is malformed or missing the microFrontends array.
  */
 export function loadMFEConfigFromYAML(yamlString: string): MFESchema {
@@ -103,8 +82,10 @@ export function loadMFEConfigFromYAML(yamlString: string): MFESchema {
             console.error('[MFE Loader] Invalid YAML: missing microFrontends array:', parsed);
             throw new Error('[MFE Loader] Invalid YAML: missing microFrontends array');
         }
-        // Validate each entry, keeping both valid and invalid ones
-        parsed.microFrontends = parsed.microFrontends.map(validateMFEConfig);
+        // Validate each entry, filtering out invalid ones
+        parsed.microFrontends = parsed.microFrontends
+            .map(validateMFEConfig)
+            .filter((config): config is MFEConfig => config !== null);
         return parsed;
     } catch (e) {
         console.error('[MFE Loader] Error parsing YAML:', e);
@@ -140,12 +121,9 @@ export function useDynamicRoutes(): JSX.Element[] {
     const mfeConfig = useMFEConfigFromBackend();
     if (!mfeConfig) return [];
     // TODO- Reintroduce useMemo() hook here. Make it work with getting yaml from api as a react hook.
-    const isValidMFEConfig = (entry: MFEConfigEntry): entry is MFEConfig => !('invalid' in entry && entry.invalid);
-    return mfeConfig.microFrontends
-        .filter(isValidMFEConfig)
-        .map((mfe) => (
-            <Route key={mfe.path} path={`/mfe${mfe.path}`} render={() => <MFEBaseConfigurablePage config={mfe} />} />
-        ));
+    return mfeConfig.microFrontends.map((mfe) => (
+        <Route key={mfe.path} path={`/mfe${mfe.path}`} render={() => <MFEBaseConfigurablePage config={mfe} />} />
+    ));
 }
 
 // Constant to store the dynamic routes hook
