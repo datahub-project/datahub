@@ -19,6 +19,7 @@ import {
     MoveDocumentDocument,
     UpdateDocumentContentsDocument,
 } from '@graphql/document.generated';
+import { DocumentState } from '@types';
 
 // Mock antd message
 vi.mock('antd', () => ({
@@ -64,6 +65,8 @@ describe('useDocumentTreeMutations', () => {
                                 parentDocument: null,
                                 subType: undefined,
                                 contents: { text: '' },
+                                state: DocumentState.Published,
+                                settings: { showInGlobalContext: true },
                             },
                         },
                     },
@@ -85,7 +88,7 @@ describe('useDocumentTreeMutations', () => {
 
             const { result } = renderHook(() => useCreateDocumentTreeMutation(), { wrapper });
 
-            const createdUrn = result.current.createDocument({
+            const createdUrnPromise = result.current.createDocument({
                 title: 'New Document',
                 parentDocument: null,
             });
@@ -101,7 +104,7 @@ describe('useDocumentTreeMutations', () => {
                 );
             });
 
-            const urn = await createdUrn;
+            const urn = await createdUrnPromise;
 
             // Should replace temp node with real node
             await waitFor(() => {
@@ -146,6 +149,8 @@ describe('useDocumentTreeMutations', () => {
                                 parentDocument: null,
                                 subType: undefined,
                                 contents: { text: '' },
+                                state: DocumentState.Published,
+                                settings: { showInGlobalContext: true },
                             },
                         },
                     },
@@ -204,6 +209,8 @@ describe('useDocumentTreeMutations', () => {
                                 parentDocument: parentUrn,
                                 subType: 'guide',
                                 contents: { text: '' },
+                                state: DocumentState.Published,
+                                settings: { showInGlobalContext: true },
                             },
                         },
                     },
@@ -225,14 +232,23 @@ describe('useDocumentTreeMutations', () => {
 
             const { result } = renderHook(() => useCreateDocumentTreeMutation(), { wrapper });
 
-            const createdUrn = await result.current.createDocument({
+            const createdUrnPromise = result.current.createDocument({
                 title: 'Child Document',
                 parentDocument: parentUrn,
                 subType: 'guide',
             });
 
+            // Wait for optimistic node to be added
+            await waitFor(() => {
+                expect(mockAddNode).toHaveBeenCalled();
+            });
+
+            const createdUrn = await createdUrnPromise;
+
             expect(createdUrn).toBe(newUrn);
-            expect(mockAddNode).toHaveBeenCalledWith(
+            // Should have been called twice: once with temp URN, once with real URN
+            expect(mockAddNode).toHaveBeenCalledTimes(2);
+            expect(mockAddNode).toHaveBeenLastCalledWith(
                 expect.objectContaining({
                     urn: newUrn,
                     title: 'Child Document',
