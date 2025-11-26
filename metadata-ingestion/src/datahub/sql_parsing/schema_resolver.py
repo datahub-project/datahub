@@ -66,6 +66,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         graph: Optional[DataHubGraph] = None,
         _cache_filename: Optional[pathlib.Path] = None,
         report: Optional[SchemaResolverReport] = None,
+        prefer_lowercase: Optional[bool] = None,
     ):
         # Also supports platform with an urn prefix.
         self._platform = DataPlatformUrn(platform).platform_name
@@ -74,6 +75,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         self.graph = graph
         self.report = report
+
+        # Store the prefer_lowercase override. If None, use platform-based defaults.
+        self._prefer_lowercase_override = prefer_lowercase
 
         # Init cache, potentially restoring from a previous run.
         shared_conn = None
@@ -183,6 +187,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             return urn, None
 
     def _prefers_urn_lower(self) -> bool:
+        # Check for explicit override first (e.g., from source config)
+        if self._prefer_lowercase_override is not None:
+            return self._prefer_lowercase_override
+
+        # Fall back to platform-based defaults
         return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
     def has_urn(self, urn: str) -> bool:
