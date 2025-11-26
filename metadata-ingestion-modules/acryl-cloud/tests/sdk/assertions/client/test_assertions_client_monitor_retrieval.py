@@ -1,12 +1,14 @@
-"""Tests for monitor retrieval logic in AssertionsClient.
+"""Tests for monitor retrieval logic.
 
-This test suite focuses on the _retrieve_assertion_and_monitor method
+This test suite focuses on the retrieve_assertion_and_monitor_by_urn helper function
 to ensure it correctly finds monitor entities associated with assertions.
 """
 
 from typing import Iterable, Optional
 
-from acryl_datahub_cloud.sdk.assertions_client import AssertionsClient
+from acryl_datahub_cloud.sdk.assertion_client.helpers import (
+    retrieve_assertion_and_monitor_by_urn,
+)
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import Monitor
 from datahub.metadata import schema_classes as models
@@ -87,16 +89,9 @@ class TestMonitorRetrieval:
         client = StubDataHubClient(entity_client=entity_client)
         client.search = mock_search  # type: ignore
 
-        assertions_client = AssertionsClient(client)  # type: ignore
-
         # Execute
-        assertion_input = {
-            "dataset_urn": dataset_urn,
-            "urn": assertion_urn,
-        }
-
         result_assertion, result_monitor_urn, result_monitor = (
-            assertions_client._retrieve_assertion_and_monitor(assertion_input)  # type: ignore
+            retrieve_assertion_and_monitor_by_urn(client, assertion_urn, dataset_urn)  # type: ignore
         )
 
         # Assert
@@ -139,16 +134,9 @@ class TestMonitorRetrieval:
         client = StubDataHubClient(entity_client=entity_client)
         client.search = mock_search  # type: ignore
 
-        assertions_client = AssertionsClient(client)  # type: ignore
-
         # Execute
-        assertion_input = {
-            "dataset_urn": dataset_urn,
-            "urn": assertion_urn,
-        }
-
         result_assertion, result_monitor_urn, result_monitor = (
-            assertions_client._retrieve_assertion_and_monitor(assertion_input)  # type: ignore
+            retrieve_assertion_and_monitor_by_urn(client, assertion_urn, dataset_urn)  # type: ignore
         )
 
         # Assert
@@ -194,16 +182,9 @@ class TestMonitorRetrieval:
         client = StubDataHubClient(entity_client=entity_client)
         client.search = mock_search  # type: ignore
 
-        assertions_client = AssertionsClient(client)  # type: ignore
-
         # Execute - should not raise exception
-        assertion_input = {
-            "dataset_urn": dataset_urn,
-            "urn": assertion_urn,
-        }
-
         result_assertion, result_monitor_urn, result_monitor = (
-            assertions_client._retrieve_assertion_and_monitor(assertion_input)  # type: ignore
+            retrieve_assertion_and_monitor_by_urn(client, assertion_urn, dataset_urn)  # type: ignore
         )
 
         # Assert - monitor URN should be from search, but entity is None
@@ -254,16 +235,9 @@ class TestMonitorRetrieval:
         client = StubDataHubClient(entity_client=entity_client)
         client.search = mock_search  # type: ignore
 
-        assertions_client = AssertionsClient(client)  # type: ignore
-
         # Execute
-        assertion_input = {
-            "dataset_urn": dataset_urn,
-            "urn": assertion_urn,
-        }
-
         result_assertion, result_monitor_urn, result_monitor = (
-            assertions_client._retrieve_assertion_and_monitor(assertion_input)  # type: ignore
+            retrieve_assertion_and_monitor_by_urn(client, assertion_urn, dataset_urn)  # type: ignore
         )
 
         # Assert - should use the first monitor
@@ -303,16 +277,9 @@ class TestMonitorRetrieval:
         client = StubDataHubClient(entity_client=entity_client)
         client.search = mock_search  # type: ignore
 
-        assertions_client = AssertionsClient(client)  # type: ignore
-
         # Execute
-        assertion_input = {
-            "dataset_urn": dataset_urn,
-            "urn": assertion_urn,
-        }
-
         result_assertion, result_monitor_urn, result_monitor = (
-            assertions_client._retrieve_assertion_and_monitor(assertion_input)  # type: ignore
+            retrieve_assertion_and_monitor_by_urn(client, assertion_urn, dataset_urn)  # type: ignore
         )
 
         # Assert
@@ -343,15 +310,8 @@ class TestMonitorRetrieval:
         client = StubDataHubClient(entity_client=entity_client)
         client.search = mock_search  # type: ignore
 
-        assertions_client = AssertionsClient(client)  # type: ignore
-
         # Execute
-        assertion_input = {
-            "dataset_urn": dataset_urn,
-            "urn": assertion_urn,
-        }
-
-        assertions_client._retrieve_assertion_and_monitor(assertion_input)  # type: ignore
+        retrieve_assertion_and_monitor_by_urn(client, assertion_urn, dataset_urn)  # type: ignore
 
         # Assert - check that filter was created
         assert mock_search.last_filter is not None
@@ -398,16 +358,63 @@ class TestMonitorRetrieval:
         client = StubDataHubClient(entity_client=entity_client)
         client.search = mock_search  # type: ignore
 
-        assertions_client = AssertionsClient(client)  # type: ignore
-
-        # Execute - pass URN objects instead of strings
-        assertion_input = {
-            "dataset_urn": dataset_urn,  # DatasetUrn object
-            "urn": assertion_urn,  # AssertionUrn object
-        }
-
+        # Execute - pass URN objects
         result_assertion, result_monitor_urn, result_monitor = (
-            assertions_client._retrieve_assertion_and_monitor(assertion_input)  # type: ignore
+            retrieve_assertion_and_monitor_by_urn(client, assertion_urn, dataset_urn)  # type: ignore
+        )
+
+        # Assert
+        assert result_assertion is not None
+        assert result_monitor_urn == monitor_urn
+        assert result_monitor is not None
+
+    def test_retrieve_with_string_urns(self):
+        """Test that the method works with string URNs."""
+        # Setup
+        dataset_urn_str = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)"
+        )
+        assertion_urn_str = "urn:li:assertion:test_assertion"
+        dataset_urn = DatasetUrn.from_string(dataset_urn_str)
+        assertion_urn = AssertionUrn.from_string(assertion_urn_str)
+
+        monitor_urn = MonitorUrn(entity=dataset_urn, id="custom_monitor")
+
+        monitor_entity = Monitor(
+            id=monitor_urn,
+            info=models.MonitorInfoClass(
+                type=models.MonitorTypeClass.ASSERTION,
+                status=models.MonitorStatusClass(
+                    mode=models.MonitorModeClass.ACTIVE,
+                ),
+            ),
+        )
+
+        assertion_entity = Assertion(
+            id=assertion_urn,
+            info=models.FreshnessAssertionInfoClass(
+                type=models.FreshnessAssertionTypeClass.DATASET_CHANGE,
+                entity=str(dataset_urn),
+            ),
+        )
+
+        entity_client = StubEntityClient(
+            monitor_entity=monitor_entity,
+            assertion_entity=assertion_entity,
+        )
+
+        mock_search = MockSearchClient(monitor_urns=[monitor_urn])
+
+        client = StubDataHubClient(entity_client=entity_client)
+        client.search = mock_search  # type: ignore
+
+        # Execute - pass string URNs
+        result_assertion, result_monitor_urn, result_monitor = (
+            retrieve_assertion_and_monitor_by_urn(
+                client,  # type: ignore[arg-type]
+                assertion_urn_str,
+                dataset_urn_str,
+            )
         )
 
         # Assert
