@@ -49,6 +49,12 @@ extend type Mutation {
   Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for both documents, or MANAGE_DOCUMENTS platform privilege.
   """
   mergeDraft(input: MergeDraftInput!): Boolean!
+
+  """
+  Update the settings of a Document (e.g., visibility in sidebar).
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  updateDocumentSettings(input: UpdateDocumentSettingsInput!): Boolean!
 }
 
 extend type Query {
@@ -61,6 +67,13 @@ extend type Query {
   """
   Search Documents with hybrid semantic search and filtering support.
   Supports filtering by parent document, types, domains, and semantic query.
+
+  Results are automatically filtered based on document visibility:
+  - PUBLISHED documents are shown to all users
+  - UNPUBLISHED documents are only shown if owned by the current user or a group they belong to
+
+  This ensures that unpublished documents remain private to their owners while published
+  documents are discoverable by everyone.
   """
   searchDocuments(input: SearchDocumentsInput!): SearchDocumentsResult!
 }
@@ -83,6 +96,11 @@ type Document implements Entity {
   Information about the Document
   """
   info: DocumentInfo
+
+  """
+  Settings specific to the Document
+  """
+  settings: DocumentSettings
 
   """
   The sub-type of the Document (e.g., "FAQ", "Tutorial", "Reference", etc.)
@@ -357,6 +375,18 @@ enum DocumentState {
 }
 
 """
+Settings specific to a Document
+"""
+type DocumentSettings {
+  """
+  Whether or not this document should be visible in the global context (e.g., global navigation, knowledge base search).
+  When false, the document is accessible primarily through the assets it is related to.
+  When true, the document appears in the global documents space accessible to all users.
+  """
+  showInGlobalContext: Boolean!
+}
+
+"""
 Input required to create a new Document
 """
 input CreateDocumentInput {
@@ -412,6 +442,39 @@ input CreateDocumentInput {
   Draft documents should have UNPUBLISHED state and will be hidden from normal knowledge base browsing.
   """
   draftFor: String
+
+  """
+  Optional settings for the document. If not provided, defaults will be used.
+  Documents created from the UI sidebar will always have showInGlobalContext=true.
+  API/programmatic clients can set showInGlobalContext=false to create private context documents.
+  """
+  settings: DocumentSettingsInput
+}
+
+"""
+Input for Document settings
+"""
+input DocumentSettingsInput {
+  """
+  Whether or not this document should be visible in the global context (e.g., global navigation, knowledge base search).
+  Defaults to true if not specified.
+  """
+  showInGlobalContext: Boolean
+}
+
+"""
+Input required to update the settings of a Document
+"""
+input UpdateDocumentSettingsInput {
+  """
+  The URN of the Document to update
+  """
+  urn: String!
+
+  """
+  Whether or not this document should be visible in the global context
+  """
+  showInGlobalContext: Boolean!
 }
 
 """
@@ -515,7 +578,13 @@ input UpdateDocumentSubTypeInput {
 }
 
 """
-Input required when searching Documents
+Input required when searching Documents.
+
+Search results are automatically filtered based on document visibility and ownership:
+- PUBLISHED documents are returned for all users
+- UNPUBLISHED documents are only returned if owned by the current user or a group they belong to
+
+This ensures private/unpublished documents remain visible only to their owners.
 """
 input SearchDocumentsInput {
   """
@@ -561,8 +630,19 @@ input SearchDocumentsInput {
   domains: [String!]
 
   """
-  Optional list of document states to filter by (ANDed with other filters).
-  If not provided, defaults to PUBLISHED only.
+  Optional list of related asset URNs to filter by (ANDed with other filters).
+  Returns documents that are related to ANY of the provided asset URNs.
+  """
+  relatedAssets: [String!]
+
+  """
+  DEPRECATED: This field is no longer used for filtering.
+
+  Document visibility is now automatically determined by ownership:
+  - PUBLISHED documents are shown to all users
+  - UNPUBLISHED documents are only shown if owned by the current user or their groups
+
+  This field is maintained for backward compatibility but has no effect on search results.
   """
   states: [DocumentState!]
 
