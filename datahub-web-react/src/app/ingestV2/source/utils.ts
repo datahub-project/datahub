@@ -5,8 +5,6 @@ import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import YAML from 'yamljs';
 
-import { SortingState } from '@components/components/Table/types';
-
 import EntityRegistry from '@app/entity/EntityRegistry';
 import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
 import {
@@ -529,14 +527,10 @@ export const extractEntityTypeCountsFromFacets = (
     return finalCounts;
 };
 
-export function getSortInput(field: string, order: SortingState): SortCriterion | undefined {
-    if (order === SortingState.ORIGINAL) return undefined;
-
-    return {
-        sortOrder: order === SortingState.ASCENDING ? SortOrder.Ascending : SortOrder.Descending,
-        field,
-    };
-}
+export const DEFAULT_SOURCE_SORT_CRITERION: SortCriterion = {
+    sortOrder: SortOrder.Ascending,
+    field: 'type',
+};
 
 export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): FacetFilterInput => {
     return hideSystemSources

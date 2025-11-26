@@ -24,7 +24,11 @@ import {
     removeFromListIngestionSourcesCache,
     updateListIngestionSourcesCache,
 } from '@app/ingestV2/source/cacheUtils';
-import { buildOwnerEntities, getIngestionSourceSystemFilter, getSortInput } from '@app/ingestV2/source/utils';
+import {
+    DEFAULT_SOURCE_SORT_CRITERION,
+    buildOwnerEntities,
+    getIngestionSourceSystemFilter,
+} from '@app/ingestV2/source/utils';
 import { TabType } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
@@ -185,6 +189,10 @@ export const IngestionSourceList = ({
     };
 
     const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
+    // Where there's a query, we let elastic scores determine the sorting
+    const [sort, setSort] = useState<SortCriterion | undefined>(
+        searchQueryFromUrl?.length ? undefined : DEFAULT_SOURCE_SORT_CRITERION,
+    );
 
     const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
@@ -200,7 +208,6 @@ export const IngestionSourceList = ({
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
-    const [sort, setSort] = useState<SortCriterion>();
 
     const sourceFilter = sourceFilterFromUrl ?? IngestionSourceType.ALL;
 
@@ -214,6 +221,15 @@ export const IngestionSourceList = ({
         300,
         [searchInput],
     );
+
+    // Where there's a query, we let elastic scores determine the sorting
+    useEffect(() => {
+        if (query) {
+            setSort(undefined);
+        } else {
+            setSort(DEFAULT_SOURCE_SORT_CRITERION);
+        }
+    }, [query]);
 
     // When source filter changes, reset page to 1
     useEffect(() => {
@@ -650,10 +666,6 @@ export const IngestionSourceList = ({
         setFocusSourceUrn(undefined);
     };
 
-    const onChangeSort = useCallback((field, order) => {
-        setSort(getSortInput(field, order));
-    }, []);
-
     const handleSetFocusExecutionUrn = useCallback((val) => setFocusExecutionUrn(val), []);
 
     return (
@@ -704,7 +716,6 @@ export const IngestionSourceList = ({
                                 onEdit={onEdit}
                                 onView={onView}
                                 onDelete={onDelete}
-                                onChangeSort={onChangeSort}
                                 isLoading={
                                     loading && (!data || data?.listIngestionSources?.ingestionSources?.length === 0)
                                 }
