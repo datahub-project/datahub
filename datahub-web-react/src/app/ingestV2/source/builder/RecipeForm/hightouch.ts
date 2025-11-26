@@ -96,4 +96,3 @@ export const HIGHTOUCH_MODEL_DENY: RecipeField = {
     section: 'Models',
     placeholder: 'draft-.*',
 };
-

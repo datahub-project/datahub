@@ -20,17 +20,6 @@ import {
     BIGQUERY_PRIVATE_KEY_ID,
 } from '@app/ingest/source/builder/RecipeForm/bigquery';
 import {
-    HIGHTOUCH_API_KEY,
-    HIGHTOUCH_EMIT_MODELS,
-    HIGHTOUCH_INCLUDE_COLUMN_LINEAGE,
-    HIGHTOUCH_INCLUDE_SYNC_RUNS,
-    HIGHTOUCH_MAX_SYNC_RUNS,
-    HIGHTOUCH_MODEL_ALLOW,
-    HIGHTOUCH_MODEL_DENY,
-    HIGHTOUCH_SYNC_ALLOW,
-    HIGHTOUCH_SYNC_DENY,
-} from '@app/ingest/source/builder/RecipeForm/hightouch';
-import {
     BIGQUERY_BETA_PROJECT_ID,
     DATASET_ALLOW,
     DATASET_DENY,
@@ -84,6 +73,17 @@ import {
     TARGET_PLATFORM,
     TARGET_PLATFORM_INSTANCE,
 } from '@app/ingest/source/builder/RecipeForm/dbt_cloud';
+import {
+    HIGHTOUCH_API_KEY,
+    HIGHTOUCH_EMIT_MODELS,
+    HIGHTOUCH_INCLUDE_COLUMN_LINEAGE,
+    HIGHTOUCH_INCLUDE_SYNC_RUNS,
+    HIGHTOUCH_MAX_SYNC_RUNS,
+    HIGHTOUCH_MODEL_ALLOW,
+    HIGHTOUCH_MODEL_DENY,
+    HIGHTOUCH_SYNC_ALLOW,
+    HIGHTOUCH_SYNC_DENY,
+} from '@app/ingest/source/builder/RecipeForm/hightouch';
 import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,

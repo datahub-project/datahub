@@ -27,4 +27,3 @@ const hightouchConfig: SourceConfig = {
 };
 
 export default hightouchConfig;
-

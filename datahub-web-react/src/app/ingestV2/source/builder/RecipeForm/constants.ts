@@ -14,17 +14,6 @@ import {
     USER_DENY,
 } from '@app/ingestV2/source/builder/RecipeForm/azure';
 import {
-    HIGHTOUCH_API_KEY,
-    HIGHTOUCH_EMIT_MODELS,
-    HIGHTOUCH_INCLUDE_COLUMN_LINEAGE,
-    HIGHTOUCH_INCLUDE_SYNC_RUNS,
-    HIGHTOUCH_MAX_SYNC_RUNS,
-    HIGHTOUCH_MODEL_ALLOW,
-    HIGHTOUCH_MODEL_DENY,
-    HIGHTOUCH_SYNC_ALLOW,
-    HIGHTOUCH_SYNC_DENY,
-} from '@app/ingestV2/source/builder/RecipeForm/hightouch';
-import {
     BIGQUERY_CLIENT_EMAIL,
     BIGQUERY_CLIENT_ID,
     BIGQUERY_PRIVATE_KEY,
@@ -84,6 +73,17 @@ import {
     TARGET_PLATFORM,
     TARGET_PLATFORM_INSTANCE,
 } from '@app/ingestV2/source/builder/RecipeForm/dbt_cloud';
+import {
+    HIGHTOUCH_API_KEY,
+    HIGHTOUCH_EMIT_MODELS,
+    HIGHTOUCH_INCLUDE_COLUMN_LINEAGE,
+    HIGHTOUCH_INCLUDE_SYNC_RUNS,
+    HIGHTOUCH_MAX_SYNC_RUNS,
+    HIGHTOUCH_MODEL_ALLOW,
+    HIGHTOUCH_MODEL_DENY,
+    HIGHTOUCH_SYNC_ALLOW,
+    HIGHTOUCH_SYNC_DENY,
+} from '@app/ingestV2/source/builder/RecipeForm/hightouch';
 import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
