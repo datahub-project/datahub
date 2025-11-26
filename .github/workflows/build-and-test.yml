@@ -123,6 +123,7 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
+            -x :docker:build \
             -x :metadata-integration:java:datahub-schematron:cli:test
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
