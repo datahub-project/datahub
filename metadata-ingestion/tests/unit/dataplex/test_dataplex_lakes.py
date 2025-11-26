@@ -1,7 +1,7 @@
 """Unit tests for Dataplex lake extraction."""
 
 import datetime
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -100,18 +100,26 @@ def mock_metadata_client() -> Mock:
 
 
 @pytest.fixture
+@patch("google.cloud.dataplex_v1.CatalogServiceClient")
+@patch("google.cloud.dataplex_v1.MetadataServiceClient")
+@patch("google.cloud.dataplex_v1.DataplexServiceClient")
 def dataplex_source(
+    mock_dataplex_client_class: Mock,
+    mock_metadata_client_class: Mock,
+    mock_catalog_client_class: Mock,
     dataplex_config: DataplexConfig,
     dataplex_report: DataplexReport,
     mock_dataplex_client: Mock,
     mock_metadata_client: Mock,
 ) -> DataplexSource:
     """Create a DataplexSource with mocked clients."""
+    # Configure mock client classes to return our mock instances
+    mock_dataplex_client_class.return_value = mock_dataplex_client
+    mock_metadata_client_class.return_value = mock_metadata_client
+    mock_catalog_client_class.return_value = Mock()
+
     ctx = PipelineContext(run_id="test-run")
     source = DataplexSource(ctx, dataplex_config)
-    source.dataplex_client = mock_dataplex_client
-    source.metadata_client = mock_metadata_client
-    source.catalog_client = Mock()
     source.report = dataplex_report
     return source
 
@@ -338,20 +346,28 @@ def test_get_lakes_mcps_subtypes(dataplex_source: DataplexSource) -> None:
     assert "Dataplex Lake" in container_aspect.typeNames
 
 
+@patch("google.cloud.dataplex_v1.CatalogServiceClient")
+@patch("google.cloud.dataplex_v1.MetadataServiceClient")
+@patch("google.cloud.dataplex_v1.DataplexServiceClient")
 def test_get_lakes_mcps_extract_lakes_disabled(
+    mock_dataplex_client_class: Mock,
+    mock_metadata_client_class: Mock,
+    mock_catalog_client_class: Mock,
     dataplex_config: DataplexConfig,
     dataplex_report: DataplexReport,
     mock_dataplex_client: Mock,
     mock_metadata_client: Mock,
 ) -> None:
     """Test that lakes are not extracted when include_lakes is False."""
+    # Configure mock client classes
+    mock_dataplex_client_class.return_value = mock_dataplex_client
+    mock_metadata_client_class.return_value = mock_metadata_client
+    mock_catalog_client_class.return_value = Mock()
+
     dataplex_config.include_lakes = False
 
     ctx = PipelineContext(run_id="test-run")
     source = DataplexSource(ctx, dataplex_config)
-    source.dataplex_client = mock_dataplex_client
-    source.metadata_client = mock_metadata_client
-    source.catalog_client = Mock()
     source.report = dataplex_report
 
     # This should not be called when include_lakes is False
