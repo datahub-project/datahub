@@ -149,7 +149,8 @@
         "sortCriteria": [
           {
             "field": "name",
-            "order": "ASCENDING"
+            "order": "ASCENDING",
+            "missingValue": "FIRST"
           }
         ],
         "aspects": [],

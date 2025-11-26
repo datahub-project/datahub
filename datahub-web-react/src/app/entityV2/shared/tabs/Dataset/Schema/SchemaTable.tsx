@@ -2,7 +2,8 @@ import { ColumnsType } from 'antd/es/table';
 import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
 import type { FixedType } from 'rc-table/lib/interface';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 import { useVT } from 'virtualizedtableforantd4';
@@ -159,6 +160,7 @@ export type Props = {
         index: number;
     }[];
     refetch?: () => void;
+    visibleColumns?: string[];
 };
 
 const EMPTY_SET: Set<string> = new Set();
@@ -178,8 +180,15 @@ export default function SchemaTable({
     openTimelineDrawer = false,
     setOpenTimelineDrawer,
     refetch,
+    visibleColumns,
 }: Props): JSX.Element {
     const { urn: entityUrn } = useEntityData();
+    const location = useLocation();
+
+    // Reset expandedDrawerFieldPath when URL pathname changes (ignoring query params) to close drawer on a tab change
+    useEffect(() => {
+        setExpandedDrawerFieldPath(null);
+    }, [location.pathname, setExpandedDrawerFieldPath]);
 
     const [tableHeight, setTableHeight] = useState(0);
     const [schemaSorter, setSchemaSorter] = useState<SorterResult<any> | undefined>(undefined);
@@ -219,89 +228,120 @@ export default function SchemaTable({
     const tableColumnStructuredProps = useGetTableColumnProperties();
     const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
 
-    const fieldColumn = {
-        fixed: 'left' as FixedType,
-        width: 200,
-        title: 'Name',
-        dataIndex: 'fieldPath',
-        key: 'fieldPath',
-        render: schemaTitleRenderer,
-        filtered: true,
-        onCell: () => ({ style: { whiteSpace: 'pre' } }),
-        sorter: (sourceA, sourceB) =>
-            translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath)),
-    };
+    const fieldColumn = useMemo(
+        () => ({
+            fixed: 'left' as FixedType,
+            width: 200,
+            title: 'Name',
+            dataIndex: 'fieldPath',
+            key: 'fieldPath',
+            render: schemaTitleRenderer,
+            filtered: true,
+            onCell: () => ({ style: { whiteSpace: 'pre' } }),
+            sorter: (sourceA, sourceB) =>
+                translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath)),
+        }),
+        [schemaTitleRenderer],
+    );
 
-    const typeColumn = {
-        width: 100,
-        title: 'Type',
-        dataIndex: 'type',
-        key: 'type',
-        render: schemaTypeRenderer,
-        sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
-    };
+    const typeColumn = useMemo(
+        () => ({
+            width: 100,
+            title: 'Type',
+            dataIndex: 'type',
+            key: 'type',
+            render: schemaTypeRenderer,
+            sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
+        }),
+        [schemaTypeRenderer],
+    );
 
-    const descriptionColumn = {
-        ellipsis: true,
-        className: 'description-column',
-        title: 'Description',
-        dataIndex: 'description',
-        key: 'description',
-        render: descriptionRender,
-        sorter: (sourceA, sourceB) =>
-            (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
-            (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
-    };
+    const descriptionColumn = useMemo(
+        () => ({
+            ellipsis: true,
+            className: 'description-column',
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            render: descriptionRender,
+            sorter: (sourceA, sourceB) =>
+                (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
+                (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
+        }),
+        [descriptionRender, extractFieldDescription],
+    );
 
-    const tagColumn = {
-        width: 100,
-        title: 'Tags',
-        dataIndex: 'globalTags',
-        key: 'tag',
-        render: tagRenderer,
-        sorter: (sourceA, sourceB) =>
-            extractFieldTagsInfo(sourceA).numberOfTags - extractFieldTagsInfo(sourceB).numberOfTags,
-    };
+    const tagColumn = useMemo(
+        () => ({
+            width: 100,
+            title: 'Tags',
+            dataIndex: 'globalTags',
+            key: 'tag',
+            render: tagRenderer,
+            sorter: (sourceA, sourceB) =>
+                extractFieldTagsInfo(sourceA).numberOfTags - extractFieldTagsInfo(sourceB).numberOfTags,
+        }),
+        [tagRenderer, extractFieldTagsInfo],
+    );
 
-    const termColumn = {
-        width: 200,
-        title: 'Glossary Terms',
-        dataIndex: 'globalTags',
-        key: 'term',
-        render: termRenderer,
-        sorter: (sourceA, sourceB) =>
-            extractFieldGlossaryTermsInfo(sourceA).numberOfTerms - extractFieldGlossaryTermsInfo(sourceB).numberOfTerms,
-    };
+    const termColumn = useMemo(
+        () => ({
+            width: 200,
+            title: 'Glossary Terms',
+            dataIndex: 'globalTags',
+            key: 'term',
+            render: termRenderer,
+            sorter: (sourceA, sourceB) =>
+                extractFieldGlossaryTermsInfo(sourceA).numberOfTerms -
+                extractFieldGlossaryTermsInfo(sourceB).numberOfTerms,
+        }),
+        [termRenderer, extractFieldGlossaryTermsInfo],
+    );
 
     // Function to get the count of each usageStats fieldPath
-    function getCount(fieldPath: any) {
-        const data: any =
-            usageStats?.aggregations?.fields &&
-            usageStats?.aggregations?.fields?.find((field) => {
-                return field?.fieldName === fieldPath;
-            });
-        return (data && data.count) ?? 0;
-    }
+    const getCount = useCallback(
+        (fieldPath: any) => {
+            const data: any =
+                usageStats?.aggregations?.fields &&
+                usageStats?.aggregations?.fields?.find((field) => {
+                    return field?.fieldName === fieldPath;
+                });
+            return (data && data.count) ?? 0;
+        },
+        [usageStats],
+    );
 
-    const usageColumn = {
-        width: 100,
-        title: 'Stats',
-        dataIndex: 'fieldPath',
-        key: 'usage',
-        render: usageStatsRenderer,
-        sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
-    };
+    const usageColumn = useMemo(
+        () => ({
+            width: 100,
+            title: 'Stats',
+            dataIndex: 'fieldPath',
+            key: 'usage',
+            render: usageStatsRenderer,
+            sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
+        }),
+        [usageStatsRenderer, getCount],
+    );
 
-    const allColumns: ColumnsType<ExtendedSchemaFields> = [
-        fieldColumn,
-        typeColumn,
-        descriptionColumn,
-        tagColumn,
-        termColumn,
-        usageColumn,
-    ];
+    const allColumns = useMemo(() => {
+        const columns: ColumnsType<ExtendedSchemaFields> = [
+            fieldColumn,
+            typeColumn,
+            descriptionColumn,
+            tagColumn,
+            termColumn,
+            usageColumn,
+        ];
 
-    if (structuredPropColumns) allColumns.splice(allColumns?.length - 1, 0, ...structuredPropColumns);
+        if (structuredPropColumns) columns.splice(columns?.length - 1, 0, ...structuredPropColumns);
+        return columns;
+    }, [fieldColumn, typeColumn, descriptionColumn, tagColumn, termColumn, usageColumn, structuredPropColumns]);
+
+    const finalColumns = useMemo(() => {
+        if (!visibleColumns) return allColumns;
+
+        return allColumns.filter((column) => column.key && visibleColumns?.includes(column.key.toString()));
+    }, [allColumns, visibleColumns]);
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -352,7 +392,7 @@ export default function SchemaTable({
                 expandedRows,
                 rows,
                 schemaSorter,
-                allColumns.find((column) => column.key === schemaSorter?.columnKey)?.sorter as any,
+                finalColumns.find((column) => column.key === schemaSorter?.columnKey)?.sorter as any,
             );
             if (indexToScrollTo >= 0) {
                 setShouldScrollToSelectedRow?.(false);
@@ -360,7 +400,7 @@ export default function SchemaTable({
             }
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
-    }, [expandedRows, expandedDrawerFieldPath]);
+    }, [expandedRows, expandedDrawerFieldPath, finalColumns]);
 
     const rowClassName = (record) => {
         let className = '';
@@ -433,7 +473,7 @@ export default function SchemaTable({
         if (sorter.order) {
             const { field, order } = sorter;
 
-            const column = allColumns.find((col) => col.key === field);
+            const column = finalColumns.find((col) => col.key === field);
 
             if (column && column.sorter) {
                 const sortedRows = data.slice().sort((a, b) => {
@@ -465,7 +505,7 @@ export default function SchemaTable({
                     <StyledTable
                         onChange={handleTableChange}
                         rowClassName={rowClassName}
-                        columns={allColumns}
+                        columns={finalColumns}
                         dataSource={dataSource}
                         // rowKey={(record) => `column-${record.fieldPath}`}
                         rowKey="fieldPath"

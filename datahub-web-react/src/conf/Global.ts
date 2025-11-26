@@ -24,6 +24,7 @@ export enum PageRoutes {
     SETTINGS = '/settings',
     DOMAINS = '/domains',
     DOMAIN = '/domain',
+    DOCUMENT = '/document',
     GLOSSARY = '/glossary',
     STRUCTURED_PROPERTIES = '/structured-properties',
     SETTINGS_VIEWS = '/settings/views',

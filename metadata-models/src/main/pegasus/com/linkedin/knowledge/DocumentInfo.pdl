@@ -24,7 +24,7 @@ record DocumentInfo includes CustomProperties {
     source: optional DocumentSource
 
     /**
-     * Visibility status of the document (published, unpublished.)
+     * Status of the document (published, unpublished.)
      */
     status: DocumentStatus
 

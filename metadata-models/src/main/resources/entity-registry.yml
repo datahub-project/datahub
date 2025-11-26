@@ -336,6 +336,7 @@ entities:
     keyAspect: documentKey
     aspects:
       - documentInfo
+      - documentSettings
       - status
       - ownership
       - domains
