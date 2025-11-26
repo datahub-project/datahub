@@ -31,6 +31,12 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #15415: MLModel and MLModelGroup search field mapping has been updated to resolve duplicate field name conflicts. After upgrading, you must reindex existing MLModel and MLModelGroup entities for them to appear in search results. Run the following commands after deploying the upgrade:
+  ```bash
+  ./docker/datahub-upgrade/datahub-upgrade.sh -u RestoreIndices -a urnLike='urn:li:mlModel%' -a aspectNames='mlModelKey'
+  ./docker/datahub-upgrade/datahub-upgrade.sh -u RestoreIndices -a urnLike='urn:li:mlModelGroup%' -a aspectNames='mlModelGroupKey'
+  ```
+  New MLModel entities ingested after the upgrade will work without reindexing.
 - #15397: Grafana ingestion source dataset granularity changed from per-datasource to per-panel (per visual). This improves lineage accuracy by ensuring each panel's query results in a unique dataset entity with precise upstream/downstream connections. Dataset URN format changed from `{ds_type}.{ds_uid}` to `{ds_type}.{ds_uid}.{dashboard_uid}.{panel_id}`. This means all existing Grafana dataset entities will have different URNs. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up old entities and create new ones. Otherwise, we recommend soft deleting all Grafana datasets via the DataHub CLI: `datahub delete --platform grafana --soft` and then re-ingesting with the latest CLI version.
 - #15005: `SqlParsingBuilder` is removed, use `SqlParsingAggregator` instead
 - #14710: LookML ingestion source migrated to SDKv2 resulting in:
