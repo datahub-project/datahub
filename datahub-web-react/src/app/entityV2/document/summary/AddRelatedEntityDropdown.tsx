@@ -25,7 +25,7 @@ const AddButton = styled(Button)`
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: ${colors.gray[1800]};
+    color: ${colors.gray[400]};
     cursor: pointer;
     transition: all 0.2s ease;
 
@@ -100,13 +100,15 @@ export const AddRelatedEntityDropdown: React.FC<AddRelatedEntityDropdownProps> =
     );
 
     const triggerButton = (
-        <AddButton
-            variant="text"
-            isCircle
-            icon={{ icon: 'Plus', source: 'phosphor' }}
-            aria-label="Add related entity"
-            disabled={disabled}
-        />
+        <Tooltip title="Link related assets or context docs" placement="bottom">
+            <AddButton
+                variant="text"
+                isCircle
+                icon={{ icon: 'Plus', source: 'phosphor' }}
+                aria-label="Add related entity"
+                disabled={disabled}
+            />
+        </Tooltip>
     );
 
     return (

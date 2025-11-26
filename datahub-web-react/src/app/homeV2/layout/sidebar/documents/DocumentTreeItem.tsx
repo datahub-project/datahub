@@ -38,7 +38,13 @@ const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
         !props.$isSelected &&
         `
         &:hover {
-            background-color: ${colors.gray[1500]};
+            background: linear-gradient(
+                180deg,
+                rgba(243, 244, 246, 0.5) -3.99%,
+                rgba(235, 236, 240, 0.5) 53.04%,
+                rgba(235, 236, 240, 0.5) 100%
+            );
+            box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
         }
     `}
 
