@@ -1387,7 +1387,7 @@ public class OpenAPIV3Generator {
     Schema sortCriterion =
         newSchema()
             .type(TYPE_OBJECT)
-            .description("Sort criterion: field + direction.")
+            .description("Sort criterion: field + direction + missing value behavior.")
             .addProperties(
                 "field", newSchema().type(TYPE_STRING).description("Field name to sort by."))
             .addProperties(
@@ -1397,6 +1397,13 @@ public class OpenAPIV3Generator {
                     ._enum(Arrays.asList("ASCENDING", "DESCENDING"))
                     ._default("ASCENDING")
                     .description("Sort order (default ASCENDING)."))
+            .addProperties(
+                "missingValue",
+                newSchema()
+                    .type(TYPE_STRING)
+                    ._enum(Arrays.asList("FIRST", "LAST"))
+                    .description(
+                        "Controls where to sort documents with missing values: FIRST or LAST."))
             .addRequiredItem("field");
 
     // Sort (top-level)
@@ -1509,7 +1516,11 @@ public class OpenAPIV3Generator {
 
     // SortCriteria example
     SortCriterion sortCriterion =
-        SortCriterion.builder().field("name").order(SortCriterion.SortOrder.ASCENDING).build();
+        SortCriterion.builder()
+            .field("name")
+            .order(SortCriterion.SortOrder.ASCENDING)
+            .missingValue(SortCriterion.MissingValue.LAST)
+            .build();
     List<SortCriterion> sortCriteria = List.of(sortCriterion);
 
     return newSchema()

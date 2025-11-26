@@ -64,6 +64,7 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // draftOfUrn
+            any(), // showInGlobalContext
             any(Urn.class))) // actor
         .thenReturn(TEST_DOCUMENT_URN);
 
@@ -100,6 +101,7 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // draftOfUrn
+            any(), // showInGlobalContext
             any(Urn.class)); // actor URN
 
     // Verify ownership was set (default to creator)
@@ -133,6 +135,7 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // draftOfUrn
+            any(), // showInGlobalContext
             any()); // actor
   }
 
@@ -163,6 +166,7 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // draftOfUrn
+            any(), // showInGlobalContext
             any()); // actor
   }
 
@@ -232,6 +236,7 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // draftOfUrn
+            any(), // showInGlobalContext
             any())) // actor
         .thenThrow(new RuntimeException("Service error"));
 
@@ -260,6 +265,7 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // draftOfUrn
+            any(), // showInGlobalContext
             any(Urn.class))) // actor
         .thenReturn(TEST_DRAFT_URN);
 
@@ -281,6 +287,7 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             eq(TEST_PUBLISHED_URN), // draftOfUrn
+            any(), // showInGlobalContext
             any(Urn.class)); // actor
   }
 }
