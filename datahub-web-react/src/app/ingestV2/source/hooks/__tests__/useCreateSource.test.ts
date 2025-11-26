@@ -230,6 +230,7 @@ describe('useCreateSource', () => {
             },
             schedule: {
                 interval: '0 12 * * *',
+                timezone: 'UTC',
             },
         };
 
