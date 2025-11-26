@@ -451,17 +451,16 @@ class DataHubTeamsBot(ActivityHandler):
                 self._process_progress_queue(turn_context, progress_queue)
             )
 
-            # Create chat session for AI processing
+            # Create agent for AI processing
             from datahub.sdk.main_client import DataHubClient
 
-            from datahub_integrations.chat.chat_history import HumanMessage
-            from datahub_integrations.chat.chat_session import (
-                ChatSession,
-                NextMessage,
-                ProgressUpdate,
+            from datahub_integrations.chat.agent import AgentRunner
+            from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
+            from datahub_integrations.chat.agents import (
+                create_data_catalog_explorer_agent,
             )
-            from datahub_integrations.chat.types import ChatType
-            from datahub_integrations.mcp.mcp_server import mcp
+            from datahub_integrations.chat.chat_history import HumanMessage
+            from datahub_integrations.chat.types import ChatType, NextMessage
             from datahub_integrations.teams.config import teams_config
 
             config = teams_config.get_config()
@@ -477,30 +476,27 @@ class DataHubTeamsBot(ActivityHandler):
                     )
                 history = conv_history.get_chat_history()
 
-            # Run chat session in executor to avoid asyncio conflicts
+            # Run agent in executor to avoid asyncio conflicts
             import asyncio
             import concurrent.futures
 
-            def run_chat_session() -> tuple[NextMessage, ChatSession]:
-                """Run chat session in separate thread to avoid asyncio conflicts."""
-                chat_session = ChatSession(
-                    tools=[mcp],
+            def run_agent() -> tuple[NextMessage, AgentRunner]:
+                """Run agent in separate thread to avoid asyncio conflicts."""
+                agent = create_data_catalog_explorer_agent(
                     client=DataHubClient(graph=graph),
                     history=history,
                     chat_type=ChatType.TEAMS,
                 )
 
                 # Generate response with progress updates
-                with chat_session.set_progress_callback(progress_callback):
-                    response = chat_session.generate_next_message()
-                    return response, chat_session
+                with agent.set_progress_callback(progress_callback):
+                    response = agent.generate_formatted_message()
+                    return response, agent
 
             # Execute in thread pool to avoid "Already running asyncio" error
             loop = asyncio.get_event_loop()
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                ai_response, chat_session = await loop.run_in_executor(
-                    executor, run_chat_session
-                )
+                ai_response, agent = await loop.run_in_executor(executor, run_agent)
 
             assert isinstance(ai_response, NextMessage)
 
@@ -509,7 +505,7 @@ class DataHubTeamsBot(ActivityHandler):
                 # Get the new messages that were added during this generation
                 # We need to find messages that weren't in the original history
                 original_message_count = len(history.messages) if history else 0
-                new_messages = chat_session.history.messages[original_message_count:]
+                new_messages = agent.history.messages[original_message_count:]
 
                 if new_messages:
                     # Save the thinking messages (everything except the final response)
@@ -920,17 +916,16 @@ Need more help? Check out the [DataHub documentation](https://datahubproject.io/
                 self._process_progress_queue(turn_context, progress_queue)
             )
 
-            # Create chat session for AI processing (same logic as _handle_ask_command)
+            # Create agent for AI processing (same logic as _handle_ask_command)
             from datahub.sdk.main_client import DataHubClient
 
-            from datahub_integrations.chat.chat_history import HumanMessage
-            from datahub_integrations.chat.chat_session import (
-                ChatSession,
-                NextMessage,
-                ProgressUpdate,
+            from datahub_integrations.chat.agent import AgentRunner
+            from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
+            from datahub_integrations.chat.agents import (
+                create_data_catalog_explorer_agent,
             )
-            from datahub_integrations.chat.types import ChatType
-            from datahub_integrations.mcp.mcp_server import mcp
+            from datahub_integrations.chat.chat_history import HumanMessage
+            from datahub_integrations.chat.types import ChatType, NextMessage
             from datahub_integrations.teams.config import teams_config
 
             config = teams_config.get_config()
@@ -946,30 +941,28 @@ Need more help? Check out the [DataHub documentation](https://datahubproject.io/
                     )
                 history = conv_history.get_chat_history()
 
-            # Run chat session in executor to avoid asyncio conflicts
+            # Run agent in executor to avoid asyncio conflicts
             import concurrent.futures
 
-            def run_chat_session() -> NextMessage:
-                """Run chat session in separate thread to avoid asyncio conflicts."""
+            def run_agent() -> tuple[NextMessage, AgentRunner]:
+                """Run agent in separate thread to avoid asyncio conflicts."""
                 from datahub_integrations.app import graph
 
-                chat_session = ChatSession(
-                    tools=[mcp],
+                agent = create_data_catalog_explorer_agent(
                     client=DataHubClient(graph=graph),
                     history=history,
                     chat_type=ChatType.TEAMS,
                 )
 
                 # Generate response with progress updates
-                with chat_session.set_progress_callback(progress_callback):
-                    return chat_session.generate_next_message()
+                with agent.set_progress_callback(progress_callback):
+                    response = agent.generate_formatted_message()
+                    return response, agent
 
             # Execute in thread pool to avoid "Already running asyncio" error
             loop = asyncio.get_event_loop()
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                ai_response, chat_session = await loop.run_in_executor(
-                    executor, run_chat_session
-                )
+                ai_response, agent = await loop.run_in_executor(executor, run_agent)
 
             assert isinstance(ai_response, NextMessage)
 
@@ -978,7 +971,7 @@ Need more help? Check out the [DataHub documentation](https://datahubproject.io/
                 # Get the new messages that were added during this generation
                 # We need to find messages that weren't in the original history
                 original_message_count = len(history.messages) if history else 0
-                new_messages = chat_session.history.messages[original_message_count:]
+                new_messages = agent.history.messages[original_message_count:]
 
                 if new_messages:
                     # Save the thinking messages (everything except the final response)

@@ -411,11 +411,11 @@ class TestAskCommand:
         """Test ask command with successful AI response."""
         mock_graph = MagicMock(spec=DataHubGraph)
 
-        # Mock the entire ChatSession and DataHubClient to avoid any network calls
+        # Mock the agent factory and DataHubClient to avoid any network calls
         with (
             patch(
-                "datahub_integrations.teams.command.ask.ChatSession"
-            ) as mock_chat_session_cls,
+                "datahub_integrations.teams.command.ask.create_data_catalog_explorer_agent"
+            ) as mock_agent_factory,
             patch(
                 "datahub_integrations.teams.command.ask.DataHubClient"
             ) as mock_client_cls,
@@ -425,21 +425,21 @@ class TestAskCommand:
             mock_client = MagicMock()
             mock_client_cls.return_value = mock_client
 
-            # Mock ChatSession and its methods
-            mock_chat_session = MagicMock()
-            mock_chat_session_cls.return_value = mock_chat_session
+            # Mock agent and its methods
+            mock_agent = MagicMock()
+            mock_agent_factory.return_value = mock_agent
 
-            # Mock the response from generate_next_message
-            from datahub_integrations.chat.chat_session import NextMessage
+            # Mock the response from generate_formatted_message
+            from datahub_integrations.chat.types import NextMessage
 
             mock_response = NextMessage(
                 text="AI response to your question about DataHub", suggestions=[]
             )
-            mock_chat_session.generate_next_message.return_value = mock_response
+            mock_agent.generate_formatted_message.return_value = mock_response
 
             # Mock context manager for progress callback
             mock_context_manager = MagicMock()
-            mock_chat_session.set_progress_callback.return_value = mock_context_manager
+            mock_agent.set_progress_callback.return_value = mock_context_manager
             mock_context_manager.__enter__.return_value = None
             mock_context_manager.__exit__.return_value = None
 
@@ -454,9 +454,9 @@ class TestAskCommand:
 
             assert result["type"] == "message"
             assert "AI response" in result["text"]
-            # Verify ChatSession was created and used
-            mock_chat_session_cls.assert_called_once()
-            mock_chat_session.generate_next_message.assert_called_once()
+            # Verify agent was created and used
+            mock_agent_factory.assert_called_once()
+            mock_agent.generate_formatted_message.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_ask_ai_api_error(self) -> None:
@@ -491,15 +491,15 @@ class TestAskCommand:
         """Test ask command with any execution error falls back to error response."""
         mock_graph = MagicMock(spec=DataHubGraph)
 
-        # Mock ChatSession to simulate execution error
+        # Mock agent factory to simulate execution error
         with patch(
-            "datahub_integrations.teams.command.ask.ChatSession"
-        ) as mock_chat_session_cls:
-            mock_chat_session = MagicMock()
-            mock_chat_session.generate_next_message.side_effect = Exception(
-                "Chat session error"
+            "datahub_integrations.teams.command.ask.create_data_catalog_explorer_agent"
+        ) as mock_agent_factory:
+            mock_agent = MagicMock()
+            mock_agent.generate_formatted_message.side_effect = Exception(
+                "Agent execution error"
             )
-            mock_chat_session_cls.return_value = mock_chat_session
+            mock_agent_factory.return_value = mock_agent
 
             result = await handle_ask_command_teams(mock_graph, "Test question", None)
 
@@ -625,31 +625,30 @@ class TestAskCommand:
 
         with (
             patch(
-                "datahub_integrations.teams.command.ask.ChatSession"
-            ) as mock_chat_session_cls,
+                "datahub_integrations.teams.command.ask.create_data_catalog_explorer_agent"
+            ) as mock_agent_factory,
             patch("datahub_integrations.teams.config.teams_config") as mock_config,
         ):
-            # Mock ChatSession and its methods
-            mock_chat_session = MagicMock()
-            mock_chat_session_cls.return_value = mock_chat_session
+            # Mock agent and its methods
+            mock_agent = MagicMock()
+            mock_agent_factory.return_value = mock_agent
 
-            # Mock the response from generate_next_message
-            from datahub_integrations.chat.chat_session import NextMessage
+            # Mock the response from generate_formatted_message
+            from datahub_integrations.chat.types import NextMessage
 
             mock_response = NextMessage(
                 text="Response with history context", suggestions=[]
             )
-            mock_chat_session.generate_next_message.return_value = mock_response
+            mock_agent.generate_formatted_message.return_value = mock_response
 
             # Mock context manager for progress callback
             mock_context_manager = MagicMock()
-            mock_chat_session.set_progress_callback.return_value = mock_context_manager
+            mock_agent.set_progress_callback.return_value = mock_context_manager
             mock_context_manager.__enter__.return_value = None
             mock_context_manager.__exit__.return_value = None
 
             # Mock the history attribute
-
-            mock_chat_session.history = ChatHistory()
+            mock_agent.history = ChatHistory()
 
             # Mock config with history enabled
             config = MagicMock()

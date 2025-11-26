@@ -7,8 +7,8 @@ This module provides persistent chat conversations stored as DataHub aspects, en
 ### Core Components
 
 1. **`DataHubAiConversationClient`** - Handles DataHub persistence using DataHub-prefixed models
-2. **`ChatSessionManager`** - Compositional wrapper around ChatSession with persistence capabilities
-3. **`ChatSession`** - Data catalog exploration chat agent (uses AgentRunner infrastructure)
+2. **`ChatSessionManager`** - Manager for creating and loading agents with persistence capabilities
+3. **`agents/`** - Agent factories (e.g., `create_data_catalog_explorer_agent()`)
 4. **`AgentRunner`** - Reusable agentic loop infrastructure
 5. **`chat_api.py`** - REST API for DataHub UI integration
 
@@ -44,50 +44,64 @@ The system uses the following DataHub-prefixed PDL models:
 
 ## Usage
 
-### Basic Chat Session
+### Basic Usage with ChatSessionManager
 
 ```python
-from datahub_integrations.chat.chat_session import ChatSession
+from datahub.sdk.main_client import DataHubClient
 from datahub_integrations.chat.chat_session_manager import ChatSessionManager
 from datahub_integrations.chat.types import ChatType
-from datahub_integrations.mcp.mcp_server import mcp
 
-# Create new conversation
-chat_session = ChatSession(
-    tools=[mcp],
-    client=client,
+# Create manager with system and tools clients
+system_client = DataHubClient.from_env()  # For persistence
+tools_client = DataHubClient.from_env()   # For tool execution
+
+manager = ChatSessionManager(
+    system_client=system_client,
+    tools_client=tools_client,
+)
+
+# Create new agent (defaults to DataCatalogExplorer)
+agent = manager.create_session(
+    agent_type="DataCatalogExplorer",  # Optional, this is default
     chat_type=ChatType.DATAHUB_UI,
 )
 
-chat_session_manager = ChatSessionManager(
-    chat_session=chat_session,
-    client=client,
-    conversation_urn="urn:li:dataHubAiConversation:123",
-    user_urn="urn:li:corpuser:user123",
-)
+# Add message and generate response
+manager.add_user_message(agent, "What datasets do we have?")
+response = manager._generate_with_progress(agent)
+print(response.text)
+```
 
-# Send message
-chat_session_manager.add_user_message("What datasets do we have?")
-response = chat_session_manager.generate_next_message()
+### Direct Agent Usage (Without Manager)
+
+```python
+from datahub.sdk.main_client import DataHubClient
+from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
+from datahub_integrations.chat.chat_history import HumanMessage
+
+client = DataHubClient.from_env()
+
+# Create agent directly using factory
+agent = create_data_catalog_explorer_agent(client=client)
+
+# Add message and generate response
+agent.history.add_message(HumanMessage(text="What datasets do we have?"))
+response = agent.generate_formatted_message()  # Returns NextMessage
 print(response.text)
 ```
 
 ### Resume Existing Conversation
 
 ```python
-# Resume conversation
-chat_session = ChatSession(
-    tools=[mcp],
-    client=client,
-    chat_type=ChatType.DATAHUB_UI,
+# Load existing conversation
+agent = manager.load_session(
+    conversation_urn="urn:li:dataHubAiConversation:123",
+    agent_type="DataCatalogExplorer",  # Optional, this is default
 )
 
-chat_session_manager = ChatSessionManager(
-    chat_session=chat_session,
-    client=client,
-    conversation_urn="urn:li:conversation:123",
-    user_urn="urn:li:corpuser:user123",
-)
+# Continue conversation
+manager.add_user_message(agent, "Tell me more")
+response = manager._generate_with_progress(agent)
 ```
 
 ### REST API

@@ -1,8 +1,8 @@
 from unittest.mock import Mock, patch
 
-from datahub_integrations.chat.chat_session import (
-    ChatMaxToolCallsExceededError,
-    ChatSessionMaxTokensExceededError,
+from datahub_integrations.chat.agent import (
+    AgentMaxTokensExceededError,
+    AgentMaxToolCallsExceededError,
 )
 from datahub_integrations.slack.command.mention import (
     FeedbackPayload,
@@ -123,7 +123,7 @@ def test_handle_app_mention_chat_max_tool_calls_error() -> None:
         patch("datahub_integrations.slack.command.mention.fetch_thread_history"),
     ):
         mock_app = Mock()
-        mock_generate.side_effect = ChatMaxToolCallsExceededError(
+        mock_generate.side_effect = AgentMaxToolCallsExceededError(
             "The model returned the following errors: input length and `max_tokens` exceed context limit"
         )
         mock_app.client.chat_postMessage.return_value = {"ts": "1234.9999"}
@@ -156,7 +156,7 @@ def test_handle_app_mention_chat_session_max_tokens_error() -> None:
         patch("datahub_integrations.slack.command.mention.fetch_thread_history"),
     ):
         mock_app = Mock()
-        mock_generate.side_effect = ChatSessionMaxTokensExceededError(
+        mock_generate.side_effect = AgentMaxTokensExceededError(
             "he model returned the following errors: Input is too long for requested model."
         )
         mock_app.client.chat_postMessage.return_value = {"ts": "1234.9999"}

@@ -11,21 +11,20 @@ from slack_bolt import App
 from slack_sdk import WebClient
 
 from datahub_integrations.app import graph
+from datahub_integrations.chat.agent import (
+    AgentMaxTokensExceededError,
+    AgentMaxToolCallsExceededError,
+    AgentOutputMaxTokensExceededError,
+    AgentRunner,
+)
+from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
+from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
 from datahub_integrations.chat.chat_history import (
     AssistantMessage,
     HumanMessage,
     Message,
 )
-from datahub_integrations.chat.chat_session import (
-    ChatMaxToolCallsExceededError,
-    ChatOutputMaxTokensExceededError,
-    ChatSession,
-    ChatSessionMaxTokensExceededError,
-    NextMessage,
-    ProgressUpdate,
-)
-from datahub_integrations.chat.types import ChatType
-from datahub_integrations.mcp.mcp_server import mcp
+from datahub_integrations.chat.types import ChatType, NextMessage
 from datahub_integrations.slack.command.mention_helpers import (
     DATAHUB_FEEDBACK_PROMPT,
     DATAHUB_INITIAL_THINKING_MESSAGE,
@@ -145,7 +144,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
     channel_id = event.channel_id
     user_name = event.user_id
     response_ts = None
-    chat_session = None
+    agent = None
     is_limited_history = None
 
     timer = PerfTimer()
@@ -184,9 +183,9 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 logger.warning(f"Failed to update progress message: {str(e)}")
 
         # Process the actual response
-        chat_session, is_limited_history = _build_chat_session(app.client, event)
+        agent, is_limited_history = _build_agent(app.client, event)
         message, followup_questions = _generate_mention_response(
-            chat_session, event, progress_callback, response_ts
+            agent, event, progress_callback, response_ts
         )
 
         # Build the response blocks
@@ -222,24 +221,24 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 response_contents=message,
                 response_length=len(message),
                 response_generation_duration_sec=timer.elapsed_seconds(),
-                chat_session_id=chat_session.session_id,
+                chat_session_id=agent.session_id,
                 is_limited_history=is_limited_history,
-                num_tool_calls=chat_session.history.num_tool_calls,
-                num_tool_call_errors=chat_session.history.num_tool_call_errors,
-                num_history_messages=len(chat_session.history.messages),
-                full_history=chat_session.history.json(indent=None),
-                reduction_sequence=chat_session.history.reduction_sequence_json,
-                num_reducers_applied=chat_session.history.num_reducers_applied,
+                num_tool_calls=agent.history.num_tool_calls,
+                num_tool_call_errors=agent.history.num_tool_call_errors,
+                num_history_messages=len(agent.history.messages),
+                full_history=agent.history.json(indent=None),
+                reduction_sequence=agent.history.reduction_sequence_json,
+                num_reducers_applied=agent.history.num_reducers_applied,
             )
         )
         logger.debug(f"Successfully sent Slack response to channel {channel_id}")
     except Exception as e:
         if response_ts is not None:
             logger.warning(f"Failed to send successful response {channel_id}: {e}")
-            if isinstance(e, ChatMaxToolCallsExceededError):
+            if isinstance(e, AgentMaxToolCallsExceededError):
                 text = ":x: Uh, oh ! Looks like your question is too complex. Please try again with a simpler question."
             elif isinstance(
-                e, (ChatSessionMaxTokensExceededError, ChatOutputMaxTokensExceededError)
+                e, (AgentMaxTokensExceededError, AgentOutputMaxTokensExceededError)
             ):
                 # Keeping this for now, however this case should not appear with context reducers.
                 text = ":x: Uh, oh ! Looks like I fetched too much information here. Please try asking your question in a new thread."
@@ -256,7 +255,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
             logger.exception(
                 f"Failed to send Slack response to channel {channel_id}: {e}"
             )
-        # Track failed interaction with None defaults, updated if chat_session exists
+        # Track failed interaction with None defaults, updated if agent exists
         event_data = ChatbotInteractionEvent(
             chat_id=slack_chat_id(channel_id, event.thread_ts),
             message_id=slack_message_id(channel_id, event.message_ts),
@@ -273,34 +272,34 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
             is_limited_history=is_limited_history,
         )
 
-        # Update with chat session data if available
-        if chat_session:
-            event_data.chat_session_id = chat_session.session_id
-            event_data.num_tool_calls = chat_session.history.num_tool_calls
-            event_data.num_tool_call_errors = chat_session.history.num_tool_call_errors
-            event_data.num_history_messages = len(chat_session.history.messages)
-            event_data.full_history = chat_session.history.json(indent=None)
-            event_data.reduction_sequence = chat_session.history.reduction_sequence_json
-            event_data.num_reducers_applied = chat_session.history.num_reducers_applied
+        # Update with agent data if available
+        if agent:
+            event_data.chat_session_id = agent.session_id
+            event_data.num_tool_calls = agent.history.num_tool_calls
+            event_data.num_tool_call_errors = agent.history.num_tool_call_errors
+            event_data.num_history_messages = len(agent.history.messages)
+            event_data.full_history = agent.history.json(indent=None)
+            event_data.reduction_sequence = agent.history.reduction_sequence_json
+            event_data.num_reducers_applied = agent.history.num_reducers_applied
 
         track_saas_event(event_data)
 
 
 def _generate_mention_response(
-    chat_session: ChatSession,
+    agent: AgentRunner,
     event: SlackMentionEvent,
     progress_callback: Callable[[List[ProgressUpdate]], None],
     response_ts: str,
 ) -> Tuple[str, List[str]]:
-    original_history_length = len(chat_session.history.messages)
+    original_history_length = len(agent.history.messages)
     response = None
     try:
-        with chat_session.set_progress_callback(progress_callback):
-            response = chat_session.generate_next_message()
+        with agent.set_progress_callback(progress_callback):
+            response = agent.generate_formatted_message()
         assert isinstance(response, NextMessage)
     finally:
         # Add the intermediate thinking messages to the history store.
-        new_messages = chat_session.history.messages[original_history_length:]
+        new_messages = agent.history.messages[original_history_length:]
         _update_slack_history_cache(event, response_ts, response, new_messages)
 
     return (
@@ -323,9 +322,9 @@ def _update_slack_history_cache(
     thread_history.add_thinking(response_ts, new_messages)
 
 
-def _build_chat_session(
+def _build_agent(
     client: WebClient, event: SlackMentionEvent
-) -> Tuple[ChatSession, bool]:
+) -> Tuple[AgentRunner, bool]:
     message_text = event.message_text
     thread_ts = event.thread_ts
     logger.info(f"App mention message: {message_text} in thread {thread_ts}")
@@ -351,14 +350,13 @@ def _build_chat_session(
 
     history = thread_history.get_chat_history()
 
-    chat_session = ChatSession(
-        tools=[mcp],
+    agent = create_data_catalog_explorer_agent(
         client=DataHubClient(graph=graph),
         history=history,
         chat_type=ChatType.SLACK,
     )
 
-    return chat_session, thread_history.is_limited_history()
+    return agent, thread_history.is_limited_history()
 
 
 class FeedbackPayload(BaseModel):

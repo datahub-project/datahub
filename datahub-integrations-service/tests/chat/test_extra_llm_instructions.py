@@ -6,7 +6,9 @@ from unittest.mock import MagicMock
 import pytest
 from datahub.sdk.main_client import DataHubClient
 
-from datahub_integrations.chat.chat_session import get_extra_llm_instructions
+from datahub_integrations.chat.agents.data_catalog_prompts import (
+    get_extra_llm_instructions,
+)
 
 
 @pytest.fixture(autouse=True)

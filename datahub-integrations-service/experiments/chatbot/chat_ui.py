@@ -40,10 +40,10 @@ from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INIT
 import streamlit as st
 from datahub.sdk.main_client import DataHubClient
 
+from datahub_integrations.chat.agent import AgentRunner
+from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
 from datahub_integrations.chat.chat_history import HumanMessage
-from datahub_integrations.chat.chat_session import ChatSession
 from datahub_integrations.experimentation.chatbot.st_chat_history import st_chat_history
-from datahub_integrations.mcp.mcp_server import mcp
 
 assert AI_EXPERIMENTATION_INITIALIZED
 
@@ -61,24 +61,21 @@ def frontend_url() -> str:
 st.markdown(f"Connected to {frontend_url()}")
 
 
-def _make_empty_chat_session() -> ChatSession:
-    st.text("Resetting chat session")
-    return ChatSession(
-        tools=[mcp],
-        client=client(),
-    )
+def _make_empty_agent() -> AgentRunner:
+    st.text("Resetting agent session")
+    return create_data_catalog_explorer_agent(client=client())
 
 
-def _chat_session() -> ChatSession:
-    # Initialize chat session if it doesn't exist
+def _get_agent() -> AgentRunner:
+    # Initialize agent if it doesn't exist
     if "chat_session" not in st.session_state:
-        st.session_state.chat_session = _make_empty_chat_session()
+        st.session_state.chat_session = _make_empty_agent()
     return st.session_state.chat_session
 
 
-_chat_session()
+_get_agent()
 
-_has_history = bool(_chat_session().history.messages)
+_has_history = bool(_get_agent().history.messages)
 
 col1, col2, col3 = st.columns(3)
 
@@ -86,12 +83,12 @@ with col1:
     show_thinking = st.toggle("Show internal thinking", value=True)
 with col2:  # Add a clear chat button
     if st.button("Clear Chat", disabled=not _has_history):
-        st.session_state.chat_session = _make_empty_chat_session()
+        st.session_state.chat_session = _make_empty_agent()
         st.rerun()
 with col3:  # Add a download history button
     st.download_button(
         "Save Chat",
-        _chat_session().history.json(),
+        _get_agent().history.json(),
         file_name="history.json",
         mime="application/json",
         disabled=not _has_history,
@@ -101,13 +98,13 @@ st.divider()
 
 # Chat UI.
 st_chat_history(
-    _chat_session().history,
+    _get_agent().history,
     show_thinking=show_thinking,
 )
 if prompt := st.chat_input("Type your message here..."):
-    # Add user message to chat session
+    # Add user message to agent session
     user_message = HumanMessage(text=prompt)
-    _chat_session()._add_message(user_message)
+    _get_agent()._add_message(user_message)
 
     # Generate bot response
     def update_progress(messages):
@@ -120,10 +117,10 @@ if prompt := st.chat_input("Type your message here..."):
     
     with (
         st.status("Generating response...", expanded=True) as status,
-        _chat_session().set_progress_callback(update_progress),
+        _get_agent().set_progress_callback(update_progress),
     ):
         try:
-            response = _chat_session().generate_next_message()
+            response = _get_agent().generate_formatted_message()
             st.rerun()
 
         except Exception as e:

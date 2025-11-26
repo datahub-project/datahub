@@ -27,10 +27,9 @@ from datahub_integrations.chat.chat_history import (
     HumanMessage,
 )
 from datahub_integrations.gen_ai.model_config import model_config
-from datahub_integrations.chat.chat_session import (
-    ChatSession,
-    NextMessage,
-)
+from datahub_integrations.chat.agent import AgentRunner
+from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
+from datahub_integrations.chat.types import NextMessage
 from datahub_integrations.experimentation.chatbot.chatbot import (
     Prompt,
     prompts as all_prompts,
@@ -39,7 +38,6 @@ from datahub_integrations.experimentation.chatbot.chatbot import (
 from datahub_integrations.experimentation.creds import create_uncached_datahub_graph
 from datahub_integrations.experimentation.utils import execute_notebook_save_as_html
 from datahub_integrations.gen_ai.description_v3 import ANYIO_THREAD_COUNT
-from datahub_integrations.mcp.mcp_server import mcp
 
 assert AI_EXPERIMENTATION_INITIALIZED
 
@@ -91,10 +89,9 @@ async def run_prompt(
                 logger.info(f"Using instruction override for instance: {case.instance}")
                 extra_instructions_override = instruction_overrides[case.instance]
 
-            logger.debug("Setting up chat session")
+            logger.debug("Setting up agent")
             history = ChatHistory(messages=[HumanMessage(text=case.message)])
-            session = ChatSession(
-                tools=[mcp],
+            agent = create_data_catalog_explorer_agent(
                 client=client,
                 history=history,
                 extra_instructions_override=extra_instructions_override,
@@ -104,7 +101,7 @@ async def run_prompt(
             logger.debug("Generating chatbot response")
             with PerfTimer() as timer:
                 next_message: NextMessage = await asyncer.asyncify(
-                    session.generate_next_message
+                    agent.generate_formatted_message
                 )()
                 response_time = timer.elapsed_seconds()
 

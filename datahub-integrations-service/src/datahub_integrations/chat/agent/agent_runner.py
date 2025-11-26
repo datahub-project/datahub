@@ -633,3 +633,48 @@ class AgentRunner:
         raise AgentMaxToolCallsExceededError(
             f"Failed to generate next message after {self.config.max_tool_calls} tool calls"
         )
+
+    def generate_formatted_message(
+        self, completion_check: Optional[Callable[[Message], bool]] = None
+    ) -> Any:
+        """
+        Generate the next message and apply response formatter if configured.
+
+        This is a convenience method that:
+        1. Calls generate_next_message() to run the agentic loop
+        2. Applies the response_formatter (if configured) to convert the Message
+           to a domain-specific response format
+
+        Args:
+            completion_check: Optional override for completion check. If not provided,
+                            uses config.completion_check. This allows callers to use
+                            agent-specific defaults without knowing implementation details.
+
+        Returns:
+            If response_formatter is configured: The formatted response (any type)
+            If no formatter: The raw Message from generate_next_message()
+
+        Raises:
+            Same exceptions as generate_next_message()
+
+        Example:
+            ```python
+            # Agent configured with response_formatter that returns NextMessage
+            runner = AgentRunner(config=config, client=client)
+            runner.history.add_message(HumanMessage(text="Hello"))
+
+            # Returns NextMessage (formatted) - uses config's completion_check
+            response = runner.generate_formatted_message()
+
+            # Or use generate_next_message() for raw Message
+            message = runner.generate_next_message()
+            ```
+        """
+        # Use provided override or fall back to config's completion check
+        effective_check = completion_check or self.config.completion_check
+        last_message = self.generate_next_message(effective_check)
+
+        if self.config.response_formatter:
+            return self.config.response_formatter(last_message, self)
+
+        return last_message

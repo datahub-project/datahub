@@ -13,10 +13,18 @@ from datahub_integrations.chat.chat_history import (
     ToolResult,
     ToolResultError,
 )
-from datahub_integrations.chat.chat_session import ChatSession, NextMessage
+from datahub_integrations.chat.types import NextMessage
 from datahub_integrations.chat.utils import parse_reasoning_message
 from datahub_integrations.experimentation.chatbot.eval_helpers import get_token_count
 from datahub_integrations.slack.utils.numbers import abbreviate_number
+
+
+def _is_respond_to_user_result(message) -> bool:
+    """Check if message is a ToolResult from respond_to_user tool."""
+    return (
+        isinstance(message, ToolResult)
+        and message.tool_request.tool_name == "respond_to_user"
+    )
 
 
 def _token_count(text: str) -> str:
@@ -53,7 +61,7 @@ def st_chat_history(
             with st.chat_message("assistant"):
                 st.caption(f"Assistant · {_token_count(message.text)}")
                 st.markdown(message.text)
-        elif ChatSession.is_respond_to_user(message):
+        elif _is_respond_to_user_result(message):
             with st.chat_message("assistant"):
                 next_message = NextMessage.model_validate(message.result)
 

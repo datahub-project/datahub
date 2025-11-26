@@ -26,7 +26,9 @@ from json_repair import repair_json
 from loguru import logger
 from pydantic import Field
 
-from datahub_integrations.chat.chat_session import get_extra_llm_instructions
+from datahub_integrations.chat.agents.data_catalog_prompts import (
+    get_extra_llm_instructions,
+)
 from datahub_integrations.chat.planner.models import Constraints, OnFail, Plan, Step
 from datahub_integrations.chat.planner.recipes import get_recipe_guidance
 from datahub_integrations.gen_ai.bedrock import BedrockModel

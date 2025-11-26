@@ -9,25 +9,26 @@ import queue
 import threading
 import time
 from dataclasses import dataclass
-from typing import Callable, Iterator, List, Optional
+from typing import Callable, Dict, Iterator, List, Optional, Protocol, Sequence
 
 from datahub.metadata.schema_classes import (
     DataHubAiConversationActorTypeClass,
     DataHubAiConversationMessageTypeClass,
 )
 from datahub.sdk.main_client import DataHubClient
+from fastmcp import FastMCP
 from loguru import logger
 
-from datahub_integrations.chat.chat_session import (
-    ChatSession,
-    NextMessage,
-    ProgressUpdate,
-)
+from datahub_integrations.chat.agent import AgentRunner
+from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
+from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
+from datahub_integrations.chat.chat_history import ChatHistory
 from datahub_integrations.chat.datahub_ai_conversation_client import (
     DataHubAiConversationClient,
 )
-from datahub_integrations.chat.types import ChatType
+from datahub_integrations.chat.types import ChatType, NextMessage
 from datahub_integrations.mcp.mcp_server import mcp
+from datahub_integrations.mcp_integration.tool import ToolWrapper
 
 
 @dataclass
@@ -43,6 +44,45 @@ class ChatMessageEvent:
     error: Optional[str] = None  # Set if there was an error
 
 
+class AgentFactory(Protocol):
+    """
+    Protocol for agent factory functions.
+
+    Defines the expected signature for all agent factories in AGENT_FACTORIES.
+    This provides better IDE support and type safety.
+    """
+
+    def __call__(
+        self,
+        client: DataHubClient,
+        history: Optional[ChatHistory] = None,
+        extra_instructions_override: Optional[str] = None,
+        chat_type: ChatType = ChatType.DEFAULT,
+        tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+    ) -> AgentRunner:
+        """
+        Create a configured AgentRunner instance.
+
+        Args:
+            client: DataHub client for tool execution
+            history: Optional existing chat history
+            extra_instructions_override: Optional override for extra instructions
+            chat_type: Type of chat context (UI, Slack, Teams, etc.)
+            tools: Optional tools to use
+
+        Returns:
+            Configured AgentRunner instance
+        """
+        ...
+
+
+# Agent factory mapping
+AGENT_FACTORIES: Dict[str, AgentFactory] = {
+    "DataCatalogExplorer": create_data_catalog_explorer_agent,
+    # Future agents can be added here
+}
+
+
 class ChatSessionManager:
     """
     Manager/factory for chat sessions and persistence.
@@ -52,9 +92,9 @@ class ChatSessionManager:
     - tools_client: Used for tool execution (user-level permissions)
 
     Clean API:
-      - create_default_session()
-      - load_chat_session(conversation_urn)
-      - add_user_message(chat_session, text)
+      - create_session(agent_type, chat_type)
+      - load_session(conversation_urn, agent_type)
+      - add_user_message(agent, text)
       - send_message(text, user_urn, conversation_urn) - High-level streaming API
     """
 
@@ -65,45 +105,82 @@ class ChatSessionManager:
         self.conversation_manager = DataHubAiConversationClient(system_client)
         logger.info("Initialized ChatSessionManager with system and tools clients")
 
-    def create_default_session(
-        self, chat_type: ChatType = ChatType.DATAHUB_UI
-    ) -> ChatSession:
-        """Create a new chat session with default tools and type.
+    def create_session(
+        self,
+        agent_type: str = "DataCatalogExplorer",
+        chat_type: ChatType = ChatType.DATAHUB_UI,
+    ) -> AgentRunner:
+        """Create a new agent session with the specified agent type.
 
         Uses tools_client for tool execution with user permissions.
-        """
-        return ChatSession(tools=[mcp], client=self.tools_client, chat_type=chat_type)
 
-    def load_chat_session(self, conversation_urn: str) -> ChatSession:
-        """Load a chat session from GraphQL using conversation originType and history.
+        Args:
+            agent_type: Type of agent to create (e.g., "DataCatalogExplorer")
+            chat_type: Chat context type (UI, Slack, Teams, etc.)
+
+        Returns:
+            Configured AgentRunner instance
+
+        Raises:
+            ValueError: If agent_type is not recognized
+        """
+        if agent_type not in AGENT_FACTORIES:
+            raise ValueError(
+                f"Unknown agent type: {agent_type}. "
+                f"Available types: {list(AGENT_FACTORIES.keys())}"
+            )
+
+        factory = AGENT_FACTORIES[agent_type]
+        return factory(client=self.tools_client, chat_type=chat_type, tools=[mcp])
+
+    def load_session(
+        self, conversation_urn: str, agent_type: str = "DataCatalogExplorer"
+    ) -> AgentRunner:
+        """Load an agent session from GraphQL using conversation history.
 
         Conversation history is loaded with system_client, but tool execution
         uses tools_client for user permissions.
+
+        Args:
+            conversation_urn: URN of the conversation to load
+            agent_type: Type of agent to create (e.g., "DataCatalogExplorer")
+
+        Returns:
+            Configured AgentRunner instance with loaded history
+
+        Raises:
+            ValueError: If agent_type is not recognized
         """
+        if agent_type not in AGENT_FACTORIES:
+            raise ValueError(
+                f"Unknown agent type: {agent_type}. "
+                f"Available types: {list(AGENT_FACTORIES.keys())}"
+            )
+
         history, chat_type = self.conversation_manager.load_conversation_with_metadata(
             conversation_urn
         )
-        session = ChatSession(
-            tools=[mcp], client=self.tools_client, chat_type=chat_type
+        factory = AGENT_FACTORIES[agent_type]
+        return factory(
+            client=self.tools_client, chat_type=chat_type, history=history, tools=[mcp]
         )
-        session.history = history
-        return session
 
-    def add_user_message(self, chat_session: ChatSession, text: str) -> None:
+    def add_user_message(self, agent: AgentRunner, text: str) -> None:
+        """Add a user message to the agent's history."""
         from datahub_integrations.chat.chat_history import HumanMessage
 
-        chat_session.history.add_message(HumanMessage(text=text))
+        agent.history.add_message(HumanMessage(text=text))
 
     def _generate_with_progress(
         self,
-        chat_session: ChatSession,
+        agent: AgentRunner,
         progress_callback: Optional[Callable[[List[ProgressUpdate]], None]] = None,
     ) -> NextMessage:
-        """Generate the next message for a given chat session with optional progress callback."""
+        """Generate the next message for a given agent with optional progress callback."""
         if progress_callback:
-            with chat_session.set_progress_callback(progress_callback):
-                return chat_session.generate_next_message()
-        return chat_session.generate_next_message()
+            with agent.set_progress_callback(progress_callback):
+                return agent.generate_formatted_message()
+        return agent.generate_formatted_message()
 
     def send_message(
         self,
@@ -121,7 +198,7 @@ class ChatSessionManager:
         The caller (e.g., chat_api) wraps these for SSE.
         """
         # Load existing session
-        chat_session = self.load_chat_session(conversation_urn)
+        agent = self.load_session(conversation_urn)
 
         # Queue for progress updates (None signals completion)
         progress_q: queue.Queue[Optional[ChatMessageEvent]] = queue.Queue()
@@ -184,7 +261,7 @@ class ChatSessionManager:
             sent_update_count = len(updates)
 
         # Add user message to history
-        self.add_user_message(chat_session, text)
+        self.add_user_message(agent, text)
 
         # Run generation in a background thread
         next_message_container: List[Optional[NextMessage]] = [None]
@@ -192,7 +269,7 @@ class ChatSessionManager:
 
         def run_generation():
             try:
-                result = self._generate_with_progress(chat_session, progress_callback)
+                result = self._generate_with_progress(agent, progress_callback)
                 next_message_container[0] = result
             except Exception as e:
                 logger.exception("Error during message generation")

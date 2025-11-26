@@ -4,19 +4,16 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
 from loguru import logger
 
+from datahub_integrations.chat.agent import AgentRunner
+from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
+from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
 from datahub_integrations.chat.chat_history import HumanMessage
-from datahub_integrations.chat.chat_session import (
-    ChatSession,
-    NextMessage,
-    ProgressUpdate,
-)
-from datahub_integrations.chat.types import ChatType
-from datahub_integrations.mcp.mcp_server import mcp
+from datahub_integrations.chat.types import ChatType, NextMessage
 from datahub_integrations.teams.teams_history import TeamsConversationHistory
 
 
 def _save_thinking_messages(
-    chat_session: ChatSession,
+    agent: AgentRunner,
     response_text: str,
     message_ts: str,
     conv_history: TeamsConversationHistory,
@@ -26,17 +23,15 @@ def _save_thinking_messages(
     Save AI thinking messages (tool calls, reasoning, etc.) to conversation history.
 
     Args:
-        chat_session: The chat session containing message history
+        agent: The agent runner containing message history
         response_text: The final response text to exclude from thinking messages
         message_ts: Message timestamp for conversation history
         conv_history: Conversation history cache
         conversation_id: Conversation ID for logging
     """
     # Get the new messages that were added during this generation
-    original_message_count = (
-        len(chat_session.history.messages) if chat_session.history else 0
-    )
-    new_messages = chat_session.history.messages[original_message_count:]
+    original_message_count = len(agent.history.messages) if agent.history else 0
+    new_messages = agent.history.messages[original_message_count:]
 
     if not new_messages:
         return
@@ -79,8 +74,8 @@ async def handle_ask_command_teams(
         import asyncio
         import concurrent.futures
 
-        def run_chat_session() -> tuple[NextMessage, ChatSession]:
-            """Run chat session in a separate thread to avoid asyncio conflicts."""
+        def run_chat_session() -> tuple[NextMessage, AgentRunner]:
+            """Run agent session in a separate thread to avoid asyncio conflicts."""
             # Check if conversation history is enabled
             from datahub_integrations.teams.config import teams_config
 
@@ -106,8 +101,7 @@ async def handle_ask_command_teams(
                     f"Using conversation history with {len(history.messages)} messages"
                 )
 
-            chat_session = ChatSession(
-                tools=[mcp],
+            agent = create_data_catalog_explorer_agent(
                 client=DataHubClient(graph=graph),
                 history=history,  # Use conversation history if enabled
                 chat_type=ChatType.TEAMS,
@@ -115,7 +109,7 @@ async def handle_ask_command_teams(
 
             # If no history or empty history, add the user's question to the chat history
             if history is None or not history.messages:
-                chat_session.history.add_message(HumanMessage(text=question))
+                agent.history.add_message(HumanMessage(text=question))
 
             # Use the provided progress callback or create a default one
             session_progress_callback = progress_callback or (
@@ -125,16 +119,14 @@ async def handle_ask_command_teams(
             )
 
             # Generate the AI response
-            with chat_session.set_progress_callback(session_progress_callback):
-                response = chat_session.generate_next_message()
-                return response, chat_session
+            with agent.set_progress_callback(session_progress_callback):
+                response = agent.generate_formatted_message()
+                return response, agent
 
         # Run the chat session in a thread pool to avoid asyncio conflicts
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            response, chat_session = await loop.run_in_executor(
-                executor, run_chat_session
-            )
+            response, agent = await loop.run_in_executor(executor, run_chat_session)
 
         assert isinstance(response, NextMessage)
 
@@ -161,7 +153,7 @@ async def handle_ask_command_teams(
 
             # Save AI thinking messages (tool calls, reasoning, etc.)
             _save_thinking_messages(
-                chat_session, response_text, message_ts, conv_history, conversation_id
+                agent, response_text, message_ts, conv_history, conversation_id
             )
 
             logger.info(

@@ -6,7 +6,7 @@ behavior through composition of pluggable components.
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterable, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Optional
 
 if TYPE_CHECKING:
     from datahub_integrations.chat.agent.conversational_parser import (
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from datahub_integrations.chat.agent.system_prompt_builder import (
         SystemPromptBuilder,
     )
+    from datahub_integrations.chat.chat_history import Message
     from datahub_integrations.chat.context_reducer import ChatContextReducer
     from datahub_integrations.mcp_integration.tool import ToolWrapper
 
@@ -104,6 +105,58 @@ class AgentConfig:
         config = AgentConfig(
             ...
             conversational_parser=XmlReasoningParser(),  # For DataHub's XML format
+        )
+        ```
+    """
+
+    # Response formatting
+    response_formatter: Optional[Callable[["Message", Any], Any]] = None
+    """
+    Optional formatter to convert the final Message to a domain-specific response format.
+    
+    This allows agents to return custom response types (e.g., NextMessage for DataHub chat)
+    without the core AgentRunner knowing about those types.
+    
+    The formatter receives:
+    - message: The final Message from generate_next_message()
+    - agent: The AgentRunner instance (for accessing config, history, etc.)
+    
+    Returns: Any custom response type (or Message if None)
+    
+    Example:
+        ```python
+        def format_response(message: Message, agent: AgentRunner) -> NextMessage:
+            if is_respond_to_user(message):
+                return NextMessage.model_validate(message.result)
+            return NextMessage(text=message.text, suggestions=[])
+        
+        config = AgentConfig(
+            ...
+            response_formatter=format_response,
+        )
+        ```
+    """
+
+    # Completion check
+    completion_check: Optional[Callable[["Message"], bool]] = None
+    """
+    Optional function to determine when the agent should stop generating.
+    
+    If None, defaults to stopping when an AssistantMessage is generated.
+    Different agents may have different completion conditions (e.g., DataCatalog
+    Explorer stops when respond_to_user tool is called).
+    
+    Function signature: (Message) -> bool
+    Returns True if the agent should stop, False to continue.
+    
+    Example:
+        ```python
+        def my_completion_check(message: Message) -> bool:
+            return isinstance(message, ToolResult) and message.tool_request.tool_name == "done"
+        
+        config = AgentConfig(
+            ...
+            completion_check=my_completion_check,
         )
         ```
     """
