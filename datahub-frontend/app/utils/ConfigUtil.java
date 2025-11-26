@@ -12,7 +12,7 @@ public class ConfigUtil {
     // Initialize SecretService once at class load
     String base64Key = System.getenv("SECRET_SERVICE_ENCRYPTION_KEY");
     if (base64Key != null && !base64Key.isEmpty()) {
-      secretService = new SecretService(base64Key);
+      secretService = new SecretService(base64Key); // Assuming constructor accepts key
     } else {
       secretService = null; // no encryption key provided
     }
@@ -20,7 +20,7 @@ public class ConfigUtil {
 
   private ConfigUtil() {}
 
-  // Config paths
+  // New configurations, provided via application.conf file.
   public static final String METADATA_SERVICE_HOST_CONFIG_PATH = "metadataService.host";
   public static final String METADATA_SERVICE_PORT_CONFIG_PATH = "metadataService.port";
   public static final String METADATA_SERVICE_BASE_PATH_CONFIG_PATH = "metadataService.basePath";
@@ -36,14 +36,14 @@ public class ConfigUtil {
   public static final String METADATA_SERVICE_SSL_TRUST_STORE_TYPE =
       "metadataService.truststore.type";
 
-  // Legacy env vars
+  // Legacy env-var based config values, for backwards compatibility:
   public static final String GMS_HOST_ENV_VAR = "DATAHUB_GMS_HOST";
   public static final String GMS_PORT_ENV_VAR = "DATAHUB_GMS_PORT";
   public static final String GMS_BASE_PATH_ENV_VAR = "DATAHUB_GMS_BASE_PATH";
   public static final String GMS_USE_SSL_ENV_VAR = "DATAHUB_GMS_USE_SSL";
   public static final String GMS_SSL_PROTOCOL_VAR = "DATAHUB_GMS_SSL_PROTOCOL";
 
-  // Defaults
+  // Default values
   public static final String DEFAULT_GMS_HOST = "localhost";
   public static final String DEFAULT_GMS_PORT = "8080";
   public static final String DEFAULT_GMS_BASE_PATH = "";
@@ -51,14 +51,13 @@ public class ConfigUtil {
   public static final String DEFAULT_GMS_USE_SSL = "False";
 
   public static final String DEFAULT_METADATA_SERVICE_HOST =
-      Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, DEFAULT_GMS_HOST);
+      Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, "localhost");
   public static final Integer DEFAULT_METADATA_SERVICE_PORT =
-      Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
+      Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, "8080"));
   public static final String DEFAULT_METADATA_SERVICE_BASE_PATH = "";
   public static final Boolean DEFAULT_METADATA_SERVICE_BASE_PATH_ENABLED = false;
   public static final Boolean DEFAULT_METADATA_SERVICE_USE_SSL =
-      Boolean.parseBoolean(
-          Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, DEFAULT_GMS_USE_SSL));
+      Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, "False"));
   public static final String DEFAULT_METADATA_SERVICE_SSL_PROTOCOL =
       Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR);
 
