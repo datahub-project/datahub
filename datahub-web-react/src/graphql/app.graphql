@@ -91,7 +91,6 @@ query appConfig {
         }
         dataHubConfig {
             serverEnv
-            isFreeTrialInstance
         }
         classificationConfig {
             enabled
