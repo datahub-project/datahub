@@ -111,6 +111,20 @@ AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
 | AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD | a string representing the token authentication method to use with the identity provider. Default value is `client_secret_basic`, which uses HTTP Basic authentication. Another option is `client_secret_post`, which includes the client_id and secret_id as form parameters in the HTTP POST request. For more info, see [OAuth 2.0 Client Authentication](https://darutk.medium.com/oauth-2-0-client-authentication-4b5f929305d4) | client_secret_basic |
 | AUTH_OIDC_PREFERRED_JWS_ALGORITHM      | Can be used to select a preferred signing algorithm for id tokens. Examples include: `RS256` or `HS256`. If your IdP includes `none` before `RS256`/`HS256` in the list of signing algorithms, then this value **MUST** be set.                                                                                                                                                                                                     |                     |
 
+## SSO Group-Based Access Control and Custom Messaging
+
+DataHub's SSO (Single Sign-On) integration supports group-based access control and customizable access denied messages using the following environment variables:
+
+- `AUTH_OIDC_REQUIRED_GROUPS`: A comma-separated list of required groups, extracted from the OIDC groups claim, for login. If set, users must have ANY of the specified groups to access DataHub. If unset, group enforcement is disabled and any authenticated user can log in.
+- `AUTH_OIDC_ACCESS_DENIED_MESSAGE`: The message displayed to users who are denied access because they do not belong to the required groups. If not set, a default error message is shown.
+
+**Example usage:**
+
+```
+AUTH_OIDC_REQUIRED_GROUPS=engineering,admins
+AUTH_OIDC_ACCESS_DENIED_MESSAGE=Access Denied: You do not belong to the required groups to access this application. Please contact your administrator.
+```
+
 ### User & Group Provisioning (JIT Provisioning)
 
 By default, DataHub will optimistically attempt to provision users and groups that do not already exist at the time of login.
