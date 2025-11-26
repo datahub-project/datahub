@@ -4,7 +4,6 @@ export interface Step {
     label: string;
     key: StepKey;
     content: React.ReactNode;
-    disabled?: boolean;
 }
 
 export interface MultiStepFormContextType<TState, TStep extends Step = Step> {

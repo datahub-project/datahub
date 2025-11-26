@@ -1,14 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { deepMerge } from 'remirror';
 
-export type StepKey = string;
-
-export interface Step {
-    label: string;
-    key: StepKey;
-    content: React.ReactNode;
-    disabled?: boolean;
-}
+import { Step, StepKey } from '@app/sharedV2/forms/multiStepForm/types';
 
 export interface MultiStepFormContextType<TState, TStep extends Step = Step> {
     state: TState;
@@ -80,13 +73,7 @@ export function MultiStepFormProvider<TState>({
         setState((currentState) => deepMerge(currentState ?? {}, newState));
     }, []);
 
-    const firstEnabledIndex = useMemo(() => {
-        const foundFirstEnabledIndex = steps.findIndex((step) => !step.disabled);
-        if (foundFirstEnabledIndex === -1) return totalSteps - 1;
-        return foundFirstEnabledIndex;
-    }, [steps, totalSteps]);
-
-    const [currentStepIndex, setCurrentStepIndex] = useState<number>(firstEnabledIndex);
+    const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
 
     const getCurrentStep = useCallback(() => {
         return steps?.[currentStepIndex];
@@ -103,8 +90,8 @@ export function MultiStepFormProvider<TState>({
     }, [canGoToNext]);
 
     const canGoToPrevious = useCallback(() => {
-        return currentStepIndex > firstEnabledIndex;
-    }, [currentStepIndex, firstEnabledIndex]);
+        return currentStepIndex > 0;
+    }, [currentStepIndex]);
 
     const goToPrevious = useCallback(() => {
         if (canGoToPrevious()) {
