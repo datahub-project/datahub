@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import { message } from 'antd';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import analytics from '@app/analytics';
 import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
 import { useExecuteIngestionSource } from '@app/ingestV2/source/hooks/useExecuteIngestionSource';
 import { useAddOwners } from '@app/sharedV2/owners/useAddOwners';
@@ -20,7 +21,6 @@ vi.mock('antd', async () => {
     return {
         ...actual,
         message: {
-            loading: vi.fn(),
             success: vi.fn(),
             error: vi.fn(),
             destroy: vi.fn(),
@@ -220,7 +220,88 @@ describe('useCreateSource', () => {
         expect(mockExecuteSource).not.toHaveBeenCalled();
     });
 
-    it('should show loading and success messages on successful creation', async () => {
+    it('should send analytics event with correct properties', async () => {
+        const mockInput: UpdateIngestionSourceInput = {
+            name: 'New Source',
+            type: 'test-type',
+            config: {
+                executorId: 'test',
+                recipe: 'test',
+            },
+            schedule: {
+                interval: '0 12 * * *',
+            },
+        };
+
+        const mockOwners = [
+            {
+                urn: 'urn:li:corpuser:owner1',
+                type: EntityType.CorpUser,
+            },
+        ];
+
+        const mockCreateResult = {
+            data: {
+                createIngestionSource: 'urn:li:ingestionSource:new-source',
+            },
+        };
+
+        mockCreateIngestionSource.mockResolvedValue(mockCreateResult);
+
+        const { result } = renderHook(() => useCreateSource());
+
+        await act(async () => {
+            await result.current(mockInput, mockOwners, false);
+        });
+
+        expect(analytics.event).toHaveBeenCalledWith({
+            type: 'CreateIngestionSourceEvent',
+            sourceType: mockInput.type,
+            sourceUrn: 'urn:li:ingestionSource:new-source',
+            interval: mockInput.schedule?.interval,
+            numOwners: mockOwners.length,
+            outcome: 'save',
+        });
+    });
+
+    it('should send analytics event with outcome save_and_run when shouldRun is true', async () => {
+        const mockInput: UpdateIngestionSourceInput = {
+            name: 'New Source',
+            type: 'test-type',
+            config: {
+                executorId: 'test',
+                recipe: 'test',
+            },
+            schedule: {
+                interval: '0 12 * * *',
+            },
+        };
+
+        const mockCreateResult = {
+            data: {
+                createIngestionSource: 'urn:li:ingestionSource:new-source',
+            },
+        };
+
+        mockCreateIngestionSource.mockResolvedValue(mockCreateResult);
+
+        const { result } = renderHook(() => useCreateSource());
+
+        await act(async () => {
+            await result.current(mockInput, undefined, true);
+        });
+
+        expect(analytics.event).toHaveBeenCalledWith({
+            type: 'CreateIngestionSourceEvent',
+            sourceType: mockInput.type,
+            sourceUrn: 'urn:li:ingestionSource:new-source',
+            interval: mockInput.schedule?.interval,
+            numOwners: undefined,
+            outcome: 'save_and_run',
+        });
+    });
+
+    it('should show success message on successful creation', async () => {
         const mockInput: UpdateIngestionSourceInput = {
             name: 'New Source',
             type: 'test-type',
@@ -244,10 +325,6 @@ describe('useCreateSource', () => {
             await result.current(mockInput);
         });
 
-        expect(message.loading).toHaveBeenCalledWith({
-            content: 'Loading...',
-            duration: 2,
-        });
         expect(message.success).toHaveBeenCalledWith({
             content: 'Successfully created ingestion source!',
             duration: 3,
@@ -280,7 +357,7 @@ describe('useCreateSource', () => {
         });
     });
 
-    it('should use placeholder URN when creation result is null', async () => {
+    it('should show error message when creation result is null', async () => {
         const mockInput: UpdateIngestionSourceInput = {
             name: 'New Source',
             type: 'test-type',
@@ -304,7 +381,11 @@ describe('useCreateSource', () => {
             await result.current(mockInput);
         });
 
-        // Verify that addOwners is called with the placeholder URN and undefined owners
-        expect(mockAddOwners).toHaveBeenCalledWith(undefined, 'placeholder-urn');
+        expect(message.destroy).toHaveBeenCalled();
+        expect(message.error).toHaveBeenCalledWith({
+            content: 'Failed to create ingestion source!',
+            duration: 3,
+        });
+        expect(mockAddOwners).not.toHaveBeenCalled();
     });
 });
