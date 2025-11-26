@@ -2349,7 +2349,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         Returns tuple of (assertion_urn, list of MCPs).
         """
-        assert node.contract is not None
+        if node.contract is None:
+            raise ValueError(f"Cannot create schema assertion for node {node.dbt_name} without a contract")
 
         # Generate stable assertion URN
         assertion_urn = mce_builder.make_assertion_urn(
