@@ -98,7 +98,8 @@ describe('mfeConfigLoader', () => {
         expect(result.microFrontends[1]).toMatchObject(validParsedYaml.microFrontends[1]);
     });
 
-    it('loadMFEConfigFromYAML marks missing required fields as invalid and collects all errors', async () => {
+    it('loadMFEConfigFromYAML filters out entries with missing required fields', async () => {
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         mockYamlLoad({
             subNavigationMode: false,
             microFrontends: [
@@ -114,19 +115,21 @@ describe('mfeConfigLoader', () => {
         });
         const { loadMFEConfigFromYAML } = await import('../mfeConfigLoader');
         const result = loadMFEConfigFromYAML('irrelevant');
-        const mfe = result.microFrontends[0];
-        if ('invalid' in mfe && mfe.invalid) {
-            expect(Array.isArray((mfe as any).errorMessages)).toBe(true);
-            expect((mfe as any).errorMessages).toEqual(
-                expect.arrayContaining([
-                    expect.stringContaining('Missing required field: id'),
-                    expect.stringContaining('Missing required field: navIcon'),
-                ]),
-            );
-        }
+        // Invalid entries should be filtered out
+        expect(result.microFrontends.length).toBe(0);
+        // Errors should be logged
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+            expect.stringContaining('[MFE Loader] Invalid config for entry'),
+            expect.arrayContaining([
+                expect.stringContaining('Missing required field: id'),
+                expect.stringContaining('Missing required field: navIcon'),
+            ]),
+        );
+        consoleErrorSpy.mockRestore();
     });
 
-    it('loadMFEConfigFromYAML marks multiple errors for a single MFE', async () => {
+    it('loadMFEConfigFromYAML filters out entries with multiple validation errors', async () => {
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         mockYamlLoad({
             subNavigationMode: false,
             microFrontends: [
@@ -143,17 +146,18 @@ describe('mfeConfigLoader', () => {
         });
         const { loadMFEConfigFromYAML } = await import('../mfeConfigLoader');
         const result = loadMFEConfigFromYAML('irrelevant');
-        const mfe = result.microFrontends[0];
-        if ('invalid' in mfe && mfe.invalid) {
-            expect(Array.isArray((mfe as any).errorMessages)).toBe(true);
-            expect((mfe as any).errorMessages).toEqual(
-                expect.arrayContaining([
-                    expect.stringContaining('module must be a string'),
-                    expect.stringContaining('flags.enabled must be boolean'),
-                    expect.stringContaining('navIcon must be a non-empty string'),
-                ]),
-            );
-        }
+        // Invalid entries should be filtered out
+        expect(result.microFrontends.length).toBe(0);
+        // All errors should be logged
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+            expect.stringContaining('[MFE Loader] Invalid config for entry'),
+            expect.arrayContaining([
+                expect.stringContaining('module must be a string'),
+                expect.stringContaining('flags.enabled must be boolean'),
+                expect.stringContaining('navIcon must be a non-empty string'),
+            ]),
+        );
+        consoleErrorSpy.mockRestore();
     });
 
     it('loadMFEConfigFromYAML throws if microFrontends is missing', async () => {
