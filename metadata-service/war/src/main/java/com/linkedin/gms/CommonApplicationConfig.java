@@ -141,10 +141,8 @@ public class CommonApplicationConfig {
             }
 
             if (serverAddress != null && !serverAddress.isBlank()) {
-              connector.setHost(serverAddress);
               log.info("Server will listen on address: {}", serverAddress);
-            } else {
-              log.info("Server will listen on all interfaces (0.0.0.0)");
+              connector.setHost(serverAddress);
             }
 
             // --- Set connectors (HTTP or HTTPS only) ---
