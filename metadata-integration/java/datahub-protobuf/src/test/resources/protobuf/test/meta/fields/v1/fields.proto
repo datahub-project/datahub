@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package test.meta.fields.v1;
+
+import "google/protobuf/descriptor.proto";
+
+// Semantic types for field metadata
+enum SemanticType {
+  SEMANTIC_TYPE_UNKNOWN = 0;
+  SEMANTIC_TYPE_STRING = 1;
+  SEMANTIC_TYPE_INTEGER = 2;
+  SEMANTIC_TYPE_BOOLEAN = 3;
+  SEMANTIC_TYPE_UUID = 4;
+  SEMANTIC_TYPE_TIMESTAMP = 5;
+  SEMANTIC_TYPE_EMAIL = 6;
+  SEMANTIC_TYPE_URL = 7;
+  SEMANTIC_TYPE_JSON = 8;
+}
+
+// Field metadata options
+message FieldMetadata {
+  SemanticType semantic_type = 1;
+  string description = 2;
+  bool required = 3;
+  string format = 4;
+}
+
+// Extend FieldOptions to add metadata
+extend google.protobuf.FieldOptions {
+  FieldMetadata metadata = 50000;
+}

@@ -3,15 +3,15 @@ import logging
 import os
 import re
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import parse
-import pydantic
 from cached_property import cached_property
+from pydantic import ConfigDict, field_validator, model_validator
 from pydantic.fields import Field
 from wcmatch import pathlib
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
@@ -65,7 +65,8 @@ class SortKey(ConfigModel):
         description="The date format to use when sorting. This is used to parse the date from the key. The format should follow the java [SimpleDateFormat](https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html) format.",
     )
 
-    @pydantic.validator("date_format", always=True)
+    @field_validator("date_format", mode="before")
+    @classmethod
     def convert_date_format_to_python_format(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return None
@@ -82,70 +83,68 @@ class FolderTraversalMethod(Enum):
 
 
 class PathSpec(ConfigModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     include: str = Field(
-        description="Path to table. Name variable `{table}` is used to mark the folder with dataset. In absence of `{table}`, file level dataset will be created. Check below examples for more details."
+        description="Path to table. Name variable `{table}` is used to mark the folder with dataset. In absence of `{table}`, file level dataset will be created. Check below examples for more details.",
     )
     exclude: Optional[List[str]] = Field(
-        default=[],
+        [],
         description="list of paths in glob pattern which will be excluded while scanning for the datasets",
     )
     file_types: List[str] = Field(
-        default=SUPPORTED_FILE_TYPES,
+        SUPPORTED_FILE_TYPES,
         description="Files with extenstions specified here (subset of default value) only will be scanned to create dataset. Other files will be omitted.",
     )
 
     default_extension: Optional[str] = Field(
-        default=None,
+        None,
         description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
     )
 
     table_name: Optional[str] = Field(
-        default=None,
+        None,
         description="Display name of the dataset.Combination of named variables from include path and strings",
     )
 
     # This is not used yet, but will be used in the future to sort the partitions
-    sort_key: Optional[SortKey] = Field(
-        hidden_from_docs=True,
-        default=None,
+    sort_key: HiddenFromDocs[Optional[SortKey]] = Field(
+        None,
         description="Sort key to use when sorting the partitions. This is useful when the partitions are not sorted in the order of the data. The key can be a compound key based on the path_spec variables.",
     )
 
     enable_compression: bool = Field(
-        default=True,
+        True,
         description="Enable or disable processing compressed files. Currently .gz and .bz files are supported.",
     )
 
     sample_files: bool = Field(
-        default=True,
+        True,
         description="Not listing all the files but only taking a handful amount of sample file to infer the schema. File count and file size calculation will be disabled. This can affect performance significantly if enabled",
     )
 
     allow_double_stars: bool = Field(
-        default=False,
+        False,
         description="Allow double stars in the include path. This can affect performance significantly if enabled",
     )
 
     autodetect_partitions: bool = Field(
-        default=True,
+        True,
         description="Autodetect partition(s) from the path. If set to true, it will autodetect partition key/value if the folder format is {partition_key}={partition_value} for example `year=2024`",
     )
 
     traversal_method: FolderTraversalMethod = Field(
-        default=FolderTraversalMethod.MAX,
+        FolderTraversalMethod.MAX,
         description="Method to traverse the folder. ALL: Traverse all the folders, MIN_MAX: Traverse the folders by finding min and max value, MAX: Traverse the folder with max value",
     )
 
     include_hidden_folders: bool = Field(
-        default=False,
+        False,
         description="Include hidden folders in the traversal (folders starting with . or _",
     )
 
     tables_filter_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
+        AllowDenyPattern.allow_all(),
         description="The tables_filter_pattern configuration field uses regular expressions to filter the tables part of the Pathspec for ingestion, allowing fine-grained control over which tables are included or excluded based on specified patterns. The default setting allows all tables.",
     )
 
@@ -195,6 +194,9 @@ class PathSpec(ConfigModel):
         return True
 
     def dir_allowed(self, path: str) -> bool:
+        if not path.endswith("/"):
+            path += "/"
+
         if self.glob_include.endswith("**"):
             return self.allowed(path, ignore_ext=True)
 
@@ -222,9 +224,8 @@ class PathSpec(ConfigModel):
                 ):
                     return False
 
-        file_name_pattern = self.include.rsplit("/", 1)[1]
         table_name, _ = self.extract_table_name_and_path(
-            os.path.join(path, file_name_pattern)
+            path + self.get_remaining_glob_include(path)
         )
         if not self.tables_filter_pattern.allowed(table_name):
             return False
@@ -259,20 +260,80 @@ class PathSpec(ConfigModel):
     ) -> Union[None, parse.Result, parse.Match]:
         return self.compiled_folder_include.parse(path)
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def validate_no_double_stars(cls, values: Dict) -> Dict:
-        if "include" not in values:
-            return values
+    @model_validator(mode="after")
+    def validate_path_spec_comprehensive(self):
+        """
+        Comprehensive model validator that handles multiple interdependent validations.
 
-        if (
-            values.get("include")
-            and "**" in values["include"]
-            and not values.get("allow_double_stars")
-        ):
+        Consolidates related validation logic to avoid order dependencies between multiple
+        model validators and ensures reliable cross-field validation. This approach is
+        preferred over multiple separate validators when:
+
+        1. Validations depend on multiple fields (e.g., sample_files depends on include)
+        2. One validation modifies a field that another validation checks
+        3. Field validators can't reliably access other field values or defaults
+        4. Order of execution between validators is important but undefined
+
+        By combining related validations, we ensure they execute in the correct sequence
+        and have access to all field values after Pydantic has processed defaults.
+        """
+        # Handle autodetect_partitions logic first
+        if self.autodetect_partitions:
+            include = self.include
+            if include.endswith("/"):
+                include = include[:-1]
+            if include.endswith("{table}"):
+                self.include = include + "/**"
+                # Allow double stars when we add them for autodetect_partitions
+                self.allow_double_stars = True
+
+        # Handle table_name logic
+        if self.table_name is None and "{table}" in self.include:
+            self.table_name = "{table}"
+        elif self.table_name is not None:
+            parsable_include = PathSpec.get_parsable_include(self.include)
+            compiled_include = parse.compile(parsable_include)
+            if not all(
+                x in compiled_include.named_fields
+                for x in parse.compile(self.table_name).named_fields
+            ):
+                raise ValueError(
+                    f"Not all named variables used in path_spec.table_name {self.table_name} are specified in path_spec.include {self.include}"
+                )
+
+        # Handle sample_files logic - turn off sampling for non-cloud URIs
+        is_s3 = is_s3_uri(self.include)
+        is_gcs = is_gcs_uri(self.include)
+        is_abs = is_abs_uri(self.include)
+        if not is_s3 and not is_gcs and not is_abs:
+            # Sampling only makes sense on s3 and gcs currently
+            self.sample_files = False
+
+        # Validate double stars
+        if "**" in self.include and not self.allow_double_stars:
             raise ValueError("path_spec.include cannot contain '**'")
-        return values
 
-    @pydantic.validator("file_types", always=True)
+        # Validate file extension
+        include_ext = os.path.splitext(self.include)[1].strip(".")
+        if not include_ext:
+            include_ext = (
+                "*"  # if no extension is provided, we assume all files are allowed
+            )
+        if (
+            include_ext not in self.file_types
+            and include_ext not in ["*", ""]
+            and not self.default_extension
+            and include_ext not in SUPPORTED_COMPRESSIONS
+        ):
+            raise ValueError(
+                f"file type specified ({include_ext}) in path_spec.include is not in specified file "
+                f'types. Please select one from {self.file_types} or specify ".*" to allow all types'
+            )
+
+        return self
+
+    @field_validator("file_types", mode="before")
+    @classmethod
     def validate_file_types(cls, v: Optional[List[str]]) -> List[str]:
         if v is None:
             return SUPPORTED_FILE_TYPES
@@ -284,50 +345,24 @@ class PathSpec(ConfigModel):
                     )
             return v
 
-    @pydantic.validator("default_extension")
-    def validate_default_extension(cls, v):
+    @field_validator("default_extension", mode="after")
+    @classmethod
+    def validate_default_extension(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in SUPPORTED_FILE_TYPES:
             raise ValueError(
                 f"default extension {v} not in supported default file extension. Please specify one from {SUPPORTED_FILE_TYPES}"
             )
         return v
 
-    @pydantic.validator("sample_files", always=True)
-    def turn_off_sampling_for_non_s3(cls, v, values):
-        is_s3 = is_s3_uri(values.get("include") or "")
-        is_gcs = is_gcs_uri(values.get("include") or "")
-        is_abs = is_abs_uri(values.get("include") or "")
-        if not is_s3 and not is_gcs and not is_abs:
-            # Sampling only makes sense on s3 and gcs currently
-            v = False
-        return v
-
-    @pydantic.validator("exclude", each_item=True)
-    def no_named_fields_in_exclude(cls, v: str) -> str:
-        if len(parse.compile(v).named_fields) != 0:
-            raise ValueError(
-                f"path_spec.exclude {v} should not contain any named variables"
-            )
-        return v
-
-    @pydantic.validator("table_name", always=True)
-    def table_name_in_include(cls, v, values):
-        if "include" not in values:
-            return v
-
-        parsable_include = PathSpec.get_parsable_include(values["include"])
-        compiled_include = parse.compile(parsable_include)
-
+    @field_validator("exclude", mode="after")
+    @classmethod
+    def no_named_fields_in_exclude(cls, v: Optional[List[str]]) -> Optional[List[str]]:
         if v is None:
-            if "{table}" in values["include"]:
-                v = "{table}"
-        else:
-            if not all(
-                x in compiled_include.named_fields
-                for x in parse.compile(v).named_fields
-            ):
+            return v
+        for item in v:
+            if len(parse.compile(item).named_fields) != 0:
                 raise ValueError(
-                    f"Not all named variables used in path_spec.table_name {v} are specified in path_spec.include {values['include']}"
+                    f"path_spec.exclude {item} should not contain any named variables"
                 )
         return v
 
@@ -478,44 +513,6 @@ class PathSpec(ConfigModel):
         logger.debug(f"Setting _glob_include: {glob_include}")
         return glob_include
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def validate_path_spec(cls, values: Dict) -> Dict[str, Any]:
-        # validate that main fields are populated
-        required_fields = ["include", "file_types", "default_extension"]
-        for f in required_fields:
-            if f not in values:
-                logger.debug(
-                    f"Failed to validate because {f} wasn't populated correctly"
-                )
-                return values
-
-        if values["include"] and values["autodetect_partitions"]:
-            include = values["include"]
-            if include.endswith("/"):
-                include = include[:-1]
-
-            if include.endswith("{table}"):
-                values["include"] = include + "/**"
-
-        include_ext = os.path.splitext(values["include"])[1].strip(".")
-        if not include_ext:
-            include_ext = (
-                "*"  # if no extension is provided, we assume all files are allowed
-            )
-
-        if (
-            include_ext not in values["file_types"]
-            and include_ext not in ["*", ""]
-            and not values["default_extension"]
-            and include_ext not in SUPPORTED_COMPRESSIONS
-        ):
-            raise ValueError(
-                f"file type specified ({include_ext}) in path_spec.include is not in specified file "
-                f'types. Please select one from {values.get("file_types")} or specify ".*" to allow all types'
-            )
-
-        return values
-
     def _extract_table_name(self, named_vars: dict) -> str:
         if self.table_name is None:
             raise ValueError("path_spec.table_name is not set")
@@ -563,7 +560,7 @@ class PathSpec(ConfigModel):
     def extract_table_name_and_path(self, path: str) -> Tuple[str, str]:
         parsed_vars = self.get_named_vars(path)
         if parsed_vars is None or "table" not in parsed_vars.named:
-            return os.path.basename(path), path
+            return os.path.basename(path.removesuffix("/")), path
         else:
             include = self.include
             depth = include.count("/", 0, include.find("{table}"))
@@ -571,3 +568,38 @@ class PathSpec(ConfigModel):
                 "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
             )
         return self._extract_table_name(parsed_vars.named), table_path
+
+    def has_correct_number_of_directory_components(self, path: str) -> bool:
+        """
+        Checks that a given path has the same number of components as the path spec
+        has directory components. Useful for checking if a path needs to descend further
+        into child directories or if the source can switch into file listing mode. If the
+        glob form of the path spec ends in "**", this always returns False.
+        """
+        if self.glob_include.endswith("**"):
+            return False
+
+        if not path.endswith("/"):
+            path += "/"
+        path_slash = path.count("/")
+        glob_slash = self.glob_include.count("/")
+        if path_slash == glob_slash:
+            return True
+        return False
+
+    def get_remaining_glob_include(self, path: str) -> str:
+        """
+        Given a path, return the remaining components of the path spec (if any
+        exist) in glob form. If the glob form of the path spec ends in "**", this
+        function's return value also always ends in "**", regardless of how
+        many components the input path has.
+        """
+        if not path.endswith("/"):
+            path += "/"
+        path_slash = path.count("/")
+        remainder = "/".join(self.glob_include.split("/")[path_slash:])
+        if remainder:
+            return remainder
+        if self.glob_include.endswith("**"):
+            return "**"
+        return ""

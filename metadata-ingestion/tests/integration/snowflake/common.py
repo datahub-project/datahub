@@ -5,12 +5,14 @@ from datetime import datetime, timezone
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake import snowflake_query
+from datahub.ingestion.source.snowflake.snowflake_queries import QueryLogQueryBuilder
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 NUM_TABLES = 10
 NUM_VIEWS = 2
 NUM_STREAMS = 1
+NUM_STREAMLIT_APPS = 2
 NUM_COLS = 10
 NUM_OPS = 10
 NUM_USAGE = 0
@@ -200,10 +202,13 @@ def default_query_results(  # noqa: C901
     num_tables=NUM_TABLES,
     num_views=NUM_VIEWS,
     num_streams=NUM_STREAMS,
+    num_streamlit_apps=NUM_STREAMLIT_APPS,
     num_cols=NUM_COLS,
     num_ops=NUM_OPS,
     num_usages=NUM_USAGE,
 ):
+    if query == SnowflakeQuery.get_all_users():
+        return []
     if query == SnowflakeQuery.current_account():
         return [{"CURRENT_ACCOUNT()": "ABC12345"}]
     if query == SnowflakeQuery.current_region():
@@ -216,6 +221,18 @@ def default_query_results(  # noqa: C901
         return [{"CURRENT_VERSION()": "X.Y.Z"}]
     elif query == SnowflakeQuery.current_warehouse():
         return [{"CURRENT_WAREHOUSE()": "TEST_WAREHOUSE"}]
+    elif (
+        query
+        == QueryLogQueryBuilder(
+            start_time=datetime(year=2022, month=6, day=6, tzinfo=timezone.utc),
+            end_time=datetime(
+                year=2022, month=6, day=7, hour=7, minute=17, tzinfo=timezone.utc
+            ),
+            bucket_duration=BucketDuration.DAY,
+            deny_usernames=None,  # type: ignore[arg-type]
+        ).build_enriched_query_log_query()
+    ):
+        return []
     elif query == SnowflakeQuery.show_databases():
         return [
             {
@@ -359,6 +376,21 @@ def default_query_results(  # noqa: C901
                 "owner_role_type": "ROLE",
             }
             for stream_idx in range(1, num_streams + 1)
+        ]
+    elif query == SnowflakeQuery.streamlit_apps_for_database("TEST_DB"):
+        return [
+            {
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "name": f"STREAMLIT_APP_{app_idx}",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "owner": "ACCOUNTADMIN",
+                "comment": f"Comment for Streamlit App {app_idx}",
+                "title": f"My Streamlit App {app_idx}",
+                "url_id": f"abc123def456_{app_idx}",
+                "owner_role_type": "ROLE",
+            }
+            for app_idx in range(1, num_streamlit_apps + 1)
         ]
     elif query in (
         SnowflakeQuery.use_database("TEST_DB"),

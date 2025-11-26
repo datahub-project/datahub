@@ -1,12 +1,7 @@
-import { Text } from '@components';
 import React from 'react';
 
+import PropertiesWithDividerWrapper from '@app/entityV2/summary/properties/PropertiesWithDividerWrapper';
+
 export default function PropertiesHeader() {
-    return (
-        <>
-            <Text weight="bold" color="gray" colorLevel={600}>
-                Properties
-            </Text>
-        </>
-    );
+    return <PropertiesWithDividerWrapper />;
 }

@@ -14,6 +14,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.dremio.dremio_entities import (
     DremioContainer,
     DremioDataset,
@@ -364,9 +365,9 @@ class DremioAspects:
     ) -> Optional[BrowsePathsV2Class]:
         paths = []
 
-        if entity.subclass == "Dremio Space":
+        if entity.subclass == DatasetContainerSubTypes.DREMIO_SPACE.value:
             paths.append(BrowsePathEntryClass(id="Spaces"))
-        elif entity.subclass == "Dremio Source":
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE.value:
             paths.append(BrowsePathEntryClass(id="Sources"))
         if paths:
             return BrowsePathsV2Class(path=paths)

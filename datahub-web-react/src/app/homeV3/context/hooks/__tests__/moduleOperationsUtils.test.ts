@@ -19,13 +19,18 @@ import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.gene
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
 
 // Mock data helpers
-const createMockModule = (name: string, urn: string, exists = true): PageModuleFragment => ({
+const createMockModule = (
+    name: string,
+    urn: string,
+    exists = true,
+    type: DataHubPageModuleType = DataHubPageModuleType.OwnedAssets,
+): PageModuleFragment => ({
     urn,
     type: EntityType.DatahubPageModule,
     exists,
     properties: {
         name,
-        type: DataHubPageModuleType.OwnedAssets,
+        type,
         visibility: { scope: PageModuleScope.Personal },
         params: {},
     },
@@ -162,7 +167,7 @@ describe('Module Operations Utility Functions', () => {
             const rows = [{ modules: [module1] }];
             const position: ModulePositionInput = { rowIndex: 1, moduleIndex: 0 };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 1, true);
+            const result = insertModuleIntoRows(rows, newModule, position, 1, PageTemplateSurfaceType.HomePage, true);
 
             expect(result).toHaveLength(2);
             expect(result[1].modules).toEqual([newModule]);
@@ -173,7 +178,7 @@ describe('Module Operations Utility Functions', () => {
             const rows = [{ modules: [module1] }];
             const position: ModulePositionInput = { rowIndex: 5, moduleIndex: 0 };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 5, false);
+            const result = insertModuleIntoRows(rows, newModule, position, 5, PageTemplateSurfaceType.HomePage, false);
 
             expect(result).toHaveLength(2);
             expect(result[1].modules).toEqual([newModule]);
@@ -183,7 +188,7 @@ describe('Module Operations Utility Functions', () => {
             const rows = [{ modules: [module1, module2] }];
             const position: ModulePositionInput = { rowIndex: 0, moduleIndex: 1 };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 0, false);
+            const result = insertModuleIntoRows(rows, newModule, position, 0, PageTemplateSurfaceType.HomePage, false);
 
             expect(result[0].modules).toHaveLength(3);
             expect(result[0].modules[1]).toEqual(newModule);
@@ -195,7 +200,7 @@ describe('Module Operations Utility Functions', () => {
             const rows = [{ modules: [module1, module2] }];
             const position: ModulePositionInput = { rowIndex: 0, moduleIndex: undefined };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 0, false);
+            const result = insertModuleIntoRows(rows, newModule, position, 0, PageTemplateSurfaceType.HomePage, false);
 
             expect(result[0].modules).toHaveLength(3);
             expect(result[0].modules[2]).toEqual(newModule); // Added at end
@@ -205,7 +210,7 @@ describe('Module Operations Utility Functions', () => {
             const rows: any[] = [];
             const position: ModulePositionInput = { rowIndex: 0, moduleIndex: 0 };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 0, false);
+            const result = insertModuleIntoRows(rows, newModule, position, 0, PageTemplateSurfaceType.HomePage, false);
 
             expect(result).toHaveLength(1);
             expect(result[0].modules).toEqual([newModule]);
@@ -215,7 +220,7 @@ describe('Module Operations Utility Functions', () => {
             const rows = null as any;
             const position: ModulePositionInput = { rowIndex: 0, moduleIndex: 0 };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 0, false);
+            const result = insertModuleIntoRows(rows, newModule, position, 0, PageTemplateSurfaceType.HomePage, false);
 
             expect(result).toHaveLength(1);
             expect(result[0].modules).toEqual([newModule]);
@@ -538,6 +543,7 @@ describe('Module Operations Utility Functions', () => {
                 newLargeModule,
                 position,
                 mockUpdateTemplateWithModule,
+                PageTemplateSurfaceType.HomePage,
                 false,
             );
 
@@ -554,6 +560,8 @@ describe('Module Operations Utility Functions', () => {
                 smallModule,
                 position,
                 mockUpdateTemplateWithModule,
+                PageTemplateSurfaceType.HomePage,
+
                 false,
             );
 
@@ -591,6 +599,7 @@ describe('Module Operations Utility Functions', () => {
                 newLargeModule,
                 position,
                 mockUpdateTemplateWithModule,
+                PageTemplateSurfaceType.HomePage,
                 true, // isEditingModule = true
             );
 
@@ -618,6 +627,7 @@ describe('Module Operations Utility Functions', () => {
                 smallModule,
                 position,
                 mockUpdateTemplateWithModule,
+                PageTemplateSurfaceType.HomePage,
                 false,
             );
 
@@ -635,6 +645,24 @@ describe('Module Operations Utility Functions', () => {
             const notExistingModule = createMockModule('existing', 'urn:li:module:existing', false);
 
             const template = createMockTemplate([{ modules: [existingModule, notExistingModule] }]);
+
+            const result = filterOutNonExistentModulesFromTemplate(template);
+
+            expect(result?.properties.rows).toHaveLength(1);
+            expect(result?.properties?.rows?.[0]?.modules).toHaveLength(1);
+            expect(result?.properties?.rows?.[0]?.modules?.[0]).toBe(existingModule);
+        });
+
+        it('should remove Unknown modules', () => {
+            const existingModule = createMockModule('existing', 'urn:li:module:existing');
+            const unknownModule = createMockModule(
+                'existing',
+                'urn:li:module:existing',
+                true,
+                DataHubPageModuleType.Unknown,
+            );
+
+            const template = createMockTemplate([{ modules: [existingModule, unknownModule] }]);
 
             const result = filterOutNonExistentModulesFromTemplate(template);
 

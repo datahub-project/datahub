@@ -380,7 +380,12 @@ class DataHubDatabaseReader:
             json_metadata = post_json_transform(
                 json.loads(row["systemmetadata"] or "{}")
             )
-            system_metadata = SystemMetadataClass.from_obj(json_metadata)
+            system_metadata = None
+            if self.config.preserve_system_metadata:
+                system_metadata = SystemMetadataClass.from_obj(json_metadata)
+                if system_metadata.properties:
+                    is_no_op = system_metadata.properties.pop("isNoOp", None)
+                    logger.debug(f"Removed potential value for is_no_op={is_no_op}")
             return MetadataChangeProposalWrapper(
                 entityUrn=row["urn"],
                 aspect=ASPECT_MAP[row["aspect"]].from_obj(json_aspect),

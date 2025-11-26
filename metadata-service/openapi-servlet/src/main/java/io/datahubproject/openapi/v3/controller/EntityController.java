@@ -41,13 +41,14 @@ import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
@@ -60,7 +61,10 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v3.models.AspectItem;
+import io.datahubproject.openapi.v3.models.FacetMetadata;
+import io.datahubproject.openapi.v3.models.Filter;
 import io.datahubproject.openapi.v3.models.GenericAspectV3;
 import io.datahubproject.openapi.v3.models.GenericEntityAspectsBodyV3;
 import io.datahubproject.openapi.v3.models.GenericEntityScrollResultV3;
@@ -163,15 +167,30 @@ public class EntityController
       @RequestParam(value = "query", defaultValue = "*") String query,
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "sort", required = false, defaultValue = "urn") String sortField,
-      @RequestParam(value = "sortCriteria", required = false) List<String> sortFields,
-      @RequestParam(value = "sortOrder", required = false, defaultValue = "ASCENDING")
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description = "Deprecated. Please use the SortCriteria in request body.",
+              deprecated = true)
+          @Deprecated
+          @RequestParam(value = "sortCriteria", required = false)
+          List<String> sortFields,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description = "Deprecated. Please use the SortCriteria in request body.",
+              deprecated = true)
+          @Deprecated
+          @RequestParam(value = "sortOrder", required = false, defaultValue = "ASCENDING")
           String sortOrder,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
       @RequestParam(value = "skipCache", required = false, defaultValue = "false")
           Boolean skipCache,
+      @RequestParam(value = "skipAggregation", required = false, defaultValue = "true")
+          Boolean skipAggregation,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
           Boolean includeSoftDelete,
+      @RequestParam(value = "scrollIdPerEntity", required = false, defaultValue = "false")
+          Boolean scrollIdPerEntity,
       @RequestParam(value = "sliceId", required = false) Integer sliceId,
       @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
       @Parameter(
@@ -183,18 +202,8 @@ public class EntityController
       @RequestBody @Nonnull GenericEntityAspectsBodyV3 entityAspectsBody)
       throws URISyntaxException {
 
-    final Collection<String> resolvedEntityNames;
-    if (entityAspectsBody.getEntities() != null) {
-      resolvedEntityNames =
-          entityAspectsBody.getEntities().stream()
-              .map(entityName -> entityRegistry.getEntitySpec(entityName))
-              .map(EntitySpec::getName)
-              .toList();
-    } else {
-      resolvedEntityNames =
-          entityRegistry.getEntitySpecs().values().stream().map(EntitySpec::getName).toList();
-    }
-
+    final Collection<String> resolvedEntityNames =
+        RequestInputUtil.resolveEntityNames(entityRegistry, entityAspectsBody.getEntities());
     Authentication authentication = AuthenticationContext.getAuthentication();
 
     OperationContext opContext =
@@ -216,10 +225,25 @@ public class EntityController
     }
 
     List<SortCriterion> sortCriteria;
-    if (!CollectionUtils.isEmpty(sortFields)) {
-      sortCriteria = new ArrayList<>();
-      sortFields.forEach(
-          field -> sortCriteria.add(SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder))));
+    if (entityAspectsBody.getSortCriteria() != null) {
+      sortCriteria =
+          entityAspectsBody.getSortCriteria().stream()
+              .map(
+                  sortCriterion -> {
+                    SortCriterion pegasusSortCriterion = sortCriterion.toRecordTemplate();
+                    if (sortCriterion.getMissingValue() != null) {
+                      pegasusSortCriterion
+                          .data()
+                          .put("missingValue", sortCriterion.getMissingValue().getValue());
+                    }
+                    return pegasusSortCriterion;
+                  })
+              .toList();
+    } else if (!CollectionUtils.isEmpty(sortFields)) {
+      sortCriteria =
+          sortFields.stream()
+              .map(field -> SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder)))
+              .toList();
     } else {
       sortCriteria =
           Collections.singletonList(SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder)));
@@ -231,6 +255,7 @@ public class EntityController
                 flags ->
                     DEFAULT_SEARCH_FLAGS
                         .setSkipCache(skipCache)
+                        .setSkipAggregates(skipAggregation)
                         .setIncludeSoftDeleted(includeSoftDelete)
                         .setSliceOptions(
                             sliceId != null && sliceMax != null
@@ -239,7 +264,9 @@ public class EntityController
                             SetMode.IGNORE_NULL)),
             resolvedEntityNames,
             query,
-            null,
+            Optional.ofNullable(entityAspectsBody.getFilter())
+                .map(Filter::toRecordTemplate)
+                .orElse(null),
             sortCriteria,
             scrollId,
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
@@ -254,10 +281,13 @@ public class EntityController
         buildScrollResult(
             opContext,
             result.getEntities(),
+            result.getMetadata(),
             entityAspectsBody.getAspects(),
             withSystemMetadata,
             result.getScrollId(),
-            entityAspectsBody.getAspects() != null));
+            entityAspectsBody.getAspects() != null,
+            result.getNumEntities(),
+            scrollIdPerEntity));
   }
 
   @Tag(name = "EntityVersioning")
@@ -482,12 +512,13 @@ public class EntityController
     // Group results by entity type for response structure
     Map<String, List<IngestResult>> resultsByEntityType = new HashMap<>();
     for (IngestResult result : results) {
-      String entityType = result.getUrn().getEntityType();
+      String entityType = result.getUrn().getEntityType().toLowerCase();
       resultsByEntityType.computeIfAbsent(entityType, k -> new ArrayList<>()).add(result);
     }
 
     for (String entityName : entityTypes) {
-      List<IngestResult> entityResults = resultsByEntityType.getOrDefault(entityName, List.of());
+      List<IngestResult> entityResults =
+          resultsByEntityType.getOrDefault(entityName.toLowerCase(), List.of());
       response.put(entityName, buildEntityList(opContext, entityResults, withSystemMetadata));
     }
 
@@ -584,16 +615,40 @@ public class EntityController
   public GenericEntityScrollResultV3 buildScrollResult(
       @Nonnull OperationContext opContext,
       SearchEntityArray searchEntities,
+      @Nullable SearchResultMetadata searchResultMetadata,
       Set<String> aspectNames,
       boolean withSystemMetadata,
       @Nullable String scrollId,
-      boolean expandEmpty)
+      boolean expandEmpty,
+      int totalCount,
+      boolean includeScrollIdPerEntity)
       throws URISyntaxException {
+
+    List<FacetMetadata> facets = new ArrayList<>();
+
+    if (searchResultMetadata != null && searchResultMetadata.hasAggregations()) {
+      for (AggregationMetadata aggregationMetadata : searchResultMetadata.getAggregations()) {
+        FacetMetadata facetMetadata =
+            FacetMetadata.builder()
+                .field(aggregationMetadata.getName())
+                .aggregations(aggregationMetadata.getAggregations())
+                .build();
+        facets.add(facetMetadata);
+      }
+    }
+
     return GenericEntityScrollResultV3.builder()
         .entities(
             toRecordTemplates(
-                opContext, searchEntities, aspectNames, withSystemMetadata, expandEmpty))
+                opContext,
+                searchEntities,
+                aspectNames,
+                withSystemMetadata,
+                expandEmpty,
+                includeScrollIdPerEntity))
         .scrollId(scrollId)
+        .facets(facets)
+        .totalCount(totalCount)
         .build();
   }
 
@@ -793,14 +848,44 @@ public class EntityController
       SearchEntityArray searchEntities,
       Set<String> aspectNames,
       boolean withSystemMetadata,
-      boolean expandEmpty)
+      boolean expandEmpty,
+      boolean includeScrollId)
       throws URISyntaxException {
-    return buildEntityList(
-        opContext,
-        searchEntities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
-        aspectNames,
-        withSystemMetadata,
-        expandEmpty);
+
+    List<GenericEntityV3> entities =
+        buildEntityList(
+            opContext,
+            searchEntities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
+            aspectNames,
+            withSystemMetadata,
+            expandEmpty);
+
+    // Attach a scrollId to each entity.
+    if (includeScrollId) {
+      // Build a map of URN -> per-entity scrollId if provided via SearchEntity.extraFields
+      Map<String, String> perEntityScrollIds =
+          searchEntities.stream()
+              .collect(
+                  Collectors.toMap(
+                      searchEntity -> searchEntity.getEntity().toString(),
+                      searchEntity ->
+                          searchEntity.getExtraFields() != null
+                              ? searchEntity.getExtraFields().get("scrollId")
+                              : null,
+                      (a, b) -> a,
+                      LinkedHashMap::new));
+
+      // Attach scrollId to each entity element when available
+      for (GenericEntityV3 entity : entities) {
+        String urn = entity.getUrn();
+        String scrollId = perEntityScrollIds.get(urn);
+        if (scrollId != null) {
+          entity.put("scrollId", scrollId);
+        }
+      }
+    }
+
+    return entities;
   }
 
   private LinkedHashMap<Urn, Map<AspectSpec, Long>> toEntityVersionRequest(

@@ -4,10 +4,11 @@ import React from 'react';
 import { ModalButton } from '@components/components/Modal/Modal';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
 
 const modalBodyStyles = {
     overflow: 'auto',
-    maxHeight: '70vh',
+    maxHeight: '75vh',
 };
 
 interface Props {
@@ -47,6 +48,7 @@ export default function BaseModuleModal({
             color: 'primary',
             variant: 'filled',
             onClick: onUpsert,
+            buttonDataTestId: 'create-update-module-button',
             ...submitButtonProps,
         },
     ];
@@ -62,6 +64,7 @@ export default function BaseModuleModal({
             bodyStyle={bodyStyles ? { ...modalBodyStyles, ...bodyStyles } : modalBodyStyles}
             width={width || '90%'}
             style={{ maxWidth: maxWidth ?? 1100 }}
+            zIndex={ANT_NOTIFICATION_Z_INDEX + 2} // 2 higher because home settings button is 1 higher
         >
             {children}
         </Modal>

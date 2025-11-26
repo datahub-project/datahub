@@ -163,11 +163,13 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                         text: 'Cancel',
                         variant: 'text',
                         onClick: onCancelSelect,
+                        key: 'cancel',
                     },
                     {
                         text: isSaving ? 'Saving...' : `Set ${directionTitle}s`,
                         onClick: saveLineageChanges,
                         disabled: (entitiesToAdd.length === 0 && entitiesToRemove.length === 0) || isSaving,
+                        key: 'save',
                     },
                 ]}
             >

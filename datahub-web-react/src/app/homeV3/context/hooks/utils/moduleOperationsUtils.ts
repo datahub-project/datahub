@@ -2,9 +2,10 @@ import { LARGE_MODULE_TYPES, SMALL_MODULE_TYPES } from '@app/homeV3/modules/cons
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
-import { DataHubPageModuleType } from '@types';
+import { DataHubPageModuleType, PageTemplateSurfaceType } from '@types';
 
-const MAX_MODULES_PER_ROW = 3;
+const MAX_HOME_PAGE_MODULES_PER_ROW = 3;
+const MAX_SUMMARY_PAGE_MODULES_PER_ROW = 2;
 
 /**
  * Helper function to check if a module type is a small module
@@ -100,6 +101,7 @@ export function insertModuleIntoRows(
     module: PageModuleFragment,
     toPosition: ModulePositionInput,
     adjustedRowIndex: number,
+    templateType: PageTemplateSurfaceType,
     insertNewRow?: boolean,
 ): typeof rows {
     const newRows = [...(rows || [])];
@@ -122,7 +124,11 @@ export function insertModuleIntoRows(
     const insertIndex = toModuleIndex !== undefined ? toModuleIndex : toModules.length;
 
     // Row has space, insert the module
-    if (toModules.length < MAX_MODULES_PER_ROW) {
+    const maxModulesPerRow =
+        templateType === PageTemplateSurfaceType.HomePage
+            ? MAX_HOME_PAGE_MODULES_PER_ROW
+            : MAX_SUMMARY_PAGE_MODULES_PER_ROW;
+    if (toModules.length < maxModulesPerRow) {
         toModules.splice(insertIndex, 0, module);
         toRow.modules = toModules;
         newRows[adjustedRowIndex] = toRow;
@@ -222,6 +228,7 @@ export function handleModuleAdditionWithSizeMismatch(
         position: ModulePositionInput,
         isEditing: boolean,
     ) => PageTemplateFragment | null,
+    templateType: PageTemplateSurfaceType,
     isEditingModule = false,
 ): PageTemplateFragment | null {
     // Check for size mismatch and adjust position if needed
@@ -238,6 +245,7 @@ export function handleModuleAdditionWithSizeMismatch(
             module,
             adjustedPosition,
             adjustedPosition.rowIndex!,
+            templateType,
             true, // insertNewRow = true
         );
 
@@ -254,8 +262,8 @@ export function handleModuleAdditionWithSizeMismatch(
 }
 
 /**
- * Helper function to handle references to removed modules.
- * Removes not existing modules from row and cleans up empty rows.
+ * Helper function to handle references to removed modules and unknown modules.
+ * Removes these modules from rows and cleans up empty rows.
  */
 export function filterOutNonExistentModulesFromTemplate(
     template: PageTemplateFragment | undefined | null,
@@ -265,7 +273,9 @@ export function filterOutNonExistentModulesFromTemplate(
     const updatedRows = template.properties.rows
         .map((row) => ({
             ...row,
-            modules: row.modules.filter((module) => module.exists),
+            modules: row.modules.filter(
+                (module) => module.exists && module.properties.type !== DataHubPageModuleType.Unknown,
+            ),
         }))
         .filter((row) => row.modules.length > 0);
 

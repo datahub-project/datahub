@@ -14,11 +14,11 @@ source:
         authority: # Your Authority URL, e.g. "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000"
         token_url: # Your Token URL, e.g. "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token"
         graph_url: # The Graph URL, e.g. "https://graph.microsoft.com/v1.0"
-        
+
         # Optional flags to ingest users, groups, or both
         ingest_users: True
         ingest_groups: True
-        
+
         # Optional Allow / Deny extraction of particular Groups
         # groups_pattern:
         #    allow:

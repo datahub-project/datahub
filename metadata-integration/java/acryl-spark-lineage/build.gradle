@@ -39,7 +39,6 @@ dependencies {
   implementation 'org.slf4j:slf4j-log4j12:2.0.7'
   implementation externalDependency.httpClient
   implementation externalDependency.typesafeConfig
-  implementation externalDependency.commonsLang
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
@@ -140,7 +139,6 @@ scalaVersions.each { sv ->
     scalaConfig.dependencies.add(project.dependencies.create('org.slf4j:slf4j-log4j12:2.0.7'))
     scalaConfig.dependencies.add(project.dependencies.create(externalDependency.httpClient))
     scalaConfig.dependencies.add(project.dependencies.create(externalDependency.typesafeConfig))
-    scalaConfig.dependencies.add(project.dependencies.create(externalDependency.commonsLang))
     scalaConfig.dependencies.add(project.dependencies.create(externalDependency.slf4jApi))
     scalaConfig.dependencies.add(project.dependencies.create(externalDependency.json))
 

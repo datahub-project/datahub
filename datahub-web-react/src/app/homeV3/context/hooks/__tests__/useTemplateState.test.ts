@@ -99,7 +99,7 @@ describe('useTemplateState', () => {
                 loaded: true,
             } as any);
 
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             expect(result.current.personalTemplate).toStrictEqual(mockPersonalTemplate);
             expect(result.current.globalTemplate).toStrictEqual(mockGlobalTemplate);
@@ -127,7 +127,7 @@ describe('useTemplateState', () => {
                 loaded: true,
             } as any);
 
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             expect(result.current.personalTemplate).toBe(null);
             expect(result.current.globalTemplate).toStrictEqual(mockGlobalTemplate);
@@ -155,11 +155,12 @@ describe('useTemplateState', () => {
                 loaded: true,
             } as any);
 
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             expect(result.current.personalTemplate).toBe(null);
-            expect(result.current.globalTemplate).toBe(null);
-            expect(result.current.template).toBe(null);
+            // undefined global template should be replaced with fallback default global template
+            expect(result.current.globalTemplate?.urn).toBe('urn:li:dataHubPageTemplate:home_default_1');
+            expect(result.current.template?.urn).toBe('urn:li:dataHubPageTemplate:home_default_1');
             expect(result.current.isEditingGlobalTemplate).toBe(false);
         });
 
@@ -179,11 +180,12 @@ describe('useTemplateState', () => {
                 loaded: true,
             } as any);
 
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             expect(result.current.personalTemplate).toBe(null);
-            expect(result.current.globalTemplate).toBe(null);
-            expect(result.current.template).toBe(null);
+            // undefined global template should be replaced with fallback default global template
+            expect(result.current.globalTemplate?.urn).toBe('urn:li:dataHubPageTemplate:home_default_1');
+            expect(result.current.template?.urn).toBe('urn:li:dataHubPageTemplate:home_default_1');
             expect(result.current.isEditingGlobalTemplate).toBe(false);
         });
 
@@ -207,7 +209,7 @@ describe('useTemplateState', () => {
                 loaded: true,
             } as any);
 
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             expect(result.current.personalTemplate).toBe(null);
             expect(result.current.globalTemplate).toBe(null);
@@ -239,7 +241,7 @@ describe('useTemplateState', () => {
         });
 
         it('should switch to global template when editing global template', () => {
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);
@@ -250,7 +252,7 @@ describe('useTemplateState', () => {
         });
 
         it('should switch back to personal template when not editing global template', () => {
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);
@@ -276,13 +278,13 @@ describe('useTemplateState', () => {
                 loaded: true,
             } as any);
 
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             expect(result.current.template).toStrictEqual(mockGlobalTemplate);
         });
 
         it('should use global template when editing global template even if personal exists', () => {
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);
@@ -315,7 +317,7 @@ describe('useTemplateState', () => {
         });
 
         it('should update personal template when not editing global', () => {
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             const newTemplate: PageTemplateFragment = {
                 urn: 'urn:li:pageTemplate:new',
@@ -337,7 +339,7 @@ describe('useTemplateState', () => {
         });
 
         it('should update global template when editing global', () => {
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             const newTemplate: PageTemplateFragment = {
                 urn: 'urn:li:pageTemplate:new',
@@ -363,7 +365,7 @@ describe('useTemplateState', () => {
         });
 
         it('should update personal template directly', () => {
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             const newPersonalTemplate: PageTemplateFragment = {
                 urn: 'urn:li:pageTemplate:new',
@@ -384,7 +386,7 @@ describe('useTemplateState', () => {
         });
 
         it('should update global template directly', () => {
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             const newTemplate: PageTemplateFragment = {
                 urn: 'urn:li:pageTemplate:new',
@@ -405,7 +407,7 @@ describe('useTemplateState', () => {
         });
 
         it('should set template to null', () => {
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             act(() => {
                 result.current.setTemplate(null);
@@ -437,7 +439,7 @@ describe('useTemplateState', () => {
                 loaded: true,
             } as any);
 
-            const { result, rerender } = renderHook(() => useTemplateState());
+            const { result, rerender } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             const initialTemplate = result.current.template;
 
@@ -472,7 +474,7 @@ describe('useTemplateState', () => {
                 loaded: true,
             } as any);
 
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);
@@ -493,7 +495,7 @@ describe('useTemplateState', () => {
                 loaded: true,
             } as any);
 
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);
@@ -518,7 +520,7 @@ describe('useTemplateState', () => {
                 loaded: true,
             } as any);
 
-            const { result } = renderHook(() => useTemplateState());
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.HomePage));
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);

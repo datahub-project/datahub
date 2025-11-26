@@ -13,8 +13,19 @@ public class ElasticSearchConfiguration {
   private BulkDeleteConfiguration bulkDelete;
   private BulkProcessorConfiguration bulkProcessor;
   private BuildIndicesConfiguration buildIndices;
-  public String implementation;
   private SearchConfiguration search;
   private String idHashAlgo;
   private IndexConfiguration index;
+  private ScrollConfiguration scroll;
+  private EntityIndexConfiguration entityIndex;
+  private String host;
+  private int port;
+  private int threadCount;
+  private int connectionRequestTimeout;
+  private String username;
+  private String password;
+  private String pathPrefix;
+  private boolean useSSL;
+  private boolean opensearchUseAwsIamAuth;
+  private String region;
 }

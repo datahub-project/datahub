@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 @ToString
 @Slf4j

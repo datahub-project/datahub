@@ -2,18 +2,19 @@ import { Form } from 'antd';
 import React, { useCallback } from 'react';
 
 import { useHierarchyFormContext } from '@app/homeV3/modules/hierarchyViewModule/components/form/HierarchyFormContext';
-import FormItem from '@app/homeV3/modules/hierarchyViewModule/components/form/components/FormItem';
 import {
     FORM_FIELD_RELATED_ENTITIES_FILTER,
     FORM_FIELD_SHOW_RELATED_ENTITIES,
 } from '@app/homeV3/modules/hierarchyViewModule/components/form/constants';
 import ShowRelatedEntitiesSwitch from '@app/homeV3/modules/hierarchyViewModule/components/form/sections/relatedEntities/components/ShowRelatedEntitiesToggler';
 import { HierarchyForm } from '@app/homeV3/modules/hierarchyViewModule/components/form/types';
+import FormItem from '@app/homeV3/modules/shared/Form/FormItem';
 import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuilder';
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { properties } from '@app/sharedV2/queryBuilder/properties';
 
-const EMPTY_FILTER = {
+const EMPTY_FILTER: LogicalPredicate = {
+    type: 'logical',
     operator: LogicalOperatorType.AND,
     operands: [],
 };
@@ -51,15 +52,15 @@ export default function RelatedEntitiesSection() {
                 <ShowRelatedEntitiesSwitch isChecked={isChecked} onChange={toggleShowRelatedEntitiesSwitch} />
             </FormItem>
 
-            <FormItem name={FORM_FIELD_RELATED_ENTITIES_FILTER}>
-                {isChecked && (
+            {isChecked && (
+                <FormItem name={FORM_FIELD_RELATED_ENTITIES_FILTER}>
                     <LogicalFiltersBuilder
                         filters={relatedEntitiesFilter ?? defaultRelatedEntitiesFilter ?? EMPTY_FILTER}
                         onChangeFilters={updateFilters}
                         properties={properties}
                     />
-                )}
-            </FormItem>
+                </FormItem>
+            )}
         </>
     );
 }

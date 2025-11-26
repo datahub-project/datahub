@@ -7,6 +7,7 @@ from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
+    make_group_urn,
     make_schema_field_urn,
     make_tag_urn,
 )
@@ -20,11 +21,13 @@ from datahub.ingestion.glossary.classification_mixin import (
 )
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
     DatasetContainerSubTypes,
 )
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_DATABASE,
+    STREAMLIT_PLATFORM,
     SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
@@ -50,6 +53,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakePK,
     SnowflakeSchema,
     SnowflakeStream,
+    SnowflakeStreamlitApp,
     SnowflakeTable,
     SnowflakeTag,
     SnowflakeView,
@@ -77,7 +81,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     EXTERNAL_TABLE_DDL_LINEAGE,
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
-    PROFILING,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     GlobalTags,
@@ -112,6 +116,7 @@ from datahub.metadata.urns import (
     SchemaFieldUrn,
     StructuredPropertyUrn,
 )
+from datahub.sdk.dashboard import Dashboard
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
     SqlParsingAggregator,
@@ -166,8 +171,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def __init__(
         self,
-        config: SnowflakeV2Config,
-        report: SnowflakeV2Report,
+        config: SnowflakeV2Config,  # FIXME: SnowflakeSummary is passing here SnowflakeSummaryConfig
+        report: SnowflakeV2Report,  # FIXME: SnowflakeSummary is passing here SnowflakeSummaryReport
         connection: SnowflakeConnection,
         filters: SnowflakeFilter,
         identifiers: SnowflakeIdentifierBuilder,
@@ -175,6 +180,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         profiler: Optional[SnowflakeProfiler],
         aggregator: Optional[SqlParsingAggregator],
         snowsight_url_builder: Optional[SnowsightUrlBuilder],
+        fetch_views_from_information_schema: bool = False,
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
@@ -183,7 +189,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.identifiers: SnowflakeIdentifierBuilder = identifiers
 
         self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary(
-            connection=self.connection, report=self.report
+            connection=self.connection,
+            report=self.report,
+            fetch_views_from_information_schema=fetch_views_from_information_schema,
         )
         self.report.data_dictionary_cache = self.data_dictionary
 
@@ -357,7 +365,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         yield from self._process_db_schemas(snowflake_db, db_tables)
 
         if self.profiler and db_tables:
-            with self.report.new_stage(f"{snowflake_db.name}: {PROFILING}"):
+            with self.report.new_high_stage(IngestionHighStage.PROFILING):
                 yield from self.profiler.get_workunits(snowflake_db, db_tables)
 
     def _process_db_schemas(
@@ -438,13 +446,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             tables = self.fetch_tables_for_schema(
                 snowflake_schema, db_name, schema_name
             )
+        if self.config.include_views:
+            views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
+
+        if self.config.include_tables:
             db_tables[schema_name] = tables
             yield from self._process_tables(
                 tables, snowflake_schema, db_name, schema_name
             )
 
         if self.config.include_views:
-            views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
             yield from self._process_views(
                 views, snowflake_schema, db_name, schema_name
             )
@@ -460,6 +471,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if self.config.include_procedures:
             procedures = self.fetch_procedures_for_schema(snowflake_schema, db_name)
             yield from self._process_procedures(procedures, snowflake_schema, db_name)
+
+        if self.config.include_streamlits:
+            # TODO: Consider streaming apps one-by-one instead of loading all in memory
+            streamlit_apps = self.fetch_streamlit_apps(snowflake_schema, db_name)
+            yield from self._process_streamlit_apps(streamlit_apps)
 
         if self.config.include_technical_schema and snowflake_schema.tags:
             yield from self._process_tags_in_schema(snowflake_schema)
@@ -580,6 +596,71 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
             for procedure in procedures:
                 yield from self._process_procedure(procedure, snowflake_schema, db_name)
+
+    def _process_streamlit_apps(
+        self,
+        streamlit_apps: List[SnowflakeStreamlitApp],
+    ) -> Iterable[MetadataWorkUnit]:
+        for app in streamlit_apps:
+            yield from self._process_streamlit_app(app)
+
+    def _process_streamlit_app(
+        self,
+        app: SnowflakeStreamlitApp,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Process a Snowflake Streamlit app and generate DataHub metadata work units.
+        Streamlit apps are modeled as dashboard entities in DataHub with the "Streamlit"
+        subtype. This method uses the Dashboard SDK class to generate all required aspects
+        including dashboard info, ownership, browse paths, and tags.
+        Args:
+            app: The Snowflake Streamlit app to process
+        Yields:
+            MetadataWorkUnit: Work units for each aspect of the dashboard entity
+        """
+        dashboard_id = self.identifiers.snowflake_identifier(
+            f"{app.database_name}.{app.schema_name}.{app.url_id}"
+        )
+
+        custom_properties = {
+            "name": app.name,
+            "owner": app.owner,
+            "owner_role_type": app.owner_role_type,
+            "url_id": app.url_id,
+        }
+        if app.comment:
+            custom_properties["comment"] = app.comment
+
+        database_container_key = self.identifiers.gen_database_key(app.database_name)
+        schema_container_key = self.identifiers.gen_schema_key(
+            app.database_name, app.schema_name
+        )
+
+        dashboard = Dashboard(
+            platform=STREAMLIT_PLATFORM,
+            name=dashboard_id,
+            display_name=app.title,
+            platform_instance=self.config.platform_instance,
+            custom_properties=custom_properties,
+            created_at=app.created,
+            created_by=make_group_urn(app.owner),
+            last_modified=app.created,
+            last_modified_by=make_group_urn(app.owner),
+            subtype=BIAssetSubTypes.STREAMLIT,
+            parent_container=[
+                database_container_key.as_urn(),
+                schema_container_key.as_urn(),
+            ],
+            external_url=(
+                self.snowsight_url_builder.get_external_url_for_streamlit(
+                    app.name, app.schema_name, app.database_name
+                )
+                if self.snowsight_url_builder
+                else None
+            ),
+        )
+
+        yield from dashboard.as_workunits()
 
     def _process_tags_in_schema(
         self, snowflake_schema: SnowflakeSchema
@@ -1241,7 +1322,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # falling back to get tables for schema
         if tables is None:
             self.report.num_get_tables_for_schema_queries += 1
-            return self.data_dictionary.get_tables_for_schema(schema_name, db_name)
+            return self.data_dictionary.get_tables_for_schema(
+                db_name=db_name,
+                schema_name=schema_name,
+            )
 
         # Some schema may not have any table
         return tables.get(schema_name, [])
@@ -1251,8 +1335,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> List[SnowflakeView]:
         views = self.data_dictionary.get_views_for_database(db_name)
 
-        # Some schema may not have any table
-        return views.get(schema_name, [])
+        if views is not None:
+            # Some schemas may not have any views
+            return views.get(schema_name, [])
+
+        # Usually this fails when there are too many views in the schema.
+        # Fall back to per-schema queries.
+        self.report.num_get_views_for_schema_queries += 1
+        return self.data_dictionary.get_views_for_schema_using_information_schema(
+            db_name=db_name,
+            schema_name=schema_name,
+        )
 
     def get_columns_for_table(
         self, table_name: str, snowflake_schema: SnowflakeSchema, db_name: str
@@ -1392,6 +1485,46 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         procedures = self.data_dictionary.get_procedures_for_database(db_name)
 
         return procedures.get(snowflake_schema.name, [])
+
+    def fetch_streamlit_apps(
+        self, snowflake_schema: SnowflakeSchema, db_name: str
+    ) -> List[SnowflakeStreamlitApp]:
+        try:
+            streamlit_apps: List[SnowflakeStreamlitApp] = []
+            for app in self.get_streamlit_apps(snowflake_schema, db_name):
+                app_qualified_name = f"{db_name}.{snowflake_schema.name}.{app.name}"
+                self.report.report_entity_scanned(
+                    app_qualified_name, SnowflakeObjectDomain.STREAMLIT
+                )
+
+                if self.filters.is_streamlit_allowed(app_qualified_name):
+                    streamlit_apps.append(app)
+                else:
+                    self.report.report_dropped(app_qualified_name)
+
+            return streamlit_apps
+        except SnowflakePermissionError as e:
+            self.structured_reporter.warning(
+                title="Permission denied for Streamlit apps",
+                message="Your Snowflake role lacks permissions to list Streamlit apps.",
+                context=f"{db_name}.{snowflake_schema.name}",
+                exc=e,
+            )
+            return []
+        except Exception as e:
+            self.structured_reporter.warning(
+                title="Failed to get Streamlit apps",
+                message="Unexpected error occurred while querying Streamlit apps",
+                context=f"{db_name}.{snowflake_schema.name}",
+                exc=e,
+            )
+            return []
+
+    def get_streamlit_apps(
+        self, snowflake_schema: SnowflakeSchema, db_name: str
+    ) -> List[SnowflakeStreamlitApp]:
+        streamlit_apps = self.data_dictionary.get_streamlit_apps_for_database(db_name)
+        return streamlit_apps.get(snowflake_schema.name, [])
 
     def _process_stream(
         self,

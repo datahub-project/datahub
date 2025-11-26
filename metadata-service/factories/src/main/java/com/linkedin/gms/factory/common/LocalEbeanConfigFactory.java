@@ -5,8 +5,6 @@ import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
 import io.ebean.datasource.DataSourcePoolListener;
 import java.sql.Connection;
-import java.util.HashMap;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +23,9 @@ public class LocalEbeanConfigFactory {
 
   @Value("${ebean.driver}")
   private String ebeanDatasourceDriver;
+
+  @Value("${ebean.url}")
+  private String ebeanDatasourceUrl;
 
   @Value("${ebean.minConnections:2}")
   private Integer ebeanMinConnections;
@@ -50,6 +51,34 @@ public class LocalEbeanConfigFactory {
   @Value("${ebean.postgresUseIamAuth:false}")
   private Boolean postgresUseIamAuth;
 
+  @Value("${ebean.useIamAuth:false}")
+  private Boolean useIamAuth;
+
+  @Value("${ebean.cloudProvider:auto}")
+  private String cloudProvider;
+
+  // Environment variable properties for cloud detection
+  @Value("${AWS_REGION:#{null}}")
+  private String awsRegion;
+
+  @Value("${AWS_ACCESS_KEY_ID:#{null}}")
+  private String awsAccessKeyId;
+
+  @Value("${AWS_SECRET_ACCESS_KEY:#{null}}")
+  private String awsSecretAccessKey;
+
+  @Value("${AWS_SESSION_TOKEN:#{null}}")
+  private String awsSessionToken;
+
+  @Value("${GOOGLE_APPLICATION_CREDENTIALS:#{null}}")
+  private String googleApplicationCredentials;
+
+  @Value("${GCP_PROJECT:#{null}}")
+  private String gcpProject;
+
+  @Value("${INSTANCE_CONNECTION_NAME:#{null}}")
+  private String instanceConnectionName;
+
   public static DataSourcePoolListener getListenerToTrackCounts(
       MetricUtils metricUtils, String metricName) {
     final String counterName = "ebeans_connection_pool_size_" + metricName;
@@ -67,13 +96,34 @@ public class LocalEbeanConfigFactory {
   }
 
   @Bean("ebeanDataSourceConfig")
-  public DataSourceConfig buildDataSourceConfig(
-      @Value("${ebean.url}") String dataSourceUrl, MetricUtils metricUtils) {
+  public DataSourceConfig buildDataSourceConfig(MetricUtils metricUtils) {
+    return buildDataSourceConfig(ebeanDatasourceUrl, metricUtils);
+  }
+
+  public DataSourceConfig buildDataSourceConfig(String dataSourceUrl, MetricUtils metricUtils) {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
+
+    // Configure cross-cloud IAM authentication
+    boolean shouldUseIam = useIamAuth || postgresUseIamAuth;
+
+    CrossCloudIamUtils.CrossCloudConfig crossCloudConfig =
+        CrossCloudIamUtils.configureCrossCloudIam(
+            dataSourceUrl,
+            ebeanDatasourceDriver,
+            shouldUseIam,
+            cloudProvider,
+            awsRegion,
+            awsAccessKeyId,
+            awsSecretAccessKey,
+            awsSessionToken,
+            googleApplicationCredentials,
+            gcpProject,
+            instanceConnectionName);
+
     dataSourceConfig.setUsername(ebeanDatasourceUsername);
     dataSourceConfig.setPassword(ebeanDatasourcePassword);
-    dataSourceConfig.setUrl(dataSourceUrl);
-    dataSourceConfig.setDriver(ebeanDatasourceDriver);
+    dataSourceConfig.setUrl(crossCloudConfig.url);
+    dataSourceConfig.setDriver(crossCloudConfig.driver);
     dataSourceConfig.setMinConnections(ebeanMinConnections);
     dataSourceConfig.setMaxConnections(ebeanMaxConnections);
     dataSourceConfig.setMaxInactiveTimeSecs(ebeanMaxInactiveTimeSecs);
@@ -81,12 +131,12 @@ public class LocalEbeanConfigFactory {
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
     dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "main"));
-    // Adding IAM auth access for AWS Postgres
-    if (postgresUseIamAuth) {
-      Map<String, String> custom = new HashMap<>();
-      custom.put("wrapperPlugins", "iam");
-      dataSourceConfig.setCustomProperties(custom);
+
+    // Set custom properties for IAM authentication
+    if (crossCloudConfig.customProperties != null) {
+      dataSourceConfig.setCustomProperties(crossCloudConfig.customProperties);
     }
+
     return dataSourceConfig;
   }
 

@@ -60,7 +60,8 @@ public class GlossaryTermType
           DEPRECATION_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          APPLICATION_MEMBERSHIP_ASPECT_NAME);
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          ASSET_SETTINGS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

@@ -28,7 +28,9 @@ def load_entity_registry(entity_registry_file: Path) -> List[EntityType]:
     with entity_registry_file.open() as f:
         raw_entity_registry = yaml.safe_load(f)
 
-    entities = pydantic.parse_obj_as(List[EntityType], raw_entity_registry["entities"])
+    entities = pydantic.TypeAdapter(List[EntityType]).validate_python(
+        raw_entity_registry["entities"]
+    )
     return entities
 
 
@@ -45,6 +47,7 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
         "mxe/MetadataChangeLog.avsc",
         "mxe/PlatformEvent.avsc",
         "platform/event/v1/EntityChangeEvent.avsc",
+        "platform/event/v1/RelationshipChangeEvent.avsc",
         "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
     }
 
@@ -468,6 +471,10 @@ def create_from_ids(cls, data_flow_urn: str, job_id: str) -> "DataJobUrn":
 
 def get_data_flow_urn(self) -> "DataFlowUrn":
     return DataFlowUrn.from_string(self.flow)
+
+@property
+def orchestrator(self) -> str:
+    return self.get_data_flow_urn().orchestrator
 
 @deprecated(reason="Use .job_id instead")
 def get_job_id(self) -> str:

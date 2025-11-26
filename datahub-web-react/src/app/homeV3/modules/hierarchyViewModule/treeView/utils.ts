@@ -192,3 +192,8 @@ export function sortTree(tree: TreeNode[], nodesSorter: (nodes: TreeNode[]) => T
 
     return nodesSorter(tree).map(traverse);
 }
+
+export function getOutOfTreeSelectedValues(selectedValues: string[], tree: TreeNode[]): string[] {
+    const allTreeValues = getAllValues(tree);
+    return selectedValues.filter((value) => !allTreeValues.includes(value));
+}

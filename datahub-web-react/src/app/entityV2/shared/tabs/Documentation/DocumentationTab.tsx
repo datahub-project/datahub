@@ -5,7 +5,7 @@ import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useEntityData, useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
@@ -13,10 +13,9 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreviewModal } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreviewModal';
 import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
-import { Button } from '@src/alchemy-components';
+import { Button, Editor } from '@src/alchemy-components';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;
@@ -51,7 +50,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const hideLinksButton = properties?.hideLinksButton;
     const { urn, entityData } = useEntityData();
 
-    const refetch = useRefetch();
     const { displayedDescription } = getAssetDescriptionDetails({
         entityProperties: entityData,
     });
@@ -87,7 +85,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             >
                                 <EditOutlined /> Edit
                             </AntButton>
-                            {!hideLinksButton && <AddLinkModal buttonType="text" refetch={refetch} />}
+                            {!hideLinksButton && <AddLinkModal buttonType="text" />}
                         </div>
                         <div>
                             <AntButton
@@ -112,15 +110,13 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             </DocumentationContainer>
                         )}
                         <Divider />
-                        <DocumentationContainer>
-                            {!hideLinksButton && <LinkList refetch={refetch} />}
-                        </DocumentationContainer>
+                        <DocumentationContainer>{!hideLinksButton && <LinkList />}</DocumentationContainer>
                     </div>
                 </>
             ) : (
                 <EmptyTabWrapper>
                     <EmptyTab tab="documentation" hideImage={false}>
-                        {!hideLinksButton && <AddLinkModal refetch={refetch} />}
+                        {!hideLinksButton && <AddLinkModal />}
                         <Button
                             data-testid="add-documentation"
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}

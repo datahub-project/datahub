@@ -48,6 +48,12 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "position_json": '{"CHART-test-1": {"meta": { "chartId": "10" }}, "CHART-test-2": {"meta": { "chartId": "11" }}}',
                         "status": "published",
                         "published": True,
+                        "tags": [
+                            {"id": 47, "name": "owner:4", "type": 3},
+                            {"id": 2, "name": "type:dashboard", "type": 2},
+                            {"id": 25, "name": "owner:18", "type": 3},
+                            {"id": 45, "name": "Data Team", "type": 1},
+                        ],
                         "owners": [
                             {
                                 "first_name": "Test",
@@ -76,6 +82,11 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "position_json": '{"CHART-test-3": {"meta": { "chartId": "12" }}, "CHART-test-4": {"meta": { "chartId": "13" }}}',
                         "status": "draft",
                         "published": False,
+                        "tags": [
+                            {"id": 44, "name": "owner:4", "type": 3},
+                            {"id": 33, "name": "type:dashboard", "type": 2},
+                            {"id": 213, "name": "Marketing", "type": 1},
+                        ],
                         "owners": [
                             {
                                 "first_name": "Test",
@@ -119,6 +130,12 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                 "test_column2",
                             ],
                         },
+                        "tags": [
+                            {"id": 4, "name": "owner:4", "type": 3},
+                            {"id": 21, "name": "type:chart", "type": 2},
+                            {"id": 36, "name": "Marketing", "type": 1},
+                            {"id": 35, "name": "Data", "type": 1},
+                        ],
                     },
                     {
                         "id": 11,
@@ -181,6 +198,10 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "url": "/explore/test_chart_url_14",
                         "datasource_id": 1,
                         "params": '{"metrics": [], "adhoc_filters": []}',
+                        "tags": [
+                            {"id": 50, "name": "type:chart", "type": 2},
+                            {"id": 4423, "name": "Data", "type": 1},
+                        ],
                     },
                 ],
             },

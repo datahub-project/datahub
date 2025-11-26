@@ -121,6 +121,6 @@ signing {
 
 nexusStaging {
     serverUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/"
-    username = System.getenv("NEXUS_USERNAME")
-    password = System.getenv("NEXUS_PASSWORD")
+    username = System.getenv("RELEASE_USERNAME")
+    password = System.getenv("RELEASE_PASSWORD")
 }

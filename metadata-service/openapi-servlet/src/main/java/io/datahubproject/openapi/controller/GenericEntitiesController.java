@@ -39,6 +39,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -68,7 +69,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
@@ -117,10 +118,13 @@ public abstract class GenericEntitiesController<
   protected abstract S buildScrollResult(
       @Nonnull OperationContext opContext,
       SearchEntityArray searchEntities,
+      SearchResultMetadata searchResultMetadata,
       Set<String> aspectNames,
       boolean withSystemMetadata,
       @Nullable String scrollId,
-      boolean expandEmpty)
+      boolean expandEmpty,
+      int totalCount,
+      boolean includeScrollIdPerEntity)
       throws URISyntaxException;
 
   protected List<E> buildEntityList(
@@ -291,10 +295,13 @@ public abstract class GenericEntitiesController<
         buildScrollResult(
             opContext,
             result.getEntities(),
+            null,
             mergedAspects,
             withSystemMetadata,
             result.getScrollId(),
-            true));
+            true,
+            result.getNumEntities(),
+            false));
   }
 
   @Tag(name = "Generic Entities")

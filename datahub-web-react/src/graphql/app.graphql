@@ -69,6 +69,12 @@ query appConfig {
         searchBarConfig {
             apiVariant
         }
+        searchCardConfig {
+            showDescription
+        }
+        searchFlagsConfig {
+            defaultSkipHighlighting
+        }
         homePageConfig {
             firstInPersonalSidebar
         }
@@ -82,6 +88,7 @@ query appConfig {
             nestedDomainsEnabled
             platformBrowseV2
             businessAttributeEntityEnabled
+            contextDocumentsEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
             themeV2Enabled
@@ -104,11 +111,16 @@ query appConfig {
             showLineageExpandMore
             showStatsTabRedesign
             showHomePageRedesign
+            showDefaultExternalLinks
             showProductUpdates
             lineageGraphV3
             logicalModelsEnabled
             showHomepageUserRole
             assetSummaryPageV1
+            datasetSummaryPageV1
+            ingestionOnboardingRedesignV1
+            documentationFileUploadV1
+            contextDocumentsEnabled
         }
         chromeExtensionConfig {
             enabled
@@ -146,6 +158,21 @@ query getHomePageSettings {
     }
 }
 
+query getPresignedUploadUrl($input: GetPresignedUploadUrlInput!) {
+    getPresignedUploadUrl(input: $input) {
+        url
+        fileId
+    }
+}
+
+mutation createDataHubFile($input: CreateDataHubFileInput!) {
+    createDataHubFile(input: $input) {
+        file {
+            urn
+        }
+    }
+}
+
 mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
     updateGlobalViewsSettings(input: $input)
 }
@@ -156,4 +183,16 @@ mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!
 
 mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
     updateApplicationsSettings(input: $input)
+}
+
+query getLatestProductUpdate {
+    latestProductUpdate {
+        enabled
+        id
+        title
+        description
+        image
+        ctaText
+        ctaLink
+    }
 }

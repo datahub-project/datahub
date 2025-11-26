@@ -413,13 +413,17 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Detailed description about the chart",
-      "Searchable" : { }
+      "Searchable" : {
+        "searchTier" : 2
+      }
     }, {
       "name" : "lastModified",
       "type" : {
@@ -457,7 +461,8 @@
       "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "KEYWORD"
+        "fieldType" : "KEYWORD",
+        "searchTier" : 4
       }
     }, {
       "name" : "inputs",
@@ -520,7 +525,7 @@
         "/*/destinationUrn" : {
           "createdActor" : "inputEdges/*/created/actor",
           "createdOn" : "inputEdges/*/created/time",
-          "entityTypes" : [ "dataset" ],
+          "entityTypes" : [ "dataset", "chart" ],
           "isLineage" : true,
           "name" : "Consumes",
           "properties" : "inputEdges/*/properties",
@@ -548,7 +553,8 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Chart Type"
+        "filterNameOverride" : "Chart Type",
+        "searchTier" : 3
       }
     }, {
       "name" : "access",
@@ -568,7 +574,8 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Access Level"
+        "filterNameOverride" : "Access Level",
+        "searchTier" : 4
       }
     }, {
       "name" : "lastRefreshed",
@@ -990,9 +997,10 @@
           "boostScore" : 0.5,
           "fieldName" : "tags",
           "fieldType" : "URN",
-          "filterNameOverride" : "Tag",
+          "filterNameOverride" : "Tagged With",
           "hasValuesFieldName" : "hasTags",
-          "queryByDefault" : true
+          "queryByDefault" : true,
+          "searchTier" : 2
         }
       }
     } ],
@@ -1152,6 +1160,26 @@
             "name" : "createStamp",
             "type" : "AuditStamp",
             "doc" : "Audit stamp associated with creation of this record"
+          }, {
+            "name" : "updateStamp",
+            "type" : "AuditStamp",
+            "doc" : "Audit stamp associated with updation of this record",
+            "optional" : true
+          }, {
+            "name" : "settings",
+            "type" : {
+              "type" : "record",
+              "name" : "InstitutionalMemoryMetadataSettings",
+              "doc" : "Settings related to a record of InstitutionalMemoryMetadata",
+              "fields" : [ {
+                "name" : "showInAssetPreview",
+                "type" : "boolean",
+                "doc" : "Show record in asset preview like on entity header and search previews",
+                "default" : false
+              } ]
+            },
+            "doc" : "Settings for this record",
+            "optional" : true
           } ]
         }
       },
@@ -1160,7 +1188,7 @@
     "Aspect" : {
       "name" : "institutionalMemory"
     }
-  }, "com.linkedin.common.InstitutionalMemoryMetadata", {
+  }, "com.linkedin.common.InstitutionalMemoryMetadata", "com.linkedin.common.InstitutionalMemoryMetadataSettings", {
     "type" : "enum",
     "name" : "MLFeatureDataType",
     "namespace" : "com.linkedin.common",
@@ -1236,7 +1264,8 @@
         "fieldType" : "URN",
         "filterNameOverride" : "Owned By",
         "hasValuesFieldName" : "hasOwners",
-        "queryByDefault" : false
+        "queryByDefault" : false,
+        "searchTier" : 2
       }
     }, {
       "name" : "type",
@@ -1311,6 +1340,28 @@
       },
       "doc" : "Source information for the ownership",
       "optional" : true
+    }, {
+      "name" : "attribution",
+      "type" : "MetadataAttribution",
+      "doc" : "Information about who, why, and how this metadata was applied",
+      "optional" : true,
+      "Searchable" : {
+        "/actor" : {
+          "fieldName" : "ownerAttributionActors",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/source" : {
+          "fieldName" : "ownerAttributionSources",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/time" : {
+          "fieldName" : "ownerAttributionDates",
+          "fieldType" : "DATETIME",
+          "queryByDefault" : false
+        }
+      }
     } ]
   }, {
     "type" : "record",
@@ -1337,7 +1388,7 @@
       "default" : { },
       "optional" : true,
       "Searchable" : {
-        "/*" : {
+        "/$key" : {
           "fieldType" : "MAP_ARRAY",
           "queryByDefault" : false
         }
@@ -1422,7 +1473,9 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "description",
@@ -1430,7 +1483,8 @@
       "doc" : "Detailed description about the dashboard",
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription"
+        "hasValuesFieldName" : "hasDescription",
+        "searchTier" : 2
       }
     }, {
       "name" : "charts",
@@ -1527,14 +1581,22 @@
     }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.ChangeAuditStamps",
-      "doc" : "Captures information about who created/last modified/deleted this dashboard and when"
+      "doc" : "Captures information about who created/last modified/deleted this dashboard and when",
+      "Searchable" : {
+        "/lastModified/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME",
+          "searchLabel" : "lastModifiedAt"
+        }
+      }
     }, {
       "name" : "dashboardUrl",
       "type" : "com.linkedin.common.Url",
       "doc" : "URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "KEYWORD"
+        "fieldType" : "KEYWORD",
+        "searchTier" : 4
       }
     }, {
       "name" : "access",
@@ -1544,7 +1606,8 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Access Level"
+        "filterNameOverride" : "Access Level",
+        "searchTier" : 4
       }
     }, {
       "name" : "lastRefreshed",
@@ -1569,7 +1632,9 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "description",
@@ -1578,7 +1643,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription"
+        "hasValuesFieldName" : "hasDescription",
+        "searchTier" : 2
       }
     }, {
       "name" : "project",
@@ -1587,7 +1653,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT_PARTIAL",
-        "queryByDefault" : false
+        "queryByDefault" : false,
+        "searchTier" : 3
       }
     }, {
       "name" : "created",
@@ -1597,7 +1664,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "createdAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "createdAt"
         }
       }
     }, {
@@ -1608,7 +1676,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "lastModifiedAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "lastModifiedAt"
         }
       }
     }, {
@@ -1640,7 +1709,9 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "description",
@@ -1649,7 +1720,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription"
+        "hasValuesFieldName" : "hasDescription",
+        "searchTier" : 2
       }
     }, {
       "name" : "type",
@@ -1683,7 +1755,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "createdAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "createdAt"
         }
       }
     }, {
@@ -1694,7 +1767,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "lastModifiedAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "lastModifiedAt"
         }
       }
     }, {
@@ -2066,7 +2140,9 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "qualifiedName",
@@ -2077,7 +2153,9 @@
         "addToFilters" : false,
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "qualifiedName",
+        "searchTier" : 1
       }
     }, {
       "name" : "description",
@@ -2086,7 +2164,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription"
+        "hasValuesFieldName" : "hasDescription",
+        "searchTier" : 2
       }
     }, {
       "name" : "uri",
@@ -2102,7 +2181,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "createdAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "createdAt"
         }
       }
     }, {
@@ -2113,7 +2193,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "lastModifiedAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "lastModifiedAt"
         }
       }
     }, {
@@ -2272,7 +2353,9 @@
         "enableAutocomplete" : true,
         "fieldName" : "displayName",
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "id",
@@ -2309,7 +2392,9 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "definition",
@@ -2375,7 +2460,9 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL",
-        "queryByDefault" : true
+        "queryByDefault" : true,
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "email",
@@ -2430,7 +2517,8 @@
       "doc" : "A description of the group.",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "TEXT_PARTIAL",
+        "searchTier" : 2
       }
     }, {
       "name" : "slack",
@@ -2445,7 +2533,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "createdTime",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "createdAt"
         }
       }
     } ],
@@ -2493,7 +2582,7 @@
       "name" : "pictureLink",
       "type" : "com.linkedin.common.Url",
       "doc" : "A URL which points to a picture which user wants to set as a profile photo",
-      "default" : "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"
+      "default" : "assets/platforms/default_avatar.png"
     }, {
       "name" : "displayName",
       "type" : "string",
@@ -2586,7 +2675,9 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "queryByDefault" : true
+        "queryByDefault" : true,
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "email",
@@ -2595,7 +2686,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "KEYWORD",
-        "queryByDefault" : true
+        "queryByDefault" : true,
+        "searchTier" : 1
       }
     }, {
       "name" : "title",
@@ -3410,7 +3502,8 @@
               "Searchable" : {
                 "boostScore" : 0.1,
                 "fieldName" : "editedFieldDescriptions",
-                "fieldType" : "TEXT"
+                "fieldType" : "TEXT",
+                "searchTier" : 2
               }
             }, {
               "name" : "globalTags",
@@ -3540,7 +3633,9 @@
           "boostScore" : 8.0,
           "enableAutocomplete" : true,
           "fieldNameAliases" : [ "_entityName" ],
-          "fieldType" : "WORD_GRAM"
+          "fieldType" : "WORD_GRAM",
+          "searchLabel" : "entityName",
+          "searchTier" : 1
         }
       } ],
       "Aspect" : {
@@ -3607,7 +3702,9 @@
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
           "fieldNameAliases" : [ "_entityName" ],
-          "fieldType" : "WORD_GRAM"
+          "fieldType" : "WORD_GRAM",
+          "searchLabel" : "entityName",
+          "searchTier" : 1
         }
       }, {
         "name" : "origin",
@@ -3927,7 +4024,8 @@
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
           "fieldType" : "WORD_GRAM",
-          "queryByDefault" : true
+          "queryByDefault" : true,
+          "searchTier" : 1
         }
       }, {
         "name" : "description",
@@ -3936,7 +4034,8 @@
         "optional" : true,
         "Searchable" : {
           "fieldType" : "TEXT",
-          "hasValuesFieldName" : "hasDescription"
+          "hasValuesFieldName" : "hasDescription",
+          "searchTier" : 2
         }
       }, {
         "name" : "date",
@@ -4220,7 +4319,9 @@
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
           "fieldNameAliases" : [ "_entityName" ],
-          "fieldType" : "WORD_GRAM"
+          "fieldType" : "WORD_GRAM",
+          "searchLabel" : "entityName",
+          "searchTier" : 1
         }
       }, {
         "name" : "description",

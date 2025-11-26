@@ -272,9 +272,20 @@ public class RequestContextTest {
             .metricUtils(mockMetricUtils)
             .build();
 
-    // Verify that the counter was incremented
+    // Verify that both legacy and new metrics are recorded
     verify(mockMetricUtils, atLeastOnce())
         .increment(eq("requestContext_system_unknown_restli"), eq(1.0d));
+
+    verify(mockMetricUtils, atLeastOnce())
+        .incrementMicrometer(
+            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
+            eq(1.0d),
+            eq("user_category"),
+            eq("system"),
+            eq("agent_class"),
+            eq("unknown"),
+            eq("request_api"),
+            eq("restli"));
   }
 
   @Test
@@ -286,9 +297,20 @@ public class RequestContextTest {
             .metricUtils(mockMetricUtils)
             .build();
 
-    // Verify that the counter was incremented
+    // Verify that both legacy and new metrics are recorded
     verify(mockMetricUtils, atLeastOnce())
         .increment(eq("requestContext_admin_unknown_restli"), eq(1.0d));
+
+    verify(mockMetricUtils, atLeastOnce())
+        .incrementMicrometer(
+            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
+            eq(1.0d),
+            eq("user_category"),
+            eq("admin"),
+            eq("agent_class"),
+            eq("unknown"),
+            eq("request_api"),
+            eq("restli"));
   }
 
   @Test
@@ -300,9 +322,20 @@ public class RequestContextTest {
             .metricUtils(mockMetricUtils)
             .build();
 
-    // Verify that the counter was incremented
+    // Verify that both legacy and new metrics are recorded
     verify(mockMetricUtils, atLeastOnce())
         .increment(eq("requestContext_regular_unknown_restli"), eq(1.0d));
+
+    verify(mockMetricUtils, atLeastOnce())
+        .incrementMicrometer(
+            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
+            eq(1.0d),
+            eq("user_category"),
+            eq("regular"),
+            eq("agent_class"),
+            eq("unknown"),
+            eq("request_api"),
+            eq("restli"));
   }
 
   @Test

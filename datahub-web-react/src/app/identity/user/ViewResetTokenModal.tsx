@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useCreateNativeUserResetTokenMutation } from '@graphql/user.generated';
 
@@ -78,7 +79,7 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
 
     const resetToken = createNativeUserResetTokenData?.createNativeUserResetToken?.resetToken || '';
 
-    const inviteLink = `${baseUrl}${PageRoutes.RESET_CREDENTIALS}?reset_token=${resetToken}`;
+    const inviteLink = `${baseUrl}${resolveRuntimePath(`${PageRoutes.RESET_CREDENTIALS}?reset_token=${resetToken}`)}`;
 
     return (
         <Modal

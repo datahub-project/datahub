@@ -8,12 +8,23 @@ source:
 
     account_id: "${DBT_ACCOUNT_ID}" # set to your dbt cloud account id
     project_id: "${DBT_PROJECT_ID}" # set to your dbt cloud project id
+
+    # Mode 1: Explicit Mode (specify a single job)
     job_id: "${DBT_JOB_ID}" # set to your dbt cloud job id
-    run_id: # set to your dbt cloud run id. This is optional, and defaults to the latest run
+    run_id: # optional: set to a specific dbt cloud run id. Defaults to the latest run
 
-    target_platform: postgres
+    # Mode 2: Auto-Discovery Mode (automatically discover all eligible jobs)
+    # Uncomment the section below to enable auto-discovery
+    # Note: When auto_discovery is enabled, job_id can be omitted (will be ignored if provided)
+    # and run_id is ignored (always uses the latest run)
+    # auto_discovery:
+    #   enabled: true
+    #   job_id_pattern: # optional
+    #     allow:
+    #       - ".*"  # regex pattern to include jobs (default: include all)
+    #     # deny:
+    #     #   - "test.*"  # optional: regex pattern to exclude specific jobs
 
-    # Options
-    target_platform: "${TARGET_PLATFORM_ID}" # e.g. bigquery/postgres/etc.
+    target_platform: "${TARGET_PLATFORM_ID}" # e.g. bigquery/postgres/snowflake/etc.
 
 # sink configs

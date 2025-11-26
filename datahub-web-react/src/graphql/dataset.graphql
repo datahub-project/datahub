@@ -224,8 +224,14 @@ fragment nonSiblingDatasetFields on Dataset {
     forms {
         ...formsFields
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
     ...notes
     ...entityProfileVersionProperties
+    settings {
+        ...AssetSettingsFields
+    }
 }
 
 query getRecentQueries($urn: String!) {

@@ -31,6 +31,7 @@ import { getSearchCount } from '@app/searchV2/utils/searchUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/searchV2/utils/useDownloadScrollAcrossEntitiesSearchResults';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { useAppConfig } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
@@ -48,6 +49,7 @@ const Container = styled.span`
  */
 export const SearchPage = () => {
     const { trackClearAllFiltersEvent } = useSearchFilterAnalytics();
+    const { config } = useAppConfig();
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
     const searchVersion = useSearchVersion();
@@ -77,7 +79,11 @@ export const SearchPage = () => {
                 orFilters,
                 viewUrn,
                 sortInput,
-                searchFlags: { getSuggestions: true, includeStructuredPropertyFacets: true },
+                searchFlags: {
+                    getSuggestions: true,
+                    includeStructuredPropertyFacets: true,
+                    skipHighlighting: config?.searchFlagsConfig?.defaultSkipHighlighting || false,
+                },
             },
         },
         fetchPolicy: 'cache-and-network',

@@ -3,6 +3,7 @@ import { QueryHookOptions, QueryResult } from '@apollo/client';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
 import { FetchedEntity } from '@app/lineage/types';
+import { AttributionDetails } from '@app/sharedV2/propagation/types';
 
 import { EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
 
@@ -107,6 +108,10 @@ export interface EntityMenuActions {
     onEdit?: () => void;
 }
 
+export interface PreviewContext {
+    propagationDetails?: AttributionDetails;
+}
+
 /**
  * Base interface used for authoring DataHub Entities on the client side.
  *
@@ -166,7 +171,12 @@ export interface Entity<T> {
      *
      * TODO: Explore using getGenericEntityProperties for rendering previews.
      */
-    renderPreview: (type: PreviewType, data: T, actions?: EntityMenuActions) => JSX.Element;
+    renderPreview: (
+        type: PreviewType,
+        data: T,
+        actions?: EntityMenuActions,
+        extraContext?: PreviewContext,
+    ) => JSX.Element;
 
     /**
      * Renders a search result

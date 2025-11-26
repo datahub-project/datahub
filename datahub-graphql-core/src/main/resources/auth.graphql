@@ -363,6 +363,11 @@ type EntityPrivileges {
   Whether the user can view dataset operations
   """
   canViewDatasetOperations: Boolean
+
+  """
+  Whether the user can manage asset summary
+  """
+  canManageAssetSummary: Boolean
 }
 
 """

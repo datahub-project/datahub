@@ -76,6 +76,24 @@ public class LineageService {
     }
   }
 
+  /**
+   * Validates that a given list of urns are all either datasets or charts and that they exist.
+   * Otherwise, throw an error.
+   */
+  public void validateChartUpstreamUrns(
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> urns) throws Exception {
+    for (final Urn urn : urns) {
+      if (!urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)
+          && !urn.getEntityType().equals(Constants.CHART_ENTITY_NAME)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Tried to add an upstream to a chart that isn't a chart or dataset. Upstream urn: %s",
+                urn));
+      }
+      validateUrnExists(opContext, urn);
+    }
+  }
+
   /** Validates that a given urn exists using the entityService */
   public void validateUrnExists(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws Exception {
@@ -174,8 +192,8 @@ public class LineageService {
       @Nonnull final List<Urn> upstreamUrnsToRemove,
       @Nonnull final Urn actor)
       throws Exception {
-    // ensure all upstream urns are dataset urns and they exist
-    validateDatasetUrns(opContext, upstreamUrnsToAdd);
+    // ensure all upstream urns are either dataset or chart urns and they exist
+    validateChartUpstreamUrns(opContext, upstreamUrnsToAdd);
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 

@@ -90,6 +90,10 @@ class DremioSourceMapEntry:
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DREMIO_SPACE,
+        SourceCapabilityModifier.DREMIO_SOURCE,
+    ],
 )
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -190,14 +194,14 @@ class DremioSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
-        config = DremioSourceConfig.parse_obj(config_dict)
+        config = DremioSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_platform(self) -> str:
         return "dremio"
 
     def _build_source_map(self) -> Dict[str, DremioSourceMapEntry]:
-        dremio_sources = self.dremio_catalog.get_sources()
+        dremio_sources = list(self.dremio_catalog.get_sources())
         source_mappings_config = self.config.source_mappings or []
 
         source_map = build_dremio_source_map(dremio_sources, source_mappings_config)
@@ -238,9 +242,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
             # Process Datasets
-            datasets = self.dremio_catalog.get_datasets()
-
-            for dataset_info in datasets:
+            for dataset_info in self.dremio_catalog.get_datasets():
                 try:
                     yield from self.process_dataset(dataset_info)
                     logger.info(
@@ -254,10 +256,8 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Process Glossary Terms
-            glossary_terms = self.dremio_catalog.get_glossary_terms()
-
-            for glossary_term in glossary_terms:
+            # Process Glossary Terms using streaming
+            for glossary_term in self.dremio_catalog.get_glossary_terms():
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
@@ -284,9 +284,11 @@ class DremioSource(StatefulIngestionSourceBase):
                         max_workers=self.config.profiling.max_workers
                     ) as executor,
                 ):
+                    # Collect datasets for profiling
+                    datasets_for_profiling = list(self.dremio_catalog.get_datasets())
                     future_to_dataset = {
                         executor.submit(self.generate_profiles, dataset): dataset
-                        for dataset in datasets
+                        for dataset in datasets_for_profiling
                     }
 
                     for future in as_completed(future_to_dataset):

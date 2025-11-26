@@ -7,7 +7,6 @@ apply from: '../gradle/coverage/java-coverage.gradle'
 
 dependencies {
   api externalDependency.avro
-  implementation externalDependency.commonsLang
   api externalDependency.micrometerPrometheus
   api externalDependency.micrometerJmx
   api externalDependency.micrometerOtelBridge
@@ -28,10 +27,15 @@ dependencies {
   api project(':entity-registry')
   api project(':metadata-events:mxe-avro')
   api project(':metadata-events:mxe-utils-avro')
+  api project(':metadata-service:configuration')
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   runtimeOnly externalDependency.javaxMail
+
+  implementation platform(externalDependency.awsSdk2Bom)
+  implementation 'software.amazon.awssdk:s3'
+  implementation 'software.amazon.awssdk:sts'
 
   annotationProcessor externalDependency.lombok
 

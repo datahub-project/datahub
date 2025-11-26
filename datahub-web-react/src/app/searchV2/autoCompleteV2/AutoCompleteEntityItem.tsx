@@ -12,6 +12,7 @@ import EntitySubtitle from '@app/searchV2/autoCompleteV2/components/subtitle/Ent
 import { VARIANT_STYLES } from '@app/searchV2/autoCompleteV2/constants';
 import { EntityItemVariant } from '@app/searchV2/autoCompleteV2/types';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
+import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
 import { Text } from '@src/alchemy-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity, MatchedField } from '@src/types.generated';
@@ -110,9 +111,13 @@ interface EntityAutocompleteItemProps {
     navigateOnlyOnNameClick?: boolean;
     dragIconRenderer?: () => React.ReactNode;
     hideSubtitle?: boolean;
+    hideType?: boolean;
     hideMatches?: boolean;
     padding?: string;
     onClick?: () => void;
+    customHoverEntityName?: (entity: Entity, children: React.ReactNode) => React.ReactNode;
+    customOnEntityClick?: (entity: Entity) => void;
+    dataTestId?: string;
 }
 
 export default function AutoCompleteEntityItem({
@@ -125,12 +130,18 @@ export default function AutoCompleteEntityItem({
     navigateOnlyOnNameClick,
     dragIconRenderer,
     hideSubtitle,
+    hideType,
     hideMatches,
     padding,
     onClick,
+    customHoverEntityName,
+    customOnEntityClick,
+    dataTestId,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
+    const linkProps = useGetModalLinkProps();
+
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const displayType = getEntityDisplayType(entity, entityRegistry);
     const variantProps = VARIANT_STYLES.get(variant ?? 'default');
@@ -139,30 +150,63 @@ export default function AutoCompleteEntityItem({
         ? DisplayNameHoverFromSelf
         : DisplayNameHoverFromContainer;
 
-    const displayNameContent = variantProps?.nameCanBeHovered ? (
-        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
-            <DisplayNameHoverComponent
+    let displayNameContent;
+
+    if (customOnEntityClick) {
+        displayNameContent = (
+            <div
+                role="button"
+                tabIndex={0}
+                onClick={() => customOnEntityClick(entity)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        customOnEntityClick(entity);
+                    }
+                }}
+            >
+                <DisplayNameHoverComponent
+                    displayName={displayName}
+                    highlight={query}
+                    color={variantProps?.nameColor}
+                    colorLevel={variantProps?.nameColorLevel}
+                    weight={variantProps?.nameWeight}
+                    $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
+                />
+            </div>
+        );
+    } else if (variantProps?.nameCanBeHovered) {
+        displayNameContent = (
+            <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)} {...linkProps}>
+                <DisplayNameHoverComponent
+                    displayName={displayName}
+                    highlight={query}
+                    color={variantProps?.nameColor}
+                    colorLevel={variantProps?.nameColorLevel}
+                    weight={variantProps?.nameWeight}
+                    $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
+                />
+            </Link>
+        );
+    } else {
+        displayNameContent = (
+            <DisplayName
                 displayName={displayName}
                 highlight={query}
                 color={variantProps?.nameColor}
                 colorLevel={variantProps?.nameColorLevel}
                 weight={variantProps?.nameWeight}
-                $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
+                showNameTooltipIfTruncated
             />
-        </Link>
-    ) : (
-        <DisplayName
-            displayName={displayName}
-            highlight={query}
-            color={variantProps?.nameColor}
-            colorLevel={variantProps?.nameColorLevel}
-            weight={variantProps?.nameWeight}
-            showNameTooltipIfTruncated
-        />
-    );
+        );
+    }
 
     return (
-        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding} onClick={onClick}>
+        <Container
+            $navigateOnlyOnNameClick={navigateOnlyOnNameClick}
+            $padding={padding}
+            onClick={onClick}
+            data-testid={dataTestId}
+        >
             <ContentContainer>
                 {dragIconRenderer ? (
                     <Icons>
@@ -178,14 +222,18 @@ export default function AutoCompleteEntityItem({
                 )}
 
                 <DescriptionContainer>
-                    <HoverEntityTooltip
-                        placement="bottom"
-                        entity={entity}
-                        showArrow={false}
-                        canOpen={variantProps?.showEntityPopover}
-                    >
-                        <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
-                    </HoverEntityTooltip>
+                    {customHoverEntityName ? (
+                        customHoverEntityName(entity, <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>)
+                    ) : (
+                        <HoverEntityTooltip
+                            placement="bottom"
+                            entity={entity}
+                            showArrow={false}
+                            canOpen={variantProps?.showEntityPopover}
+                        >
+                            <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
+                        </HoverEntityTooltip>
+                    )}
 
                     {!hideSubtitle && (
                         <EntitySubtitle
@@ -208,15 +256,17 @@ export default function AutoCompleteEntityItem({
                 </DescriptionContainer>
             </ContentContainer>
 
-            <TypeContainer>
-                {customDetailsRenderer ? (
-                    customDetailsRenderer(entity)
-                ) : (
-                    <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
-                        {displayType}
-                    </Text>
-                )}
-            </TypeContainer>
+            {!hideType && (
+                <TypeContainer>
+                    {customDetailsRenderer ? (
+                        customDetailsRenderer(entity)
+                    ) : (
+                        <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
+                            {displayType}
+                        </Text>
+                    )}
+                </TypeContainer>
+            )}
         </Container>
     );
 }

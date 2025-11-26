@@ -19,14 +19,23 @@ public class SchemaIdOrdinalTest {
     assertEquals(SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1.getSchemaId(), 7);
     assertEquals(SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT.getSchemaId(), 8);
 
+    // Test _FIX ordinals
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId(), 9);
+    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId(), 10);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG_V1_FIX.getSchemaId(), 11);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1_FIX.getSchemaId(), 12);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1_FIX.getSchemaId(), 13);
+    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1_FIX.getSchemaId(), 14);
+    assertEquals(SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1_FIX.getSchemaId(), 15);
+
     // Test breaking changes from V1
-    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId(), 9);
-    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL.getSchemaId(), 10);
-    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG.getSchemaId(), 11);
-    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES.getSchemaId(), 12);
-    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_EVENT.getSchemaId(), 13);
-    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT.getSchemaId(), 14);
-    assertEquals(SchemaIdOrdinal.METADATA_AUDIT_EVENT.getSchemaId(), 15);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId(), 16);
+    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL.getSchemaId(), 17);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG.getSchemaId(), 18);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES.getSchemaId(), 19);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_EVENT.getSchemaId(), 20);
+    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT.getSchemaId(), 21);
+    assertEquals(SchemaIdOrdinal.METADATA_AUDIT_EVENT.getSchemaId(), 22);
   }
 
   @Test
@@ -55,20 +64,30 @@ public class SchemaIdOrdinalTest {
     assertEquals(SchemaIdOrdinal.fromSchemaId(6), SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1);
     assertEquals(SchemaIdOrdinal.fromSchemaId(7), SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1);
     assertEquals(SchemaIdOrdinal.fromSchemaId(8), SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT);
-    assertEquals(SchemaIdOrdinal.fromSchemaId(9), SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL);
-    assertEquals(SchemaIdOrdinal.fromSchemaId(10), SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL);
-    assertEquals(SchemaIdOrdinal.fromSchemaId(11), SchemaIdOrdinal.METADATA_CHANGE_LOG);
-    assertEquals(SchemaIdOrdinal.fromSchemaId(12), SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES);
-    assertEquals(SchemaIdOrdinal.fromSchemaId(13), SchemaIdOrdinal.METADATA_CHANGE_EVENT);
-    assertEquals(SchemaIdOrdinal.fromSchemaId(14), SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT);
-    assertEquals(SchemaIdOrdinal.fromSchemaId(15), SchemaIdOrdinal.METADATA_AUDIT_EVENT);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(9), SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX);
+    assertEquals(
+        SchemaIdOrdinal.fromSchemaId(10), SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(11), SchemaIdOrdinal.METADATA_CHANGE_LOG_V1_FIX);
+    assertEquals(
+        SchemaIdOrdinal.fromSchemaId(12), SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1_FIX);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(13), SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1_FIX);
+    assertEquals(
+        SchemaIdOrdinal.fromSchemaId(14), SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1_FIX);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(15), SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1_FIX);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(16), SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(17), SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(18), SchemaIdOrdinal.METADATA_CHANGE_LOG);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(19), SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(20), SchemaIdOrdinal.METADATA_CHANGE_EVENT);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(21), SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(22), SchemaIdOrdinal.METADATA_AUDIT_EVENT);
   }
 
   @Test
   public void testFromSchemaIdWithInvalidId() {
     // Test that fromSchemaId() returns null for invalid schema IDs
     assertNull(SchemaIdOrdinal.fromSchemaId(-1));
-    assertNull(SchemaIdOrdinal.fromSchemaId(16));
+    assertNull(SchemaIdOrdinal.fromSchemaId(23));
     assertNull(SchemaIdOrdinal.fromSchemaId(999));
     assertNull(SchemaIdOrdinal.fromSchemaId(Integer.MAX_VALUE));
     assertNull(SchemaIdOrdinal.fromSchemaId(Integer.MIN_VALUE));
@@ -93,10 +112,17 @@ public class SchemaIdOrdinalTest {
     assertTrue(SchemaIdOrdinal.isValidSchemaId(13));
     assertTrue(SchemaIdOrdinal.isValidSchemaId(14));
     assertTrue(SchemaIdOrdinal.isValidSchemaId(15));
+    assertTrue(SchemaIdOrdinal.isValidSchemaId(16));
+    assertTrue(SchemaIdOrdinal.isValidSchemaId(17));
+    assertTrue(SchemaIdOrdinal.isValidSchemaId(18));
+    assertTrue(SchemaIdOrdinal.isValidSchemaId(19));
+    assertTrue(SchemaIdOrdinal.isValidSchemaId(20));
+    assertTrue(SchemaIdOrdinal.isValidSchemaId(21));
+    assertTrue(SchemaIdOrdinal.isValidSchemaId(22));
 
     // Test that isValidSchemaId() returns false for invalid schema IDs
     assertFalse(SchemaIdOrdinal.isValidSchemaId(-1));
-    assertFalse(SchemaIdOrdinal.isValidSchemaId(16));
+    assertFalse(SchemaIdOrdinal.isValidSchemaId(23));
     assertFalse(SchemaIdOrdinal.isValidSchemaId(999));
     assertFalse(SchemaIdOrdinal.isValidSchemaId(Integer.MAX_VALUE));
     assertFalse(SchemaIdOrdinal.isValidSchemaId(Integer.MIN_VALUE));
@@ -132,6 +158,13 @@ public class SchemaIdOrdinalTest {
     assertTrue(contains(allSchemaIds, 13));
     assertTrue(contains(allSchemaIds, 14));
     assertTrue(contains(allSchemaIds, 15));
+    assertTrue(contains(allSchemaIds, 16));
+    assertTrue(contains(allSchemaIds, 17));
+    assertTrue(contains(allSchemaIds, 18));
+    assertTrue(contains(allSchemaIds, 19));
+    assertTrue(contains(allSchemaIds, 20));
+    assertTrue(contains(allSchemaIds, 21));
+    assertTrue(contains(allSchemaIds, 22));
   }
 
   @Test
@@ -140,7 +173,7 @@ public class SchemaIdOrdinalTest {
     SchemaIdOrdinal[] ordinals = SchemaIdOrdinal.values();
 
     assertNotNull(ordinals);
-    assertEquals(ordinals.length, 16, "Should have exactly 16 schema ID ordinals");
+    assertEquals(ordinals.length, 23, "Should have exactly 23 schema ID ordinals");
 
     // Verify all expected ordinals are present
     assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1));
@@ -158,6 +191,13 @@ public class SchemaIdOrdinalTest {
     assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES));
     assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_CHANGE_EVENT));
     assertTrue(contains(ordinals, SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT));
+    assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX));
+    assertTrue(contains(ordinals, SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX));
+    assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_CHANGE_LOG_V1_FIX));
+    assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1_FIX));
+    assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1_FIX));
+    assertTrue(contains(ordinals, SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1_FIX));
+    assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1_FIX));
     assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_AUDIT_EVENT));
   }
 
@@ -197,21 +237,37 @@ public class SchemaIdOrdinalTest {
 
   @Test
   public void testCurrentSchemaIds() {
-    // Test that current schema IDs are in the expected range (9-15)
-    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId() >= 9);
-    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId() <= 15);
-    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL.getSchemaId() >= 9);
-    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL.getSchemaId() <= 15);
-    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG.getSchemaId() >= 9);
-    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG.getSchemaId() <= 15);
-    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES.getSchemaId() >= 9);
-    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES.getSchemaId() <= 15);
-    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_EVENT.getSchemaId() >= 9);
-    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_EVENT.getSchemaId() <= 15);
-    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT.getSchemaId() >= 9);
-    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT.getSchemaId() <= 15);
-    assertTrue(SchemaIdOrdinal.METADATA_AUDIT_EVENT.getSchemaId() >= 9);
-    assertTrue(SchemaIdOrdinal.METADATA_AUDIT_EVENT.getSchemaId() <= 15);
+    // Test that _FIX schema IDs are in the expected range (9-15)
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId() >= 9);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId() <= 15);
+    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId() >= 9);
+    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId() <= 15);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG_V1_FIX.getSchemaId() >= 9);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG_V1_FIX.getSchemaId() <= 15);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1_FIX.getSchemaId() >= 9);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1_FIX.getSchemaId() <= 15);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1_FIX.getSchemaId() >= 9);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1_FIX.getSchemaId() <= 15);
+    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1_FIX.getSchemaId() >= 9);
+    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1_FIX.getSchemaId() <= 15);
+    assertTrue(SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1_FIX.getSchemaId() >= 9);
+    assertTrue(SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1_FIX.getSchemaId() <= 15);
+
+    // Test that current schema IDs are in the expected range (16-22)
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId() >= 16);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId() <= 22);
+    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL.getSchemaId() >= 16);
+    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL.getSchemaId() <= 22);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG.getSchemaId() >= 16);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG.getSchemaId() <= 22);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES.getSchemaId() >= 16);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES.getSchemaId() <= 22);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_EVENT.getSchemaId() >= 16);
+    assertTrue(SchemaIdOrdinal.METADATA_CHANGE_EVENT.getSchemaId() <= 22);
+    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT.getSchemaId() >= 16);
+    assertTrue(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT.getSchemaId() <= 22);
+    assertTrue(SchemaIdOrdinal.METADATA_AUDIT_EVENT.getSchemaId() >= 16);
+    assertTrue(SchemaIdOrdinal.METADATA_AUDIT_EVENT.getSchemaId() <= 22);
   }
 
   @Test
@@ -239,7 +295,7 @@ public class SchemaIdOrdinalTest {
   @Test
   public void testSchemaIdValidationConsistency() {
     // Test that isValidSchemaId() and fromSchemaId() are consistent
-    for (int i = -5; i < 20; i++) {
+    for (int i = -5; i < 25; i++) {
       boolean isValid = SchemaIdOrdinal.isValidSchemaId(i);
       SchemaIdOrdinal ordinal = SchemaIdOrdinal.fromSchemaId(i);
 
@@ -273,20 +329,34 @@ public class SchemaIdOrdinalTest {
         return 7;
       case DATAHUB_UPGRADE_HISTORY_EVENT:
         return 8;
-      case METADATA_CHANGE_PROPOSAL:
+      case METADATA_CHANGE_PROPOSAL_V1_FIX:
         return 9;
-      case FAILED_METADATA_CHANGE_PROPOSAL:
+      case FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX:
         return 10;
-      case METADATA_CHANGE_LOG:
+      case METADATA_CHANGE_LOG_V1_FIX:
         return 11;
-      case METADATA_CHANGE_LOG_TIMESERIES:
+      case METADATA_CHANGE_LOG_TIMESERIES_V1_FIX:
         return 12;
-      case METADATA_CHANGE_EVENT:
+      case METADATA_CHANGE_EVENT_V1_FIX:
         return 13;
-      case FAILED_METADATA_CHANGE_EVENT:
+      case FAILED_METADATA_CHANGE_EVENT_V1_FIX:
         return 14;
-      case METADATA_AUDIT_EVENT:
+      case METADATA_AUDIT_EVENT_V1_FIX:
         return 15;
+      case METADATA_CHANGE_PROPOSAL:
+        return 16;
+      case FAILED_METADATA_CHANGE_PROPOSAL:
+        return 17;
+      case METADATA_CHANGE_LOG:
+        return 18;
+      case METADATA_CHANGE_LOG_TIMESERIES:
+        return 19;
+      case METADATA_CHANGE_EVENT:
+        return 20;
+      case FAILED_METADATA_CHANGE_EVENT:
+        return 21;
+      case METADATA_AUDIT_EVENT:
+        return 22;
       default:
         throw new IllegalArgumentException("Unknown ordinal: " + ordinal);
     }

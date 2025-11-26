@@ -46,6 +46,10 @@ from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.sentinels import Unset, unset
 
 SchemaFieldInputType: TypeAlias = Union[
+    # There is no Enum variant for schema field types because that would force users to do a mapping
+    # to our enum from the raw source type, so additional complexity on their side.
+    # To avoid that, the raw source native type can be provided as a string,
+    # and we will do the mapping internally (in sql_types.py)
     Tuple[str, str],  # (name, type)
     Tuple[str, str, str],  # (name, type, description)
     models.SchemaFieldClass,

@@ -38,7 +38,6 @@ const headerDropdownItems = new Set([
     EntityMenuItems.RAISE_INCIDENT,
     EntityMenuItems.ANNOUNCE,
     EntityMenuItems.LINK_VERSION,
-    EntityMenuItems.EXTERNAL_URL,
 ]);
 
 /**
@@ -218,6 +217,7 @@ export class MLModelEntity implements Entity<MlModel> {
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
