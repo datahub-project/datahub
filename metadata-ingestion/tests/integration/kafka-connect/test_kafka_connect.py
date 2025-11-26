@@ -129,7 +129,7 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
     ]
 
     with docker_compose_runner(
-        docker_compose_file, "kafka-connect", setup_command=["up"]
+        docker_compose_file, "kafka-connect", setup_command=["up --wait"]
     ) as docker_services:
         # We rely on Docker health checks to confirm all services are up & healthy
 
