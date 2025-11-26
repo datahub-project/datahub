@@ -18,6 +18,9 @@ shadowJar {
   zip64 true
   archiveClassifier = ""
   exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
+  
+  // Avoid pulling in test dependencies
+  configurations = [project.configurations.runtimeClasspath]
 }
 
 dependencies() {
