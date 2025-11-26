@@ -151,17 +151,30 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                     }
                 });
 
+                // Merge new URNs with existing ones (additive, not replacement)
+                // Get existing URNs
+                const existingAssetUrns = new Set(relatedAssets?.map((ra) => ra.asset.urn) || []);
+                const existingDocumentUrns = new Set(relatedDocuments?.map((rd) => rd.document.urn) || []);
+
+                // Add new URNs to existing sets (automatically handles duplicates)
+                assetUrnsToSave.forEach((urn) => existingAssetUrns.add(urn));
+                documentUrnsToSave.forEach((urn) => existingDocumentUrns.add(urn));
+
+                // Convert back to arrays
+                const finalAssetUrns = Array.from(existingAssetUrns);
+                const finalDocumentUrns = Array.from(existingDocumentUrns);
+
                 // Save content
                 await updateContents({
                     urn: documentUrn,
                     contents: { text: contentToSave },
                 });
 
-                // Update related entities based on @ mentions
+                // Update related entities - merge new mentions with existing ones
                 await updateRelatedEntities({
                     urn: documentUrn,
-                    relatedAssets: assetUrnsToSave,
-                    relatedDocuments: documentUrnsToSave,
+                    relatedAssets: finalAssetUrns,
+                    relatedDocuments: finalDocumentUrns,
                 });
 
                 // Track that we just saved this content to prevent remount on refetch
@@ -175,7 +188,17 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                 setIsSaving(false);
             }
         },
-        [isSaving, initialContent, canEditContents, updateContents, updateRelatedEntities, documentUrn, refetch],
+        [
+            isSaving,
+            initialContent,
+            canEditContents,
+            updateContents,
+            updateRelatedEntities,
+            documentUrn,
+            refetch,
+            relatedAssets,
+            relatedDocuments,
+        ],
     );
 
     // Auto-save after 2 seconds of no typing
@@ -232,6 +255,34 @@ export const EditableContent: React.FC<EditableContentProps> = ({
         [documentUrn, updateRelatedEntities, refetch],
     );
 
+    // Handle removing a single related entity
+    const handleRemoveEntity = useCallback(
+        async (urnToRemove: string) => {
+            // Get existing URNs
+            const existingAssetUrns = relatedAssets?.map((ra) => ra.asset.urn) || [];
+            const existingDocumentUrns = relatedDocuments?.map((rd) => rd.document.urn) || [];
+
+            // Remove the URN from the appropriate list
+            const isDocument = urnToRemove.includes(':document:');
+            const finalAssetUrns = isDocument
+                ? existingAssetUrns
+                : existingAssetUrns.filter((urn) => urn !== urnToRemove);
+            const finalDocumentUrns = isDocument
+                ? existingDocumentUrns.filter((urn) => urn !== urnToRemove)
+                : existingDocumentUrns;
+
+            await updateRelatedEntities({
+                urn: documentUrn,
+                relatedAssets: finalAssetUrns,
+                relatedDocuments: finalDocumentUrns,
+            });
+
+            // Refetch to get updated data
+            await refetch();
+        },
+        [documentUrn, updateRelatedEntities, refetch, relatedAssets, relatedDocuments],
+    );
+
     return (
         <ContentWrapper>
             <EditorSection
@@ -279,6 +330,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                     relatedDocuments={relatedDocuments}
                     documentUrn={documentUrn}
                     onAddEntities={handleAddEntities}
+                    onRemoveEntity={handleRemoveEntity}
                     canEdit={canEditContents}
                 />
             )}

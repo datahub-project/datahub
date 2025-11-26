@@ -1,3 +1,4 @@
+import { Button } from '@components';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -38,11 +39,40 @@ const EmptyState = styled.div`
     padding: 8px;
 `;
 
+const EntityItemContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+
+    /* Show trash button only on hover */
+    .trash-button {
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    &:hover .trash-button {
+        opacity: 1;
+    }
+`;
+
+const EntityLinkWrapper = styled.div`
+    flex: 1;
+    min-width: 0; /* Allow flex item to shrink below content size */
+`;
+
+const TrashButton = styled(Button)`
+    flex-shrink: 0;
+    padding: 0;
+`;
+
 interface RelatedSectionProps {
     relatedAssets?: DocumentRelatedAsset[];
     relatedDocuments?: DocumentRelatedDocument[];
     documentUrn: string;
     onAddEntities: (assetUrns: string[], documentUrns: string[]) => Promise<void>;
+    onRemoveEntity?: (urn: string) => Promise<void>;
     canEdit?: boolean;
 }
 
@@ -51,12 +81,15 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
     relatedDocuments,
     documentUrn,
     onAddEntities,
+    onRemoveEntity,
     canEdit = true,
 }) => {
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
 
     // Entity types that can be related (based on RelatedAsset.pdl)
+    // I don't love this, but I do want to enable searching for documents
+    // as well, even though not supported in the primary search bar yet.
     const allowedEntityTypes: EntityType[] = [
         EntityType.Container,
         EntityType.Dataset,
@@ -164,12 +197,30 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
                         );
 
                         return (
-                            <EntityLink
-                                key={entity.urn}
-                                entity={genericProperties}
-                                showHealthIcon={!entity.isDocument}
-                                showDeprecatedIcon={!entity.isDocument}
-                            />
+                            <EntityItemContainer key={entity.urn}>
+                                <EntityLinkWrapper>
+                                    <EntityLink
+                                        entity={genericProperties}
+                                        showHealthIcon={!entity.isDocument}
+                                        showDeprecatedIcon={!entity.isDocument}
+                                    />
+                                </EntityLinkWrapper>
+                                {canEdit && onRemoveEntity && (
+                                    <TrashButton
+                                        variant="text"
+                                        icon={{ icon: 'Trash', source: 'phosphor', color: 'red' }}
+                                        size="md"
+                                        className="trash-button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            onRemoveEntity(entity.urn);
+                                        }}
+                                        aria-label="Remove related entity"
+                                        data-testid={`remove-related-entity-${entity.urn.split(':').pop()}`}
+                                    />
+                                )}
+                            </EntityItemContainer>
                         );
                     })
                 ) : (
