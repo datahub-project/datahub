@@ -76,3 +76,13 @@ class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
         default_factory=dict,
         description="Extra producer config serialized as JSON. These options will be passed into Kafka's SerializingProducer. See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serializingproducer and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md .",
     )
+
+    @field_validator("producer_config", mode="after")
+    @classmethod
+    def resolve_callback(cls, value: dict) -> dict:
+        if CallableConsumerConfig.is_callable_config(value):
+            try:
+                value = CallableConsumerConfig(value).callable_config()
+            except Exception as e:
+                raise ConfigurationError(e) from e
+        return value

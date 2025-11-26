@@ -106,12 +106,15 @@ source:
 
 ### OAuth Callback
 
-The OAuth callback function can be set up using `config.connection.consumer_config.oauth_cb`.
+The OAuth callback function can be set up for both Kafka sources (consumers) and sinks (producers):
+- For sources: `config.connection.consumer_config.oauth_cb`
+- For sinks: `config.connection.producer_config.oauth_cb`
 
 You need to specify a Python function reference in the format &lt;python-module&gt;:&lt;function-name&gt;.
 
 For example, in the configuration `oauth:create_token`, `create_token` is a function defined in `oauth.py`, and `oauth.py` must be accessible in the PYTHONPATH.
 
+**Example for Kafka Source:**
 ```YAML
 source:
   type: "kafka"
@@ -127,6 +130,21 @@ source:
         sasl.mechanism: "OAUTHBEARER"
         oauth_cb: "oauth:create_token"
 # sink configs
+```
+
+**Example for Kafka Sink (e.g., MSK IAM authentication):**
+```YAML
+sink:
+  type: "datahub-kafka"
+  config:
+    connection:
+      bootstrap: "b-1.msk.us-west-2.amazonaws.com:9098"
+      schema_registry_url: "http://datahub-gms:8080/schema-registry/api/"
+      producer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "OAUTHBEARER"
+        sasl.oauthbearer.method: "default"
+        oauth_cb: "datahub_actions.utils.kafka_msk_iam:oauth_cb"
 ```
 
 ### Limitations of `PROTOBUF` schema types implementation

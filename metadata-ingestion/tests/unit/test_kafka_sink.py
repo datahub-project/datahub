@@ -2,13 +2,16 @@ import unittest
 from typing import Union
 from unittest.mock import MagicMock, call, patch
 
+import pytest
+
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.kafka_emitter import MCE_KEY
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import SinkReport, WriteCallback
-from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink, _KafkaCallback
+from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink, KafkaSinkConfig, _KafkaCallback
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -122,3 +125,70 @@ class KafkaSinkTest(unittest.TestCase):
         callback.kafka_callback(None, mock_message)
         mock_w_callback.on_success.assert_called_once()
         assert mock_w_callback.on_success.call_args[0][0] == mock_re
+
+
+def test_kafka_sink_oauth_cb_configuration():
+    """Test that oauth_cb in producer_config must be a string"""
+    with pytest.raises(
+        ConfigurationError,
+        match=(
+            "oauth_cb must be a string representing python function reference "
+            "in the format <python-module>:<function-name>."
+        ),
+    ):
+        KafkaSinkConfig.parse_obj(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "producer_config": {
+                        "oauth_cb": lambda x: ("token", 3600)  # Direct callable should fail
+                    },
+                }
+            }
+        )
+
+
+def test_kafka_sink_oauth_cb_signature():
+    """Test that oauth_cb function signature is validated"""
+    # Test function with no arguments
+    with pytest.raises(
+        ConfigurationError,
+        match=("oauth_cb function must accept single positional argument."),
+    ):
+        KafkaSinkConfig.parse_obj(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "producer_config": {"oauth_cb": "oauth:create_token_no_args"},
+                }
+            }
+        )
+
+    # Test function with only kwargs
+    with pytest.raises(
+        ConfigurationError,
+        match=("oauth_cb function must accept single positional argument."),
+    ):
+        KafkaSinkConfig.parse_obj(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "producer_config": {"oauth_cb": "oauth:create_token_only_kwargs"},
+                }
+            }
+        )
+
+
+def test_kafka_sink_oauth_cb_resolution():
+    """Test that oauth_cb string is resolved to callable"""
+    config = KafkaSinkConfig.parse_obj(
+        {
+            "connection": {
+                "bootstrap": "foobar:9092",
+                "producer_config": {"oauth_cb": "oauth:create_token"},
+            }
+        }
+    )
+
+    # Verify the string was resolved to a callable
+    assert callable(config.connection.producer_config["oauth_cb"])
