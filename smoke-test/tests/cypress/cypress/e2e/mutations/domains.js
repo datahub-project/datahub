@@ -45,7 +45,9 @@ describe("add remove domain", () => {
     cy.clickOptionWithText("Add assets");
     cy.get(".ant-modal-content").within(() => {
       cy.get('[data-testid="search-input"]').click();
-      cy.get('[data-testid="search-input"]').type("cypress_project.jaffle_shop.customer");
+      cy.get('[data-testid="search-input"]').type(
+        "cypress_project.jaffle_shop.customer",
+      );
       cy.contains("BigQuery", { timeout: 30000 });
       cy.get(".ant-checkbox-input").first().click();
       cy.get("#continueButton").click();
