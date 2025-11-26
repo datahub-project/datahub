@@ -65,9 +65,7 @@ export function IngestionSourceCreatePage() {
                 });
             }
 
-            history.push(PageRoutes.INGESTION, {
-                create: true,
-            });
+            history.push(PageRoutes.INGESTION);
         },
         [createIngestionSource, history],
     );
