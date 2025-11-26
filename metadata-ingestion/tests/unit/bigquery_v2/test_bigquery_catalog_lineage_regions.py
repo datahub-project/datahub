@@ -54,6 +54,11 @@ class TestBigQueryCatalogLineageRegions:
         mock_schema_api.list_tables.return_value = []
         mock_schema_api_class.return_value = mock_schema_api
 
+        # Mock lineage client
+        mock_lineage_client = MagicMock()
+        mock_lineage_client.search_links.return_value = iter([])
+        mock_lineage_client_class.return_value = mock_lineage_client
+
         # Create extractor with proper mocking
         with (
             patch("datahub.ingestion.source.bigquery_v2.lineage.BigQueryAuditLogApi"),
@@ -68,8 +73,13 @@ class TestBigQueryCatalogLineageRegions:
 
             result = extractor.lineage_via_catalog_lineage_api("test-project")
 
+            # Assertions
             assert isinstance(result, dict)
-            mock_schema_api.get_datasets_for_project_id.assert_called_once()
+            mock_schema_api.get_datasets_for_project_id.assert_called_once_with(
+                "test-project"
+            )
+            # Verify lineage client was instantiated
+            mock_lineage_client_class.assert_called_once()
 
     @patch("datahub.ingestion.source.bigquery_v2.lineage.lineage_v1.LineageClient")
     @patch("datahub.ingestion.source.bigquery_v2.lineage.BigQuerySchemaApi")
@@ -102,6 +112,11 @@ class TestBigQueryCatalogLineageRegions:
         mock_schema_api.list_tables.return_value = []
         mock_schema_api_class.return_value = mock_schema_api
 
+        # Mock lineage client
+        mock_lineage_client = MagicMock()
+        mock_lineage_client.search_links.return_value = iter([])
+        mock_lineage_client_class.return_value = mock_lineage_client
+
         with (
             patch("datahub.ingestion.source.bigquery_v2.lineage.BigQueryAuditLogApi"),
             patch("datahub.ingestion.source.bigquery_v2.lineage.SqlParsingAggregator"),
@@ -115,7 +130,12 @@ class TestBigQueryCatalogLineageRegions:
 
             result = extractor.lineage_via_catalog_lineage_api("test-project")
 
+            # Assertions
             assert isinstance(result, dict)
+            mock_schema_api.get_datasets_for_project_id.assert_called_once_with(
+                "test-project"
+            )
+            mock_lineage_client_class.assert_called_once()
 
     @patch("datahub.ingestion.source.bigquery_v2.lineage.lineage_v1.LineageClient")
     @patch("datahub.ingestion.source.bigquery_v2.lineage.BigQuerySchemaApi")
@@ -147,6 +167,11 @@ class TestBigQueryCatalogLineageRegions:
         mock_schema_api.list_tables.return_value = []
         mock_schema_api_class.return_value = mock_schema_api
 
+        # Mock lineage client
+        mock_lineage_client = MagicMock()
+        mock_lineage_client.search_links.return_value = iter([])
+        mock_lineage_client_class.return_value = mock_lineage_client
+
         with (
             patch("datahub.ingestion.source.bigquery_v2.lineage.BigQueryAuditLogApi"),
             patch("datahub.ingestion.source.bigquery_v2.lineage.SqlParsingAggregator"),
@@ -160,7 +185,12 @@ class TestBigQueryCatalogLineageRegions:
 
             result = extractor.lineage_via_catalog_lineage_api("test-project")
 
+            # Assertions
             assert isinstance(result, dict)
+            mock_schema_api.get_datasets_for_project_id.assert_called_once_with(
+                "test-project"
+            )
+            mock_lineage_client_class.assert_called_once()
 
     @patch("datahub.ingestion.source.bigquery_v2.lineage.lineage_v1.LineageClient")
     @patch("datahub.ingestion.source.bigquery_v2.lineage.BigQuerySchemaApi")
@@ -187,6 +217,10 @@ class TestBigQueryCatalogLineageRegions:
         mock_schema_api.get_datasets_for_project_id.return_value = []
         mock_schema_api_class.return_value = mock_schema_api
 
+        # Mock lineage client
+        mock_lineage_client = MagicMock()
+        mock_lineage_client_class.return_value = mock_lineage_client
+
         with (
             patch("datahub.ingestion.source.bigquery_v2.lineage.BigQueryAuditLogApi"),
             patch("datahub.ingestion.source.bigquery_v2.lineage.SqlParsingAggregator"),
@@ -200,5 +234,9 @@ class TestBigQueryCatalogLineageRegions:
 
             result = extractor.lineage_via_catalog_lineage_api("test-project")
 
-            # Should return empty lineage map
+            # Assertions - should return empty lineage map
             assert result == {}
+            mock_schema_api.get_datasets_for_project_id.assert_called_once_with(
+                "test-project"
+            )
+            mock_lineage_client_class.assert_called_once()
