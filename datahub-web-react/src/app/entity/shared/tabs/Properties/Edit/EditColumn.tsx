@@ -44,7 +44,13 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
     const entityRegistry = useEntityRegistry();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const { refetch: entityRefetch } = useEntityContext();
-    const { entityType } = useEntityData();
+    const { entityType, entityData } = useEntityData();
+
+    const canProposeProperties =
+        !!entityData?.parent?.privileges?.canProposeStructuredProperties ||
+        !!entityData?.privileges?.canProposeStructuredProperties;
+    const canEditProperties =
+        !!entityData?.parent?.privileges?.canEditProperties || !!entityData?.privileges?.canEditProperties;
 
     const [removeStructuredProperty] = useRemoveStructuredPropertiesMutation();
 
@@ -105,7 +111,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
             ),
         },
     ];
-    if (values && values?.length > 0) {
+    if (values && values?.length > 0 && canEditProperties) {
         items.push({
             key: '1',
             label: (
@@ -136,6 +142,8 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
                 refetch={refetch}
                 isAddMode={isAddMode}
                 fieldEntity={fieldEntity}
+                canEdit={canEditProperties}
+                canPropose={canProposeProperties}
             />
             <ConfirmationModal
                 isOpen={showConfirmRemove}
