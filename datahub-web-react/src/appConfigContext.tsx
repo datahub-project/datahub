@@ -69,7 +69,6 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     },
     dataHubConfig: {
         serverEnv: 'cloud',
-        isFreeTrialInstance: false,
     },
     classificationConfig: {
         enabled: false,
@@ -152,6 +151,11 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     chromeExtensionConfig: {
         enabled: false,
         lineageEnabled: false,
+    },
+    trialConfig: {
+        trialEnabled: false,
+        daysLeft: 0,
+        sampleDataEnabled: false,
     },
 };
 

@@ -92,6 +92,11 @@ query appConfig {
         dataHubConfig {
             serverEnv
         }
+        trialConfig {
+            trialEnabled
+            daysLeft
+            sampleDataEnabled
+        }
         classificationConfig {
             enabled
             automations {
