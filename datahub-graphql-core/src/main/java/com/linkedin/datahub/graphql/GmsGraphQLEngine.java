@@ -2975,7 +2975,8 @@ public class GmsGraphQLEngine {
             this.entityService,
             this.graphClient,
             entityRegistry,
-            this.timelineService)
+            this.timelineService,
+            this.groupService)
         .configureResolvers(builder);
   }
 

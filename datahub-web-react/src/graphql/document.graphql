@@ -5,6 +5,9 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
         urn
         type
         subType
+        settings {
+            showInGlobalContext
+        }
         info {
             title
             source {
@@ -192,6 +195,10 @@ mutation deleteDocument($urn: String!) {
 
 mutation mergeDraft($input: MergeDraftInput!) {
     mergeDraft(input: $input)
+}
+
+mutation updateDocumentSettings($input: UpdateDocumentSettingsInput!) {
+    updateDocumentSettings(input: $input)
 }
 
 query getDocumentChangeHistory($urn: String!, $startTimeMillis: Long, $endTimeMillis: Long, $limit: Int) {
