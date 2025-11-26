@@ -813,14 +813,14 @@ transformers:
 
 ### Config Details
 
-| Field                       | Required | Type                                | Default | Description                                                                                           |
-| --------------------------- | -------- | ----------------------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| `process_key_value_tags`    |          | boolean                             | `false` | Enable parsing of key:value formatted tags                                                            |
-| `key_value_separator`       |          | string                              | `:`     | Separator character for key-value tags                                                                |
-| `key_value_property_prefix` |          | string                              | `""`    | Prefix to add to property IDs derived from key-value tags                                             |
-| `tag_structured_property_map` |        | map[property_id, StructuredPropertyMapping] | `{}`    | Map of structured property IDs to tag keyword configurations                                          |
-| `remove_original_tags`      |          | boolean                             | `false` | Whether to remove original tags after converting to structured properties                             |
-| `semantics`                 |          | enum                                | `PATCH` | Whether to OVERWRITE or PATCH the structured properties on DataHub GMS                                |
+| Field                         | Required | Type                                        | Default | Description                                                               |
+| ----------------------------- | -------- | ------------------------------------------- | ------- | ------------------------------------------------------------------------- |
+| `process_key_value_tags`      |          | boolean                                     | `false` | Enable parsing of key:value formatted tags                                |
+| `key_value_separator`         |          | string                                      | `:`     | Separator character for key-value tags                                    |
+| `key_value_property_prefix`   |          | string                                      | `""`    | Prefix to add to property IDs derived from key-value tags                 |
+| `tag_structured_property_map` |          | map[property_id, StructuredPropertyMapping] | `{}`    | Map of structured property IDs to tag keyword configurations              |
+| `remove_original_tags`        |          | boolean                                     | `false` | Whether to remove original tags after converting to structured properties |
+| `semantics`                   |          | enum                                        | `PATCH` | Whether to OVERWRITE or PATCH the structured properties on DataHub GMS    |
 
 The `tags_to_structured_properties` transformer converts DataHub tags into structured properties. It supports two modes:
 
@@ -844,6 +844,7 @@ transformers:
 ```
 
 With this config:
+
 - Tag `department:Finance` → Property `io.company.department` with value `Finance`
 - Tag `sensitivity:PII` → Property `io.company.sensitivity` with value `PII`
 
@@ -866,6 +867,7 @@ transformers:
 ```
 
 With this config:
+
 - Tag `Finance` → Property `io.company.department` with value `Finance`
 - Tag `PII` → Property `io.company.dataClassification` with value `PII`
 - Tag `Certified` → Property `io.company.qualityLevel` with value `Certified`
@@ -882,17 +884,17 @@ transformers:
       process_key_value_tags: true
       key_value_separator: ":"
       key_value_property_prefix: "io.company."
-      
+
       # Keyword mappings for tags without key-value format
       tag_structured_property_map:
         "io.company.department":
           values: ["Finance", "Sales", "Marketing"]
         "io.company.dataClassification":
           values: ["PII", "Confidential"]
-      
+
       # Keep original tags as well
       remove_original_tags: false
-      
+
       # Merge with existing structured properties
       semantics: PATCH
 ```
