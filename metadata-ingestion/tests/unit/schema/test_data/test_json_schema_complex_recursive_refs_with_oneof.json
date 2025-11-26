@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.com/schema/1.0",
+  "type": "object",
+  "properties": {
+    "group": {
+      "type": "object",
+      "properties": {
+        "filter": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/condition"},
+          "minItems": 1
+        }
+      },
+      "required": ["filter"]
+    }
+  },
+  "required": ["group"],
+  "definitions": {
+    "condition": {
+      "type": "object",
+      "properties": {
+        "operator": {
+          "description": "Condition operator",
+          "type": "string",
+          "enum": [
+            "EXISTS",
+            "GREATERTHAN", 
+            "LESSTHAN",
+            "EQUALS",
+            "MATCHES",
+            "CONTAINS",
+            "IN",
+            "BETWEEN",
+            "NOT",
+            "AND",
+            "OR",
+            "XOR"
+          ]
+        },
+        "condition": {
+          "description": "negated condition",
+          "$ref": "#/definitions/condition"
+        },
+        "conditions": {
+          "description": "array of conditions (logical expressions)",
+          "type": "array",
+          "items": {"$ref": "#/definitions/condition"},
+          "minItems": 2
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "operator": {
+              "enum": ["GREATERTHAN", "LESSTHAN", "EQUALS"]
+            }
+          },
+          "required": ["operator"],
+          "oneOf": [
+            {
+              "properties": {"numberValue": {}},
+              "required": ["numberValue"]
+            },
+            {
+              "properties": {"booleanValue": {}},
+              "required": ["booleanValue"]
+            },
+            {
+              "properties": {"stringValue": {}},
+              "required": ["stringValue"]
+            },
+            {
+              "properties": {"referenceValue": {}},
+              "required": ["referenceValue"]
+            }
+          ]
+        },
+        {
+          "description": "negation logical filter condition",
+          "properties": {
+            "operator": {"enum": ["NOT"]},
+            "condition": {}
+          },
+          "required": ["operator", "condition"]
+        },
+        {
+          "description": "logical filter condition",
+          "properties": {
+            "operator": {"enum": ["AND", "OR", "XOR"]},
+            "conditions": {}
+          },
+          "required": ["operator", "conditions"]
+        }
+      ]
+    }
+  }
+}
