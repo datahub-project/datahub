@@ -532,6 +532,7 @@ public class ESGraphQueryDAOTest {
   public void testCleanupPointInTime() throws IOException {
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
 
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
