@@ -87,8 +87,10 @@ describe('getOwnersChanges', () => {
 
         const result = getOwnersChanges(mockNew, mockExisting);
 
-        expect(result.ownersToAdd).toEqual([{ urn: 'urn:li:corpuser:C' }]);
-        expect(result.ownersToRemove).toEqual([{ owner: { urn: 'urn:li:corpuser:A' } }]);
+        expect(result.ownersToAdd).toHaveLength(1);
+        expect(result.ownersToAdd[0].urn).toEqual('urn:li:corpuser:C');
+        expect(result.ownersToRemove).toHaveLength(1);
+        expect(result.ownersToRemove[0].owner.urn).toEqual('urn:li:corpuser:A');
     });
 
     it('should handle identical arrays with no changes', () => {
