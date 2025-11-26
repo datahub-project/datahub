@@ -112,11 +112,15 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
         },
     ];
 
+    const canProposeProperties =
+        entityData?.parent?.privileges?.canProposeStructuredProperties ||
+        entityData?.privileges?.canProposeStructuredProperties;
     const canEditProperties =
-        (entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties) &&
-        !properties?.disableEdit;
+        entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
 
-    if (canEditProperties) {
+    const showEditColumn = (canProposeProperties || canEditProperties) && !properties?.disableEdit;
+
+    if (showEditColumn) {
         propertyTableColumns.push({
             title: '',
             width: '10%',
