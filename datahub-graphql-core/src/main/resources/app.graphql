@@ -464,6 +464,11 @@ type AppConfig {
   Configurations for Classification
   """
   classificationConfig: ClassificationConfig!
+
+  """
+  Configurations related to Trial features
+  """
+  trialConfig: TrialConfig!
 }
 
 """
@@ -1898,6 +1903,26 @@ type ClassificationConfig {
   Individual automation settings
   """
   automations: ClassificationAutomations!
+}
+
+"""
+Configurations related to Trial features
+"""
+type TrialConfig {
+  """
+  Whether trial mode is enabled for this instance
+  """
+  trialEnabled: Boolean!
+
+  """
+  Number of days remaining in the trial period
+  """
+  daysLeft: Int!
+
+  """
+  Whether sample data is enabled for trial users
+  """
+  sampleDataEnabled: Boolean!
 }
 
 """
