@@ -168,6 +168,192 @@ def get_columns(
     return columns
 
 
+def _convert_semantic_view_fields_to_columns(
+    entities: List[Dict[str, Any]],
+    dimensions: List[Dict[str, Any]],
+    measures: List[Dict[str, Any]],
+    tag_prefix: str,
+) -> List[DBTColumn]:
+    """
+    Convert semantic view entities, dimensions, and measures into DBTColumn objects.
+    """
+    columns = []
+
+    # Process entities (join keys)
+    for idx, entity in enumerate(entities):
+        entity_name = entity.get("name", "")
+        entity_type = entity.get("type", "")  # primary, foreign, natural, unique
+        entity_desc = entity.get("description", "")
+        entity_expr = entity.get("expr")
+
+        # Build description with entity type and expression
+        full_desc = f"{entity_desc}"
+        if entity_type:
+            full_desc = f"[Entity: {entity_type}] {full_desc}"
+        if entity_expr:
+            full_desc = f"{full_desc}\nExpression: {entity_expr}"
+
+        column = DBTColumn(
+            name=entity_name,
+            comment="",
+            description=full_desc.strip(),
+            index=idx,
+            data_type="unknown",
+            meta={},
+            tags=[f"{tag_prefix}entity", f"{tag_prefix}{entity_type}"]
+            if entity_type
+            else [f"{tag_prefix}entity"],
+        )
+        columns.append(column)
+
+    # Process dimensions
+    offset = len(entities)
+    for idx, dimension in enumerate(dimensions):
+        dim_name = dimension.get("name", "")
+        dim_type = dimension.get("type", "")  # categorical, time
+        dim_desc = dimension.get("description", "")
+        dim_expr = dimension.get("expr")
+
+        full_desc = f"{dim_desc}"
+        if dim_type:
+            full_desc = f"[Dimension: {dim_type}] {full_desc}"
+        if dim_expr:
+            full_desc = f"{full_desc}\nExpression: {dim_expr}"
+
+        column = DBTColumn(
+            name=dim_name,
+            comment="",
+            description=full_desc.strip(),
+            index=offset + idx,
+            data_type="unknown",
+            meta={},
+            tags=[f"{tag_prefix}dimension", f"{tag_prefix}{dim_type}"]
+            if dim_type
+            else [f"{tag_prefix}dimension"],
+        )
+        columns.append(column)
+
+    # Process measures
+    offset = len(entities) + len(dimensions)
+    for idx, measure in enumerate(measures):
+        measure_name = measure.get("name", "")
+        measure_agg = measure.get("agg", "")  # sum, count, avg, etc
+        measure_desc = measure.get("description", "")
+        measure_expr = measure.get("expr")
+
+        full_desc = f"{measure_desc}"
+        if measure_agg:
+            full_desc = f"[Measure: {measure_agg}] {full_desc}"
+        if measure_expr:
+            full_desc = f"{full_desc}\nExpression: {measure_expr}"
+
+        column = DBTColumn(
+            name=measure_name,
+            comment="",
+            description=full_desc.strip(),
+            index=offset + idx,
+            data_type="unknown",
+            meta={},
+            tags=[f"{tag_prefix}measure", f"{tag_prefix}{measure_agg}"]
+            if measure_agg
+            else [f"{tag_prefix}measure"],
+        )
+        columns.append(column)
+
+    return columns
+
+
+def extract_semantic_views(
+    semantic_models_manifest: Dict[str, Dict[str, Any]],
+    all_manifest_entities: Dict[str, Dict[str, Any]],
+    manifest_adapter: str,
+    tag_prefix: str,
+    report: DBTSourceReport,
+) -> List[DBTNode]:
+    """
+    Extract semantic views from the manifest and convert them to DBTNode objects.
+    Semantic views are treated as a node_type='semantic_view'.
+    """
+    semantic_view_nodes = []
+
+    for key, semantic_view in semantic_models_manifest.items():
+        name = semantic_view.get("name", "")
+        description = semantic_view.get("description", "")
+
+        entities = semantic_view.get("entities", [])
+        dimensions = semantic_view.get("dimensions", [])
+        measures = semantic_view.get("measures", [])
+
+        meta = semantic_view.get("meta", {})
+
+        tags = semantic_view.get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
+
+        upstream_nodes = []
+        if "depends_on" in semantic_view and "nodes" in semantic_view["depends_on"]:
+            upstream_nodes = semantic_view["depends_on"]["nodes"]
+
+        dbt_file_path = semantic_view.get("original_file_path")
+        dbt_package_name = semantic_view.get("package_name")
+
+        # Extract database and schema from the referenced model
+        # This is needed to create sibling relationships to the target platform
+        database = None
+        schema = None
+        model_ref = semantic_view.get("model")
+        if model_ref and upstream_nodes:
+            # Try to get database/schema from the first upstream node (the model)
+            for upstream_node in upstream_nodes:
+                if upstream_node in all_manifest_entities:
+                    upstream_entity = all_manifest_entities[upstream_node]
+                    database = upstream_entity.get("database")
+                    schema = upstream_entity.get("schema")
+                    if database and schema:
+                        break
+
+        # Convert semantic view fields to columns
+        columns = _convert_semantic_view_fields_to_columns(
+            entities, dimensions, measures, tag_prefix
+        )
+
+        # Semantic views don't appear in catalog (like tests and ephemeral models)
+        node = DBTNode(
+            database=database,
+            schema=schema,
+            name=name,
+            alias=None,
+            comment="",
+            description=description,
+            language=None,
+            raw_code=None,
+            dbt_adapter=manifest_adapter,
+            dbt_name=key,
+            dbt_file_path=dbt_file_path,
+            dbt_package_name=dbt_package_name,
+            node_type="semantic_view",
+            max_loaded_at=None,
+            materialization=None,
+            catalog_type=None,
+            missing_from_catalog=False,
+            owner=meta.get("owner"),
+            entities=entities,
+            dimensions=dimensions,
+            measures=measures,
+            columns=columns,
+            upstream_nodes=upstream_nodes,
+            meta=meta,
+            tags=tags,
+            query_tag={},
+            compiled_code=None,
+            test_info=None,
+        )
+
+        semantic_view_nodes.append(node)
+
+    logger.debug(f"Extracted {len(semantic_view_nodes)} semantic views from manifest")
+    return semantic_view_nodes
+
+
 def extract_dbt_entities(
     all_manifest_entities: Dict[str, Dict[str, Any]],
     all_catalog_entities: Optional[Dict[str, Dict[str, Any]]],
@@ -211,8 +397,8 @@ def extract_dbt_entities(
         catalog_type = None
 
         if catalog_node is None:
-            if materialization in {"test", "ephemeral"}:
-                # Test and ephemeral nodes will never show up in the catalog.
+            if materialization in {"test", "ephemeral", "semantic_view"}:
+                # Test, ephemeral, and semantic_view nodes will never show up in the catalog.
                 missing_from_catalog = False
             else:
                 if all_catalog_entities is not None and not only_include_if_in_catalog:
@@ -308,10 +494,16 @@ def extract_dbt_entities(
             test_info=test_info,
         )
 
+        # Override node_type for models using semantic_view materialization
+        # (e.g., dbt_semantic_view package from Snowflake Labs)
+        if materialization == "semantic_view":
+            dbtNode.node_type = "semantic_view"
+
         # Load columns from catalog, and override some properties from manifest.
         if dbtNode.materialization not in [
             "ephemeral",
             "test",
+            "semantic_view",  # semantic views have custom column handling
         ]:
             dbtNode.columns = get_columns(
                 dbtNode.dbt_name,
@@ -592,6 +784,21 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             include_database_name=self.config.include_database_name,
             report=self.report,
         )
+
+        # Add semantic views as nodes if enabled
+        if (
+            self.config.entities_enabled.semantic_views
+            and "semantic_models" in dbt_manifest_json
+        ):
+            semantic_models_manifest = dbt_manifest_json["semantic_models"]
+            semantic_view_nodes = extract_semantic_views(
+                semantic_models_manifest=semantic_models_manifest,
+                all_manifest_entities=all_manifest_entities,
+                manifest_adapter=manifest_adapter,
+                tag_prefix=self.config.tag_prefix,
+                report=self.report,
+            )
+            nodes.extend(semantic_view_nodes)
 
         return (
             nodes,
