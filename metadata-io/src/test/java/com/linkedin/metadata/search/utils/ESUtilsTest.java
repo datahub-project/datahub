@@ -1713,6 +1713,7 @@ public class ESUtilsTest {
     OpenSearchStatusException throttleException =
         new OpenSearchStatusException("Too many requests", RestStatus.TOO_MANY_REQUESTS);
 
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     when(mockClient.createPit(any(CreatePitRequest.class), any())).thenThrow(throttleException);
 
     // Should throw APIThrottleException with appropriate retry duration
@@ -1726,6 +1727,7 @@ public class ESUtilsTest {
     OpenSearchStatusException throttleException =
         new OpenSearchStatusException("Too many requests", RestStatus.TOO_MANY_REQUESTS);
 
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     when(mockClient.createPit(any(CreatePitRequest.class), any())).thenThrow(throttleException);
 
     try {
