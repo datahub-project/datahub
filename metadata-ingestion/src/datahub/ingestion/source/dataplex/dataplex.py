@@ -11,6 +11,7 @@ Reference implementation based on VertexAI and BigQuery V2 sources.
 """
 
 import logging
+from threading import Lock
 from typing import Iterable, Optional
 
 from google.api_core import exceptions
@@ -172,6 +173,11 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             self.lineage_extractor = None
 
         self.asset_metadata = {}
+
+        # Thread safety locks for parallel processing
+        self._report_lock = Lock()
+        self._asset_metadata_lock = Lock()
+        self._entity_data_lock = Lock()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -588,41 +594,45 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
                 if not self.config.filter_config.entity_pattern.allowed(entity_id):
                     logger.debug(f"Entity {entity_id} filtered out by pattern")
-                    self.report.report_entity_scanned(entity_id, filtered=True)
+                    with self._report_lock:
+                        self.report.report_entity_scanned(entity_id, filtered=True)
                     continue
 
-                self.report.report_entity_scanned(entity_id)
+                with self._report_lock:
+                    self.report.report_entity_scanned(entity_id)
                 logger.info(
                     f"Processing entity: {entity_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
                 )
 
                 # Determine source platform and dataset id from asset (bigquery, gcs, etc.)
-                if entity.asset in self.asset_metadata:
-                    source_platform, dataset_id = self.asset_metadata[entity.asset]
-                else:
-                    source_platform, dataset_id = extract_entity_metadata(
-                        project_id,
-                        lake_id,
-                        zone_id,
-                        entity_id,
-                        entity.asset,
-                        self.config.location,
-                        self.dataplex_client,
-                    )
+                with self._asset_metadata_lock:
+                    if entity.asset in self.asset_metadata:
+                        source_platform, dataset_id = self.asset_metadata[entity.asset]
+                    else:
+                        source_platform, dataset_id = extract_entity_metadata(
+                            project_id,
+                            lake_id,
+                            zone_id,
+                            entity_id,
+                            entity.asset,
+                            self.config.location,
+                            self.dataplex_client,
+                        )
 
                 # Track entity ID for lineage extraction
-                if project_id not in self.entity_data_by_project:
-                    self.entity_data_by_project[project_id] = set[EntityDataTuple]()
-                self.entity_data_by_project[project_id].add(
-                    EntityDataTuple(
-                        lake_id=lake_id,
-                        zone_id=zone_id,
-                        entity_id=entity_id,
-                        asset_id=entity.asset,
-                        source_platform=source_platform,
-                        dataset_id=dataset_id,
+                with self._entity_data_lock:
+                    if project_id not in self.entity_data_by_project:
+                        self.entity_data_by_project[project_id] = set[EntityDataTuple]()
+                    self.entity_data_by_project[project_id].add(
+                        EntityDataTuple(
+                            lake_id=lake_id,
+                            zone_id=zone_id,
+                            entity_id=entity_id,
+                            asset_id=entity.asset,
+                            source_platform=source_platform,
+                            dataset_id=dataset_id,
+                        )
                     )
-                )
 
                 # Fetch full entity details including schema
                 try:
@@ -724,11 +734,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     )
 
         except exceptions.GoogleAPICallError as e:
-            self.report.report_failure(
-                title=f"Failed to list entities in zone {zone_id}",
-                message=f"Error listing entities in project {project_id}, lake {lake_id}, zone {zone_id}",
-                exc=e,
-            )
+            with self._report_lock:
+                self.report.report_failure(
+                    title=f"Failed to list entities in zone {zone_id}",
+                    message=f"Error listing entities in project {project_id}, lake {lake_id}, zone {zone_id}",
+                    exc=e,
+                )
 
     def _get_entities_mcps(
         self, project_id: str
@@ -911,7 +922,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit(is_primary_source=False)
 
         # Track that we created a sibling relationship
-        self.report.report_sibling_relationship_created()
+        with self._report_lock:
+            self.report.report_sibling_relationship_created()
 
     def _get_lineage_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """
