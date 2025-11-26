@@ -78,14 +78,14 @@ The connector extracts comprehensive lineage:
 
 ## Concept Mapping
 
-| Hightouch Object | DataHub Entity                                                                                          | Description                                                   |
-| ---------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `Source`         | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)                         | Source database/warehouse (referenced as input)               |
-| `Model`          | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)                         | SQL query or transformation (optional, platform: "hightouch") |
-| `Sync`           | [DataJob](https://datahubproject.io/docs/generated/metamodel/entities/datajob/)                         | Data pipeline that moves data from model to destination       |
-| `Destination`    | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)                         | Target system (referenced as output)                          |
-| `Sync Run`       | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance/) | Execution instance with statistics                            |
-| `Workspace`      | Platform Instance                                                                                       | Hightouch workspace (optional grouping)                       |
+| Hightouch Object | DataHub Entity                                                           | Description                                                   |
+| ---------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| `Source`         | [Dataset](../../metamodel/entities/dataset.md)                           | Source database/warehouse (referenced as input)               |
+| `Model`          | [Dataset](../../metamodel/entities/dataset.md)                           | SQL query or transformation (optional, platform: "hightouch") |
+| `Sync`           | [Data Job](../../metamodel/entities/dataJob.md)                          | Data pipeline that moves data from model to destination       |
+| `Destination`    | [Dataset](../../metamodel/entities/dataset.md)                           | Target system (referenced as output)                          |
+| `Sync Run`       | [Data Process Instance](../../metamodel/entities/dataprocessinstance.md) | Execution instance with statistics                            |
+| `Workspace`      | Platform Instance                                                        | Hightouch workspace (optional grouping)                       |
 
 ### Compatibility
 

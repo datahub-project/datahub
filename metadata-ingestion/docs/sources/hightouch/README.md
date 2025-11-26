@@ -1,12 +1,12 @@
 ### Concept Mapping
 
-| Hightouch Object | DataHub Entity                                                                        | Description                                                   |
-| ---------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `Source`         | [Dataset](../../docs/generated/metamodel/entities/dataset.md)                         | Source database/warehouse (referenced as input)               |
-| `Model`          | [Dataset](../../docs/generated/metamodel/entities/dataset.md)                         | SQL query or transformation (optional, platform: "hightouch") |
-| `Sync`           | [DataJob](../../docs/generated/metamodel/entities/datajob.md)                         | Data pipeline that moves data from model to destination       |
-| `Destination`    | [Dataset](../../docs/generated/metamodel/entities/dataset.md)                         | Target system (referenced as output)                          |
-| `Sync Run`       | [DataProcessInstance](../../docs/generated/metamodel/entities/dataprocessinstance.md) | Execution instance with statistics                            |
+| Hightouch Object | DataHub Entity                                                           | Description                                                   |
+| ---------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| `Source`         | [Dataset](../../metamodel/entities/dataset.md)                           | Source database/warehouse (referenced as input)               |
+| `Model`          | [Dataset](../../metamodel/entities/dataset.md)                           | SQL query or transformation (optional, platform: "hightouch") |
+| `Sync`           | [Data Job](../../metamodel/entities/dataJob.md)                          | Data pipeline that moves data from model to destination       |
+| `Destination`    | [Dataset](../../metamodel/entities/dataset.md)                           | Target system (referenced as output)                          |
+| `Sync Run`       | [Data Process Instance](../../metamodel/entities/dataprocessinstance.md) | Execution instance with statistics                            |
 
 ### Supported Platforms
 
