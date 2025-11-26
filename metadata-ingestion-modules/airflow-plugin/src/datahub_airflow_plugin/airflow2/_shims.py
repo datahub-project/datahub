@@ -18,13 +18,34 @@ except ImportError:
     from airflow.sensors.external_task_sensor import ExternalTaskSensor  # type: ignore
 
 # OpenLineage imports for Airflow 2.x
-from openlineage.airflow.listener import TaskHolder
-from openlineage.airflow.plugin import OpenLineagePlugin
-from openlineage.airflow.utils import (
-    get_operator_class,
-    redact_with_exclusions,
-    try_import_from_string,
-)
+# Detect which OpenLineage package is available and load appropriate shims
+_USE_LEGACY_OPENLINEAGE = False
+try:
+    # Check if legacy package (openlineage-airflow) is available
+    import openlineage.airflow  # noqa: F401
+
+    _USE_LEGACY_OPENLINEAGE = True
+except ImportError:
+    pass
+
+if _USE_LEGACY_OPENLINEAGE:
+    # Import from legacy openlineage-airflow package
+    from datahub_airflow_plugin.airflow2._legacy_shims import (
+        OpenLineagePlugin,
+        TaskHolder,
+        get_operator_class,
+        redact_with_exclusions,
+        try_import_from_string,
+    )
+else:
+    # Import from native apache-airflow-providers-openlineage package
+    from datahub_airflow_plugin.airflow2._provider_shims import (
+        OpenLineagePlugin,
+        TaskHolder,
+        get_operator_class,
+        redact_with_exclusions,
+        try_import_from_string,
+    )
 
 
 def get_task_inlets(operator: "Operator") -> List:

@@ -14,13 +14,25 @@ if not MARKUPSAFE_PATCHED:
         "Airflow and DataHub dependencies."
     )
 
-# Airflow 2.x doesn't need the OpenLineage patches that are specific to Airflow 3.x
-# Those patches target Airflow 3.0+ features like:
-# - SQLParser.generate_openlineage_metadata_from_sql()
-# - get_openlineage_facets_on_complete() methods
-# - get_openlineage_database_info() for SqliteHook
+# Apply SQLParser patch for Airflow 2.10+ with apache-airflow-providers-openlineage
+# When using the provider package, SQL operators call SQLParser.generate_openlineage_metadata_from_sql()
+# directly (similar to Airflow 3.x), so we need to patch that method to use DataHub's SQL parser.
 #
-# These don't exist in Airflow 2.x, so we don't apply any patches here.
+# For legacy openlineage-airflow package (Airflow 2.5-2.9), we use the extractor-based approach
+# in _extractors.py instead.
+try:
+    from airflow.providers.openlineage.sqlparser import SQLParser
+
+    # Provider package detected - apply SQL parser patch
+    from datahub_airflow_plugin.airflow2._airflow2_sql_parser_patch import (
+        patch_sqlparser,
+    )
+
+    patch_sqlparser()
+except ImportError:
+    # Provider package not available - using legacy openlineage-airflow package
+    # No patching needed, extractors will handle SQL parsing
+    pass
 
 AIRFLOW_PATCHED = True
 

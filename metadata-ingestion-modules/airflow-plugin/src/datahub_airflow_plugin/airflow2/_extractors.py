@@ -153,17 +153,11 @@ class ExtractorManager(OLExtractorManager):
         self._graph = graph
         with self._patch_extractors():
             if USE_OPENLINEAGE_PROVIDER:
-                # OpenLineage Provider: Use TaskInstanceState enum instead of bool
-                from airflow.utils.state import TaskInstanceState
-
-                task_instance_state = (
-                    TaskInstanceState.SUCCESS if complete else TaskInstanceState.RUNNING
-                )
-                return super().extract_metadata(  # type: ignore[call-arg]
-                    dagrun, task, task_instance_state, task_instance
-                )
+                # OpenLineage Provider: Does not have task_uuid parameter
+                # In Airflow 3.x, the 'complete' parameter type changed from bool to TaskInstanceState
+                return super().extract_metadata(dagrun, task, complete, task_instance)  # type: ignore[call-arg,arg-type]
             else:
-                # Legacy OpenLineage: Use bool for complete parameter
+                # Legacy OpenLineage: Has task_uuid parameter
                 return super().extract_metadata(  # type: ignore[call-arg,arg-type]
                     dagrun,
                     task,
@@ -173,14 +167,16 @@ class ExtractorManager(OLExtractorManager):
                 )
 
     def _get_extractor(self, task: "Operator") -> Optional[BaseExtractor]:
-        # By adding this, we can use the generic extractor as a fallback for
+        # For Legacy OpenLineage: Register GenericSqlExtractor as fallback for
         # any operator that inherits from SQLExecuteQueryOperator.
+        # For OpenLineage Provider: Rely on SQLParser patch approach instead.
         if not USE_OPENLINEAGE_PROVIDER:
             clazz = get_operator_class(task)  # type: ignore[arg-type]
             SQLExecuteQueryOperator = try_import_from_string(
                 "airflow.providers.common.sql.operators.sql.SQLExecuteQueryOperator"
             )
             if SQLExecuteQueryOperator and issubclass(clazz, SQLExecuteQueryOperator):
+                # Legacy OpenLineage: Register GenericSqlExtractor in task_to_extractor.extractors
                 self.task_to_extractor.extractors.setdefault(  # type: ignore[attr-defined]
                     clazz.__name__, GenericSqlExtractor
                 )
@@ -221,7 +217,7 @@ if SqlExtractor is not None:
                 return self.conn.schema
             return None
 else:
-    # SqlExtractor is not available (should not happen in normal usage)
+    # SqlExtractor is not available (OpenLineage Provider package)
     GenericSqlExtractor = None  # type: ignore
 
 
@@ -309,8 +305,7 @@ def _parse_sql_into_task_metadata(
     run_facets = {}
     job_facets = {"sql": SqlJobFacet(query=_normalize_sql(sql))}
 
-    # Prepare to run the SQL parser.
-    # context attribute only exists in Airflow 2
+    # Get graph from context (Legacy OpenLineage only)
     graph = None
     if hasattr(self, "context"):
         graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)  # type: ignore[attr-defined]

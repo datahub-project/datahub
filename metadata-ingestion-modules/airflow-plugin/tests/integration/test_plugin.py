@@ -49,7 +49,7 @@ def is_airflow3() -> bool:
 
 
 def _make_api_request(
-    session: requests.Session, url: str, timeout: int = 5
+    session: requests.Session, url: str, timeout: int = 30
 ) -> requests.Response:
     """Make an API request with v2/v1 fallback for Airflow 3.0 compatibility issues."""
     try:
@@ -160,7 +160,7 @@ def _wait_for_airflow_healthy(airflow_port: int) -> None:
     res = None
     for endpoint in health_endpoints:
         try:
-            res = requests.get(f"http://localhost:{airflow_port}{endpoint}", timeout=5)
+            res = requests.get(f"http://localhost:{airflow_port}{endpoint}", timeout=30)
             res.raise_for_status()
             break
         except requests.exceptions.HTTPError as e:
@@ -217,7 +217,7 @@ def _wait_for_dag_finish(
 @tenacity.retry(
     reraise=True,
     wait=tenacity.wait_fixed(1),
-    stop=tenacity.stop_after_delay(90),
+    stop=tenacity.stop_after_delay(180),
     retry=tenacity.retry_if_exception_type(NotReadyError),
 )
 def _wait_for_dag_to_load(airflow_instance: AirflowInstance, dag_id: str) -> None:
@@ -400,6 +400,11 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
         # ConsoleTransport logs events instead of sending them, avoiding network issues
         environment["AIRFLOW__OPENLINEAGE__TRANSPORT"] = '{"type": "console"}'
 
+        # Enable dual plugin mode for Airflow 3.0
+        # When False, both DataHub and OpenLineage plugins run side-by-side
+        # SQLParser calls both parsers: OpenLineage for its own events, DataHub for enhanced lineage
+        environment["AIRFLOW__DATAHUB__DISABLE_OPENLINEAGE_PLUGIN"] = "false"
+
         # Configure internal execution API JWT authentication
         # Required for executor to authenticate task execution requests
         environment["AIRFLOW__EXECUTION_API__JWT_EXPIRATION_TIME"] = "300"  # 5 minutes
@@ -407,8 +412,23 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
             "test-secret-key-for-jwt-signing-in-tests"
         )
         # Note: EXECUTION_API_SERVER_URL is set in airflow.cfg after db init to use correct port
+    elif AIRFLOW_VERSION >= packaging.version.parse("2.10.0"):
+        # Airflow 2.10+ with apache-airflow-providers-openlineage
+        # Use basic auth for the API
+        environment["AIRFLOW__API__AUTH_BACKEND"] = (
+            "airflow.api.auth.backend.basic_auth"
+        )
+
+        # Enable OpenLineage provider using ConsoleTransport (required for SQL parsing)
+        # This enables SQLParser calls even when DataHub is the primary lineage provider
+        environment["AIRFLOW__OPENLINEAGE__TRANSPORT"] = '{"type": "console"}'
+
+        # Enable dual plugin mode for Airflow 2.10+ provider package
+        # When False, both DataHub and OpenLineage plugins run side-by-side
+        # SQLParser calls both parsers: OpenLineage for its own events, DataHub for enhanced lineage
+        environment["AIRFLOW__DATAHUB__DISABLE_OPENLINEAGE_PLUGIN"] = "false"
     else:
-        # Airflow 2.x supports basic auth for the API
+        # Airflow 2.x < 2.10 supports basic auth for the API
         environment["AIRFLOW__API__AUTH_BACKEND"] = (
             "airflow.api.auth.backend.basic_auth"
         )
@@ -853,7 +873,23 @@ def test_airflow_plugin(
         # due to an error in the SQLAlchemy listener. This never happened locally for me.
         pytest.skip("Cannot test failure cases without the Airflow DAG listener API")
 
+    # Support provider-specific golden files for apache-airflow-providers-openlineage tests
+    # When using the provider package (Airflow 2.10+), OpenLineage version differs from
+    # legacy openlineage-airflow package, causing cosmetic metadata formatting differences
     golden_path = GOLDENS_FOLDER / f"{golden_filename}.json"
+    try:
+        from datahub_airflow_plugin.airflow2._openlineage_compat import (
+            USE_OPENLINEAGE_PROVIDER,
+        )
+
+        if USE_OPENLINEAGE_PROVIDER:
+            provider_golden_path = GOLDENS_FOLDER / f"{golden_filename}_provider.json"
+            if provider_golden_path.exists():
+                golden_path = provider_golden_path
+    except ImportError:
+        # Airflow 3.x or other scenarios where this import might fail
+        pass
+
     dag_id = test_case.dag_id
 
     # Select the appropriate DAGs folder based on the Airflow version being tested

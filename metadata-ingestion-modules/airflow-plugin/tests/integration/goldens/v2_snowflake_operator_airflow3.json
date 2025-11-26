@@ -153,9 +153,11 @@
     "aspect": {
         "json": {
             "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.COSTS,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub_test_database.datahub_test_schema.costs,PROD)"
             ],
             "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.PROCESSED_COSTS,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub_test_database.datahub_test_schema.processed_costs,PROD)"
             ],
             "inputDatajobs": [],
@@ -222,6 +224,19 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.COSTS,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.COSTS",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub_test_database.datahub_test_schema.costs,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
@@ -229,6 +244,19 @@
         "json": {
             "platform": "urn:li:dataPlatform:snowflake",
             "name": "datahub_test_database.datahub_test_schema.costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.PROCESSED_COSTS,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.PROCESSED_COSTS",
             "origin": "PROD"
         }
     }
@@ -296,8 +324,8 @@
                 "task_id": "transform_cost_table",
                 "dag_id": "snowflake_operator",
                 "end_date": "<end_date>",
-                "max_tries": "0",
                 "operator": "SQLExecuteQueryOperator",
+                "max_tries": "0",
                 "log_url": "http://airflow.example.com/dags/snowflake_operator/runs/manual_run_test/tasks/transform_cost_table?try_number=1",
                 "orchestrator": "airflow"
             },
@@ -305,7 +333,7 @@
             "name": "snowflake_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760951109500,
+                "time": 1764155675664,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -331,6 +359,7 @@
     "aspect": {
         "json": {
             "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.COSTS,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub_test_database.datahub_test_schema.costs,PROD)"
             ]
         }
@@ -344,8 +373,22 @@
     "aspect": {
         "json": {
             "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.PROCESSED_COSTS,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub_test_database.datahub_test_schema.processed_costs,PROD)"
             ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.COSTS,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.COSTS",
+            "origin": "PROD"
         }
     }
 },
@@ -358,6 +401,19 @@
         "json": {
             "platform": "urn:li:dataPlatform:snowflake",
             "name": "datahub_test_database.datahub_test_schema.costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.PROCESSED_COSTS,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.PROCESSED_COSTS",
             "origin": "PROD"
         }
     }
@@ -382,7 +438,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760951109500,
+            "timestampMillis": 1764155675664,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -394,19 +450,37 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub_test_database.datahub_test_schema.processed_costs,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.PROCESSED_COSTS,PROD)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1760951112034,
+            "timestampMillis": 1764155684095,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1760951112034
+            "lastUpdatedTimestamp": 1764155684095
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub_test_database.datahub_test_schema.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1764155684099,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:airflow",
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1764155684099
         }
     }
 },
@@ -458,9 +532,11 @@
     "aspect": {
         "json": {
             "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.COSTS,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub_test_database.datahub_test_schema.costs,PROD)"
             ],
             "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.PROCESSED_COSTS,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub_test_database.datahub_test_schema.processed_costs,PROD)"
             ],
             "inputDatajobs": [],
@@ -583,6 +659,19 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.COSTS,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.COSTS",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub_test_database.datahub_test_schema.costs,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
@@ -590,6 +679,19 @@
         "json": {
             "platform": "urn:li:dataPlatform:snowflake",
             "name": "datahub_test_database.datahub_test_schema.costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.PROCESSED_COSTS,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "DATAHUB_TEST_DATABASE.DATAHUB_TEST_SCHEMA.PROCESSED_COSTS",
             "origin": "PROD"
         }
     }
@@ -649,7 +751,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760951112038,
+            "timestampMillis": 1764155684106,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
