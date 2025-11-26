@@ -21,7 +21,7 @@ def dataplex_config() -> DataplexConfig:
     return DataplexConfig(
         project_ids=["test-project"],
         location="us-central1",
-        extract_lineage=True,
+        include_lineage=True,
     )
 
 
@@ -69,7 +69,7 @@ def test_lineage_extraction_disabled(
     config = DataplexConfig(
         project_ids=["test-project"],
         location="us-central1",
-        extract_lineage=False,  # Disabled
+        include_lineage=False,  # Disabled
     )
 
     extractor = DataplexLineageExtractor(
@@ -614,7 +614,7 @@ def test_fail_fast_mode_enabled() -> None:
     """Test that fail_fast mode raises exception immediately on error."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
         lineage_fail_fast=True,
     )
     report = DataplexReport()
@@ -647,7 +647,7 @@ def test_fail_fast_mode_disabled() -> None:
     """Test that fail_fast mode disabled allows graceful error handling."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
         lineage_fail_fast=False,
     )
     report = DataplexReport()
@@ -679,7 +679,7 @@ def test_circuit_breaker_triggers() -> None:
     """Test that circuit breaker triggers after max consecutive failures."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
         lineage_fail_fast=False,
         max_lineage_failures=3,
     )
@@ -722,7 +722,7 @@ def test_circuit_breaker_resets_on_success() -> None:
     """Test that consecutive failure counter resets on successful extraction."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
         lineage_fail_fast=False,
         max_lineage_failures=3,
     )
@@ -766,7 +766,7 @@ def test_circuit_breaker_disabled() -> None:
     """Test that circuit breaker can be disabled with -1."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
         lineage_fail_fast=False,
         max_lineage_failures=-1,  # Disabled
     )
@@ -802,7 +802,7 @@ def test_circuit_breaker_with_fail_fast() -> None:
     """Test circuit breaker behavior when combined with fail_fast mode."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
         lineage_fail_fast=True,
         max_lineage_failures=3,
     )
@@ -839,7 +839,7 @@ def test_pagination_automatic_handling() -> None:
     """Test that pagination is handled automatically by the client library."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
     )
     report = DataplexReport()
 
@@ -885,7 +885,7 @@ def test_pagination_with_large_result_set() -> None:
     """Test pagination handling with a large number of lineage links."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
     )
     report = DataplexReport()
 
@@ -928,7 +928,7 @@ def test_batched_lineage_processing() -> None:
     """Test that lineage processing works correctly with batching enabled."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
         lineage_batch_size=2,  # Small batch size to test batching
     )
     report = DataplexReport()
@@ -1009,7 +1009,7 @@ def test_batched_lineage_with_batch_size_larger_than_entities() -> None:
     """Test that batching is disabled when batch size is larger than entity count."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
         lineage_batch_size=100,  # Larger than entity count
     )
     report = DataplexReport()
@@ -1050,7 +1050,7 @@ def test_batched_lineage_with_batching_disabled() -> None:
     """Test that batching can be disabled by setting batch_size to -1."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
         lineage_batch_size=-1,  # Disable batching
     )
     report = DataplexReport()
@@ -1091,7 +1091,7 @@ def test_batched_lineage_memory_cleanup() -> None:
     """Test that lineage map is cleared between batches to free memory."""
     config = DataplexConfig(
         project_ids=["test-project"],
-        extract_lineage=True,
+        include_lineage=True,
         lineage_batch_size=2,  # Process 2 entities per batch
     )
     report = DataplexReport()

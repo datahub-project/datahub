@@ -8,7 +8,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Set
 
+from google.api_core import exceptions as google_exceptions
 from google.cloud import dataplex_v1
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 if TYPE_CHECKING:
     from google.cloud.datacatalog.lineage_v1 import LineageClient
@@ -97,15 +105,14 @@ class DataplexLineageExtractor:
         # Cache for lineage information
         self.lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
 
-        # Circuit breaker state
-        self.consecutive_failures = 0
-        self.circuit_breaker_triggered = False
-
     def get_lineage_for_entity(
         self, project_id: str, entity: EntityDataTuple
     ) -> Optional[Dict[str, list]]:
         """
-        Get lineage information for a specific Dataplex entity.
+        Get lineage information for a specific Dataplex entity with automatic retries.
+
+        This method uses tenacity to automatically retry transient errors (timeouts, rate limits, etc.)
+        with exponential backoff. After retries are exhausted, logs a warning and continues.
 
         Args:
             project_id: GCP project ID
@@ -113,22 +120,10 @@ class DataplexLineageExtractor:
 
         Returns:
             Dictionary with 'upstream' and 'downstream' lists of entity FQNs,
-            or None if lineage extraction is disabled or fails
-
-        Raises:
-            RuntimeError: If circuit breaker is triggered or fail_fast mode is enabled
+            or None if lineage extraction is disabled or fails after retries
         """
-        if not self.config.extract_lineage or not self.lineage_client:
+        if not self.config.include_lineage or not self.lineage_client:
             return None
-
-        # Check circuit breaker
-        if self.circuit_breaker_triggered:
-            error_msg = (
-                f"Circuit breaker triggered: {self.consecutive_failures} consecutive failures. "
-                "Skipping remaining lineage extraction."
-            )
-            logger.error(error_msg)
-            raise RuntimeError(error_msg)
 
         try:
             fully_qualified_name = self._construct_fqn(
@@ -140,13 +135,13 @@ class DataplexLineageExtractor:
                 f"projects/{project_id}/locations/{self.config.location.split('-')[0]}"
             )
 
-            # Get upstream lineage (where this entity is the target)
+            # Get upstream lineage (where this entity is the target) - retries are handled inside _search_links_by_target
             upstream_links = self._search_links_by_target(parent, fully_qualified_name)
             for link in upstream_links:
                 if link.source and link.source.fully_qualified_name:
                     lineage_data["upstream"].append(link.source.fully_qualified_name)
 
-            # Get downstream lineage (where this entity is the source)
+            # Get downstream lineage (where this entity is the source) - retries are handled inside _search_links_by_source
             downstream_links = self._search_links_by_source(
                 parent, fully_qualified_name
             )
@@ -162,99 +157,31 @@ class DataplexLineageExtractor:
                 )
                 self.report.num_lineage_entries_scanned += 1
 
-            # Success - reset failure counter
-            self.consecutive_failures = 0
-
             return lineage_data
 
         except Exception as e:
-            # Increment failure counter
-            self.consecutive_failures += 1
+            # After retries are exhausted, log warning and continue
             self.report.num_lineage_entries_failed += 1
-
-            # Classify error type
-            error_type = self._classify_error(e)
-            error_msg = (
-                f"Failed to get lineage for entity {entity.entity_id} "
-                f"({error_type}): {e}"
+            logger.warning(
+                f"Failed to get lineage for entity {entity.entity_id} after retries: {e}. "
+                "Continuing with other entities."
             )
-
-            # Log at ERROR level instead of WARNING
-            logger.error(error_msg)
-
-            # Check if circuit breaker should trigger
-            if (
-                self.config.max_lineage_failures > 0
-                and self.consecutive_failures >= self.config.max_lineage_failures
-            ):
-                self.circuit_breaker_triggered = True
-                circuit_error = (
-                    f"Circuit breaker triggered after {self.consecutive_failures} "
-                    f"consecutive failures. Last error: {error_msg}"
-                )
-                logger.error(circuit_error)
-                if self.config.lineage_fail_fast:
-                    raise RuntimeError(circuit_error) from e
-
-            # Fail fast if configured
-            if self.config.lineage_fail_fast:
-                raise RuntimeError(error_msg) from e
-
             return None
 
-    def _classify_error(self, error: Exception) -> str:
-        """
-        Classify error as transient (retryable) or permanent.
-
-        Args:
-            error: The exception to classify
-
-        Returns:
-            String describing error type: "TRANSIENT" or "PERMANENT"
-        """
-        error_str = str(error).lower()
-        error_type_name = type(error).__name__
-
-        # Transient errors (network, rate limiting, temporary API issues)
-        transient_indicators = [
-            "timeout",
-            "timed out",
-            "deadline exceeded",
-            "503",
-            "429",  # Rate limiting
-            "quota exceeded",
-            "rate limit",
-            "temporarily unavailable",
-            "connection reset",
-            "connection refused",
-            "network",
-        ]
-
-        # Permanent errors (authentication, permission, not found)
-        permanent_indicators = [
-            "401",  # Unauthorized
-            "403",  # Forbidden
-            "404",  # Not found
-            "invalid credentials",
-            "permission denied",
-            "not found",
-            "does not exist",
-            "invalid argument",
-            "bad request",
-            "400",
-        ]
-
-        for indicator in transient_indicators:
-            if indicator in error_str:
-                return f"TRANSIENT-{error_type_name}"
-
-        for indicator in permanent_indicators:
-            if indicator in error_str:
-                return f"PERMANENT-{error_type_name}"
-
-        # Default to permanent for unknown errors (safer assumption)
-        return f"UNKNOWN-{error_type_name}"
-
+    @retry(
+        retry=retry_if_exception_type(
+            (
+                google_exceptions.DeadlineExceeded,
+                google_exceptions.ServiceUnavailable,
+                google_exceptions.TooManyRequests,
+                google_exceptions.InternalServerError,
+            )
+        ),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        stop=stop_after_attempt(3),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
     def _search_links_by_target(
         self, parent: str, fully_qualified_name: str
     ) -> Iterable:
@@ -285,6 +212,20 @@ class DataplexLineageExtractor:
         )
         return results
 
+    @retry(
+        retry=retry_if_exception_type(
+            (
+                google_exceptions.DeadlineExceeded,
+                google_exceptions.ServiceUnavailable,
+                google_exceptions.TooManyRequests,
+                google_exceptions.InternalServerError,
+            )
+        ),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        stop=stop_after_attempt(3),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
     def _search_links_by_source(
         self, parent: str, fully_qualified_name: str
     ) -> Iterable:
@@ -540,7 +481,7 @@ class DataplexLineageExtractor:
         Yields:
             MetadataWorkUnit objects containing lineage information
         """
-        if not self.config.extract_lineage:
+        if not self.config.include_lineage:
             logger.info("Lineage extraction is disabled")
             return
 

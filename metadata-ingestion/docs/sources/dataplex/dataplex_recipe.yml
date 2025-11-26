@@ -45,7 +45,7 @@ source:
     # include_zones: true
     # include_assets: true
     # include_entities: true
-    # extract_lineage: true
+    # include_lineage: true
 
     # Optional: Sibling relationships
     # create_sibling_relationships: true

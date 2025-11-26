@@ -110,26 +110,67 @@ Project (Container)
 
 #### Sibling Relationships
 
-When `create_sibling_relationships` is enabled, the connector creates bidirectional sibling relationships between Dataplex entities and their source platform entities (e.g., BigQuery tables, GCS objects). This allows you to:
+When `create_sibling_relationships` is enabled, the connector creates bidirectional sibling relationships between entities ingested by the Dataplex connector and the same entities ingested by their respective source platform connectors (e.g., BigQuery connector, GCS connector). This allows you to:
 
-- Navigate between Dataplex and source platform views of the same data
+- Navigate between the Dataplex view and the source platform view of the same data
+- See the same physical table/object from both the Dataplex catalog perspective and the source system perspective
 - Control which entity is considered primary using `dataplex_is_primary_sibling` config
 - By default, the source platform entity (BigQuery/GCS) is marked as primary
 
 #### Lineage
 
-When `extract_lineage` is enabled and proper permissions are granted, the connector extracts lineage information using the Dataplex Lineage API to capture relationships between:
+When `include_lineage` is enabled and proper permissions are granted, the connector extracts **table-level lineage** using the Dataplex Lineage API. Dataplex automatically tracks lineage from these Google Cloud systems:
 
-- Entities and their transformations
-- Data flows between assets
-- Processing workflows
+**Supported Systems:**
+
+- **BigQuery**: DDL (CREATE TABLE, CREATE TABLE AS SELECT, views, materialized views) and DML (SELECT, INSERT, MERGE, UPDATE, DELETE) operations
+- **Cloud Data Fusion**: Pipeline executions
+- **Cloud Composer**: Workflow orchestration
+- **Dataflow**: Streaming and batch jobs
+- **Dataproc**: Spark and Hadoop jobs
+- **Vertex AI**: ML pipeline operations
+
+**Not Supported:**
+
+- **Column-level lineage**: The connector extracts only table-level lineage (column-level lineage is available in Dataplex but not exposed through this connector)
+- **Custom sources**: Only Google Cloud systems with automatic lineage tracking are supported
+- **BigQuery Data Transfer Service**: Recurring loads are not automatically tracked
+
+**Lineage Limitations:**
+
+- Lineage data is retained for 30 days in Dataplex
+- Lineage may take up to 24 hours to appear after job completion
+
+For more details, see [Dataplex Lineage Documentation](https://docs.cloud.google.com/dataplex/docs/about-data-lineage).
 
 **Lineage Configuration Options:**
 
-- **`extract_lineage`** (default: `true`): Enable table-level lineage extraction
-- **`lineage_fail_fast`** (default: `false`): If true, fail immediately on lineage extraction errors. If false, log errors and continue processing. Recommended: `false` for development, `true` for production
-- **`max_lineage_failures`** (default: `10`): Maximum consecutive lineage extraction failures before stopping (circuit breaker). Set to `-1` to disable circuit breaker
+- **`include_lineage`** (default: `true`): Enable table-level lineage extraction. Lineage API calls automatically retry transient errors (timeouts, rate limits, service unavailable) with exponential backoff
 - **`lineage_batch_size`** (default: `1000`): Number of entities to process in each lineage extraction batch. Lower values reduce memory usage but may increase processing time. Set to `-1` to disable batching. Recommended: `1000` for large deployments (>10k entities), `-1` for small deployments
+
+**Automatic Retry Behavior:**
+
+The connector automatically handles transient errors when extracting lineage:
+
+**Retried Errors** (with exponential backoff, up to 3 attempts):
+
+- **Timeouts**: DeadlineExceeded errors from slow API responses
+- **Rate Limiting**: HTTP 429 (TooManyRequests) errors
+- **Service Issues**: HTTP 503 (ServiceUnavailable), HTTP 500 (InternalServerError)
+
+**Non-Retried Errors** (logs warning and continues):
+
+- **Permission Denied**: HTTP 403 - missing `datalineage.viewer` role
+- **Not Found**: HTTP 404 - entity or lineage data doesn't exist
+- **Invalid Argument**: HTTP 400 - incorrect API parameters (e.g., wrong region format)
+
+**Common Configuration Issues:**
+
+1. **Regional restrictions**: Lineage API requires multi-region location (e.g., `us`, `eu`) rather than specific regions (e.g., `us-central1`). The connector automatically converts your `location` config
+2. **Missing permissions**: Ensure service account has `roles/datalineage.viewer` role on all projects
+3. **No lineage data**: Some entities may not have lineage if they weren't created through supported systems (BigQuery DDL/DML, Cloud Data Fusion, etc.)
+
+After exhausting retries, the connector logs a warning and continues processing other entities - you'll still get metadata (lakes, zones, assets, entities, schema) even if lineage extraction fails for some entities.
 
 **Example Configuration:**
 
@@ -142,14 +183,7 @@ source:
     location: "us-central1"
 
     # Lineage settings
-    extract_lineage: true # Enable lineage extraction
-
-    # Error handling (optional)
-    lineage_fail_fast: false # Continue on errors (development mode)
-    max_lineage_failures: 10 # Circuit breaker after 10 consecutive failures
-
-    # Memory optimization (optional)
-    lineage_batch_size: 1000 # Process 1000 entities per batch
+    include_lineage: true # Enable lineage extraction with automatic retries
 ```
 
 **Advanced Configuration for Large Deployments:**
@@ -167,10 +201,6 @@ source:
     # Memory optimization for large deployments
     lineage_batch_size: 1000 # Process 1000 entities at a time
     max_workers: 10 # Parallelize entity extraction across zones
-
-    # Production error handling
-    lineage_fail_fast: true # Fail fast on errors in production
-    max_lineage_failures: 5 # Lower threshold for production
 ```
 
 **Lineage Limitations:**
@@ -187,5 +217,5 @@ The connector requires the following Python packages:
 
 ```bash
 pip install 'google-cloud-dataplex>=1.0.0'
-pip install 'google-cloud-datacatalog-lineage==0.2.2'  # Required only if extract_lineage is enabled
+pip install 'google-cloud-datacatalog-lineage==0.2.2'  # Required only if include_lineage is enabled
 ```

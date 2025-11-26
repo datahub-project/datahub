@@ -75,17 +75,6 @@ class EntityDataTuple:
     dataset_id: str
 
 
-def make_project_container_key(
-    project_id: str, platform: str, env: str
-) -> ProjectIdKey:
-    """Create container key for the GCP project."""
-    return ProjectIdKey(
-        project_id=project_id,
-        platform=platform,
-        env=env,
-    )
-
-
 def make_lake_container_key(
     project_id: str, lake_id: str, platform: str, env: str
 ) -> DataplexLakeKey:
@@ -152,12 +141,13 @@ def make_entity_dataset_urn(
     )
 
 
-def make_source_dataset_urn(
+def make_sibling_dataset_urn(
     entity_id: str, project_id: str, source_platform: str, env: str, dataset_id: str
 ) -> str:
-    """Create dataset URN for the source platform entity (BigQuery, GCS, etc.).
+    """Create sibling dataset URN for the source platform entity (BigQuery, GCS, etc.).
 
-    This creates a sibling URN that represents the same data in the source system.
+    This creates a sibling URN that represents the same physical data in the source system
+    (e.g., the BigQuery table or GCS bucket that Dataplex has cataloged).
 
     Args:
         entity_id: The entity ID from Dataplex

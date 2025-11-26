@@ -1,7 +1,6 @@
 """Configuration for Google Dataplex source."""
 
 import logging
-from copy import deepcopy
 from typing import Dict, List, Optional
 
 from pydantic import Field, model_validator
@@ -103,24 +102,11 @@ class DataplexConfig(
     #     description="Whether to extract Entries from Universal Catalog. (Phase 2 feature)",
     # )
 
-    extract_lineage: bool = Field(
+    include_lineage: bool = Field(
         default=True,
         description="Whether to extract lineage information using Dataplex Lineage API. "
-        "Extracts table-level lineage relationships between entities.",
-    )
-
-    lineage_fail_fast: bool = Field(
-        default=False,
-        description="If True, fail immediately on lineage extraction errors. "
-        "If False (default), log errors and continue processing other entities. "
-        "Recommended: False for development, True for production to catch issues early.",
-    )
-
-    max_lineage_failures: int = Field(
-        default=10,
-        description="Maximum number of consecutive lineage extraction failures before stopping. "
-        "Acts as a circuit breaker to prevent excessive API calls when there's a systemic issue. "
-        "Set to -1 to disable circuit breaker. Default: 10.",
+        "Extracts table-level lineage relationships between entities. "
+        "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
     lineage_batch_size: int = Field(
@@ -144,16 +130,6 @@ class DataplexConfig(
         "Default is False since source platforms are typically the canonical data source.",
     )
 
-    apply_zone_type_tags: bool = Field(
-        default=True,
-        description="Whether to apply tags based on zone types (RAW, CURATED).",
-    )
-
-    apply_label_tags: bool = Field(
-        default=True,
-        description="Whether to convert Dataplex labels to DataHub tags.",
-    )
-
     max_workers: int = Field(
         default=10,
         description="Number of worker threads to use to parallelize zone entity extraction. Set to 1 to disable parallelization.",
@@ -168,18 +144,23 @@ class DataplexConfig(
     @classmethod
     def project_id_backward_compatibility(cls, values: Dict) -> Dict:
         """Handle backward compatibility for project_id -> project_ids migration."""
-        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
-        values = deepcopy(values)
-        project_id = values.pop("project_id", None)
+        # Pydantic passes the raw input dict to mode="before" validators.
+        # We create a new dict to avoid mutating the input (important for dict reuse in tests).
+        project_id = values.get("project_id")
         project_ids = values.get("project_ids")
 
         if not project_ids and project_id:
-            values["project_ids"] = [project_id]
+            # Create a new dict without project_id, adding project_ids
+            result = {k: v for k, v in values.items() if k != "project_id"}
+            result["project_ids"] = [project_id]
+            return result
         elif project_ids and project_id:
             logging.warning(
                 "Both project_id and project_ids are set. Using project_ids. "
                 "The project_id config is deprecated, please use project_ids instead."
             )
+            # Remove project_id from the dict
+            return {k: v for k, v in values.items() if k != "project_id"}
 
         return values
 

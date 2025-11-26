@@ -27,7 +27,7 @@ except ImportError:
     LineageClient = None
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import gen_containers
+from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -52,8 +52,7 @@ from datahub.ingestion.source.dataplex.dataplex_helpers import (
     make_audit_stamp,
     make_entity_dataset_urn,
     make_lake_container_key,
-    make_project_container_key,
-    make_source_dataset_urn,
+    make_sibling_dataset_urn,
     make_zone_container_key,
     map_dataplex_field_to_datahub,
 )
@@ -151,7 +150,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 run_id=self.ctx.run_id,
             )
 
-        if self.config.extract_lineage:
+        if self.config.include_lineage:
             if not LINEAGE_AVAILABLE:
                 logger.warning(
                     "Lineage extraction is enabled but google-cloud-datacatalog-lineage is not installed. "
@@ -173,11 +172,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             self.lineage_extractor = None
 
         self.asset_metadata = {}
+        self.zone_metadata = {}  # Store zone types for adding to entity custom properties
 
         # Thread safety locks for parallel processing
         self._report_lock = Lock()
         self._asset_metadata_lock = Lock()
         self._entity_data_lock = Lock()
+        self._zone_metadata_lock = Lock()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -262,12 +263,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         #     yield from auto_workunit(self._get_entries_mcps(project_id))
 
         # Extract lineage for entities (after entities have been processed)
-        if self.config.extract_lineage and self.lineage_extractor:
+        if self.config.include_lineage and self.lineage_extractor:
             yield from self._get_lineage_workunits(project_id)
 
     def _gen_project_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """Generate workunits for GCP Project as a Container."""
-        project_container_key = make_project_container_key(
+        project_container_key = ProjectIdKey(
             project_id=project_id,
             platform=self.platform,
             env=self.config.env,
@@ -314,7 +315,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
                 # Create parent project container key
-                project_container_key = make_project_container_key(
+                project_container_key = ProjectIdKey(
                     project_id=project_id,
                     platform=self.platform,
                     env=self.config.env,
@@ -407,6 +408,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                             if zone.type_.name == "RAW"
                             else "Curated Data Zone"
                         )
+
+                        # Store zone type for later use in entity custom properties
+                        # Key format: {project_id}.{lake_id}.{zone_id}
+                        zone_key = f"{project_id}.{lake_id}.{zone_id}"
+                        self.zone_metadata[zone_key] = (
+                            zone.type_.name
+                        )  # "RAW" or "CURATED"
 
                         # Convert timestamps to milliseconds
                         created_ts = (
@@ -671,6 +679,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     "source_platform": source_platform,
                 }
 
+                # Add zone type from metadata
+                zone_key = f"{project_id}.{lake_id}.{zone_id}"
+                with self._zone_metadata_lock:
+                    if zone_key in self.zone_metadata:
+                        custom_properties["zone_type"] = self.zone_metadata[zone_key]
+
                 if entity_full.data_path:
                     custom_properties["data_path"] = entity_full.data_path
 
@@ -898,8 +912,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
         By default, the source platform entity is marked as primary since it's the canonical representation.
         """
-        # Create source dataset URN (e.g., bigquery://project.entity)
-        source_dataset_urn = make_source_dataset_urn(
+        # Create sibling dataset URN for the source platform (e.g., bigquery://project.entity)
+        source_dataset_urn = make_sibling_dataset_urn(
             entity_id, project_id, source_platform, self.config.env, dataset_id
         )
 

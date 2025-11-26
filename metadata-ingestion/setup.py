@@ -228,6 +228,9 @@ clickhouse_common = {
 
 dataplex_common = {
     "google-cloud-dataplex",
+    # Pinned to 0.2.2 because 0.3.0 changed the import path from
+    # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
+    # which breaks existing code using the old import path
     "google-cloud-datacatalog-lineage==0.2.2",
 }
 
@@ -459,6 +462,9 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | classification_lib
     | {
+        # Pinned to 0.2.2 because 0.3.0 changed the import path from
+        # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
+        # which breaks existing code using the old import path
         "google-cloud-datacatalog-lineage==0.2.2",
     },
     "bigquery-slim": bigquery_common,
