@@ -2,7 +2,7 @@ import { useApolloClient } from '@apollo/client';
 
 import { PRODUCT_ASSETS_FOLDER } from '@app/shared/constants';
 import useCreateFile from '@app/shared/hooks/useCreateFile';
-import { useAppConfig } from '@src/app/useAppConfig';
+import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
@@ -19,7 +19,7 @@ interface Props {
 
 export default function useFileUpload({ scenario, assetUrn, schemaField }: Props) {
     const client = useApolloClient();
-    const { config } = useAppConfig();
+    const isDocumentationFileUploadV1Enabled = useIsDocumentationFileUploadV1Enabled();
     const { createFile } = useCreateFile({ scenario, assetUrn, schemaField });
 
     const uploadFile = async (file: File) => {
@@ -65,5 +65,5 @@ export default function useFileUpload({ scenario, assetUrn, schemaField }: Props
         return resolveRuntimePath(`/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${fileId}`);
     };
 
-    return config.featureFlags.documentationFileUploadV1 ? { uploadFile } : { uploadFile: undefined };
+    return isDocumentationFileUploadV1Enabled ? { uploadFile } : { uploadFile: undefined };
 }

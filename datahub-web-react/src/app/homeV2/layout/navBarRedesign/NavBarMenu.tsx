@@ -38,8 +38,9 @@ export default function NavBarMenu({ menu, selectedKey, isCollapsed, iconSize, s
         const isSelected = selectedKey === item.key;
 
         if (item.type === NavBarMenuItemTypes.Group && item.items?.filter((candidate) => !candidate.isHidden)?.length) {
+            const groupTitle = item.renderTitle ? item.renderTitle() : !isCollapsed && item.title;
             return (
-                <NavBarMenuItemGroup title={!isCollapsed && item.title} key={item.key}>
+                <NavBarMenuItemGroup title={groupTitle} key={item.key}>
                     {item.items?.map((subItem) => renderMenuItem(subItem))}
                 </NavBarMenuItemGroup>
             );
