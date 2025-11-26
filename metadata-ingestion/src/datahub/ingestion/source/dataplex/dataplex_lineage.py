@@ -21,6 +21,9 @@ from tenacity import (
 if TYPE_CHECKING:
     from google.cloud.datacatalog.lineage_v1 import LineageClient
 
+# google-cloud-datacatalog-lineage is a required dependency (pinned to 0.2.2 in setup.py)
+from google.cloud.datacatalog.lineage_v1 import EntityReference, SearchLinksRequest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
@@ -38,25 +41,19 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
-try:
-    from google.cloud.datacatalog.lineage_v1 import (
-        EntityReference,
-        SearchLinksRequest,
-    )
-
-    LINEAGE_CLIENT_AVAILABLE = True
-    logger.info("Successfully imported lineage client (version 0.2.2 format)")
-except ImportError as e:
-    LINEAGE_CLIENT_AVAILABLE = False
-    EntityReference = None
-    SearchLinksRequest = None
-    logger.warning(f"Lineage client not available: {e}")
-
 
 @dataclass(order=True, eq=True, frozen=True)
 class LineageEdge:
     """
     Represents a lineage edge between two entities.
+
+    This dataclass uses frozen=True, eq=True, and order=True because:
+    - frozen=True: Makes instances immutable and hashable, allowing them to be stored in sets
+    - eq=True: Enables equality comparison to detect and prevent duplicate edges in sets
+    - order=True: Provides consistent ordering for deterministic iteration and sorting
+
+    LineageEdge instances are stored in Set[LineageEdge] (see lineage_map), requiring
+    immutability and hashability.
 
     Attributes:
         entity_id: The upstream entity ID in Dataplex format
@@ -103,6 +100,8 @@ class DataplexLineageExtractor:
         self.platform = "dataplex"
 
         # Cache for lineage information
+        # Key: entity_id (Dataplex entity identifier)
+        # Value: Set of LineageEdge objects representing upstream dependencies for that entity
         self.lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
 
     def get_lineage_for_entity(
@@ -160,11 +159,12 @@ class DataplexLineageExtractor:
             return lineage_data
 
         except Exception as e:
-            # After retries are exhausted, log warning and continue
+            # After retries are exhausted, report structured warning and continue
             self.report.num_lineage_entries_failed += 1
-            logger.warning(
-                f"Failed to get lineage for entity {entity.entity_id} after retries: {e}. "
-                "Continuing with other entities."
+            self.report.report_warning(
+                "Failed to get lineage for entity after retries. Continuing with other entities.",
+                context=entity.entity_id,
+                exc=e,
             )
             return None
 
@@ -512,10 +512,12 @@ class DataplexLineageExtractor:
                 try:
                     yield from self.gen_lineage(entity.entity_id, dataset_urn)
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to generate lineage for {entity.entity_id}: {e}"
-                    )
                     self.report.num_lineage_entries_failed += 1
+                    self.report.report_warning(
+                        "Failed to generate lineage for entity.",
+                        context=entity.entity_id,
+                        exc=e,
+                    )
         else:
             # Process entities in batches
             batch_size = self.config.lineage_batch_size
@@ -554,10 +556,12 @@ class DataplexLineageExtractor:
                     try:
                         yield from self.gen_lineage(entity.entity_id, dataset_urn)
                     except Exception as e:
-                        logger.warning(
-                            f"Failed to generate lineage for {entity.entity_id}: {e}"
-                        )
                         self.report.num_lineage_entries_failed += 1
+                        self.report.report_warning(
+                            "Failed to generate lineage for entity.",
+                            context=entity.entity_id,
+                            exc=e,
+                        )
 
                 # Clear lineage map after processing batch to free memory
                 self.lineage_map.clear()

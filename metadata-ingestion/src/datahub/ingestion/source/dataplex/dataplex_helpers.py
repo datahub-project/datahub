@@ -8,37 +8,12 @@ from google.cloud import dataplex_v1
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp_builder import ProjectIdKey
+from datahub.ingestion.source.sql.sql_types import DATAPLEX_TYPES_MAP
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
-    BooleanTypeClass,
-    BytesTypeClass,
-    DateTypeClass,
-    NullTypeClass,
-    NumberTypeClass,
-    RecordTypeClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
-    TimeTypeClass,
 )
-
-# Type mapping from Dataplex to DataHub schema types
-DATAPLEX_TYPE_MAPPING = {
-    "BOOL": BooleanTypeClass(),
-    "BYTE": BytesTypeClass(),
-    "INT16": NumberTypeClass(),
-    "INT32": NumberTypeClass(),
-    "INT64": NumberTypeClass(),
-    "FLOAT": NumberTypeClass(),
-    "DOUBLE": NumberTypeClass(),
-    "DECIMAL": NumberTypeClass(),
-    "STRING": StringTypeClass(),
-    "BINARY": BytesTypeClass(),
-    "TIMESTAMP": TimeTypeClass(),
-    "DATE": DateTypeClass(),
-    "TIME": TimeTypeClass(),
-    "RECORD": RecordTypeClass(),
-    "NULL": NullTypeClass(),
-}
 
 
 # Container Key classes for Dataplex hierarchy
@@ -225,8 +200,14 @@ def determine_entity_platform(
 
 
 def map_dataplex_type_to_datahub(type_name: str) -> SchemaFieldDataTypeClass:
-    """Map Dataplex type name to DataHub schema field data type."""
-    datahub_type = DATAPLEX_TYPE_MAPPING.get(type_name, StringTypeClass())
+    """Map Dataplex type name to DataHub schema field data type.
+
+    Uses DATAPLEX_TYPES_MAP from sql_types.py which contains type classes.
+    We instantiate them here to get type instances for SchemaFieldDataTypeClass.
+    """
+    type_class = DATAPLEX_TYPES_MAP.get(type_name)
+    # Default to StringType if type is not found
+    datahub_type = type_class() if type_class else StringTypeClass()
     return SchemaFieldDataTypeClass(type=datahub_type)
 
 

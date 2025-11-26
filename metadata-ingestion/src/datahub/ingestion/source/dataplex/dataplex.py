@@ -16,15 +16,8 @@ from typing import Iterable, Optional
 
 from google.api_core import exceptions
 from google.cloud import dataplex_v1
+from google.cloud.datacatalog.lineage_v1 import LineageClient
 from google.oauth2 import service_account
-
-try:
-    from google.cloud.datacatalog.lineage_v1 import LineageClient
-
-    LINEAGE_AVAILABLE = True
-except ImportError:
-    LINEAGE_AVAILABLE = False
-    LineageClient = None
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
@@ -151,22 +144,14 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         if self.config.include_lineage:
-            if not LINEAGE_AVAILABLE:
-                logger.warning(
-                    "Lineage extraction is enabled but google-cloud-datacatalog-lineage is not installed. "
-                    "Install it with: pip install 'google-cloud-datacatalog-lineage>=0.3.0'"
-                )
-                self.lineage_client = None
-                self.lineage_extractor = None
-            else:
-                self.lineage_client = LineageClient(credentials=credentials)
-                self.lineage_extractor = DataplexLineageExtractor(
-                    config=self.config,
-                    report=self.report,
-                    lineage_client=self.lineage_client,
-                    dataplex_client=self.dataplex_client,
-                    redundant_run_skip_handler=redundant_lineage_run_skip_handler,
-                )
+            self.lineage_client = LineageClient(credentials=credentials)
+            self.lineage_extractor = DataplexLineageExtractor(
+                config=self.config,
+                report=self.report,
+                lineage_client=self.lineage_client,
+                dataplex_client=self.dataplex_client,
+                redundant_run_skip_handler=redundant_lineage_run_skip_handler,
+            )
         else:
             self.lineage_client = None
             self.lineage_extractor = None
