@@ -27,6 +27,7 @@ from pydantic.fields import Field
 from typing_extensions import Protocol, Self
 
 from datahub.configuration._config_enum import ConfigEnum as ConfigEnum
+from datahub.configuration.env_vars import get_debug
 from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -134,6 +135,7 @@ class ConfigModel(BaseModel):
         extra="forbid",
         ignored_types=(cached_property,),
         json_schema_extra=_config_model_schema_extra,
+        hide_input_in_errors=not get_debug(),
     )
 
     @model_validator(mode="wrap")
@@ -258,7 +260,7 @@ class PermissiveConfigModel(ConfigModel):
 class ConnectionModel(BaseModel):
     """Represents the config associated with a connection"""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", hide_input_in_errors=not get_debug())
 
 
 class TransformerSemantics(ConfigEnum):
