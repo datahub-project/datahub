@@ -6,8 +6,7 @@ import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissio
 import { useExtractMentions } from '@app/document/hooks/useExtractMentions';
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
 import { useRefetch } from '@app/entity/shared/EntityContext';
-import { RelatedAssetsSection } from '@app/entityV2/document/summary/RelatedAssetsSection';
-import { RelatedDocumentsSection } from '@app/entityV2/document/summary/RelatedDocumentsSection';
+import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 import colors from '@src/alchemy-components/theme/foundations/colors';
@@ -133,7 +132,10 @@ export const EditableContent: React.FC<EditableContentProps> = ({
             try {
                 // Extract mentions from the content to save
                 // Pattern matches markdown link syntax: [text](urn:li:entityType:id)
-                const urnPattern = /\[([^\]]+)\]\((urn:li:[a-zA-Z]+:[^\s)]+)\)/g;
+                // Handle URNs with nested parentheses by matching everything between the markdown link's parens
+                // The pattern matches: [text](urn:li:entityType:...) where ... can include nested parens
+                // We match the URN prefix, then allow nested paren groups or non-paren characters
+                const urnPattern = /\[([^\]]+)\]\((urn:li:[a-zA-Z]+:(?:[^)(]+|\([^)]*\))+)\)/g;
                 const matches = Array.from(contentToSave.matchAll(urnPattern));
                 const documentUrnsToSave: string[] = [];
                 const assetUrnsToSave: string[] = [];
@@ -212,6 +214,24 @@ export const EditableContent: React.FC<EditableContentProps> = ({
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [content, initialContent, canEditContents, isSaving, saveDocument]);
 
+    // Handle updating related entities (supports both adding and removing)
+    // The passed URNs represent the final desired list after user selections/deselections
+    const handleAddEntities = useCallback(
+        async (assetUrns: string[], documentUrns: string[]) => {
+            // The URNs passed here are the final list (after user selections/deselections in the dropdown)
+            // So we replace the entire list, which handles both additions and removals
+            await updateRelatedEntities({
+                urn: documentUrn,
+                relatedAssets: assetUrns,
+                relatedDocuments: documentUrns,
+            });
+
+            // Refetch to get updated data
+            await refetch();
+        },
+        [documentUrn, updateRelatedEntities, refetch],
+    );
+
     return (
         <ContentWrapper>
             <EditorSection
@@ -253,8 +273,15 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                 )}
             </EditorSection>
 
-            <RelatedDocumentsSection relatedDocuments={relatedDocuments} />
-            <RelatedAssetsSection relatedAssets={relatedAssets} />
+            {!isEditorFocused && (
+                <RelatedSection
+                    relatedAssets={relatedAssets}
+                    relatedDocuments={relatedDocuments}
+                    documentUrn={documentUrn}
+                    onAddEntities={handleAddEntities}
+                    canEdit={canEditContents}
+                />
+            )}
         </ContentWrapper>
     );
 };
