@@ -106,6 +106,9 @@ public class AppConfigResolverTest {
     when(mockDatahubConfiguration.getS3()).thenReturn(mockS3Configuration);
     when(mockS3Configuration.getBucketName()).thenReturn("test-bucket");
 
+    // Setup DataHub configuration defaults
+    when(mockDatahubConfiguration.isFreeTrialInstance()).thenReturn(false);
+
     // Setup feature flags
     setupFeatureFlags();
 
@@ -210,6 +213,8 @@ public class AppConfigResolverTest {
     assertNotNull(result.getFeatureFlags());
     assertNotNull(result.getChromeExtensionConfig());
     assertFalse(result.getChromeExtensionConfig().getEnabled());
+    assertNotNull(result.getTrialConfig());
+    assertFalse(result.getTrialConfig().getTrialEnabled());
   }
 
   @Test
@@ -550,5 +555,17 @@ public class AppConfigResolverTest {
 
     assertNotNull(result.getFeatureFlags());
     assertFalse(result.getFeatureFlags().getDocumentationFileUploadV1());
+  }
+
+  @Test
+  public void testGetTrialConfigWhenFreeTrialEnabled() throws Exception {
+    when(mockDatahubConfiguration.isFreeTrialInstance()).thenReturn(true);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getTrialConfig());
+    assertTrue(result.getTrialConfig().getTrialEnabled());
+    assertEquals(result.getTrialConfig().getDaysLeft(), Integer.valueOf(5));
+    assertTrue(result.getTrialConfig().getSampleDataEnabled());
   }
 }
