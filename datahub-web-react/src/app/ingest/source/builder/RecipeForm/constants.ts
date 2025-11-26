@@ -20,6 +20,17 @@ import {
     BIGQUERY_PRIVATE_KEY_ID,
 } from '@app/ingest/source/builder/RecipeForm/bigquery';
 import {
+    HIGHTOUCH_API_KEY,
+    HIGHTOUCH_EMIT_MODELS,
+    HIGHTOUCH_INCLUDE_COLUMN_LINEAGE,
+    HIGHTOUCH_INCLUDE_SYNC_RUNS,
+    HIGHTOUCH_MAX_SYNC_RUNS,
+    HIGHTOUCH_MODEL_ALLOW,
+    HIGHTOUCH_MODEL_DENY,
+    HIGHTOUCH_SYNC_ALLOW,
+    HIGHTOUCH_SYNC_DENY,
+} from '@app/ingest/source/builder/RecipeForm/hightouch';
+import {
     BIGQUERY_BETA_PROJECT_ID,
     DATASET_ALLOW,
     DATASET_DENY,
@@ -243,6 +254,7 @@ import {
     VERTICA,
 } from '@app/ingest/source/builder/constants';
 import { BIGQUERY } from '@app/ingest/source/conf/bigquery/bigquery';
+import { HIGHTOUCH } from '@app/ingest/source/conf/hightouch/hightouch';
 import { HIVE } from '@app/ingest/source/conf/hive/hive';
 import { KAFKA } from '@app/ingest/source/conf/kafka/kafka';
 import { LOOKER } from '@app/ingest/source/conf/looker/looker';
@@ -611,6 +623,18 @@ export const RECIPE_FIELDS: RecipeFields = {
             FOLDER_DENY,
         ],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
+    },
+    [HIGHTOUCH]: {
+        fields: [HIGHTOUCH_API_KEY],
+        filterFields: [HIGHTOUCH_SYNC_ALLOW, HIGHTOUCH_SYNC_DENY, HIGHTOUCH_MODEL_ALLOW, HIGHTOUCH_MODEL_DENY],
+        advancedFields: [
+            HIGHTOUCH_EMIT_MODELS,
+            HIGHTOUCH_INCLUDE_COLUMN_LINEAGE,
+            HIGHTOUCH_INCLUDE_SYNC_RUNS,
+            HIGHTOUCH_MAX_SYNC_RUNS,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Syncs and Models from ingestion.',
     },
 };
 

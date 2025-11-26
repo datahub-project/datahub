@@ -609,6 +609,7 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas", "neo4j"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0"},
+    "hightouch": {"requests"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -714,6 +715,7 @@ base_dev_requirements = {
             "druid",
             "elasticsearch",
             "feast",
+            "hightouch",
             "iceberg",
             "iceberg-catalog",
             "mlflow",
@@ -889,6 +891,7 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "hightouch = datahub.ingestion.source.hightouch.hightouch:HightouchSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

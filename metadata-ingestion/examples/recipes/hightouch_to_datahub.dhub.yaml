@@ -1,0 +1,66 @@
+---
+# Example recipe for ingesting metadata from Hightouch reverse ETL platform
+# See https://docs.datahub.io/docs/generated/ingestion/sources/hightouch for complete documentation
+
+source:
+  type: "hightouch"
+  config:
+    # Hightouch API configuration
+    api_config:
+      api_key: "${HIGHTOUCH_API_KEY}"
+      base_url: "https://api.hightouch.com/api/v1"  # Default value
+      request_timeout_sec: 30  # Optional, default is 30
+
+    # Optional: Filter syncs by name pattern
+    sync_patterns:
+      allow:
+        - ".*"  # Allow all syncs (default)
+      deny:
+        - "test_.*"  # Exclude syncs starting with "test_"
+
+    # Optional: Emit Hightouch models as Dataset entities (RECOMMENDED)
+    emit_models_as_datasets: true  # Default is true
+    include_model_lineage: true  # Default is true
+
+    # Optional: Filter models by name pattern
+    model_patterns:
+      allow:
+        - ".*"  # Allow all models (default)
+
+    # Optional: Include sync run history
+    include_sync_runs: true  # Default is true
+    max_sync_runs_per_sync: 10  # Default is 10
+
+    # Optional: Include column-level lineage
+    include_column_lineage: true  # Default is true
+
+    # Optional: Map Hightouch sources to DataHub platforms
+    sources_to_platform_instance:
+      # Key is the Hightouch source ID
+      "12345":
+        platform: "snowflake"
+        platform_instance: "prod-snowflake"
+        env: "PROD"
+        database: "analytics"
+
+    # Optional: Map Hightouch destinations to DataHub platforms
+    destinations_to_platform_instance:
+      # Key is the Hightouch destination ID
+      "67890":
+        platform: "salesforce"
+        platform_instance: "prod-salesforce"
+        env: "PROD"
+
+    # Optional: Enable stateful ingestion for incremental updates
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+# Sink configuration - where to send the metadata
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+    # Optional: DataHub authentication token
+    # token: "${DATAHUB_TOKEN}"
+
