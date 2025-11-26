@@ -118,7 +118,9 @@ query appConfig {
             showHomepageUserRole
             assetSummaryPageV1
             datasetSummaryPageV1
+            ingestionOnboardingRedesignV1
             documentationFileUploadV1
+            contextDocumentsEnabled
         }
         chromeExtensionConfig {
             enabled

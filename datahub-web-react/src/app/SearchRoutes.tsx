@@ -17,6 +17,7 @@ import GlossaryRoutes from '@app/glossary/GlossaryRoutes';
 import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
+import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
 import { ManageIngestionPage as ManageIngestionPageV2 } from '@app/ingestV2/ManageIngestionPage';
 import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
 import { SearchPage } from '@app/search/SearchPage';
@@ -117,7 +118,7 @@ export const SearchRoutes = (): JSX.Element => {
                 )}
 
                 {!showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />}
-                {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPageV2 />} />}
+                {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <IngestionRoutes />} />}
 
                 <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
                 <Route
