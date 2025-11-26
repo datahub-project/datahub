@@ -191,6 +191,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                             aspect ->
                                 new EbeanAspectV2.PrimaryKey(
                                     entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
+            .sorted(Comparator.comparing(EbeanAspectV2.PrimaryKey::getUrn)
+                .thenComparing(EbeanAspectV2.PrimaryKey::getAspect)
+                .thenComparing(EbeanAspectV2.PrimaryKey::getVersion))
             .collect(Collectors.toList());
 
     final List<EbeanAspectV2> results;
