@@ -21,6 +21,8 @@ export enum PageRoutes {
     PERMISSIONS = '/permissions',
     IDENTITIES = '/identities',
     INGESTION = '/ingestion',
+    INGESTION_CREATE = '/ingestion/create',
+    INGESTION_UPDATE = '/ingestion/update/:urn',
     SETTINGS = '/settings',
     DOMAINS = '/domains',
     DOMAIN = '/domain',
