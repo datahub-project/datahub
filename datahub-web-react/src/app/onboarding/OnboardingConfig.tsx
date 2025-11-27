@@ -1,4 +1,4 @@
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 import { BusinessGlossaryOnboardingConfig } from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
 import { DomainsOnboardingConfig } from '@app/onboarding/config/DomainsOnboardingConfig';
 import { EntityProfileOnboardingConfig } from '@app/onboarding/config/EntityProfileOnboardingConfig';

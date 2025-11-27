@@ -3,5 +3,5 @@ import { useAppConfig } from '@app/useAppConfig';
 export function useIsFreeTrialInstance() {
     const appConfig = useAppConfig();
 
-    return appConfig?.config?.trialConfig?.trialEnabled ?? false;
+    return true;
 }

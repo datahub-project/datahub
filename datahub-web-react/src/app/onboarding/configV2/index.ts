@@ -1,4 +1,4 @@
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 import EntityProfileOnboardingConfig from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
 import HomePageOnboardingConfig from '@app/onboarding/configV2/HomePageOnboardingConfig';
 

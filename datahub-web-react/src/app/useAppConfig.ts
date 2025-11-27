@@ -68,3 +68,8 @@ export function useIsAiChatEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.showAskDataHub;
 }
+
+export function useIsFreeTrialInstance() {
+    const appConfig = useAppConfig();
+    return appConfig.config.trialConfig.trialEnabled;
+}

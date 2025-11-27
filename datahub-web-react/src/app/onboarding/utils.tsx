@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { OnboardingConfig } from '@app/onboarding/OnboardingConfig';
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 import { StepStateResult } from '@types';
 

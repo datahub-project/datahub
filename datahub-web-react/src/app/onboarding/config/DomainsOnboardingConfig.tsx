@@ -1,7 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
 
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 export const DOMAINS_INTRO_ID = 'domains-intro';
 export const DOMAINS_CREATE_DOMAIN_ID = 'domains-create-domain';
