@@ -1155,7 +1155,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "getPresignedUploadUrl",
                     new GetPresignedUploadUrlResolver(
-                        this.s3Util, this.datahubConfiguration.getS3())));
+                        this.s3Util, this.datahubConfiguration.getS3(), this.entityClient)));
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -2975,7 +2975,8 @@ public class GmsGraphQLEngine {
             this.entityService,
             this.graphClient,
             entityRegistry,
-            this.timelineService)
+            this.timelineService,
+            this.groupService)
         .configureResolvers(builder);
   }
 
