@@ -27,6 +27,10 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.sql.hive.storage_lineage import (
+    HiveStorageLineage,
+    HiveStorageLineageConfig,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -139,6 +143,32 @@ class HiveMetastore(BasicSQLAlchemyConfig):
         default=False,
         description="Simplify v2 field paths to v1 by default. If the schema has Union or Array types, still falls back to v2",
     )
+
+    emit_storage_lineage: bool = Field(
+        default=False,
+        description="Whether to emit storage-to-Hive lineage",
+    )
+    hive_storage_lineage_direction: str = Field(
+        default="upstream",
+        description="If 'upstream', storage is upstream to Hive. If 'downstream' storage is downstream to Hive",
+    )
+    include_column_lineage: bool = Field(
+        default=True,
+        description="When enabled, column-level lineage will be extracted from storage",
+    )
+    storage_platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance for the storage system",
+    )
+
+    def get_storage_lineage_config(self) -> HiveStorageLineageConfig:
+        """Convert base config parameters to HiveStorageLineageConfig"""
+        return HiveStorageLineageConfig(
+            emit_storage_lineage=self.emit_storage_lineage,
+            hive_storage_lineage_direction=self.hive_storage_lineage_direction,
+            include_column_lineage=self.include_column_lineage,
+            storage_platform_instance=self.storage_platform_instance,
+        )
 
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
@@ -341,6 +371,11 @@ class HiveMetastoreSource(SQLAlchemySource):
             DatasetSubTypes.TABLE.title()
             if config.use_dataset_pascalcase_subtype
             else DatasetSubTypes.TABLE.lower()
+        )
+        self.storage_lineage = HiveStorageLineage(
+            config=config.get_storage_lineage_config(),
+            env=config.env,
+            convert_urns_to_lowercase=config.convert_urns_to_lowercase,
         )
 
     def get_db_name(self, inspector: Inspector) -> str:
@@ -618,6 +653,17 @@ class HiveMetastoreSource(SQLAlchemySource):
                     entity_urn=dataset_urn,
                     domain_config=self.config.domain,
                     domain_registry=self.domain_registry,
+                )
+
+            # Emit storage lineage if configured
+            if properties.get("table_location"):
+                table_dict = {
+                    "StorageDescriptor": {"Location": properties["table_location"]}
+                }
+                yield from self.storage_lineage.get_lineage_mcp(
+                    dataset_urn=dataset_urn,
+                    table=table_dict,
+                    dataset_schema=schema_metadata,
                 )
 
     def add_hive_dataset_to_container(

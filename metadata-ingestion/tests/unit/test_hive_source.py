@@ -1,7 +1,7 @@
 import deepdiff
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sql.hive import HiveConfig, HiveSource
+from datahub.ingestion.source.sql.hive.hive_source import HiveConfig, HiveSource
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 
 
