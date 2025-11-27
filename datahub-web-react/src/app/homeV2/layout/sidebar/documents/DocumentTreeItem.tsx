@@ -222,7 +222,11 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
 
             {!hideActions && (
                 <Actions className="tree-item-actions">
-                    <DocumentActionsMenu documentUrn={urn} currentParentUrn={parentUrn} />
+                    <DocumentActionsMenu
+                        documentUrn={urn}
+                        currentParentUrn={parentUrn}
+                        shouldNavigateOnDelete={isSelected}
+                    />
                     <Tooltip title="New context document" placement="bottom" showArrow={false}>
                         <ActionButton
                             icon={{ icon: 'Plus', source: 'phosphor' }}

@@ -45,6 +45,11 @@ type DataHubConnection implements Entity {
   Not implemented!
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 }
 
 """

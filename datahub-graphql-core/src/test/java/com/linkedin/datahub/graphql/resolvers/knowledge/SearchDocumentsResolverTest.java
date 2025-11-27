@@ -219,13 +219,51 @@ public class SearchDocumentsResolverTest {
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
 
     input.setTypes(ImmutableList.of("tutorial", "guide"));
-    input.setParentDocument("urn:li:document:parent");
+    input.setParentDocuments(ImmutableList.of("urn:li:document:parent"));
 
     SearchDocumentsResult result = resolver.get(mockEnv).get();
 
     assertNotNull(result);
 
     // Verify service was called with filters
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+  }
+
+  @Test
+  public void testSearchDocumentsWithRootOnly() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setRootOnly(true);
+
+    SearchDocumentsResult result = resolver.get(mockEnv).get();
+
+    assertNotNull(result);
+
+    // Verify service was called with rootOnly filter
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+  }
+
+  @Test
+  public void testSearchDocumentsWithParentDocumentsAndRootOnly() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    // When both are set, parentDocuments takes precedence
+    input.setParentDocuments(ImmutableList.of("urn:li:document:parent"));
+    input.setRootOnly(true);
+
+    SearchDocumentsResult result = resolver.get(mockEnv).get();
+
+    assertNotNull(result);
+
+    // Verify service was called (parentDocuments filter should be used, not rootOnly)
     verify(mockService, times(1))
         .searchDocuments(
             any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
@@ -321,44 +359,6 @@ public class SearchDocumentsResolverTest {
     assertNotNull(result);
 
     // Verify service was called with both states in filter
-    verify(mockService, times(1))
-        .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
-  }
-
-  @Test
-  public void testSearchDocumentsExcludesDraftsByDefault() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(mockEnv.getContext()).thenReturn(mockContext);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-
-    // Don't set includeDrafts - should exclude drafts by default
-    input.setIncludeDrafts(null);
-
-    SearchDocumentsResult result = resolver.get(mockEnv).get();
-
-    assertNotNull(result);
-
-    // Verify service was called (the filter will exclude draftOf != null by default)
-    verify(mockService, times(1))
-        .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
-  }
-
-  @Test
-  public void testSearchDocumentsIncludeDrafts() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(mockEnv.getContext()).thenReturn(mockContext);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-
-    // Explicitly include drafts
-    input.setIncludeDrafts(true);
-
-    SearchDocumentsResult result = resolver.get(mockEnv).get();
-
-    assertNotNull(result);
-
-    // Verify service was called without draftOf filter
     verify(mockService, times(1))
         .searchDocuments(
             any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));

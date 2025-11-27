@@ -154,6 +154,13 @@ public class DocumentMapperTest {
       assertEquals(result.getInfo().getContents().getText(), TEST_CONTENT);
       assertNotNull(result.getInfo().getCreated());
       assertEquals(result.getInfo().getCreated().getTime(), TEST_TIMESTAMP);
+      // Verify actor is set as CorpUser in ResolvedAuditStamp
+      assertNotNull(result.getInfo().getCreated().getActor());
+      assertEquals(result.getInfo().getCreated().getActor().getUrn(), TEST_ACTOR_URN);
+      assertNotNull(result.getInfo().getLastModified());
+      assertEquals(result.getInfo().getLastModified().getTime(), TEST_TIMESTAMP);
+      assertNotNull(result.getInfo().getLastModified().getActor());
+      assertEquals(result.getInfo().getLastModified().getActor().getUrn(), TEST_ACTOR_URN);
 
       // Relationships are present inside info and constructed as unresolved stubs
       assertNotNull(result.getInfo().getParentDocument());

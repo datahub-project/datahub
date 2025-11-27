@@ -10,16 +10,28 @@ import {
 
 import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
 
-const Container = styled.div`
+const Container = styled.div<{ $iconColor?: string; $iconSize?: number }>`
     display: inline-block;
+    ${({ $iconColor }) => $iconColor && `color: ${$iconColor};`}
+    ${({ $iconSize }) =>
+        $iconSize &&
+        `
+        svg {
+            width: ${$iconSize}px;
+            height: ${$iconSize}px;
+        }
+    `}
 `;
 
 interface Props {
     url: string;
     className?: string;
+    iconColor?: string;
+    iconSize?: number;
+    style?: React.CSSProperties;
 }
 
-export function LinkIcon({ url, className }: Props) {
+export function LinkIcon({ url, className, iconColor, iconSize, style }: Props) {
     const isDocumentationFileUploadV1Enabled = useIsDocumentationFileUploadV1Enabled();
 
     const renderIcon = useCallback(() => {
@@ -29,8 +41,23 @@ export function LinkIcon({ url, className }: Props) {
             return <FileIcon extension={extension} />;
         }
 
-        return <Icon icon="LinkSimple" source="phosphor" color="primary" size="lg" />;
-    }, [isDocumentationFileUploadV1Enabled, url]);
+        // Use gray color with level 600 if iconColor is provided, otherwise use primary
+        const color = iconColor ? 'gray' : 'primary';
 
-    return <Container className={className}>{renderIcon()}</Container>;
+        return (
+            <Icon
+                icon="LinkSimple"
+                source="phosphor"
+                color={color}
+                colorLevel={iconColor ? 600 : undefined}
+                size="lg"
+            />
+        );
+    }, [isDocumentationFileUploadV1Enabled, url, iconColor]);
+
+    return (
+        <Container className={className} style={style} $iconColor={iconColor} $iconSize={iconSize}>
+            {renderIcon()}
+        </Container>
+    );
 }

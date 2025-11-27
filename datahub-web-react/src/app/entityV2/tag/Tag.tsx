@@ -87,6 +87,6 @@ export class TagEntity implements Entity<Tag> {
     };
 
     supportedCapabilities = () => {
-        return new Set([EntityCapabilityType.OWNERS]);
+        return new Set([EntityCapabilityType.OWNERS, EntityCapabilityType.RELATED_DOCUMENTS]);
     };
 }

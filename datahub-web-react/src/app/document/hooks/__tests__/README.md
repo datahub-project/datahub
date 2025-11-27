@@ -27,32 +27,26 @@ This directory contains comprehensive unit tests for all hooks in the `documentV
     - Move documents in tree
     - Delete documents with rollback on error
 
-4. **useDocumentChildren** - Fetching child documents
-
-    - Batch checking for children
-    - Fetching children for parent
-    - Error handling
-
-5. **useDocumentPermissions** - Permission checks
+4. **useDocumentPermissions** - Permission checks
 
     - Create, edit, delete, move permissions
     - Platform vs entity-level privileges
     - Memoization tests
 
-6. **useDocumentTreeExpansion** - Tree expansion state
+5. **useDocumentTreeExpansion** - Tree expansion state
 
     - Expand/collapse nodes
     - Loading children on demand
     - Caching loaded children
     - External state control
 
-7. **useExtractMentions** - URN extraction from markdown
+6. **useExtractMentions** - URN extraction from markdown
 
     - Document and asset URN extraction
     - Duplicate handling
     - Edge cases (empty, malformed, special characters)
 
-8. **useLoadDocumentTree** - Initial tree loading
+7. **useLoadDocumentTree** - Initial tree loading
     - Load root documents
     - Check for children
     - Document sorting

@@ -7,6 +7,7 @@ import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const TitleContainer = styled.div`
     width: 100%;
+    min-width: 0;
 `;
 
 const TitleInput = styled.textarea<{ $editable: boolean }>`
@@ -18,16 +19,19 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     outline: none;
     background: transparent;
     width: 100%;
+    min-width: 0;
     padding: 6px 8px;
     margin: -6px -8px;
     cursor: ${(props) => (props.$editable ? 'text' : 'default')};
     border-radius: 4px;
     resize: none;
-    overflow: hidden;
+    overflow: auto;
     font-family: inherit;
     white-space: pre-wrap;
     word-wrap: break-word;
-
+    overflow-wrap: break-word;
+    box-sizing: border-box;
+    field-sizing: content;
     &:hover {
         background-color: transparent;
     }
@@ -57,13 +61,6 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
         setTitle(initialTitle || '');
     }, [initialTitle]);
 
-    // Auto-resize textarea to fit content
-    const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
-        const target = e.currentTarget;
-        target.style.height = 'auto';
-        target.style.height = `${target.scrollHeight}px`;
-    };
-
     const handleBlur = async () => {
         if (title !== initialTitle && !isSaving) {
             setIsSaving(true);
@@ -88,13 +85,12 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
                 data-testid="document-title-input"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onInput={handleInput}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 $editable={canEditTitle}
                 disabled={!canEditTitle}
                 placeholder="New Document"
-                rows={1}
+                rows={10}
             />
         </TitleContainer>
     );
