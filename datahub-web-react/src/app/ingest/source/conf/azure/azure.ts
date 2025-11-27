@@ -28,6 +28,8 @@ source:
         # users_pattern:
         #    allow:
         #        - ".*"
+        stateful_ingestion:
+            enabled: true
 `;
 
 const azureAdConfig: SourceConfig = {
