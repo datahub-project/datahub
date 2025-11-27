@@ -41,7 +41,7 @@ buildscript {
   ext.springVersion = '6.2.11'
   ext.springBootVersion = '3.4.5'
   ext.springKafkaVersion = '3.3.8'
-  ext.openTelemetryVersion = '1.54.1'
+  ext.openTelemetryVersion = '1.56.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.1'
