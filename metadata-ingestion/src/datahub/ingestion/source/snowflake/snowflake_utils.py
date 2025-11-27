@@ -100,7 +100,7 @@ class SnowsightUrlBuilder:
             raise Exception(f"Unknown snowflake region {region}")
         return cloud, cloud_region_id
 
-    # domain is either "view" or "table"
+    # domain is either "view" or "table" or "semantic view"
     def get_external_url_for_table(
         self,
         table_name: str,
@@ -109,16 +109,18 @@ class SnowsightUrlBuilder:
         domain: Literal[
             SnowflakeObjectDomain.TABLE,
             SnowflakeObjectDomain.VIEW,
+            SnowflakeObjectDomain.SEMANTIC_VIEW,
             SnowflakeObjectDomain.DYNAMIC_TABLE,
         ],
     ) -> Optional[str]:
         # For dynamic tables, use the dynamic-table domain in the URL path
         # Ensure only explicitly dynamic tables use dynamic-table URL path
-        url_domain = (
-            "dynamic-table"
-            if domain == SnowflakeObjectDomain.DYNAMIC_TABLE
-            else str(domain)
-        )
+        if domain == SnowflakeObjectDomain.DYNAMIC_TABLE:
+            url_domain = "dynamic-table"
+        elif domain == SnowflakeObjectDomain.SEMANTIC_VIEW:
+            url_domain = "semantic-view"
+        else:
+            url_domain = str(domain)
         return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{url_domain}/{table_name}/"
 
     def get_external_url_for_schema(
@@ -156,6 +158,7 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.EXTERNAL_TABLE,
             SnowflakeObjectDomain.VIEW,
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
+            SnowflakeObjectDomain.SEMANTIC_VIEW,
             SnowflakeObjectDomain.ICEBERG_TABLE,
             SnowflakeObjectDomain.STREAM,
             SnowflakeObjectDomain.DYNAMIC_TABLE,
@@ -213,6 +216,14 @@ class SnowflakeFilter:
         ):
             return False
 
+        if (
+            dataset_type.lower() == SnowflakeObjectDomain.SEMANTIC_VIEW
+            and not self.filter_config.semantic_view_pattern.allowed(
+                _cleanup_qualified_name(dataset_name, self.structured_reporter)
+            )
+        ):
+            return False
+
         return True
 
     def is_procedure_allowed(self, procedure_name: str) -> bool:
@@ -220,6 +231,9 @@ class SnowflakeFilter:
 
     def is_streamlit_allowed(self, streamlit_name: str) -> bool:
         return self.filter_config.streamlit_pattern.allowed(streamlit_name)
+
+    def is_semantic_view_allowed(self, semantic_view_name: str) -> bool:
+        return self.filter_config.semantic_view_pattern.allowed(semantic_view_name)
 
 
 def _combine_identifier_parts(
