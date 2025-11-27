@@ -400,10 +400,9 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
         # ConsoleTransport logs events instead of sending them, avoiding network issues
         environment["AIRFLOW__OPENLINEAGE__TRANSPORT"] = '{"type": "console"}'
 
-        # Enable dual plugin mode for Airflow 3.0
-        # When False, both DataHub and OpenLineage plugins run side-by-side
-        # SQLParser calls both parsers: OpenLineage for its own events, DataHub for enhanced lineage
-        environment["AIRFLOW__DATAHUB__DISABLE_OPENLINEAGE_PLUGIN"] = "false"
+        # Use default disable_openlineage_plugin=true (DataHub-only mode)
+        # OpenLineage plugin is disabled, but SQLParser is still patched for DataHub's use
+        # This produces only DataHub's lowercase URNs, avoiding duplicates
 
         # Configure internal execution API JWT authentication
         # Required for executor to authenticate task execution requests
@@ -423,10 +422,9 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
         # This enables SQLParser calls even when DataHub is the primary lineage provider
         environment["AIRFLOW__OPENLINEAGE__TRANSPORT"] = '{"type": "console"}'
 
-        # Enable dual plugin mode for Airflow 2.10+ provider package
-        # When False, both DataHub and OpenLineage plugins run side-by-side
-        # SQLParser calls both parsers: OpenLineage for its own events, DataHub for enhanced lineage
-        environment["AIRFLOW__DATAHUB__DISABLE_OPENLINEAGE_PLUGIN"] = "false"
+        # Use default disable_openlineage_plugin=true (DataHub-only mode)
+        # OpenLineage plugin is disabled, but SQLParser is still patched for DataHub's use
+        # This produces only DataHub's lowercase URNs, avoiding duplicates
     else:
         # Airflow 2.x < 2.10 supports basic auth for the API
         environment["AIRFLOW__API__AUTH_BACKEND"] = (
