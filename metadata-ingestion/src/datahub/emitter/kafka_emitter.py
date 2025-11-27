@@ -56,7 +56,7 @@ class KafkaEmitterConfig(ConfigModel):
         assert MCP_KEY in v, f"topic_routes must contain a route for {MCP_KEY}"
         if MCE_KEY not in v:
             logger.warning(
-                f"MCE topic not configured in topic_routes. MCE emissions will be skipped. "
+                f"MCE topic not configured in topic_routes. MCE emissions will fail. "
                 f"To enable MCE emission, add '{MCE_KEY}' to topic_routes."
             )
         return v
