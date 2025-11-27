@@ -20,16 +20,16 @@ if not MARKUPSAFE_PATCHED:
 #
 # For legacy openlineage-airflow package (Airflow 2.5-2.9), we use the extractor-based approach
 # in _extractors.py instead.
-try:
-    from airflow.providers.openlineage.sqlparser import SQLParser
+import importlib.util
 
+if importlib.util.find_spec("airflow.providers.openlineage.sqlparser") is not None:
     # Provider package detected - apply SQL parser patch
     from datahub_airflow_plugin.airflow2._airflow2_sql_parser_patch import (
         patch_sqlparser,
     )
 
     patch_sqlparser()
-except ImportError:
+else:
     # Provider package not available - using legacy openlineage-airflow package
     # No patching needed, extractors will handle SQL parsing
     pass

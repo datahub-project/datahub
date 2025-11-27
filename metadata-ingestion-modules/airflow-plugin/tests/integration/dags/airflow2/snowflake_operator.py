@@ -13,7 +13,9 @@ from airflow import DAG
 # Try to import SnowflakeOperator (available in older provider versions)
 # Fall back to SQLExecuteQueryOperator if it's not available
 try:
-    from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator  # type: ignore[attr-defined]
+    from airflow.providers.snowflake.operators.snowflake import (
+        SnowflakeOperator,  # type: ignore[attr-defined]
+    )
 
     OPERATOR_CLASS = SnowflakeOperator
     CONN_ID_PARAM = "snowflake_conn_id"
