@@ -155,6 +155,11 @@ type Form implements Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 }
 
 """

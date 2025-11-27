@@ -1,18 +1,25 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { BookOpen, ListBullets } from '@phosphor-icons/react';
 import React, { useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
 import EntityContext from '@app/entity/shared/EntityContext';
 import { DocumentSummaryTab } from '@app/entityV2/document/summary/DocumentSummaryTab';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import {
+    calculateDeleteNavigationTarget,
+    navigateAfterDelete,
+} from '@app/homeV2/layout/sidebar/documents/documentDeleteNavigation';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
 import CompactContext from '@app/shared/CompactContext';
 import { EntityHead } from '@app/shared/EntityHead';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, PageTemplateSurfaceType } from '@types';
 
@@ -91,6 +98,22 @@ const sidebarSections = [
 export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading = false, refetch }) => {
     const [sidebarClosed, setSidebarClosed] = useState(true); // Start closed by default
     const isCompact = React.useContext(CompactContext);
+    const { getRootNodes } = useDocumentTree();
+    const history = useHistory();
+    const entityRegistry = useEntityRegistry();
+
+    const handleDelete = React.useCallback(
+        (deletedNode: DocumentTreeNode | null) => {
+            // Delete mutation is handled in DocumentActionsMenu
+            // Use shared navigation logic to determine where to navigate
+            const rootNodes = getRootNodes();
+            const navigationTarget = deletedNode
+                ? calculateDeleteNavigationTarget(deletedNode, rootNodes, deletedNode.urn)
+                : null;
+            navigateAfterDelete(navigationTarget, entityRegistry, history);
+        },
+        [getRootNodes, entityRegistry, history],
+    );
 
     if (!document) {
         return null;
@@ -180,7 +203,7 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                                         </LoadingWrapper>
                                     ) : (
                                         <MainContent>
-                                            <DocumentSummaryTab />
+                                            <DocumentSummaryTab onDelete={handleDelete} />
                                         </MainContent>
                                     )}
                                 </ContentCard>

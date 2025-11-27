@@ -101,6 +101,10 @@ export enum EntityCapabilityType {
      * Assigning the entity to an application
      */
     APPLICATIONS,
+    /**
+     * Related context documents for this entity
+     */
+    RELATED_DOCUMENTS,
 }
 
 export interface EntityMenuActions {

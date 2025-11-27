@@ -102,7 +102,8 @@ public class GetLatestSuccessfulExecutionRequestResolverTest {
         new ExecutionRequestInput("task", null, null, 0L, null, null, "default"),
         null,
         null,
-        null);
+        null,
+        null); // RelatedDocumentsResult - not needed for this test
   }
 
   private IngestionSource getTestIngestionSource() {
