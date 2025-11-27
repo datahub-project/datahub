@@ -92,7 +92,7 @@ class KafkaSchemaRegistryBase(ABC):
 
 The custom schema registry class can be configured using the `schema_registry_class` config param of the `kafka` source as shown below.
 
-```YAML
+```yaml
 source:
   type: "kafka"
   config:
@@ -107,6 +107,7 @@ source:
 ### OAuth Callback
 
 The OAuth callback function can be set up for both Kafka sources (consumers) and sinks (producers):
+
 - For sources: `config.connection.consumer_config.oauth_cb`
 - For sinks: `config.connection.producer_config.oauth_cb`
 
@@ -115,7 +116,8 @@ You need to specify a Python function reference in the format &lt;python-module&
 For example, in the configuration `oauth:create_token`, `create_token` is a function defined in `oauth.py`, and `oauth.py` must be accessible in the PYTHONPATH.
 
 **Example for Kafka Source:**
-```YAML
+
+```yaml
 source:
   type: "kafka"
   config:
@@ -133,7 +135,8 @@ source:
 ```
 
 **Example for Kafka Sink (e.g., MSK IAM authentication):**
-```YAML
+
+```yaml
 sink:
   type: "datahub-kafka"
   config:

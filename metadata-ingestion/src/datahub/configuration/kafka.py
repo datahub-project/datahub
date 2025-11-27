@@ -22,6 +22,31 @@ def _get_schema_registry_url() -> str:
     return f"http://localhost:8080{base_path}/schema-registry/api/"
 
 
+def _resolve_kafka_oauth_callback(config: dict) -> dict:
+    """
+    Resolve OAuth callback string paths to callable functions.
+
+    This helper resolves the oauth_cb configuration parameter from a string
+    path (e.g., "module:function") to an actual callable function. This is
+    used for OAuth authentication mechanisms like AWS MSK IAM.
+
+    Args:
+        config: Dictionary that may contain an oauth_cb key with a string value
+
+    Returns:
+        The config dictionary with oauth_cb resolved to a callable if present
+
+    Raises:
+        ConfigurationError: If oauth_cb validation or resolution fails
+    """
+    if CallableConsumerConfig.is_callable_config(config):
+        try:
+            config = CallableConsumerConfig(config).callable_config()
+        except Exception as e:
+            raise ConfigurationError(e) from e
+    return config
+
+
 class _KafkaConnectionConfig(ConfigModel):
     # bootstrap servers
     bootstrap: str = "localhost:9092"
@@ -61,12 +86,7 @@ class KafkaConsumerConnectionConfig(_KafkaConnectionConfig):
     @field_validator("consumer_config", mode="after")
     @classmethod
     def resolve_callback(cls, value: dict) -> dict:
-        if CallableConsumerConfig.is_callable_config(value):
-            try:
-                value = CallableConsumerConfig(value).callable_config()
-            except Exception as e:
-                raise ConfigurationError(e) from e
-        return value
+        return _resolve_kafka_oauth_callback(value)
 
 
 class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
@@ -80,9 +100,4 @@ class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
     @field_validator("producer_config", mode="after")
     @classmethod
     def resolve_callback(cls, value: dict) -> dict:
-        if CallableConsumerConfig.is_callable_config(value):
-            try:
-                value = CallableConsumerConfig(value).callable_config()
-            except Exception as e:
-                raise ConfigurationError(e) from e
-        return value
+        return _resolve_kafka_oauth_callback(value)
