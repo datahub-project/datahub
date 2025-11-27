@@ -469,7 +469,6 @@ kafka:
   setup:
     preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
     useConfluentSchemaRegistry: ${USE_CONFLUENT_SCHEMA_REGISTRY:false}
-    applySchemaRegistryCleanupPolicy: ${KAFKA_SETUP_APPLY_SCHEMA_REGISTRY_CLEANUP_POLICY:true}
 
   # Topic defaults applied when individual topic configuration is missing
   topicDefaults:

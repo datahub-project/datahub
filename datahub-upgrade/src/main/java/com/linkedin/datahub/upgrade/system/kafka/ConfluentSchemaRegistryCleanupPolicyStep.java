@@ -43,34 +43,24 @@ public class ConfluentSchemaRegistryCleanupPolicyStep implements UpgradeStep {
   }
 
   @Override
-  public boolean skip(UpgradeContext context) {
-    // Skip if Kafka setup is disabled
-    if (_kafkaConfiguration.getSetup() == null
-        || !_kafkaConfiguration.getSetup().isPreCreateTopics()) {
-      log.info("Skipping ConfluentSchemaRegistryCleanupPolicyStep - Kafka setup is disabled");
-      return true;
-    }
-
-    // Skip if Confluent Schema Registry is disabled
-    if (!_kafkaConfiguration.getSetup().isUseConfluentSchemaRegistry()) {
-      log.info("Skipping ConfluentSchemaRegistryCleanupPolicyStep - schema registry is disabled");
-      return true;
-    }
-
-    // Skip if cleanup policy application is disabled
-    if (!_kafkaConfiguration.getSetup().isApplySchemaRegistryCleanupPolicy()) {
-      log.info(
-          "Skipping ConfluentSchemaRegistryCleanupPolicyStep - applySchemaRegistryCleanupPolicy is disabled");
-      return true;
-    }
-
-    return false;
-  }
-
-  @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       log.info("Configuring Confluent Schema Registry cleanup policies...");
+
+      // Check if Kafka setup is enabled
+      if (_kafkaConfiguration.getSetup() == null
+          || !_kafkaConfiguration.getSetup().isPreCreateTopics()) {
+        log.info(
+            "Skipping Confluent Schema Registry cleanup policy configuration - Kafka setup is disabled");
+        return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
+      }
+
+      // Check if Confluent Schema Registry is enabled
+      if (!_kafkaConfiguration.getSetup().isUseConfluentSchemaRegistry()) {
+        log.info(
+            "Skipping Confluent Schema Registry cleanup policy configuration - schema registry is disabled");
+        return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
+      }
 
       try {
         // Create AdminClient using AdminClientFactory
