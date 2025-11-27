@@ -513,13 +513,25 @@ class DataHubListener:
         if task_metadata and Serde is not None:
             for k, v in task_metadata.job_facets.items():
                 # Redaction is only available with legacy openlineage-airflow package
-                value_to_serialize = redact_with_exclusions(v) if redact_with_exclusions is not None else v  # type: ignore[arg-type]
-                datajob.properties[f"openlineage_job_facet_{k}"] = Serde.to_json(value_to_serialize)
+                value_to_serialize = (
+                    redact_with_exclusions(v)
+                    if redact_with_exclusions is not None
+                    else v
+                )  # type: ignore[arg-type]
+                datajob.properties[f"openlineage_job_facet_{k}"] = Serde.to_json(
+                    value_to_serialize
+                )
 
             for k, v in task_metadata.run_facets.items():
                 # Redaction is only available with legacy openlineage-airflow package
-                value_to_serialize = redact_with_exclusions(v) if redact_with_exclusions is not None else v  # type: ignore[arg-type]
-                datajob.properties[f"openlineage_run_facet_{k}"] = Serde.to_json(value_to_serialize)
+                value_to_serialize = (
+                    redact_with_exclusions(v)
+                    if redact_with_exclusions is not None
+                    else v
+                )  # type: ignore[arg-type]
+                datajob.properties[f"openlineage_run_facet_{k}"] = Serde.to_json(
+                    value_to_serialize
+                )
 
     def check_kill_switch(self) -> bool:
         # For Airflow 2.x, use Variable.get()
