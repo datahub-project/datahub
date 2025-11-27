@@ -215,6 +215,12 @@ module.exports = {
       items: [
         // "docs/how/ui-tabs-guide",
         {
+          label: "Ask DataHub",
+          type: "doc",
+          id: "docs/features/feature-guides/ask-datahub",
+          className: "saasOnly",
+        },
+        {
           label: "Assertions (Data Quality)",
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
@@ -383,12 +389,12 @@ module.exports = {
           ],
         },
         {
-          label: "Custom Asset Summaries",
+          label: "Asset Summaries",
           type: "doc",
           id: "docs/features/feature-guides/custom-asset-summaries",
         },
         {
-          label: "Custom Home Page",
+          label: "Home Page",
           type: "doc",
           id: "docs/features/feature-guides/custom-home-page",
         },
@@ -411,6 +417,11 @@ module.exports = {
           label: "Domains",
           type: "doc",
           id: "docs/domains",
+        },
+        {
+          label: "File Upload and Download in Documentation",
+          type: "doc",
+          id: "docs/features/feature-guides/file-upload-download",
         },
         {
           label: "Incidents",
@@ -661,6 +672,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_15",
         "docs/managed-datahub/release-notes/v_0_3_14",
         "docs/managed-datahub/release-notes/v_0_3_13",
         "docs/managed-datahub/release-notes/v_0_3_12",
@@ -1292,6 +1304,7 @@ module.exports = {
         "docs/modeling/extending-the-metadata-model",
         "docs/advanced/api-tracing",
         "datahub-web-react/src/app/analytics/README",
+        // "smoke-test/test_resources/analytics_backfill/README",
         "docker/datahub-upgrade/README",
         "metadata-ingestion/adding-source",
         "docs/how/add-custom-ingestion-source",

@@ -103,7 +103,12 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                         <FieldDescription
                             expandedField={expandedField}
                             editableFieldInfo={editableFieldInfo}
-                            editorProps={{ uploadFile, ...uploadFileAnalyticsCallbacks }}
+                            editorProps={{
+                                uploadFileProps: {
+                                    onFileUpload: uploadFile,
+                                    ...uploadFileAnalyticsCallbacks,
+                                },
+                            }}
                         />
                         <FieldTags
                             expandedField={expandedField}

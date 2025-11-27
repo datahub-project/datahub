@@ -63,7 +63,7 @@ def test_value_error_projects_and_project_pattern(
         ValidationError,
         match=r".*projects is deprecated. Please use project_path_pattern only.*",
     ):
-        TableauConfig.parse_obj(new_config)
+        TableauConfig.model_validate(new_config)
 
 
 def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
@@ -76,38 +76,39 @@ def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph)
         ValidationError,
         match=r".*project_pattern is deprecated. Please use project_path_pattern only*",
     ):
-        TableauConfig.parse_obj(new_config)
+        TableauConfig.model_validate(new_config)
 
 
 def test_ingest_hidden_assets_bool():
     config_dict = deepcopy(default_config)
     config_dict["ingest_hidden_assets"] = False
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
     assert config.ingest_hidden_assets is False
 
 
 def test_ingest_hidden_assets_list():
     config_dict = deepcopy(default_config)
     config_dict["ingest_hidden_assets"] = ["dashboard"]
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
     assert config.ingest_hidden_assets == ["dashboard"]
 
 
 def test_ingest_hidden_assets_multiple():
     config_dict = deepcopy(default_config)
     config_dict["ingest_hidden_assets"] = ["dashboard", "worksheet"]
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
     assert config.ingest_hidden_assets == ["dashboard", "worksheet"]
 
 
 def test_ingest_hidden_assets_invalid():
     config = deepcopy(default_config)
     config["ingest_hidden_assets"] = ["worksheet", "invalid"]
+
     with pytest.raises(
         ValidationError,
-        match=re.compile(r"ingest_hidden_assets.*input_value='invalid'", re.DOTALL),
+        match=re.compile(r"ingest_hidden_assets.*'worksheet'.*'dashboard'", re.DOTALL),
     ):
-        TableauConfig.parse_obj(config)
+        TableauConfig.model_validate(config)
 
 
 @freeze_time(FROZEN_TIME)
@@ -133,7 +134,7 @@ def test_extract_project_hierarchy(extract_project_hierarchy, allowed_projects):
 
     config_dict["extract_project_hierarchy"] = extract_project_hierarchy
 
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
 
     site_source = TableauSiteSource(
         config=config,
@@ -196,7 +197,7 @@ def test_use_email_as_username_requires_ingest_owner():
         ValidationError,
         match=r".*use_email_as_username requires ingest_owner to be enabled.*",
     ):
-        TableauConfig.parse_obj(config_dict)
+        TableauConfig.model_validate(config_dict)
 
 
 def test_use_email_as_username_valid_config():
@@ -205,7 +206,7 @@ def test_use_email_as_username_valid_config():
     config_dict["ingest_owner"] = True
     config_dict["use_email_as_username"] = True
 
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
     assert config.ingest_owner is True
     assert config.use_email_as_username is True
 
@@ -213,5 +214,5 @@ def test_use_email_as_username_valid_config():
 def test_use_email_as_username_default_false():
     """Test that use_email_as_username defaults to False."""
     config_dict = default_config.copy()
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
     assert config.use_email_as_username is False

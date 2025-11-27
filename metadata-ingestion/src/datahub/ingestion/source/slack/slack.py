@@ -260,7 +260,7 @@ class SlackSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = SlackSourceConfig.parse_obj(config_dict)
+        config = SlackSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_slack_client(self) -> WebClient:

@@ -33,7 +33,6 @@ export const SUPPORTED_FILE_TYPES = [
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.ms-excel',
     'application/xml',
     'application/vnd.ms-powerpoint',
@@ -45,6 +44,20 @@ export const SUPPORTED_FILE_TYPES = [
     'audio/mpeg',
     'video/x-ms-wmv',
     'image/tiff',
+    'text/x-python-script',
+    'application/json',
+    'text/html',
+    'text/x-java-source',
+    'image/svg+xml',
+    'application/vnd.oasis.opendocument.text',
+    'application/vnd.oasis.opendocument.spreadsheet',
+    'application/vnd.oasis.opendocument.presentation',
+    'text/css',
+    'application/javascript',
+    'text/x-yaml',
+    'application/x-tar',
+    'text/x-sql',
+    'application/x-sh',
 ];
 
 const EXTENSION_TO_FILE_TYPE = {
@@ -73,7 +86,27 @@ const EXTENSION_TO_FILE_TYPE = {
     tiff: 'image/tiff',
     md: 'text/markdown',
     csv: 'text/csv',
+    py: 'text/x-python-script',
+    json: 'application/json',
+    html: 'text/html',
+    java: 'text/x-java-source',
+    svg: 'image/svg+xml',
+    log: 'text/plain',
+    mov: 'video/quicktime',
+    odt: 'application/vnd.oasis.opendocument.text',
+    ods: 'application/vnd.oasis.opendocument.spreadsheet',
+    odp: 'application/vnd.oasis.opendocument.presentation',
+    css: 'text/css',
+    js: 'application/javascript',
+    yaml: 'text/x-yaml',
+    yml: 'text/x-yaml',
+    tar: 'application/x-tar',
+    sql: 'text/x-sql',
+    sh: 'application/x-sh',
 };
+
+export const FILE_TYPES_TO_PREVIEW = ['video/', 'application/pdf', 'text/', 'application/json'];
+export const TEXT_FILE_TYPES_TO_PREVIEW = ['text/', 'application/json'];
 
 /**
  * Generate a unique ID for file nodes
@@ -127,6 +160,27 @@ export const getExtensionFromFileName = (fileName: string): string | undefined =
 };
 
 /**
+ * Extract file type from URL
+ * @param url - the URL to extract type from
+ * @returns MIME type if detectable, empty string otherwise
+ */
+export const getFileTypeFromUrl = (url: string): string => {
+    const extension = getExtensionFromFileName(url);
+    if (!extension) return '';
+
+    return EXTENSION_TO_FILE_TYPE[extension] || '';
+};
+
+/**
+ * Extract file type from filename
+ * @param filename - the filename to extract type from
+ * @returns MIME type if detectable, empty string otherwise
+ */
+export const getFileTypeFromFilename = (filename: string): string => {
+    return getFileTypeFromUrl(filename);
+};
+
+/**
  * Validate file before processing
  */
 export const validateFile = (
@@ -137,6 +191,7 @@ export const validateFile = (
     },
 ): { isValid: boolean; error?: string; displayError?: string; failureType?: FileUploadFailureType } => {
     const { maxSize = MAX_FILE_SIZE_IN_BYTES, allowedTypes = SUPPORTED_FILE_TYPES } = options || {};
+    const fileType = file.type || getFileTypeFromFilename(file.name);
 
     // Check file size
     if (file.size > maxSize) {
@@ -149,11 +204,11 @@ export const validateFile = (
     }
 
     // Check file type
-    if (!isFileTypeSupported(file.type, allowedTypes)) {
+    if (!isFileTypeSupported(fileType, allowedTypes)) {
         const extension = getExtensionFromFileName(file.name);
         return {
             isValid: false,
-            error: `File type "${file.type}" is not allowed. Supported types: ${allowedTypes.join(', ')}`,
+            error: `File type "${fileType}" is not allowed. Supported types: ${allowedTypes.join(', ')}`,
             displayError: `File type not supported${extension ? `: ${extension.toLocaleUpperCase()}` : ''}`,
             failureType: FileUploadFailureType.FILE_TYPE,
         };
@@ -191,23 +246,23 @@ export const isFileUrl = (url: string): boolean => {
     return url.includes('/openapi/v1/'); // Our internal file API
 };
 
-/**
- * Extract file type from URL
- * @param url - the URL to extract type from
- * @returns MIME type if detectable, empty string otherwise
- */
-export const getFileTypeFromUrl = (url: string): string => {
-    const extension = getExtensionFromFileName(url);
-    if (!extension) return '';
+export const getFileNameFromUrl = (url: string): string | undefined => {
+    if (!isFileUrl(url)) return undefined;
 
-    return EXTENSION_TO_FILE_TYPE[extension] || '';
-};
+    try {
+        const urlObj = new URL(url);
+        const { pathname } = urlObj;
 
-/**
- * Extract file type from filename
- * @param filename - the filename to extract type from
- * @returns MIME type if detectable, empty string otherwise
- */
-export const getFileTypeFromFilename = (filename: string): string => {
-    return getFileTypeFromUrl(filename);
+        // Extract the last part after the final '/'
+        const lastSegment = pathname.split('/').pop();
+
+        if (!lastSegment) return undefined;
+
+        const fileName = lastSegment.split('__')?.[1];
+
+        return fileName;
+    } catch (error) {
+        // If URL parsing fails, return undefined
+        return undefined;
+    }
 };

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import static com.linkedin.metadata.search.utils.ESUtils.*;
 import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
@@ -10,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.DoubleMap;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -56,6 +56,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.opensearch.action.search.SearchRequest;
@@ -75,7 +76,7 @@ import org.opensearch.search.suggest.term.TermSuggestion;
 @Slf4j
 public class SearchRequestHandler extends BaseRequestHandler {
 
-  private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
+  private static final Map<SearchHandlerKey, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
   private final List<EntitySpec> entitySpecs;
   private final List<String> entityNames;
@@ -143,16 +144,13 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
-    return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
+    return getBuilder(
+        systemOperationContext,
         ImmutableList.of(entitySpec),
-        k ->
-            new SearchRequestHandler(
-                systemOperationContext,
-                entitySpec,
-                configs,
-                customSearchConfiguration,
-                queryFilterRewriteChain,
-                searchServiceConfiguration));
+        configs,
+        customSearchConfiguration,
+        queryFilterRewriteChain,
+        searchServiceConfiguration);
   }
 
   public static SearchRequestHandler getBuilder(
@@ -163,7 +161,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
-        ImmutableList.copyOf(entitySpecs),
+        new SearchHandlerKey(
+            ImmutableList.copyOf(entitySpecs),
+            configs,
+            customSearchConfiguration,
+            queryFilterRewriteChain,
+            searchServiceConfiguration),
         k ->
             new SearchRequestHandler(
                 systemOperationContext,
@@ -442,22 +445,49 @@ public class SearchRequestHandler extends BaseRequestHandler {
       boolean supportsPointInTime) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
-    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
+
+    // Build per-hit results and attach a per-element scrollId
+    final SearchHit[] searchHits = searchResponse.getHits().getHits();
+    long expirationTimeMs = 0L;
+    if (keepAlive != null && supportsPointInTime) {
+      expirationTimeMs =
+          TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
+              + System.currentTimeMillis();
+    }
+
+    List<SearchEntity> results = new ArrayList<>(searchHits.length);
+    for (SearchHit hit : searchHits) {
+      // Build base SearchEntity
+      SearchEntity entity = getResult(hit);
+      // Compute per-hit scrollId using this hit's sort values
+      Object[] sort = hit.getSortValues();
+      String perHitScrollId =
+          new SearchAfterWrapper(sort, searchResponse.pointInTimeId(), expirationTimeMs)
+              .toScrollId();
+      // Merge into existing extraFields if present
+      StringMap extra = entity.getExtraFields();
+      if (extra == null) {
+        entity.setExtraFields(new StringMap(Map.of("scrollId", perHitScrollId)));
+      } else {
+        extra.put("scrollId", perHitScrollId);
+        entity.setExtraFields(extra);
+      }
+      results.add(entity);
+    }
+
+    // Apply access control restrictions while preserving order
+    Collection<SearchEntity> resultList =
+        ESAccessControlUtil.restrictSearchResult(opContext, results);
+
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
-    SearchHit[] searchHits = searchResponse.getHits().getHits();
+
     // Only return next scroll ID if there are more results, indicated by full size results
     String nextScrollId = null;
     if (searchHits.length == size && searchHits.length > 0) {
-      Object[] sort = searchHits[searchHits.length - 1].getSortValues();
-      long expirationTimeMs = 0L;
-      if (keepAlive != null && supportsPointInTime) {
-        expirationTimeMs =
-            TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
-                + System.currentTimeMillis();
-      }
+      Object[] lastSort = searchHits[searchHits.length - 1].getSortValues();
       nextScrollId =
-          new SearchAfterWrapper(sort, searchResponse.pointInTimeId(), expirationTimeMs)
+          new SearchAfterWrapper(lastSort, searchResponse.pointInTimeId(), expirationTimeMs)
               .toScrollId();
     }
 
@@ -647,5 +677,23 @@ public class SearchRequestHandler extends BaseRequestHandler {
       }
     }
     return searchSuggestions;
+  }
+
+  /**
+   * Enhanced cache key implementation to prevent handler cross-contamination in tests.
+   *
+   * <p>Background: Flaky tests occurred because the cache key (previously just entitySpecs) didn't
+   * account for all configuration variants. Identical entitySpecs with different search
+   * configurations would incorrectly share handlers, leading to test instability.
+   *
+   * <p>This key ensures each unique configuration combination gets its own handler instance.
+   */
+  @Value
+  private static class SearchHandlerKey {
+    @Nonnull private final List<EntitySpec> entitySpecs;
+    @Nonnull private final ElasticSearchConfiguration configs;
+    @Nullable private final CustomSearchConfiguration customSearchConfiguration;
+    @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
+    @Nonnull private final SearchServiceConfiguration searchServiceConfiguration;
   }
 }

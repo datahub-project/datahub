@@ -362,6 +362,34 @@ fragment autoCompleteFields on Entity {
     ... on DataPlatformInstance {
         ...dataPlatformInstanceFields
     }
+    ... on StructuredPropertyEntity {
+        ...structuredPropertyFields
+    }
+    ... on Document {
+        urn
+        type
+        subType
+        info {
+            title
+            created {
+                time
+                actor
+            }
+            lastModified {
+                time
+                actor
+            }
+        }
+        parentDocuments {
+            documents {
+                urn
+                type
+                info {
+                    title
+                }
+            }
+        }
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
@@ -1151,6 +1179,31 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on Incident {
         ...incidentFields
+    }
+    ... on Document {
+        urn
+        type
+        subType
+        info {
+            title
+            created {
+                time
+                actor
+            }
+            lastModified {
+                time
+                actor
+            }
+        }
+        parentDocuments {
+            documents {
+                urn
+                type
+                info {
+                    title
+                }
+            }
+        }
     }
 }
 
