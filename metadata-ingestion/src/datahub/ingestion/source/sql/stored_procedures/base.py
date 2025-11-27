@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Dict, Iterable, Optional
@@ -219,6 +220,15 @@ def generate_procedure_lineage(
             yield MetadataChangeProposalWrapper(
                 entityUrn=procedure_job_urn,
                 aspect=datajob_input_output,
+            )
+        else:
+            # Log full SQL when lineage extraction fails
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Failed to extract lineage for stored procedure: {procedure.name}. "
+                f"URN: {procedure_job_urn}. "
+                f"SQL definition length: {len(procedure.procedure_definition)} chars. "
+                f"Full SQL:\n{procedure.procedure_definition}"
             )
 
 

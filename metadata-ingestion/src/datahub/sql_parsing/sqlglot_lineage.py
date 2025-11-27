@@ -1499,6 +1499,12 @@ def _parse_stored_procedure_fallback(
             logger.debug(f"Skipping control flow statement: {stmt_stripped[:50]}...")
             continue
 
+        # Skip DROP TABLE statements - they don't contribute to lineage and often
+        # get split incorrectly (e.g., "DROP TABLE IF EXISTS" becomes "DROP TABLE")
+        if stmt_upper.startswith("DROP TABLE") or stmt_upper.startswith("DROP "):
+            logger.debug(f"Skipping DROP statement: {stmt_stripped[:50]}...")
+            continue
+
         # Try to parse everything else that's not control flow
 
         # Try to parse this individual statement
