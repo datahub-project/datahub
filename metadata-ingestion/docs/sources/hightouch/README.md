@@ -6,7 +6,7 @@
 | `Model`          | [Dataset](../../metamodel/entities/dataset.md)                           | SQL query or transformation (optional, platform: "hightouch") |
 | `Sync`           | [Data Job](../../metamodel/entities/dataJob.md)                          | Data pipeline that moves data from model to destination       |
 | `Destination`    | [Dataset](../../metamodel/entities/dataset.md)                           | Target system (referenced as output)                          |
-| `Sync Run`       | [Data Process Instance](../../metamodel/entities/dataprocessinstance.md) | Execution instance with statistics                            |
+| `Sync Run`       | [Data Process Instance](../../metamodel/entities/dataProcessInstance.md) | Execution instance with statistics                            |
 
 ### Supported Platforms
 
