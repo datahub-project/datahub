@@ -21,7 +21,15 @@ source:
     #     connector_database: db_name
     #     connector_platform: connector_platform_name
     #     platform_instance: cloud_instance
-    #     env: DEV    
+    #     env: DEV
+    
+    # Optional -- Whether to ingest lineage to upstream connectors (default: true)
+    # ingest_lineage_to_connectors: true
+    
+    # Optional -- Whether to ingest column-level lineage to upstream connectors (default: true)
+    # Requires ingest_lineage_to_connectors to be enabled.
+    # This creates 1:1 column mappings between Trino tables/views and their upstream source tables.
+    # include_column_lineage: true
 
 sink:
   # sink configs
