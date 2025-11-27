@@ -54,6 +54,11 @@ class KafkaEmitterConfig(ConfigModel):
     @classmethod
     def validate_topic_routes(cls, v: Dict[str, str]) -> Dict[str, str]:
         assert MCP_KEY in v, f"topic_routes must contain a route for {MCP_KEY}"
+        if MCE_KEY not in v:
+            logger.warning(
+                f"MCE topic not configured in topic_routes. MCE emissions will be skipped. "
+                f"To enable MCE emission, add '{MCE_KEY}' to topic_routes."
+            )
         return v
 
 
@@ -130,8 +135,12 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         mce: MetadataChangeEvent,
         callback: Callable[[Exception, str], None],
     ) -> None:
-        # Return if MCE_KEY is not present
-        if MCE_KEY not in self.producers:
+        # Report error via callback if MCE_KEY is not configured
+        if MCE_KEY not in self.config.topic_routes:
+            error = Exception(
+                f"Cannot emit MetadataChangeEvent: {MCE_KEY} topic not configured in topic_routes"
+            )
+            callback(error, "MCE emission failed - topic not configured")
             return
         # Call poll to trigger any callbacks on success / failure of previous writes
         producer: SerializingProducer = self.producers[MCE_KEY]
