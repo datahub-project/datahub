@@ -2,7 +2,6 @@
 # This module must be imported before any Airflow imports in any of our files.
 
 import logging
-
 from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 
 logger = logging.getLogger(__name__)
@@ -57,9 +56,7 @@ if enable_extractors:
             )
         except Exception as e:
             # Log any other errors
-            logger.warning(
-                f"Failed to apply SQL parser patch: {e}", exc_info=True
-            )
+            logger.warning(f"Failed to apply SQL parser patch: {e}", exc_info=True)
 
     # Operator-specific patches (conditional based on config and operator availability)
     # SQLite patch is always applied when available (no config flag yet)
