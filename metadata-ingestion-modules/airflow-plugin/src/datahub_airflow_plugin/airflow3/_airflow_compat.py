@@ -1,7 +1,11 @@
 # Airflow 3.x compatibility module
 # This module must be imported before any Airflow imports in any of our files.
 
+import logging
+
 from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
+logger = logging.getLogger(__name__)
 
 # Critical safety check: Ensure MarkupSafe compatibility patch is applied
 # This must happen before importing Airflow to prevent MarkupSafe version conflicts
@@ -44,9 +48,18 @@ if enable_extractors:
             )
 
             patch_sqlparser()
-        except ImportError:
+            # Log success for debugging
+            logger.debug("✓ Successfully applied Airflow 3 SQL parser patch")
+        except ImportError as e:
             # Not available when openlineage packages aren't installed
-            pass
+            logger.warning(
+                f"SQL parser patch not applied - OpenLineage packages not available: {e}"
+            )
+        except Exception as e:
+            # Log any other errors
+            logger.warning(
+                f"Failed to apply SQL parser patch: {e}", exc_info=True
+            )
 
     # Operator-specific patches (conditional based on config and operator availability)
     # SQLite patch is always applied when available (no config flag yet)
