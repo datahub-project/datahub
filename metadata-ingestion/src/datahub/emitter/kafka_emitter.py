@@ -67,6 +67,14 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         }
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
+        # Configure AvroSerializer to optionally disable auto-registration
+        avro_serializer_conf = {}
+        if self.config.connection.disable_auto_schema_registration:
+            avro_serializer_conf["auto.register.schemas"] = False
+            logger.info(
+                "Schema auto-registration disabled. Schemas must be pre-registered in the Schema Registry."
+            )
+
         def convert_mce_to_dict(
             mce: MetadataChangeEvent, ctx: SerializationContext
         ) -> dict:
@@ -76,6 +84,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             schema_str=getMetadataChangeEventSchema(),
             schema_registry_client=schema_registry_client,
             to_dict=convert_mce_to_dict,
+            conf=avro_serializer_conf,
         )
 
         def convert_mcp_to_dict(
@@ -88,6 +97,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             schema_str=getMetadataChangeProposalSchema(),
             schema_registry_client=schema_registry_client,
             to_dict=convert_mcp_to_dict,
+            conf=avro_serializer_conf,
         )
 
         # We maintain a map of producers for each kind of event
