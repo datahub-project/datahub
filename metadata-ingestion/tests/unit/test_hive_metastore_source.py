@@ -277,3 +277,113 @@ def test_hive_metastore_all_storage_platforms():
 
         storage_config = config.get_storage_lineage_config()
         assert storage_config.storage_platform_instance == f"{platform}-prod"
+
+
+def test_hive_metastore_view_lineage_config_default():
+    """Test that include_view_lineage is enabled by default"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:3306",
+        "database": "test_db",
+    }
+    config = HiveMetastore.model_validate(config_dict)
+
+    assert config.include_view_lineage is True
+
+
+def test_hive_metastore_view_lineage_config_disabled():
+    """Test that include_view_lineage can be disabled"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:3306",
+        "database": "test_db",
+        "include_view_lineage": False,
+    }
+    config = HiveMetastore.model_validate(config_dict)
+
+    assert config.include_view_lineage is False
+
+
+@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+def test_hive_metastore_get_db_schema_without_catalog(mock_client):
+    """Test get_db_schema parsing for schema.table format"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:3306",
+        "database": "test_db",
+        "include_catalog_name_in_ids": False,
+    }
+    config = HiveMetastore.model_validate(config_dict)
+    ctx = PipelineContext(run_id="test-run")
+
+    source = HiveMetastoreSource(config, ctx)
+
+    default_db, default_schema = source.get_db_schema("my_schema.my_view")
+
+    assert default_db is None
+    assert default_schema == "my_schema"
+
+
+@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+def test_hive_metastore_get_db_schema_with_catalog(mock_client):
+    """Test get_db_schema parsing for catalog.schema.table format"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:3306",
+        "database": "test_db",
+        "include_catalog_name_in_ids": True,
+    }
+    config = HiveMetastore.model_validate(config_dict)
+    ctx = PipelineContext(run_id="test-run")
+
+    source = HiveMetastoreSource(config, ctx)
+
+    default_db, default_schema = source.get_db_schema("my_catalog.my_schema.my_view")
+
+    assert default_db == "my_catalog"
+    assert default_schema == "my_schema"
+
+
+@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+def test_hive_metastore_get_db_schema_single_part(mock_client):
+    """Test get_db_schema parsing for single-part identifiers"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:3306",
+        "database": "test_db",
+    }
+    config = HiveMetastore.model_validate(config_dict)
+    ctx = PipelineContext(run_id="test-run")
+
+    source = HiveMetastoreSource(config, ctx)
+
+    default_db, default_schema = source.get_db_schema("my_view")
+
+    assert default_db is None
+    assert default_schema == "my_view"
+
+
+@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+def test_hive_metastore_aggregator_initialization(mock_client):
+    """Test that SQL aggregator is initialized for view lineage"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:3306",
+        "database": "test_db",
+        "include_view_lineage": True,
+    }
+    config = HiveMetastore.model_validate(config_dict)
+    ctx = PipelineContext(run_id="test-run")
+
+    source = HiveMetastoreSource(config, ctx)
+
+    # Verify aggregator is initialized (inherited from SQLAlchemySource)
+    assert hasattr(source, "aggregator")
+    assert source.aggregator is not None
+    assert source.config.include_view_lineage is True

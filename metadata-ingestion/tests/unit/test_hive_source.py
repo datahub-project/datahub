@@ -1,7 +1,9 @@
 import deepdiff
+import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.hive.hive_source import HiveConfig, HiveSource
+from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineageConfig
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 
 
@@ -83,3 +85,181 @@ def test_hive_configuration_get_avro_schema_from_native_data_type():
     )
 
     assert diff == {}
+
+
+def test_hive_source_storage_lineage_config_default():
+    """Test HiveConfig storage lineage configuration defaults"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:10000",
+    }
+    config = HiveConfig.model_validate(config_dict)
+
+    assert config.emit_storage_lineage is False
+    assert config.hive_storage_lineage_direction == "upstream"
+    assert config.include_column_lineage is True
+
+
+def test_hive_source_storage_lineage_config_enabled():
+    """Test HiveConfig with storage lineage enabled"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:10000",
+        "emit_storage_lineage": True,
+        "hive_storage_lineage_direction": "downstream",
+        "include_column_lineage": False,
+        "storage_platform_instance": "prod-hdfs",
+    }
+    config = HiveConfig.model_validate(config_dict)
+
+    assert config.emit_storage_lineage is True
+    assert config.hive_storage_lineage_direction == "downstream"
+    assert config.include_column_lineage is False
+    assert config.storage_platform_instance == "prod-hdfs"
+
+    storage_config = config.get_storage_lineage_config()
+    assert isinstance(storage_config, HiveStorageLineageConfig)
+    assert storage_config.emit_storage_lineage is True
+    assert storage_config.hive_storage_lineage_direction == "downstream"
+    assert storage_config.include_column_lineage is False
+
+
+def test_hive_source_storage_lineage_direction_validation():
+    """Test that invalid storage lineage direction raises ValueError"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:10000",
+        "emit_storage_lineage": True,
+        "hive_storage_lineage_direction": "sideways",
+    }
+
+    # HiveConfig validates direction in field validator
+    with pytest.raises(ValueError) as exc_info:
+        HiveConfig.model_validate(config_dict)
+
+    assert "must be either upstream or downstream" in str(exc_info.value)
+
+
+def test_hive_source_initialization_with_storage_lineage():
+    """Test HiveSource initialization with storage lineage"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:10000",
+        "emit_storage_lineage": True,
+        "hive_storage_lineage_direction": "upstream",
+        "include_column_lineage": True,
+    }
+    config = HiveConfig.model_validate(config_dict)
+    ctx = PipelineContext(run_id="test-run")
+
+    source = HiveSource(config, ctx)
+
+    assert source.storage_lineage is not None
+    assert source.storage_lineage.config.emit_storage_lineage is True
+    assert source.storage_lineage.config.hive_storage_lineage_direction == "upstream"
+    assert source.storage_lineage.config.include_column_lineage is True
+
+
+def test_hive_source_view_lineage_config():
+    """Test that HiveSource inherits view lineage support from base class"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:10000",
+        "include_view_lineage": True,
+    }
+    config = HiveConfig.model_validate(config_dict)
+    ctx = PipelineContext(run_id="test-run")
+
+    source = HiveSource(config, ctx)
+
+    # Verify aggregator is initialized (inherited from SQLAlchemySource)
+    assert hasattr(source, "aggregator")
+    assert source.aggregator is not None
+    assert source.config.include_view_lineage is True
+
+
+def test_hive_source_view_lineage_disabled():
+    """Test HiveSource with view lineage disabled"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:10000",
+        "include_view_lineage": False,
+    }
+    config = HiveConfig.model_validate(config_dict)
+    ctx = PipelineContext(run_id="test-run")
+
+    source = HiveSource(config, ctx)
+
+    assert source.config.include_view_lineage is False
+
+
+def test_hive_source_get_db_schema():
+    """Test HiveSource get_db_schema method"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:10000",
+    }
+    config = HiveConfig.model_validate(config_dict)
+    ctx = PipelineContext(run_id="test-run")
+
+    source = HiveSource(config, ctx)
+
+    # Test two-tier format: schema.table
+    default_db, default_schema = source.get_db_schema("my_schema.my_view")
+
+    assert default_db is None
+    assert default_schema == "my_schema"
+
+
+def test_hive_source_combined_lineage_config():
+    """Test HiveSource with both storage and view lineage enabled"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:10000",
+        "emit_storage_lineage": True,
+        "hive_storage_lineage_direction": "upstream",
+        "include_column_lineage": True,
+        "include_view_lineage": True,
+        "include_view_column_lineage": True,
+        "storage_platform_instance": "prod-s3",
+        "env": "PROD",
+    }
+    config = HiveConfig.model_validate(config_dict)
+    ctx = PipelineContext(run_id="test-run")
+
+    source = HiveSource(config, ctx)
+
+    # Verify both storage lineage and view lineage are configured
+    assert source.storage_lineage is not None
+    assert source.storage_lineage.config.emit_storage_lineage is True
+    assert source.storage_lineage.config.include_column_lineage is True
+
+    assert source.aggregator is not None
+    assert source.config.include_view_lineage is True
+    assert source.config.include_view_column_lineage is True
+
+
+def test_hive_source_all_storage_platforms():
+    """Test HiveConfig with different storage platform types"""
+    platforms = ["s3", "hdfs", "adls", "gcs", "dbfs"]
+
+    for platform in platforms:
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:10000",
+            "emit_storage_lineage": True,
+            "storage_platform_instance": f"{platform}-prod",
+        }
+        config = HiveConfig.model_validate(config_dict)
+
+        storage_config = config.get_storage_lineage_config()
+        assert storage_config.storage_platform_instance == f"{platform}-prod"

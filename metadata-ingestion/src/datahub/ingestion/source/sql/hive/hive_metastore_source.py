@@ -125,8 +125,9 @@ class HiveMetastore(BasicSQLAlchemyConfig):
         description="Dataset Subtype name to be 'Table' or 'View' Valid options: ['True', 'False']",
     )
 
-    include_view_lineage: HiddenFromDocs[bool] = Field(
-        default=False,
+    include_view_lineage: bool = Field(
+        default=True,
+        description="Whether to extract lineage from Hive views. Requires parsing the view definition SQL.",
     )
 
     include_catalog_name_in_ids: bool = Field(
@@ -195,7 +196,20 @@ class HiveMetastore(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
 @capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
 @capability(
-    SourceCapability.LINEAGE_COARSE, "View lineage is not supported", supported=False
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.TABLE,
+        SourceCapabilityModifier.VIEW,
+    ],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default for views via `include_view_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
+    subtype_modifier=[
+        SourceCapabilityModifier.TABLE,
+        SourceCapabilityModifier.VIEW,
+    ],
 )
 @capability(
     SourceCapability.CONTAINERS,
@@ -383,6 +397,26 @@ class HiveMetastoreSource(SQLAlchemySource):
             return f"{self.config.database}"
         else:
             return super().get_db_name(inspector)
+
+    def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
+        """Extract database and schema from dataset identifier for view lineage parsing."""
+        parts = dataset_identifier.split(".")
+
+        if self.config.include_catalog_name_in_ids:
+            # Format: catalog.schema.table
+            if len(parts) >= 3:
+                return parts[0], parts[1]
+            elif len(parts) == 2:
+                return None, parts[0]
+        else:
+            # Format: schema.table
+            if len(parts) >= 2:
+                return None, parts[0]
+
+        # Fallback
+        return None, dataset_identifier.split(".")[
+            0
+        ] if "." in dataset_identifier else dataset_identifier
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -881,6 +915,24 @@ class HiveMetastoreSource(SQLAlchemySource):
                     entity_urn=dataset_urn,
                     domain_registry=self.domain_registry,
                     domain_config=self.config.domain,
+                )
+
+            # Extract view lineage if enabled and view definition exists
+            if dataset.view_definition and self.config.include_view_lineage:
+                default_db = None
+                default_schema = None
+                try:
+                    default_db, default_schema = self.get_db_schema(
+                        dataset.dataset_name
+                    )
+                except ValueError:
+                    logger.warning(f"Invalid view identifier: {dataset.dataset_name}")
+
+                self.aggregator.add_view_definition(
+                    view_urn=dataset_urn,
+                    view_definition=dataset.view_definition,
+                    default_db=default_db,
+                    default_schema=default_schema,
                 )
 
     def _get_db_filter_where_clause(self) -> str:
