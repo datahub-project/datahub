@@ -282,7 +282,9 @@ class DataHubListener:
 
         # See discussion here https://github.com/OpenLineage/OpenLineage/pull/508 for
         # why we need to keep track of tasks ourselves.
-        self._task_holder: Any = TaskHolder()  # TaskHolder type from OpenLineage
+        # Note: TaskHolder is only available in legacy openlineage-airflow package,
+        # not in apache-airflow-providers-openlineage (where task_instance.task is directly available)
+        self._task_holder: Any = TaskHolder() if TaskHolder is not None else None
 
         # In our case, we also want to cache the initial datajob object
         # so that we can add to it when the task completes.
@@ -510,14 +512,14 @@ class DataHubListener:
         # Write all other OL facets as DataHub properties
         if task_metadata and Serde is not None:
             for k, v in task_metadata.job_facets.items():
-                datajob.properties[f"openlineage_job_facet_{k}"] = Serde.to_json(
-                    redact_with_exclusions(v)  # type: ignore[arg-type]
-                )
+                # Redaction is only available with legacy openlineage-airflow package
+                value_to_serialize = redact_with_exclusions(v) if redact_with_exclusions is not None else v  # type: ignore[arg-type]
+                datajob.properties[f"openlineage_job_facet_{k}"] = Serde.to_json(value_to_serialize)
 
             for k, v in task_metadata.run_facets.items():
-                datajob.properties[f"openlineage_run_facet_{k}"] = Serde.to_json(
-                    redact_with_exclusions(v)  # type: ignore[arg-type]
-                )
+                # Redaction is only available with legacy openlineage-airflow package
+                value_to_serialize = redact_with_exclusions(v) if redact_with_exclusions is not None else v  # type: ignore[arg-type]
+                datajob.properties[f"openlineage_run_facet_{k}"] = Serde.to_json(value_to_serialize)
 
     def check_kill_switch(self) -> bool:
         # For Airflow 2.x, use Variable.get()
@@ -663,8 +665,9 @@ class DataHubListener:
         assert task is not None
         dag: "DAG" = task.dag  # type: ignore[assignment]
 
-        # Store task for later retrieval
-        self._task_holder.set_task(task_instance)
+        # Store task for later retrieval (only available with legacy openlineage-airflow package)
+        if self._task_holder is not None:
+            self._task_holder.set_task(task_instance)
 
         # If we don't have the DAG listener API, emit DAG start event
         if not HAS_AIRFLOW_DAG_LISTENER_API:
