@@ -59,6 +59,7 @@ export const ConfirmationModal = ({
                     onClick: handleConfirm,
                     buttonDataTestId: 'modal-confirm-button',
                     text: confirmButtonText || 'Yes',
+                    color: isDeleteModal ? 'red' : 'primary',
                 },
             ]}
             title={modalTitle || 'Confirm'}
