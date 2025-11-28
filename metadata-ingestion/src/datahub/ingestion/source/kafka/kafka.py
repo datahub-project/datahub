@@ -48,6 +48,9 @@ from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
 )
+from datahub.ingestion.source.kafka.kafka_ssl_helper import (
+    prepare_schema_registry_config,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -163,12 +166,16 @@ class KafkaConnectionTest:
 
     def schema_registry_connectivity(self) -> CapabilityReport:
         try:
-            SchemaRegistryClient(
+            # Prepare schema registry configuration
+            # Convert ssl.ca.location from string path to SSL context
+            # (required for confluent-kafka-python >= 2.8.0)
+            schema_registry_config = prepare_schema_registry_config(
                 {
                     "url": self.config.connection.schema_registry_url,
                     **self.config.connection.schema_registry_config,
                 }
-            ).get_subjects()
+            )
+            SchemaRegistryClient(schema_registry_config).get_subjects()
             return CapabilityReport(capable=True)
         except Exception as e:
             return CapabilityReport(capable=False, failure_reason=str(e))
