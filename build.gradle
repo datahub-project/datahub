@@ -443,6 +443,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
     resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
     resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
+    resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
     resolutionStrategy {
       force "org.eclipse.jetty:jetty-security:${jettyVersion}"
       force "org.eclipse.jetty:jetty-server:${jettyVersion}"
