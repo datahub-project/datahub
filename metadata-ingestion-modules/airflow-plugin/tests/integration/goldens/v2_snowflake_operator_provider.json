@@ -213,7 +213,7 @@
                 "duration": "<duration>",
                 "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
-                "operator": "SQLExecuteQueryOperator",
+                "operator": "SnowflakeOperator",
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "priority_weight": "1",
