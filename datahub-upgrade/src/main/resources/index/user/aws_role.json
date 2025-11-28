@@ -1,7 +1,8 @@
 {
     "cluster_permissions": [
         "indices:*",
-        "cluster:monitor/tasks/lists"
+        "cluster:monitor/tasks/lists",
+        "cluster:monitor/nodes/info"
     ],
     "index_permissions": [
         {
