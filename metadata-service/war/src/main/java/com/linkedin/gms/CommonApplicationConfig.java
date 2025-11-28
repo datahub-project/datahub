@@ -97,6 +97,9 @@ public class CommonApplicationConfig {
             int httpPort = environment.getProperty("server.port", Integer.class, 8080);
             int httpsPort = environment.getProperty("server.ssl.port", Integer.class, 8443);
 
+            // --- Listen Interface/IP ---
+            String serverAddress = environment.getProperty("server.address");
+
             // --- SSL Config ---
             String keyStorePath = environment.getProperty("server.ssl.key-store");
             String keyStorePassword = environment.getProperty("server.ssl.key-store-password");
@@ -135,6 +138,11 @@ public class CommonApplicationConfig {
               connector = new ServerConnector(server, new HttpConnectionFactory(httpConfig));
               connector.setPort(httpPort);
               log.info("HTTP only enabled on port {}", httpPort);
+            }
+
+            if (serverAddress != null && !serverAddress.isBlank()) {
+              log.info("Server will listen on address: {}", serverAddress);
+              connector.setHost(serverAddress);
             }
 
             // --- Set connectors (HTTP or HTTPS only) ---
