@@ -15,7 +15,7 @@ GET           /config                                                         co
 
 # Routes used exclusively by the React application.
 # Route to GET mfe config
-GET           /api/mfe/config                                                 controllers.MfeConfigController.getMfeConfig()
+GET           /mfe/config                                                 controllers.MfeConfigController.getMfeConfig()
 
 # Authentication in React
 GET           /authenticate                                                   controllers.AuthenticationController.authenticate(request: Request)

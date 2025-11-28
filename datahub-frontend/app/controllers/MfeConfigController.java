@@ -1,5 +1,6 @@
 package controllers;
 
+import auth.Authenticator;
 import com.typesafe.config.Config;
 import java.nio.file.Files;
 import javax.annotation.Nonnull;
@@ -9,6 +10,7 @@ import play.Environment;
 import play.mvc.Controller;
 import play.mvc.Result;
 import play.mvc.Results;
+import play.mvc.Security;
 
 @Slf4j
 public class MfeConfigController extends Controller {
@@ -18,10 +20,15 @@ public class MfeConfigController extends Controller {
 
   @Inject
   public MfeConfigController(@Nonnull Config configs, Environment environment) {
-    this.configFilePath = configs.getString("mfeConfigFilePath");
+    String path = configs.getString("mfeConfigFilePath");
+    if (path == null) {
+      throw new IllegalArgumentException("MfeConfigFilePath is null or not set!");
+    }
+    this.configFilePath = path;
     this.environment = environment;
   }
 
+  @Security.Authenticated(Authenticator.class)
   public Result getMfeConfig() {
     if (configFilePath == null) {
       log.error("MfeConfigController Config File Path not set!");
@@ -33,7 +40,7 @@ public class MfeConfigController extends Controller {
       return Results.internalServerError("MFEConfigController error! Unable to read config file!");
     } else {
       log.info("MfeConfigController read yaml success");
-      return Results.ok(yamlContent);
+      return Results.ok(yamlContent).as("application/yaml");
     }
   }
 
