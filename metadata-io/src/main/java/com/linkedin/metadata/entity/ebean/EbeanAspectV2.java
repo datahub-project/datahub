@@ -11,7 +11,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.io.Serializable;
-import java.lang.Comparable;
 import java.sql.Timestamp;
 import java.util.Objects;
 import javax.annotation.Nonnull;
