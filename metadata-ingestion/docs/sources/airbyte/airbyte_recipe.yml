@@ -1,0 +1,66 @@
+source:
+  type: airbyte
+  config:
+    # Deployment type - required
+    deployment_type: oss               # Options: "oss" (self-hosted) or "cloud" (Airbyte Cloud)
+
+    # Connection details for OSS deployment
+    host_port: http://localhost:8000   # Airbyte API endpoint URL
+
+    # Authentication for OSS deployment
+    username: airbyte                  # Username for basic auth
+    password: password                 # Password for basic auth
+    # api_key: your-api-key            # Alternative: API token if available
+
+    # Authentication for Cloud deployment - uncomment if using Airbyte Cloud
+    #deployment_type: cloud
+    #oauth2_client_id: client-id       # OAuth2 client ID for Airbyte Cloud
+    #oauth2_client_secret: client-secret # OAuth2 client secret
+    #oauth2_refresh_token: refresh-token # OAuth2 refresh token
+    #cloud_workspace_id: workspace-id  # Airbyte Cloud workspace ID
+
+    # SSL configuration
+    verify_ssl: false                  # Whether to verify SSL certificates
+    #ssl_ca_cert: /path/to/cert.pem    # Path to CA certificate file (optional)
+
+    # Data extraction options
+    extract_column_level_lineage: true # Extract column-level lineage information
+    include_statuses: true             # Include connection job statuses
+    job_statuses_limit: 100            # Max number of job statuses to retrieve
+
+    # Optional: Extract ownership and tags
+    extract_owners: false              # Extract owners from connection names
+    #owner_extraction_pattern: ".*owner:([\\w-]+).*" # Regex to extract owner
+    extract_tags: false                # Extract tags from Airbyte metadata
+
+    # Filtering options - uncomment to use
+    #workspace_pattern:
+    #  allow:
+    #    - ".*"                        # Pattern to filter workspaces
+
+    #connection_pattern:
+    #  allow:
+    #    - ".*"                        # Pattern to filter connections
+
+    #source_pattern:
+    #  allow:
+    #    - ".*MySQL.*"                 # Pattern to filter sources
+
+    #destination_pattern:
+    #  allow:
+    #    - ".*Postgres.*"              # Pattern to filter destinations
+
+    # Platform instance configuration
+    platform_instance: airbyte-instance # Custom platform instance name
+    #use_workspace_name_as_platform_instance: false # Use workspace name as platform instance
+
+    # Performance settings
+    request_timeout: 30                # Timeout for API requests in seconds
+    max_retries: 3                     # Max retries for failed requests
+    retry_backoff_factor: 0.5          # Backoff factor for retries
+    page_size: 20                      # Items per page in API requests
+
+sink:
+  type: datahub-rest
+  config:
+    server: http://localhost:8080
