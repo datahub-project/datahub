@@ -548,7 +548,7 @@ class SnowflakeV2Source(
                 self.config, self.report
             ).get_shares_workunits(databases)
 
-        if self.config.include_internal_marketplace:
+        if self.config.marketplace.enabled:
             with self.report.new_stage("*: MARKETPLACE_EXTRACTION"):
                 marketplace_handler = SnowflakeMarketplaceHandler(
                     config=self.config,

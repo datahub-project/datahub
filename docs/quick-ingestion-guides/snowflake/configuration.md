@@ -155,8 +155,9 @@ If you want to ingest Snowflake internal marketplace listings (private data shar
 If you purchase/install internal marketplace listings, add these options to your recipe:
 
 ```yaml
-include_internal_marketplace: true
-marketplace_mode: "consumer" # This is the default
+marketplace:
+  enabled: true
+  marketplace_mode: "consumer" # This is the default
 
 # Required: Map your imported databases to their source shares
 shares:
@@ -171,17 +172,17 @@ shares:
 If you publish/share data through the internal marketplace, add these options to your recipe:
 
 ```yaml
-include_internal_marketplace: true
-marketplace_mode: "provider"
+marketplace:
+  enabled: true
+  marketplace_mode: "provider"
+  # Optional: Assign owners to your Data Products
+  internal_marketplace_owner_patterns:
+    "^Customer.*": ["data-team"]
 
 # Include your source databases being shared
 database_pattern:
   allow:
     - "YOUR_SOURCE_DATABASE"
-
-# Optional: Assign owners to your Data Products
-internal_marketplace_owner_patterns:
-  "^Customer.*": ["data-team"]
 ```
 
 **Important**: For provider mode to work, you must have granted `imported privileges on database snowflake` to both the role AND the user (see [Setup](setup.md) for details). Share access in Snowflake is granted at the user level, not the role level.

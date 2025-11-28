@@ -216,8 +216,9 @@ For organizations that **purchase/install** internal marketplace listings:
 2. **Enable marketplace ingestion** in your recipe:
 
    ```yaml
-   include_internal_marketplace: true
-   marketplace_mode: "consumer" # Default
+   marketplace:
+     enabled: true
+     marketplace_mode: "consumer" # Default
    ```
 
 3. **Configure the `shares` mapping** (REQUIRED in consumer mode for linking Data Products to their purchased databases):
@@ -297,17 +298,17 @@ For organizations that **publish/share** internal marketplace listings:
 2. **Enable marketplace ingestion in provider mode** in your recipe:
 
    ```yaml
-   include_internal_marketplace: true
-   marketplace_mode: "provider" # NEW!
+   marketplace:
+     enabled: true
+     marketplace_mode: "provider" # NEW!
+     # Assign owners to your Data Products
+     internal_marketplace_owner_patterns:
+       "^Your Listing.*": ["data-team"]
 
    # Include your source databases being shared
    database_pattern:
      allow:
        - "YOUR_SOURCE_DATABASE"
-
-   # Assign owners to your Data Products
-   internal_marketplace_owner_patterns:
-     "^Your Listing.*": ["data-team"]
    ```
 
 3. **No `shares` configuration needed!**

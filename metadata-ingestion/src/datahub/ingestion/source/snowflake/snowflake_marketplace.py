@@ -74,11 +74,11 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
     def get_marketplace_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Generate work units for marketplace data"""
-        if not self.config.include_internal_marketplace:
+        if not self.config.marketplace.enabled:
             return
 
         # 0. Create structured property definitions if needed
-        if self.config.marketplace_properties_as_structured_properties:
+        if self.config.marketplace.marketplace_properties_as_structured_properties:
             yield from self._create_marketplace_structured_property_definitions()
 
         # First, load marketplace data
@@ -213,7 +213,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         """Load marketplace listings and purchases/provider shares based on mode"""
         self._load_marketplace_listings()  # Always load listings
 
-        mode = self.config.marketplace_mode
+        mode = self.config.marketplace.marketplace_mode
         if mode in ["consumer", "both"]:
             self._load_marketplace_purchases()  # Load imported databases
         if mode in ["provider", "both"]:
@@ -247,7 +247,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     ),  # For domain grouping
                 )
 
-                if self.config.internal_marketplace_listing_pattern.allowed(
+                if self.config.marketplace.internal_marketplace_listing_pattern.allowed(
                     listing.listing_global_name
                 ):
                     self._marketplace_listings[listing.listing_global_name] = listing
@@ -374,7 +374,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             for (
                 pattern,
                 owner_vals,
-            ) in self.config.internal_marketplace_owner_patterns.items():
+            ) in self.config.marketplace.internal_marketplace_owner_patterns.items():
                 if (
                     re.search(pattern, title, flags=re.IGNORECASE)
                     or re.search(pattern, global_name, flags=re.IGNORECASE)
@@ -463,7 +463,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             "description": None,
             "documentation_links": [],
         }
-        if not self.config.fetch_internal_marketplace_listing_details:
+        if not self.config.marketplace.fetch_internal_marketplace_listing_details:
             return result
 
         try:
@@ -613,7 +613,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             databases_to_query: List[str] = []  # Databases to get tables from
 
             # Consumer mode: Find purchased/imported databases
-            if self.config.marketplace_mode in ["consumer", "both"]:
+            if self.config.marketplace.marketplace_mode in ["consumer", "both"]:
                 for purchase in self._marketplace_purchases.values():
                     listing_global_name = self._find_listing_for_purchase(purchase)
                     if (
@@ -626,7 +626,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                         databases_to_query.append(purchase.database_name)
 
             # Provider mode: Find source databases being shared
-            if self.config.marketplace_mode in ["provider", "both"]:
+            if self.config.marketplace.marketplace_mode in ["provider", "both"]:
                 logger.debug(
                     f"Provider mode check for listing {listing.listing_global_name}: "
                     f"Available provider shares: {list(self._provider_shares.keys())}"
@@ -655,7 +655,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
             # Add tables that are actually shared in the marketplace listing
             # For provider mode, we need to check what's in the share, not all tables in the database
-            if self.config.marketplace_mode in ["provider", "both"]:
+            if self.config.marketplace.marketplace_mode in ["provider", "both"]:
                 provider_share = self._provider_shares.get(listing.listing_global_name)
                 if provider_share and provider_share.share_name:
                     try:
@@ -708,7 +708,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                         )
 
             # For consumer mode, try to get tables from imported database via SHOW GRANTS
-            if self.config.marketplace_mode in ["consumer", "both"]:
+            if self.config.marketplace.marketplace_mode in ["consumer", "both"]:
                 for db_name in purchased_db_names:
                     if db_name and self.config.database_pattern.allowed(db_name):
                         try:
@@ -764,7 +764,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             custom_properties: Optional[Dict[str, str]] = None
             structured_properties: Optional[Dict[str, str]] = None
 
-            if self.config.marketplace_properties_as_structured_properties:
+            if self.config.marketplace.marketplace_properties_as_structured_properties:
                 # Use structured properties for searchability
                 structured_properties = {
                     "snowflake.marketplace.provider": listing.provider,
@@ -772,7 +772,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     "snowflake.marketplace.listing_global_name": listing.listing_global_name,
                     "snowflake.marketplace.listing_name": listing.name,
                     "snowflake.marketplace.type": "internal",
-                    "snowflake.marketplace.mode": self.config.marketplace_mode,
+                    "snowflake.marketplace.mode": self.config.marketplace.marketplace_mode,
                 }
                 if listing.created_on:
                     structured_properties[
@@ -781,7 +781,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 # Keep minimal custom properties for backward compatibility
                 custom_properties = {
                     "marketplace_listing": "true",
-                    "marketplace_mode": self.config.marketplace_mode,
+                    "marketplace_mode": self.config.marketplace.marketplace_mode,
                 }
             else:
                 # Use custom properties (default)
@@ -789,7 +789,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     "platform": "snowflake",  # Platform is 'snowflake' for UI integration
                     "marketplace_listing": "true",
                     "marketplace_type": "internal",  # Internal/private data exchange
-                    "marketplace_mode": self.config.marketplace_mode,  # consumer/provider/both
+                    "marketplace_mode": self.config.marketplace.marketplace_mode,  # consumer/provider/both
                     "provider": listing.provider,
                     "category": listing.category or "",
                     "listing_global_name": listing.listing_global_name,

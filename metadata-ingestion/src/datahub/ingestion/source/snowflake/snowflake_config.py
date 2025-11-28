@@ -224,7 +224,7 @@ class SnowflakeMarketplaceConfig(ConfigModel):
     - Usage of internal marketplace data products
     """
 
-    include_internal_marketplace: bool = Field(
+    enabled: bool = Field(
         default=False,
         description=(
             "Whether to ingest Snowflake INTERNAL marketplace (private data exchange) listings as Data Products. "
@@ -293,7 +293,6 @@ class SnowflakeMarketplaceConfig(ConfigModel):
 class SnowflakeV2Config(
     SnowflakeConfig,
     SnowflakeUsageConfig,
-    SnowflakeMarketplaceConfig,
     StatefulLineageConfigMixin,
     StatefulUsageConfigMixin,
     StatefulTimeWindowConfigMixin,
@@ -416,6 +415,11 @@ class SnowflakeV2Config(
     include_streamlits: bool = Field(
         default=False,
         description="If enabled, Streamlit apps will be ingested as dashboards.",
+    )
+
+    marketplace: SnowflakeMarketplaceConfig = Field(
+        default_factory=SnowflakeMarketplaceConfig,
+        description="Configuration for Snowflake Internal Marketplace (private data exchange) ingestion.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(

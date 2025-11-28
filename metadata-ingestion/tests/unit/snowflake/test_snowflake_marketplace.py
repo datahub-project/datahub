@@ -85,7 +85,9 @@ def base_config() -> Dict[str, Any]:
         "warehouse": "COMPUTE_WH",
         "role": "test_role",
         "username": "test_user",
-        "include_internal_marketplace": True,
+        "marketplace": {
+            "enabled": True,
+        },
     }
 
 
@@ -276,7 +278,7 @@ class TestMarketplaceBasicFunctionality:
     ) -> None:
         """Test that DESCRIBE AVAILABLE LISTING enrichment maps to custom properties and externalUrl."""
         config_dict = base_config.copy()
-        config_dict["fetch_internal_marketplace_listing_details"] = True
+        config_dict["marketplace"]["fetch_internal_marketplace_listing_details"] = True
 
         # Only use the first listing (ACME)
         listings = [mock_listings[0]]
@@ -758,7 +760,7 @@ class TestMarketplaceConfiguration:
     def test_all_features_disabled(self, base_config: Dict[str, Any]) -> None:
         """Test with all marketplace features disabled."""
         config_dict = base_config.copy()
-        config_dict["include_internal_marketplace"] = False
+        config_dict["marketplace"]["enabled"] = False
 
         handler = create_handler(config_dict, None, None, None)
         wus = list(handler.get_marketplace_workunits())

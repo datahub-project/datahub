@@ -33,15 +33,16 @@ source:
 
     # (Optional) Ingest INTERNAL marketplace (private data sharing) listings as Data Products
     # NOTE: This is for INTERNAL marketplace only, not the public Snowflake Data Marketplace
-    # include_internal_marketplace: true
-    # marketplace_mode: "consumer"  # Options: "consumer" (default), "provider", "both"
-    # internal_marketplace_listing_pattern:
-    #   allow: [".*"]
-    # internal_marketplace_owner_patterns:
-    #   "^Customer.*": ["data-team"]
-    #   "^Finance.*": ["finance-team"]
-    # fetch_internal_marketplace_listing_details: false
-    # marketplace_properties_as_structured_properties: false
+    # marketplace:
+    #   enabled: true
+    #   marketplace_mode: "consumer"  # Options: "consumer" (default), "provider", "both"
+    #   internal_marketplace_listing_pattern:
+    #     allow: [".*"]
+    #   internal_marketplace_owner_patterns:
+    #     "^Customer.*": ["data-team"]
+    #     "^Finance.*": ["finance-team"]
+    #   fetch_internal_marketplace_listing_details: false
+    #   marketplace_properties_as_structured_properties: false
     
     # (Optional) Map data products to domains using purchased database names
     # domain:
