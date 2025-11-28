@@ -605,6 +605,8 @@ def default_query_results(  # noqa: C901
             SnowflakeQuery.show_primary_keys_for_schema("PUBLIC", "CUSTOMER_360"),
             SnowflakeQuery.show_foreign_keys_for_schema("PUBLIC", "CUSTOMER_360"),
         )
+    ):
+        return []
     elif query == SnowflakeQuery.streamlit_apps_for_database("TEST_DB"):
         return [
             {

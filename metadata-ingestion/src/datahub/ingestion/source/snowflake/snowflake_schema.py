@@ -236,6 +236,7 @@ class SnowflakeMarketplaceAccessEvent:
     share_name: str
     share_objects_accessed: List[Dict[str, Any]]
 
+
 @dataclass
 class SnowflakeStreamlitApp:
     """

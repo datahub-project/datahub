@@ -278,7 +278,8 @@ class SnowflakeMarketplaceConfig(ConfigModel):
         ),
     )
 
-    @validator("marketplace_mode")
+    @field_validator("marketplace_mode")
+    @classmethod
     def validate_marketplace_mode(cls, v: str) -> str:
         """Validate that marketplace_mode is one of the allowed values."""
         allowed_modes = ["consumer", "provider", "both"]
