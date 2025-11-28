@@ -60,6 +60,7 @@ import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.*;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
 import org.opensearch.client.indices.CreateIndexRequest;
@@ -1238,6 +1239,58 @@ public class ESIndexBuilder {
     createIndexRequest.settings(state.targetSettings());
     searchClient.createIndex(createIndexRequest, RequestOptions.DEFAULT);
     log.info("Created index {}", indexName);
+  }
+
+  /**
+   * Efficiently clear an index by deleting it and recreating it with the same configuration. This
+   * is much more efficient than deleting all documents using deleteByQuery.
+   *
+   * @param indexName The name of the index to clear (can be an alias or concrete index)
+   * @param config The ReindexConfig containing mappings and settings for the index
+   * @throws IOException If the deletion or creation fails
+   */
+  public void clearIndex(String indexName, ReindexConfig config) throws IOException {
+    // Check if the index name is an alias or a concrete index
+    GetAliasesRequest getAliasesRequest = new GetAliasesRequest(indexName);
+    GetAliasesResponse aliasesResponse =
+        searchClient.getIndexAliases(getAliasesRequest, RequestOptions.DEFAULT);
+
+    Collection<String> indicesToDelete;
+    if (aliasesResponse.getAliases().isEmpty()) {
+      // Not an alias, check if it's a concrete index
+      boolean indexExists =
+          searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+      if (!indexExists) {
+        log.info("Index {} does not exist, nothing to clear", indexName);
+        // Still recreate the index
+        createIndex(indexName, config);
+        return;
+      }
+      indicesToDelete = List.of(indexName);
+      log.info("Deleting concrete index {} for efficient clearing", indexName);
+    } else {
+      // It's an alias, delete the concrete indices behind it
+      indicesToDelete = aliasesResponse.getAliases().keySet();
+      log.info(
+          "Deleting concrete indices {} behind alias {} for efficient clearing",
+          indicesToDelete,
+          indexName);
+    }
+
+    // Delete the concrete indices
+    for (String concreteIndex : indicesToDelete) {
+      try {
+        deleteActionWithRetry(searchClient, concreteIndex);
+      } catch (Exception e) {
+        log.error("Failed to delete index {} during clear operation", concreteIndex, e);
+        throw new IOException("Failed to delete index: " + concreteIndex, e);
+      }
+    }
+
+    // Recreate the index with the same mappings and settings
+    // This will recreate the alias if the original was an alias
+    log.info("Recreating index {} after clearing", indexName);
+    createIndex(indexName, config);
   }
 
   public static void cleanOrphanedIndices(

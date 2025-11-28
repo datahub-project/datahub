@@ -333,8 +333,19 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void clear() {
-    esBulkProcessor.deleteByQuery(
-        QueryBuilders.matchAllQuery(), true, indexConvention.getIndexName(INDEX_NAME));
+    // Instead of deleting all documents (inefficient), delete and recreate the index
+    String indexName = indexConvention.getIndexName(INDEX_NAME);
+    try {
+      // Build the reindex config directly without needing OperationContext
+      ReindexConfig config =
+          indexBuilder.buildReindexState(
+              indexName, GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap());
+      indexBuilder.clearIndex(indexName, config);
+      log.info("Cleared index {} by deleting and recreating it", indexName);
+    } catch (IOException e) {
+      log.error("Failed to clear index {}", indexName, e);
+      throw new RuntimeException("Failed to clear index: " + indexName, e);
+    }
   }
 
   @Override
