@@ -10,6 +10,8 @@ import { AIChat } from '@app/ingestV2/source/multiStepBuilder/AIChat';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
 
+import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
+
 const VerticalDivider = styled(Divider)`
     color: ${colors.gray[100]};
     height: 16px;
@@ -24,18 +26,24 @@ export default function IngestionRunDetailsPage() {
     const [fromUrl, setFromUrl] = React.useState<string>();
     const [name, setName] = React.useState<string>();
     const [runTime, setRunTime] = React.useState<number>();
+    const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
 
     const [titlePill, setTitlePill] = React.useState<React.ReactNode>(null);
 
     useEffect(() => {
+        const sourceName = data?.executionRequest?.source?.name;
+        const time = data?.executionRequest?.result?.startTimeMs;
+        if (sourceName) {
+            setName(sourceName);
+        }
+        if (time) {
+            setRunTime(time);
+        }
+    }, [data]);
+
+    useEffect(() => {
         if (state?.fromUrl) {
             setFromUrl(state.fromUrl);
-        }
-        if (state?.name) {
-            setName(state.name);
-        }
-        if (state?.runTime) {
-            setRunTime(state.runTime);
         }
     }, [state]);
 
@@ -44,23 +52,37 @@ export default function IngestionRunDetailsPage() {
             items={[
                 {
                     label: fromUrl === tabUrlMap[TabType.RunHistory] ? 'Run history' : 'Manage Data Sources',
-                    href: fromUrl,
+                    href: fromUrl ?? tabUrlMap[TabType.Sources],
                     separator: <VerticalDivider type="vertical" />,
                 },
-                {
-                    label: name,
-                },
-                {
-                    label: formatDateTime(runTime),
-                    isCurrent: true,
-                },
+                ...(name
+                    ? [
+                          {
+                              label: name,
+                          },
+                      ]
+                    : []),
+                ...(runTime
+                    ? [
+                          {
+                              label: formatDateTime(runTime),
+                          },
+                      ]
+                    : []),
             ]}
         />
     );
 
     return (
         <PageLayout title="Run Details" titlePill={titlePill} rightPanelContent={<AIChat />} topBreadcrumb={breadCrumb}>
-            <RunDetailsContent urn={urn} setTitlePill={setTitlePill} />
+            <RunDetailsContent
+                urn={urn}
+                data={data}
+                refetch={refetch}
+                loading={loading}
+                error={error}
+                setTitlePill={setTitlePill}
+            />
         </PageLayout>
     );
 }

@@ -591,19 +591,14 @@ export const IngestionSourceList = ({
     const handleSetFocusExecutionUrn = useCallback(
         (val) => {
             if (showIngestionOnboardingRedesignV1) {
-                const selectedSource = finalSources.find(
-                    (source) => source.executions?.executionRequests?.[0]?.urn === val,
-                );
                 history.push(PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', val), {
                     fromUrl: tabUrlMap[TabType.Sources],
-                    name: selectedSource?.name,
-                    runTime: selectedSource?.executions?.executionRequests?.[0]?.result?.startTimeMs,
                 });
             } else {
                 setFocusExecutionUrn(val);
             }
         },
-        [finalSources, history, showIngestionOnboardingRedesignV1],
+        [history, showIngestionOnboardingRedesignV1],
     );
 
     return (

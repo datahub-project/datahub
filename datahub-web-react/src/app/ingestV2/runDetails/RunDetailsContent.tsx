@@ -1,4 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { ApolloError } from '@apollo/client';
 import { Icon, Pill } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -21,7 +22,7 @@ import {
 } from '@app/ingestV2/executions/utils';
 import { Message } from '@app/shared/Message';
 
-import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
+import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
 
 const ContentWrapper = styled.div`
@@ -32,11 +33,14 @@ const ContentWrapper = styled.div`
 
 interface Props {
     urn: string;
+    data: GetIngestionExecutionRequestQuery | undefined;
+    loading?: boolean;
+    error?: ApolloError;
+    refetch: () => void;
     setTitlePill?: (pill: React.ReactNode) => void;
 }
 
-export default function RunDetailsContent({ urn, setTitlePill }: Props) {
-    const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
+export default function RunDetailsContent({ urn, data, loading, error, refetch, setTitlePill }: Props) {
     const location = useLocation();
     const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
     const status = getIngestionSourceStatus(result);
@@ -63,7 +67,6 @@ export default function RunDetailsContent({ urn, setTitlePill }: Props) {
 
     useEffect(() => {
         sendAnalyticsTabViewedEvent(TabType.Summary);
-
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

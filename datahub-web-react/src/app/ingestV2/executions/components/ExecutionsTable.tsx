@@ -87,17 +87,14 @@ export default function ExecutionsTable({
     const hadleViewDetails = useCallback(
         (urn: string) => {
             if (showIngestionOnboardingRedesignV1) {
-                const selectedRequest = executionRequests.find((request) => request.urn === urn);
                 history.push(PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', urn), {
                     fromUrl: tabUrlMap[TabType.RunHistory],
-                    name: selectedRequest?.source?.name,
-                    runTime: selectedRequest?.result?.startTimeMs,
                 });
             } else {
                 setFocusExecutionUrn(urn);
             }
         },
-        [executionRequests, history, setFocusExecutionUrn, showIngestionOnboardingRedesignV1],
+        [history, setFocusExecutionUrn, showIngestionOnboardingRedesignV1],
     );
 
     const tableColumns: Column<ExecutionRequestRecord>[] = [
