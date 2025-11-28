@@ -1255,7 +1255,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   private Action convertAliasAction(IndicesAliasesRequest.AliasActions aliasAction) {
     try {
       String jsonString =
-          aliasAction.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).toString();
+          aliasAction
+              .toXContent(XContentFactory.jsonBuilder().startObject(), ToXContent.EMPTY_PARAMS)
+              .toString();
       return Action.of(
           q ->
               q.withJson(
@@ -1755,12 +1757,20 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   private FieldSuggester convertSuggestion(SuggestionBuilder<?> suggestionBuilder) {
-    String jsonString = suggestionBuilder.toString();
-    return FieldSuggester.of(
-        q ->
-            q.withJson(
-                jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
-                jacksonJsonpMapper));
+    try {
+      String jsonString =
+          suggestionBuilder
+              .toXContent(XContentFactory.jsonBuilder().startObject(), ToXContent.EMPTY_PARAMS)
+              .endObject()
+              .toString();
+      return FieldSuggester.of(
+          q ->
+              q.withJson(
+                  jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
+                  jacksonJsonpMapper));
+    } catch (IOException ie) {
+      throw new RuntimeException("Failed to convert suggestion builder to JSON", ie);
+    }
   }
 
   private TypeMapping convertTypeMapping(BytesReference mappings) {
