@@ -80,6 +80,16 @@
     displayName: Dagster
     type: OTHERS
     logoUrl: "assets/platforms/dagsterlogo.svg"
+- entityUrn: urn:li:dataPlatform:dataplex
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dataplex
+    displayName: Dataplex
+    type: OTHERS
+    logoUrl: "assets/platforms/dataplexlogo.svg"
 - entityUrn: urn:li:dataPlatform:external
   entityType: dataPlatform
   aspectName: dataPlatformInfo
