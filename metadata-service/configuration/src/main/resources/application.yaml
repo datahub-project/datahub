@@ -308,6 +308,7 @@ visualConfig:
     showSidebarSectionWhenEmpty: ${APPLICATION_SHOW_SIDEBAR_SECTION_WHEN_EMPTY:false}
   searchResult:
     enableNameHighlight: ${SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED:true} # Enables visual highlighting on search result names/descriptions.
+  tokenNoExpiry: ${ALLOW_NO_EXPIRY_TOKENS:true}
 
 # Storage Layer
 

@@ -9,6 +9,7 @@ export const ACCESS_TOKEN_DURATIONS = [
     { text: '1 day', duration: AccessTokenDuration.OneDay },
     { text: '1 month', duration: AccessTokenDuration.OneMonth },
     { text: '3 months', duration: AccessTokenDuration.ThreeMonths },
+    { text: '1 year', duration: AccessTokenDuration.OneYear },
     { text: 'Never', duration: AccessTokenDuration.NoExpiry },
 ];
 
@@ -34,6 +35,8 @@ export const getTokenExpireDate = (duration: AccessTokenDuration) => {
             return addDays(30);
         case AccessTokenDuration.ThreeMonths:
             return addDays(90);
+        case AccessTokenDuration.OneYear:
+            return addDays(365);
         case AccessTokenDuration.NoExpiry:
             return 'This token will never expire.';
         default:

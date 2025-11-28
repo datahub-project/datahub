@@ -103,6 +103,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final AuthConfig authConfig = new AuthConfig();
     authConfig.setTokenAuthEnabled(_authenticationConfiguration.isEnabled());
+    authConfig.setTokenNoExpiry(_authenticationConfiguration.isTokenNoExpiry());
 
     final PoliciesConfig policiesConfig = new PoliciesConfig();
     policiesConfig.setEnabled(_authorizationConfiguration.getDefaultAuthorizer().isEnabled());
