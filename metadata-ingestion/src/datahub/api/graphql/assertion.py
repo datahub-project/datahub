@@ -76,16 +76,13 @@ fragment runAssertionResult on RunAssertionResult {
   result { ... assertionResult }
 }"""
 
-    RUN_ASSERTION_MUTATION: str = (
-        """
+    RUN_ASSERTION_MUTATION: str = """
 %s
 mutation runAssertion($urn: String!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean) {
   runAssertion(urn: $urn, saveResult: $saveResult, parameters: $parameters, async: $async) {
     ... assertionResult
   }
-}"""
-        % ASSERTION_RESULT_FRAGMENT
-    )
+}""" % ASSERTION_RESULT_FRAGMENT
 
     RUN_ASSERTIONS_MUTATION: str = """
 %s
