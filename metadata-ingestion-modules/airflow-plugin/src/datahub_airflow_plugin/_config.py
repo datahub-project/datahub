@@ -176,7 +176,9 @@ def get_lineage_config() -> DatahubLineageConfig:
     # Use new task URL format for Airflow 3.x, old taskinstance format for Airflow 2.x
     # Airflow 3 changed URL structure: /dags/{dag_id}/tasks/{task_id} instead of /taskinstance/list/...
     default_datajob_url = (
-        DatajobUrl.TASKS.value if IS_AIRFLOW_3_OR_HIGHER else DatajobUrl.TASKINSTANCE.value
+        DatajobUrl.TASKS.value
+        if IS_AIRFLOW_3_OR_HIGHER
+        else DatajobUrl.TASKINSTANCE.value
     )
     datajob_url_link = conf.get(
         "datahub", "datajob_url_link", fallback=default_datajob_url
