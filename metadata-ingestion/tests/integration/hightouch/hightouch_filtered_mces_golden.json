@@ -1,0 +1,290 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hightouch"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "model_id": "model_1",
+                "query_type": "raw_sql",
+                "is_schema": "False",
+                "primary_key": "customer_id",
+                "source_id": "source_1",
+                "source_name": "Production Snowflake",
+                "source_type": "snowflake",
+                "tag_team": "growth",
+                "tag_priority": "high"
+            },
+            "name": "Customer 360 Model",
+            "description": "Unified customer view from multiple sources",
+            "created": {
+                "time": 1672531200000
+            },
+            "lastModified": {
+                "time": 1672617600000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hightouch"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "customers-to-salesforce",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hightouch"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sync_id": "sync_1",
+                "model_id": "model_1",
+                "destination_id": "dest_1",
+                "disabled": "False",
+                "schedule": "{'type': 'interval', 'interval': 3600}",
+                "model_name": "Customer 360 Model",
+                "model_slug": "customer-360-model",
+                "query_type": "raw_sql",
+                "model_description": "Unified customer view from multiple sources",
+                "destination_name": "Salesforce Production",
+                "destination_type": "salesforce"
+            },
+            "name": "customers-to-salesforce",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)"
+            ],
+            "outputDatasets": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hightouch"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "model_id": "model_2",
+                "query_type": "table",
+                "is_schema": "False",
+                "primary_key": "event_id",
+                "source_id": "source_1",
+                "source_name": "Production Snowflake",
+                "source_type": "snowflake"
+            },
+            "name": "Product Events",
+            "description": "Product usage events",
+            "created": {
+                "time": 1672531200000
+            },
+            "lastModified": {
+                "time": 1672617600000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "sync_1",
+                    "urn": "urn:li:dataFlow:(hightouch,sync_1,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
