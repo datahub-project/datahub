@@ -176,7 +176,7 @@ def create_freshness_assertions(datasets, client, registry):
             # Store the assertion URN for future reference
             registry["freshness"][str(dataset_urn)] = str(freshness_assertion.urn)
 
-            print(f"✅ Created freshness assertion for {dataset_urn.name}: {freshness_assertion.urn}")
+            print(f"Created freshness assertion for {dataset_urn.name}: {freshness_assertion.urn}")
 
         except Exception as e:
             print(f"❌ Failed to create freshness assertion for {dataset_urn.name}: {e}")
@@ -212,7 +212,7 @@ def create_volume_assertions(datasets, client, registry):
             # Store the assertion URN
             registry["volume"][str(dataset_urn)] = str(volume_assertion.urn)
 
-            print(f"✅ Created volume assertion for {dataset_urn.name}: {volume_assertion.urn}")
+            print(f"Created volume assertion for {dataset_urn.name}: {volume_assertion.urn}")
 
         except Exception as e:
             print(f"❌ Failed to create volume assertion for {dataset_urn.name}: {e}")
@@ -248,7 +248,7 @@ dataset_columns = {}
 for dataset_urn in datasets:
     columns = get_dataset_columns(client, dataset_urn)
     dataset_columns[str(dataset_urn)] = columns
-    print(f"📊 Found {len(columns)} columns in {dataset_urn.name}")
+    print(f"Found {len(columns)} columns in {dataset_urn.name}")
 ```
 
 ## Step 4: Create Column-Level Assertions
@@ -321,7 +321,7 @@ def create_column_assertions(datasets, columns_dict, client, registry):
                             registry["column_metrics"][dataset_key][column_name] = {}
                         registry["column_metrics"][dataset_key][column_name][rule_name] = str(assertion.urn)
 
-                        print(f"✅ Created {rule_name} assertion for {dataset_urn.name}.{column_name}")
+                        print(f"Created {rule_name} assertion for {dataset_urn.name}.{column_name}")
 
                     except Exception as e:
                         print(f"❌ Failed to create {rule_name} assertion for {dataset_urn.name}.{column_name}: {e}")
@@ -383,7 +383,7 @@ def save_assertion_registry(registry, filename=None):
     with open(filename, 'w') as f:
         json.dump(registry_with_metadata, f, indent=2)
 
-    print(f"💾 Saved assertion registry to {filename}")
+    print(f"Saved assertion registry to {filename}")
     return filename
 
 # Save the registry
@@ -602,7 +602,7 @@ def main():
     print("\n📋 Creating freshness assertions...")
     create_freshness_assertions(datasets, client, assertion_registry)
 
-    print("\n📊 Creating volume assertions...")
+    print("\nCreating volume assertions...")
     create_volume_assertions(datasets, client, assertion_registry)
 
     # Step 2: Get column information and create column assertions
@@ -615,7 +615,7 @@ def main():
     create_column_assertions(datasets, dataset_columns, client, assertion_registry)
 
     # Step 3: Save results
-    print("\n💾 Saving assertion registry...")
+    print("\nSaving assertion registry...")
     registry_file = save_assertion_registry(assertion_registry)
 
     # Summary
@@ -625,12 +625,12 @@ def main():
         sum(len(cols) for cols in assertion_registry["column_metrics"].values())
     )
 
-    print(f"\n✅ Bulk assertion creation complete!")
-    print(f"   📈 Total assertions created: {total_assertions}")
-    print(f"   🕐 Freshness assertions: {len(assertion_registry['freshness'])}")
-    print(f"   📊 Volume assertions: {len(assertion_registry['volume'])}")
-    print(f"   🎯 Column assertions: {sum(len(cols) for cols in assertion_registry['column_metrics'].values())}")
-    print(f"   💾 Registry saved to: {registry_file}")
+    print(f"\nBulk assertion creation complete!")
+    print(f"   Total assertions created: {total_assertions}")
+    print(f"   Freshness assertions: {len(assertion_registry['freshness'])}")
+    print(f"   Volume assertions: {len(assertion_registry['volume'])}")
+    print(f"   Column assertions: {sum(len(cols) for cols in assertion_registry['column_metrics'].values())}")
+    print(f"   Registry saved to: {registry_file}")
 
 if __name__ == "__main__":
     main()

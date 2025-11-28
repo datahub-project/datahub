@@ -1,0 +1,297 @@
+.exerciseContainer {
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--ifm-border-radius);
+  box-shadow: var(--ifm-shadow-md);
+  margin: 24px 0;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.exerciseContainer:hover {
+  box-shadow: var(--ifm-shadow-lg);
+  border-color: var(--ifm-color-primary-light);
+}
+
+.exerciseHeader {
+  background: linear-gradient(
+    135deg,
+    var(--ifm-color-emphasis-100) 0%,
+    var(--ifm-background-color) 100%
+  );
+  border-bottom: 1px solid var(--ifm-color-emphasis-300);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.typeIcon {
+  width: 40px;
+  height: 40px;
+  background: var(--ifm-color-primary);
+  color: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.titleSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exerciseTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ifm-font-color-base);
+  line-height: 1.3;
+}
+
+.metadata {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.difficulty {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.timeEstimate {
+  font-size: 12px;
+  color: var(--ifm-color-emphasis-700);
+  background: var(--ifm-color-emphasis-200);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.platform {
+  font-size: 12px;
+  color: var(--ifm-color-primary);
+  background: var(--ifm-color-primary-lightest);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.exerciseContent {
+  padding: 20px;
+}
+
+/* Search Exercise Styles */
+.searchList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.searchItem {
+  background: var(--ifm-color-emphasis-100);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.searchItem:hover {
+  background: var(--ifm-background-color);
+  border-color: var(--ifm-color-primary-light);
+}
+
+.searchQuery {
+  margin-bottom: 8px;
+}
+
+.searchQuery code {
+  background: var(--ifm-color-primary-dark);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-block;
+  min-width: 200px;
+}
+
+.searchDescription {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 14px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.searchExpected {
+  color: var(--ifm-font-color-base);
+  font-size: 13px;
+  background: var(--ifm-color-success-lightest);
+  padding: 6px 10px;
+  border-radius: 4px;
+  border-left: 3px solid var(--ifm-color-success);
+}
+
+/* Hands-On Exercise Styles */
+.stepsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stepItem {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.stepNumber {
+  width: 28px;
+  height: 28px;
+  background: var(--ifm-color-primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.stepContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stepTitle {
+  font-weight: 600;
+  color: var(--ifm-font-color-base);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.stepDescription {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.stepCode {
+  background: var(--ifm-color-emphasis-900);
+  color: white;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+/* Interactive Demo Styles */
+.interactiveContent {
+  background: linear-gradient(
+    135deg,
+    var(--ifm-color-primary-lightest) 0%,
+    var(--ifm-background-color) 100%
+  );
+  border: 1px solid var(--ifm-color-primary-light);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .exerciseHeader {
+    padding: 12px 16px;
+  }
+
+  .headerLeft {
+    gap: 8px;
+  }
+
+  .typeIcon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .exerciseTitle {
+    font-size: 14px;
+  }
+
+  .exerciseContent {
+    padding: 16px;
+  }
+
+  .metadata {
+    gap: 6px;
+  }
+
+  .searchQuery code {
+    min-width: auto;
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+
+  .stepItem {
+    gap: 8px;
+  }
+
+  .stepNumber {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+}
+
+/* Dark mode support */
+[data-theme="dark"] .exerciseContainer {
+  background: var(--ifm-background-surface-color);
+  border-color: var(--ifm-color-emphasis-300);
+}
+
+[data-theme="dark"] .exerciseHeader {
+  background: linear-gradient(
+    135deg,
+    var(--ifm-color-emphasis-200) 0%,
+    var(--ifm-background-surface-color) 100%
+  );
+  border-bottom-color: var(--ifm-color-emphasis-300);
+}
+
+[data-theme="dark"] .searchItem {
+  background: var(--ifm-color-emphasis-200);
+  border-color: var(--ifm-color-emphasis-300);
+}
+
+[data-theme="dark"] .searchItem:hover {
+  background: var(--ifm-color-emphasis-300);
+}
+
+[data-theme="dark"] .interactiveContent {
+  background: linear-gradient(
+    135deg,
+    var(--ifm-color-primary-dark) 0%,
+    var(--ifm-background-surface-color) 100%
+  );
+}

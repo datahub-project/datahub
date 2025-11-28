@@ -10,7 +10,7 @@ export function FilterPage(
   subtitle,
   allowExclusivity = false,
   useTags = false,
-  useFilters = false
+  useFilters = false,
 ) {
   const [textState, setTextState] = React.useState("");
   const [filterState, setFilterState] = React.useState([]);
@@ -79,7 +79,7 @@ export function FilterPage(
         item.title.toLowerCase().includes(textState.toLowerCase()) ||
         item.description.toLowerCase().includes(textState.toLowerCase())
       );
-    }
+    },
   );
 
   return (

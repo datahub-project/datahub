@@ -1,5 +1,8 @@
 import React from "react";
-import { useVersions, useActiveDocContext } from "@docusaurus/plugin-content-docs/client";
+import {
+  useVersions,
+  useActiveDocContext,
+} from "@docusaurus/plugin-content-docs/client";
 import { useDocsPreferredVersion } from "@docusaurus/theme-common";
 import { useDocsVersionCandidates } from "@docusaurus/theme-common/internal";
 import { translate } from "@docusaurus/Translate";
@@ -9,7 +12,8 @@ import DropdownNavbarItem from "@theme/NavbarItem/DropdownNavbarItem";
 
 import styles from "./styles.module.scss";
 
-const getVersionMainDoc = (version) => version.docs.find((doc) => doc.id === version.mainDocId);
+const getVersionMainDoc = (version) =>
+  version.docs.find((doc) => doc.id === version.mainDocId);
 
 export default function DocsVersionDropdownNavbarItem({
   mobile,
@@ -24,7 +28,9 @@ export default function DocsVersionDropdownNavbarItem({
   const versions = useVersions(docsPluginId);
   const { savePreferredVersionName } = useDocsPreferredVersion(docsPluginId);
   const versionLinks = versions.map((version) => {
-    const versionDoc = activeDocContext.alternateDocVersions[version.name] ?? getVersionMainDoc(version);
+    const versionDoc =
+      activeDocContext.alternateDocVersions[version.name] ??
+      getVersionMainDoc(version);
     return {
       label: version.label,
       to: `${versionDoc.path}${search}${hash}`,
@@ -33,18 +39,25 @@ export default function DocsVersionDropdownNavbarItem({
     };
   });
 
-
-  const items = [...dropdownItemsBefore, ...versionLinks, ...dropdownItemsAfter];
+  const items = [
+    ...dropdownItemsBefore,
+    ...versionLinks,
+    ...dropdownItemsAfter,
+  ];
   const dropdownVersion = useDocsVersionCandidates(docsPluginId)[0];
   const dropdownLabel =
     mobile && items.length > 1
       ? translate({
           id: "theme.navbar.mobileVersionsDropdown.label",
           message: "Versions",
-          description: "The label for the navbar versions dropdown on mobile view",
+          description:
+            "The label for the navbar versions dropdown on mobile view",
         })
       : dropdownVersion.label;
-  const dropdownTo = mobile && items.length > 1 ? undefined : getVersionMainDoc(dropdownVersion).path;
+  const dropdownTo =
+    mobile && items.length > 1
+      ? undefined
+      : getVersionMainDoc(dropdownVersion).path;
 
   if (items.length <= 1) {
     return (

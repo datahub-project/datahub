@@ -13,7 +13,9 @@
       padding: 0;
       margin: 0;
     }
-    .hash-link { display: none; }
+    .hash-link {
+      display: none;
+    }
   }
 
   .h3-block {
@@ -29,12 +31,28 @@
       font-size: 1rem;
       border-bottom: 1px solid var(--ifm-hr-border-color);
 
-      .class-text { color: #aaa; margin-right: 0.3rem; }
-      .class-owner { color: var(--ifm-font-color-secondary); }
-      .class-name { color: var(--ifm-color-primary); font-weight: 700; }
-      .arg-name { color: var(--ifm-font-color-base); font-weight: 600; }
-      .arg-type { color: gray; }
-      .arg-default { color: #999; font-weight: 600; }
+      .class-text {
+        color: #aaa;
+        margin-right: 0.3rem;
+      }
+      .class-owner {
+        color: var(--ifm-font-color-secondary);
+      }
+      .class-name {
+        color: var(--ifm-color-primary);
+        font-weight: 700;
+      }
+      .arg-name {
+        color: var(--ifm-font-color-base);
+        font-weight: 600;
+      }
+      .arg-type {
+        color: gray;
+      }
+      .arg-default {
+        color: #999;
+        font-weight: 600;
+      }
     }
 
     p {
@@ -42,26 +60,25 @@
     }
 
     h4 {
-      background: #FAFAFA;
+      background: #fafafa;
       font-family: var(--ifm-font-family-monospace);
       padding: 1rem 1.5rem;
       margin: 0;
       font-weight: 600;
       border-top: 1px solid var(--ifm-hr-border-color);
       border-bottom: 1px solid var(--ifm-hr-border-color);
-      color: #444;  
-    
+      color: #444;
+
       em {
         color: gray;
-        font-style: normal; 
+        font-style: normal;
       }
     }
-    
 
     ul {
       margin: 0;
       padding: 1rem 2rem;
-      background: #FDFDFD;
+      background: #fdfdfd;
 
       li {
         display: flex;
@@ -78,7 +95,7 @@
           font-family: var(--ifm-font-family-monospace);
           font-weight: 400;
           color: #444;
-          background: #F5F5F5;
+          background: #f5f5f5;
           padding: 0.15rem 0.4rem;
           border-radius: 4px;
           margin-left: 0.5rem;
@@ -87,7 +104,8 @@
     }
 
     // pre code block (full examples)
-    pre code, pre code * {
+    pre code,
+    pre code * {
       color: var(--ifm-font-color-secondary);
       padding: 1rem;
       margin: 0;
@@ -96,7 +114,7 @@
     }
 
     code {
-      background-color: #F5F5F5;
+      background-color: #f5f5f5;
       padding: 0.1rem 0.4rem;
       margin: auto 0.2rem;
       font-size: 0.9em;
