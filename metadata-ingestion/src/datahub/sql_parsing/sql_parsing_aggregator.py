@@ -401,6 +401,7 @@ class SqlParsingAggregator(Closeable):
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
+        prefer_lowercase: Optional[bool] = None,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
@@ -461,6 +462,7 @@ class SqlParsingAggregator(Closeable):
                     platform_instance=self.platform_instance,
                     env=self.env,
                     graph=graph,
+                    prefer_lowercase=prefer_lowercase,
                 )
             )
         # Schema resolver for special case (_MISSING_SESSION_ID)
