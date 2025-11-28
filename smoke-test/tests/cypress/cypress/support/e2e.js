@@ -39,3 +39,15 @@ beforeEach(function () {
     }
   }
 });
+
+afterEach(() => {
+  cy.window().then((win) => {
+    const browserMemoryUsage = {
+      usedJSHeapSize: win.performance?.memory?.usedJSHeapSize,
+      totalJSHeapSize: win.performance?.memory?.totalJSHeapSize,
+      jsHeapSizeLimit: win.performance?.memory?.jsHeapSizeLimit,
+    };
+
+    cy.task("logMemoryUsage", browserMemoryUsage);
+  });
+});

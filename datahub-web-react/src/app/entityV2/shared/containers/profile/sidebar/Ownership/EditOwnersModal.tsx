@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Empty, Form, Modal, Select, Tag, Typography, message } from 'antd';
-import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -10,6 +10,7 @@ import { handleBatchError } from '@app/entityV2/shared/utils';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { addUserFiltersToAutoCompleteInput } from '@app/shared/userSearchUtils';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
@@ -20,7 +21,6 @@ import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { getModalDomContainer } from '@src/utils/focus';
 
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
 import { CorpUser, DataHubPageModuleType, Entity, EntityType, OwnerEntityType } from '@types';
 
@@ -90,7 +90,7 @@ export const EditOwnersModal = ({
             (entity.type === EntityType.CorpUser && (entity as CorpUser).editableProperties?.pictureLink) || undefined;
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
         return (
-            <Select.Option value={entity.urn} key={entity.urn} data-testid={`owner-${displayName}`}>
+            <Select.Option value={entity.urn} key={entity.urn} data-testid={`owner-option-${displayName}`}>
                 <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
             </Select.Option>
         );
@@ -118,14 +118,8 @@ export const EditOwnersModal = ({
     const [inputValue, setInputValue] = useState('');
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
-    const { data: ownershipTypesData, loading: ownershipTypesLoading } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
-    const ownershipTypes = useMemo(() => {
-        return ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    }, [ownershipTypesData]);
+
+    const { ownershipTypes, loading: ownershipTypesLoading } = useOwnershipTypes();
 
     const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(
         defaultValuesToSelectedOwners(defaultValues || []),

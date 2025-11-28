@@ -54,7 +54,7 @@ _INCLUDE_ENV_IN_CONTAINER_PROPERTIES = get_boolean_env_variable(
 
 class DatahubKey(BaseModel):
     def guid_dict(self) -> Dict[str, str]:
-        return self.dict(by_alias=True, exclude_none=True)
+        return self.model_dump(by_alias=True, exclude_none=True)
 
     def guid(self) -> str:
         bag = self.guid_dict()
@@ -76,7 +76,7 @@ class ContainerKey(DatahubKey):
     backcompat_env_as_instance: bool = Field(default=False, exclude=True)
 
     def guid_dict(self) -> Dict[str, str]:
-        bag = self.dict(by_alias=True, exclude_none=True, exclude={"env"})
+        bag = self.model_dump(by_alias=True, exclude_none=True, exclude={"env"})
 
         if (
             self.backcompat_env_as_instance
@@ -88,7 +88,7 @@ class ContainerKey(DatahubKey):
         return bag
 
     def property_dict(self) -> Dict[str, str]:
-        return self.dict(by_alias=True, exclude_none=True)
+        return self.model_dump(by_alias=True, exclude_none=True)
 
     def as_urn_typed(self) -> ContainerUrn:
         return ContainerUrn.from_string(self.as_urn())
