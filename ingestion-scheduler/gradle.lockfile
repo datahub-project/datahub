@@ -4,9 +4,9 @@
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 aopalliance:aopalliance:1.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 ch.qos.logback:logback-classic:1.2.13=compileClasspath,testCompileClasspath
-ch.qos.logback:logback-classic:1.5.19=runtimeClasspath,testRuntimeClasspath
+ch.qos.logback:logback-classic:1.5.21=runtimeClasspath,testRuntimeClasspath
 ch.qos.logback:logback-core:1.2.13=compileClasspath,testCompileClasspath
-ch.qos.logback:logback-core:1.5.19=runtimeClasspath,testRuntimeClasspath
+ch.qos.logback:logback-core:1.5.21=runtimeClasspath,testRuntimeClasspath
 co.elastic.clients:elasticsearch-java:8.17.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.beust:jcommander:1.82=testCompileClasspath,testRuntimeClasspath
 com.datastax.oss:native-protocol:1.5.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath

@@ -2,13 +2,20 @@ import unittest
 from typing import Union
 from unittest.mock import MagicMock, call, patch
 
+import pytest
+
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.kafka_emitter import MCE_KEY
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import SinkReport, WriteCallback
-from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink, _KafkaCallback
+from datahub.ingestion.sink.datahub_kafka import (
+    DatahubKafkaSink,
+    KafkaSinkConfig,
+    _KafkaCallback,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -122,3 +129,66 @@ class KafkaSinkTest(unittest.TestCase):
         callback.kafka_callback(None, mock_message)
         mock_w_callback.on_success.assert_called_once()
         assert mock_w_callback.on_success.call_args[0][0] == mock_re
+
+
+def test_kafka_sink_producer_config_without_oauth_cb():
+    """Test that standard producer_config works without oauth_cb (no breaking change)"""
+    # Verify backward compatibility: existing configs without oauth_cb continue to work
+    config = KafkaSinkConfig.model_validate(
+        {
+            "connection": {
+                "bootstrap": "foobar:9092",
+                "producer_config": {
+                    "security.protocol": "SASL_SSL",
+                    "sasl.mechanism": "PLAIN",
+                },
+            }
+        }
+    )
+
+    assert config.connection.producer_config["security.protocol"] == "SASL_SSL"
+    assert config.connection.producer_config["sasl.mechanism"] == "PLAIN"
+    assert "oauth_cb" not in config.connection.producer_config
+
+
+def test_kafka_sink_producer_config_with_oauth_cb():
+    """Test that producer_config properly resolves oauth_cb string to callable"""
+    # This verifies the new oauth_cb functionality works for producers
+    config = KafkaSinkConfig.model_validate(
+        {
+            "connection": {
+                "bootstrap": "foobar:9092",
+                "producer_config": {
+                    "security.protocol": "SASL_SSL",
+                    "sasl.mechanism": "OAUTHBEARER",
+                    "oauth_cb": "tests.integration.kafka.oauth:create_token",
+                },
+            }
+        }
+    )
+
+    # Verify oauth_cb was resolved from string to callable function
+    assert callable(config.connection.producer_config["oauth_cb"])
+    assert config.connection.producer_config["security.protocol"] == "SASL_SSL"
+
+
+def test_kafka_sink_oauth_cb_rejects_callable():
+    """Test that oauth_cb in producer_config must be a string, not a direct callable"""
+    # Edge case: Passing a callable directly (instead of string path) should fail
+    with pytest.raises(
+        ConfigurationError,
+        match=(
+            "oauth_cb must be a string representing python function reference "
+            "in the format <python-module>:<function-name>."
+        ),
+    ):
+        KafkaSinkConfig.model_validate(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "producer_config": {
+                        "oauth_cb": test_kafka_sink_producer_config_without_oauth_cb
+                    },
+                }
+            }
+        )
