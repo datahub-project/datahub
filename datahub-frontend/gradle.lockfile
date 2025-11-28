@@ -4,8 +4,8 @@
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 aopalliance:aopalliance:1.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 args4j:args4j:2.0.26=javaScriptCompiler
-ch.qos.logback:logback-classic:1.5.19=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-ch.qos.logback:logback-core:1.5.19=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+ch.qos.logback:logback-classic:1.5.21=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+ch.qos.logback:logback-core:1.5.21=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.azure:azure-core-http-netty:1.16.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.azure:azure-core:1.57.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.azure:azure-identity-extensions:1.2.6=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
