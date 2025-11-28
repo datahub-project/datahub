@@ -7,19 +7,20 @@ import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '@graphq
  */
 export const mergeSources = (updatedSource, existingSources, shouldReplace = false) => {
     let found = false;
-    const merged = existingSources.map((source) => {
-        if (source.urn === updatedSource.urn) {
-            found = true;
-            return shouldReplace
-                ? updatedSource
-                : deepmerge(source, updatedSource, {
-                      // arrays should be replaced insted of merging
-                      // e.g. owners in ownership
-                      arrayMerge: (_destinationArray, sourceArray, _options) => sourceArray,
-                  });
-        }
-        return source;
-    });
+    const merged =
+        existingSources?.map((source) => {
+            if (source.urn === updatedSource.urn) {
+                found = true;
+                return shouldReplace
+                    ? updatedSource
+                    : deepmerge(source, updatedSource, {
+                          // arrays should be replaced insted of merging
+                          // e.g. owners in ownership
+                          arrayMerge: (_destinationArray, sourceArray, _options) => sourceArray,
+                      });
+            }
+            return source;
+        }) ?? [];
     return found ? merged : [updatedSource, ...merged];
 };
 
