@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Union
+from typing import Any, Union
 
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -23,7 +23,7 @@ class _KafkaCallback:
     record_envelope: RecordEnvelope
     write_callback: WriteCallback
 
-    def kafka_callback(self, err, msg) -> None:
+    def kafka_callback(self, err: Any, msg: Any) -> None:
         """
         Kafka delivery callback.
         Args:
