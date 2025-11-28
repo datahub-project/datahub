@@ -18,7 +18,6 @@ import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
 import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
-import { ManageIngestionPage as ManageIngestionPageV2 } from '@app/ingestV2/ManageIngestionPage';
 import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
 import { SearchPage } from '@app/search/SearchPage';
 import { SearchablePage } from '@app/search/SearchablePage';

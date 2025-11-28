@@ -25,6 +25,7 @@
         "@remirror/pm": "^2.0.3",
         "@remirror/react": "^2.0.24",
         "@remirror/styles": "^2.0.3",
+        "@tanstack/react-query": "^4.36.1",
         "@testing-library/jest-dom": "^6.1.4",
         "@testing-library/react": "^12.0.0",
         "@testing-library/react-hooks": "^8.0.1",

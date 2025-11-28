@@ -175,7 +175,7 @@ export const NavSidebar = () => {
     })) as NavBarMenuDropdownItemElement[];
 
     // --- MFE YAML CONFIG ---
-    const mfeConfig: any = useMFEConfigFromBackend();
+    const { data: mfeConfig } = useMFEConfigFromBackend();
 
     // MFE section (dropdown or spread)
     let mfeSection: any[] = [];

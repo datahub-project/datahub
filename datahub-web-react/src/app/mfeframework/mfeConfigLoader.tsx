@@ -1,5 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
 import yaml from 'js-yaml';
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Route } from 'react-router';
 
 import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
@@ -93,42 +94,49 @@ export function loadMFEConfigFromYAML(yamlString: string): MFESchema {
     }
 }
 
-export function useMFEConfigFromBackend(): MFESchema | null {
-    const [config, setConfig] = useState<MFESchema | null>(null);
-
-    useEffect(() => {
-        async function fetchConfig() {
-            try {
-                const response = await fetch('/api/mfe/config');
-                if (!response.ok) throw new Error(`Failed to fetch YAML: ${response.statusText}`);
-                const yamlText = await response.text();
-
-                console.log('[MFE Loader] Fetched YAML: ', yamlText);
-                const parsedConfig = loadMFEConfigFromYAML(yamlText);
-                setConfig(parsedConfig);
-            } catch (e) {
-                console.error('[MFE Loader] Config error:', e);
-                setConfig(null);
-            }
-        }
-        fetchConfig();
-    }, []);
-
-    return config;
+/**
+ * fetchMFEConfig:
+ * - Fetches and parses the MFE configuration from the backend.
+ * - Returns the parsed and validated MFESchema.
+ */
+async function fetchMFEConfig(): Promise<MFESchema> {
+    const response = await fetch('/api/mfe/config');
+    if (!response.ok) throw new Error(`Failed to fetch YAML: ${response.statusText}`);
+    const yamlText = await response.text();
+    console.log('[MFE Loader] Fetched YAML: ', yamlText);
+    return loadMFEConfigFromYAML(yamlText);
 }
 
-export function useDynamicRoutes(): JSX.Element[] {
-    const mfeConfig = useMFEConfigFromBackend();
-    if (!mfeConfig) return [];
-    // TODO- Reintroduce useMemo() hook here. Make it work with getting yaml from api as a react hook.
-    return mfeConfig.microFrontends.map((mfe) => (
-        <Route key={mfe.path} path={`/mfe${mfe.path}`} render={() => <MFEBaseConfigurablePage config={mfe} />} />
-    ));
+/**
+ * useMFEConfigFromBackend:
+ * - Uses TanStack Query to fetch and cache the MFE configuration.
+ * - Returns data, isLoading, and error states.
+ */
+export function useMFEConfigFromBackend() {
+    const { data, isLoading, error } = useQuery({
+        queryKey: ['mfeConfig'],
+        queryFn: fetchMFEConfig,
+        staleTime: 10 * 60 * 1000, // 10 minutes - MFE config rarely changes
+    });
+
+    return { data, isLoading, error };
 }
 
-// Constant to store the dynamic routes hook
+export function useDynamicRoutes() {
+    const { data: mfeConfig, isLoading, error } = useMFEConfigFromBackend();
+
+    const routes = useMemo(() => {
+        if (!mfeConfig) return [];
+        return mfeConfig.microFrontends.map((mfe) => (
+            <Route key={mfe.path} path={`/mfe${mfe.path}`} render={() => <MFEBaseConfigurablePage config={mfe} />} />
+        ));
+    }, [mfeConfig]);
+
+    return { routes, isLoading, error };
+}
+
 export const MFERoutes = () => {
-    const routes = useDynamicRoutes();
+    const { routes } = useDynamicRoutes();
     console.log('[DynamicRoute] Generated Routes:', routes);
     return <>{routes}</>;
 };
