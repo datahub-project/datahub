@@ -896,6 +896,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // forUpdate is required to avoid duplicate key violations (it is used as an indication that the
     // max(version) was invalidated
     if (canWrite) {
+      // Sorting is required to ensure consistent lock ordering and avoid deadlocks
+      Collections.sort(forUpdateKeys);
       server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).forUpdate().findList();
     }
 
