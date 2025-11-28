@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 # This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
@@ -14,7 +14,7 @@ import sqlalchemy.dialects.postgresql as custom_types
 from geoalchemy2 import Geometry  # noqa: F401
 from pydantic import BaseModel
 from pydantic.fields import Field
-from sqlalchemy import create_engine, event, inspect
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine.reflection import Inspector
 
 if TYPE_CHECKING:
@@ -39,6 +39,7 @@ from datahub.ingestion.source.aws.aws_common import (
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
+    SQLCommonConfig,
     SqlWorkUnit,
     register_custom_type,
 )
@@ -109,6 +110,45 @@ class ViewLineageEntry(BaseModel):
     dependent_schema: str
 
 
+class ForeignTableMetadata(BaseModel):
+    """Metadata for a Foreign Data Wrapper (FDW) table."""
+
+    table_name: str
+    server_name: Optional[str] = None
+    fdw_name: Optional[str] = None
+    server_options: Optional[str] = None
+    table_options: Optional[str] = None
+
+
+# Query to get foreign tables in a schema
+FOREIGN_TABLES_QUERY = """
+    SELECT
+        c.relname AS table_name
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = :schema
+      AND c.relkind = 'f'
+    ORDER BY c.relname
+"""
+
+# Query to get FDW metadata for a specific foreign table
+FOREIGN_TABLE_METADATA_QUERY = """
+    SELECT
+        c.relname AS table_name,
+        fs.srvname AS server_name,
+        fdw.fdwname AS fdw_name,
+        array_to_string(fs.srvoptions, ', ') AS server_options,
+        array_to_string(ft.ftoptions, ', ') AS table_options
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_foreign_table ft ON ft.ftrelid = c.oid
+    JOIN pg_foreign_server fs ON fs.oid = ft.ftserver
+    JOIN pg_foreign_data_wrapper fdw ON fdw.oid = fs.srvfdw
+    WHERE n.nspname = :schema
+      AND c.relname = :table
+"""
+
+
 class PostgresAuthMode(StrEnum):
     """Authentication mode for PostgreSQL connection."""
 
@@ -169,6 +209,18 @@ class PostgresConfig(BasePostgresConfig):
         "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
+    include_foreign_tables: bool = Field(
+        default=True,
+        description="Include Foreign Data Wrapper (FDW) tables in ingestion. "
+        "Foreign tables expose external data sources (SQL Server, Oracle, S3, etc.) as Postgres tables.",
+    )
+
+    foreign_table_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for foreign tables to filter in ingestion. "
+        "Specify regex to match the entire foreign table name in database.schema.table_name format.",
+    )
+
 
 @platform_name("Postgres")
 @config_class(PostgresConfig)
@@ -180,8 +232,9 @@ class PostgresSource(SQLAlchemySource):
     """
     This plugin extracts the following:
 
-    - Metadata for databases, schemas, views, tables, and stored procedures
+    - Metadata for databases, schemas, views, tables, stored procedures, and foreign tables
     - Column types associated with each table
+    - Foreign Data Wrapper (FDW) tables that expose external data sources
     - Also supports PostGIS extensions
     - Table, row, and column statistics via optional SQL profiling
     """
@@ -428,3 +481,225 @@ class PostgresSource(SQLAlchemySource):
                     )
                 )
             return base_procedures
+
+    def get_foreign_table_names(self, inspector: Inspector, schema: str) -> List[str]:
+        """
+        Get foreign table names from a schema using Foreign Data Wrappers (FDW).
+
+        Args:
+            inspector: SQLAlchemy inspector
+            schema: Schema name
+
+        Returns:
+            List of foreign table names
+        """
+        try:
+            with inspector.engine.connect() as conn:
+                result = conn.execute(
+                    text(FOREIGN_TABLES_QUERY),
+                    {"schema": schema},
+                )
+                return [row[0] for row in result]
+        except Exception as e:
+            logger.warning(f"Failed to fetch foreign tables for schema {schema}: {e}")
+            return []
+
+    def get_foreign_table_metadata(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Optional[ForeignTableMetadata]:
+        """
+        Get FDW-specific metadata for a foreign table.
+
+        Args:
+            inspector: SQLAlchemy inspector
+            schema: Schema name
+            table: Foreign table name
+
+        Returns:
+            ForeignTableMetadata object or None if not found
+        """
+        try:
+            with inspector.engine.connect() as conn:
+                result = conn.execute(
+                    text(FOREIGN_TABLE_METADATA_QUERY),
+                    {"schema": schema, "table": table},
+                )
+                row = result.fetchone()
+                if row:
+                    return ForeignTableMetadata(
+                        table_name=row[0],
+                        server_name=row[1],
+                        fdw_name=row[2],
+                        server_options=row[3],
+                        table_options=row[4],
+                    )
+        except Exception as e:
+            logger.warning(f"Failed to fetch FDW metadata for {schema}.{table}: {e}")
+        return None
+
+    def loop_foreign_tables(
+        self,
+        inspector: Inspector,
+        schema: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        """
+        Process foreign tables similar to regular tables.
+
+        Args:
+            inspector: SQLAlchemy inspector
+            schema: Schema name
+            sql_config: SQL configuration
+
+        Yields:
+            MetadataWorkUnit or SqlWorkUnit
+        """
+        if not self.config.include_foreign_tables:
+            return
+
+        tables_seen: Set[str] = set()
+
+        try:
+            for table in self.get_foreign_table_names(inspector, schema):
+                dataset_name = self.get_identifier(
+                    schema=schema, entity=table, inspector=inspector
+                )
+
+                if dataset_name not in tables_seen:
+                    tables_seen.add(dataset_name)
+                else:
+                    logger.debug(f"{dataset_name} already seen, skipping...")
+                    continue
+
+                self.report.report_entity_scanned(dataset_name, ent_type="table")
+
+                # Apply both table_pattern and foreign_table_pattern
+                if not sql_config.table_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
+                    continue
+
+                if not self.config.foreign_table_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
+                    continue
+
+                try:
+                    yield from self._process_foreign_table(
+                        dataset_name,
+                        inspector,
+                        schema,
+                        table,
+                        sql_config,
+                    )
+                except Exception as e:
+                    self.report.warning(
+                        "Error processing foreign table",
+                        context=f"{schema}.{table}",
+                        exc=e,
+                    )
+        except Exception as e:
+            self.report.failure(
+                "Error processing foreign tables",
+                context=schema,
+                exc=e,
+            )
+
+    def _process_foreign_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        Process a single foreign table and generate work units.
+
+        Args:
+            dataset_name: Full dataset identifier
+            inspector: SQLAlchemy inspector
+            schema: Schema name
+            table: Foreign table name
+            sql_config: SQL configuration
+
+        Yields:
+            SqlWorkUnit or MetadataWorkUnit
+        """
+        # Get FDW metadata
+        fdw_metadata = self.get_foreign_table_metadata(inspector, schema, table)
+
+        # Process the foreign table using the standard _process_table method
+        # but we'll add FDW-specific custom properties
+        yield from self._process_table(
+            dataset_name,
+            inspector,
+            schema,
+            table,
+            sql_config,
+            data_reader=None,  # Foreign tables may not support profiling
+        )
+
+        # If we have FDW metadata, emit additional custom properties
+        if fdw_metadata:
+            from datahub.emitter import mce_builder
+            from datahub.emitter.mcp import MetadataChangeProposalWrapper
+            from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+                DatasetPropertiesClass,
+            )
+
+            dataset_urn = mce_builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=dataset_name,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            # Get existing properties and add FDW metadata
+            custom_properties = {
+                "is_foreign_table": "true",
+            }
+
+            if fdw_metadata.server_name:
+                custom_properties["fdw_server"] = fdw_metadata.server_name
+
+            if fdw_metadata.fdw_name:
+                custom_properties["fdw_type"] = fdw_metadata.fdw_name
+
+            if fdw_metadata.server_options:
+                custom_properties["fdw_server_options"] = fdw_metadata.server_options
+
+            if fdw_metadata.table_options:
+                custom_properties["fdw_table_options"] = fdw_metadata.table_options
+
+            # Create a patch MCP to add custom properties
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=DatasetPropertiesClass(
+                    name=table,
+                    customProperties=custom_properties,
+                ),
+            )
+
+            yield mcp.as_workunit()
+
+    def loop_tables(
+        self,
+        inspector: Inspector,
+        schema: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        Override to include foreign tables after regular tables.
+
+        Args:
+            inspector: SQLAlchemy inspector
+            schema: Schema name
+            sql_config: SQL configuration
+
+        Yields:
+            SqlWorkUnit or MetadataWorkUnit
+        """
+        # First, process regular tables using parent implementation
+        yield from super().loop_tables(inspector, schema, sql_config)
+
+        # Then, process foreign tables
+        yield from self.loop_foreign_tables(inspector, schema, sql_config)
