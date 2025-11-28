@@ -7,6 +7,10 @@ import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLIC
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
@@ -14,20 +18,26 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.update.UpdateRequest;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
@@ -38,18 +48,43 @@ import org.opensearch.client.tasks.TaskId;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.script.Script;
 import org.opensearch.script.ScriptType;
 
 @Slf4j
-@RequiredArgsConstructor
 public class ESWriteDAO {
   private final ElasticSearchConfiguration config;
   private final SearchClientShim<?> searchClient;
   @Getter private final ESBulkProcessor bulkProcessor;
+  @Nullable private final ESIndexBuilder indexBuilder;
+  @Nullable private final MappingsBuilder mappingsBuilder;
+  @Nullable private final SettingsBuilder settingsBuilder;
   private boolean canWrite = true;
+
+  // Constructor with index recreation support
+  public ESWriteDAO(
+      ElasticSearchConfiguration config,
+      SearchClientShim<?> searchClient,
+      ESBulkProcessor bulkProcessor,
+      @Nullable ESIndexBuilder indexBuilder,
+      @Nullable MappingsBuilder mappingsBuilder,
+      @Nullable SettingsBuilder settingsBuilder) {
+    this.config = config;
+    this.searchClient = searchClient;
+    this.bulkProcessor = bulkProcessor;
+    this.indexBuilder = indexBuilder;
+    this.mappingsBuilder = mappingsBuilder;
+    this.settingsBuilder = settingsBuilder;
+  }
+
+  // Constructor for backward compatibility (without index recreation)
+  public ESWriteDAO(
+      ElasticSearchConfiguration config,
+      SearchClientShim<?> searchClient,
+      ESBulkProcessor bulkProcessor) {
+    this(config, searchClient, bulkProcessor, null, null, null);
+  }
 
   public void setWritable(boolean writable) {
     canWrite = writable;
@@ -239,7 +274,87 @@ public class ESWriteDAO {
     for (String pattern : patterns) {
       allIndices.addAll(Arrays.asList(getIndices(pattern)));
     }
-    bulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), allIndices.toArray(new String[0]));
+
+    // Track which indices (aliases or concrete) were deleted so we can recreate them
+    Set<String> deletedIndexNames = new HashSet<>();
+
+    // Instead of deleting all documents (inefficient), delete the indices themselves
+    for (String indexName : allIndices) {
+      try {
+        // Check if the index name is an alias or a concrete index
+        GetAliasesRequest getAliasesRequest = new GetAliasesRequest(indexName);
+        GetAliasesResponse aliasesResponse =
+            searchClient.getIndexAliases(getAliasesRequest, RequestOptions.DEFAULT);
+        Collection<String> indicesToDelete;
+        if (aliasesResponse.getAliases().isEmpty()) {
+          // Not an alias, check if it's a concrete index
+          boolean indexExists =
+              searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+          if (!indexExists) {
+            log.debug("Index {} does not exist, skipping", indexName);
+            continue;
+          }
+          // If it wasn't an alias, track the concrete index name
+          deletedIndexNames.add(indexName);
+          indicesToDelete = List.of(indexName);
+          log.info("Deleting concrete index {} for efficient clearing", indexName);
+        } else {
+          // It's an alias, delete the concrete indices behind it
+          indicesToDelete = aliasesResponse.getAliases().keySet();
+          log.info(
+              "Deleting concrete indices {} behind alias {} for efficient clearing",
+              indicesToDelete,
+              indexName);
+          // Track the alias name, not the concrete indices
+          deletedIndexNames.add(indexName);
+        }
+
+        // Delete the concrete indices
+        for (String concreteIndex : indicesToDelete) {
+          try {
+            DeleteIndexRequest deleteRequest = new DeleteIndexRequest(concreteIndex);
+            deleteRequest.timeout(org.opensearch.common.unit.TimeValue.timeValueSeconds(30));
+            searchClient.deleteIndex(deleteRequest, RequestOptions.DEFAULT);
+            log.info("Successfully deleted index {}", concreteIndex);
+          } catch (IOException e) {
+            log.error("Failed to delete index {} during clear operation", concreteIndex, e);
+            throw new RuntimeException("Failed to delete index: " + concreteIndex, e);
+          }
+        }
+      } catch (IOException e) {
+        log.error("Failed to check aliases for index {} during clear operation", indexName, e);
+        throw new RuntimeException("Failed to clear index: " + indexName, e);
+      }
+    }
+
+    // Recreate only the indices that were deleted, with their proper mappings and settings
+    if (!deletedIndexNames.isEmpty()
+        && indexBuilder != null
+        && mappingsBuilder != null
+        && settingsBuilder != null) {
+      try {
+        List<ReindexConfig> allConfigs =
+            indexBuilder.buildReindexConfigs(
+                opContext, settingsBuilder, mappingsBuilder, Collections.emptySet());
+
+        // Filter to only recreate indices that were deleted
+        for (ReindexConfig config : allConfigs) {
+          if (deletedIndexNames.contains(config.name())) {
+            indexBuilder.buildIndex(config);
+            log.info("Recreated index {} after clearing", config.name());
+          }
+        }
+        log.info("Recreated {} indices after clearing", deletedIndexNames.size());
+      } catch (IOException e) {
+        log.error("Failed to recreate indices after clearing", e);
+        throw new RuntimeException("Failed to recreate indices after clearing", e);
+      }
+    } else if (deletedIndexNames.isEmpty()) {
+      log.info("No indices were deleted, nothing to recreate");
+    } else {
+      log.warn(
+          "Index builders not available - indices will be recreated automatically when documents are added");
+    }
   }
 
   private String[] getIndices(String pattern) {
