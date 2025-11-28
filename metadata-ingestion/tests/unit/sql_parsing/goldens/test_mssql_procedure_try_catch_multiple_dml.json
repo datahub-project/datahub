@@ -1,0 +1,131 @@
+{
+    "query_type": "CREATE_OTHER",
+    "query_type_props": {
+        "kind": "PROCEDURE"
+    },
+    "query_fingerprint": null,
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.updatemetrics,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.metrics,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.metrics,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+                "column": "metric_date",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "column": "metric_date"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[src].[metric_date] AS [metric_date]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+                "column": "metric_value",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "column": "metric_value"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[src].[metric_value] AS [metric_value]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.metrics,PROD)",
+                "column": "metric_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "column": "metric_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[src].[metric_id] AS [metric_id]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.metrics,PROD)",
+                "column": "metric_date",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "column": "metric_date"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[src].[metric_date] AS [metric_date]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.metrics,PROD)",
+                "column": "metric_value",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "column": "metric_value"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[src].[metric_value] AS [metric_value]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "@errormessage = error_message()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BIT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@ErrorMessage = ERROR_MESSAGE() AS [_col_0]"
+            }
+        }
+    ],
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.5,
+        "generalized_statement": "CREATE PROCEDURE (parsed 5 statements via fallback)"
+    }
+}

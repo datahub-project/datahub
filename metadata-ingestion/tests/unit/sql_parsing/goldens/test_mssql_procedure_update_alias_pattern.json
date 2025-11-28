@@ -1,0 +1,76 @@
+{
+    "query_type": "CREATE_OTHER",
+    "query_type_props": {
+        "kind": "PROCEDURE"
+    },
+    "query_fingerprint": null,
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.updatemetricsfromstaging,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.metrics,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+                "column": "metric_value",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "column": "metric_value"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[src].[metric_value] AS [metric_value]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+                "column": "metric_date",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "column": "metric_date"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[src].[metric_date] AS [metric_date]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+                "column": "last_updated",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                    }
+                },
+                "native_column_type": "DATETIME2"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "GETDATE() AS [last_updated]"
+            }
+        }
+    ],
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.5,
+        "generalized_statement": "CREATE PROCEDURE (parsed 2 statements via fallback)"
+    }
+}

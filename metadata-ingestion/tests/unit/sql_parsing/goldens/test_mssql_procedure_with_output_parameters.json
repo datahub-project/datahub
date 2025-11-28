@@ -1,0 +1,36 @@
+{
+    "query_type": "CREATE_OTHER",
+    "query_type_props": {
+        "kind": "PROCEDURE"
+    },
+    "query_fingerprint": null,
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.getcustomercount,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "@totalcount = count(*)",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BIT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@TotalCount = COUNT(*) AS [_col_0]"
+            }
+        }
+    ],
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.5,
+        "generalized_statement": "CREATE PROCEDURE (parsed 2 statements via fallback)"
+    }
+}
