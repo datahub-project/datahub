@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Union
 
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -23,15 +23,29 @@ class _KafkaCallback:
     record_envelope: RecordEnvelope
     write_callback: WriteCallback
 
-    def kafka_callback(self, err: Optional[Exception], msg: str) -> None:
+    def kafka_callback(self, err, msg) -> None:
+        """
+        Kafka delivery callback.
+        Args:
+            err: KafkaError object or None
+            msg: Message object or None
+        """
         if err is not None:
-            self.reporter.report_failure(err)
+            # Convert KafkaError to Exception for consistent error handling
+            error_str = str(err) if err else "Unknown Kafka error"
+            error_exception = Exception(error_str)
+
+            self.reporter.report_failure(error_exception)
             self.write_callback.on_failure(
-                self.record_envelope, err, {"error": err, "msg": msg}
+                self.record_envelope,
+                error_exception,
+                {"error": error_str, "msg": str(msg) if msg else "No message"},
             )
         else:
             self.reporter.report_record_written(self.record_envelope)
-            self.write_callback.on_success(self.record_envelope, {"msg": msg})
+            self.write_callback.on_success(
+                self.record_envelope, {"msg": str(msg) if msg else "Success"}
+            )
 
 
 class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):

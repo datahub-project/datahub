@@ -125,7 +125,9 @@ class KafkaSinkTest(unittest.TestCase):
         callback.kafka_callback(mock_error, mock_message)
         mock_w_callback.on_failure.assert_called_once()
         assert mock_w_callback.on_failure.call_args[0][0] == mock_re
-        assert mock_w_callback.on_failure.call_args[0][1] == mock_error
+        # Error is now wrapped in an Exception for consistent error handling
+        assert isinstance(mock_w_callback.on_failure.call_args[0][1], Exception)
+        assert str(mock_error) in str(mock_w_callback.on_failure.call_args[0][1])
         callback.kafka_callback(None, mock_message)
         mock_w_callback.on_success.assert_called_once()
         assert mock_w_callback.on_success.call_args[0][0] == mock_re
