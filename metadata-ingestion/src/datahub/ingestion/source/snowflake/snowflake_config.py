@@ -85,6 +85,12 @@ class SnowflakeShareConfig(ConfigModel):
         description="List of databases created in consumer accounts."
     )
 
+    listing_global_name: Optional[str] = Field(
+        default=None,
+        description="Marketplace listing global name (e.g., GZSTZGQTPEW) to explicitly link this share to a marketplace listing. "
+        "This is useful when SHOW SHARES doesn't return listing_global_name or when automatic matching fails.",
+    )
+
     @property
     def source_database(self) -> DatabaseId:
         return DatabaseId(self.database, self.platform_instance)
@@ -227,7 +233,9 @@ class SnowflakeMarketplaceConfig(ConfigModel):
             "'provider' - Track databases you're sharing via OUTBOUND shares and marketplace listings, "
             "'both' - Track both consumer and provider perspectives. "
             "Consumer mode requires shares config to link imported databases to listings. "
-            "Provider mode works with OUTBOUND shares without requiring imported databases."
+            "Provider mode works with OUTBOUND shares without requiring imported databases. "
+            "IMPORTANT: For 'provider' or 'both' modes, you MUST grant 'imported privileges on database snowflake' "
+            "to the USER (not just the role), as share access is granted at the user level in Snowflake."
         ),
     )
 

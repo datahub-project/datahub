@@ -4,9 +4,9 @@ import re
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set
 
-from datahub.emitter.mce_builder import make_domain_urn, make_group_urn, make_user_urn
+from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import gen_data_product
+from datahub.emitter.mcp_builder import DomainKey, gen_data_product, gen_domain
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
@@ -40,6 +40,7 @@ from datahub.metadata.schema_classes import (
     TimeWindowSizeClass,
 )
 from datahub.metadata.urns import DataTypeUrn, EntityTypeUrn, StructuredPropertyUrn
+from datahub.specific.dataproduct import DataProductPatchBuilder
 
 if TYPE_CHECKING:
     from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -68,6 +69,8 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         self._provider_shares: Dict[
             str, SnowflakeProviderShare
         ] = {}  # For provider mode
+        # Cache for asset-to-dataproduct mappings (for bidirectional relationships)
+        self._data_product_assets: Dict[str, List[str]] = defaultdict(list)
 
     def get_marketplace_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Generate work units for marketplace data"""
@@ -81,13 +84,19 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         # First, load marketplace data
         self._load_marketplace_data()
 
-        # 1. Create Data Products for marketplace listings
+        # 1. Create Domains for marketplace listings (organization-level grouping)
+        yield from self._create_marketplace_domains()
+
+        # 2. Create Data Products for marketplace listings
         yield from self._create_marketplace_data_products()
 
-        # 2. Enhance purchased datasets with marketplace metadata
+        # 3. Create bidirectional asset-to-dataproduct relationships
+        yield from self._associate_assets_to_data_products()
+
+        # 4. Enhance purchased datasets with marketplace metadata
         yield from self._enhance_purchased_datasets()
 
-        # 3. Add marketplace usage statistics
+        # 5. Add marketplace usage statistics
         # Note: Marketplace usage is tracked independently from general usage_stats
         yield from self._create_marketplace_usage_statistics()
 
@@ -177,30 +186,28 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         self, listing: SnowflakeMarketplaceListing, purchased_databases: List[str]
     ) -> Optional[str]:
         """
-        Resolve domain URN for a marketplace listing based on purchased database names.
+        Resolve domain URN for a marketplace listing based on organization.
 
-        Uses the existing `domain` config pattern which matches against database names.
-        For example: {'Finance': {'allow': ['^FINANCE_.*', '^FIN_.*']}}
+        Creates a deterministic domain URN for each marketplace organization.
+        This provides organization-level grouping of Data Products.
 
         Args:
             listing: The marketplace listing
-            purchased_databases: List of database names purchased from this listing
+            purchased_databases: List of database names purchased from this listing (not used, kept for compatibility)
 
         Returns:
-            Domain URN if a match is found, None otherwise
+            Domain URN based on organization_profile_name
         """
-        if not self.domain_registry or not self.config.domain:
-            return None
+        # Always create domain based on organization
+        org_name = listing.organization_profile_name or "Unknown Organization"
 
-        # Try to match any of the purchased database names against domain patterns
-        for db_name in purchased_databases:
-            for domain_name, pattern in self.config.domain.items():
-                if pattern.allowed(db_name):
-                    # Use domain registry to resolve domain name to URN
-                    domain_urn = self.domain_registry.get_domain_urn(domain_name)
-                    return make_domain_urn(domain_urn)
+        domain_key = DomainKey(
+            name=org_name,
+            platform="snowflake",
+            instance=self.config.platform_instance,
+        )
 
-        return None
+        return domain_key.as_urn()
 
     def _load_marketplace_data(self) -> None:
         """Load marketplace listings and purchases/provider shares based on mode"""
@@ -235,6 +242,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     category=None,  # Not available in SHOW AVAILABLE LISTINGS
                     description=None,  # Not available in SHOW AVAILABLE LISTINGS
                     created_on=row.get("created_on"),
+                    organization_profile_name=row.get(
+                        "organization_profile_name"
+                    ),  # For domain grouping
                 )
 
                 if self.config.internal_marketplace_listing_pattern.allowed(
@@ -552,6 +562,42 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             )
         return result
 
+    def _create_marketplace_domains(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Create Domain entities for marketplace listings.
+
+        Each unique organization_profile_name becomes a domain.
+        This provides organization-level grouping for Data Products.
+        """
+        # Track unique organizations
+        organizations: Dict[str, Set[str]] = defaultdict(
+            set
+        )  # org_name -> listing_global_names
+
+        for listing in self._marketplace_listings.values():
+            org_name = listing.organization_profile_name or "Unknown Organization"
+            organizations[org_name].add(listing.listing_global_name)
+
+        for org_name, listing_names in organizations.items():
+            # Create deterministic domain key
+            domain_key = DomainKey(
+                name=org_name,
+                platform="snowflake",
+                instance=self.config.platform_instance,
+            )
+
+            logger.info(
+                f"Creating domain for organization '{org_name}' with {len(listing_names)} listings"
+            )
+
+            yield from gen_domain(
+                domain_key=domain_key,
+                name=org_name,
+                description=f"Internal marketplace data products from {org_name}",
+            )
+
+            self.report.report_entity_scanned("domain")
+
     def _create_marketplace_data_products(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         """Create Data Product entities for internal marketplace listings"""
 
@@ -771,11 +817,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 if urn and urn not in owner_urns:
                     owner_urns.append(urn)
 
-            # Build external URL - prefer Snowflake marketplace URL
+            # Build Snowflake marketplace URL
             # Format: https://app.snowflake.com/marketplace/internal/listing/{listing_global_name}
             marketplace_url = f"https://app.snowflake.com/marketplace/internal/listing/{listing.listing_global_name}"
-            # Always use the marketplace URL as the primary external URL (not documentation)
-            external_url = marketplace_url
 
             # Use description from DESCRIBE if available, otherwise use listing description
             description = details.get("description") or listing.description
@@ -783,13 +827,24 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 # Only use fallback if no description at all
                 description = f"Internal marketplace listing from {listing.provider}"
 
+            # Store asset URNs for later bidirectional relationship creation
+            data_product_urn = data_product_key.as_urn()
+            if asset_urns:
+                self._data_product_assets[data_product_urn] = asset_urns
+                logger.info(
+                    f"Stored {len(asset_urns)} assets for Data Product {listing.title} "
+                    f"(will create bidirectional relationships)"
+                )
+
             # Use the gen_data_product function from mcp_builder with assets and owners
             # Always use TECHNICAL_OWNER for marketplace data products
+            # NOTE: The assets parameter in gen_data_product only adds them to DataProductProperties
+            # We also need to create bidirectional DataProductContains relationships separately
             yield from gen_data_product(
                 data_product_key=data_product_key,
                 name=listing.title,
                 description=description,
-                external_url=str(external_url) if external_url else None,
+                external_url=marketplace_url,  # Set external_url for "View in Snowflake" button
                 custom_properties=custom_properties,
                 structured_properties=structured_properties,  # type: ignore
                 domain_urn=domain_urn,
@@ -798,11 +853,13 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 assets=asset_urns if asset_urns else None,
             )
 
-            # Add institutional memory for documentation links
+            # Add institutional memory for documentation links (if any)
+            # NOTE: marketplace URL is set in external_url, not in institutional memory
+            memory_elements = []
+
+            # Add documentation links
             doc_links = details.get("documentation_links", [])
             if doc_links:
-                data_product_urn = data_product_key.as_urn()
-                memory_elements = []
                 for link in doc_links:
                     memory_elements.append(
                         InstitutionalMemoryMetadataClass(
@@ -817,13 +874,45 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                         )
                     )
 
-                if memory_elements:
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=data_product_urn,
-                        aspect=InstitutionalMemoryClass(elements=memory_elements),
-                    ).as_workunit()
+            if memory_elements:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=data_product_urn,
+                    aspect=InstitutionalMemoryClass(elements=memory_elements),
+                ).as_workunit()
 
             self.report.report_marketplace_data_product_created()
+
+    def _associate_assets_to_data_products(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Create bidirectional DataProductContains relationships between data products and their assets.
+
+        This uses DataProductPatchBuilder to properly create relationships that show up:
+        - On the Data Product page (list of assets)
+        - On each asset page (which Data Product it belongs to)
+        """
+        for data_product_urn, asset_urns in self._data_product_assets.items():
+            if not asset_urns:
+                continue
+
+            logger.info(
+                f"Creating bidirectional relationships: Data Product {data_product_urn} -> {len(asset_urns)} assets"
+            )
+
+            # Use DataProductPatchBuilder to add each asset
+            patch_builder = DataProductPatchBuilder(data_product_urn)
+            for asset_urn in asset_urns:
+                patch_builder.add_asset(asset_urn)
+                logger.debug(
+                    f"Added asset {asset_urn} to Data Product {data_product_urn}"
+                )
+
+            # Emit the patch MCPs
+            # DataProductPatchBuilder.build() returns MetadataChangeProposalClass objects
+            # We wrap them in MetadataWorkUnit with auto-generated IDs
+            for mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+                )
 
     def _find_listing_for_purchase(
         self, purchase: SnowflakeMarketplacePurchase
@@ -848,7 +937,32 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             )
             return None
 
-        # Check if this database is an inbound share (imported database)
+        # First, check if there's an explicit listing_global_name mapping in the shares config
+        if self.config.shares:
+            for share_name, share_config in self.config.shares.items():
+                # Check if this purchase database is a consumer of this share
+                for consumer in share_config.consumers:
+                    if (
+                        consumer.database == purchase.database_name
+                        and consumer.platform_instance == self.config.platform_instance
+                    ):
+                        # Found the share config for this database
+                        if share_config.listing_global_name:
+                            listing_global_name = share_config.listing_global_name
+                            if listing_global_name in self._marketplace_listings:
+                                logger.info(
+                                    f"Matched imported database {purchase.database_name} to listing {listing_global_name} "
+                                    f"via explicit listing_global_name in shares config (share: {share_name})"
+                                )
+                                return listing_global_name
+                            else:
+                                logger.warning(
+                                    f"Explicit listing_global_name '{listing_global_name}' specified for database {purchase.database_name} "
+                                    f"but listing not found in marketplace listings. Available listings: {list(self._marketplace_listings.keys())}"
+                                )
+                                return None
+
+        # Fall back to automatic matching based on database name
         inbounds = self.config.inbounds()
         if purchase.database_name not in inbounds:
             logger.debug(

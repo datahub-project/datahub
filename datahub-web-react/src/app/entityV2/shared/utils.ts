@@ -105,14 +105,20 @@ export function getExternalUrlDisplayName(entity: GenericEntityProperties | null
     const GITHUB_NAME = 'GitHub';
     const GITLAB_LINK = 'gitlab.';
     const GITLAB_NAME = 'GitLab';
+    const SNOWFLAKE_LINK = 'snowflake.com';
+    const SNOWFLAKE_NAME = 'Snowflake';
 
     const externalUrl = entity?.properties?.externalUrl;
     if (externalUrl) {
-        if (externalUrl.toLocaleLowerCase().includes(GITHUB_LINK)) {
+        const lowerUrl = externalUrl.toLocaleLowerCase();
+        if (lowerUrl.includes(GITHUB_LINK)) {
             return GITHUB_NAME;
         }
-        if (externalUrl.toLocaleLowerCase().includes(GITLAB_LINK)) {
+        if (lowerUrl.includes(GITLAB_LINK)) {
             return GITLAB_NAME;
+        }
+        if (lowerUrl.includes(SNOWFLAKE_LINK)) {
+            return SNOWFLAKE_NAME;
         }
     }
 

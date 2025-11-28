@@ -54,6 +54,29 @@ grant imported privileges on database snowflake to role datahub_role;
 // - SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY for usage statistics
 // - DESCRIBE AVAILABLE LISTING for enriched metadata (if fetch_internal_marketplace_listing_details=true)
 grant imported privileges on database snowflake to role datahub_role;
+
+// CRITICAL: For SHOW SHARES to work properly:
+// - IMPORT SHARE: Required to view INBOUND shares (shares you're consuming)
+// - For OUTBOUND shares (shares you're providing):
+//   * The role can see shares it OWNS (shares created by that role)
+//   * The role can see shares owned by roles it inherits from
+//   * If shares are owned by ACCOUNTADMIN/SYSADMIN, grant one of those roles
+
+// Grant IMPORT SHARE for consumer mode (INBOUND shares)
+// Note: ACCOUNTADMIN is required to grant account-level privileges
+use role accountadmin;
+grant import share on account to role datahub_role;
+
+// For provider mode, you have options depending on share ownership:
+// Option 1: If datahub_role creates/owns the shares - no additional grant needed
+
+// Option 2 (Most common): If shares are owned by ACCOUNTADMIN/SYSADMIN:
+// Grant SYSADMIN role (use SECURITYADMIN to grant roles)
+use role securityadmin;
+grant role sysadmin to role datahub_role;  // SYSADMIN can see all shares
+
+// Option 3: Use SYSADMIN directly for ingestion
+// Set role: SYSADMIN in your recipe instead of datahub_role
 ```
 
 The details of each granted privilege can be viewed in the [Snowflake docs](https://docs.snowflake.com/en/user-guide/security-access-control-privileges.html). A summary of each privilege and why it is required for this connector:
@@ -177,7 +200,12 @@ For organizations that **purchase/install** internal marketplace listings:
 1. **Grant the required privileges** (already covered in the Prerequisites section above):
 
    ```sql
+   -- Basic marketplace access
    grant imported privileges on database snowflake to role datahub_role;
+
+   -- For SHOW SHARES to discover INBOUND shares
+   use role accountadmin;
+   grant import share on account to role datahub_role;
    ```
 
 2. **Enable marketplace ingestion** in your recipe:
@@ -235,8 +263,31 @@ For organizations that **publish/share** internal marketplace listings:
 1. **Grant the required privileges** (already covered in the Prerequisites section above):
 
    ```sql
+   -- Basic marketplace access
    grant imported privileges on database snowflake to role datahub_role;
+
+   -- For SHOW SHARES to discover OUTBOUND shares (provider mode)
+   -- The role can ONLY see shares it owns or inherits
+   use role securityadmin;
+   grant role sysadmin to role datahub_role;
+
+   -- OR use SYSADMIN/ACCOUNTADMIN directly in your recipe:
+   -- role: SYSADMIN
    ```
+
+   **Important Note**: In Snowflake, `SHOW SHARES` returns OUTBOUND shares based on ownership. A role can see:
+
+   - Shares owned by the current role (e.g., if `datahub_role` created the share)
+   - Shares owned by roles it inherits from (e.g., `datahub_role` inherits from `SYSADMIN`)
+   - But NOT shares owned by other roles (e.g., shares owned by `ACCOUNTADMIN` that `datahub_role` doesn't inherit from)
+
+   **Solutions:**
+
+   - If your shares are owned by `ACCOUNTADMIN` or `SYSADMIN`: Grant `SYSADMIN` role to `datahub_role` (recommended)
+   - If `datahub_role` creates the shares: No additional grant needed
+   - Alternative: Use `SYSADMIN` or `ACCOUNTADMIN` directly in your ingestion recipe
+
+   Without proper role hierarchy, provider mode cannot discover outbound shares owned by other roles, and tables won't be added as assets to Data Products.
 
 2. **Enable marketplace ingestion in provider mode** in your recipe:
 

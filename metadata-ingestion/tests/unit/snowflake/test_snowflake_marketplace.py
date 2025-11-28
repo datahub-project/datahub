@@ -314,7 +314,7 @@ class TestMarketplaceBasicFunctionality:
 
         assert len(dp_props) == 1
         props = dp_props[0]
-        # externalUrl should be the Snowflake marketplace URL (not documentation URL)
+        # externalUrl should be set to the Snowflake marketplace URL
         assert (
             props.externalUrl
             == "https://app.snowflake.com/marketplace/internal/listing/ACME.DATA.LISTING"
@@ -331,7 +331,7 @@ class TestMarketplaceBasicFunctionality:
         assert props.customProperties.get("support_contact") == "Acme Support"
         assert props.customProperties.get("request_approver") == "approver@acme.example"
 
-        # Check InstitutionalMemory aspect for documentation links
+        # Check InstitutionalMemory aspect for documentation links (marketplace URL is in externalUrl)
         from datahub.metadata.schema_classes import InstitutionalMemoryClass
 
         institutional_memory_aspects = [
@@ -342,7 +342,7 @@ class TestMarketplaceBasicFunctionality:
         ]
         assert len(institutional_memory_aspects) == 1
         memory = institutional_memory_aspects[0]
-        assert len(memory.elements) >= 2  # At least documentation and quickstart URLs
+        assert len(memory.elements) >= 2  # At least 2 documentation URLs
         # Check that documentation links have simple "Documentation" description
         assert memory.elements[0].url == "https://docs.acme.example"
         assert memory.elements[0].description == "Documentation"

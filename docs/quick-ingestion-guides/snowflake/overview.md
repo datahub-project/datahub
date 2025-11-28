@@ -16,12 +16,14 @@ Upon completing this guide, you will have a recurring ingestion pipeline that wi
 - External Tables
 - Views
 - Materialized Views
+- **Internal Marketplace Listings** (as Data Products) - optional
 
 The pipeline will also extract:
 
 - **Usage statistics** to help you understand recent query activity (available if using Snowflake Enterprise edition or above)
 - **Table- and Column-level lineage** to automatically define interdependencies between datasets and columns (available if using Snowflake Enterprise edition or above)
 - **Table-level profile statistics** to help you understand the shape of the data
+- **Internal marketplace metadata** including Data Products, owners, documentation, and asset associations (optional)
 
 :::caution
 You will NOT have extracted Stages, Snowpipes, or Tasks from Snowflake, as the connector does not support ingesting these assets yet.

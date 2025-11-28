@@ -39,9 +39,12 @@ def test_snowflake_marketplace(pytestconfig, tmp_path, mock_time, mock_datahub_g
                     "account_id": "ABC12345",
                     "warehouse": "COMPUTE_WH",
                     "role": "datahub_role",
-                    "database_pattern": {"allow": ["TEST_DB", "DEMO_DATABASE"]},
+                    "database_pattern": {
+                        "allow": ["TEST_DB", "DEMO_DATABASE", "CUSTOMER_360"]
+                    },
                     # Enable INTERNAL marketplace features
                     "include_internal_marketplace": True,
+                    "marketplace_mode": "both",  # Test both consumer and provider modes
                     # Add shares configuration to link databases to listings
                     "shares": {
                         "CUSTOMER_360_SHARE": {

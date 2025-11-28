@@ -186,6 +186,9 @@ class SnowflakeMarketplaceListing:
     category: Optional[str]
     description: Optional[str]
     created_on: Optional[datetime]
+    organization_profile_name: Optional[str] = (
+        None  # Organization providing the listing
+    )
 
 
 @dataclass
