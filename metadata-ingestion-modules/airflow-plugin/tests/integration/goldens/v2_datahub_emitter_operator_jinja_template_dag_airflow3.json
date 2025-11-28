@@ -140,7 +140,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=datahub_emitter_operator_jinja_template_dag&_flt_3_task_id=datahub_emitter_operator_jinja_template_dag_task",
+            "externalUrl": "http://airflow.example.com/dags/datahub_emitter_operator_jinja_template_dag/tasks/datahub_emitter_operator_jinja_template_dag_task",
             "name": "datahub_emitter_operator_jinja_template_dag_task",
             "type": {
                 "string": "COMMAND"
@@ -355,7 +355,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=datahub_emitter_operator_jinja_template_dag&_flt_3_task_id=datahub_emitter_operator_jinja_template_dag_task",
+            "externalUrl": "http://airflow.example.com/dags/datahub_emitter_operator_jinja_template_dag/tasks/datahub_emitter_operator_jinja_template_dag_task",
             "name": "datahub_emitter_operator_jinja_template_dag_task",
             "type": {
                 "string": "COMMAND"

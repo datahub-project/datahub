@@ -125,7 +125,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=snowflake_operator&_flt_3_task_id=transform_cost_table",
+            "externalUrl": "http://airflow.example.com/dags/snowflake_operator/tasks/transform_cost_table",
             "name": "transform_cost_table",
             "type": {
                 "string": "COMMAND"
@@ -430,7 +430,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=snowflake_operator&_flt_3_task_id=transform_cost_table",
+            "externalUrl": "http://airflow.example.com/dags/snowflake_operator/tasks/transform_cost_table",
             "name": "transform_cost_table",
             "type": {
                 "string": "COMMAND"

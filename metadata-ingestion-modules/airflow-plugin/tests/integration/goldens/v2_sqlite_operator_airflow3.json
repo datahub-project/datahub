@@ -197,7 +197,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=create_cost_table",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/tasks/create_cost_table",
             "name": "create_cost_table",
             "type": {
                 "string": "COMMAND"
@@ -465,7 +465,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=create_cost_table",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/tasks/create_cost_table",
             "name": "create_cost_table",
             "type": {
                 "string": "COMMAND"
@@ -675,7 +675,7 @@
                 "outlets": "[]",
                 "datahub_sql_parser_error": "SqlUnderstandingError: Failed to build scope for statement - scope was empty: INSERT INTO my_sqlite.public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=populate_cost_table",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/tasks/populate_cost_table",
             "name": "populate_cost_table",
             "type": {
                 "string": "COMMAND"
@@ -909,7 +909,7 @@
                 "outlets": "[]",
                 "datahub_sql_parser_error": "SqlUnderstandingError: Failed to build scope for statement - scope was empty: INSERT INTO my_sqlite.public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=populate_cost_table",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/tasks/populate_cost_table",
             "name": "populate_cost_table",
             "type": {
                 "string": "COMMAND"
@@ -1047,7 +1047,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=transform_cost_table",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/tasks/transform_cost_table",
             "name": "transform_cost_table",
             "type": {
                 "string": "COMMAND"
@@ -1378,7 +1378,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=transform_cost_table",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/tasks/transform_cost_table",
             "name": "transform_cost_table",
             "type": {
                 "string": "COMMAND"
@@ -1645,7 +1645,7 @@
                 "outlets": "[]",
                 "datahub_sql_parser_error": "UnsupportedStatementTypeError: Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_costs",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/tasks/cleanup_costs",
             "name": "cleanup_costs",
             "type": {
                 "string": "COMMAND"
@@ -1879,7 +1879,7 @@
                 "outlets": "[]",
                 "datahub_sql_parser_error": "UnsupportedStatementTypeError: Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_processed_costs",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/tasks/cleanup_processed_costs",
             "name": "cleanup_processed_costs",
             "type": {
                 "string": "COMMAND"
@@ -2113,7 +2113,7 @@
                 "outlets": "[]",
                 "datahub_sql_parser_error": "UnsupportedStatementTypeError: Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_costs",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/tasks/cleanup_costs",
             "name": "cleanup_costs",
             "type": {
                 "string": "COMMAND"
@@ -2252,7 +2252,7 @@
                 "outlets": "[]",
                 "datahub_sql_parser_error": "UnsupportedStatementTypeError: Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_processed_costs",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/tasks/cleanup_processed_costs",
             "name": "cleanup_processed_costs",
             "type": {
                 "string": "COMMAND"

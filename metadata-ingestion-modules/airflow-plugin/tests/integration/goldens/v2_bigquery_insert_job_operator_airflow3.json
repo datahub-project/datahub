@@ -136,7 +136,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=select_with_destination_config",
+            "externalUrl": "http://airflow.example.com/dags/bigquery_insert_job_operator/tasks/select_with_destination_config",
             "name": "select_with_destination_config",
             "type": {
                 "string": "COMMAND"
@@ -190,7 +190,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=insert_query_without_destination",
+            "externalUrl": "http://airflow.example.com/dags/bigquery_insert_job_operator/tasks/insert_query_without_destination",
             "name": "insert_query_without_destination",
             "type": {
                 "string": "COMMAND"
@@ -432,7 +432,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=insert_query_without_destination",
+            "externalUrl": "http://airflow.example.com/dags/bigquery_insert_job_operator/tasks/insert_query_without_destination",
             "name": "insert_query_without_destination",
             "type": {
                 "string": "COMMAND"
@@ -628,7 +628,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=select_with_destination_config",
+            "externalUrl": "http://airflow.example.com/dags/bigquery_insert_job_operator/tasks/select_with_destination_config",
             "name": "select_with_destination_config",
             "type": {
                 "string": "COMMAND"

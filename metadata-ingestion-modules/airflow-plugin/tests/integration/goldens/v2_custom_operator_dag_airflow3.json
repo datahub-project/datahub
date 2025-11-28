@@ -168,7 +168,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=custom_operator_dag&_flt_3_task_id=custom_task_id",
+            "externalUrl": "http://airflow.example.com/dags/custom_operator_dag/tasks/custom_task_id",
             "name": "custom_task_id",
             "type": {
                 "string": "COMMAND"
@@ -343,7 +343,7 @@
                 "inlets": "[Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None), Dataset(platform='snowflake', name='mydb.schema.tableB', env='PROD', platform_instance=None)]",
                 "outlets": "[Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=custom_operator_dag&_flt_3_task_id=custom_task_id",
+            "externalUrl": "http://airflow.example.com/dags/custom_operator_dag/tasks/custom_task_id",
             "name": "custom_task_id",
             "type": {
                 "string": "COMMAND"

@@ -124,7 +124,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=custom_operator_sql_parsing&_flt_3_task_id=transform_cost_table",
+            "externalUrl": "http://airflow.example.com/dags/custom_operator_sql_parsing/tasks/transform_cost_table",
             "name": "transform_cost_table",
             "type": {
                 "string": "COMMAND"
@@ -271,7 +271,7 @@
                 "inlets": "[Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.default.my_input_table,PROD)')]",
                 "outlets": "[Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.default.my_output_table,PROD)')]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=custom_operator_sql_parsing&_flt_3_task_id=transform_cost_table",
+            "externalUrl": "http://airflow.example.com/dags/custom_operator_sql_parsing/tasks/transform_cost_table",
             "name": "transform_cost_table",
             "type": {
                 "string": "COMMAND"

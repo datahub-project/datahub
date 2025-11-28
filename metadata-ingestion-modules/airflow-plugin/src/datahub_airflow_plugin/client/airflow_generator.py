@@ -370,7 +370,11 @@ class AirflowGenerator:
 
         if config and config.datajob_url_link == DatajobUrl.GRID:
             datajob.url = f"{base_url}/dags/{dag.dag_id}/grid?task_id={task.task_id}"
+        elif config and config.datajob_url_link == DatajobUrl.TASKS:
+            # Airflow 3.x task URL format
+            datajob.url = f"{base_url}/dags/{dag.dag_id}/tasks/{task.task_id}"
         else:
+            # Airflow 2.x taskinstance list URL format
             datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={dag.dag_id}&_flt_3_task_id={task.task_id}"
 
         if capture_owner and dag.owner:

@@ -164,7 +164,7 @@
                 "inlets": "[Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None), Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)'), Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.test_dag,PROD),test_task)')]",
                 "outlets": "[Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=task_1",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag/tasks/task_1",
             "name": "task_1",
             "type": {
                 "string": "COMMAND"
@@ -321,7 +321,7 @@
                 "inlets": "[Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None), Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)'), Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.test_dag,PROD),test_task)')]",
                 "outlets": "[Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=task_1",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag/tasks/task_1",
             "name": "task_1",
             "type": {
                 "string": "COMMAND"
@@ -427,7 +427,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=run_another_data_task",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag/tasks/run_another_data_task",
             "name": "run_another_data_task",
             "type": {
                 "string": "COMMAND"
@@ -584,7 +584,7 @@
                 "inlets": "[]",
                 "outlets": "[]"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=run_another_data_task",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag/tasks/run_another_data_task",
             "name": "run_another_data_task",
             "type": {
                 "string": "COMMAND"

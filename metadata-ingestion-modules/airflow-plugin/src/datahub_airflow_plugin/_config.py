@@ -6,6 +6,7 @@ from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub_airflow_plugin._airflow_version_specific import IS_AIRFLOW_3_OR_HIGHER
 
 if TYPE_CHECKING:
     from datahub_airflow_plugin.hooks.datahub import (
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
 class DatajobUrl(Enum):
     GRID = "grid"
     TASKINSTANCE = "taskinstance"
+    TASKS = "tasks"  # Airflow 3.x task URL format: /dags/{dag_id}/tasks/{task_id}
 
 
 class DatahubLineageConfig(ConfigModel):
@@ -170,8 +172,14 @@ def get_lineage_config() -> DatahubLineageConfig:
         "datahub", "disable_openlineage_plugin", fallback=default_disable_openlineage
     )
     render_templates = conf.get("datahub", "render_templates", fallback=True)
+
+    # Use new task URL format for Airflow 3.x, old taskinstance format for Airflow 2.x
+    # Airflow 3 changed URL structure: /dags/{dag_id}/tasks/{task_id} instead of /taskinstance/list/...
+    default_datajob_url = (
+        DatajobUrl.TASKS.value if IS_AIRFLOW_3_OR_HIGHER else DatajobUrl.TASKINSTANCE.value
+    )
     datajob_url_link = conf.get(
-        "datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value
+        "datahub", "datajob_url_link", fallback=default_datajob_url
     )
     dag_filter_pattern = AllowDenyPattern.model_validate_json(
         conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
