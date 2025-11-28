@@ -1,3 +1,4 @@
+import { colors } from '@components';
 import { FileText } from '@phosphor-icons/react';
 import * as React from 'react';
 
@@ -48,7 +49,7 @@ export class DocumentEntity implements Entity<Document> {
             );
         }
 
-        return <FileText size={fontSize || 20} color={color} weight="duotone" />;
+        return <FileText size={fontSize || 20} color={color || colors.gray[1700]} weight="duotone" />;
     };
 
     isSearchEnabled = () => true;

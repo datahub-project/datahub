@@ -11,8 +11,8 @@ import { DocumentRelatedDocument, EntityType } from '@types';
 const SectionHeader = styled.h4`
     font-size: 16px;
     font-weight: 600;
-    margin: 0 0 8px 0;
-    color: ${colors.gray[1700]};
+    margin: 0;
+    color: ${colors.gray[600]};
 `;
 
 const List = styled.div`
@@ -34,7 +34,7 @@ export const RelatedDocumentsSection: React.FC<RelatedDocumentsSectionProps> = (
 
     return (
         <SectionContainer>
-            <SectionHeader>Related Documents</SectionHeader>
+            <SectionHeader>Related Context</SectionHeader>
             <List>
                 {relatedDocuments.map((relatedDoc) => {
                     const { document } = relatedDoc;

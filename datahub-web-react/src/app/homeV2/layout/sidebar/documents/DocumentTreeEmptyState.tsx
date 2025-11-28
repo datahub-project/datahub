@@ -1,4 +1,4 @@
-import { Button } from '@components';
+import { Button, colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -8,6 +8,14 @@ const EmptyStateContainer = styled.div`
     align-items: start;
     justify-content: start;
     text-align: center;
+    colors: ${colors.gray[1700]};
+`;
+
+const PlusButton = styled(Button)`
+    color: ${colors.gray[1700]};
+    &:hover {
+        background-color: ${colors.gray[100]};
+    }
 `;
 
 interface DocumentTreeEmptyStateProps {
@@ -17,15 +25,14 @@ interface DocumentTreeEmptyStateProps {
 export const DocumentTreeEmptyState: React.FC<DocumentTreeEmptyStateProps> = ({ onCreateDocument }) => {
     return (
         <EmptyStateContainer>
-            <Button
+            <PlusButton
                 icon={{ icon: 'Plus', source: 'phosphor' }}
                 variant="text"
-                color="gray"
                 onClick={onCreateDocument}
                 data-testid="empty-state-new-document-button"
             >
                 New Document
-            </Button>
+            </PlusButton>
         </EmptyStateContainer>
     );
 };

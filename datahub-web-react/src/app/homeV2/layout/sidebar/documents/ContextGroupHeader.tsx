@@ -1,8 +1,14 @@
-import { Button } from '@components';
+import { Button, Popover, Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import colors from '@src/alchemy-components/theme/foundations/colors';
+
+const ButtonsContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
 
 const HeaderContainer = styled.div`
     position: relative;
@@ -47,12 +53,12 @@ const Title = styled.div`
     flex: 1;
 `;
 
-const PlusButton = styled(Button)<{ $show: boolean }>`
-    display: ${(props) => (props.$show ? 'flex' : 'none')};
+const IconButton = styled(Button)<{ $show: boolean }>`
+    display: flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     border: none;
     border-radius: 4px;
     background: transparent;
@@ -61,9 +67,12 @@ const PlusButton = styled(Button)<{ $show: boolean }>`
     transition: all 0.2s ease;
     padding: 0;
     margin: 0;
+    opacity: ${(props) => (props.$show ? 1 : 0)};
+    visibility: ${(props) => (props.$show ? 'visible' : 'hidden')};
+    pointer-events: ${(props) => (props.$show ? 'auto' : 'none')};
 
     &:hover {
-        background: ${colors.violet[0]};
+        background: ${colors.gray[100]};
         color: ${colors.violet[600]};
     }
 
@@ -80,25 +89,68 @@ const PlusButton = styled(Button)<{ $show: boolean }>`
 interface Props {
     title: string;
     onAddClick: () => void;
+    onSearchClick?: () => void;
     isLoading?: boolean;
+    searchPopoverContent?: React.ReactNode;
+    showSearchPopover?: boolean;
+    onSearchPopoverChange?: (open: boolean) => void;
 }
 
-export const ContextGroupHeader: React.FC<Props> = ({ title, onAddClick, isLoading }) => {
+export const ContextGroupHeader: React.FC<Props> = ({
+    title,
+    onAddClick,
+    onSearchClick,
+    isLoading,
+    searchPopoverContent,
+    showSearchPopover,
+    onSearchPopoverChange,
+}) => {
     const [isHovered, setIsHovered] = useState(false);
 
     return (
         <HeaderContainer onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
             <Title>{title}</Title>
-            <PlusButton
-                data-testid="create-document-button"
-                $show={isHovered && !isLoading}
-                onClick={onAddClick}
-                aria-label="Add new document"
-                disabled={isLoading}
-                icon={{ icon: 'Plus', source: 'phosphor' }}
-                isCircle
-                variant="text"
-            />
+            <ButtonsContainer>
+                {onSearchClick && searchPopoverContent && (
+                    <Popover
+                        open={showSearchPopover}
+                        onOpenChange={onSearchPopoverChange}
+                        content={searchPopoverContent}
+                        placement="rightTop"
+                        overlayStyle={{ padding: 0 }}
+                        overlayInnerStyle={{
+                            padding: 0,
+                            background: 'transparent',
+                            boxShadow: 'none',
+                        }}
+                    >
+                        <Tooltip title="Search context documents" placement="bottom">
+                            <IconButton
+                                data-testid="search-document-button"
+                                $show={isHovered && !isLoading}
+                                onClick={onSearchClick}
+                                aria-label="Search context documents"
+                                disabled={isLoading}
+                                icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
+                                isCircle
+                                variant="text"
+                            />
+                        </Tooltip>
+                    </Popover>
+                )}
+                <Tooltip title="New context document" placement="bottom">
+                    <IconButton
+                        data-testid="create-document-button"
+                        $show={isHovered && !isLoading}
+                        onClick={onAddClick}
+                        aria-label="Add new document"
+                        disabled={isLoading}
+                        icon={{ icon: 'Plus', source: 'phosphor' }}
+                        isCircle
+                        variant="text"
+                    />
+                </Tooltip>
+            </ButtonsContainer>
         </HeaderContainer>
     );
 };

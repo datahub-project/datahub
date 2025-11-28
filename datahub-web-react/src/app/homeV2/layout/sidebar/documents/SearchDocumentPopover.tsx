@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useMoveDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
-import { Button, Input } from '@src/alchemy-components';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Input } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
 
-import { DocumentState } from '@types';
+import { DocumentState, EntityType } from '@types';
 
 const PopoverContainer = styled.div`
     width: 400px;
@@ -53,32 +54,6 @@ const TreeScrollContainer = styled.div`
     }
 `;
 
-const RootOption = styled.div<{ $isSelected: boolean }>`
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-bottom: 0px;
-    transition: background-color 0.15s ease;
-    font-size: 14px;
-
-    ${(props) =>
-        props.$isSelected
-            ? `
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
-    `
-            : `
-        &:hover {
-            background-color: ${colors.gray[100]};
-        }
-    `}
-`;
-
 const EmptyState = styled.div`
     padding: 24px;
     text-align: center;
@@ -86,25 +61,15 @@ const EmptyState = styled.div`
     font-size: 14px;
 `;
 
-const ButtonContainer = styled.div`
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding: 8px;
-`;
-
-interface MoveDocumentPopoverProps {
-    documentUrn: string;
-    currentParentUrn?: string | null;
+interface SearchDocumentPopoverProps {
     onClose: () => void;
 }
 
-export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ documentUrn, currentParentUrn, onClose }) => {
-    const [selectedParentUrn, setSelectedParentUrn] = useState<string | null | undefined>(currentParentUrn);
-    const [movingDocument, setMovingDocument] = useState(false);
+export const SearchDocumentPopover: React.FC<SearchDocumentPopoverProps> = ({ onClose }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-    const { moveDocument } = useMoveDocumentTreeMutation();
+    const history = useHistory();
+    const entityRegistry = useEntityRegistry();
 
     // Debounce search query
     useEffect(() => {
@@ -125,35 +90,16 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
     });
 
     const isSearching = debouncedSearchQuery.trim().length > 0;
-    const filteredSearchResults = searchResults.filter((doc) => doc.urn !== documentUrn);
+    const filteredSearchResults = searchResults;
 
-    const handleSelectRoot = () => {
-        setSelectedParentUrn(null);
+    const handleDocumentClick = (urn: string) => {
+        const url = entityRegistry.getEntityUrl(EntityType.Document, urn);
+        history.push(url);
+        onClose();
     };
-
-    const handleSelectDocument = (urn: string) => {
-        setSelectedParentUrn(urn);
-    };
-
-    const handleMove = async () => {
-        setMovingDocument(true);
-        try {
-            // Tree mutation handles optimistic move + backend call + rollback on error!
-            await moveDocument(documentUrn, selectedParentUrn === undefined ? null : selectedParentUrn);
-            // Success - close popover
-            setTimeout(() => {
-                onClose();
-            }, 300);
-        } finally {
-            setMovingDocument(false);
-        }
-    };
-
-    const isRootSelected = selectedParentUrn === null;
-    const hasSelectionChanged = selectedParentUrn !== currentParentUrn;
 
     return (
-        <PopoverContainer data-testid="move-document-popover">
+        <PopoverContainer data-testid="search-document-popover">
             <SearchContainer>
                 <Input label="" placeholder="Search context..." value={searchQuery} setValue={setSearchQuery} />
             </SearchContainer>
@@ -168,8 +114,6 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
                         )}
                         {!searchLoading &&
                             filteredSearchResults.map((doc) => {
-                                const isSelected = selectedParentUrn === doc.urn;
-
                                 // Build breadcrumb from parentDocuments array if there are parents
                                 // parentDocuments is ordered: [direct parent, parent's parent, ...]
                                 // We want to show: grandparent > parent
@@ -184,12 +128,12 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
                                         key={doc.urn}
                                         doc={doc}
                                         level={0}
-                                        isSelected={isSelected}
+                                        isSelected={false}
                                         hasChildren={false}
                                         isExpanded={false}
                                         isLoading={false}
                                         breadcrumb={breadcrumb}
-                                        onSelect={() => handleSelectDocument(doc.urn)}
+                                        onSelect={() => handleDocumentClick(doc.urn)}
                                         onToggleExpand={() => {}}
                                     />
                                 );
@@ -197,42 +141,11 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
                     </>
                 ) : (
                     <>
-                        {/* Only show "Move to Root" if document is not already at root */}
-                        {currentParentUrn !== null && currentParentUrn !== undefined && (
-                            <RootOption $isSelected={isRootSelected} onClick={handleSelectRoot}>
-                                Move to Root
-                            </RootOption>
-                        )}
-
                         {/* Show tree when not searching */}
-                        <DocumentTree
-                            onCreateChild={() => {}}
-                            selectedUrn={selectedParentUrn || undefined}
-                            onSelectDocument={handleSelectDocument}
-                            hideActions
-                        />
+                        <DocumentTree onCreateChild={() => {}} onSelectDocument={handleDocumentClick} hideActions />
                     </>
                 )}
             </TreeScrollContainer>
-
-            <ButtonContainer>
-                <Button
-                    variant="outline"
-                    onClick={onClose}
-                    disabled={movingDocument}
-                    data-testid="move-document-cancel-button"
-                >
-                    Cancel
-                </Button>
-                <Button
-                    data-testid="move-document-confirm-button"
-                    onClick={handleMove}
-                    disabled={!hasSelectionChanged || movingDocument}
-                    isLoading={movingDocument}
-                >
-                    Move
-                </Button>
-            </ButtonContainer>
         </PopoverContainer>
     );
 };
