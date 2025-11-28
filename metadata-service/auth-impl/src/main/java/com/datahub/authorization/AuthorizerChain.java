@@ -158,6 +158,29 @@ public class AuthorizerChain implements Authorizer {
     return (DataHubAuthorizer) defaultAuthorizer;
   }
 
+  /**
+   * Checks if domain-based authorization is enabled by inspecting the authorizer instance. Handles
+   * both direct DataHubAuthorizer and AuthorizerChain cases.
+   *
+   * @param authorizer the authorizer instance to check (can be null)
+   * @return true if domain-based authorization is enabled, false otherwise
+   */
+  public static boolean isDomainBasedAuthorizationEnabled(@Nullable Authorizer authorizer) {
+    // If authorizer is null (authorization disabled), domain-based auth is not enabled
+    if (authorizer == null) {
+      return false;
+    }
+
+    // Check if authorizer is an AuthorizerChain and get the default DataHubAuthorizer
+    if (authorizer instanceof AuthorizerChain) {
+      DataHubAuthorizer defaultAuthorizer = ((AuthorizerChain) authorizer).getDefaultAuthorizer();
+      return defaultAuthorizer != null && defaultAuthorizer.isDomainBasedAuthorizationEnabled();
+    }
+    // Fallback to direct instance check
+    return authorizer instanceof DataHubAuthorizer
+        && ((DataHubAuthorizer) authorizer).isDomainBasedAuthorizationEnabled();
+  }
+
   @Override
   public Set<DataHubPolicyInfo> getActorPolicies(@Nonnull Urn actorUrn) {
     return authorizers.stream()
