@@ -1,7 +1,7 @@
-import { Button, Modal, message } from 'antd';
+import { Modal } from '@components';
+import { message } from 'antd';
 import React, { useState } from 'react';
 
-import { MODAL_BODY_STYLE, MODAL_WIDTH } from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
 import DataProductBuilderForm from '@app/entityV2/domain/DataProductsTab/DataProductBuilderForm';
 import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
 
@@ -51,19 +51,20 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
         <Modal
             title={`Update ${dataProduct.properties?.name || 'Data Product'}`}
             onCancel={onClose}
-            style={MODAL_BODY_STYLE}
-            width={MODAL_WIDTH}
             open
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button onClick={updateDataProduct} disabled={!builderState.name}>
-                        Update
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Update',
+                    onClick: updateDataProduct,
+                    variant: 'filled',
+                    disabled: !builderState.name,
+                },
+            ]}
         >
             <DataProductBuilderForm builderState={builderState} updateBuilderState={updateBuilderState} />
         </Modal>
