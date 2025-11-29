@@ -73,6 +73,7 @@ jobs:
       postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
       elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
       smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
+      java_client_change: ${{ steps.ci-optimize.outputs.java-client-change == 'true' || github.event_name != 'pull_request' }}
       integrations_service_change: "false"
       datahub_executor_change: "false"
 
@@ -580,6 +581,28 @@ jobs:
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
           ./smoke-test/smoke.sh
+
+      - name: Java SDK V2 Integration Tests
+        if: ${{ (needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.java_client_change == 'true') && matrix.batch == '0' }}
+        env:
+          DATAHUB_SERVER: http://localhost:8080
+          ADMIN_USERNAME: datahub
+          ADMIN_PASSWORD: datahub
+        run: |
+          echo "Running Java SDK V2 integration tests against running DataHub instance..."
+          ./gradlew :metadata-integration:java:datahub-client:test --tests "*Integration*"
+
+      - name: Upload Java SDK V2 coverage to Codecov
+        if: ${{ always() && (needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.java_client_change == 'true') && matrix.batch == '0' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage-reports/metadata-integration/java/datahub-client/
+          flags: metadata-integration
+          name: java-sdk-v2-integration
+          fail_ci_if_error: false
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
       - name: Disk Check
         run: df -h . && docker images

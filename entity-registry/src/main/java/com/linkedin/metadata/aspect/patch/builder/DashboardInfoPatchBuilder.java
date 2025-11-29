@@ -13,14 +13,20 @@ import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
+import com.linkedin.metadata.aspect.patch.builder.subtypesupport.CustomPropertiesPatchBuilderSupport;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 public class DashboardInfoPatchBuilder
-    extends AbstractMultiFieldPatchBuilder<DashboardInfoPatchBuilder> {
+    extends AbstractMultiFieldPatchBuilder<DashboardInfoPatchBuilder>
+    implements CustomPropertiesPatchBuilderSupport<DashboardInfoPatchBuilder> {
   private static final String CHART_EDGES_PATH_START = "/chartEdges/";
   private static final String DATASET_EDGES_PATH_START = "/datasetEdges/";
   private static final String DASHBOARDS_PATH_START = "/dashboards/";
+
+  private CustomPropertiesPatchBuilder<DashboardInfoPatchBuilder> customPropertiesPatchBuilder =
+      new CustomPropertiesPatchBuilder<>(this);
 
   // Simplified with just Urn
   public DashboardInfoPatchBuilder addChartEdge(@Nonnull ChartUrn urn) {
@@ -114,6 +120,24 @@ public class DashboardInfoPatchBuilder
 
     throw new IllegalArgumentException(
         String.format("Unsupported entity type: %s", destinationUrn.getEntityType()));
+  }
+
+  @Override
+  public DashboardInfoPatchBuilder addCustomProperty(@Nonnull String key, @Nonnull String value) {
+    this.customPropertiesPatchBuilder.addProperty(key, value);
+    return this;
+  }
+
+  @Override
+  public DashboardInfoPatchBuilder removeCustomProperty(@Nonnull String key) {
+    this.customPropertiesPatchBuilder.removeProperty(key);
+    return this;
+  }
+
+  @Override
+  public DashboardInfoPatchBuilder setCustomProperties(Map<String, String> properties) {
+    customPropertiesPatchBuilder.setProperties(properties);
+    return this;
   }
 
   @Override
