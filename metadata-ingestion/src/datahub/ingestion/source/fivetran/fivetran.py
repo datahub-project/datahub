@@ -150,18 +150,25 @@ class FivetranSource(StatefulIngestionSourceBase):
             input_dataset_urn: Optional[DatasetUrn] = None
             # Special Handling for Google Sheets Connectors
             if connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE:
+                logger.debug(
+                    f"Processing Google Sheets connector for lineage extraction: "
+                    f"connector_name={connector.connector_name}, connector_id={connector.connector_id}"
+                )
                 # Get Google Sheet dataset details from Fivetran API
                 # This is cached in the api_client
                 gsheets_conn_details: Optional[FivetranConnectionDetails] = (
                     self._get_connection_details_by_id(connector.connector_id)
                 )
 
-                if gsheets_conn_details:
+                if gsheets_conn_details and self._get_gsheet_named_range_dataset_id(
+                    gsheets_conn_details
+                ):
                     input_dataset_urn = DatasetUrn.create_from_ids(
                         platform_id=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
                         table_name=self._get_gsheet_named_range_dataset_id(
                             gsheets_conn_details
-                        ),
+                        )
+                        or "",  # this will not happen if cond should take care of it
                         env=source_details.env,
                     )
                 else:
@@ -318,43 +325,62 @@ class FivetranSource(StatefulIngestionSourceBase):
         if connection_id in self._connection_details_cache:
             return self._connection_details_cache[connection_id]
 
+        self.report.report_fivetran_rest_api_call_count()
         try:
-            self.report.report_fivetran_rest_api_call_count()
             conn_details = self.api_client.get_connection_details_by_id(connection_id)
-            # Update Cache
-            if conn_details:
-                self._connection_details_cache[connection_id] = conn_details
-
+            self._connection_details_cache[connection_id] = conn_details
             return conn_details
         except Exception as e:
+            logger.debug(
+                f"Failed to get connection details using rest-api for connector_id: {connection_id}. Error: {str(e)}",
+                exc_info=True,
+            )
             self.report.warning(
                 title="Failed to get connection details for Google Sheets Connector",
-                message=f"Exception occurred while getting connection details from Fivetran API. {e}",
-                context=f"connector_id: {connection_id}",
+                message="Exception occurred while getting connection details from Fivetran API",
+                context=f"connector_id: {connection_id}. Error: {str(e)}",
             )
             return None
 
     def _get_gsheet_sheet_id_from_url(
         self, gsheets_conn_details: FivetranConnectionDetails
-    ) -> str:
-        # Extracting the sheet_id (1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo) from the sheet_id url
-        # "https://docs.google.com/spreadsheets/d/1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo/edit?gid=0#gid=0",
-        try:
-            parsed = urlparse(gsheets_conn_details.config.sheet_id)
-            # Example: https://docs.google.com/spreadsheets/d/<spreadsheetId>/edit
-            parts = parsed.path.split("/")
-            return parts[3] if len(parts) > 2 else ""
-        except Exception as e:
-            logger.warning(
-                f"Failed to extract sheet_id from the sheet_id url: {gsheets_conn_details.config.sheet_id}, {e}"
-            )
+    ) -> Optional[str]:
+        """
+        Extract the Google Sheets ID from the sheet_id field.
+        Handles both cases:
+        1. Full URL: "https://docs.google.com/spreadsheets/d/<spreadsheetId>/edit..."
+        2. Just the ID: "<spreadsheetId>"
+        """
+        sheet_id = gsheets_conn_details.config.sheet_id
 
-        return ""
+        # If it's already just an ID (no URL structure), return it as-is
+        if not sheet_id.startswith(("http://", "https://")):
+            return sheet_id
+
+        # Otherwise, extract from URL
+        # Example: https://docs.google.com/spreadsheets/d/<spreadsheetId>/edit?gid=0#gid=0
+        try:
+            parsed = urlparse(sheet_id)
+            parts = parsed.path.split("/")
+            # Path format: /spreadsheets/d/<spreadsheetId>/edit
+            # parts[0] = '', parts[1] = 'spreadsheets', parts[2] = 'd', parts[3] = '<spreadsheetId>'
+            if len(parts) > 3 and parts[2] == "d":
+                return parts[3]
+            logger.warning(
+                f"Unexpected URL format for sheet_id: {sheet_id}. Expected format: "
+                f"https://docs.google.com/spreadsheets/d/<spreadsheetId>/..."
+            )
+        except Exception as e:
+            logger.debug(f"Failed to extract sheet_id from URL: {sheet_id}, Error: {e}")
+
+        return None
 
     def _get_gsheet_named_range_dataset_id(
         self, gsheets_conn_details: FivetranConnectionDetails
-    ) -> str:
+    ) -> Optional[str]:
         sheet_id = self._get_gsheet_sheet_id_from_url(gsheets_conn_details)
+        if sheet_id is None:
+            return None
         named_range_id = (
             f"{sheet_id}.{gsheets_conn_details.config.named_range}"
             if sheet_id
@@ -410,14 +436,23 @@ class FivetranSource(StatefulIngestionSourceBase):
         -------------------------------------------------------
         """
         if connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE:
+            logger.debug(
+                f"Processing Google Sheets connector for workunit generation: "
+                f"connector_name={connector.connector_name}, connector_id={connector.connector_id}"
+            )
             # Get Google Sheet dataset details from Fivetran API
             gsheets_conn_details: Optional[FivetranConnectionDetails] = (
                 self._get_connection_details_by_id(connector.connector_id)
             )
 
-            if gsheets_conn_details:
+            if (
+                gsheets_conn_details
+                and self._get_gsheet_sheet_id_from_url(gsheets_conn_details)
+                and self._get_gsheet_named_range_dataset_id(gsheets_conn_details)
+            ):
                 gsheets_dataset = Dataset(
-                    name=self._get_gsheet_sheet_id_from_url(gsheets_conn_details),
+                    name=self._get_gsheet_sheet_id_from_url(gsheets_conn_details)
+                    or "",  # this will not happen if cond should take care of it
                     platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
                     env=self.config.env,
                     display_name=self._get_gsheet_sheet_id_from_url(
@@ -425,7 +460,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                     ),
                     external_url=gsheets_conn_details.config.sheet_id,
                     created=gsheets_conn_details.created_at,
-                    last_modified=gsheets_conn_details.source_sync_details.last_synced,
+                    last_modified=gsheets_conn_details.succeeded_at,
                     subtype=DatasetSubTypes.GOOGLE_SHEETS,
                     custom_properties={
                         "ingested_by": "fivetran source",
@@ -433,13 +468,14 @@ class FivetranSource(StatefulIngestionSourceBase):
                     },
                 )
                 gsheets_named_range_dataset = Dataset(
-                    name=self._get_gsheet_named_range_dataset_id(gsheets_conn_details),
+                    name=self._get_gsheet_named_range_dataset_id(gsheets_conn_details)
+                    or "",
                     platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
                     env=self.config.env,
                     display_name=gsheets_conn_details.config.named_range,
                     external_url=gsheets_conn_details.config.sheet_id,
                     created=gsheets_conn_details.created_at,
-                    last_modified=gsheets_conn_details.source_sync_details.last_synced,
+                    last_modified=gsheets_conn_details.succeeded_at,
                     subtype=DatasetSubTypes.GOOGLE_SHEETS_NAMED_RANGE,
                     custom_properties={
                         "ingested_by": "fivetran source",
@@ -465,6 +501,13 @@ class FivetranSource(StatefulIngestionSourceBase):
 
                 yield gsheets_dataset
                 yield gsheets_named_range_dataset
+
+            else:
+                self.report.warning(
+                    title="Failed to generate entities for Google Sheets",
+                    message="Failed to generate entities for Google Sheets",
+                    context=connector.connector_id,
+                )
 
         # Create dataflow entity with same name as connector name
         dataflow = self._generate_dataflow_from_connector(connector)
