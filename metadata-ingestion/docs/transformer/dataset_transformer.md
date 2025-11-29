@@ -811,6 +811,17 @@ transformers:
 
 ## Tags to Structured Properties
 
+### Description
+
+The `tags_to_structured_properties` transformer converts DataHub Tags into Structured Properties, supporting both key-value formatted tags (e.g., `dept:Finance`) and simple tag names mapped via configuration. Structured Properties must be created in DataHub before running the transformation - they are not created dynamically.
+
+Some error scenarios that will cause the transformation (and pipeline) to fail include:
+
+- **Invalid property value**: Tag value doesn't match the allowed values defined in the Structured Property
+- **Property doesn't exist**: Transformed property URN references a non-existent Structured Property
+
+These failures trigger backend validation errors and are expected behavior - they indicate configuration issues that require either creating the missing Structured Properties in DataHub or adjusting the allowed values for existing properties.
+
 ### Config Details
 
 | Field                         | Required | Type                                        | Default | Description                                                               |
