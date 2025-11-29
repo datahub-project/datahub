@@ -1,2 +1,8 @@
 # This file uses a connection hook, which fails to load unless configured.
 snowflake_sample_dag.py
+
+# Ignore version-specific subdirectories to avoid duplicate DAG IDs
+# The root-level DAGs are version-compatible and should work on both Airflow 2 and 3
+# Note: Integration tests use tests/integration/dags/ which has its own structure
+airflow2/
+airflow3/

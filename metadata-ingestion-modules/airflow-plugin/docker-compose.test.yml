@@ -1,0 +1,25 @@
+services:
+  airflow-plugin-test:
+    build:
+      context: ../..
+      dockerfile: metadata-ingestion-modules/airflow-plugin/Dockerfile.test
+      args:
+        PYTHON_VERSION: "3.11"
+    image: airflow-plugin-test:latest
+    volumes:
+      # Auto-mount source code (read-write needed for egg-info during build)
+      - ../../metadata-ingestion:/app/metadata-ingestion
+      - ../../metadata-ingestion-modules/airflow-plugin:/app/metadata-ingestion-modules/airflow-plugin
+      # Auto-mount golden files for easy updates
+      - ./tests/integration/goldens:/app/metadata-ingestion-modules/airflow-plugin/tests/integration/goldens
+      # Mount tox directory to cache environments between runs
+      - airflow-plugin-tox:/app/metadata-ingestion-modules/airflow-plugin/.tox
+    working_dir: /app/metadata-ingestion-modules/airflow-plugin
+    environment:
+      - TOX_ENV=${TOX_ENV:-py311-airflow31}
+    # Default command can be overridden
+    command: []
+
+volumes:
+  airflow-plugin-tox:
+    driver: local

@@ -1,42 +1,75 @@
-from typing import List
+"""
+Pure dispatcher for version-specific Airflow shims.
 
-import airflow.version
+This module automatically imports the correct shims based on the installed
+Airflow version, dispatching to either airflow2 or airflow3 implementations.
+
+No logic lives here - just clean version detection and re-export.
+"""
+
 import packaging.version
-from airflow.models.operator import Operator
 
-try:
-    from airflow.sensors.external_task import ExternalTaskSensor
-except ImportError:
-    from airflow.sensors.external_task_sensor import ExternalTaskSensor  # type: ignore
-
-# Approach suggested by https://stackoverflow.com/a/11887885/5004662.
-AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
-HAS_AIRFLOW_DAG_LISTENER_API = True  # this is in Airflow 2.5+
-HAS_AIRFLOW_DATASET_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse(
-    "2.8.0.dev0"
+from datahub_airflow_plugin._airflow_version_specific import (
+    AIRFLOW_VERSION,
+    IS_AIRFLOW_3_OR_HIGHER,
 )
 
+# Version feature flags - hardcode based on Airflow version
+# These were previously in the old _airflow_shims but are better kept simple
+HAS_AIRFLOW_STANDALONE_CMD = AIRFLOW_VERSION >= packaging.version.parse("2.2")
+HAS_AIRFLOW_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse("2.3")
+HAS_AIRFLOW_DAG_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse("2.5")
+HAS_AIRFLOW_DATASET_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse("2.5")
 
-def get_task_inlets(operator: "Operator") -> List:
-    # From Airflow 2.4 _inlets is dropped and inlets used consistently. Earlier it was not the case, so we have to stick there to _inlets
-    if hasattr(operator, "_inlets"):
-        return operator._inlets  # type: ignore[attr-defined, union-attr]
-    if hasattr(operator, "get_inlet_defs"):
-        return operator.get_inlet_defs()  # type: ignore[attr-defined]
-    return operator.inlets or []
-
-
-def get_task_outlets(operator: "Operator") -> List:
-    # From Airflow 2.4 _outlets is dropped and inlets used consistently. Earlier it was not the case, so we have to stick there to _outlets
-    # We have to use _outlets because outlets is empty in Airflow < 2.4.0
-    if hasattr(operator, "_outlets"):
-        return operator._outlets  # type: ignore[attr-defined, union-attr]
-    if hasattr(operator, "get_outlet_defs"):
-        return operator.get_outlet_defs()
-    return operator.outlets or []
-
+if IS_AIRFLOW_3_OR_HIGHER:
+    # Airflow 3.x - use airflow3 shims
+    from datahub_airflow_plugin.airflow3._shims import (
+        BaseOperator,
+        ExternalTaskSensor,
+        MappedOperator,
+        OpenLineagePlugin,
+        Operator,
+        TaskHolder,
+        get_operator_class,
+        get_task_inlets,
+        get_task_outlets,
+        redact_with_exclusions,
+        try_import_from_string,
+    )
+else:
+    # Airflow 2.x - use airflow2 shims
+    from datahub_airflow_plugin.airflow2._shims import (  # type: ignore[assignment]
+        BaseOperator,
+        ExternalTaskSensor,
+        MappedOperator,
+        OpenLineagePlugin,
+        Operator,
+        TaskHolder,
+        get_operator_class,
+        get_task_inlets,
+        get_task_outlets,
+        redact_with_exclusions,
+        try_import_from_string,
+    )
 
 __all__ = [
+    # Airflow version and feature flags
     "AIRFLOW_VERSION",
+    "IS_AIRFLOW_3_OR_HIGHER",
+    "HAS_AIRFLOW_STANDALONE_CMD",
+    "HAS_AIRFLOW_LISTENER_API",
+    "HAS_AIRFLOW_DAG_LISTENER_API",
+    "HAS_AIRFLOW_DATASET_LISTENER_API",
+    # Airflow objects
+    "BaseOperator",
+    "Operator",
+    "MappedOperator",
     "ExternalTaskSensor",
+    "TaskHolder",
+    "OpenLineagePlugin",
+    "get_operator_class",
+    "try_import_from_string",
+    "redact_with_exclusions",
+    "get_task_inlets",
+    "get_task_outlets",
 ]
