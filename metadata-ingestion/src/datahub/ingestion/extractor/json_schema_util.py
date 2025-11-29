@@ -275,6 +275,10 @@ class JsonSchemaTranslator:
     @staticmethod
     def _get_type_from_schema(schema: Dict) -> str:
         """Returns a generic json type from a schema."""
+        # Handle boolean schemas per JSON Schema spec: true accepts any JSON, false never validates
+        if isinstance(schema, bool):
+            return "object"  # Treat both as generic object since DataHub has no "never" type
+
         if Ellipsis in schema:
             return "object"
         if "oneOf" in schema or "anyOf" in schema or "allOf" in schema:
@@ -357,8 +361,10 @@ class JsonSchemaTranslator:
         native_type_override = field_path._get_native_type_override()
         nullable = JsonSchemaTranslator._is_nullable(schema)
 
-        if Ellipsis in schema:
-            # This happens in the case of recursive fields, we short-circuit by making this just be an object
+        # Handle boolean schemas and recursive Ellipsis
+        if isinstance(schema, bool) or Ellipsis in schema:
+            # Boolean schemas: true = accept any JSON, false = never validates (treat both as {})
+            # Ellipsis: recursive fields, short-circuit by making this just be an object
             schema = {}
 
         if datahub_field_type == RecordTypeClass:
@@ -406,6 +412,12 @@ class JsonSchemaTranslator:
             field_path = field_path.expand_type(discriminated_type, schema)
 
             for field_name, field_schema in schema.get("properties", {}).items():
+                # Normalize boolean schemas per JSON Schema spec before processing
+                # true = accepts any JSON, false = never validates
+                # Convert to {} to avoid crashes in downstream code that expects Dict
+                if isinstance(field_schema, bool):
+                    field_schema = {}
+
                 required_field: bool = field_name in schema.get("required", [])
                 inner_field_path = field_path.clone_plus(
                     FieldElement(type=[], name=field_name, schema_types=[])
