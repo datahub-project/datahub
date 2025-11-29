@@ -243,7 +243,7 @@ def test_gms_batch_get_v2(auth_session):
 def test_gms_search_dataset(auth_session, query, min_expected_results):
 
     json = {"input": f"{query}", "entity": "dataset", "start": 0, "count": 10}
-    print(json)
+    logger.debug(f"Search dataset query: {json}")
     response = auth_session.post(
         f"{auth_session.gms_url()}/entities?action=search",
         headers=restli_default_headers,
@@ -267,7 +267,7 @@ def test_gms_search_dataset(auth_session, query, min_expected_results):
 def test_gms_search_across_entities(auth_session, query, min_expected_results):
 
     json = {"input": f"{query}", "entities": [], "start": 0, "count": 10}
-    print(json)
+    logger.debug(f"Search across entities query: {json}")
     response = auth_session.post(
         f"{auth_session.gms_url()}/entities?action=searchAcrossEntities",
         headers=restli_default_headers,
@@ -770,7 +770,7 @@ def test_update_corp_group_properties(auth_session):
         },
     }
     res_data = execute_graphql(auth_session, query, variables)
-    print(res_data)
+    logger.debug(f"Update corp group properties response: {res_data}")
     assert res_data["data"]["updateCorpGroupProperties"] is not None
 
     # Verify the description has been updated
