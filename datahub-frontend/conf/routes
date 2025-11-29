@@ -14,6 +14,8 @@ GET           /health                                                         co
 GET           /config                                                         controllers.Application.appConfig()
 
 # Routes used exclusively by the React application.
+# Route to GET mfe config
+GET           /mfe/config                                                 controllers.MfeConfigController.getMfeConfig()
 
 # Authentication in React
 GET           /authenticate                                                   controllers.AuthenticationController.authenticate(request: Request)
