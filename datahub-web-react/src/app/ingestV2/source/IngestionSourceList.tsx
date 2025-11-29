@@ -33,7 +33,7 @@ import {
     mapSourceTypeAliases,
     removeExecutionsFromIngestionSource,
 } from '@app/ingestV2/source/utils';
-import { TabType } from '@app/ingestV2/types';
+import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
@@ -588,7 +588,18 @@ export const IngestionSourceList = ({
         setSort(getSortInput(field, order));
     }, []);
 
-    const handleSetFocusExecutionUrn = useCallback((val) => setFocusExecutionUrn(val), []);
+    const handleSetFocusExecutionUrn = useCallback(
+        (val) => {
+            if (showIngestionOnboardingRedesignV1) {
+                history.push(PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', val), {
+                    fromUrl: tabUrlMap[TabType.Sources],
+                });
+            } else {
+                setFocusExecutionUrn(val);
+            }
+        },
+        [history, showIngestionOnboardingRedesignV1],
+    );
 
     return (
         <>

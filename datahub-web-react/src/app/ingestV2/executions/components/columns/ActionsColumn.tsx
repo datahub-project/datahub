@@ -7,12 +7,12 @@ import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/col
 
 interface ActionsColumnProps {
     record: ExecutionRequestRecord;
-    setFocusExecutionUrn: (urn: string) => void;
+    hadleViewDetails: (urn: string) => void;
     handleRollback: (urn: string) => void;
     handleCancel: (urn: string) => void;
 }
 
-export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback, handleCancel }: ActionsColumnProps) {
+export function ActionsColumn({ record, hadleViewDetails, handleRollback, handleCancel }: ActionsColumnProps) {
     const items = [
         {
             key: '0',
@@ -32,7 +32,7 @@ export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback, ha
             label: (
                 <MenuItem
                     onClick={() => {
-                        setFocusExecutionUrn(record.urn);
+                        hadleViewDetails(record.urn);
                     }}
                 >
                     Details

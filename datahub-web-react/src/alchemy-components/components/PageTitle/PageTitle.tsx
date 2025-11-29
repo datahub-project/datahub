@@ -14,13 +14,21 @@ const Wrapper = styled.div`
     justify-content: space-between;
 `;
 
-export const PageTitle = ({ title, subTitle, pillLabel, variant = 'pageHeader', actionButton }: PageTitleProps) => {
+export const PageTitle = ({
+    title,
+    subTitle,
+    pillLabel,
+    variant = 'pageHeader',
+    actionButton,
+    titlePill,
+}: PageTitleProps) => {
     return (
         <Wrapper style={actionButton ? { width: '100%' } : {}}>
             <Container>
                 <Title data-testid="page-title" variant={variant}>
                     <OverflowText text={title} />
                     {pillLabel ? <Pill label={pillLabel} size="sm" clickable={false} /> : null}
+                    {titlePill}
                 </Title>
 
                 {subTitle ? <SubTitle variant={variant}>{subTitle}</SubTitle> : null}

@@ -1,27 +1,9 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Icon, Modal, Pill } from '@components';
-import { message } from 'antd';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router';
+import { Modal } from '@components';
+import React from 'react';
 
-import { Tab, Tabs } from '@components/components/Tabs/Tabs';
-
-import analytics, { EventType } from '@app/analytics';
-import { LogsTab } from '@app/ingestV2/executions/components/LogsTab';
-import { RecipeTab } from '@app/ingestV2/executions/components/RecipeTab';
-import { SummaryTab } from '@app/ingestV2/executions/components/SummaryTab';
-import { EXECUTION_REQUEST_STATUS_LOADING, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
-import { TabType } from '@app/ingestV2/executions/types';
-import {
-    getExecutionRequestStatusDisplayColor,
-    getExecutionRequestStatusDisplayText,
-    getExecutionRequestStatusIcon,
-} from '@app/ingestV2/executions/utils';
-import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
-import { Message } from '@app/shared/Message';
+import RunDetailsContent from '@app/ingestV2/runDetails/RunDetailsContent';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
-import { ExecutionRequestResult } from '@types';
 
 const modalBodyStyle = {
     padding: 0,
@@ -35,88 +17,8 @@ type Props = {
 };
 
 export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
+    const [titlePill, setTitlePill] = React.useState<React.ReactNode>(null);
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
-    const location = useLocation();
-    const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
-    const status = getIngestionSourceStatus(result);
-    const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Summary);
-
-    const sendAnalyticsTabViewedEvent = useCallback(
-        (tab: TabType) => {
-            if (!result) return;
-            analytics.event({
-                type: EventType.IngestionExecutionResultViewedEvent,
-                executionUrn: urn,
-                executionStatus: status || 'UNKNOWN',
-                viewedSection: tab,
-            });
-        },
-        [result, urn, status],
-    );
-
-    const selectTab = (tab: TabType) => {
-        setSelectedTab(tab);
-        sendAnalyticsTabViewedEvent(tab);
-    };
-
-    useEffect(() => {
-        if (open) {
-            sendAnalyticsTabViewedEvent(TabType.Summary);
-        }
-    }, [open, urn, status, sendAnalyticsTabViewedEvent]);
-
-    const ResultIcon = status && getExecutionRequestStatusIcon(status);
-    const resultColor = status ? getExecutionRequestStatusDisplayColor(status) : 'gray';
-    const titlePill = status && ResultIcon && (
-        <Pill
-            customIconRenderer={() =>
-                status === EXECUTION_REQUEST_STATUS_LOADING || status === EXECUTION_REQUEST_STATUS_RUNNING ? (
-                    <LoadingOutlined />
-                ) : (
-                    <Icon icon={ResultIcon} source="phosphor" size="lg" />
-                )
-            }
-            label={getExecutionRequestStatusDisplayText(status)}
-            color={resultColor}
-            size="md"
-        />
-    );
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            if (status === EXECUTION_REQUEST_STATUS_RUNNING) refetch();
-        }, 2000);
-        return () => clearInterval(interval);
-    }, [status, refetch]);
-
-    const tabs: Tab[] = useMemo(
-        () => [
-            {
-                component: (
-                    <SummaryTab
-                        urn={urn}
-                        status={status}
-                        result={result}
-                        data={data}
-                        onTabChange={(tab: TabType) => setSelectedTab(tab)}
-                    />
-                ),
-                key: TabType.Summary,
-                name: TabType.Summary,
-            },
-            {
-                component: <LogsTab urn={urn} data={data} />,
-                key: TabType.Logs,
-                name: TabType.Logs,
-            },
-            {
-                component: <RecipeTab urn={urn} data={data} />,
-                key: TabType.Recipe,
-                name: TabType.Recipe,
-            },
-        ],
-        [data, urn, result, status],
-    );
 
     return (
         <Modal
@@ -128,17 +30,13 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
             onCancel={onClose}
             buttons={[]}
         >
-            {!data && loading && <Message type="loading" content="Loading execution run details..." />}
-            {error && message.error('Failed to load execution run details :(')}
-            <Tabs
-                tabs={tabs}
-                selectedTab={selectedTab}
-                onChange={(tab) => selectTab(tab as TabType)}
-                getCurrentUrl={() => location.pathname}
-                scrollToTopOnChange
-                maxHeight="80vh"
-                stickyHeader
-                addPaddingLeft
+            <RunDetailsContent
+                urn={urn}
+                data={data}
+                refetch={refetch}
+                loading={loading}
+                error={error}
+                setTitlePill={setTitlePill}
             />
         </Modal>
     );
