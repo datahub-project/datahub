@@ -60,17 +60,31 @@ class Report(SupportsAsObj):
 
     @staticmethod
     def to_pure_python_obj(some_val: Any) -> Any:
-        """A cheap way to generate a dictionary."""
+        """Recursively convert complex objects to JSON-serializable Python primitives.
+
+        Handles dataclasses, pydantic models, enums, tuples, and special cases like
+        tuple/enum dict keys that aren't natively JSON-serializable.
+        """
 
         if isinstance(some_val, SupportsAsObj):
-            return some_val.as_obj()
+            # Call as_obj() and recursively process the result
+            # This handles cases like TopKDict which may return dicts with tuple/enum keys
+            return Report.to_pure_python_obj(some_val.as_obj())
         elif isinstance(some_val, pydantic.BaseModel):
             return Report.to_pure_python_obj(some_val.model_dump())
         elif dataclasses.is_dataclass(some_val) and not isinstance(some_val, type):
             # The `is_dataclass` function returns `True` for both instances and classes.
             # We need an extra check to ensure an instance was passed in.
             # https://docs.python.org/3/library/dataclasses.html#dataclasses.is_dataclass
-            return dataclasses.asdict(some_val)
+
+            # Manually convert dataclass fields to handle dicts with enum/tuple keys
+            # dataclasses.asdict() fails when dict fields have enum keys
+            result = {}
+            for field in dataclasses.fields(some_val):
+                field_value = getattr(some_val, field.name)
+                # Recursively convert field values (which will handle dicts with enum keys)
+                result[field.name] = Report.to_pure_python_obj(field_value)
+            return result
         elif isinstance(some_val, list):
             return [Report.to_pure_python_obj(v) for v in some_val if v is not None]
         elif isinstance(some_val, timedelta):
@@ -78,15 +92,30 @@ class Report(SupportsAsObj):
         elif isinstance(some_val, datetime):
             try:
                 return format_datetime_relative(some_val)
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to format datetime %s relatively: %s", some_val, e)
                 # we don't want to fail reporting because we were unable to pretty print a timestamp
-                return str(datetime)
+                return str(some_val)
         elif isinstance(some_val, dict):
-            return {
-                Report.to_str(k): Report.to_pure_python_obj(v)
-                for k, v in some_val.items()
-                if v is not None
-            }
+            result = {}
+            for k, v in some_val.items():
+                if v is None:
+                    continue
+
+                # Handle tuple keys - JSON doesn't support tuple keys, convert to string
+                if isinstance(k, tuple):
+                    key = str(k)
+                # Handle enum keys - use the enum's name for consistency with to_str()
+                elif isinstance(k, Enum):
+                    key = k.name
+                # Use existing to_str logic for other types
+                else:
+                    key = Report.to_str(k)
+
+                # Recursively convert values
+                result[key] = Report.to_pure_python_obj(v)
+
+            return result
         elif isinstance(some_val, (int, float, bool)):
             return some_val
         else:
