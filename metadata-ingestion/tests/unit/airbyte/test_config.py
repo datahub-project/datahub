@@ -42,9 +42,9 @@ class TestAirbyteClientConfig:
     def test_open_source_config_without_host_port(self):
         # Test invalid open source config without host_port
         with pytest.raises(ValueError) as excinfo:
-            # Manually call the validator to trigger the error
-            AirbyteClientConfig.validate_host_port_for_open_source(
-                None, {"deployment_type": AirbyteDeploymentType.OPEN_SOURCE}
+            # Create config without host_port to trigger validation error
+            AirbyteClientConfig(
+                deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             )
 
         # Verify the error message contains host_port
@@ -67,9 +67,9 @@ class TestAirbyteClientConfig:
     def test_cloud_config_without_api_key_or_workspace(self):
         # Test invalid cloud config without required fields
         with pytest.raises(ValueError) as excinfo:
-            # Manually call the validator to trigger the error
-            AirbyteClientConfig.validate_workspace_for_cloud(
-                None, {"deployment_type": AirbyteDeploymentType.CLOUD}
+            # Create config without cloud_workspace_id to trigger validation error
+            AirbyteClientConfig(
+                deployment_type=AirbyteDeploymentType.CLOUD,
             )
 
         # Verify the error message contains the required field
@@ -177,9 +177,9 @@ class TestAirbyteSourceConfig:
     def test_validation_oss(self):
         # Test validation for OSS without host_port
         with pytest.raises(ValueError) as excinfo:
-            # Manually call the validator to trigger the error
-            AirbyteClientConfig.validate_host_port_for_open_source(
-                None, {"deployment_type": AirbyteDeploymentType.OPEN_SOURCE}
+            # Create config without host_port to trigger validation error
+            AirbyteSourceConfig(
+                deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             )
 
         # Verify the error message contains host_port
@@ -188,9 +188,9 @@ class TestAirbyteSourceConfig:
     def test_validation_cloud(self):
         # Test validation for cloud without workspace ID
         with pytest.raises(ValueError) as excinfo:
-            # Manually call the validator to trigger the error
-            AirbyteClientConfig.validate_workspace_for_cloud(
-                None, {"deployment_type": AirbyteDeploymentType.CLOUD}
+            # Create config without cloud_workspace_id to trigger validation error
+            AirbyteSourceConfig(
+                deployment_type=AirbyteDeploymentType.CLOUD,
             )
 
         # Verify the error message contains cloud_workspace_id

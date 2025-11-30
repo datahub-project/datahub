@@ -105,7 +105,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AirbyteSource":
-        config = AirbyteSourceConfig.parse_obj(config_dict)
+        config = AirbyteSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -123,7 +123,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         ):
             try:
                 # Use the partial model for initial parsing, as the API response may have missing fields
-                workspace = AirbyteWorkspacePartial.parse_obj(workspace_dict)
+                workspace = AirbyteWorkspacePartial.model_validate(workspace_dict)
 
                 # Add null check for workspace_id
                 if not workspace.workspace_id:
@@ -141,7 +141,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 ):
                     try:
                         # Use the partial model for initial parsing
-                        connection = AirbyteConnectionPartial.parse_obj(connection_dict)
+                        connection = AirbyteConnectionPartial.model_validate(
+                            connection_dict
+                        )
 
                         # Add null check for connection_id
                         if not connection.connection_id:
@@ -164,8 +166,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
                         )
 
                         # Use the partial models since we're not sure if the API response is complete
-                        source = AirbyteSourcePartial.parse_obj(source_dict)
-                        destination = AirbyteDestinationPartial.parse_obj(
+                        source = AirbyteSourcePartial.model_validate(source_dict)
+                        destination = AirbyteDestinationPartial.model_validate(
                             destination_dict
                         )
 
@@ -625,7 +627,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
             if streams_list:
                 return [
-                    AirbyteStreamDetails.parse_obj(stream) for stream in streams_list
+                    AirbyteStreamDetails.model_validate(stream)
+                    for stream in streams_list
                 ]
         except Exception as e:
             logger.error(f"Error fetching streams from API: {str(e)}")
@@ -665,7 +668,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     "namespace": namespace,
                     "propertyFields": property_fields,
                 }
-                streams.append(AirbyteStreamDetails.parse_obj(stream_details))
+                streams.append(AirbyteStreamDetails.model_validate(stream_details))
 
         logger.info(f"Using {len(streams)} streams from connection sync catalog")
         return streams
