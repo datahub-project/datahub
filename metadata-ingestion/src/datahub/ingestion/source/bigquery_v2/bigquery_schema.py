@@ -62,20 +62,19 @@ RANGE_PARTITION_NAME: str = "RANGE"
 
 @dataclass
 class PartitionInfo:
-    field: str
-    # Data type is optional as we not have it when we set it from TimePartitioning
-    column: Optional[BigqueryColumn] = None
+    fields: List[str]  # Changed from single field to list
+    columns: Optional[List[BigqueryColumn]] = None
     type: str = TimePartitioningType.DAY
     expiration_ms: Optional[int] = None
     require_partition_filter: bool = False
 
-    # TimePartitioning field doesn't provide data_type so we have to add it afterwards
     @classmethod
     def from_time_partitioning(
         cls, time_partitioning: TimePartitioning
     ) -> "PartitionInfo":
+        """Convert BigQuery time partitioning to PartitionInfo."""
         return cls(
-            field=time_partitioning.field or "_PARTITIONTIME",
+            fields=[time_partitioning.field or "_PARTITIONTIME"],  # Now a list
             type=time_partitioning.type_,
             expiration_ms=time_partitioning.expiration_ms,
             require_partition_filter=time_partitioning.require_partition_filter,
@@ -90,7 +89,7 @@ class PartitionInfo:
             return None
 
         return cls(
-            field=field,
+            fields=[field],
             type=RANGE_PARTITION_NAME,
         )
 
