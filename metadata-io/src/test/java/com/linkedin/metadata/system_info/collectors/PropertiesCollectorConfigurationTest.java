@@ -477,6 +477,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
           "datahub.isFreeTrialInstance",
+          "datahub.readOnly",
 
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",

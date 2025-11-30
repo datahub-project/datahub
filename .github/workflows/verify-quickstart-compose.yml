@@ -16,7 +16,7 @@ jobs:
       THRESHOLD_GB: 4.3
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Generate quickstart compose file
         run: |

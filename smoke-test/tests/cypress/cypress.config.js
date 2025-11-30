@@ -25,6 +25,7 @@ module.exports = defineConfig({
       process.env.CYPRESS_SPEC_PATTERN || "cypress/e2e/**/*.{js,jsx,ts,tsx}",
     experimentalStudio: true,
     experimentalMemoryManagement: true,
+    numTestsKeptInMemory: 0,
   },
   reporter: "cypress-junit-reporter",
   reporterOptions: {

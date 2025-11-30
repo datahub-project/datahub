@@ -121,7 +121,7 @@ task cleanPythonCache(type: Exec) {
     "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
 }
 
-//OSS Merge notes: This docker image is not used saas.
+//OSS Merge notes: This docker image is not used in SaaS.
 //docker {
 //  dependsOn ':metadata-ingestion:codegen'
 //  name "${docker_registry}/${docker_repo}:${versionTag}"
@@ -145,9 +145,15 @@ task cleanPythonCache(type: Exec) {
 //
 //  defaultVariant = "slim"
 //  variants = [
-//    "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]],
-//    "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]]
+//    "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]],
+//    "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "false"]],
+//    "locked": [suffix: "-locked", args: [APP_ENV: "locked", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]]
 //  ]
+//
+//  // Set build args for non-bake builds based on dockerTarget property
+//  def targetVariant = docker_target ?: defaultVariant.get()
+//  def variantArgs = variants.get()[targetVariant]?.args ?: variants.get()[defaultVariant.get()].args
+//  buildArgs(variantArgs)
 //}
 
 build.dependsOn install

@@ -196,7 +196,7 @@ class HookGenerator:
         return {
             "id": f"{project.project_id}-lint-fix",
             "name": f"{project.path} Lint Fix",
-            "entry": f".github/scripts/pre-commit-wrapper.sh ./gradlew {project.gradle_path}:lintFix",
+            "entry": f".github/scripts/pre-commit-wrapper.sh ./gradlew {project.gradle_path}:lintFix -x generateGitPropertiesGlobal",
             "language": "system",
             "files": f"^{project.path}/.*\\.(py|toml)$",
             "pass_filenames": False,
@@ -207,7 +207,7 @@ class HookGenerator:
         return {
             "id": f"{project.project_id}-spotless",
             "name": f"{project.path} Spotless Apply",
-            "entry": f".github/scripts/pre-commit-wrapper.sh ./gradlew {project.gradle_path}:spotlessApply",
+            "entry": f".github/scripts/pre-commit-wrapper.sh ./gradlew {project.gradle_path}:spotlessApply -x generateGitPropertiesGlobal",
             "language": "system",
             "files": f"^{project.path}/.*\\.java$",
             "pass_filenames": False,
@@ -218,7 +218,7 @@ class HookGenerator:
         return {
             "id": f"{project.project_id}-{project.taskName}",
             "name": f"{project.taskName}",
-            "entry": f".github/scripts/pre-commit-wrapper.sh ./gradlew {project.gradle_path}:{project.taskName}",
+            "entry": f".github/scripts/pre-commit-wrapper.sh ./gradlew {project.gradle_path}:{project.taskName} -x generateGitPropertiesGlobal",
             "language": "system",
             "files": project.filePattern,
             "pass_filenames": False,

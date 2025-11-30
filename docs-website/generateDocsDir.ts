@@ -60,7 +60,9 @@ function accounted_for_in_sidebar(filepath: string): boolean {
 }
 
 function list_markdown_files(): string[] {
-  let all_markdown_files = execSync("git ls-files --full-name .. | grep '.md$'")
+  let all_markdown_files = execSync(
+    "git ls-files --full-name .. | grep '\\.md$'"
+  )
     .toString()
     .trim()
     .split("\n");
@@ -76,7 +78,7 @@ function list_markdown_files(): string[] {
   if (!process.env.CI) {
     // If not in CI, we also include "untracked" files.
     const untracked_files = execSync(
-      "(git ls-files --full-name --others --exclude-standard .. | grep '.md$') || true"
+      "(git ls-files --full-name --others --exclude-standard .. | grep '\\.md$') || true"
     )
       .toString()
       .trim()
@@ -92,7 +94,7 @@ function list_markdown_files(): string[] {
 
     // But we should also exclude any files that have been deleted.
     const deleted_files = execSync(
-      "(git ls-files --full-name --deleted --exclude-standard .. | grep '.md$') || true"
+      "(git ls-files --full-name --deleted --exclude-standard .. | grep '\\.md$') || true"
     )
       .toString()
       .trim()

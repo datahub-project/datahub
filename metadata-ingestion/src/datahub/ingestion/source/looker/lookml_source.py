@@ -492,7 +492,8 @@ class LookMLSource(StatefulIngestionSourceBase):
         manifest_file = folder / "manifest.lkml"
 
         if not manifest_file.exists():
-            self.reporter.info(
+            self.reporter.report_warning(
+                title="Manifest File Missing",
                 message="manifest.lkml file missing from project",
                 context=str(manifest_file),
             )

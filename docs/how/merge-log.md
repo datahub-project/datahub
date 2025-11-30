@@ -1824,3 +1824,171 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **95ed3ea8b7** - feat(openapi): rework to pull schemas from openapi v2 and v3 definitions (#14045)
   *by bryanprosser-acryl on 2025-11-14*
 
+
+## Upstream Merge Session - 2025-11-21 07:46:53
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-11-21-074652`
+- **Merge Base**: `95ed3ea8b7f36473d60c0507a6c7bc8750954133`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 51
+- **Strategy**: stacked
+- **Started**: Fri Nov 21 07:46:53 UTC 2025
+
+### Commits Included in This Merge
+- **c50bc847e59** - docs(ingestion): Added Google sheets connector support for fivetran (#15294)
+  *by Anush Kumar on 2025-11-14*
+
+- **d1ad17c25ec** - fix: allow for non-tagged assets in Grafana (#15300)
+  *by dgluong-datahub on 2025-11-14*
+
+- **4887422b525** - fix(doc): kafka setup doc updates (#15304)
+  *by Chakru on 2025-11-15*
+
+- **776da13e89e** - chore(deps): bump actions/checkout from 4 to 5 (#15051)
+  *by dependabot[bot] on 2025-11-17*
+
+- **2296ce77a85** - fix(ingest/iceberg): Extend iceberg source to allow role assumption (#15288)
+  *by skrydal on 2025-11-17*
+
+- **ad464630f2b** - docs: fix typos in some files (#15302)
+  *by Edge-Seven on 2025-11-17*
+
+- **3583b0ee15f** - fix(ingest/aws): Fix for the aws credential caching (#15278)
+  *by Tamas Nemeth on 2025-11-17*
+
+- **fbc1cbbb4da** - feat(tag): hide delete tag action in tag drawer (#15298)
+  *by Jacob Cuke on 2025-11-17*
+
+- **f3c0e0804e5** - refactor(test): use DataHub API in consistency checks (#15311)
+  *by Aseem Bansal on 2025-11-17*
+
+- **7ba68591077** - fix(cypress): temporary skip heavy tests of about section (#15316)
+  *by v-tarasevich-blitz-brain on 2025-11-17*
+
+- **ccac8d0d03d** - Revert "refactor(test): use DataHub API in consistency checks" (#15322)
+  *by Aseem Bansal on 2025-11-18*
+
+- **aa34efcb8a9** - fix(snaplogic): Fix SnapLogic logo and docs url. (#15067)
+  *by sabdul on 2025-11-18*
+
+- **06af7625276** - refactor(test): consolidate into pyproject.toml (#15325)
+  *by Aseem Bansal on 2025-11-18*
+
+- **9d644da06eb** - fix: resolve remaining Pydantic v2 deprecation warnings (#15309)
+  *by Sergio Gómez Villamor on 2025-11-18*
+
+- **774f4c5bfdd** - feat(datahub-actions): bump acryl-executor (#15310)
+  *by Sergio Gómez Villamor on 2025-11-18*
+
+- **88091ec2ed9** - refactor(lookml): Fixed log levels for source reporters (#15318)
+  *by Anush Kumar on 2025-11-18*
+
+- **b686d2b5010** - feat(ingest/kafka-connect): Add Confluent Cloud connector and transform pipeline support (#14575)
+  *by Tamas Nemeth on 2025-11-18*
+
+- **cdb403e1f87** - test(smoke): mark test as read only (#15328)
+  *by Aseem Bansal on 2025-11-18*
+
+- **2eafb6c3dd3** - fix(system-update): sql setup regression (#15320)
+  *by Chakru on 2025-11-18*
+
+- **1839f77f54a** - lint(pre-commit): exclude task that caused issues with git worktrees (#15335)
+  *by Aseem Bansal on 2025-11-18*
+
+- **b160af11e55** - fix(): fix system-update compose (#15289)
+  *by david-leifker on 2025-11-18*
+
+- **a7c66eae107** - feat(datahub-actions): Bump up acryl-executor to 0.3.1 (#15334)
+  *by kyungsoo-datahub on 2025-11-18*
+
+- **cf326ee3e15** - fix(theme): Properly set logo url on ErrorSection.tsx (#15295)
+  *by Andrew Sikowitz on 2025-11-18*
+
+- **7ed14d1a7cc** - fix(cypress): cypress flaky tests (#15331)
+  *by Chakru on 2025-11-19*
+
+- **1fbf90e9de6** - test(smoke): read only test for lineage (#15338)
+  *by Aseem Bansal on 2025-11-19*
+
+- **004a11f5ebf** - test(smoke): read only test for data products (#15337)
+  *by Aseem Bansal on 2025-11-19*
+
+- **81e3c821492** - docs(mcp): Adding more detail to MCP Server Docs (#15343)
+  *by John Joyce on 2025-11-18*
+
+- **2ec8c8e983a** - fix(ingestion): Fix confluent cloud test health check (#15346)
+  *by Esteban Gutierrez on 2025-11-19*
+
+- **6fedf069f14** - feat(build): implement Gradle dependency locking (#15303)
+  *by Esteban Gutierrez on 2025-11-19*
+
+- **646c51279fc** - feat(ingestion): Make PySpark optional for S3 (#15123)
+  *by Esteban Gutierrez on 2025-11-19*
+
+- **8ddbb80b170** - fix(cypress): for v2_edit_documentation (#15330)
+  *by v-tarasevich-blitz-brain on 2025-11-19*
+
+- **f515b84c3f7** - fix(build): revert default variant for datahub-actions image (#15352)
+  *by Chakru on 2025-11-19*
+
+- **048f253293b** - docs : update Town Hall registration (#15344)
+  *by jatherley on 2025-11-19*
+
+- **28da4476d86** - feat(config): Hide input data in validation errors when DATAHUB_DEBUG is disabled (#15345)
+  *by kyungsoo-datahub on 2025-11-19*
+
+- **535db8b8382** - fix(masking): add emergency fallback pattern when registry changes rapidly (#15353)
+  *by kyungsoo-datahub on 2025-11-19*
+
+- **711ac49c0a2** - feat(docs): Adding models + APIs for context base V1 (#15280)
+  *by John Joyce on 2025-11-19*
+
+- **7f63afd9195** - fix(cypress): reduce num tests kept in mem to address electron renderer crash (#15357)
+  *by Chakru on 2025-11-20*
+
+- **37f86519d20** - fix(test): resolve search test flakiness with enhanced SearchRequestHandler cache key (#15299)
+  *by trialiya on 2025-11-20*
+
+- **0f3d3c1f065** - feat(readOnly): support read only datahub deployments (#15301)
+  *by RyanHolstien on 2025-11-19*
+
+- **4d6bda53499** - fix(datahub-actions): Bump up acryl-executor to 0.3.2 (#15362)
+  *by kyungsoo-datahub on 2025-11-19*
+
+- **5d0a2c8756a** - fix(docs): fix docs generation failing on untracked files (#15351)
+  *by Deepak Garg on 2025-11-20*
+
+- **dd5df14a88d** - fix(graphql) Add FabricTypes we support in PDL to GraphQL (#15355)
+  *by Chris Collins on 2025-11-19*
+
+- **d2ab83667a8** - chore(deps): fix (com.azure:azure-identity-extensions) (#15314)
+  *by rahul MALAWADKAR on 2025-11-20*
+
+- **da57d9e4e60** - feature(ingestion) denormalised table and schema name for getting primary key (#15317)
+  *by aabharti-visa on 2025-11-20*
+
+- **fded33c6063** - add clone back into menu (#15240)
+  *by Anna Everhart on 2025-11-20*
+
+- **81321afbd8b** - fix(frontend): add missing contextDocumentsEnabled and manageDocuments fields (#15370)
+  *by Esteban Gutierrez on 2025-11-20*
+
+- **ad1c6c37522** - fix(security): Update jersey-client to 2.46 (#15360)
+  *by Esteban Gutierrez on 2025-11-20*
+
+- **31c2bb6cbfb** - feat(ci): add gradle lockfile validation for version changes (#15372)
+  *by Esteban Gutierrez on 2025-11-20*
+
+- **b016e59fd04** - docs(v1.3.0): update docs for release (#14948)
+  *by RyanHolstien on 2025-11-20*
+
+- **be5ba54b3ce** - fix(spotless): Exclude generated code from spotless (#15104)
+  *by Harsh Verma on 2025-11-20*
+
+- **b516aa1f3f5** - docs: Update announcement bar content in docusaurus config (#15371)
+  *by Gray Ayer on 2025-11-20*
+

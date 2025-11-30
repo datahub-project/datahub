@@ -120,6 +120,7 @@ query appConfig {
             nestedDomainsEnabled
             platformBrowseV2
             businessAttributeEntityEnabled
+            contextDocumentsEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
             aiFeaturesEnabled
@@ -176,6 +177,7 @@ query appConfig {
             teamsNotificationsEnabled
             datasetSummaryPageV1
             documentationFileUploadV1
+            contextDocumentsEnabled
         }
         chromeExtensionConfig {
             enabled

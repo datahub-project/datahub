@@ -124,6 +124,9 @@ RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/o
     /oracle_instantclient.sh
 
 USER datahub
+
+# Locked variant uses the same base as slim (no JRE/Oracle needed)
+FROM ingestion-base-slim AS ingestion-base-locked
 # INLINE-END
 
 FROM ingestion-base-${APP_ENV} AS add-code
@@ -139,7 +142,7 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 FROM add-code AS install-slim
 
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
-    UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
+    UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 
 FROM add-code AS install-full
@@ -148,6 +151,17 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install \
         -e "/metadata-ingestion/[all]" \
     && datahub --version
+
+FROM add-code AS install-locked
+
+# Locked variant: minimal install with s3-slim, network will be blocked
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+    UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
+    datahub --version
+
+# Block network access to PyPI in locked variant
+ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 FROM install-${APP_ENV} AS final
 
