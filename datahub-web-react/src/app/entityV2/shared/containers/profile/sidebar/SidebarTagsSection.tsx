@@ -1,4 +1,5 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { get } from 'lodash';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -22,9 +23,10 @@ const Content = styled.div`
 
 interface Props {
     readOnly?: boolean;
+    properties?: any;
 }
 
-export const SidebarTagsSection = ({ readOnly }: Props) => {
+export const SidebarTagsSection = ({ readOnly, properties }: Props) => {
     const { entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
@@ -32,7 +34,17 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState<EntityType | undefined>(undefined);
 
-    const areTagsEmpty = !entityData?.globalTags?.tags?.length;
+    // Extract tags using custom path or default path
+    const extractTags = () => {
+        if (properties?.customTagPath) {
+            return get(entityData, properties?.customTagPath);
+        }
+        // Fall back to default path
+        return entityData?.globalTags;
+    };
+
+    const tags = extractTags();
+    const areTagsEmpty = !tags?.tags?.length;
 
     const canEditTags = !!entityData?.privileges?.canEditTags;
 
@@ -44,7 +56,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                     <Content>
                         {!areTagsEmpty ? (
                             <TagTermGroup
-                                editableTags={entityData?.globalTags}
+                                editableTags={tags}
                                 canAddTag
                                 canRemove
                                 showEmptyMessage
