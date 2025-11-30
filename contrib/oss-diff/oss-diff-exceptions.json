@@ -81,7 +81,7 @@
   },
   "datahub-actions/build.gradle": {
     "additions": 37,
-    "deletions": 31
+    "deletions": 36
   },
   "datahub-actions/setup.py": {
     "additions": 1,
