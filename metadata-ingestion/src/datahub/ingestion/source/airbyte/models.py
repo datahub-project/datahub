@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.emitter.mce_builder import DEFAULT_ENV
 
@@ -12,10 +12,7 @@ class AirbyteStream(BaseModel):
     namespace: Optional[str] = Field(None, alias="namespace")
     json_schema: Dict[str, Any] = Field({}, alias="jsonSchema")
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteStreamConfig(BaseModel):
@@ -50,10 +47,7 @@ class AirbyteStreamConfig(BaseModel):
 
         return True
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteSyncCatalog(BaseModel):
@@ -61,10 +55,7 @@ class AirbyteSyncCatalog(BaseModel):
 
     streams: List[AirbyteStreamConfig] = []
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteSourceConfiguration(BaseModel):
@@ -77,11 +68,7 @@ class AirbyteSourceConfiguration(BaseModel):
     schema_name: Optional[str] = Field(None, alias="schema")
     username: Optional[str] = None
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
-        extra = "allow"  # Allow extra fields
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class AirbyteDestinationConfiguration(BaseModel):
@@ -93,11 +80,7 @@ class AirbyteDestinationConfiguration(BaseModel):
     schema_name: Optional[str] = Field(None, alias="schema")
     username: Optional[str] = None
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
-        extra = "allow"  # Allow extra fields
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class AirbyteDataSource(BaseModel):
@@ -114,10 +97,7 @@ class AirbyteDataSource(BaseModel):
     )
     workspace_id: str = Field("", alias="workspaceId")  # Default to empty string
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteDestination(BaseModel):
@@ -136,10 +116,7 @@ class AirbyteDestination(BaseModel):
     )
     workspace_id: str = Field("", alias="workspaceId")  # Default to empty string
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteConnection(BaseModel):
@@ -156,10 +133,7 @@ class AirbyteConnection(BaseModel):
     schedule_type: str = Field("", alias="scheduleType")  # Default to empty string
     schedule_data: Dict[str, Any] = Field(default_factory=dict, alias="scheduleData")
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteJobAttempt(BaseModel):
@@ -172,10 +146,7 @@ class AirbyteJobAttempt(BaseModel):
         None, alias="endedAt"
     )  # This can legitimately be null for running jobs
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteJob(BaseModel):
@@ -189,10 +160,7 @@ class AirbyteJob(BaseModel):
     updated_at: int = Field(alias="updatedAt")
     attempts: List[AirbyteJobAttempt] = []
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteWorkspace(BaseModel):
@@ -201,10 +169,7 @@ class AirbyteWorkspace(BaseModel):
     workspace_id: str = Field(alias="workspaceId")
     name: str
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteSourcePartial(BaseModel):
@@ -217,10 +182,7 @@ class AirbyteSourcePartial(BaseModel):
     configuration: Optional[Dict[str, Any]] = None
     workspace_id: Optional[str] = Field(None, alias="workspaceId")
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     @property
     def get_schema(self) -> Optional[str]:
@@ -271,10 +233,7 @@ class AirbyteDestinationPartial(BaseModel):
     configuration: Optional[Dict[str, Any]] = None
     workspace_id: Optional[str] = Field(None, alias="workspaceId")
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     @property
     def get_schema(self) -> Optional[str]:
@@ -315,10 +274,7 @@ class AirbyteConnectionPartial(BaseModel):
     schedule_type: Optional[str] = Field(None, alias="scheduleType")
     schedule_data: Optional[Dict[str, Any]] = Field(None, alias="scheduleData")
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # Updated AirbyteWorkspacePartial model with workspace_id as mandatory
@@ -328,10 +284,7 @@ class AirbyteWorkspacePartial(BaseModel):
     workspace_id: str = Field(alias="workspaceId")  # Make mandatory
     name: Optional[str] = None
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbytePipelineInfo(BaseModel):
@@ -352,10 +305,7 @@ class AirbyteJobExecution(BaseModel):
     start_time: int
     end_time: Optional[int] = None  # Can be None for running jobs
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # New models for better type safety
@@ -368,10 +318,7 @@ class AirbyteStreamField(BaseModel):
     field_type: str = ""  # Default to empty string
     description: str = ""  # Default to empty string
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteStreamDetails(BaseModel):
@@ -383,10 +330,7 @@ class AirbyteStreamDetails(BaseModel):
         default_factory=list, alias="propertyFields"
     )
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     def get_column_names(self) -> List[str]:
         """Extract column names from property fields."""
@@ -411,10 +355,7 @@ class AirbyteTagInfo(BaseModel):
         None, alias="resourceType"
     )  # May be missing for global tags
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteDatasetMapping(BaseModel):
@@ -425,7 +366,4 @@ class AirbyteDatasetMapping(BaseModel):
     env: str = DEFAULT_ENV
     platform_instance: Optional[str] = None  # This can legitimately be None
 
-    class Config:
-        """Pydantic configuration."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)

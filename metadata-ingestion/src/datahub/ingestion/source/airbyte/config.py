@@ -1,7 +1,7 @@
 import datetime
 from typing import Dict, Optional
 
-from pydantic import Field, SecretStr, validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -173,17 +173,22 @@ class AirbyteClientConfig(ConfigModel):
         description="Workspace ID for Airbyte Cloud (required for cloud deployment)",
     )
 
-    @validator("host_port")
-    def validate_host_port_for_open_source(cls, v, values):
-        if values.get("deployment_type") == AirbyteDeploymentType.OPEN_SOURCE and not v:
+    @model_validator(mode="after")
+    def validate_deployment_requirements(self) -> "AirbyteClientConfig":
+        """Validate deployment-specific required fields."""
+        if (
+            self.deployment_type == AirbyteDeploymentType.OPEN_SOURCE
+            and not self.host_port
+        ):
             raise ValueError("host_port is required for oss deployment")
-        return v
 
-    @validator("cloud_workspace_id")
-    def validate_workspace_for_cloud(cls, v, values):
-        if values.get("deployment_type") == AirbyteDeploymentType.CLOUD and not v:
+        if (
+            self.deployment_type == AirbyteDeploymentType.CLOUD
+            and not self.cloud_workspace_id
+        ):
             raise ValueError("cloud_workspace_id is required for cloud deployment")
-        return v
+
+        return self
 
 
 class AirbyteSourceConfig(
@@ -268,16 +273,18 @@ class AirbyteSourceConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("job_status_start_date", always=True)
-    def set_default_start_date(cls, v):
+    @field_validator("job_status_start_date", mode="before")
+    @classmethod
+    def set_default_start_date(cls, v: Optional[str]) -> str:
         if v is None:
             # Default to 7 days ago
             seven_days_ago = datetime.datetime.now() - datetime.timedelta(days=7)
             return seven_days_ago.strftime("%Y-%m-%dT%H:%M:%SZ")
         return v
 
-    @validator("job_status_end_date", always=True)
-    def set_default_end_date(cls, v):
+    @field_validator("job_status_end_date", mode="before")
+    @classmethod
+    def set_default_end_date(cls, v: Optional[str]) -> str:
         if v is None:
             # Default to current time
             return datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
