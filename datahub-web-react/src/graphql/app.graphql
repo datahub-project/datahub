@@ -173,6 +173,7 @@ query appConfig {
             teamsNotificationsEnabled
             datasetSummaryPageV1
             documentationFileUploadV1
+            contextDocumentsEnabled
         }
         chromeExtensionConfig {
             enabled
