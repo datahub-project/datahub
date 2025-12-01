@@ -17,13 +17,16 @@ from datahub_integrations.util.serialized import serialized
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime import BedrockRuntimeClient
+from datahub_integrations import is_dev_mode
+
+if not is_dev_mode():
+    logging.getLogger("boto3").setLevel(logging.INFO)
+    logging.getLogger("botocore").setLevel(logging.INFO)
+    logging.getLogger("s3transfer").setLevel(logging.INFO)
 
 _LLM_TRACE = get_boolean_env_variable("DATAHUB_LLM_TRACE")
 
 # Enable boto3 debug logging for troubleshooting timeouts
-logging.getLogger("boto3").setLevel(logging.DEBUG)
-logging.getLogger("botocore").setLevel(logging.DEBUG)
-logging.getLogger("urllib3").setLevel(logging.DEBUG)
 
 _ENABLE_BEDROCK_OPTIMIZED_LATENCY = get_boolean_env_variable(
     "ENABLE_BEDROCK_OPTIMIZED_LATENCY", False

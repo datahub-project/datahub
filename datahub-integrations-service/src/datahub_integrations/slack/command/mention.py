@@ -234,7 +234,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
         logger.debug(f"Successfully sent Slack response to channel {channel_id}")
     except Exception as e:
         if response_ts is not None:
-            logger.warning(f"Failed to send successful response {channel_id}: {e}")
+            logger.exception(f"Failed to send successful response {channel_id}: {e}")
             if isinstance(e, AgentMaxToolCallsExceededError):
                 text = ":x: Uh, oh ! Looks like your question is too complex. Please try again with a simpler question."
             elif isinstance(

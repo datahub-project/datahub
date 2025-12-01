@@ -31,8 +31,8 @@ from datahub_integrations.chat.agents.data_catalog_prompts import (
 )
 from datahub_integrations.chat.planner.models import Constraints, OnFail, Plan, Step
 from datahub_integrations.chat.planner.recipes import get_recipe_guidance
-from datahub_integrations.gen_ai.bedrock import BedrockModel
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
+from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.mcp.mcp_server import get_datahub_client
 from datahub_integrations.mcp_integration.tool import ToolWrapper, async_background
 
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from datahub_integrations.chat.agent.agent_runner import AgentRunner
 
 # Planner configuration
-PLANNER_MODEL = BedrockModel.CLAUDE_37_SONNET
+PLANNER_MODEL = model_config.chat_assistant_ai.model
 PLANNER_TEMPERATURE = 0.3  # Low temperature for consistent structured output
 
 
@@ -163,7 +163,7 @@ def _call_planner_llm(prompt: str, tools_summary: str) -> dict:
     Raises:
         ValueError: If the LLM response cannot be converted to valid plan dict.
     """
-    llm_client = get_llm_client(PLANNER_MODEL.value)
+    llm_client = get_llm_client(PLANNER_MODEL)
 
     # Build system messages: main prompt + tools + custom instructions (if any) + recipes
     system_messages = [

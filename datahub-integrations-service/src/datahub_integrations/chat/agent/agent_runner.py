@@ -177,9 +177,12 @@ class AgentRunner:
                 SlidingWindowReducer,
             )
             from datahub_integrations.gen_ai.model_config import model_config
-            from datahub_integrations.mcp._token_estimator import TokenCountEstimator
+            from datahub_integrations.mcp._token_estimator import (
+                TokenCountEstimator,
+                get_token_limit,
+            )
 
-            CLAUDE_TOKEN_LIMIT = int(200e3)
+            TOKEN_LIMIT = get_token_limit(config.model_id)
             estimator = TokenCountEstimator(config.model_id)
 
             # Get system messages for token estimation
@@ -191,10 +194,8 @@ class AgentRunner:
             tools_config = {"tools": [tool.to_bedrock_spec() for tool in self.tools]}
 
             reducer_config = ContextReducerConfig(
-                llm_token_limit=CLAUDE_TOKEN_LIMIT
-                if "claude" in config.model_id
-                else int(100e3),
-                safety_buffer=int(CLAUDE_TOKEN_LIMIT * 0.1),
+                llm_token_limit=TOKEN_LIMIT,
+                safety_buffer=int(TOKEN_LIMIT * 0.1),
                 system_message_tokens=estimator.estimate_tokens(system_prompt_text),
                 tool_config_tokens=estimator.estimate_tokens(json.dumps(tools_config)),
             )

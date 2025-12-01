@@ -244,6 +244,7 @@ def log_generation_time_metrics(evals_df: pd.DataFrame) -> None:
 
 async def main(
     prompt_ids: Optional[List[str]] = None,
+    instances: Optional[List[str]] = None,
 ) -> None:
     # Configure file logging with DEBUG level
     log_file = (
@@ -286,6 +287,11 @@ async def main(
     )
     logger.debug("Debug logging enabled for detailed troubleshooting")
 
+    # Validate that only one of prompt_ids or instances is provided
+    if prompt_ids and instances:
+        logger.error("Cannot specify both --prompt-ids and --instances. Please provide only one.")
+        raise typer.BadParameter("Cannot specify both --prompt-ids and --instances. Please provide only one.")
+
     filtered_prompts = all_prompts
     if prompt_ids:
         filtered_prompts = [
@@ -297,6 +303,17 @@ async def main(
             logger.error(f"No prompts found for {prompt_ids}")
             return
         logger.info(f"Running {len(filtered_prompts)} prompts")
+        logger.debug(f"Filtered prompts: {[p.id for p in filtered_prompts]}")
+    elif instances:
+        filtered_prompts = [
+            p
+            for p in all_prompts
+            if any(fnmatch.fnmatch(p.instance, pattern) for pattern in instances)
+        ]
+        if len(filtered_prompts) == 0:
+            logger.error(f"No prompts found for instances {instances}")
+            return
+        logger.info(f"Running {len(filtered_prompts)} prompts from instances: {instances}")
         logger.debug(f"Filtered prompts: {[p.id for p in filtered_prompts]}")
 
     # Load instruction overrides once at the start

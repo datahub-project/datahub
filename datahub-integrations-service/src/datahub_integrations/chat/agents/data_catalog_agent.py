@@ -35,6 +35,7 @@ from datahub_integrations.chat.chat_session_formatter import format_message
 from datahub_integrations.chat.types import ChatType, NextMessage
 from datahub_integrations.gen_ai.linkify import auto_fix_chat_links
 from datahub_integrations.gen_ai.model_config import model_config
+from datahub_integrations.mcp.mcp_server import register_all_tools
 from datahub_integrations.mcp_integration.tool import (
     ToolWrapper,
     async_background,
@@ -43,6 +44,7 @@ from datahub_integrations.mcp_integration.tool import (
 from datahub_integrations.smart_search.smart_search import smart_search
 
 MAX_TOOL_CALLS = 30
+register_all_tools(is_oss=False)
 
 
 def _is_respond_to_user_result(message: Message) -> TypeGuard[ToolResult]:
