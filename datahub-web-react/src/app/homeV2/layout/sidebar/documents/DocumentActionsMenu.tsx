@@ -15,7 +15,7 @@ import { EntityType } from '@types';
 
 const MenuButton = styled(Button)`
     &:hover {
-        background-color: ${colors.gray[200]};
+        background-color: ${colors.gray[100]};
     }
 `;
 
