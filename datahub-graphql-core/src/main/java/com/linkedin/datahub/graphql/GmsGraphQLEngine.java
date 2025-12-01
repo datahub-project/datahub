@@ -2354,9 +2354,7 @@ public class GmsGraphQLEngine {
                                 .collect(Collectors.toList()))));
     builder.type(
         "StructuredPropertyEntity",
-        typeWiring ->
-            typeWiring
-                .dataFetcher("exists", new EntityExistsResolver(entityService)));
+        typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
   }
 
   /**
