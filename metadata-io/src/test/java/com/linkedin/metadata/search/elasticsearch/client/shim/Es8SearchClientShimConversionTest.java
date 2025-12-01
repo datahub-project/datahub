@@ -1,14 +1,19 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim;
 
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
+import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.lang.reflect.Method;
+import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.suggest.SuggestBuilder;
 import org.opensearch.search.suggest.SuggestBuilders;
@@ -52,10 +57,7 @@ public class Es8SearchClientShimConversionTest {
     assertNotNull(result, "Converted FieldSuggester should not be null");
   }
 
-  /**
-   * Test that convertSuggestion handles different suggestion types. This ensures the XContent
-   * serialization works for various SuggestionBuilder types.
-   */
+  /** Test that convertSuggestion handles different suggestion types */
   @Test
   public void testConvertSuggestionWithPhraseSuggestion() throws Exception {
     SuggestionBuilder<?> phraseSuggestion =
@@ -66,10 +68,7 @@ public class Es8SearchClientShimConversionTest {
     assertNotNull(result, "Converted FieldSuggester should not be null");
   }
 
-  /**
-   * Test that convertSuggestion handles completion suggestions. This verifies XContent
-   * serialization for completion-based suggestions.
-   */
+  /** Test that convertSuggestion handles completion suggestions. */
   @Test
   public void testConvertSuggestionWithCompletionSuggestion() throws Exception {
     SuggestionBuilder<?> completionSuggestion =
@@ -80,10 +79,7 @@ public class Es8SearchClientShimConversionTest {
     assertNotNull(result, "Converted FieldSuggester should not be null");
   }
 
-  /**
-   * Test end-to-end search request conversion with suggestions enabled. This simulates the actual
-   * usage pattern where suggestions are built via ESUtils.buildNameSuggestions.
-   */
+  /** Test end-to-end search request conversion with suggestions enabled. */
   @Test
   public void testSearchRequestWithSuggestions() throws Exception {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -106,10 +102,57 @@ public class Es8SearchClientShimConversionTest {
         "Should have exactly one suggestion");
   }
 
-  /**
-   * Helper method to invoke the private convertSuggestion method via reflection. This is necessary
-   * because convertSuggestion is a private method in Es8SearchClientShim.
-   */
+  /** Test that convertAliasAction properly serializes an add alias action using XContent */
+  @Test
+  public void testConvertAliasActionWithAddAlias() throws Exception {
+    IndicesAliasesRequest.AliasActions addAction =
+        IndicesAliasesRequest.AliasActions.add().index("test-index").alias("test-alias");
+
+    Action result = invokeConvertAliasAction(addAction);
+
+    assertNotNull(result, "Converted Action should not be null");
+  }
+
+  /** Test that convertAliasAction properly serializes a remove alias action. */
+  @Test
+  public void testConvertAliasActionWithRemoveAlias() throws Exception {
+    IndicesAliasesRequest.AliasActions removeAction =
+        IndicesAliasesRequest.AliasActions.remove().index("test-index").alias("test-alias");
+
+    Action result = invokeConvertAliasAction(removeAction);
+
+    assertNotNull(result, "Converted Action should not be null");
+  }
+
+  /** Test that convertAliasAction handles alias actions with filters. */
+  @Test
+  public void testConvertAliasActionWithFilter() throws Exception {
+    IndicesAliasesRequest.AliasActions addActionWithFilter =
+        IndicesAliasesRequest.AliasActions.add()
+            .index("test-index")
+            .alias("filtered-alias")
+            .filter(QueryBuilders.termQuery("status", "active"));
+
+    Action result = invokeConvertAliasAction(addActionWithFilter);
+
+    assertNotNull(result, "Converted Action with filter should not be null");
+  }
+
+  /** Test that convertAliasAction handles alias actions with routing. */
+  @Test
+  public void testConvertAliasActionWithRouting() throws Exception {
+    IndicesAliasesRequest.AliasActions addActionWithRouting =
+        IndicesAliasesRequest.AliasActions.add()
+            .index("test-index")
+            .alias("routed-alias")
+            .routing("shard-1");
+
+    Action result = invokeConvertAliasAction(addActionWithRouting);
+
+    assertNotNull(result, "Converted Action with routing should not be null");
+  }
+
+  /** Helper method to invoke the private convertSuggestion method via reflection. */
   private FieldSuggester invokeConvertSuggestion(SuggestionBuilder<?> suggestionBuilder)
       throws Exception {
     Method convertSuggestionMethod =
@@ -117,5 +160,16 @@ public class Es8SearchClientShimConversionTest {
     convertSuggestionMethod.setAccessible(true);
 
     return (FieldSuggester) convertSuggestionMethod.invoke(shim, suggestionBuilder);
+  }
+
+  /** Helper method to invoke the private convertAliasAction method via reflection. */
+  private Action invokeConvertAliasAction(IndicesAliasesRequest.AliasActions aliasAction)
+      throws Exception {
+    Method convertAliasActionMethod =
+        Es8SearchClientShim.class.getDeclaredMethod(
+            "convertAliasAction", IndicesAliasesRequest.AliasActions.class);
+    convertAliasActionMethod.setAccessible(true);
+
+    return (Action) convertAliasActionMethod.invoke(shim, aliasAction);
   }
 }
