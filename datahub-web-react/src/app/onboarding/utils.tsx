@@ -6,6 +6,7 @@ import { OnboardingConfig } from '@app/onboarding/OnboardingConfig';
 import { OnboardingStep } from '@app/onboarding/types';
 
 import { StepStateResult } from '@types';
+import { getFreeTrialOnboardingIds } from './configV2/FreeTrialConfig';
 
 export function convertStepId(stepId: string, userUrn: string) {
     const step = OnboardingConfig.find((configStep) => configStep.id === stepId);
@@ -14,7 +15,15 @@ export function convertStepId(stepId: string, userUrn: string) {
 
 // used to get all of the steps on our initial fetch
 export function getStepIds(userUrn: string) {
+    return getUserSpecificStepIds(userUrn).concat(getInstanceLevelOnboardingStepIds());
+}
+
+export function getUserSpecificStepIds(userUrn: string) {
     return OnboardingConfig.map((step) => `${userUrn}-${step.id}`);
+}
+
+export function getInstanceLevelOnboardingStepIds() {
+    return getFreeTrialOnboardingIds();
 }
 
 // if the user just saw the prerequisiteStepId (in stepIdsToAdd) of a conditional step, we need to add this conditional step

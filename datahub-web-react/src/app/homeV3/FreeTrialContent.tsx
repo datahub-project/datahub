@@ -1,15 +1,43 @@
 import { Button, Card, colors, Icon, Text, typography } from '@components';
-import React, { useState } from 'react';
+import { Dropdown } from 'antd';
+import React, { useContext, useMemo, useState } from 'react';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
-import { FreeTrialOnboardingConfig } from '@app/onboarding/configV2/FreeTrialConfig';
+import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
+import {
+    FREE_TRIAL_ONBOARDING_CONNECT_SOURCE_ID,
+    FREE_TRIAL_ONBOARDING_ID,
+    FreeTrialOnboardingConfig,
+} from '@app/onboarding/configV2/FreeTrialConfig';
 import { OnboardingStep } from '@app/onboarding/types';
 import PageBanner from '@app/sharedV2/PageBanner';
+import { PageRoutes } from '@conf/Global';
+import { EducationStepsContext } from '@providers/EducationStepsContext';
+
+import { useListIngestionSourcesQuery } from '@graphql/ingestion.generated';
+import { StepStateResult } from '@types';
+
+// Step state constants
+const STEP_STATE_DISMISSED = 'DISMISSED';
+const STEP_STATE_COMPLETE = 'COMPLETE';
+
+/**
+ * Helper to get a step's state from educationSteps
+ */
+const getStepState = (educationSteps: StepStateResult[] | null, stepId: string): string | null => {
+    if (!educationSteps) return null;
+    const stepResult = educationSteps.find((step) => step.id === stepId);
+    if (!stepResult) return null;
+    const stateEntry = stepResult.properties.find((prop) => prop.key === 'state');
+    return stateEntry?.value || null;
+};
 
 const Container = styled.div`
     display: flex;
     flex-direction: column;
     gap: 16px;
+    padding: 0 42px;
 `;
 
 const CardTitle = styled(Text)`
@@ -21,6 +49,7 @@ const CardTitle = styled(Text)`
 const CardDescription = styled(Text)`
     color: ${colors.gray[1700]};
     line-height: 1.5;
+    margin-top: 16px;
 `;
 
 // Get Started Card Styles
@@ -56,28 +85,34 @@ const GetStartedSubtitle = styled(Text)`
 
 const ProgressSection = styled.div`
     display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+`;
+
+const ProgressHeader = styled.div`
+    display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
 `;
 
 const ProgressLabel = styled(Text)`
     color: ${colors.gray[1700]};
     font-size: ${typography.fontSizes.sm};
+    font-weight: ${typography.fontWeights.semiBold};
 `;
 
 const ProgressCount = styled(Text)`
-    color: ${colors.green[1000]};
+    color: ${colors.gray[1700]};
     font-size: ${typography.fontSizes.sm};
     font-weight: ${typography.fontWeights.semiBold};
 `;
 
 const ProgressBarContainer = styled.div`
-    flex: 1;
+    width: 100%;
     height: 6px;
     background: ${colors.gray[100]};
     border-radius: 3px;
-    margin: 0 16px;
     overflow: hidden;
 `;
 
@@ -98,7 +133,8 @@ const TaskList = styled.div`
 const TaskItem = styled.div<{ $isCompleted?: boolean }>`
     display: flex;
     align-items: center;
-    padding: 12px 16px;
+    padding: ${({ $isCompleted }) => ($isCompleted ? '12px 16px' : '12px 0')};
+    margin: ${({ $isCompleted }) => ($isCompleted ? '0 -16px' : '0')};
     border-radius: 8px;
     background: ${({ $isCompleted }) => ($isCompleted ? colors.gray[1500] : 'transparent')};
     opacity: ${({ $isCompleted }) => ($isCompleted ? 0.7 : 1)};
@@ -110,7 +146,7 @@ const TaskIconWrapper = styled.div`
     justify-content: center;
     width: 40px;
     height: 40px;
-    border-radius: 8px;
+    border-radius: 200px;
     background: ${colors.violet[0]};
     margin-right: 16px;
     flex-shrink: 0;
@@ -151,6 +187,24 @@ const DismissButton = styled(Text)`
     }
 `;
 
+const MenuButton = styled(Button)`
+    padding: 4px;
+`;
+
+const MenuItem = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 12px;
+    cursor: pointer;
+    color: ${colors.gray[600]};
+    font-size: ${typography.fontSizes.md};
+
+    &:hover {
+        background: ${colors.gray[100]};
+    }
+`;
+
 interface TaskItemComponentProps {
     step: OnboardingStep;
     isCompleted: boolean;
@@ -181,75 +235,158 @@ const TaskItemComponent = ({ step, isCompleted, onDismiss, onStart }: TaskItemCo
 };
 
 const FreeTrialContent = () => {
-    const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
-    const [dismissedSteps, setDismissedSteps] = useState<Set<string>>(new Set());
+    const history = useHistory();
+    const { educationSteps } = useContext(EducationStepsContext);
+    const [menuOpen, setMenuOpen] = useState(false);
 
-    const handleConnectData = () => {
-        // TODO: Navigate to data connection page
-        console.log('Connect Your Data clicked');
+    // Query ingestion sources to check if user has connected any data sources
+    const { data: ingestionSourcesData } = useListIngestionSourcesQuery({
+        variables: {
+            input: {
+                start: 0,
+                count: 25,
+                filters: [
+                    {
+                        field: 'sourceType',
+                        values: [SYSTEM_INTERNAL_SOURCE_TYPE],
+                        negated: true,
+                    },
+                ],
+            },
+        },
+        fetchPolicy: 'cache-and-network',
+    });
+
+    // Check if any ingestion source has a successful execution
+    const hasSuccessfulIngestion = useMemo(() => {
+        const sources = ingestionSourcesData?.listIngestionSources?.ingestionSources || [];
+        return sources.some((source) => {
+            const latestExecution = source?.executions?.executionRequests?.[0];
+            const status = latestExecution?.result?.status;
+            return status === 'SUCCESS' || status === 'SUCCEEDED_WITH_WARNINGS';
+        });
+    }, [ingestionSourcesData]);
+
+    // Check if user has any ingestion sources configured (regardless of status)
+    const hasIngestionSources = useMemo(() => {
+        const total = ingestionSourcesData?.listIngestionSources?.total || 0;
+        return total > 0;
+    }, [ingestionSourcesData]);
+
+    // Check if the parent Get Started card should be shown
+    const parentState = getStepState(educationSteps, FREE_TRIAL_ONBOARDING_ID);
+    const isParentDismissed = parentState === STEP_STATE_DISMISSED;
+
+    // Helper to check if a step is dismissed
+    const isStepDismissed = (stepId: string): boolean => {
+        const state = getStepState(educationSteps, stepId);
+        return state === STEP_STATE_DISMISSED;
     };
 
+    // Helper to check if a step is completed
+    const isStepCompleted = (stepId: string): boolean => {
+        const state = getStepState(educationSteps, stepId);
+        if (state === STEP_STATE_COMPLETE) return true;
+        // For connect source step, also check ingestion data
+        if (stepId === FREE_TRIAL_ONBOARDING_CONNECT_SOURCE_ID && hasSuccessfulIngestion) return true;
+        return false;
+    };
+
+    const handleConnectData = () => {
+        history.push(PageRoutes.INGESTION);
+    };
+
+    const handleDismissCard = () => {
+        // TODO: Call API to update FREE_TRIAL_ONBOARDING_ID state to DISMISSED
+        setMenuOpen(false);
+        console.log('Dismiss card clicked for:', FREE_TRIAL_ONBOARDING_ID);
+    };
+
+    const cardMenuItems = [
+        {
+            key: 'dismiss',
+            label: (
+                <MenuItem onClick={handleDismissCard}>
+                    Dismiss
+                </MenuItem>
+            ),
+        },
+    ];
+
     const handleDismiss = (stepId: string) => {
-        setDismissedSteps((prev) => new Set(prev).add(stepId));
+        // TODO: Call API to update step state to DISMISSED
+        console.log('Dismiss clicked for:', stepId);
     };
 
     const handleStart = (stepId: string) => {
         // TODO: Navigate to the appropriate page based on stepId
         console.log('Start clicked for:', stepId);
-        // Mark as completed for demo purposes
-        setCompletedSteps((prev) => new Set(prev).add(stepId));
     };
 
     const config = FreeTrialOnboardingConfig;
-    const visibleSteps = config.steps.filter((step) => !dismissedSteps.has(step.id || ''));
-    const completedCount = visibleSteps.filter((step) => completedSteps.has(step.id || '')).length;
+    // Filter out dismissed steps
+    const visibleSteps = config.steps.filter((step) => !isStepDismissed(step.id || ''));
+    const completedCount = visibleSteps.filter((step) => isStepCompleted(step.id || '')).length;
     const totalCount = visibleSteps.length;
     const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
     return (
         <Container>
-            <PageBanner
-                icon={<Icon icon="Info" color="blue" size="lg" />}
-                content={
-                    <Text color="gray">
-                        You&apos;re exploring DataHub with sample e-commerce data. All features are fully functional —
-                        just with demo data.
-                    </Text>
-                }
-                backgroundColor={colors.blue[0]}
-                actionText="Connect Your Data"
-                onAction={handleConnectData}
-                actionColor={colors.blue[1000]}
-            />
+            {hasIngestionSources && (
+                <PageBanner
+                    icon={<Icon icon="Info" color="blue" size="lg" weight="fill" source="phosphor" />}
+                    content={
+                        <Text color="gray">
+                            You&apos;re exploring DataHub with sample e-commerce data. All features are fully functional
+                            with demo data.
+                        </Text>
+                    }
+                    backgroundColor={colors.blue[0]}
+                    actionText="Connect Your Data"
+                    onAction={handleConnectData}
+                    actionColor={colors.blue[1000]}
+                />
+            )}
             <Card
                 title={<CardTitle>Your organization&apos;s data catalog</CardTitle>}
                 subTitle={
                     <CardDescription>
                         DataHub is like a search engine for all your data assets. Find any dataset, understand where it
-                        comes from, see who uses it, and discover insights—all in one place.
+                        comes from, see who uses it, and discover insights, all in one place.
                     </CardDescription>
                 }
                 width="100%"
                 isCardClickable={false}
             />
-            {visibleSteps.length > 0 && (
+            {!isParentDismissed && visibleSteps.length > 0 && (
                 <GetStartedCard>
                     <GetStartedHeader>
                         <HeaderContent>
                             <GetStartedTitle>{config.title}</GetStartedTitle>
                             <GetStartedSubtitle>{config.content}</GetStartedSubtitle>
                         </HeaderContent>
-                        <Icon icon="DotsThreeVertical" source="phosphor" color="gray" size="lg" />
+                        <Dropdown
+                            menu={{ items: cardMenuItems }}
+                            trigger={['click']}
+                            open={menuOpen}
+                            onOpenChange={setMenuOpen}
+                        >
+                            <MenuButton variant="text">
+                                <Icon icon="DotsThreeVertical" source="phosphor" color="gray" size="lg" />
+                            </MenuButton>
+                        </Dropdown>
                     </GetStartedHeader>
                     {config.showProgress && (
                         <ProgressSection>
-                            <ProgressLabel>Progress</ProgressLabel>
+                            <ProgressHeader>
+                                <ProgressLabel>Progress</ProgressLabel>
+                                <ProgressCount>
+                                    {completedCount} of {totalCount} tasks complete
+                                </ProgressCount>
+                            </ProgressHeader>
                             <ProgressBarContainer>
                                 <ProgressBarFill $percent={progressPercent} />
                             </ProgressBarContainer>
-                            <ProgressCount>
-                                {completedCount} of {totalCount} tasks complete
-                            </ProgressCount>
                         </ProgressSection>
                     )}
                     <TaskList>
@@ -257,7 +394,7 @@ const FreeTrialContent = () => {
                             <TaskItemComponent
                                 key={step.id}
                                 step={step}
-                                isCompleted={completedSteps.has(step.id || '')}
+                                isCompleted={isStepCompleted(step.id || '')}
                                 onDismiss={handleDismiss}
                                 onStart={handleStart}
                             />

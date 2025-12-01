@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { FontColorOptions } from '@components/theme/config';
 
 const BannerWrapper = styled.div<{ $backgroundColor: string }>`
-    padding: 16px;
+    padding: 12px;
     font-size: 14px;
     font-weight: 500;
     display: flex;
@@ -17,7 +17,7 @@ const BannerWrapper = styled.div<{ $backgroundColor: string }>`
 
 const IconTextWrapper = styled.div`
     display: flex;
-    gap: 16px;
+    gap: 8px;
     align-items: center;
 `;
 
