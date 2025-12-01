@@ -1,12 +1,10 @@
-import { Image } from '@phosphor-icons/react';
+import { PictureOutlined } from '@ant-design/icons';
+import { Modal } from '@components';
 import { useCommands } from '@remirror/react';
 import { Form, Input, Typography } from 'antd';
 import React, { useState } from 'react';
 
-import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
-import { Modal } from '@components/components/Modal';
-
-import { colors } from '@src/alchemy-components/theme';
+import { CommandButton } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/CommandButton';
 
 export const AddImageButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);
@@ -37,22 +35,22 @@ export const AddImageButton = () => {
         <>
             <CommandButton
                 active={false}
-                icon={<Image size={20} color={colors.gray[1800]} />}
+                icon={<PictureOutlined />}
                 commandName="insertImage"
                 onClick={handleButtonClick}
             />
             <Modal
                 title="Add Image"
                 open={isModalVisible}
-                onCancel={handleCancel}
+                okText="Save"
                 buttons={[
                     {
-                        text: 'Save',
+                        text: 'Add',
                         variant: 'filled',
                         onClick: handleOk,
                     },
                 ]}
-                zIndex={1200}
+                onCancel={handleCancel}
             >
                 <Form form={form} layout="vertical" colon={false} requiredMark={false}>
                     <Form.Item
