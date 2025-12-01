@@ -7,10 +7,8 @@ Defines RDF and DataHub AST representations for glossary terms.
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+# Forward references to avoid circular imports
 if TYPE_CHECKING:
-    from datahub.ingestion.source.rdf.entities.relationship.ast import RDFRelationship
-else:
-    # Import at runtime to avoid circular dependency issues
     from datahub.ingestion.source.rdf.entities.relationship.ast import RDFRelationship
 
 
@@ -23,7 +21,7 @@ class RDFGlossaryTerm:
     definition: Optional[str] = None
     source: Optional[str] = None
     properties: Dict[str, Any] = field(default_factory=dict)
-    relationships: List[RDFRelationship] = field(default_factory=list)
+    relationships: List["RDFRelationship"] = field(default_factory=list)
     custom_properties: Dict[str, Any] = field(default_factory=dict)
 
     # Additional RDF properties useful for exporting

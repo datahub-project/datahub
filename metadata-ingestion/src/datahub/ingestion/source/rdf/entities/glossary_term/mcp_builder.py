@@ -10,10 +10,8 @@ from typing import Any, Dict, List
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.rdf.entities.base import EntityMCPBuilder
 from datahub.ingestion.source.rdf.entities.glossary_term.ast import DataHubGlossaryTerm
-from datahub.ingestion.source.rdf.entities.relationship.ast import (
-    DataHubRelationship,
-    RelationshipType,
-)
+
+# Lazy import to avoid circular dependency with relationship module
 from datahub.metadata.schema_classes import (
     GlossaryNodeInfoClass,
     GlossaryRelatedTermsClass,
@@ -76,8 +74,13 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         return mcps
 
     def build_relationship_mcps(
-        self, relationships: List[DataHubRelationship], context: Dict[str, Any] = None
+        self, relationships, context: Dict[str, Any] = None
     ) -> List[MetadataChangeProposalWrapper]:
+        # Lazy import to avoid circular dependency
+        from datahub.ingestion.source.rdf.entities.relationship.ast import (
+            RelationshipType,
+        )
+
         """
         Build MCPs for glossary term relationships.
 

@@ -13,10 +13,8 @@ from rdflib.namespace import DC, DCTERMS, OWL, SKOS
 
 from datahub.ingestion.source.rdf.entities.base import EntityExtractor
 from datahub.ingestion.source.rdf.entities.glossary_term.ast import RDFGlossaryTerm
-from datahub.ingestion.source.rdf.entities.relationship.ast import (
-    RDFRelationship,
-    RelationshipType,
-)
+
+# Lazy import to avoid circular dependency with relationship module
 
 logger = logging.getLogger(__name__)
 
@@ -224,9 +222,13 @@ class GlossaryTermExtractor(EntityExtractor[RDFGlossaryTerm]):
 
         return None
 
-    def _extract_relationships(
-        self, graph: Graph, uri: URIRef
-    ) -> List[RDFRelationship]:
+    def _extract_relationships(self, graph: Graph, uri: URIRef):
+        # Lazy import to avoid circular dependency
+        from datahub.ingestion.source.rdf.entities.relationship.ast import (
+            RDFRelationship,
+            RelationshipType,
+        )
+
         """
         Extract relationships for a glossary term.
 

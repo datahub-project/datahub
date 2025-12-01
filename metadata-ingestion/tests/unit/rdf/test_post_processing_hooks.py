@@ -133,6 +133,7 @@ class TestPostProcessingHooks(unittest.TestCase):
         value = DataHubStructuredPropertyValue(
             property_urn="urn:li:structuredProperty:test.property",
             entity_urn="urn:li:dataset:test.platform/test_dataset",
+            property_name="test.property",
             entity_type="dataset",
             value="test value",
         )
@@ -157,6 +158,7 @@ class TestPostProcessingHooks(unittest.TestCase):
         value = DataHubStructuredPropertyValue(
             property_urn="urn:li:structuredProperty:undefined.property",
             entity_urn="urn:li:dataset:test.platform/test_dataset",
+            property_name="undefined.property",
             entity_type="dataset",
             value="test value",
         )

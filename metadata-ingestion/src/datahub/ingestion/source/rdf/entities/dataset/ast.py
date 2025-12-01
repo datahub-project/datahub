@@ -5,10 +5,11 @@ Defines RDF and DataHub AST representations for datasets.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-# Import assertion types from assertion module
-from datahub.ingestion.source.rdf.entities.assertion.ast import RDFAssertion
+# Forward references to avoid circular imports
+if TYPE_CHECKING:
+    from datahub.ingestion.source.rdf.entities.assertion.ast import RDFAssertion
 
 # DataHub SDK imports
 from datahub.metadata.schema_classes import (
@@ -47,7 +48,7 @@ class RDFDataset:
     properties: Dict[str, Any] = field(default_factory=dict)
     schema_fields: List[RDFSchemaField] = field(default_factory=list)
     custom_properties: Dict[str, Any] = field(default_factory=dict)
-    assertions: List[RDFAssertion] = field(default_factory=list)
+    assertions: List["RDFAssertion"] = field(default_factory=list)
     # SHACL support
     schema_shape_uri: Optional[str] = None  # Reference to sh:NodeShape
 

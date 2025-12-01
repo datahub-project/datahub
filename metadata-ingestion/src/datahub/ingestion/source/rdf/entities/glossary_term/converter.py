@@ -15,11 +15,9 @@ from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
 from datahub.ingestion.source.rdf.entities.glossary_term.urn_generator import (
     GlossaryTermUrnGenerator,
 )
-from datahub.ingestion.source.rdf.entities.relationship.ast import (
-    DataHubRelationship,
-    RDFRelationship,
-    RelationshipType,
-)
+
+# Lazy import to avoid circular dependency with relationship module
+# Import relationship types only when needed
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +121,12 @@ class GlossaryTermConverter(EntityConverter[RDFGlossaryTerm, DataHubGlossaryTerm
 
     def collect_relationships(
         self, rdf_terms: List[RDFGlossaryTerm], context: Dict[str, Any] = None
-    ) -> List[DataHubRelationship]:
+    ):
+        # Lazy import to avoid circular dependency
+        from datahub.ingestion.source.rdf.entities.relationship.ast import (
+            DataHubRelationship,
+        )
+
         """
         Collect all relationships from glossary terms as DataHubRelationship objects.
 
@@ -168,14 +171,17 @@ class GlossaryTermConverter(EntityConverter[RDFGlossaryTerm, DataHubGlossaryTerm
 
         return all_relationships
 
-    def _convert_relationships(
-        self, rdf_relationships: List[RDFRelationship]
-    ) -> Dict[str, List[str]]:
+    def _convert_relationships(self, rdf_relationships) -> Dict[str, List[str]]:
         """
         Convert RDF relationships to DataHub dictionary format.
 
         Only supports broader and narrower.
         """
+        # Lazy import to avoid circular dependency
+        from datahub.ingestion.source.rdf.entities.relationship.ast import (
+            RelationshipType,
+        )
+
         relationships = {"broader": [], "narrower": []}
 
         for rel in rdf_relationships:

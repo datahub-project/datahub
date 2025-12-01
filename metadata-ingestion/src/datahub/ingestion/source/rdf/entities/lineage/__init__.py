@@ -12,6 +12,9 @@ Supports:
 """
 
 from datahub.ingestion.source.rdf.entities.base import EntityMetadata
+from datahub.ingestion.source.rdf.entities.dataset import (
+    ENTITY_TYPE as DATASET_ENTITY_TYPE,
+)
 from datahub.ingestion.source.rdf.entities.lineage.ast import (
     DataHubLineageActivity,
     DataHubLineageRelationship,
@@ -23,16 +26,22 @@ from datahub.ingestion.source.rdf.entities.lineage.converter import LineageConve
 from datahub.ingestion.source.rdf.entities.lineage.extractor import LineageExtractor
 from datahub.ingestion.source.rdf.entities.lineage.mcp_builder import LineageMCPBuilder
 
+# Entity type constant - part of the module contract
+ENTITY_TYPE = "lineage"
+
 ENTITY_METADATA = EntityMetadata(
-    entity_type="lineage",
+    entity_type=ENTITY_TYPE,
     cli_names=["lineage"],
     rdf_ast_class=RDFLineageRelationship,
     datahub_ast_class=DataHubLineageRelationship,
     export_targets=["pretty_print", "file", "datahub"],
-    processing_order=5,  # After datasets (lineage references datasets)
+    dependencies=[
+        DATASET_ENTITY_TYPE
+    ],  # Depends on datasets (lineage references datasets)
 )
 
 __all__ = [
+    "ENTITY_TYPE",
     "LineageExtractor",
     "LineageConverter",
     "LineageMCPBuilder",

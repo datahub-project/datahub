@@ -342,7 +342,7 @@ class TestDatasetBehavior(unittest.TestCase):
         @prefix plat: <http://example.org/platforms/> .
         
         ex:CustomerTable a void:Dataset ;
-            rdfs:label "Customer Table" ;
+            dcterms:title "Customer Table" ;
             rdfs:comment "Table containing customer information" ;
             dcat:accessService plat:postgres .
         
@@ -979,10 +979,11 @@ class TestStructuredPropertyBehavior(unittest.TestCase):
         @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
         @prefix owl: <http://www.w3.org/2002/07/owl#> .
         @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+        @prefix dcat: <http://www.w3.org/ns/dcat#> .
         @prefix ex: <http://example.org/> .
         
         ex:criticality a owl:DatatypeProperty ;
-            rdfs:domain owl:Thing ;
+            rdfs:domain dcat:Dataset ;
             rdfs:range xsd:string ;
             rdfs:label "Criticality" ;
             rdfs:comment "Criticality level" .

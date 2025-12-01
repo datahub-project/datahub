@@ -168,21 +168,100 @@ class EntityRegistry:
 
     def get_entity_types_by_processing_order(self) -> List[str]:
         """
-        Get all registered entity types sorted by processing_order.
+        Get all registered entity types sorted by dependencies (topological sort).
 
-        Entities with lower processing_order values are processed first.
-        Entities without explicit ordering (default 100) are processed last.
+        Entities are ordered such that dependencies are processed before dependents.
+        Uses topological sorting based on the dependencies field in EntityMetadata.
+
+        Falls back to processing_order if dependencies are not specified (backward compatibility).
 
         Returns:
-            List of entity type names sorted by processing_order
+            List of entity type names sorted by dependency order
         """
-        entity_types_with_order = [
-            (entity_type, metadata.processing_order)
-            for entity_type, metadata in self._metadata.items()
-        ]
-        # Sort by processing_order, then by entity_type for stability
-        entity_types_with_order.sort(key=lambda x: (x[1], x[0]))
-        return [entity_type for entity_type, _ in entity_types_with_order]
+        # Build dependency graph
+        entity_types = list(self._metadata.keys())
+        dependency_graph = {}
+        in_degree = {}
+
+        # Initialize
+        for entity_type in entity_types:
+            dependency_graph[entity_type] = []
+            in_degree[entity_type] = 0
+
+        # Build edges: if A depends on B, then B -> A (B must come before A)
+        for entity_type, metadata in self._metadata.items():
+            # Use dependencies if specified, otherwise fall back to processing_order
+            if metadata.dependencies:
+                for dep in metadata.dependencies:
+                    # Normalize dependency to string (handles both string literals and ENTITY_TYPE constants)
+                    dep_str = dep if isinstance(dep, str) else str(dep)
+                    if dep_str in dependency_graph:
+                        dependency_graph[dep_str].append(entity_type)
+                        in_degree[entity_type] += 1
+                    else:
+                        logger.warning(
+                            f"Entity '{entity_type}' depends on '{dep_str}', but '{dep_str}' is not registered. "
+                            f"Ignoring dependency."
+                        )
+
+        # Topological sort using Kahn's algorithm
+        queue = [et for et in entity_types if in_degree[et] == 0]
+        result = []
+
+        # If no dependencies specified, fall back to processing_order
+        has_dependencies = any(
+            metadata.dependencies for metadata in self._metadata.values()
+        )
+        if not has_dependencies:
+            # Fallback to processing_order
+            entity_types_with_order = [
+                (entity_type, metadata.processing_order)
+                for entity_type, metadata in self._metadata.items()
+            ]
+            entity_types_with_order.sort(key=lambda x: (x[1], x[0]))
+            return [entity_type for entity_type, _ in entity_types_with_order]
+
+        # Priority order for root nodes (entities with no dependencies)
+        # structured_property should come first, then domain
+        priority_order = ["structured_property", "domain"]
+
+        def sort_key(entity_type: str) -> tuple:
+            """Sort key: priority first, then alphabetical."""
+            try:
+                priority = priority_order.index(entity_type)
+            except ValueError:
+                priority = len(priority_order)
+            return (priority, entity_type)
+
+        while queue:
+            # Sort queue: priority entities first, then alphabetical
+            queue.sort(key=sort_key)
+            entity_type = queue.pop(0)
+            result.append(entity_type)
+
+            # Decrease in-degree of dependents
+            for dependent in dependency_graph[entity_type]:
+                in_degree[dependent] -= 1
+                if in_degree[dependent] == 0:
+                    queue.append(dependent)
+
+        # Check for cycles (shouldn't happen with valid dependencies)
+        if len(result) != len(entity_types):
+            remaining = set(entity_types) - set(result)
+            logger.warning(
+                f"Circular dependency detected or missing dependencies. "
+                f"Remaining entities: {remaining}. "
+                f"Falling back to processing_order."
+            )
+            # Fallback to processing_order
+            entity_types_with_order = [
+                (entity_type, metadata.processing_order)
+                for entity_type, metadata in self._metadata.items()
+            ]
+            entity_types_with_order.sort(key=lambda x: (x[1], x[0]))
+            return [entity_type for entity_type, _ in entity_types_with_order]
+
+        return result
 
 
 def _entity_type_to_class_name(entity_type: str, suffix: str) -> str:
@@ -219,7 +298,8 @@ def _register_entity_module(registry: EntityRegistry, entity_type: str, module) 
     Raises:
         ValueError: If required components are missing
     """
-    # Get required components using naming convention
+    # Get components using naming convention
+    # Extractor and Converter are optional for built entities (e.g., domains)
     ExtractorClass = getattr(
         module, _entity_type_to_class_name(entity_type, "Extractor"), None
     )
@@ -231,12 +311,8 @@ def _register_entity_module(registry: EntityRegistry, entity_type: str, module) 
     )
     metadata = getattr(module, "ENTITY_METADATA", None)
 
-    # Validate all required components exist
+    # Validate required components exist
     missing = []
-    if ExtractorClass is None:
-        missing.append(f"{_entity_type_to_class_name(entity_type, 'Extractor')}")
-    if ConverterClass is None:
-        missing.append(f"{_entity_type_to_class_name(entity_type, 'Converter')}")
     if MCPBuilderClass is None:
         missing.append(f"{_entity_type_to_class_name(entity_type, 'MCPBuilder')}")
     if metadata is None:
@@ -255,21 +331,36 @@ def _register_entity_module(registry: EntityRegistry, entity_type: str, module) 
             f"Entity type must match the folder name."
         )
 
-    # Create processor instance
-    try:
-        processor = EntityProcessor(
-            extractor=ExtractorClass(),
-            converter=ConverterClass(),
-            mcp_builder=MCPBuilderClass(),
-        )
-    except Exception as e:
-        raise ValueError(
-            f"Failed to instantiate processor components for '{entity_type}': {e}. "
-            f"Ensure all components can be instantiated without required arguments."
-        ) from e
+    # Register MCP builder (required)
+    if MCPBuilderClass:
+        mcp_builder = MCPBuilderClass()
+        registry.register_mcp_builder(entity_type, mcp_builder)
 
-    # Register processor and metadata
-    registry.register_processor(entity_type, processor)
+    # Register extractor and converter if they exist (optional for built entities)
+    if ExtractorClass:
+        extractor = ExtractorClass()
+        registry.register_extractor(entity_type, extractor)
+    if ConverterClass:
+        converter = ConverterClass()
+        registry.register_converter(entity_type, converter)
+
+    # Create processor instance only if all components exist
+    # Built entities (like domains) may not have extractor/converter
+    if ExtractorClass and ConverterClass and MCPBuilderClass:
+        try:
+            processor = EntityProcessor(
+                extractor=ExtractorClass(),
+                converter=ConverterClass(),
+                mcp_builder=MCPBuilderClass(),
+            )
+            registry.register_processor(entity_type, processor)
+        except Exception as e:
+            raise ValueError(
+                f"Failed to instantiate processor components for '{entity_type}': {e}. "
+                f"Ensure all components can be instantiated without required arguments."
+            ) from e
+
+    # Register metadata (always required)
     registry.register_metadata(entity_type, metadata)
 
     logger.debug(f"Auto-registered entity module: {entity_type}")

@@ -78,9 +78,13 @@ class DataHubIngestionTarget(TargetInterface):
 
             # Process standard entities in order (using registry pattern)
             # Cross-entity dependencies (structured property values, glossary nodes from domains,
-            # dataset-domain associations) are handled via post-processing hooks.
-            # Non-registered entities (lineage activities, owner groups, domains) are handled separately.
+            # dataset-domain associations, domain ownership) are handled via post-processing hooks.
+            # Non-registered entities (lineage activities) are handled separately.
             entity_types_by_order = registry.get_entity_types_by_processing_order()
+
+            # Build context with full graph and report for post-processing hooks
+            # Defined outside loop so it's available for deferred post-processing hooks
+            build_context = {"datahub_graph": datahub_graph, "report": self.report}
 
             for entity_type in entity_types_by_order:
                 mcp_builder = registry.get_mcp_builder(entity_type)
@@ -99,13 +103,14 @@ class DataHubIngestionTarget(TargetInterface):
                     continue
 
                 metadata = registry.get_metadata(entity_type)
-                processing_order = metadata.processing_order if metadata else 100
-                logger.info(
-                    f"Processing {len(entities)} {entity_type} entities (order: {processing_order})"
+                deps_str = (
+                    ", ".join(metadata.dependencies)
+                    if metadata and metadata.dependencies
+                    else "none"
                 )
-
-                # Build context with full graph and report for post-processing hooks
-                build_context = {"datahub_graph": datahub_graph, "report": self.report}
+                logger.debug(
+                    f"Processing {len(entities)} {entity_type} entities (depends on: {deps_str})"
+                )
 
                 # Use build_all_mcps if available, otherwise iterate
                 if hasattr(mcp_builder, "build_all_mcps"):
@@ -154,12 +159,17 @@ class DataHubIngestionTarget(TargetInterface):
                     )
 
                 # Call post-processing hook if available (for cross-entity dependencies)
-                # EXCEPT for structured_property - defer value assignments until after all entities are processed
-                # to ensure definitions are committed before value assignments are validated
-                if (
-                    hasattr(mcp_builder, "build_post_processing_mcps")
-                    and entity_type != "structured_property"
-                ):
+                # EXCEPT for:
+                # - structured_property: defer value assignments until after all entities are processed
+                # - glossary_term: defer glossary nodes from domains until after domains are processed
+                # - domain: defer owner groups and ownership until after domains are processed
+                if hasattr(
+                    mcp_builder, "build_post_processing_mcps"
+                ) and entity_type not in [
+                    "structured_property",
+                    "glossary_term",
+                    "domain",
+                ]:
                     try:
                         post_mcps = mcp_builder.build_post_processing_mcps(
                             datahub_graph, build_context
@@ -203,123 +213,60 @@ class DataHubIngestionTarget(TargetInterface):
                             f"Failed to create MCP for DataJob {activity.urn}: {e}"
                         )
 
-            # Special case: Owner Groups (must be created before domain ownership assignment per Section 8.8)
-            # Use owner groups from AST (extracted from RDF properties per Section 8.2)
-            owner_iri_to_urn = {}
-            owner_iri_to_type = {}
-
-            if hasattr(datahub_graph, "owner_groups") and datahub_graph.owner_groups:
-                logger.info(
-                    f"Processing {len(datahub_graph.owner_groups)} owner groups from AST"
-                )
-                from datahub.ingestion.source.rdf.entities.domain.mcp_builder import (
-                    DomainMCPBuilder,
-                )
-
-                for owner_group in datahub_graph.owner_groups:
-                    try:
-                        # Create corpGroup MCP using metadata from RDF properties
-                        group_mcp = DomainMCPBuilder.create_corpgroup_mcp(
-                            group_urn=owner_group.urn,
-                            group_name=owner_group.name,  # From rdfs:label
-                            group_description=owner_group.description,  # From rdfs:comment
-                        )
-                        mcps.append(group_mcp)
-                        owner_iri_to_urn[owner_group.iri] = owner_group.urn
-                        owner_iri_to_type[owner_group.iri] = (
-                            owner_group.owner_type
-                        )  # From dh:hasOwnerType or RDF type
-                        self.report.report_entity_emitted()
-                        logger.debug(
-                            f"Created corpGroup MCP for owner group: {owner_group.name} ({owner_group.urn})"
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to create corpGroup MCP for owner group {owner_group.iri}: {e}"
-                        )
-
-            # Special case: Domains (only create if they have datasets in their hierarchy)
-            # Domains are not registered as entity types (they're built, not extracted)
-            # So import DomainMCPBuilder directly
-            from datahub.ingestion.source.rdf.entities.domain.mcp_builder import (
-                DomainMCPBuilder,
-            )
-
-            logger.info(f"Processing {len(datahub_graph.domains)} domains")
-            domain_mcp_builder = DomainMCPBuilder()
-            for domain in datahub_graph.domains:
-                try:
-                    domain_path = (
-                        tuple(domain.path_segments)
-                        if domain.path_segments
-                        else domain.name
-                    )
-                    logger.debug(
-                        f"Building MCPs for domain: {domain_path} (URN: {domain.urn})"
-                    )
-                    domain_mcps = domain_mcp_builder.build_mcps(domain)
-                    # build_mcps returns empty list if domain has no datasets
-                    if not domain_mcps:
-                        logger.debug(
-                            f"Skipping domain (no datasets in hierarchy): {domain_path}"
-                        )
-                        continue
-
-                    logger.debug(
-                        f"Created {len(domain_mcps)} MCPs for domain: {domain_path}"
-                    )
-                    mcps.extend(domain_mcps)
-                    for _ in domain_mcps:
-                        self.report.report_entity_emitted()
-
-                    # Add domain ownership MCP if domain has owners (Section 8.3, 8.8)
-                    if hasattr(domain, "owners") and domain.owners:
-                        owner_urns = []
-                        owner_types = []
-
-                        # Convert owner IRIs to URNs and get owner types from AST (extracted from RDF)
-                        for owner_iri in domain.owners:
-                            if owner_iri in owner_iri_to_urn:
-                                owner_urn = owner_iri_to_urn[owner_iri]
-                                owner_urns.append(owner_urn)
-
-                                # Get owner type from AST (extracted from dh:hasOwnerType or RDF type)
-                                owner_type = owner_iri_to_type.get(owner_iri)
-                                if not owner_type:
-                                    raise ValueError(
-                                        f"Cannot determine owner type for {owner_iri}. "
-                                        f"Owner must have dh:hasOwnerType property in RDF (supports custom owner types)."
-                                    )
-                                owner_types.append(owner_type)
-
-                        if owner_urns:
-                            try:
-                                from datahub.ingestion.source.rdf.entities.domain.mcp_builder import (
-                                    DomainMCPBuilder,
-                                )
-
-                                ownership_mcp = (
-                                    DomainMCPBuilder.create_domain_ownership_mcp(
-                                        domain_urn=str(domain.urn),
-                                        owner_urns=owner_urns,
-                                        owner_types=owner_types,
-                                    )
-                                )
-                                mcps.append(ownership_mcp)
-                                self.report.report_entity_emitted()
-                                logger.debug(
-                                    f"Created ownership MCP for domain {domain.name} with {len(owner_urns)} owners"
-                                )
-                            except Exception as e:
-                                logger.warning(
-                                    f"Failed to create ownership MCP for domain {domain.urn}: {e}"
-                                )
-
-                except Exception as e:
-                    logger.warning(f"Failed to create MCP for domain {domain.urn}: {e}")
-
             # Note: Assertions are processed via the registry pattern above
             # This section is kept for any special assertion handling if needed
+
+            # Deferred: Domain owner groups and ownership
+            # These must be created AFTER domains are processed
+            domain_mcp_builder = registry.get_mcp_builder("domain")
+            if domain_mcp_builder and hasattr(
+                domain_mcp_builder, "build_post_processing_mcps"
+            ):
+                try:
+                    logger.info(
+                        "Processing domain owner groups and ownership (deferred until after domains)"
+                    )
+                    post_mcps = domain_mcp_builder.build_post_processing_mcps(
+                        datahub_graph, build_context
+                    )
+                    if post_mcps:
+                        mcps.extend(post_mcps)
+                        for _ in post_mcps:
+                            self.report.report_entity_emitted()
+                        logger.info(
+                            f"Created {len(post_mcps)} domain owner group and ownership MCPs"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to create domain owner group and ownership MCPs: {e}",
+                        exc_info=True,
+                    )
+
+            # Deferred: Glossary term nodes from domain hierarchy
+            # These must be created AFTER domains are processed so the domain hierarchy is available
+            glossary_term_mcp_builder = registry.get_mcp_builder("glossary_term")
+            if glossary_term_mcp_builder and hasattr(
+                glossary_term_mcp_builder, "build_post_processing_mcps"
+            ):
+                try:
+                    logger.info(
+                        "Processing glossary nodes from domain hierarchy (deferred until after domains)"
+                    )
+                    post_mcps = glossary_term_mcp_builder.build_post_processing_mcps(
+                        datahub_graph, build_context
+                    )
+                    if post_mcps:
+                        mcps.extend(post_mcps)
+                        for _ in post_mcps:
+                            self.report.report_entity_emitted()
+                        logger.info(
+                            f"Created {len(post_mcps)} glossary node/term MCPs from domain hierarchy"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to create glossary node MCPs from domain hierarchy: {e}",
+                        exc_info=True,
+                    )
 
             # Deferred: Structured property value assignments
             # These must be created AFTER all other entities (including definitions) are processed
@@ -341,6 +288,8 @@ class DataHubIngestionTarget(TargetInterface):
                     )
                     if post_mcps:
                         mcps.extend(post_mcps)
+                        for _ in post_mcps:
+                            self.report.report_entity_emitted()
                         logger.info(
                             f"Created {len(post_mcps)} structured property value assignment MCPs"
                         )

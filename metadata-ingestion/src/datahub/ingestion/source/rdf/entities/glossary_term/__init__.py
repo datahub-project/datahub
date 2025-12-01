@@ -27,16 +27,20 @@ from datahub.ingestion.source.rdf.entities.glossary_term.mcp_builder import (
     GlossaryTermMCPBuilder,
 )
 
+# Entity type constant - part of the module contract
+ENTITY_TYPE = "glossary_term"
+
 ENTITY_METADATA = EntityMetadata(
-    entity_type="glossary_term",
+    entity_type=ENTITY_TYPE,
     cli_names=["glossary", "glossary_terms"],
     rdf_ast_class=RDFGlossaryTerm,
     datahub_ast_class=DataHubGlossaryTerm,
     export_targets=["pretty_print", "file", "datahub"],
-    processing_order=2,  # After structured properties, before relationships
+    dependencies=[],  # No dependencies - glossary terms are independent entities
 )
 
 __all__ = [
+    "ENTITY_TYPE",
     "GlossaryTermExtractor",
     "GlossaryTermConverter",
     "GlossaryTermMCPBuilder",

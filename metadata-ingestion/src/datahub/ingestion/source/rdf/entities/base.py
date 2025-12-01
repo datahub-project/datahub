@@ -248,6 +248,9 @@ class EntityMetadata:
     validation_rules: Dict[str, Any] = field(
         default_factory=dict
     )  # Entity-specific validation rules
+    dependencies: List[str] = field(
+        default_factory=list
+    )  # List of entity types this entity depends on (for MCP emission ordering)
     processing_order: int = field(
         default=100
-    )  # Order in which entities should be processed (lower = earlier). Default 100 for entities without explicit ordering.
+    )  # DEPRECATED: Use dependencies instead. Kept for backward compatibility.

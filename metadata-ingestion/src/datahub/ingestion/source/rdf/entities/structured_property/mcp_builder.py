@@ -245,28 +245,37 @@ class StructuredPropertyMCPBuilder(EntityMCPBuilder[DataHubStructuredProperty]):
             f"Processing {len(structured_property_values)} value assignments."
         )
 
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Defined structured property URNs:")
+            for urn in sorted(defined_property_urns):
+                logger.debug(f"  - {urn}")
+
         # Filter values to only include properties with definitions
         valid_property_values = []
         skipped_count = 0
         skipped_properties = set()
         for prop_value in structured_property_values:
-            if prop_value.property_urn in defined_property_urns:
+            # Normalize property URN to string for comparison
+            prop_urn_str = str(prop_value.property_urn)
+            if prop_urn_str in defined_property_urns:
                 valid_property_values.append(prop_value)
             else:
                 skipped_count += 1
-                skipped_properties.add(prop_value.property_urn)
+                skipped_properties.add(prop_urn_str)
                 logger.debug(
-                    f"Skipping structured property value for undefined property: {prop_value.property_urn} on {prop_value.entity_urn}. "
-                    f"This property definition was likely filtered out during conversion or MCP building."
+                    f"Skipping structured property value for undefined property: {prop_urn_str} on {prop_value.entity_urn}. "
+                    f"This property definition was likely filtered out during conversion or MCP building. "
+                    f"Defined properties: {sorted(defined_property_urns)}"
                 )
 
         if skipped_count > 0:
             logger.debug(
-                f"Skipped {skipped_count} structured property value assignments for {len(skipped_properties)} undefined properties: {sorted(skipped_properties)}"
+                f"Skipped {skipped_count} structured property value assignments for {len(skipped_properties)} undefined properties: {sorted(skipped_properties)}. "
+                f"These property definitions were not created (likely filtered out due to missing or invalid entity types)."
             )
 
         logger.debug(
-            f"Processing {len(valid_property_values)} structured property value assignments"
+            f"Processing {len(valid_property_values)} valid structured property value assignments (skipped {skipped_count})"
         )
 
         # Use MCP builder's build_value_assignments method

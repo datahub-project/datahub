@@ -162,3 +162,90 @@ class DomainMCPBuilder(EntityMCPBuilder[DataHubDomain]):
         return MetadataChangeProposalWrapper(
             entityUrn=domain_urn, aspect=ownership_aspect
         )
+
+    def build_post_processing_mcps(
+        self, datahub_graph: Any, context: Dict[str, Any] = None
+    ) -> List[MetadataChangeProposalWrapper]:
+        """
+        Build post-processing MCPs for domains.
+
+        Handles:
+        - Owner group creation (corpGroups)
+        - Domain ownership assignment
+
+        Args:
+            datahub_graph: The complete DataHub AST
+            context: Optional context with shared state (e.g., report)
+
+        Returns:
+            List of MetadataChangeProposalWrapper objects
+        """
+        mcps = []
+        report = context.get("report") if context else None
+
+        # Build owner IRI to URN mapping (needed for domain ownership)
+        owner_iri_to_urn = {}
+        owner_iri_to_type = {}
+
+        # Process owner groups first (must exist before domain ownership)
+        if hasattr(datahub_graph, "owner_groups") and datahub_graph.owner_groups:
+            logger.info(
+                f"Processing {len(datahub_graph.owner_groups)} owner groups (before domain ownership)"
+            )
+            for owner_group in datahub_graph.owner_groups:
+                try:
+                    group_mcp = self.create_corpgroup_mcp(
+                        group_urn=owner_group.urn,
+                        group_name=owner_group.name,
+                        group_description=owner_group.description,
+                    )
+                    mcps.append(group_mcp)
+                    owner_iri_to_urn[owner_group.iri] = owner_group.urn
+                    owner_iri_to_type[owner_group.iri] = owner_group.owner_type
+                    if report:
+                        report.report_entity_emitted()
+                    logger.debug(
+                        f"Created corpGroup MCP for owner group: {owner_group.name} ({owner_group.urn})"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to create corpGroup MCP for owner group {owner_group.iri}: {e}"
+                    )
+
+        # Process domain ownership MCPs
+        for domain in datahub_graph.domains:
+            if hasattr(domain, "owners") and domain.owners:
+                owner_urns = []
+                owner_types = []
+                for owner_iri in domain.owners:
+                    if owner_iri in owner_iri_to_urn:
+                        owner_urn = owner_iri_to_urn[owner_iri]
+                        owner_urns.append(owner_urn)
+                        owner_type = owner_iri_to_type.get(owner_iri)
+                        if not owner_type:
+                            logger.warning(
+                                f"Cannot determine owner type for {owner_iri}. "
+                                f"Owner must have dh:hasOwnerType property in RDF. Skipping ownership for domain {domain.urn}."
+                            )
+                            continue
+                        owner_types.append(owner_type)
+
+                if owner_urns:
+                    try:
+                        ownership_mcp = self.create_domain_ownership_mcp(
+                            domain_urn=str(domain.urn),
+                            owner_urns=owner_urns,
+                            owner_types=owner_types,
+                        )
+                        mcps.append(ownership_mcp)
+                        if report:
+                            report.report_entity_emitted()
+                        logger.debug(
+                            f"Created ownership MCP for domain {domain.name} with {len(owner_urns)} owners"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to create ownership MCP for domain {domain.urn}: {e}"
+                        )
+
+        return mcps

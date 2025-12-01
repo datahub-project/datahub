@@ -22,16 +22,20 @@ from datahub.ingestion.source.rdf.entities.dataset.converter import DatasetConve
 from datahub.ingestion.source.rdf.entities.dataset.extractor import DatasetExtractor
 from datahub.ingestion.source.rdf.entities.dataset.mcp_builder import DatasetMCPBuilder
 
+# Entity type constant - part of the module contract
+ENTITY_TYPE = "dataset"
+
 ENTITY_METADATA = EntityMetadata(
-    entity_type="dataset",
+    entity_type=ENTITY_TYPE,
     cli_names=["dataset", "datasets"],
     rdf_ast_class=RDFDataset,
     datahub_ast_class=DataHubDataset,
     export_targets=["pretty_print", "file", "datahub", "ddl"],
-    processing_order=4,  # After relationships, before lineage
+    dependencies=[],  # No dependencies - datasets are independent entities
 )
 
 __all__ = [
+    "ENTITY_TYPE",
     "DatasetExtractor",
     "DatasetConverter",
     "DatasetMCPBuilder",
