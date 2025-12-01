@@ -39,9 +39,8 @@ const StyledMDEditor = styled(MDEditor)`
     }
 `;
 
-// Apply KaTeX plugins to the default props
 StyledMDEditor.defaultProps = {
-    previewOptions: getKatexPlugins(),
+    previewOptions: getKatexPlugins() as any,
 };
 
 export default StyledMDEditor;
