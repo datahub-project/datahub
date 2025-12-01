@@ -345,8 +345,7 @@ public class ESSearchDAO {
 
     final String finalInput = input.isEmpty() ? "*" : input;
 
-    // Deduplicate entity names to prevent duplicate EntitySpec objects
-    // which cause IllegalStateException when collecting to map
+    // Deduplicate entity names to prevent duplicate EntitySpec objects using .distinct()
     List<EntitySpec> entitySpecs =
         entityNames.stream()
             .distinct()
@@ -519,8 +518,7 @@ public class ESSearchDAO {
     if (entityNames == null || entityNames.isEmpty()) {
       entitySpecs = QueryUtils.getQueryByDefaultEntitySpecs(opContext.getEntityRegistry());
     } else {
-      // Deduplicate entity names to prevent duplicate EntitySpec objects
-      // which cause IllegalStateException when collecting to map
+      // Deduplicate entity names to prevent duplicate EntitySpec objects using .distinct()
       entitySpecs =
           entityNames.stream()
               .distinct()
@@ -545,7 +543,7 @@ public class ESSearchDAO {
       List<String> indexPatterns = indexConvention.getAllEntityIndicesPatterns();
       searchRequest.indices(indexPatterns.toArray(new String[0]));
     } else {
-      // Deduplicate entity names to prevent duplicate EntitySpec objects
+      // Deduplicate entity names to prevent duplicate EntitySpec objects using .distinct()
       Stream<String> stream =
           entityNames.stream()
               .distinct()
@@ -632,8 +630,7 @@ public class ESSearchDAO {
       @Nonnull List<String> facets) {
     final String finalInput = input.isEmpty() ? "*" : input;
 
-    // Deduplicate entity names to prevent duplicate EntitySpec objects
-    // which cause IllegalStateException when collecting to map
+    // Deduplicate entity names to prevent duplicate EntitySpec objects using .distinct()
     List<EntitySpec> entitySpecs =
         entities.stream()
             .distinct()

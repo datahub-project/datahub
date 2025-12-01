@@ -601,8 +601,7 @@ public class ESBrowseDAO {
       @Nullable Filter filter,
       @Nonnull String input) {
 
-    // Deduplicate entity names to prevent duplicate EntitySpec objects
-    // which cause IllegalStateException when collecting to map
+    // Deduplicate entity names to prevent duplicate EntitySpec objects using .distinct()
     List<EntitySpec> entitySpecs =
         entities.stream()
             .distinct()
