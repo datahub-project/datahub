@@ -1,0 +1,410 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dh: <http://datahub.com/ontology/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+
+# =============================================================================
+# DataHub Core Ontology
+# =============================================================================
+# This ontology defines the core concepts for representing DataHub entities
+# as RDF, enabling export to semantic web standards and integration with
+# existing ontologies like DCAT, SKOS, and PROV-O.
+# =============================================================================
+
+# =============================================================================
+# Ontology Declaration
+# =============================================================================
+dh: a owl:Ontology ;
+    rdfs:label "DataHub Core Ontology" ;
+    rdfs:comment "Core ontology for representing DataHub metadata entities as RDF" ;
+    dcterms:creator "DataHub Export System" ;
+    dcterms:created "2025-01-27"^^xsd:date ;
+    dcterms:modified "2025-01-27"^^xsd:date ;
+    owl:versionInfo "1.0.0" ;
+    owl:imports <http://www.w3.org/2004/02/skos/core> ;
+    owl:imports <http://www.w3.org/ns/prov> ;
+    owl:imports <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# Core Entity Classes
+# =============================================================================
+
+# DataHub Dataset - represents a data asset
+dh:Dataset a rdfs:Class ;
+    rdfs:label "DataHub Dataset" ;
+    rdfs:comment "A data asset in DataHub, such as a table, view, stream, or file" ;
+    rdfs:subClassOf dcterms:Dataset .
+
+# DataHub Dataset Key - composite identifier
+dh:DatasetKey a rdfs:Class ;
+    rdfs:label "DataHub Dataset Key" ;
+    rdfs:comment "Composite identifier for a DataHub dataset: (platform, name, environment)" .
+
+# Data Platform - technology hosting the dataset
+dh:DataPlatform a rdfs:Class ;
+    rdfs:label "Data Platform" ;
+    rdfs:comment "Technology platform that hosts the dataset (e.g., BigQuery, Snowflake, Kafka)" .
+
+# Fabric Type - environment classification
+dh:FabricType a rdfs:Class ;
+    rdfs:label "Fabric Type" ;
+    rdfs:comment "Environment classification (e.g., PROD, DEV, TEST, STAGING)" .
+
+# Metadata Aspect - modular metadata component
+dh:Aspect a rdfs:Class ;
+    rdfs:label "Metadata Aspect" ;
+    rdfs:comment "Modular metadata component that describes a specific aspect of an entity" .
+
+# Schema Field - field within a dataset schema
+dh:SchemaField a rdfs:Class ;
+    rdfs:label "Schema Field" ;
+    rdfs:comment "A field within a dataset's schema definition" .
+
+# Field Term Binding - binding between field and glossary term
+dh:FieldTermBinding a rdfs:Class ;
+    rdfs:label "Field Term Binding" ;
+    rdfs:comment "A binding between a dataset field and a glossary term" .
+
+# Structured Property - generic structured property for DataHub
+dh:StructuredProperty a rdfs:Class ;
+    rdfs:label "Structured Property" ;
+    rdfs:comment "A structured property that can be applied to DataHub entities" .
+
+# Structured Property Value - value for a structured property
+dh:StructuredPropertyValue a rdfs:Class ;
+    rdfs:label "Structured Property Value" ;
+    rdfs:comment "A value for a structured property with type information" .
+
+# DataHub Data Product - groups related data assets
+dh:DataProduct a rdfs:Class ;
+    rdfs:label "DataHub Data Product" ;
+    rdfs:comment "A DataHub Data Product that groups related data assets (datasets, dashboards, pipelines) within a domain" ;
+    rdfs:subClassOf dcterms:Dataset .
+
+# Data Product Asset - asset within a data product
+dh:DataProductAsset a rdfs:Class ;
+    rdfs:label "Data Product Asset" ;
+    rdfs:comment "An asset (dataset, dashboard, pipeline) that belongs to a Data Product" .
+
+# Data Product Owner - owner of a data product
+dh:DataProductOwner a rdfs:Class ;
+    rdfs:label "Data Product Owner" ;
+    rdfs:comment "The owner or steward of a Data Product" .
+
+# DataHub Domain - organizational domain for grouping entities
+dh:Domain a rdfs:Class ;
+    rdfs:label "DataHub Domain" ;
+    rdfs:comment "An organizational domain that groups related data assets and glossary terms" .
+
+# =============================================================================
+# Core Properties
+# =============================================================================
+
+# Dataset identification properties
+dh:hasKey a rdf:Property ;
+    rdfs:domain dh:Dataset ;
+    rdfs:range dh:DatasetKey ;
+    rdfs:label "has key" ;
+    rdfs:comment "Links a dataset to its composite key" .
+
+dh:platform a rdf:Property ;
+    rdfs:domain dh:Dataset ;
+    rdfs:range xsd:string ;
+    rdfs:label "platform" ;
+    rdfs:comment "The data platform that hosts the dataset (e.g., postgres, mysql, kafka)" .
+
+dh:hasPlatform a rdf:Property ;
+    rdfs:domain dh:DatasetKey ;
+    rdfs:range dh:DataPlatform ;
+    rdfs:label "has platform" ;
+    rdfs:comment "Links a dataset key to its data platform" .
+
+dh:hasName a rdf:Property ;
+    rdfs:domain dh:DatasetKey ;
+    rdfs:range xsd:string ;
+    rdfs:label "has name" ;
+    rdfs:comment "The name of the dataset within its platform" .
+
+dh:hasFabricType a rdf:Property ;
+    rdfs:domain dh:DatasetKey ;
+    rdfs:range dh:FabricType ;
+    rdfs:label "has fabric type" ;
+    rdfs:comment "The environment/fabric type of the dataset" .
+
+# Schema properties
+dh:hasSchema a rdf:Property ;
+    rdfs:domain dh:Dataset ;
+    rdfs:range dh:Aspect ;
+    rdfs:label "has schema" ;
+    rdfs:comment "Links a dataset to its schema metadata aspect" .
+
+dh:hasField a rdf:Property ;
+    rdfs:domain dh:Aspect ;
+    rdfs:range dh:SchemaField ;
+    rdfs:label "has field" ;
+    rdfs:comment "Links a schema aspect to its fields" .
+
+# Binding properties
+dh:hasBinding a rdf:Property ;
+    rdfs:domain dh:SchemaField ;
+    rdfs:range dh:FieldTermBinding ;
+    rdfs:label "has binding" ;
+    rdfs:comment "Links a schema field to its term bindings" .
+
+dh:bindsToTerm a rdf:Property ;
+    rdfs:domain dh:FieldTermBinding ;
+    rdfs:range owl:Thing ;
+    rdfs:label "binds to term" ;
+    rdfs:comment "Links a field binding to a glossary term or concept" .
+
+# Structured Property properties
+dh:hasStructuredProperty a rdf:Property ;
+    rdfs:domain dh:Dataset ;
+    rdfs:range dh:StructuredProperty ;
+    rdfs:label "has structured property" ;
+    rdfs:comment "Links a dataset to its structured properties" .
+
+dh:hasPropertyName a rdf:Property ;
+    rdfs:domain dh:StructuredProperty ;
+    rdfs:range xsd:string ;
+    rdfs:label "has property name" ;
+    rdfs:comment "The name of the structured property" .
+
+dh:hasPropertyValue a rdf:Property ;
+    rdfs:domain dh:StructuredProperty ;
+    rdfs:range dh:StructuredPropertyValue ;
+    rdfs:label "has property value" ;
+    rdfs:comment "The value of the structured property" .
+
+dh:hasValueType a rdf:Property ;
+    rdfs:domain dh:StructuredPropertyValue ;
+    rdfs:range xsd:string ;
+    rdfs:label "has value type" ;
+    rdfs:comment "The DataHub value type (STRING, BOOLEAN, DATETIME, URN, etc.)" .
+
+dh:hasValue a rdf:Property ;
+    rdfs:domain dh:StructuredPropertyValue ;
+    rdfs:range xsd:string ;
+    rdfs:label "has value" ;
+    rdfs:comment "The actual value of the structured property" .
+
+# Data Product properties
+dh:hasDataProduct a rdf:Property ;
+    rdfs:domain dh:Dataset ;
+    rdfs:range dh:DataProduct ;
+    rdfs:label "has data product" ;
+    rdfs:comment "Links a dataset to its Data Product" .
+
+dh:containsAsset a rdf:Property ;
+    rdfs:domain dh:DataProduct ;
+    rdfs:range dh:DataProductAsset ;
+    rdfs:label "contains asset" ;
+    rdfs:comment "Links a Data Product to its assets" .
+
+dh:hasOwner a rdf:Property ;
+    rdfs:domain dh:DataProduct ;
+    rdfs:range dh:DataProductOwner ;
+    rdfs:label "has owner" ;
+    rdfs:comment "The owner or steward of the Data Product" .
+
+dh:hasDomain a rdf:Property ;
+    rdfs:domain dh:DataProduct ;
+    rdfs:range xsd:string ;
+    rdfs:label "has domain" ;
+    rdfs:comment "The domain that the Data Product belongs to" .
+
+dh:hasDescription a rdf:Property ;
+    rdfs:domain dh:DataProduct ;
+    rdfs:range xsd:string ;
+    rdfs:label "has description" ;
+    rdfs:comment "Description of the Data Product's purpose and scope" .
+
+dh:hasSLA a rdf:Property ;
+    rdfs:domain dh:DataProduct ;
+    rdfs:range xsd:string ;
+    rdfs:label "has SLA" ;
+    rdfs:comment "Service Level Agreement for the Data Product" .
+
+dh:hasQualityScore a rdf:Property ;
+    rdfs:domain dh:DataProduct ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "has quality score" ;
+    rdfs:comment "Data quality score for the Data Product" .
+
+dh:mapsToStructuredProperty a rdf:Property ;
+    rdfs:domain dh:OntologyPropertyMapping ;
+    rdfs:range dh:StructuredProperty ;
+    rdfs:label "maps to structured property" ;
+    rdfs:comment "The DataHub structured property being mapped to" .
+
+dh:hasMappingNamespace a rdf:Property ;
+    rdfs:domain dh:OntologyPropertyMapping ;
+    rdfs:range xsd:string ;
+    rdfs:label "has mapping namespace" ;
+    rdfs:comment "The namespace prefix for the structured property" .
+
+dh:hasMappingType a rdf:Property ;
+    rdfs:domain dh:OntologyPropertyMapping ;
+    rdfs:range xsd:string ;
+    rdfs:label "has mapping type" ;
+    rdfs:comment "The DataHub value type for the mapping" .
+
+# Provenance properties
+dh:bindingSource a rdf:Property ;
+    rdfs:domain dh:FieldTermBinding ;
+    rdfs:range prov:Activity ;
+    rdfs:label "binding source" ;
+    rdfs:comment "The activity that created this field-term binding" .
+
+dh:bindingTimestamp a rdf:Property ;
+    rdfs:domain dh:FieldTermBinding ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "binding timestamp" ;
+    rdfs:comment "When this field-term binding was created or last modified" .
+
+# =============================================================================
+# Individual Instances
+# =============================================================================
+
+# Common Fabric Types
+dh:PROD a dh:FabricType ;
+    rdfs:label "Production" ;
+    rdfs:comment "Production environment" .
+
+dh:DEV a dh:FabricType ;
+    rdfs:label "Development" ;
+    rdfs:comment "Development environment" .
+
+dh:TEST a dh:FabricType ;
+    rdfs:label "Test" ;
+    rdfs:comment "Test environment" .
+
+dh:STAGING a dh:FabricType ;
+    rdfs:label "Staging" ;
+    rdfs:comment "Staging environment" .
+
+dh:QA a dh:FabricType ;
+    rdfs:label "Quality Assurance" ;
+    rdfs:comment "Quality assurance environment" .
+
+# Common Data Platforms
+dh:BigQuery a dh:DataPlatform ;
+    rdfs:label "BigQuery" ;
+    rdfs:comment "Google BigQuery data warehouse" .
+
+dh:Snowflake a dh:DataPlatform ;
+    rdfs:label "Snowflake" ;
+    rdfs:comment "Snowflake data warehouse" .
+
+dh:Redshift a dh:DataPlatform ;
+    rdfs:label "Redshift" ;
+    rdfs:comment "Amazon Redshift data warehouse" .
+
+dh:Hive a dh:DataPlatform ;
+    rdfs:label "Apache Hive" ;
+    rdfs:comment "Apache Hive data warehouse" .
+
+dh:Kafka a dh:DataPlatform ;
+    rdfs:label "Apache Kafka" ;
+    rdfs:comment "Apache Kafka streaming platform" .
+
+# =============================================================================
+# Property Characteristics
+# =============================================================================
+
+# Functional properties (one-to-one relationships)
+dh:hasKey a owl:FunctionalProperty .
+dh:hasPlatform a owl:FunctionalProperty .
+dh:hasName a owl:FunctionalProperty .
+dh:hasFabricType a owl:FunctionalProperty .
+
+# Inverse properties
+dh:hasDataset a rdf:Property ;
+    rdfs:domain dh:DatasetKey ;
+    rdfs:range dh:Dataset ;
+    rdfs:label "has dataset" ;
+    owl:inverseOf dh:hasKey .
+
+# =============================================================================
+# Owner Classes
+# =============================================================================
+
+# Owner group classes
+dh:Owner a rdfs:Class ;
+    rdfs:label "Owner" ;
+    rdfs:comment "A group or team that can own data assets" .
+
+dh:BusinessOwner a rdfs:Class ;
+    rdfs:subClassOf dh:Owner ;
+    rdfs:label "Business Owner" ;
+    rdfs:comment "Strategic accountability for data assets" .
+
+dh:DataSteward a rdfs:Class ;
+    rdfs:subClassOf dh:Owner ;
+    rdfs:label "Data Steward" ;
+    rdfs:comment "Operational responsibility for data quality" .
+
+dh:TechnicalOwner a rdfs:Class ;
+    rdfs:subClassOf dh:Owner ;
+    rdfs:label "Technical Owner" ;
+    rdfs:comment "Technical responsibility for data infrastructure" .
+
+# Owner metadata properties
+dh:hasOwnerType a rdf:Property ;
+    rdfs:domain dh:Owner ;
+    rdfs:range xsd:string ;
+    rdfs:label "has owner type" ;
+    rdfs:comment "The type of ownership as a string. Supports standard types (BUSINESS_OWNER, DATA_STEWARD, TECHNICAL_OWNER) and custom types defined in DataHub UI." .
+
+dh:hasResponsibility a rdf:Property ;
+    rdfs:domain dh:Owner ;
+    rdfs:range xsd:string ;
+    rdfs:label "has responsibility" ;
+    rdfs:comment "Description of the owner's responsibilities" .
+
+dh:hasDepartment a rdf:Property ;
+    rdfs:domain dh:Owner ;
+    rdfs:range xsd:string ;
+    rdfs:label "has department" ;
+    rdfs:comment "The department or organizational unit" .
+
+dh:hasApprovalAuthority a rdf:Property ;
+    rdfs:domain dh:Owner ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "has approval authority" ;
+    rdfs:comment "Whether this owner has approval authority" .
+
+# =============================================================================
+# Constraints and Axioms
+# =============================================================================
+
+# Every dataset must have exactly one key
+dh:Dataset rdfs:subClassOf [
+    a owl:Restriction ;
+    owl:onProperty dh:hasKey ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Every dataset key must have exactly one platform
+dh:DatasetKey rdfs:subClassOf [
+    a owl:Restriction ;
+    owl:onProperty dh:hasPlatform ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Every dataset key must have exactly one name
+dh:DatasetKey rdfs:subClassOf [
+    a owl:Restriction ;
+    owl:onProperty dh:hasName ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Every dataset key must have exactly one fabric type
+dh:DatasetKey rdfs:subClassOf [
+    a owl:Restriction ;
+    owl:onProperty dh:hasFabricType ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .

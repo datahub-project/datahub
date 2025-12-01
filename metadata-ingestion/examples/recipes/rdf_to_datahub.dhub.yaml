@@ -1,0 +1,27 @@
+---
+# Example recipe for RDF ingestion to DataHub
+# This recipe reads RDF files and ingests metadata into DataHub
+source:
+  type: rdf
+  config:
+    # Path to RDF file or directory
+    source: tests/unit/rdf/sample_glossary_domains.ttl
+    # RDF format (auto-detected if not specified)
+    format: turtle
+    # DataHub environment
+    environment: PROD
+    # Optional: Export only specific entity types
+    export_only:
+      - glossary
+    #   - datasets
+    # Optional: RDF dialect (auto-detected if not specified)
+    # dialect: default
+
+# Ingest to DataHub REST API
+sink:
+  type: datahub-rest
+  config:
+    server: http://localhost:8080
+    # Optional: Add token if authentication is required
+    # token: your-token-here
+
