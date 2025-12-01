@@ -260,7 +260,7 @@ def wait_for_airbyte_ready(timeout: int = 600) -> bool:
     time.sleep(45)
 
     if check_airbyte_pods_ready():
-        print("SUCCESS: Airbyte pods ready")
+        print("Airbyte pods ready")
 
     end_time = time.time() + timeout
     check_interval = 15
@@ -287,7 +287,7 @@ def wait_for_airbyte_ready(timeout: int = 600) -> bool:
                 )
 
                 if workspaces_response.status_code == 200:
-                    print("SUCCESS: Airbyte API ready")
+                    print("Airbyte API ready")
                     return True
 
         except requests.RequestException:
@@ -422,9 +422,7 @@ def update_airbyte_database_id(
         )
 
         if result.returncode == 0:
-            print(f"SUCCESS: Successfully updated {table_name} ID")
-            if result.stdout:
-                print(f"   Output: {result.stdout.strip()}")
+            print(f"Updated {table_name} ID")
             return True
         else:
             print(f"WARNING: Failed to update {table_name} ID: {result.stderr}")
@@ -468,7 +466,7 @@ def try_direct_api_setup() -> Optional[str]:
                 )
                 if workspaces:
                     workspace_id = workspaces[0].get("workspaceId")
-                    print(f"SUCCESS: Workspace ID: {workspace_id}")
+                    print(f"Workspace ID: {workspace_id}")
                     set_airbyte_api_url(api_url)
                     return workspace_id
             else:
@@ -481,7 +479,7 @@ def try_direct_api_setup() -> Optional[str]:
                     workspaces = workspaces_data.get("workspaces", [])
                     if workspaces:
                         workspace_id = workspaces[0].get("workspaceId")
-                        print(f"SUCCESS: Workspace ID: {workspace_id}")
+                        print(f"Workspace ID: {workspace_id}")
                         set_airbyte_api_url(api_url)
                         return workspace_id
 
@@ -496,7 +494,7 @@ def try_direct_api_setup() -> Optional[str]:
 
 def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
     """Create PostgreSQL and MySQL sources, PostgreSQL destination, and connections."""
-    print(f"Creating Airbyte resources for workspace {workspace_id}...")
+    print("Creating Airbyte resources...")
 
     created_ids: Dict[str, Optional[str]] = {
         "workspace_id": workspace_id,
@@ -632,7 +630,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             return created_ids
 
         # Create PostgreSQL destination
-        print("Creating PostgreSQL destination...")
         postgres_dest_config = {
             "name": "Test Postgres Destination",
             "destinationDefinitionId": postgres_dest_def_id,
@@ -679,12 +676,7 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
         # Trigger sync jobs
         _trigger_sync_jobs(api_url, auth, created_ids)
 
-        print(
-            "\nSUCCESS: SUCCESS: All Airbyte sources, destinations, and connections created!"
-        )
-        print(f"PostgreSQL Source ID: {postgres_source_id}")
-        print(f"MySQL Source ID: {mysql_source_id}")
-        print(f"PostgreSQL Destination ID: {postgres_dest_id}")
+        print("All Airbyte resources created")
 
         return created_ids
 
@@ -698,7 +690,6 @@ def _discover_schema(
     api_url: str, auth: tuple, source_id: str, source_name: str
 ) -> Optional[Dict]:
     """Discover schema for a source with retries."""
-    print(f"Discovering {source_name} schema...")
     discover_payload = {"sourceId": source_id}
 
     for attempt in range(3):
@@ -803,8 +794,6 @@ def _create_mysql_connection(
 
 def _trigger_sync_jobs(api_url: str, auth: tuple, created_ids: Dict) -> None:
     """Trigger sync jobs for connections."""
-    print("Triggering sync jobs...")
-
     for conn_key, conn_name in [
         ("pg_to_pg_connection_id", "Postgres-to-Postgres"),
         ("mysql_to_pg_connection_id", "MySQL-to-Postgres"),
@@ -1153,7 +1142,7 @@ def get_airbyte_credentials(abctl_path: Path, test_resources_dir: Path) -> None:
                     client_secret = re.sub(r"\x1b\[[0-9;]*m", "", client_secret)
 
             if password:
-                print("SUCCESS: Retrieved Airbyte credentials")
+                print("Retrieved Airbyte credentials")
                 os.environ["AIRBYTE_PASSWORD"] = password
                 if client_id:
                     os.environ["AIRBYTE_CLIENT_ID"] = client_id
@@ -1200,7 +1189,7 @@ def complete_airbyte_onboarding() -> bool:
                 )
 
                 if response.status_code in [200, 201]:
-                    print("SUCCESS: Onboarding setup completed programmatically")
+                    print("Onboarding completed")
                     return True
                 else:
                     print(f"Onboarding setup returned {response.status_code}")

@@ -111,8 +111,8 @@ def airbyte_service(
         "install",
         "--port",
         str(AIRBYTE_API_PORT),
-        "--low-resource-mode",
         "--no-browser",
+        "--insecure-cookies",
     ]
 
     try:
@@ -133,12 +133,12 @@ def airbyte_service(
     except subprocess.TimeoutExpired as e:
         raise RuntimeError("abctl install timed out") from e
 
+    # Get credentials BEFORE waiting for API (needed for authentication)
+    get_airbyte_credentials(abctl_path, test_resources_dir)
+
     # Wait for Airbyte to be ready
     if not wait_for_airbyte_ready(timeout=600):
         raise RuntimeError("Airbyte failed to become ready")
-
-    # Get credentials
-    get_airbyte_credentials(abctl_path, test_resources_dir)
 
     # Complete onboarding
     complete_airbyte_onboarding()
