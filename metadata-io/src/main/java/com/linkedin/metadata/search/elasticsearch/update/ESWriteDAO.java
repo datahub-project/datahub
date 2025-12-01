@@ -363,7 +363,20 @@ public class ESWriteDAO {
           searchClient.getIndex(new GetIndexRequest(pattern), RequestOptions.DEFAULT);
       return response.getIndices();
     } catch (IOException e) {
-      log.error("Failed to get indices using pattern {}", pattern);
+      // Check if it's an index_not_found_exception, which is expected when no indices match
+      if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
+        log.debug("No indices found matching pattern {}", pattern);
+        return new String[] {};
+      }
+      log.error("Failed to get indices using pattern {}", pattern, e);
+      return new String[] {};
+    } catch (Exception e) {
+      // Catch any other exceptions (like OpenSearchStatusException which is a RuntimeException)
+      if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
+        log.debug("No indices found matching pattern {}", pattern);
+        return new String[] {};
+      }
+      log.error("Failed to get indices using pattern {}", pattern, e);
       return new String[] {};
     }
   }
