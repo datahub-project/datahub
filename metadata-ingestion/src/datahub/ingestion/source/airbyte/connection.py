@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Optional
 
 from datahub.ingestion.source.airbyte.client import (
     AirbyteBaseClient,
@@ -9,6 +9,7 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
     AirbyteDeploymentType,
 )
+from datahub.ingestion.source.airbyte.models import AirbyteTestResult
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def _log_ssl_settings(config: AirbyteClientConfig) -> None:
 
 def _test_workspaces(
     client: AirbyteBaseClient, config: AirbyteClientConfig
-) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
+) -> AirbyteTestResult:
     """
     Test listing workspaces and validate the response
 
@@ -60,42 +61,38 @@ def _test_workspaces(
         config: The Airbyte client configuration
 
     Returns:
-        Tuple containing:
-        - Success flag
-        - Error message (or None if successful)
-        - First workspace (or None if none found or error)
+        AirbyteTestResult with success flag, error message (if any), and first workspace data
     """
     try:
         workspaces = client.list_workspaces()
         if not isinstance(workspaces, list):
-            return (
-                False,
-                "Unable to retrieve workspaces from Airbyte API: expected a list response",
-                None,
+            return AirbyteTestResult(
+                success=False,
+                error_message="Unable to retrieve workspaces from Airbyte API: expected a list response",
             )
 
         if not workspaces:
             if config.deployment_type == AirbyteDeploymentType.CLOUD:
-                return (
-                    False,
-                    f"No workspaces found with ID {config.cloud_workspace_id}. Please check your configuration.",
-                    None,
+                return AirbyteTestResult(
+                    success=False,
+                    error_message=f"No workspaces found with ID {config.cloud_workspace_id}. Please check your configuration.",
                 )
             else:
-                return (
-                    False,
-                    "No workspaces found in Airbyte instance. Please check your configuration.",
-                    None,
+                return AirbyteTestResult(
+                    success=False,
+                    error_message="No workspaces found in Airbyte instance. Please check your configuration.",
                 )
 
-        return True, None, workspaces[0]
+        return AirbyteTestResult(success=True, data=workspaces[0])
     except Exception as e:
-        return False, f"Error retrieving workspaces: {str(e)}", None
+        return AirbyteTestResult(
+            success=False, error_message=f"Error retrieving workspaces: {str(e)}"
+        )
 
 
 def _test_connections(
     client: AirbyteBaseClient, workspace_id: str
-) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
+) -> AirbyteTestResult:
     """
     Test listing connections for a workspace and validate the response
 
@@ -104,18 +101,14 @@ def _test_connections(
         workspace_id: The workspace ID
 
     Returns:
-        Tuple containing:
-        - Success flag
-        - Error message (or None if successful)
-        - First connection (or None if none found or error)
+        AirbyteTestResult with success flag, error message (if any), and first connection data
     """
     try:
         connections = client.list_connections(workspace_id)
         if not isinstance(connections, list):
-            return (
-                False,
-                "Unable to retrieve connections from Airbyte API: expected a list response",
-                None,
+            return AirbyteTestResult(
+                success=False,
+                error_message="Unable to retrieve connections from Airbyte API: expected a list response",
             )
 
         logger.info(
@@ -124,20 +117,17 @@ def _test_connections(
 
         if not connections:
             # Not having connections is not an error, just return None for the connection
-            return True, None, None
+            return AirbyteTestResult(success=True)
 
-        return True, None, connections[0]
+        return AirbyteTestResult(success=True, data=connections[0])
     except Exception as e:
-        return (
-            False,
-            f"Failed to list connections for workspace {workspace_id}: {str(e)}",
-            None,
+        return AirbyteTestResult(
+            success=False,
+            error_message=f"Failed to list connections for workspace {workspace_id}: {str(e)}",
         )
 
 
-def _test_source(
-    client: AirbyteBaseClient, source_id: str
-) -> Tuple[bool, Optional[str]]:
+def _test_source(client: AirbyteBaseClient, source_id: str) -> AirbyteTestResult:
     """
     Test retrieving a source and validate the response
 
@@ -146,21 +136,22 @@ def _test_source(
         source_id: The source ID
 
     Returns:
-        Tuple containing:
-        - Success flag
-        - Error message (or None if successful)
+        AirbyteTestResult with success flag and error message (if any)
     """
     try:
         client.get_source(source_id)
         logger.info(f"Successfully retrieved source {source_id}")
-        return True, None
+        return AirbyteTestResult(success=True)
     except Exception as e:
-        return False, f"Failed to retrieve source {source_id}: {str(e)}"
+        return AirbyteTestResult(
+            success=False,
+            error_message=f"Failed to retrieve source {source_id}: {str(e)}",
+        )
 
 
 def _test_destination(
     client: AirbyteBaseClient, destination_id: str
-) -> Tuple[bool, Optional[str]]:
+) -> AirbyteTestResult:
     """
     Test retrieving a destination and validate the response
 
@@ -169,21 +160,20 @@ def _test_destination(
         destination_id: The destination ID
 
     Returns:
-        Tuple containing:
-        - Success flag
-        - Error message (or None if successful)
+        AirbyteTestResult with success flag and error message (if any)
     """
     try:
         client.get_destination(destination_id)
         logger.info(f"Successfully retrieved destination {destination_id}")
-        return True, None
+        return AirbyteTestResult(success=True)
     except Exception as e:
-        return False, f"Failed to retrieve destination {destination_id}: {str(e)}"
+        return AirbyteTestResult(
+            success=False,
+            error_message=f"Failed to retrieve destination {destination_id}: {str(e)}",
+        )
 
 
-def _test_jobs(
-    client: AirbyteBaseClient, connection_id: str
-) -> Tuple[bool, Optional[str]]:
+def _test_jobs(client: AirbyteBaseClient, connection_id: str) -> AirbyteTestResult:
     """
     Test listing jobs for a connection and validate the response
 
@@ -192,20 +182,18 @@ def _test_jobs(
         connection_id: The connection ID
 
     Returns:
-        Tuple containing:
-        - Success flag
-        - Error message (or None if successful)
+        AirbyteTestResult with success flag and error message (if any)
     """
     try:
         jobs = client.list_jobs(connection_id, limit=5)
         logger.info(
             f"Successfully retrieved {len(jobs)} jobs for connection {connection_id}"
         )
-        return True, None
+        return AirbyteTestResult(success=True)
     except Exception as e:
-        return (
-            False,
-            f"Failed to retrieve jobs for connection {connection_id}: {str(e)}",
+        return AirbyteTestResult(
+            success=False,
+            error_message=f"Failed to retrieve jobs for connection {connection_id}: {str(e)}",
         )
 
 
@@ -231,48 +219,48 @@ def test_connection(config: AirbyteClientConfig) -> Optional[str]:
         client = create_airbyte_client(config)
 
         # Test listing workspaces
-        success, error_msg, workspace = _test_workspaces(client, config)
-        if not success:
-            return error_msg
+        workspace_result = _test_workspaces(client, config)
+        if not workspace_result.success:
+            return workspace_result.error_message
 
         # Check if workspace is None (should never happen but avoids type error)
-        if workspace is None:
+        if workspace_result.data is None:
             return "Unexpected error: workspace data is missing"
 
-        workspace_id = workspace.get("workspaceId")
+        workspace_id = workspace_result.data.get("workspaceId")
         if not workspace_id:
             return "No workspace ID found in the first workspace"
 
         logger.info(f"Testing connection using workspace: {workspace_id}")
 
         # Test listing connections
-        success, error_msg, connection = _test_connections(client, workspace_id)
-        if not success:
-            return error_msg
+        connection_result = _test_connections(client, workspace_id)
+        if not connection_result.success:
+            return connection_result.error_message
 
         # If we have a connection, test its details
-        if connection is not None:
-            connection_id = connection.get("connectionId")
+        if connection_result.data is not None:
+            connection_id = connection_result.data.get("connectionId")
 
             if connection_id:
                 # Test getting source details
-                source_id = connection.get("sourceId")
+                source_id = connection_result.data.get("sourceId")
                 if source_id:
-                    success, error_msg = _test_source(client, source_id)
-                    if not success:
-                        return error_msg
+                    source_result = _test_source(client, source_id)
+                    if not source_result.success:
+                        return source_result.error_message
 
                 # Test getting destination details
-                dest_id = connection.get("destinationId")
+                dest_id = connection_result.data.get("destinationId")
                 if dest_id:
-                    success, error_msg = _test_destination(client, dest_id)
-                    if not success:
-                        return error_msg
+                    dest_result = _test_destination(client, dest_id)
+                    if not dest_result.success:
+                        return dest_result.error_message
 
                 # Test getting jobs
-                success, error_msg = _test_jobs(client, connection_id)
-                if not success:
-                    return error_msg
+                jobs_result = _test_jobs(client, connection_id)
+                if not jobs_result.success:
+                    return jobs_result.error_message
 
         logger.info(f"Successfully connected to Airbyte {config.deployment_type} API")
         return None

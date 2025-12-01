@@ -1,4 +1,3 @@
-import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -748,7 +747,3 @@ class TestAirbyteCloudClient:
         mock_make_request.assert_called_once_with(
             f"/workspaces/{config.cloud_workspace_id}", method="GET"
         )
-
-
-if __name__ == "__main__":
-    unittest.main()

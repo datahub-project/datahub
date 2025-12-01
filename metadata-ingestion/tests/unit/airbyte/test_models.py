@@ -1,4 +1,3 @@
-import unittest
 from typing import Dict, List, Optional, Union
 
 import pytest
@@ -373,7 +372,3 @@ class TestAirbyteConnection:
     def test_missing_required_fields(self):
         with pytest.raises(ValidationError):
             AirbyteConnection.model_validate({})
-
-
-if __name__ == "__main__":
-    unittest.main()

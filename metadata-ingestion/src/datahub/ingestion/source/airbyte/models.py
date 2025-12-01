@@ -1,8 +1,12 @@
-from typing import Any, Dict, List, Optional, Union
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.utilities.urns.data_flow_urn import DataFlowUrn
+from datahub.utilities.urns.data_job_urn import DataJobUrn
 
 
 class AirbyteStream(BaseModel):
@@ -271,6 +275,7 @@ class AirbyteConnectionPartial(BaseModel):
     destination_id: str = Field(alias="destinationId")  # Make mandatory
     status: Optional[str] = None
     sync_catalog: Optional[AirbyteSyncCatalog] = Field(None, alias="syncCatalog")
+    configuration: Optional[Dict[str, Any]] = None  # May contain catalog info
     schedule_type: Optional[str] = Field(None, alias="scheduleType")
     schedule_data: Optional[Dict[str, Any]] = Field(None, alias="scheduleData")
 
@@ -367,3 +372,55 @@ class AirbyteDatasetMapping(BaseModel):
     platform_instance: Optional[str] = None  # This can legitimately be None
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+class ValidatedPipelineIds(BaseModel):
+    """Model for validated workspace and connection IDs."""
+
+    workspace_id: str
+    connection_id: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class AirbyteDatasetUrns(BaseModel):
+    """Model for paired source and destination dataset URNs."""
+
+    source_urn: str
+    destination_urn: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class AirbyteInputOutputDatasets(BaseModel):
+    """Model for input and output dataset URNs."""
+
+    input_urns: List[str] = Field(default_factory=list)
+    output_urns: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+@dataclass
+class DataFlowResult:
+    """Container for DataFlow creation results."""
+
+    dataflow_urn: DataFlowUrn
+    work_units: Iterable[MetadataWorkUnit]
+
+
+@dataclass
+class DataJobResult:
+    """Container for DataJob creation results."""
+
+    datajob_urn: DataJobUrn
+    work_units: Iterable[MetadataWorkUnit]
+
+
+@dataclass
+class AirbyteTestResult:
+    """Container for Airbyte connection test results."""
+
+    success: bool
+    error_message: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None

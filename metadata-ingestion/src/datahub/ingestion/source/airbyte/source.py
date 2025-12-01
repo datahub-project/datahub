@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional
 
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -35,12 +35,17 @@ from datahub.ingestion.source.airbyte.config import AirbyteSourceConfig
 from datahub.ingestion.source.airbyte.models import (
     AirbyteConnectionPartial,
     AirbyteDatasetMapping,
+    AirbyteDatasetUrns,
     AirbyteDestinationPartial,
+    AirbyteInputOutputDatasets,
     AirbytePipelineInfo,
     AirbyteSourcePartial,
     AirbyteStreamDetails,
     AirbyteTagInfo,
     AirbyteWorkspacePartial,
+    DataFlowResult,
+    DataJobResult,
+    ValidatedPipelineIds,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -68,6 +73,19 @@ from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_platform_name(platform_name: str) -> str:
+    """Sanitize platform name for use in URNs by replacing spaces and special characters.
+
+    Args:
+        platform_name: Raw platform name that may contain spaces
+
+    Returns:
+        Sanitized platform name suitable for URNs (lowercase, spaces replaced with hyphens)
+    """
+    # Replace spaces with hyphens and convert to lowercase for consistency
+    return platform_name.lower().replace(" ", "-")
 
 
 @platform_name("Airbyte")
@@ -108,6 +126,33 @@ class AirbyteSource(StatefulIngestionSourceBase):
         config = AirbyteSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
+    def _validate_pipeline_ids(
+        self, pipeline_info: AirbytePipelineInfo, operation: str
+    ) -> Optional[ValidatedPipelineIds]:
+        """Validate and extract required IDs from pipeline info.
+
+        Args:
+            pipeline_info: Pipeline information to validate
+            operation: Operation name for logging purposes
+
+        Returns:
+            ValidatedPipelineIds object if valid, None otherwise
+        """
+        workspace_id = pipeline_info.workspace.workspace_id
+        connection_id = pipeline_info.connection.connection_id
+
+        if not workspace_id or not connection_id:
+            self.report.warning(
+                title="Missing Pipeline IDs",
+                message=f"Skipping {operation} - missing required IDs",
+                context=f"workspace_id={workspace_id}, connection_id={connection_id}",
+            )
+            return None
+
+        return ValidatedPipelineIds(
+            workspace_id=workspace_id, connection_id=connection_id
+        )
+
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -117,61 +162,66 @@ class AirbyteSource(StatefulIngestionSourceBase):
         ]
 
     def _get_pipelines(self) -> Iterable[AirbytePipelineInfo]:
-        # Use the workspace pattern to filter workspaces
+        """Fetch pipeline information from Airbyte, validating at the boundary."""
         for workspace_dict in self.client.list_workspaces(
             pattern=self.source_config.workspace_pattern
         ):
             try:
-                # Use the partial model for initial parsing, as the API response may have missing fields
                 workspace = AirbyteWorkspacePartial.model_validate(workspace_dict)
 
-                # Add null check for workspace_id
                 if not workspace.workspace_id:
-                    logger.warning(
-                        f"Skipping workspace with missing ID: {workspace_dict}"
+                    self.report.warning(
+                        title="Invalid Workspace",
+                        message="Skipping workspace with missing ID",
+                        context=f"workspace_name={workspace.name}",
                     )
                     continue
 
                 logger.info(f"Processing workspace {workspace.workspace_id}")
 
-                # Use the connection pattern to filter connections
                 for connection_dict in self.client.list_connections(
                     workspace.workspace_id,
                     pattern=self.source_config.connection_pattern,
                 ):
                     try:
-                        # Use the partial model for initial parsing
                         connection = AirbyteConnectionPartial.model_validate(
                             connection_dict
                         )
 
-                        # Add null check for connection_id
-                        if not connection.connection_id:
-                            logger.warning(
-                                f"Skipping connection with missing ID: {connection_dict}"
+                        if (
+                            not connection.connection_id
+                            or not connection.source_id
+                            or not connection.destination_id
+                        ):
+                            self.report.warning(
+                                title="Invalid Connection",
+                                message="Skipping connection with missing required IDs",
+                                context=f"connection_name={connection.name}, connection_id={connection.connection_id}, source_id={connection.source_id}, destination_id={connection.destination_id}",
                             )
                             continue
 
                         logger.info(f"Processing connection {connection.connection_id}")
 
-                        if not connection.source_id or not connection.destination_id:
-                            logger.warning(
-                                f"Connection {connection.connection_id} is missing source or destination ID"
-                            )
-                            continue
+                        # Fetch full connection details including syncCatalog
+                        # list_connections() may return summaries without full syncCatalog
+                        full_connection_dict = self.client.get_connection(
+                            connection.connection_id
+                        )
+                        connection = AirbyteConnectionPartial.model_validate(
+                            full_connection_dict
+                        )
 
                         source_dict = self.client.get_source(connection.source_id)
                         destination_dict = self.client.get_destination(
                             connection.destination_id
                         )
 
-                        # Use the partial models since we're not sure if the API response is complete
                         source = AirbyteSourcePartial.model_validate(source_dict)
                         destination = AirbyteDestinationPartial.model_validate(
                             destination_dict
                         )
 
-                        # Apply source pattern - add null check for name
+                        # Apply source pattern filter
                         if (
                             source.name
                             and not self.source_config.source_pattern.allowed(
@@ -183,7 +233,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             )
                             continue
 
-                        # Apply destination pattern - add null check for name
+                        # Apply destination pattern filter
                         if (
                             destination.name
                             and not self.source_config.destination_pattern.allowed(
@@ -238,16 +288,13 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _create_dataflow_workunits(
         self, pipeline_info: AirbytePipelineInfo
     ) -> Iterable[MetadataWorkUnit]:
+        """Create dataflow workunits for a workspace.
+
+        Note: pipeline_info is validated in _get_pipelines, so workspace_id is guaranteed to exist.
+        """
         workspace = pipeline_info.workspace
         workspace_id = workspace.workspace_id
-        workspace_name = (
-            workspace.name or "Unnamed Workspace"
-        )  # Provide default if None
-
-        # Skip if workspace_id is None
-        if not workspace_id:
-            logger.warning("Skipping dataflow creation for workspace with None ID")
-            return
+        workspace_name = workspace.name or "Unnamed Workspace"
 
         dataflow_urn = make_data_flow_urn(
             orchestrator=self.platform,
@@ -257,7 +304,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         )
 
         dataflow_info = DataFlowInfoClass(
-            name=workspace_id,  # Use workspace_id which we know is not None
+            name=workspace_id,
             description=f"Airbyte workspace: {workspace_name}",
             externalUrl=f"{getattr(self.source_config, 'host_port', 'https://cloud.airbyte.com')}/workspaces/{workspace_id}",
             customProperties={
@@ -274,34 +321,26 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _create_datajob_workunits(
         self, pipeline_info: AirbytePipelineInfo
     ) -> Iterable[MetadataWorkUnit]:
+        """Create datajob workunits for a connection.
+
+        Note: pipeline_info is validated in _get_pipelines, so IDs are guaranteed to exist.
+        """
         workspace = pipeline_info.workspace
         connection = pipeline_info.connection
-        workspace_id = workspace.workspace_id
-        connection_id = connection.connection_id
-        connection_name = connection.name or "Unnamed Connection"  # Provide default
-
-        # Skip if required IDs are None
-        if not workspace_id or not connection_id:
-            logger.warning(
-                "Skipping datajob creation - missing workspace_id or connection_id"
-            )
-            return
-
-        # Safe access to source and destination
         source = pipeline_info.source
         destination = pipeline_info.destination
 
-        source_service_name = source.name if source and source.name else ""
-        destination_service_name = (
-            destination.name if destination and destination.name else ""
-        )
+        workspace_id = workspace.workspace_id
+        connection_id = connection.connection_id
+        connection_name = connection.name or "Unnamed Connection"
+        source_service_name = source.name or ""
+        destination_service_name = destination.name or ""
 
         # Prepare inputs and outputs from source and destination
-        inputs: List[str] = []
-        outputs: List[str] = []
+        dataset_urns = AirbyteInputOutputDatasets()
 
-        if source and destination and connection.sync_catalog:
-            inputs, outputs = self._get_input_output_datasets(
+        if connection.sync_catalog:
+            dataset_urns = self._get_input_output_datasets(
                 pipeline_info,
                 source_service_name,
                 destination_service_name,
@@ -319,22 +358,19 @@ class AirbyteSource(StatefulIngestionSourceBase):
         )
 
         # Add inlet and outlet datasets
-        datajob.inlets = [DatasetUrn.from_string(input_urn) for input_urn in inputs]
-        datajob.outlets = [DatasetUrn.from_string(output_urn) for output_urn in outputs]
-
-        # Safely get source and destination IDs
-        source_id = source.source_id if source and source.source_id else ""
-        dest_id = (
-            destination.destination_id
-            if destination and destination.destination_id
-            else ""
-        )
+        datajob.inlets = [
+            DatasetUrn.from_string(input_urn) for input_urn in dataset_urns.input_urns
+        ]
+        datajob.outlets = [
+            DatasetUrn.from_string(output_urn)
+            for output_urn in dataset_urns.output_urns
+        ]
 
         # Add custom properties
         datajob.properties = {
             "connection_id": connection_id,
-            "source_id": source_id,
-            "destination_id": dest_id,
+            "source_id": source.source_id or "",
+            "destination_id": destination.destination_id or "",
             "source_name": source_service_name,
             "destination_name": destination_service_name,
             "status": connection.status or "",
@@ -354,45 +390,59 @@ class AirbyteSource(StatefulIngestionSourceBase):
         schema_name: str,
         table_name: str,
     ) -> AirbyteDatasetMapping:
-        """Map dataset URN components using configuration."""
-        safe_platform = platform_name or ""  # Ensure non-None value
-        safe_schema = schema_name or ""  # Ensure non-None value
+        """Map dataset URN components using configuration.
+
+        Args:
+            platform_name: Source or destination platform name
+            schema_name: Schema/namespace name (can be empty)
+            table_name: Table/stream name
+
+        Returns:
+            Mapped dataset information for URN creation
+        """
+        platform_name = platform_name or ""
+        schema_name = schema_name or ""
 
         mapping_config = self.source_config.platform_mapping.get_dataset_mapping(
-            safe_platform
+            platform_name
         )
-        mapped_platform = mapping_config.platform or safe_platform.lower()
+        # Sanitize platform name to remove spaces and special characters for URN compatibility
+        mapped_platform = mapping_config.platform or _sanitize_platform_name(
+            platform_name
+        )
         mapped_env = mapping_config.env or "PROD"
 
         if (
             mapping_config.schema_mapping
-            and safe_schema in mapping_config.schema_mapping
+            and schema_name in mapping_config.schema_mapping
         ):
-            mapped_schema = mapping_config.schema_mapping[safe_schema]
+            mapped_schema = mapping_config.schema_mapping[schema_name]
         else:
-            # Apply prefix if specified
             prefix = mapping_config.schema_prefix or ""
-            mapped_schema = f"{prefix}{safe_schema}"
+            mapped_schema = f"{prefix}{schema_name}"
 
         # Determine the full dataset name
         if "." in table_name:
-            # If table_name already contains a schema, use it as is
             mapped_dataset_name = table_name
         else:
-            # Map the database name if needed
             database_component = ""
             if (
                 mapping_config.database_mapping
-                and safe_schema in mapping_config.database_mapping
+                and schema_name in mapping_config.database_mapping
             ):
-                database_component = f"{mapping_config.database_mapping[safe_schema]}."
+                database_component = f"{mapping_config.database_mapping[schema_name]}."
             elif mapping_config.database_prefix:
                 database_component = f"{mapping_config.database_prefix}."
 
-            # Construct the full dataset name
-            mapped_dataset_name = f"{database_component}{mapped_schema}.{table_name}"
+            # Build the dataset name based on what components we have
+            # For two-tier connectors (e.g., MySQL), mapped_schema may be empty
+            if mapped_schema:
+                mapped_dataset_name = (
+                    f"{database_component}{mapped_schema}.{table_name}"
+                )
+            else:
+                mapped_dataset_name = f"{database_component}{table_name}"
 
-        # Return as a model
         return AirbyteDatasetMapping(
             platform=mapped_platform,
             name=mapped_dataset_name,
@@ -405,7 +455,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         pipeline_info: AirbytePipelineInfo,
         source_platform: str,
         destination_platform: str,
-    ) -> Tuple[List[str], List[str]]:
+    ) -> AirbyteInputOutputDatasets:
         inputs: List[str] = []
         outputs: List[str] = []
 
@@ -413,7 +463,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
             not pipeline_info.connection.sync_catalog
             or not pipeline_info.connection.sync_catalog.streams
         ):
-            return inputs, outputs
+            return AirbyteInputOutputDatasets(input_urns=inputs, output_urns=outputs)
 
         for stream_config in pipeline_info.connection.sync_catalog.streams:
             if not stream_config or not stream_config.stream:
@@ -463,7 +513,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 )
                 outputs.append(destination_urn)
 
-        return inputs, outputs
+        return AirbyteInputOutputDatasets(input_urns=inputs, output_urns=outputs)
 
     def _create_job_executions_workunits(
         self,
@@ -471,8 +521,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
         datajob_urn: DataJobUrn,
         stream_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Create job execution work units for a DataJob representing a specific stream
+        """Create job execution work units for a DataJob representing a specific stream.
+
+        Note: pipeline_info is validated in _get_pipelines, so IDs are guaranteed to exist.
 
         Args:
             pipeline_info: Airbyte pipeline information
@@ -482,15 +533,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
         Returns:
             Iterable of work units for job executions
         """
-        # Ensure both IDs are not None
         connection_id = pipeline_info.connection.connection_id
         workspace_id = pipeline_info.workspace.workspace_id
-
-        if not connection_id or not workspace_id:
-            logger.warning(
-                "Skipping job executions - missing connection_id or workspace_id"
-            )
-            return
 
         # Use the configured start and end dates for job filtering
         try:
@@ -591,8 +635,11 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             ):
                                 yield mcp.as_workunit()
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to process job {job.get('id', 'unknown')}: {str(e)}"
+                    self.report.warning(
+                        title="Job Processing Failed",
+                        message="Failed to process job execution",
+                        context=f"job_id={job.get('id', 'unknown')}, connection_id={connection_id}, stream={stream_name}",
+                        exc=e,
                     )
                     continue
 
@@ -606,44 +653,56 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _fetch_streams_for_source(
         self, pipeline_info: AirbytePipelineInfo
     ) -> List[AirbyteStreamDetails]:
-        """Fetch stream details from Airbyte API or connection object."""
-        # Ensure source is not None
-        if not pipeline_info.source:
-            logger.warning("Cannot fetch streams - source is None")
-            return []
+        """Fetch stream details from connection sync catalog.
 
+        Note: pipeline_info is validated in _get_pipelines, so source is guaranteed to exist.
+
+        We extract streams from the connection's sync_catalog rather than the /streams API endpoint
+        because the endpoint is not available in all Airbyte versions (notably absent in v0.30.1).
+        The sync_catalog approach is more reliable and works across all Airbyte versions.
+        """
         source_id = pipeline_info.source.source_id
         source_schema = pipeline_info.source.get_schema
 
-        # Skip if source_id is None
         if not source_id:
-            logger.warning("Cannot fetch streams - source_id is None")
+            self.report.warning(
+                title="Missing Source ID",
+                message="Cannot fetch streams - source_id is None",
+                context=f"source_name={pipeline_info.source.name}",
+            )
             return []
 
-        try:
-            # Try to get streams directly from the Airbyte API
-            streams_list = self.client.list_streams(source_id=source_id)
-            logger.info(f"Found {len(streams_list)} streams for source {source_id}")
-
-            if streams_list:
-                return [
-                    AirbyteStreamDetails.model_validate(stream)
-                    for stream in streams_list
-                ]
-        except Exception as e:
-            logger.error(f"Error fetching streams from API: {str(e)}")
-
-        # Fall back to extracting streams from connection sync catalog
+        # Extract streams from connection sync catalog
         streams = []
+        if not pipeline_info.connection.sync_catalog:
+            logger.warning(
+                f"Connection {pipeline_info.connection.connection_id} has no sync_catalog"
+            )
+            return []
+
+        if not pipeline_info.connection.sync_catalog.streams:
+            logger.warning(
+                f"Connection {pipeline_info.connection.connection_id} sync_catalog has no streams"
+            )
+            return []
+
+        logger.debug(
+            f"Found {len(pipeline_info.connection.sync_catalog.streams)} stream configs in sync_catalog"
+        )
+
         if (
             pipeline_info.connection.sync_catalog
             and pipeline_info.connection.sync_catalog.streams
         ):
             for stream_config in pipeline_info.connection.sync_catalog.streams:
                 if not stream_config or not stream_config.stream:
+                    logger.debug("Skipping stream_config with no stream")
                     continue
                 # Skip disabled streams
                 if not stream_config.is_enabled():
+                    logger.debug(
+                        f"Skipping disabled stream: {stream_config.stream.name if stream_config.stream else 'unknown'}"
+                    )
                     continue
 
                 stream = stream_config.stream
@@ -674,11 +733,14 @@ class AirbyteSource(StatefulIngestionSourceBase):
         return streams
 
     def _fetch_tags_for_workspace(self, workspace_id: str) -> List[AirbyteTagInfo]:
-        """Fetch tags from Airbyte API for a workspace."""
-        if not workspace_id:
-            logger.warning("Cannot fetch tags - workspace_id is None")
-            return []
+        """Fetch tags from Airbyte API for a workspace.
 
+        Args:
+            workspace_id: ID of the workspace
+
+        Returns:
+            List of tag information
+        """
         try:
             tags_list = self.client.list_tags(workspace_id)
             logger.info(f"Retrieved {len(tags_list)} tags from Airbyte")
@@ -692,14 +754,20 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 for tag in tags_list
             ]
         except Exception as e:
-            logger.warning(f"Failed to retrieve tags from Airbyte: {str(e)}")
+            self.report.warning(
+                title="Tag Retrieval Failed",
+                message="Failed to retrieve tags from Airbyte",
+                context=f"workspace_id={workspace_id}",
+                exc=e,
+            )
             return []
 
     def _extract_connection_tags(
         self, pipeline_info: AirbytePipelineInfo, airbyte_tags: List[AirbyteTagInfo]
     ) -> List[str]:
-        """
-        Extract tags for a connection
+        """Extract tags for a connection.
+
+        Note: pipeline_info is validated in _get_pipelines, so connection_id is guaranteed to exist.
 
         Args:
             pipeline_info: Pipeline information
@@ -709,52 +777,35 @@ class AirbyteSource(StatefulIngestionSourceBase):
             List of tag URNs
         """
         tags: List[str] = []
-
-        # Extract connection ID, with null check
         connection_id = pipeline_info.connection.connection_id
-        if not connection_id:
-            return tags
 
         # Find tags associated with this connection
         for tag_info in airbyte_tags:
-            if tag_info.resource_id == connection_id:
-                if tag_info.name:
-                    tags.append(make_tag_urn(tag_info.name))
+            if tag_info.resource_id == connection_id and tag_info.name:
+                tags.append(make_tag_urn(tag_info.name))
 
         return tags
 
     def _create_connection_dataflow(
         self, pipeline_info: AirbytePipelineInfo, tags: List[str]
-    ) -> Tuple[DataFlowUrn, Iterable[MetadataWorkUnit]]:
-        """Create connection DataFlow entity and return its URN and work units."""
+    ) -> DataFlowResult:
+        """Create connection DataFlow entity and return its URN and work units.
+
+        Note: pipeline_info is validated in _get_pipelines, so all required IDs exist.
+        """
         connection = pipeline_info.connection
         source = pipeline_info.source
         destination = pipeline_info.destination
         workspace = pipeline_info.workspace
 
-        # Handle potential None values
         connection_id = connection.connection_id
-        source_id = source.source_id if source else ""
-        destination_id = destination.destination_id if destination else ""
-        source_name = source.name if source and source.name else "Unknown Source"
-        destination_name = (
-            destination.name
-            if destination and destination.name
-            else "Unknown Destination"
-        )
-        workspace_id = workspace.workspace_id or ""  # Default to empty string
+        source_id = source.source_id or ""
+        destination_id = destination.destination_id or ""
+        source_name = source.name or "Unknown Source"
+        destination_name = destination.name or "Unknown Destination"
+        workspace_id = workspace.workspace_id
         workspace_name = workspace.name or "Unnamed Workspace"
         connection_name = connection.name or "Unnamed Connection"
-
-        # Ensure connection_id is not None
-        if not connection_id:
-            # Create a temporary URN and empty work units
-            temp_urn = DataFlowUrn(
-                orchestrator=self.platform,
-                flow_id="unknown_connection",
-                cluster=self.source_config.env,
-            )
-            return temp_urn, []
 
         # Create the connection DataFlow entity
         connection_dataflow_urn = DataFlowUrn(
@@ -802,7 +853,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
             ).as_workunit()
         )
 
-        return connection_dataflow_urn, work_units
+        return DataFlowResult(
+            dataflow_urn=connection_dataflow_urn, work_units=work_units
+        )
 
     def _create_stream_datajob(
         self,
@@ -812,24 +865,23 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source_urn: str,
         destination_urn: str,
         tags: List[str],
-    ) -> Tuple[DataJobUrn, Iterable[MetadataWorkUnit]]:
-        """Create DataJob for a stream and return its URN and work units."""
+    ) -> DataJobResult:
+        """Create DataJob for a stream and return its URN and work units.
+
+        Note: pipeline_info is validated in _get_pipelines, so all required IDs exist.
+        Fine-grained lineages are attached to the DataJob's InputOutput aspect, not to the dataset.
+        """
         work_units: List[MetadataWorkUnit] = []
         connection = pipeline_info.connection
         source = pipeline_info.source
         destination = pipeline_info.destination
         workspace = pipeline_info.workspace
 
-        # Handle potential None values
-        connection_id = connection.connection_id or ""
+        connection_id = connection.connection_id
         stream_name = stream.stream_name or ""
-        source_name = source.name if source and source.name else "Unknown Source"
-        destination_name = (
-            destination.name
-            if destination and destination.name
-            else "Unknown Destination"
-        )
-        workspace_id = workspace.workspace_id or ""
+        source_name = source.name or "Unknown Source"
+        destination_name = destination.name or "Unknown Destination"
+        workspace_id = workspace.workspace_id
 
         # Create a datajob for this stream
         job_id = f"{connection_id}_{stream_name}"
@@ -852,9 +904,33 @@ class AirbyteSource(StatefulIngestionSourceBase):
             },
         )
 
-        # Create InputOutput aspect to connect datasets with the datajob
+        # Create fine-grained lineage for column-level lineage (attached to DataJob, not dataset)
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+        if self.source_config.extract_column_level_lineage:
+            property_fields = stream.get_column_names()
+            if property_fields:
+                logger.info(
+                    f"Processing column-level lineage for {len(property_fields)} columns on DataJob"
+                )
+                for column_name in property_fields:
+                    fine_grained_lineages.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            upstreams=[make_schema_field_urn(source_urn, column_name)],
+                            downstreams=[
+                                make_schema_field_urn(destination_urn, column_name)
+                            ],
+                        )
+                    )
+
+        # Create InputOutput aspect with fine-grained lineages
         input_output = DataJobInputOutputClass(
-            inputDatasets=[source_urn], outputDatasets=[destination_urn]
+            inputDatasets=[source_urn],
+            outputDatasets=[destination_urn],
+            fineGrainedLineages=fine_grained_lineages
+            if fine_grained_lineages
+            else None,
         )
 
         # Emit the datajob entities
@@ -881,7 +957,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 ).as_workunit()
             )
 
-        return datajob_urn, work_units
+        return DataJobResult(datajob_urn=datajob_urn, work_units=work_units)
 
     def _create_dataset_lineage(
         self,
@@ -890,31 +966,16 @@ class AirbyteSource(StatefulIngestionSourceBase):
         stream: AirbyteStreamDetails,
         tags: List[str],
     ) -> Iterable[MetadataWorkUnit]:
-        """Create lineage between source and destination datasets."""
+        """Create lineage between source and destination datasets.
+
+        Note: Fine-grained (column-level) lineages are attached to the DataJob's
+        DataJobInputOutput aspect, NOT to the dataset's UpstreamLineage aspect.
+        This follows the same pattern as Fivetran and other DataHub sources.
+        """
         work_units = []
 
-        # Extract column names
-        property_fields = stream.get_column_names()
-
-        # Create fine-grained lineage for each column
-        fine_grained_lineages = []
-        if self.source_config.extract_column_level_lineage and property_fields:
-            logger.info(
-                f"Processing column-level lineage for {len(property_fields)} columns"
-            )
-            for column_name in property_fields:
-                fine_grained_lineages.append(
-                    FineGrainedLineageClass(
-                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                        upstreams=[make_schema_field_urn(source_urn, column_name)],
-                        downstreams=[
-                            make_schema_field_urn(destination_urn, column_name)
-                        ],
-                    )
-                )
-
-        # Create lineage metadata
+        # Create simple dataset-level lineage (without fine-grained lineages)
+        # Fine-grained lineages are handled by the DataJob's InputOutput aspect
         work_units.append(
             MetadataChangeProposalWrapper(
                 entityUrn=destination_urn,
@@ -924,9 +985,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             dataset=source_urn, type=DatasetLineageTypeClass.TRANSFORMED
                         )
                     ],
-                    fineGrainedLineages=fine_grained_lineages
-                    if fine_grained_lineages
-                    else None,
                 ),
             ).as_workunit()
         )
@@ -951,23 +1009,25 @@ class AirbyteSource(StatefulIngestionSourceBase):
         pipeline_info: AirbytePipelineInfo,
         stream: AirbyteStreamDetails,
         platform_instance: Optional[str],
-    ) -> Tuple[str, str]:
-        """Create source and destination URNs for a stream."""
+    ) -> AirbyteDatasetUrns:
+        """Create source and destination URNs for a stream.
+
+        Note: pipeline_info is validated in _get_pipelines, so source and destination exist.
+        """
         source = pipeline_info.source
         destination = pipeline_info.destination
 
-        # Default values for potentially None fields
-        source_name = source.name if source and source.name else ""
-        destination_name = destination.name if destination and destination.name else ""
+        source_name = source.name or ""
+        destination_name = destination.name or ""
 
         schema_name = stream.namespace or ""
         table_name = stream.stream_name
 
         # Get source and destination schema/database info
-        source_schema = source.get_schema if source else None
-        source_database = source.get_database if source else None
-        destination_schema = destination.get_schema if destination else None
-        destination_database = destination.get_database if destination else None
+        source_schema = source.get_schema
+        source_database = source.get_database
+        destination_schema = destination.get_schema
+        destination_database = destination.get_database
 
         if not schema_name and source_schema:
             schema_name = source_schema
@@ -990,12 +1050,18 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 if not source_mapped_name.startswith(f"{source_database}."):
                     source_mapped_name = f"{source_database}.{source_mapped_name}"
             else:
-                # If it's just a table name, add both database and schema
-                source_mapped_name = f"{source_database}.{schema_name}.{table_name}"
+                # If it's just a table name, add database and optionally schema
+                # For two-tier connectors (e.g., MySQL), schema_name may be empty
+                if schema_name:
+                    source_mapped_name = f"{source_database}.{schema_name}.{table_name}"
+                else:
+                    source_mapped_name = f"{source_database}.{table_name}"
         else:
-            # No database, ensure we at least have schema.table format
+            # No database, ensure we at least have schema.table format (if schema exists)
             if "." not in source_mapped_name:
-                source_mapped_name = f"{schema_name}.{source_mapped_name}"
+                if schema_name:
+                    source_mapped_name = f"{schema_name}.{source_mapped_name}"
+                # else: just use the mapped name as-is (already contains table name)
 
         source_urn = make_dataset_urn_with_platform_instance(
             platform=source_mapping.platform,
@@ -1025,14 +1091,20 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 if not dest_mapped_name.startswith(f"{destination_database}."):
                     dest_mapped_name = f"{destination_database}.{dest_mapped_name}"
             else:
-                # If it's just a table name, add both database and schema
-                dest_mapped_name = (
-                    f"{destination_database}.{dest_namespace}.{table_name}"
-                )
+                # If it's just a table name, add database and optionally schema
+                # For two-tier connectors (e.g., MySQL), dest_namespace may be empty
+                if dest_namespace:
+                    dest_mapped_name = (
+                        f"{destination_database}.{dest_namespace}.{table_name}"
+                    )
+                else:
+                    dest_mapped_name = f"{destination_database}.{table_name}"
         else:
-            # No database, ensure we at least have schema.table format
+            # No database, ensure we at least have schema.table format (if schema exists)
             if "." not in dest_mapped_name:
-                dest_mapped_name = f"{dest_namespace}.{dest_mapped_name}"
+                if dest_namespace:
+                    dest_mapped_name = f"{dest_namespace}.{dest_mapped_name}"
+                # else: just use the mapped name as-is (already contains table name)
 
         destination_urn = make_dataset_urn_with_platform_instance(
             platform=dest_mapping.platform,
@@ -1043,13 +1115,16 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
         logger.info(f"Created lineage from {source_urn} to {destination_urn}")
 
-        return source_urn, destination_urn
+        return AirbyteDatasetUrns(
+            source_urn=source_urn, destination_urn=destination_urn
+        )
 
     def _create_lineage_workunits(
         self, pipeline_info: AirbytePipelineInfo
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Create lineage work units between source and destination datasets based on stream information.
+        """Create lineage work units between source and destination datasets.
+
+        Note: pipeline_info is validated in _get_pipelines, so all required components exist.
 
         Args:
             pipeline_info: Information about the Airbyte pipeline
@@ -1057,24 +1132,18 @@ class AirbyteSource(StatefulIngestionSourceBase):
         Returns:
             Iterable of work units for the lineage
         """
-        # Get the connection_id safely
-        connection_id = pipeline_info.connection.connection_id or "unknown"
-        logger.info(f"Creating lineage for connection: {connection_id}")
-
-        # Validate source and destination
-        if not pipeline_info.source or not pipeline_info.destination:
-            logger.warning(
-                f"Missing source or destination for connection {connection_id}"
-            )
-            return
-
-        workspace_id = pipeline_info.workspace.workspace_id or ""
+        connection_id = pipeline_info.connection.connection_id
+        workspace_id = pipeline_info.workspace.workspace_id
         source_name = pipeline_info.source.name or ""
         destination_name = pipeline_info.destination.name or ""
 
+        logger.info(f"Creating lineage for connection: {connection_id}")
+
         if not source_name or not destination_name:
-            logger.warning(
-                f"Missing source name or destination name for connection {connection_id}"
+            self.report.warning(
+                title="Missing Source or Destination Name",
+                message="Missing source name or destination name for connection",
+                context=f"connection_id={connection_id}, source_name={source_name}, destination_name={destination_name}",
             )
             return
 
@@ -1085,12 +1154,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
         tags = self._extract_connection_tags(pipeline_info, airbyte_tags)
 
         # Create the connection DataFlow entity
-        connection_dataflow_urn, dataflow_workunits = self._create_connection_dataflow(
-            pipeline_info, tags
-        )
+        dataflow_result = self._create_connection_dataflow(pipeline_info, tags)
 
         # Emit dataflow work units
-        yield from dataflow_workunits
+        yield from dataflow_result.work_units
 
         # Determine platform instance
         platform_instance = None
@@ -1109,34 +1176,34 @@ class AirbyteSource(StatefulIngestionSourceBase):
         for stream in streams:
             try:
                 # Create source and destination URNs
-                source_urn, destination_urn = self._create_dataset_urns(
+                dataset_urns = self._create_dataset_urns(
                     pipeline_info, stream, platform_instance
                 )
 
                 # Create DataJob for this stream
-                datajob_urn, datajob_workunits = self._create_stream_datajob(
-                    connection_dataflow_urn,
+                datajob_result = self._create_stream_datajob(
+                    dataflow_result.dataflow_urn,
                     pipeline_info,
                     stream,
-                    source_urn,
-                    destination_urn,
+                    dataset_urns.source_urn,
+                    dataset_urns.destination_urn,
                     tags,
                 )
 
                 # Emit datajob work units
-                yield from datajob_workunits
+                yield from datajob_result.work_units
 
                 # Create job executions for this stream if enabled
                 if self.source_config.include_statuses:
                     yield from self._create_job_executions_workunits(
                         pipeline_info=pipeline_info,
-                        datajob_urn=datajob_urn,
+                        datajob_urn=datajob_result.datajob_urn,
                         stream_name=stream.stream_name,
                     )
 
                 # Create dataset lineage
                 lineage_workunits = self._create_dataset_lineage(
-                    source_urn, destination_urn, stream, tags
+                    dataset_urns.source_urn, dataset_urns.destination_urn, stream, tags
                 )
 
                 # Emit lineage work units
