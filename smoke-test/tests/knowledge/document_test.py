@@ -803,7 +803,7 @@ def test_search_documents_with_filters(auth_session):
     """
     Test searching documents with various filters.
     1. Create parent document and child document.
-    2. Search for documents with parentDocument filter.
+    2. Search for documents with parentDocuments filter.
     3. Search for root-only documents.
     4. Search by subType filter.
     5. Clean up.
@@ -883,7 +883,7 @@ def test_search_documents_with_filters(auth_session):
         "input": {
             "start": 0,
             "count": 100,
-            "parentDocument": parent_urn,
+            "parentDocuments": [parent_urn],
         }
     }
     search_res = execute_graphql(auth_session, search_query, search_vars)

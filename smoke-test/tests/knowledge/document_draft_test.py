@@ -303,9 +303,7 @@ def test_search_excludes_drafts_by_default(auth_session):
           }
         }
     """
-    search_vars_no_drafts = {
-        "input": {"start": 0, "count": 100, "states": ["PUBLISHED"]}
-    }
+    search_vars_no_drafts = {"input": {"start": 0, "count": 100}}
     # Wait for search indexing
     time.sleep(5)
 
