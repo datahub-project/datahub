@@ -35,6 +35,11 @@ from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
+# Default safeguards to prevent fetching massive amounts of data.
+MAX_TABLE_LINEAGE_PER_CONNECTOR_DEFAULT = 120
+MAX_COLUMN_LINEAGE_PER_CONNECTOR_DEFAULT = 1000
+MAX_JOBS_PER_CONNECTOR_DEFAULT = 500
+
 
 class Constant:
     """
@@ -140,6 +145,24 @@ class FivetranLogConfig(ConfigModel):
     )
     _rename_destination_config = pydantic_renamed_field(
         "destination_config", "snowflake_destination_config"
+    )
+
+    max_jobs_per_connector: int = pydantic.Field(
+        default=MAX_JOBS_PER_CONNECTOR_DEFAULT,
+        gt=0,
+        description="Maximum number of sync jobs to retrieve per connector. This acts as a safety net to prevent excessive data ingestion. Increase cautiously if you need to see more historical sync runs.",
+    )
+
+    max_table_lineage_per_connector: int = pydantic.Field(
+        default=MAX_TABLE_LINEAGE_PER_CONNECTOR_DEFAULT,
+        gt=0,
+        description="Maximum number of table lineage entries to retrieve per connector. This acts as a safety net to prevent excessive data ingestion. When this limit is exceeded, only the most recent entries are ingested.",
+    )
+
+    max_column_lineage_per_connector: int = pydantic.Field(
+        default=MAX_COLUMN_LINEAGE_PER_CONNECTOR_DEFAULT,
+        gt=0,
+        description="Maximum number of column lineage entries to retrieve per connector. This acts as a safety net to prevent excessive data ingestion. When this limit is exceeded, only the most recent entries are ingested.",
     )
 
     @model_validator(mode="after")

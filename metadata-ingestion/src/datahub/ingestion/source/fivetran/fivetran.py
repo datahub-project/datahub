@@ -33,10 +33,6 @@ from datahub.ingestion.source.fivetran.config import (
 )
 from datahub.ingestion.source.fivetran.data_classes import Connector, Job
 from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
-from datahub.ingestion.source.fivetran.fivetran_query import (
-    MAX_JOBS_PER_CONNECTOR,
-    MAX_TABLE_LINEAGE_PER_CONNECTOR,
-)
 from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
 from datahub.ingestion.source.fivetran.response_models import FivetranConnectionDetails
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -133,11 +129,14 @@ class FivetranSource(StatefulIngestionSourceBase):
         if destination_details.database is None:
             destination_details.database = self.audit_log.fivetran_log_database
 
-        if len(connector.lineage) >= MAX_TABLE_LINEAGE_PER_CONNECTOR:
+        if (
+            len(connector.lineage)
+            >= self.config.fivetran_log_config.max_table_lineage_per_connector
+        ):
             self.report.warning(
                 title="Table lineage truncated",
-                message=f"The connector had more than {MAX_TABLE_LINEAGE_PER_CONNECTOR} table lineage entries. "
-                f"Only the most recent {MAX_TABLE_LINEAGE_PER_CONNECTOR} entries were ingested.",
+                message=f"The connector had more than {self.config.fivetran_log_config.max_table_lineage_per_connector} table lineage entries. "
+                f"Only the most recent {self.config.fivetran_log_config.max_table_lineage_per_connector} entries were ingested.",
                 context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
             )
 
@@ -475,11 +474,14 @@ class FivetranSource(StatefulIngestionSourceBase):
         yield datajob
 
         # Map Fivetran's job/sync history entity with Datahub's data process entity
-        if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:
+        if (
+            len(connector.jobs)
+            >= self.config.fivetran_log_config.max_jobs_per_connector
+        ):
             self.report.warning(
                 title="Not all sync history was captured",
-                message=f"The connector had more than {MAX_JOBS_PER_CONNECTOR} sync runs in the past {self.config.history_sync_lookback_period} days. "
-                f"Only the most recent {MAX_JOBS_PER_CONNECTOR} syncs were ingested.",
+                message=f"The connector had more than {self.config.fivetran_log_config.max_jobs_per_connector} sync runs in the past {self.config.history_sync_lookback_period} days. "
+                f"Only the most recent {self.config.fivetran_log_config.max_jobs_per_connector} syncs were ingested.",
                 context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
             )
         for job in connector.jobs:

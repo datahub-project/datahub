@@ -37,13 +37,26 @@ Works only for:
 
 ### Ingestion Limits
 
-To prevent excessive data ingestion, the following limits apply per connector:
+To prevent excessive data ingestion, the following configurable limits apply per connector:
 
-- **Sync History**: Maximum of 500 sync runs per connector (controlled by `history_sync_lookback_period`)
-- **Table Lineage**: Maximum of 120 table lineage entries per connector
-- **Column Lineage**: Maximum of 1000 column lineage entries per connector
+- **Sync History**: Maximum of 500 sync runs per connector (default: 500, configurable via `fivetran_log_config.max_jobs_per_connector`)
+- **Table Lineage**: Maximum of 120 table lineage entries per connector (default: 120, configurable via `fivetran_log_config.max_table_lineage_per_connector`)
+- **Column Lineage**: Maximum of 1000 column lineage entries per connector (default: 1000, configurable via `fivetran_log_config.max_column_lineage_per_connector`)
 
 When these limits are exceeded, only the most recent entries are ingested. Warnings will be logged during ingestion to notify you when truncation occurs.
+
+These limits act as safety nets to prevent excessive data ingestion. You can increase them cautiously if you need to ingest more historical data or have connectors with many tables/columns. Example configuration:
+
+```yaml
+source:
+  type: fivetran
+  config:
+    fivetran_log_config:
+      # ... other config ...
+      max_jobs_per_connector: 1000 # Increase sync history limit
+      max_table_lineage_per_connector: 500 # Increase table lineage limit
+      max_column_lineage_per_connector: 5000 # Increase column lineage limit
+```
 
 ## Snowflake destination Configuration Guide
 

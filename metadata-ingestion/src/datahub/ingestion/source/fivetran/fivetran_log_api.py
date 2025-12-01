@@ -37,7 +37,11 @@ class FivetranLogAPI:
     def _initialize_fivetran_variables(
         self,
     ) -> Tuple[Any, FivetranLogQuery, str]:
-        fivetran_log_query = FivetranLogQuery()
+        fivetran_log_query = FivetranLogQuery(
+            max_jobs_per_connector=self.fivetran_log_config.max_jobs_per_connector,
+            max_table_lineage_per_connector=self.fivetran_log_config.max_table_lineage_per_connector,
+            max_column_lineage_per_connector=self.fivetran_log_config.max_column_lineage_per_connector,
+        )
         destination_platform = self.fivetran_log_config.destination_platform
         # For every destination, create sqlalchemy engine,
         # set db_clause to generate select queries and set fivetran_log_database class variable
