@@ -163,8 +163,7 @@ describe('useExtractMentions', () => {
         const { result } = renderHook(() => useExtractMentions(content));
 
         expect(result.current.documentUrns).toEqual([]);
-        // Note: The regex stops at the first closing ) which is part of the URN structure
-        // This is a known limitation of the simple regex pattern
-        expect(result.current.assetUrns).toEqual(['urn:li:dataset:(urn:li:dataPlatform:kafka,topic-123,PROD']);
+        // The regex now correctly handles nested parentheses in URNs
+        expect(result.current.assetUrns).toEqual(['urn:li:dataset:(urn:li:dataPlatform:kafka,topic-123,PROD)']);
     });
 });
