@@ -125,6 +125,7 @@ interface Props {
     highlightText?: string;
     fontSize?: number;
     onOpenModal?: () => void;
+    onCloseModal?: () => void;
     refetch?: () => Promise<any>;
     showOneAndCount?: boolean;
 }
@@ -138,6 +139,7 @@ export default function TermContent({
     highlightText,
     fontSize,
     onOpenModal,
+    onCloseModal,
     refetch,
     showOneAndCount,
 }: Props) {
@@ -230,6 +232,7 @@ export default function TermContent({
                     isOpen={!!termTobeRemoved}
                     handleClose={() => {
                         setTermToBeRemoved(null);
+                        onCloseModal?.();
                     }}
                     handleConfirm={removeTerm}
                     modalTitle={`Do you want to remove ${termName} term?`}

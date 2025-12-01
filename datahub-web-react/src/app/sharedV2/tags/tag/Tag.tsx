@@ -157,18 +157,7 @@ export default function Tag({
                             onOpenModal?.();
                             setShowConfirmDelete(true);
                         }}
-                        closeIcon={
-                            <Icon
-                                icon="X"
-                                source="phosphor"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    removeTag(tag);
-                                }}
-                                size="sm"
-                                data-testid="remove-icon"
-                            />
-                        }
+                        closeIcon={<Icon icon="X" source="phosphor" size="sm" data-testid="remove-icon" />}
                         fontSize={fontSize}
                         $highlightTag={highlightTag}
                         $showOneAndCount={showOneAndCount}
