@@ -6,6 +6,7 @@ import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContex
 import { NavBarMenuGroup, NavBarMenuItemTypes } from '@app/homeV2/layout/navBarRedesign/types';
 import { ContextGroupHeader } from '@app/homeV2/layout/sidebar/documents/ContextGroupHeader';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
+import { SearchDocumentPopover } from '@app/homeV2/layout/sidebar/documents/SearchDocumentPopover';
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -15,6 +16,7 @@ export function useContextMenuItems(): NavBarMenuGroup | null {
     const isContextBaseEnabled = useIsContextDocumentsEnabled();
     const { isCollapsed } = useNavBarContext();
     const [creating, setCreating] = useState(false);
+    const [showSearchPopover, setShowSearchPopover] = useState(false);
     const { createDocument } = useCreateDocumentTreeMutation();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -55,7 +57,15 @@ export function useContextMenuItems(): NavBarMenuGroup | null {
         key: 'context',
         title: '',
         renderTitle: () => (
-            <ContextGroupHeader title="Context" onAddClick={() => handleCreateDocument()} isLoading={creating} />
+            <ContextGroupHeader
+                title="Context"
+                onAddClick={() => handleCreateDocument()}
+                onSearchClick={() => setShowSearchPopover(true)}
+                isLoading={creating}
+                searchPopoverContent={<SearchDocumentPopover onClose={() => setShowSearchPopover(false)} />}
+                showSearchPopover={showSearchPopover}
+                onSearchPopoverChange={(visible) => !visible && setShowSearchPopover(false)}
+            />
         ),
         items: [
             {
