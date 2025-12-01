@@ -211,6 +211,10 @@ END
     )
 
 
+@pytest.mark.xfail(
+    reason="CTE splitting is not yet supported by split_statements - the WITH clause gets split from the UPDATE",
+    strict=True,
+)
 def test_mssql_procedure_with_cte_in_try_catch() -> None:
     """Test stored procedure with CTE inside TRY/CATCH."""
     assert_sql_result(

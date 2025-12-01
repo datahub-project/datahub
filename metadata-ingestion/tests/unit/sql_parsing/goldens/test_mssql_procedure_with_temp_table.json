@@ -10,7 +10,6 @@
         "urn:li:dataset:(urn:li:dataPlatform:mssql,temp_data,PROD)"
     ],
     "out_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.processwithtemp,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:mssql,target_table,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:mssql,temp_data,PROD)"
     ],
@@ -101,6 +100,6 @@
     "joins": null,
     "debug_info": {
         "confidence": 0.5,
-        "generalized_statement": "CREATE PROCEDURE (parsed 7 statements via fallback)"
+        "generalized_statement": "CREATE PROCEDURE (parsed 4 statements via fallback)"
     }
 }

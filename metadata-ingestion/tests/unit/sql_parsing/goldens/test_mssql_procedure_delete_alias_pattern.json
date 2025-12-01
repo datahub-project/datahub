@@ -9,7 +9,6 @@
         "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_customer_data,PROD)"
     ],
     "out_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.deletemarkedrecords,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.customer_data,PROD)"
     ],
     "column_lineage": [
@@ -34,6 +33,6 @@
     "joins": null,
     "debug_info": {
         "confidence": 0.5,
-        "generalized_statement": "CREATE PROCEDURE (parsed 3 statements via fallback)"
+        "generalized_statement": "CREATE PROCEDURE (parsed 2 statements via fallback)"
     }
 }

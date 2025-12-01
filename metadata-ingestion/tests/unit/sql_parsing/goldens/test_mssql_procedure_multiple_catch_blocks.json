@@ -9,7 +9,6 @@
         "urn:li:dataset:(urn:li:dataPlatform:mssql,table2,PROD)"
     ],
     "out_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.multipleblocks,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:mssql,table1,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:mssql,table2,PROD)"
     ],
@@ -52,6 +51,6 @@
     "joins": null,
     "debug_info": {
         "confidence": 0.5,
-        "generalized_statement": "CREATE PROCEDURE (parsed 3 statements via fallback)"
+        "generalized_statement": "CREATE PROCEDURE (parsed 2 statements via fallback)"
     }
 }

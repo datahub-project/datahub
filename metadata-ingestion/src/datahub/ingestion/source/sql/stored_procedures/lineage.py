@@ -36,43 +36,15 @@ def parse_procedure_code(
         is_temp_table=is_temp_table,
     )
 
-    # Check if this is a stored procedure/function definition
-    # For these, we should NOT split statements - let the fallback parser handle it
-    code_upper = code.strip().upper()
-    is_procedure_definition = any(
-        code_upper.startswith(prefix)
-        for prefix in [
-            "CREATE PROCEDURE",
-            "CREATE OR ALTER PROCEDURE",
-            "ALTER PROCEDURE",
-            "CREATE FUNCTION",
-            "CREATE OR ALTER FUNCTION",
-            "ALTER FUNCTION",
-        ]
-    )
-
-    if is_procedure_definition:
-        # Pass the entire procedure/function as a single query
-        # The fallback parser in sqlglot_lineage will handle splitting and filtering
+    for query in split_statements(code):
+        # TODO: We should take into account `USE x` statements.
         aggregator.add_observed_query(
             observed=ObservedQuery(
                 default_db=default_db,
                 default_schema=default_schema,
-                query=code,
+                query=query,
             )
         )
-    else:
-        # For procedure bodies without CREATE headers (Snowflake, MySQL), split into individual statements
-        # These databases return only the procedure body from their system catalogs
-        for query in split_statements(code):
-            # TODO: We should take into account `USE x` statements.
-            aggregator.add_observed_query(
-                observed=ObservedQuery(
-                    default_db=default_db,
-                    default_schema=default_schema,
-                    query=query,
-                )
-            )
 
     if aggregator.report.num_observed_queries_failed and raise_:
         logger.info(aggregator.report.as_string())

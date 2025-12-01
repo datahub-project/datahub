@@ -6,7 +6,6 @@
     "query_fingerprint": null,
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,datawarehouse.dbo.dim_product,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.syncdimensiontable,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_dim_product,PROD)"
     ],
@@ -143,6 +142,6 @@
     "joins": null,
     "debug_info": {
         "confidence": 0.5,
-        "generalized_statement": "CREATE PROCEDURE (parsed 4 statements via fallback)"
+        "generalized_statement": "CREATE PROCEDURE (parsed 3 statements via fallback)"
     }
 }

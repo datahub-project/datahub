@@ -8,8 +8,7 @@
         "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)"
     ],
     "out_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.simpleupdate,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)"
     ],
     "column_lineage": [
         {
@@ -33,6 +32,6 @@
     "joins": null,
     "debug_info": {
         "confidence": 0.5,
-        "generalized_statement": "CREATE PROCEDURE (parsed 2 statements via fallback)"
+        "generalized_statement": "CREATE PROCEDURE (parsed 1 statements via fallback)"
     }
 }
