@@ -289,6 +289,14 @@ def wait_for_airbyte_ready(timeout: int = 600) -> bool:
                 if workspaces_response.status_code == 200:
                     print("Airbyte API ready")
                     return True
+                elif attempt == 1:
+                    # Log auth failure details on first attempt
+                    print(
+                        f"Workspace list returned {workspaces_response.status_code}: {workspaces_response.text[:200]}"
+                    )
+                    print(
+                        f"Using password from env: {'AIRBYTE_PASSWORD' in os.environ}"
+                    )
 
         except requests.RequestException:
             pass
@@ -1192,6 +1200,8 @@ def complete_airbyte_onboarding() -> bool:
 
                 if response.status_code in [200, 201]:
                     print("Onboarding completed")
+                    print("Waiting 15 seconds for Airbyte to process onboarding...")
+                    time.sleep(15)
                     return True
                 else:
                     print(f"Onboarding setup returned {response.status_code}")
@@ -1200,9 +1210,10 @@ def complete_airbyte_onboarding() -> bool:
                 print(f"Onboarding setup failed for {api_endpoint}: {e}")
                 continue
 
-        print("Could not complete onboarding setup")
+        print("Could not complete onboarding setup, continuing anyway...")
         return False
 
     except Exception as e:
         print(f"Exception during onboarding setup: {e}")
+        print("Continuing with normal API readiness check...")
         return False
