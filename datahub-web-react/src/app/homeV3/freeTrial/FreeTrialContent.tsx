@@ -178,7 +178,7 @@ const FreeTrialContent = () => {
 
     return (
         <Container>
-            {hasIngestionSources && (
+            {!hasIngestionSources && (
                 <PageBanner
                     icon={<Icon icon="Info" color="blue" size="lg" weight="fill" source="phosphor" />}
                     content={
