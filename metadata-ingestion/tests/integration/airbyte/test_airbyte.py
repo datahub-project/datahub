@@ -148,15 +148,17 @@ def airbyte_service(
     except subprocess.TimeoutExpired as e:
         raise RuntimeError("abctl install timed out") from e
 
-    # Get credentials BEFORE waiting for API (needed for authentication)
+    # Get credentials BEFORE onboarding (needed for authentication)
     get_airbyte_credentials(abctl_path, test_resources_dir)
 
-    # Wait for Airbyte to be ready
-    if not wait_for_airbyte_ready(timeout=600):
-        raise RuntimeError("Airbyte failed to become ready")
+    # Complete onboarding (this also verifies API is working)
+    onboarding_succeeded = complete_airbyte_onboarding()
 
-    # Complete onboarding
-    complete_airbyte_onboarding()
+    # If onboarding succeeded, API is ready; otherwise check readiness
+    if onboarding_succeeded:
+        print("Onboarding completed - API is ready")
+    elif not wait_for_airbyte_ready(timeout=300):
+        raise RuntimeError("Airbyte failed to become ready")
 
     # Set up sources, destinations, and connections
     setup_airbyte_connections(test_resources_dir)
