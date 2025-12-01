@@ -92,7 +92,7 @@ describe('ModuleMenu', () => {
         // Check that menu items are rendered
         expect(screen.getByText('Edit')).toBeInTheDocument();
         // expect(screen.getByText('Duplicate')).toBeInTheDocument();
-        expect(screen.getByText('Remove')).toBeInTheDocument();
+        expect(screen.getByTestId('remove-module')).toBeInTheDocument();
     });
 
     it('should call removeModule when remove is clicked', () => {
@@ -103,7 +103,7 @@ describe('ModuleMenu', () => {
         fireEvent.click(menuButton);
 
         // Click the remove option
-        const removeButton = screen.getByText('Remove');
+        const removeButton = screen.getByTestId('remove-module');
         fireEvent.click(removeButton);
         // Confirm removing
         const confirm = screen.getByTestId('modal-confirm-button');
@@ -140,7 +140,7 @@ describe('ModuleMenu', () => {
         fireEvent.click(menuButton);
 
         // Click the remove option
-        const removeButton = screen.getByText('Remove');
+        const removeButton = screen.getByTestId('remove-module');
         fireEvent.click(removeButton);
         // Confirm removing
         const confirm = screen.getByTestId('modal-confirm-button');
@@ -161,7 +161,7 @@ describe('ModuleMenu', () => {
         fireEvent.click(menuButton);
 
         // Check that remove option has red color styling
-        const removeButton = screen.getByText('Remove');
+        const removeButton = screen.getByTestId('remove-module');
         expect(removeButton).toBeInTheDocument();
         // Note: Testing exact color styles in this test setup is challenging, but the component should work
     });
@@ -180,7 +180,7 @@ describe('ModuleMenu', () => {
         fireEvent.click(menuButton);
 
         // Click the remove option
-        const removeButton = screen.getByText('Remove');
+        const removeButton = screen.getByTestId('remove-module');
         fireEvent.click(removeButton);
         // Confirm removing
         const confirm = screen.getByTestId('modal-confirm-button');
@@ -212,7 +212,7 @@ describe('ModuleMenu', () => {
         fireEvent.click(menuButton);
 
         // Click the remove option
-        const removeButton = screen.getByText('Remove');
+        const removeButton = screen.getByTestId('remove-module');
         fireEvent.click(removeButton);
         // Confirm removing
         const confirm = screen.getByTestId('modal-confirm-button');
@@ -238,7 +238,7 @@ describe('ModuleMenu', () => {
         fireEvent.click(menuButton);
 
         // Click the remove option
-        const removeButton = screen.getByText('Remove');
+        const removeButton = screen.getByTestId('remove-module');
         fireEvent.click(removeButton);
         // Confirm removing
         const confirm = screen.getByTestId('modal-confirm-button');
@@ -270,7 +270,7 @@ describe('ModuleMenu', () => {
         fireEvent.click(menuButton);
 
         // Click the remove option
-        const removeButton = screen.getByText('Remove');
+        const removeButton = screen.getByTestId('remove-module');
         fireEvent.click(removeButton);
         // Confirm removing
         const confirm = screen.getByTestId('modal-confirm-button');
@@ -313,7 +313,7 @@ describe('ModuleMenu', () => {
         fireEvent.click(menuButton);
 
         // Click the remove option
-        const removeButton = screen.getByText('Remove');
+        const removeButton = screen.getByTestId('remove-module');
         fireEvent.click(removeButton);
         // Click confirm multiple times rapidly
         const confirm = screen.getByTestId('modal-confirm-button');
