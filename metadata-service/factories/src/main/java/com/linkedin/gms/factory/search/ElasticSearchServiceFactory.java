@@ -30,9 +30,13 @@ public class ElasticSearchServiceFactory {
   @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("settingsBuilder")
   private SettingsBuilder settingsBuilder;
+
+  @Autowired(required = false)
+  @Qualifier("mappingsBuilder")
+  private MappingsBuilder mappingsBuilder;
 
   @Autowired
   @Qualifier("entityRegistry")
@@ -72,10 +76,8 @@ public class ElasticSearchServiceFactory {
   }
 
   @Bean
-  protected ESWriteDAO esWriteDAO(
-      final ConfigurationProvider configurationProvider,
-      @Qualifier("mappingsBuilder") final MappingsBuilder mappingsBuilder,
-      @Qualifier("settingsBuilder") final SettingsBuilder settingsBuilder) {
+  protected ESWriteDAO esWriteDAO(final ConfigurationProvider configurationProvider) {
+    // Builders may be null in test contexts - that's fine, ESWriteDAO handles null builders
     ESWriteDAO esWriteDAO =
         new ESWriteDAO(
             components.getConfig(),
@@ -98,11 +100,9 @@ public class ElasticSearchServiceFactory {
       final ElasticSearchConfiguration elasticSearchConfiguration,
       @Nullable final CustomSearchConfiguration customSearchConfiguration,
       final ESSearchDAO esSearchDAO,
-      final ESWriteDAO esWriteDAO,
-      @Qualifier("mappingsBuilder") final MappingsBuilder mappingsBuilder,
-      @Qualifier("settingsBuilder") final SettingsBuilder settingsBuilder)
+      final ESWriteDAO esWriteDAO)
       throws IOException {
-
+    // Use the field-injected builders (may be null in test contexts)
     return new ElasticSearchService(
         components.getIndexBuilder(),
         configurationProvider.getSearchService(),
