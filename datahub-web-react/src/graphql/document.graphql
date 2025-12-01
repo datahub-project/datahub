@@ -374,16 +374,6 @@ query getRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
                 ...relatedDocumentsFields
             }
         }
-        ... on Tag {
-            relatedDocuments(input: $input) {
-                ...relatedDocumentsFields
-            }
-        }
-        ... on StructuredPropertyEntity {
-            relatedDocuments(input: $input) {
-                ...relatedDocumentsFields
-            }
-        }
         ... on Application {
             relatedDocuments(input: $input) {
                 ...relatedDocumentsFields

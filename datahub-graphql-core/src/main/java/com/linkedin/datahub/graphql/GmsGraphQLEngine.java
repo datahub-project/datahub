@@ -2166,10 +2166,6 @@ public class GmsGraphQLEngine {
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
-                    "relatedDocuments",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
-                        documentService, entityClient, groupService))
-                .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
     builder.type(
         "TagAssociation",
@@ -2360,11 +2356,7 @@ public class GmsGraphQLEngine {
         "StructuredPropertyEntity",
         typeWiring ->
             typeWiring
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
-                .dataFetcher(
-                    "relatedDocuments",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
-                        documentService, entityClient, groupService)));
+                .dataFetcher("exists", new EntityExistsResolver(entityService)));
   }
 
   /**

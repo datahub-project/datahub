@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
@@ -25,13 +25,15 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     cursor: ${(props) => (props.$editable ? 'text' : 'default')};
     border-radius: 4px;
     resize: none;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     font-family: inherit;
     white-space: pre-wrap;
     word-wrap: break-word;
     overflow-wrap: break-word;
     box-sizing: border-box;
-    field-sizing: content;
+    min-height: calc(32px * 1.4 + 12px); /* 1 row: font-size * line-height + padding */
+    max-height: calc(32px * 1.4 * 3 + 12px); /* 3 rows: font-size * line-height * 3 + padding */
     &:hover {
         background-color: transparent;
     }
@@ -54,12 +56,30 @@ interface Props {
 export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) => {
     const [title, setTitle] = useState(initialTitle || '');
     const [isSaving, setIsSaving] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const { canEditTitle } = useDocumentPermissions(documentUrn);
     const { updateTitle } = useUpdateDocumentTitleMutation();
 
     useEffect(() => {
         setTitle(initialTitle || '');
     }, [initialTitle]);
+
+    // Auto-resize textarea up to 3 rows, then scroll
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const { style, scrollHeight } = textarea;
+
+        // Reset height to auto to get the correct scrollHeight
+        style.height = 'auto';
+
+        // Calculate max height for 3 rows (font-size * line-height * 3 + padding)
+        const maxHeight = 32 * 1.4 * 3 + 12; // ~146px
+
+        // Set height to scrollHeight, but cap at maxHeight
+        style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+    }, [title]);
 
     const handleBlur = async () => {
         if (title !== initialTitle && !isSaving) {
@@ -82,6 +102,7 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     return (
         <TitleContainer>
             <TitleInput
+                ref={textareaRef}
                 data-testid="document-title-input"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -90,7 +111,7 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
                 $editable={canEditTitle}
                 disabled={!canEditTitle}
                 placeholder="New Document"
-                rows={10}
+                rows={1}
             />
         </TitleContainer>
     );
