@@ -343,11 +343,6 @@ type ERModelRelationship implements EntityWithRelationships & Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
-
-  """
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
@@ -1664,11 +1659,6 @@ interface EntityWithRelationships implements Entity {
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 }
 
 """
@@ -2014,11 +2004,6 @@ type Role implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
-
-  """
   Id of the Role
   """
   id: String!
@@ -2311,12 +2296,6 @@ type VersionedDataset implements Entity {
   No-op, has to be included due to model
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
-    @deprecated
 }
 
 """
@@ -2879,11 +2858,6 @@ type DataPlatform implements Entity {
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 }
 
 """
@@ -2914,11 +2888,6 @@ type DataPlatformInstance implements Entity {
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Additional read only properties associated with a data platform instance
@@ -4374,11 +4343,6 @@ type CorpUser implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
-
-  """
   Whether or not this user is a native DataHub user
   """
   isNativeUser: Boolean
@@ -4821,11 +4785,6 @@ type CorpGroup implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
-
-  """
   Origin info about this group.
   """
   origin: Origin
@@ -5086,11 +5045,6 @@ type Tag implements Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Deprecated, use properties.description field instead
@@ -5821,11 +5775,6 @@ type Notebook implements Entity & BrowsableEntity {
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Sub Types that this entity implements
@@ -7296,11 +7245,6 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
-
-  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -8129,11 +8073,6 @@ type Assertion implements EntityWithRelationships & Entity {
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
@@ -9865,11 +9804,6 @@ type DataHubPolicy implements Entity {
   Granular API for querying edges extending from the Role
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   The type of the Policy
@@ -12409,11 +12343,6 @@ type DataHubRole implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
-
-  """
   The name of the Role.
   """
   name: String!
@@ -12670,11 +12599,6 @@ type Post implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
-
-  """
   The type of post
   """
   postType: PostType!
@@ -12788,11 +12712,6 @@ type DataHubView implements Entity {
   Granular API for querying edges extending from the View
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 }
 
 """
@@ -13175,11 +13094,6 @@ type QueryEntity implements Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Platform from which the Query was detected
@@ -13842,11 +13756,6 @@ type OwnershipTypeEntity implements Entity {
   Granular API for querying edges extending from the Custom Ownership Type
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 }
 
 """
@@ -13996,11 +13905,6 @@ type EntityTypeEntity implements Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 }
 
 """
@@ -14049,11 +13953,6 @@ type Restricted implements Entity & EntityWithRelationships {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
-
-  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -14097,11 +13996,6 @@ type BusinessAttribute implements Entity {
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-  """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 }
 
 """

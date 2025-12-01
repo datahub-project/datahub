@@ -4,13 +4,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { extractTypeFromUrn } from '@app/entity/shared/utils';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { getActorDisplayName, isActor } from '@app/entityV2/shared/utils/actorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
-import { Document, Entity } from '@types';
+import { Document } from '@types';
 
 const DocumentListItem = styled(List.Item)`
     border-radius: 5px;
@@ -96,32 +95,17 @@ export const RelatedDocumentItem: React.FC<RelatedDocumentItemProps> = ({ docume
                                 <>
                                     {' by '}
                                     {(() => {
-                                        if (typeof actor === 'string') {
-                                            // Fallback for old type where actor is just a URN string
-                                            const actorType = extractTypeFromUrn(actor);
-                                            return actorType ? (
-                                                <Link
-                                                    to={`${entityRegistry.getEntityUrl(actorType, actor)}`}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    {entityRegistry.getDisplayName(actorType, actor)}
-                                                </Link>
-                                            ) : null;
-                                        }
-                                        if ((actor as Entity)?.urn && (actor as Entity)?.type) {
-                                            // New type where actor is a full Entity (CorpUser)
-                                            const actorEntity = actor as Entity;
-                                            return isActor(actorEntity) ? (
-                                                <Link
-                                                    to={`${entityRegistry.getEntityUrl(actorEntity.type, actorEntity.urn)}`}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    {getActorDisplayName(actorEntity) ||
-                                                        entityRegistry.getDisplayName(actorEntity.type, actorEntity)}
-                                                </Link>
-                                            ) : null;
-                                        }
-                                        return null;
+                                        // New type where actor is a full Entity (CorpUser)
+                                        const actorEntity = actor;
+                                        return isActor(actorEntity) ? (
+                                            <Link
+                                                to={`${entityRegistry.getEntityUrl(actorEntity.type, actorEntity.urn)}`}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                {getActorDisplayName(actorEntity) ||
+                                                    entityRegistry.getDisplayName(actorEntity.type, actorEntity)}
+                                            </Link>
+                                        ) : null;
                                     })()}
                                 </>
                             )}

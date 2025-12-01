@@ -184,9 +184,6 @@ public class SearchDocumentsResolver
               "relatedAssets", Condition.EQUAL, input.getRelatedAssets()));
     }
 
-    // NOTE: State filtering is handled in DocumentSearchFilterUtils.buildCombinedFilter with
-    // ownership logic
-
     // Add source type filter if provided (if null, search all)
     if (input.getSourceType() != null) {
       criteria.add(

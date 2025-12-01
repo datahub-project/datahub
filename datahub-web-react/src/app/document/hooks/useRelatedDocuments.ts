@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
 
-import { useGetRelatedDocumentsQuery } from '@graphql/document.generated';
+import {
+    GetRelatedDocumentsQuery,
+    RelatedDocumentsFieldsFragment,
+    useGetRelatedDocumentsQuery,
+} from '@graphql/document.generated';
 import { Document, DocumentSourceType } from '@types';
 
 export interface RelatedDocumentsInput {
@@ -11,6 +15,38 @@ export interface RelatedDocumentsInput {
     types?: string[];
     domains?: string[];
     sourceType?: DocumentSourceType;
+}
+
+/**
+ * Type guard that checks if an entity has the relatedDocuments field.
+ * This properly narrows the union type to entities that support relatedDocuments.
+ */
+function hasRelatedDocuments(
+    entity: NonNullable<GetRelatedDocumentsQuery['entity']>,
+): entity is Extract<NonNullable<GetRelatedDocumentsQuery['entity']>, { relatedDocuments?: unknown }> {
+    return 'relatedDocuments' in entity;
+}
+
+/**
+ * Extracts the relatedDocuments result from the entity union type.
+ * Returns null if the entity doesn't have relatedDocuments or if it's null/undefined.
+ *
+ * This function safely extracts relatedDocuments by using a type guard to check
+ * if the property exists on the entity object, which works for all entity types
+ * that support relatedDocuments (Dataset, Dashboard, Chart, DataJob, DataFlow,
+ * Container, MLModel, etc.)
+ */
+function extractRelatedDocuments(entity: GetRelatedDocumentsQuery['entity']): RelatedDocumentsFieldsFragment | null {
+    if (!entity) {
+        return null;
+    }
+
+    // Use type guard to narrow the type - no cast needed!
+    if (hasRelatedDocuments(entity) && entity.relatedDocuments) {
+        return entity.relatedDocuments;
+    }
+
+    return null;
 }
 
 export function useRelatedDocuments(entityUrn: string, input?: RelatedDocumentsInput) {
@@ -31,29 +67,16 @@ export function useRelatedDocuments(entityUrn: string, input?: RelatedDocumentsI
         fetchPolicy: 'cache-first',
     });
 
-    // Extract relatedDocuments from the entity based on its type
-    // The GraphQL query uses fragments for each entity type, so we need to check all possible types
     const relatedDocumentsResult = useMemo(() => {
-        if (!data?.entity) {
-            return null;
-        }
-
-        // The entity could be any type that supports relatedDocuments
-        // Use a type guard to safely check if relatedDocuments exists
-        // (Some entity types have relatedDocuments, others don't)
-        const { entity } = data;
-        if ('relatedDocuments' in entity && entity.relatedDocuments) {
-            return entity.relatedDocuments;
-        }
-        return null;
-    }, [data]);
+        return extractRelatedDocuments(data?.entity ?? null);
+    }, [data?.entity]);
 
     const documents = useMemo(() => {
         return (relatedDocumentsResult?.documents || []) as Document[];
     }, [relatedDocumentsResult]);
 
     const total = useMemo(() => {
-        return relatedDocumentsResult?.total || 0;
+        return relatedDocumentsResult?.total ?? 0;
     }, [relatedDocumentsResult]);
 
     return {

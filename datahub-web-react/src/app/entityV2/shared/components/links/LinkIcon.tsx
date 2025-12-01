@@ -10,28 +10,22 @@ import {
 
 import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
 
-const Container = styled.div<{ $iconColor?: string; $iconSize?: number }>`
+const Container = styled.div`
     display: inline-block;
-    ${({ $iconColor }) => $iconColor && `color: ${$iconColor};`}
-    ${({ $iconSize }) =>
-        $iconSize &&
-        `
-        svg {
-            width: ${$iconSize}px;
-            height: ${$iconSize}px;
-        }
-    `}
 `;
 
 interface Props {
     url: string;
     className?: string;
-    iconColor?: string;
-    iconSize?: number;
+    /**
+     * Whether to use primary color. Defaults to true (primary color).
+     * If false, uses gray color with level 600.
+     */
+    usePrimaryColor?: boolean;
     style?: React.CSSProperties;
 }
 
-export function LinkIcon({ url, className, iconColor, iconSize, style }: Props) {
+export function LinkIcon({ url, className, usePrimaryColor = true, style }: Props) {
     const isDocumentationFileUploadV1Enabled = useIsDocumentationFileUploadV1Enabled();
 
     const renderIcon = useCallback(() => {
@@ -41,22 +35,19 @@ export function LinkIcon({ url, className, iconColor, iconSize, style }: Props) 
             return <FileIcon extension={extension} />;
         }
 
-        // Use gray color with level 600 if iconColor is provided, otherwise use primary
-        const color = iconColor ? 'gray' : 'primary';
-
         return (
             <Icon
                 icon="LinkSimple"
                 source="phosphor"
-                color={color}
-                colorLevel={iconColor ? 600 : undefined}
+                color={usePrimaryColor ? 'primary' : 'gray'}
+                colorLevel={usePrimaryColor ? undefined : 600}
                 size="lg"
             />
         );
-    }, [isDocumentationFileUploadV1Enabled, url, iconColor]);
+    }, [isDocumentationFileUploadV1Enabled, url, usePrimaryColor]);
 
     return (
-        <Container className={className} style={style} $iconColor={iconColor} $iconSize={iconSize}>
+        <Container className={className} style={style}>
             {renderIcon()}
         </Container>
     );

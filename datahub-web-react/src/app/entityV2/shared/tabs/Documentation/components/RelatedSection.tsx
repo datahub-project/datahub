@@ -2,6 +2,7 @@ import { List } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useRelatedDocuments } from '@app/document/hooks/useRelatedDocuments';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
@@ -12,12 +13,18 @@ import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils
 import { AddContextDocumentPopover } from '@app/entityV2/shared/tabs/Documentation/components/AddContextDocumentPopover';
 import { RelatedDocumentItem } from '@app/entityV2/shared/tabs/Documentation/components/RelatedDocumentItem';
 import { RelatedLinkItem } from '@app/entityV2/shared/tabs/Documentation/components/RelatedLinkItem';
+import {
+    combineAndSortRelatedItems,
+    createRelatedSectionMenuItems,
+    hasRelatedContent,
+} from '@app/entityV2/shared/tabs/Documentation/components/relatedSectionUtils';
+import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
+import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover, Tooltip } from '@src/alchemy-components';
-import { ItemType } from '@src/alchemy-components/components/Menu/types';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
-import { Document, InstitutionalMemoryMetadata } from '@types';
+import { InstitutionalMemoryMetadata } from '@types';
 
 const SectionContainer = styled.div`
     margin: 0 16px;
@@ -44,10 +51,6 @@ const EmptyState = styled.div`
     padding: 8px 0;
 `;
 
-type RelatedItem =
-    | { type: 'link'; data: InstitutionalMemoryMetadata; sortTime: number }
-    | { type: 'document'; data: Document; sortTime: number };
-
 export const RelatedSection: React.FC = () => {
     const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
@@ -62,6 +65,11 @@ export const RelatedSection: React.FC = () => {
         [entityData?.institutionalMemory?.elements],
     );
     const { handleDeleteLink } = useLinkUtils(editingMetadata);
+
+    // Check permissions and feature flags
+    const hasLinkPermissions = useLinkPermission();
+    const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
+    const { canCreate: canCreateDocuments } = useDocumentPermissions();
 
     // Fetch related documents if entity supports the capability
     const supportedCapabilities = entityType ? entityRegistry.getSupportedEntityCapabilities(entityType) : new Set();
@@ -90,9 +98,9 @@ export const RelatedSection: React.FC = () => {
         setSelectedDocumentUrn(documentUrn);
     }, []);
 
-    const handleAddLink = () => {
+    const handleAddLink = useCallback(() => {
         setIsAddLinkModalVisible(true);
-    };
+    }, []);
 
     // Memoize the delete callback to prevent unnecessary re-renders
     const handleDocumentDeleted = useCallback(() => {
@@ -102,9 +110,9 @@ export const RelatedSection: React.FC = () => {
         }, 2000);
     }, [refetchRelatedDocuments]);
 
-    const handleAddContext = () => {
+    const handleAddContext = useCallback(() => {
         setShowAddContextPopover(true);
-    };
+    }, []);
 
     const handleDocumentSelected = useCallback(
         (documentUrn: string) => {
@@ -118,61 +126,35 @@ export const RelatedSection: React.FC = () => {
         [refetchRelatedDocuments],
     );
 
-    const menuItems: ItemType[] = [
-        {
-            type: 'item',
-            key: 'add-link',
-            title: 'Add link',
-            icon: 'LinkSimple',
-            onClick: handleAddLink,
-        },
-        {
-            type: 'item',
-            key: 'add-context',
-            title: 'Add context',
-            icon: 'FileText',
-            onClick: handleAddContext,
-        },
-    ];
+    // Create menu items with feature flag and permission checks
+    const menuItems = useMemo(
+        () =>
+            createRelatedSectionMenuItems({
+                onAddLink: handleAddLink,
+                onAddContext: handleAddContext,
+                isContextDocumentsEnabled,
+                hasLinkPermissions,
+                canCreateDocuments,
+            }),
+        [handleAddLink, handleAddContext, isContextDocumentsEnabled, hasLinkPermissions, canCreateDocuments],
+    );
 
     const hasLinks = links.length > 0;
     const hasDocuments = supportsRelatedDocuments && documents && documents.length > 0 && !documentsError;
-    const hasContent = hasLinks || hasDocuments;
+    const hasContent = hasRelatedContent(hasLinks, hasDocuments);
 
     // Combine and sort items by time (links by created time, documents by lastModified time)
-    const sortedItems = useMemo<RelatedItem[]>(() => {
-        const items: RelatedItem[] = [];
-
-        // Add links with their created time
-        links.forEach((link) => {
-            items.push({
-                type: 'link',
-                data: link,
-                sortTime: link.created?.time || 0,
-            });
-        });
-
-        // Add documents with their lastModified time
-        if (hasDocuments && documents) {
-            documents.forEach((doc) => {
-                items.push({
-                    type: 'document',
-                    data: doc,
-                    sortTime: doc.info?.lastModified?.time || 0,
-                });
-            });
-        }
-
-        // Sort by time descending (most recent first)
-        return items.sort((a, b) => b.sortTime - a.sortTime);
-    }, [links, hasDocuments, documents]);
+    const sortedItems = useMemo(
+        () => combineAndSortRelatedItems(links, hasDocuments ? documents : null),
+        [links, hasDocuments, documents],
+    );
 
     return (
         <>
             <SectionContainer>
                 <SectionHeader>
                     <SectionTitle>Resources</SectionTitle>
-                    {supportsRelatedDocuments && (
+                    {supportsRelatedDocuments && menuItems.length > 0 && (
                         <>
                             <Menu items={menuItems} placement="bottomRight">
                                 <Tooltip title="Add related link or context">

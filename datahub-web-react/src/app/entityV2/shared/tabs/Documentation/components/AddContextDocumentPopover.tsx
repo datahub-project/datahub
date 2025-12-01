@@ -4,20 +4,27 @@ import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
+import { createDefaultDocumentInput, extractRelatedAssetUrns, mergeUrns } from '@app/document/utils/documentUtils';
 import { DocumentPopoverBase } from '@app/homeV2/layout/sidebar/documents/shared/DocumentPopoverBase';
 import { Button } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
 
 import { GetDocumentDocument, useCreateDocumentMutation } from '@graphql/document.generated';
-import { DocumentState } from '@types';
 
 const NewDocumentButton = styled(Button)`
     width: 100%;
-    justify-content: flex-start;
+    justify-content: start;
     color: ${colors.gray[1700]};
     &:hover {
-        background-color: ${colors.gray[100]};
+        background: linear-gradient(
+            180deg,
+            rgba(243, 244, 246, 0.5) -3.99%,
+            rgba(235, 236, 240, 0.5) 53.04%,
+            rgba(235, 236, 240, 0.5) 100%
+        );
+        box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
     }
+    padding: 12px 8px;
 `;
 
 interface AddContextDocumentPopoverProps {
@@ -65,12 +72,9 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                     throw new Error('Document not found');
                 }
 
-                // Extract existing related asset URNs
-                const existingAssetUrns =
-                    document.info?.relatedAssets?.map((relatedAsset) => relatedAsset.asset.urn) || [];
-
-                // Merge: add entity URN if not already present
-                const mergedAssetUrns = [...new Set([...existingAssetUrns, entityUrn])];
+                // Extract existing related asset URNs and merge with entity URN
+                const existingAssetUrns = extractRelatedAssetUrns(document);
+                const mergedAssetUrns = mergeUrns(existingAssetUrns, [entityUrn]);
 
                 // Update document with merged relatedAssets
                 const success = await updateRelatedEntities({
@@ -107,14 +111,10 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                 // Create document with relatedAssets directly in the mutation
                 const result = await createDocumentMutation({
                     variables: {
-                        input: {
-                            title: 'New Document',
-                            parentDocument: parentUrn || undefined,
-                            relatedAssets: [entityUrn],
-                            contents: { text: '' },
-                            state: DocumentState.Published,
-                            settings: { showInGlobalContext: true },
-                        },
+                        input: createDefaultDocumentInput({
+                            parentUrn,
+                            relatedAssetUrns: [entityUrn],
+                        }),
                     },
                 });
 
@@ -145,7 +145,7 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
             disabled={isCreating}
             data-testid="new-document-root-button"
         >
-            New Document
+            New document
         </NewDocumentButton>
     );
 
@@ -156,6 +156,7 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
             onSelectSearchResult={handleSelectExistingDocument}
             onCreateChild={handleCreateDocument}
             hideActions={false}
+            hideActionsMenu
             maxHeight={400}
             searchDisabled={isCreating}
         />

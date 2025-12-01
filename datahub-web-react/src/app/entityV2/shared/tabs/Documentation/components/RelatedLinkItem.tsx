@@ -108,7 +108,7 @@ export const RelatedLinkItem: React.FC<RelatedLinkItemProps> = ({ link, onEdit, 
         >
             <MetaContainer>
                 <IconContainer>
-                    <LinkIcon url={link.url} iconColor={colors.primary[500]} iconSize={16} />
+                    <LinkIcon url={link.url} />
                 </IconContainer>
                 <ContentContainer>
                     <TitleLink href={link.url} target="_blank" rel="noreferrer">

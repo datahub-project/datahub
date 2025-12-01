@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useRelatedDocuments } from '@app/document/hooks/useRelatedDocuments';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
@@ -8,15 +9,23 @@ import { DocumentModal } from '@app/entityV2/document/DocumentModal';
 import AddLinkModalUpdated from '@app/entityV2/shared/components/links/AddLinkModal';
 import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
 import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
+import { AddContextDocumentPopover } from '@app/entityV2/shared/tabs/Documentation/components/AddContextDocumentPopover';
+import {
+    RelatedItem,
+    combineAndSortRelatedItems,
+    createRelatedSectionMenuItems,
+    hasRelatedContent,
+} from '@app/entityV2/shared/tabs/Documentation/components/relatedSectionUtils';
 import DocumentItem from '@app/entityV2/summary/links/DocumentItem';
 import LinkItem from '@app/entityV2/summary/links/LinkItem';
+import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button, Menu, Text, Tooltip } from '@src/alchemy-components';
-import { ItemType } from '@src/alchemy-components/components/Menu/types';
+import { Button, Menu, Popover, Text, Tooltip } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
-import { Document, InstitutionalMemoryMetadata } from '@types';
+import { InstitutionalMemoryMetadata } from '@types';
 
 const SectionHeader = styled.div`
     display: flex;
@@ -44,10 +53,6 @@ const EmptyState = styled.div`
     padding: 8px 0;
 `;
 
-type RelatedItem =
-    | { type: 'link'; data: InstitutionalMemoryMetadata; sortTime: number }
-    | { type: 'document'; data: Document; sortTime: number };
-
 interface RelatedSectionProps {
     hideLinksButton?: boolean;
 }
@@ -60,12 +65,18 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
     const [showEditLinkModal, setShowEditLinkModal] = useState(false);
     const [selectedLink, setSelectedLink] = useState<InstitutionalMemoryMetadata | null>(null);
     const [selectedDocumentUrn, setSelectedDocumentUrn] = useState<string | null>(null);
+    const [showAddContextPopover, setShowAddContextPopover] = useState(false);
 
     const links = useMemo(
         () => entityData?.institutionalMemory?.elements || [],
         [entityData?.institutionalMemory?.elements],
     );
     const { handleDeleteLink } = useLinkUtils(selectedLink);
+
+    // Check permissions and feature flags
+    const hasLinkPermissions = useLinkPermission();
+    const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
+    const { canCreate: canCreateDocuments } = useDocumentPermissions();
 
     // Fetch related documents if entity supports the capability
     const supportedCapabilities = entityType ? entityRegistry.getSupportedEntityCapabilities(entityType) : new Set();
@@ -88,30 +99,39 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
         }, 2000);
     }, [refetchRelatedDocuments]);
 
-    const handleAddLink = () => {
+    const handleAddLink = useCallback(() => {
         setIsAddLinkModalVisible(true);
-    };
+    }, []);
 
-    const handleAddContext = () => {
-        // Placeholder - do nothing for now
-    };
+    const handleAddContext = useCallback(() => {
+        setShowAddContextPopover(true);
+    }, []);
 
-    const menuItems: ItemType[] = [
-        {
-            type: 'item',
-            key: 'add-link',
-            title: 'Add link',
-            icon: 'LinkSimple',
-            onClick: handleAddLink,
-        },
-        {
-            type: 'item',
-            key: 'add-context',
-            title: 'Add context',
-            icon: 'FileText',
-            onClick: handleAddContext,
-        },
-    ];
+    const handleDocumentSelected = useCallback((documentUrn: string) => {
+        setSelectedDocumentUrn(documentUrn);
+        setShowAddContextPopover(false);
+        // Don't refetch here - wait until modal closes to avoid duplicate refetches
+        // that could cause duplicate links to appear
+    }, []);
+
+    const handleDocumentModalClose = useCallback(() => {
+        setSelectedDocumentUrn(null);
+        // Refetch related documents after modal closes to show any changes made in the modal
+        refetchRelatedDocuments();
+    }, [refetchRelatedDocuments]);
+
+    // Create menu items with feature flag and permission checks
+    const menuItems = useMemo(
+        () =>
+            createRelatedSectionMenuItems({
+                onAddLink: handleAddLink,
+                onAddContext: handleAddContext,
+                isContextDocumentsEnabled,
+                hasLinkPermissions,
+                canCreateDocuments,
+            }),
+        [handleAddLink, handleAddContext, isContextDocumentsEnabled, hasLinkPermissions, canCreateDocuments],
+    );
 
     const handleDelete = () => {
         if (selectedLink) {
@@ -134,35 +154,13 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
 
     const hasLinks = links.length > 0;
     const hasDocuments = supportsRelatedDocuments && documents && documents.length > 0 && !documentsError;
-    const hasContent = hasLinks || hasDocuments;
+    const hasContent = hasRelatedContent(hasLinks, hasDocuments);
 
     // Combine and sort items by time (links by created time, documents by lastModified time)
-    const sortedItems = useMemo<RelatedItem[]>(() => {
-        const items: RelatedItem[] = [];
-
-        // Add links with their created time
-        links.forEach((link) => {
-            items.push({
-                type: 'link',
-                data: link,
-                sortTime: link.created?.time || 0,
-            });
-        });
-
-        // Add documents with their lastModified time
-        if (hasDocuments && documents) {
-            documents.forEach((doc) => {
-                items.push({
-                    type: 'document',
-                    data: doc,
-                    sortTime: doc.info?.lastModified?.time || 0,
-                });
-            });
-        }
-
-        // Sort by time descending (most recent first)
-        return items.sort((a, b) => b.sortTime - a.sortTime);
-    }, [links, hasDocuments, documents]);
+    const sortedItems = useMemo<RelatedItem[]>(
+        () => combineAndSortRelatedItems(links, hasDocuments ? documents : null),
+        [links, hasDocuments, documents],
+    );
 
     // Don't show section if there's no content and entity doesn't support related documents
     if (!hasContent && !documentsLoading && !supportsRelatedDocuments) {
@@ -175,20 +173,44 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
                 <SectionTitle weight="bold" color="gray" colorLevel={600} size="sm">
                     Resources
                 </SectionTitle>
-                {supportsRelatedDocuments && !hideLinksButton && (
-                    <Menu items={menuItems} placement="bottomRight">
-                        <Tooltip title="Add related link or context">
-                            <Button
-                                variant="text"
-                                color="gray"
-                                size="xs"
-                                icon={{ icon: 'Plus', source: 'phosphor', size: 'lg' }}
-                                style={{ padding: '0 2px' }}
-                                aria-label="Add related link or context"
-                                data-testid="add-related-button"
-                            />
-                        </Tooltip>
-                    </Menu>
+                {supportsRelatedDocuments && !hideLinksButton && menuItems.length > 0 && (
+                    <>
+                        <Menu items={menuItems} placement="bottomRight">
+                            <Tooltip title="Add related link or context">
+                                <Button
+                                    variant="text"
+                                    color="gray"
+                                    size="xs"
+                                    icon={{ icon: 'Plus', source: 'phosphor', size: 'lg' }}
+                                    style={{ padding: '0 2px' }}
+                                    aria-label="Add related link or context"
+                                    data-testid="add-related-button"
+                                />
+                            </Tooltip>
+                        </Menu>
+                        <Popover
+                            open={showAddContextPopover}
+                            onOpenChange={(visible) => !visible && setShowAddContextPopover(false)}
+                            content={
+                                urn ? (
+                                    <AddContextDocumentPopover
+                                        entityUrn={urn}
+                                        onDocumentSelected={handleDocumentSelected}
+                                        onClose={() => setShowAddContextPopover(false)}
+                                    />
+                                ) : null
+                            }
+                            placement="rightTop"
+                            overlayStyle={{ padding: 0 }}
+                            overlayInnerStyle={{
+                                padding: 0,
+                                background: 'transparent',
+                                boxShadow: 'none',
+                            }}
+                        >
+                            <span style={{ position: 'absolute', pointerEvents: 'none' }} />
+                        </Popover>
+                    </>
                 )}
             </SectionHeader>
 
@@ -235,7 +257,7 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
             {selectedDocumentUrn && (
                 <DocumentModal
                     documentUrn={selectedDocumentUrn}
-                    onClose={() => setSelectedDocumentUrn(null)}
+                    onClose={handleDocumentModalClose}
                     onDocumentDeleted={handleDocumentDeleted}
                 />
             )}

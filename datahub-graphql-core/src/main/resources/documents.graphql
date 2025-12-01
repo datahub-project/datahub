@@ -148,11 +148,6 @@ type Document implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
-  Get context documents related to this entity
-  """
-  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
-
-  """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
@@ -640,11 +635,6 @@ input SearchDocumentsInput {
   If not provided, searches all documents regardless of source.
   """
   sourceType: DocumentSourceType
-
-  """
-  Optional flags controlling search options
-  """
-  searchFlags: SearchFlags
 }
 
 """

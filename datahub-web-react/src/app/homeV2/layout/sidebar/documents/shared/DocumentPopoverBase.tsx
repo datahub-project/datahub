@@ -20,7 +20,7 @@ const PopoverContainer = styled.div`
 `;
 
 const HeaderContainer = styled.div`
-    padding: 8px;
+    padding: 6px 6px;
     border-bottom: 1px solid ${colors.gray[100]};
 `;
 
@@ -32,7 +32,6 @@ const SearchContainer = styled.div`
 const TreeScrollContainer = styled.div`
     flex: 1;
     overflow-y: auto;
-    min-height: 200px;
     max-height: ${(props: { $maxHeight?: number }) => props.$maxHeight || 300}px;
     padding: 8px 4px;
 
@@ -73,6 +72,10 @@ export interface DocumentPopoverBaseProps {
     onCreateChild?: (parentUrn: string | null) => void;
     /** Whether to hide actions in the tree */
     hideActions?: boolean;
+    /** Hide move/delete menu actions */
+    hideActionsMenu?: boolean;
+    /** Hide create/add button */
+    hideCreate?: boolean;
     /** Selected URN for highlighting (optional) */
     selectedUrn?: string;
     /** Maximum height of the popover */
@@ -93,6 +96,8 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
     onSelectSearchResult,
     onCreateChild,
     hideActions = false,
+    hideActionsMenu = false,
+    hideCreate = false,
     selectedUrn,
     maxHeight = 300,
     searchDisabled = false,
@@ -135,8 +140,6 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
 
     return (
         <PopoverContainer $maxHeight={maxHeight} data-testid="document-popover-base">
-            {headerContent && <HeaderContainer>{headerContent}</HeaderContainer>}
-
             <SearchContainer>
                 <Input
                     label=""
@@ -146,7 +149,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
                     disabled={searchDisabled}
                 />
             </SearchContainer>
-
+            {headerContent && <HeaderContainer>{headerContent}</HeaderContainer>}
             <TreeScrollContainer $maxHeight={maxHeight}>
                 {isSearching ? (
                     <>
@@ -190,6 +193,8 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
                             selectedUrn={selectedUrn}
                             onSelectDocument={handleDocumentTreeSelect}
                             hideActions={hideActions}
+                            hideActionsMenu={hideActionsMenu}
+                            hideCreate={hideCreate}
                         />
                     </>
                 )}
