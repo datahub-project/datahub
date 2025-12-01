@@ -24,7 +24,9 @@ import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import NavSkeleton from '@app/homeV2/layout/navBarRedesign/NavBarSkeleton';
 import {
+    NavBarMenuDropdownItem,
     NavBarMenuDropdownItemElement,
+    NavBarMenuGroup,
     NavBarMenuItemTypes,
     NavBarMenuItems,
 } from '@app/homeV2/layout/navBarRedesign/types';

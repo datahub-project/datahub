@@ -7,7 +7,7 @@ import {
     NavBarMenuItemTypes,
     NavBarMenuLinkItem,
 } from '@app/homeV2/layout/navBarRedesign/types';
-import { MFEConfig, MFEConfigEntry, MFESchema } from '@app/mfeframework/mfeConfigLoader';
+import { MFESchema } from '@app/mfeframework/mfeConfigLoader';
 
 /* Converts any phosphor icon string into a phosphor JSX.Element, if iconString is undefined or not a valid icon, default is <AppWindow/>.
   eg: Tag wil become <Tag /> */
@@ -16,41 +16,14 @@ function getPhosphorIconElement(iconString?: string): JSX.Element {
     return Component ? <Component /> : <AppWindow />;
 }
 
-// Type guard to check if an entry is a valid MFEConfig.
-function isValidMFEConfig(mfe: MFEConfigEntry): mfe is MFEConfig {
-    return !('invalid' in mfe && mfe.invalid);
-}
-
-// Set to track which error messages have already been logged
-const loggedInvalidMfeIssues = new Set<string>();
-
-function logInvalidMfeIssues(mfe: MFEConfigEntry) {
-    const id = 'id' in mfe && mfe.id ? mfe.id : 'unknown';
-    if ('invalid' in mfe && mfe.invalid && Array.isArray((mfe as any).errorMessages)) {
-        (mfe as any).errorMessages.forEach((msg: string) => {
-            const uniqueKey = `${id}:${msg}`;
-            if (!loggedInvalidMfeIssues.has(uniqueKey)) {
-                console.error(`[MFE Nav] Invalid MFE config for id: ${id} - ${msg}`);
-                loggedInvalidMfeIssues.add(uniqueKey);
-            }
-        });
-    }
-}
-
 /**
  * Returns menu items for MFEs when subNavigationMode is FALSE.
- * Only valid MFEs (not marked as invalid) and with showInNav=true are included.
- * Logs console errors for invalid MFEs.
+ * Only MFEs with showInNav=true are included.
  */
 export function getMfeMenuItems(mfeConfig: MFESchema): NavBarMenuLinkItem[] {
     if (!mfeConfig?.microFrontends) return [];
 
-    mfeConfig.microFrontends.forEach((mfe) => {
-        logInvalidMfeIssues(mfe);
-    });
-
     return mfeConfig.microFrontends
-        .filter(isValidMFEConfig)
         .filter((mfe) => mfe.flags?.showInNav)
         .map((mfe) => ({
             type: NavBarMenuItemTypes.Item,
@@ -66,18 +39,12 @@ export function getMfeMenuItems(mfeConfig: MFESchema): NavBarMenuLinkItem[] {
 
 /**
  * Returns dropdown menu items for MFEs when subNavigationMode is TRUE.
- * Only valid MFEs (not marked as invalid) and with showInNav=true are included.
- * Logs console errors for invalid MFEs.
+ * Only MFEs with showInNav=true are included.
  */
 export function getMfeMenuDropdownItems(mfeConfig: MFESchema): NavBarMenuDropdownItemElement[] {
     if (!mfeConfig?.microFrontends) return [];
 
-    mfeConfig.microFrontends.forEach((mfe) => {
-        logInvalidMfeIssues(mfe);
-    });
-
     return mfeConfig.microFrontends
-        .filter(isValidMFEConfig)
         .filter((mfe) => mfe.flags?.showInNav)
         .map((mfe) => ({
             type: NavBarMenuItemTypes.DropdownElement,
