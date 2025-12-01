@@ -1250,21 +1250,35 @@ public class ESIndexBuilder {
    * @throws IOException If the deletion or creation fails
    */
   public void clearIndex(String indexName, ReindexConfig config) throws IOException {
-    // Check if the index name is an alias or a concrete index
+    // The indexName must be either an alias or an actual index
     GetAliasesRequest getAliasesRequest = new GetAliasesRequest(indexName);
-    GetAliasesResponse aliasesResponse =
-        searchClient.getIndexAliases(getAliasesRequest, RequestOptions.DEFAULT);
+    GetAliasesResponse aliasesResponse;
+    try {
+      aliasesResponse = searchClient.getIndexAliases(getAliasesRequest, RequestOptions.DEFAULT);
+    } catch (IOException | RuntimeException e) {
+      // If getIndexAliases throws, check if it's because index/alias doesn't exist
+      if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
+        // Check if it's an actual index
+        boolean indexExists =
+            searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+        if (!indexExists) {
+          throw new IOException(
+              "Index or alias " + indexName + " does not exist and cannot be cleared", e);
+        }
+        // Index exists but getIndexAliases failed, treat as concrete index (not an alias)
+        aliasesResponse = null;
+      } else {
+        throw new IOException("Failed to get index aliases for " + indexName, e);
+      }
+    }
 
     Collection<String> indicesToDelete;
-    if (aliasesResponse.getAliases().isEmpty()) {
-      // Not an alias, check if it's a concrete index
+    if (aliasesResponse == null || aliasesResponse.getAliases().isEmpty()) {
+      // Not an alias, must be a concrete index - verify it exists
       boolean indexExists =
           searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
       if (!indexExists) {
-        log.info("Index {} does not exist, nothing to clear", indexName);
-        // Still recreate the index
-        createIndex(indexName, config);
-        return;
+        throw new IOException("Index " + indexName + " does not exist and cannot be cleared");
       }
       indicesToDelete = List.of(indexName);
       log.info("Deleting concrete index {} for efficient clearing", indexName);

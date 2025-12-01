@@ -3,7 +3,6 @@ package com.linkedin.metadata.search.update;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -29,6 +28,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.mockito.ArgumentCaptor;
@@ -165,32 +165,23 @@ public class ESWriteDAOTest {
     when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
-    // Mock getIndexAliases to return empty (meaning concrete index, not alias)
-    // This will be called once for each index, so we need to return the same response multiple
-    // times
+    // Mock getIndexAliases to return empty aliases (concrete indices, not aliases)
     GetAliasesResponse mockAliasesResponse = mock(GetAliasesResponse.class);
     when(mockAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
-    // Use lenient() to ensure the mock works even if not all calls are verified
-    lenient()
-        .when(
-            mockSearchClient.getIndexAliases(
-                any(GetAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndexAliases(any(GetAliasesRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockAliasesResponse);
 
-    // Mock indexExists to return true (called once for each index)
-    lenient()
-        .when(mockSearchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    // Mock indexExists to return true
+    when(mockSearchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(true);
 
-    // Mock deleteIndex
+    // Mock deleteIndex to return acknowledged response
     AcknowledgedResponse mockDeleteResponse = mock(AcknowledgedResponse.class);
     when(mockDeleteResponse.isAcknowledged()).thenReturn(true);
-    lenient()
-        .when(
-            mockSearchClient.deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockDeleteResponse);
 
-    esWriteDAO.clear(opContext);
+    Set<String> deletedIndices = esWriteDAO.clear(opContext);
 
     // Verify the GetIndexRequest
     ArgumentCaptor<GetIndexRequest> indexRequestCaptor =
@@ -198,16 +189,16 @@ public class ESWriteDAOTest {
     verify(mockSearchClient).getIndex(indexRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
     assertEquals(indexRequestCaptor.getValue().indices()[0], TEST_PATTERN);
 
-    // Verify getIndexAliases was called for each index
-    verify(mockSearchClient, times(indices.length))
-        .getIndexAliases(any(GetAliasesRequest.class), eq(RequestOptions.DEFAULT));
+    // Verify indices were deleted
+    assertEquals(deletedIndices.size(), 2);
+    assertTrue(deletedIndices.contains("index1"));
+    assertTrue(deletedIndices.contains("index2"));
 
     // Verify deleteIndex was called for each index
-    verify(mockSearchClient, times(indices.length))
-        .deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT));
-
-    // Verify deleteByQuery was NOT called (new implementation doesn't use it)
-    verify(mockBulkProcessor, never()).deleteByQuery(any(QueryBuilder.class), any());
+    ArgumentCaptor<DeleteIndexRequest> deleteRequestCaptor =
+        ArgumentCaptor.forClass(DeleteIndexRequest.class);
+    verify(mockSearchClient, times(2))
+        .deleteIndex(deleteRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -215,11 +206,13 @@ public class ESWriteDAOTest {
     when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Test exception"));
 
-    esWriteDAO.clear(opContext);
+    Set<String> deletedIndices = esWriteDAO.clear(opContext);
 
-    // Verify no delete operations when exception occurs
-    verify(mockSearchClient, never()).deleteIndex(any(DeleteIndexRequest.class), any());
-    verify(mockBulkProcessor, never()).deleteByQuery(any(QueryBuilder.class), any());
+    // Verify no indices were deleted when exception occurs
+    assertTrue(deletedIndices.isEmpty());
+    // Verify deleteIndex was never called
+    verify(mockSearchClient, never())
+        .deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1021,43 +1014,38 @@ public class ESWriteDAOTest {
     when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
-    // Mock getIndexAliases to return empty (meaning concrete index, not alias)
-    // This will be called once for each index, so we need to return the same response multiple
-    // times
+    // Mock getIndexAliases to return empty aliases (concrete indices, not aliases)
     GetAliasesResponse mockAliasesResponse = mock(GetAliasesResponse.class);
     when(mockAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
-    // Use lenient() to ensure the mock works even if not all calls are verified
-    lenient()
-        .when(
-            mockSearchClient.getIndexAliases(
-                any(GetAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndexAliases(any(GetAliasesRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockAliasesResponse);
 
-    // Mock indexExists to return true (called once for each index)
-    lenient()
-        .when(mockSearchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    // Mock indexExists to return true
+    when(mockSearchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(true);
 
-    // Mock deleteIndex
+    // Mock deleteIndex to return acknowledged response
     AcknowledgedResponse mockDeleteResponse = mock(AcknowledgedResponse.class);
     when(mockDeleteResponse.isAcknowledged()).thenReturn(true);
-    lenient()
-        .when(
-            mockSearchClient.deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockDeleteResponse);
 
-    esWriteDAO.clear(opContext);
+    Set<String> deletedIndices = esWriteDAO.clear(opContext);
 
     if (canWrite) {
+      // Verify indices were deleted
+      assertEquals(deletedIndices.size(), 2);
+      assertTrue(deletedIndices.contains("index1"));
+      assertTrue(deletedIndices.contains("index2"));
       // Verify deleteIndex was called for each index
-      verify(mockSearchClient, times(indices.length))
+      verify(mockSearchClient, times(2))
           .deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT));
     } else {
-      // When not writable, no operations should be performed
-      verify(mockSearchClient, never()).deleteIndex(any(DeleteIndexRequest.class), any());
+      // Verify no indices were deleted when not writable
+      assertTrue(deletedIndices.isEmpty());
+      verify(mockSearchClient, never())
+          .deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT));
     }
-    // Verify deleteByQuery was NOT called (new implementation doesn't use it)
-    verify(mockBulkProcessor, never()).deleteByQuery(any(QueryBuilder.class), any());
   }
 
   @Test(dataProvider = "writabilityConfig")

@@ -7,10 +7,6 @@ import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLIC
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
@@ -57,33 +53,15 @@ public class ESWriteDAO {
   private final ElasticSearchConfiguration config;
   private final SearchClientShim<?> searchClient;
   @Getter private final ESBulkProcessor bulkProcessor;
-  @Nullable private final ESIndexBuilder indexBuilder;
-  @Nullable private final MappingsBuilder mappingsBuilder;
-  @Nullable private final SettingsBuilder settingsBuilder;
   private boolean canWrite = true;
 
-  // Constructor with index recreation support
-  public ESWriteDAO(
-      ElasticSearchConfiguration config,
-      SearchClientShim<?> searchClient,
-      ESBulkProcessor bulkProcessor,
-      @Nullable ESIndexBuilder indexBuilder,
-      @Nullable MappingsBuilder mappingsBuilder,
-      @Nullable SettingsBuilder settingsBuilder) {
-    this.config = config;
-    this.searchClient = searchClient;
-    this.bulkProcessor = bulkProcessor;
-    this.indexBuilder = indexBuilder;
-    this.mappingsBuilder = mappingsBuilder;
-    this.settingsBuilder = settingsBuilder;
-  }
-
-  // Constructor for backward compatibility (without index recreation)
   public ESWriteDAO(
       ElasticSearchConfiguration config,
       SearchClientShim<?> searchClient,
       ESBulkProcessor bulkProcessor) {
-    this(config, searchClient, bulkProcessor, null, null, null);
+    this.config = config;
+    this.searchClient = searchClient;
+    this.bulkProcessor = bulkProcessor;
   }
 
   public void setWritable(boolean writable) {
@@ -259,11 +237,19 @@ public class ESWriteDAO {
     bulkProcessor.add(updateRequest);
   }
 
-  /** Clear all documents in all the indices */
-  public void clear(@Nonnull OperationContext opContext) {
+  /**
+   * Clear all documents in all the indices by deleting them. Returns the set of index names
+   * (aliases or concrete indices) that were deleted. The caller is responsible for recreating these
+   * indices if needed.
+   *
+   * @param opContext the operation context
+   * @return set of index names that were deleted
+   */
+  @Nonnull
+  public Set<String> clear(@Nonnull OperationContext opContext) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
-      return;
+      return Collections.emptySet();
     }
     List<String> patterns =
         opContext
@@ -275,7 +261,7 @@ public class ESWriteDAO {
       allIndices.addAll(Arrays.asList(getIndices(pattern)));
     }
 
-    // Track which indices (aliases or concrete) were deleted so we can recreate them
+    // Track which indices (aliases or concrete) were deleted so the caller can recreate them
     Set<String> deletedIndexNames = new HashSet<>();
 
     // Instead of deleting all documents (inefficient), delete the indices themselves
@@ -327,34 +313,14 @@ public class ESWriteDAO {
       }
     }
 
-    // Recreate only the indices that were deleted, with their proper mappings and settings
-    if (!deletedIndexNames.isEmpty()
-        && indexBuilder != null
-        && mappingsBuilder != null
-        && settingsBuilder != null) {
-      try {
-        List<ReindexConfig> allConfigs =
-            indexBuilder.buildReindexConfigs(
-                opContext, settingsBuilder, mappingsBuilder, Collections.emptySet());
-
-        // Filter to only recreate indices that were deleted
-        for (ReindexConfig config : allConfigs) {
-          if (deletedIndexNames.contains(config.name())) {
-            indexBuilder.buildIndex(config);
-            log.info("Recreated index {} after clearing", config.name());
-          }
-        }
-        log.info("Recreated {} indices after clearing", deletedIndexNames.size());
-      } catch (IOException e) {
-        log.error("Failed to recreate indices after clearing", e);
-        throw new RuntimeException("Failed to recreate indices after clearing", e);
-      }
-    } else if (deletedIndexNames.isEmpty()) {
-      log.info("No indices were deleted, nothing to recreate");
+    if (deletedIndexNames.isEmpty()) {
+      log.info("No indices were deleted");
     } else {
-      log.warn(
-          "Index builders not available - indices will be recreated automatically when documents are added");
+      log.info(
+          "Deleted {} indices. Caller should recreate them if needed.", deletedIndexNames.size());
     }
+
+    return deletedIndexNames;
   }
 
   private String[] getIndices(String pattern) {
