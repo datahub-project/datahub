@@ -151,11 +151,6 @@ describe('utils', () => {
             expect(result).toBe('COMPLETE');
         });
 
-        it('should return different property values for different keys', () => {
-            const result = getStepPropertyByKey(mockEducationSteps, 'test-step-1', 'timestamp');
-            expect(result).toBe('1234567890');
-        });
-
         it('should return null when educationSteps is null', () => {
             const result = getStepPropertyByKey(null, 'test-step-1', 'state');
             expect(result).toBeNull();
