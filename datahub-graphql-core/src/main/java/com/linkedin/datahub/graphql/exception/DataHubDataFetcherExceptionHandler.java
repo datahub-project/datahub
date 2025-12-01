@@ -51,7 +51,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
 
     IllegalStateException illegalStateException =
         findFirstThrowableCauseOfClass(exception, IllegalStateException.class);
-    if (validationException == null && illegalStateException != null) {
+    if (message.equals(DEFAULT_ERROR_MESSAGE) && illegalStateException != null) {
       log.error("Failed to execute", illegalStateException);
       errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
       message = extractErrorMessage(illegalStateException);
