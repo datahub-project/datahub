@@ -2,8 +2,10 @@ import MDEditor from '@uiw/react-md-editor';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { getKatexPlugins } from '@app/shared/markdown/katexConfig';
+import 'katex/dist/katex.min.css';
 
-export default styled(MDEditor)`
+const StyledMDEditor = styled(MDEditor)`
     height: calc(100% - 46px) !important;
     z-index: 0;
     box-shadow: none;
@@ -36,3 +38,10 @@ export default styled(MDEditor)`
         height: calc(100% - 46px) !important;
     }
 `;
+
+// Apply KaTeX plugins to the default props
+StyledMDEditor.defaultProps = {
+    previewOptions: getKatexPlugins(),
+};
+
+export default StyledMDEditor;
