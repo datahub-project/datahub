@@ -1,4 +1,4 @@
-import { Button, colors, Text } from '@components';
+import { Button, Text, colors } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 

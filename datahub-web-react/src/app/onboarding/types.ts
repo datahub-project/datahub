@@ -15,7 +15,7 @@ export type OnboardingStep = {
 };
 
 /**
- * Configuration for onboarding tasks. 
+ * Configuration for onboarding tasks.
  * This is a collection of steps that are part of an onboarding task.
  */
 export type OnboardingTasks = {
@@ -23,5 +23,5 @@ export type OnboardingTasks = {
     title?: string;
     content?: string;
     showProgress?: boolean;
-    steps: OnboardingStep[];    
+    steps: OnboardingStep[];
 };

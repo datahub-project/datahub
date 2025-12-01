@@ -3,10 +3,10 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { OnboardingConfig } from '@app/onboarding/OnboardingConfig';
+import { getFreeTrialOnboardingIds } from '@app/onboarding/configV2/FreeTrialConfig';
 import { OnboardingStep } from '@app/onboarding/types';
 
 import { StepStateResult } from '@types';
-import { getFreeTrialOnboardingIds } from './configV2/FreeTrialConfig';
 
 export function convertStepId(stepId: string, userUrn: string) {
     const step = OnboardingConfig.find((configStep) => configStep.id === stepId);

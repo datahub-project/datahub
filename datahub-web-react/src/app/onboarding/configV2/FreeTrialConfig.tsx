@@ -56,4 +56,3 @@ export const getFreeTrialOnboardingIds = (): string[] => {
 
     return ids;
 };
-

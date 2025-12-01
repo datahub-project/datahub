@@ -1,4 +1,4 @@
-import { Button, colors, Text, typography } from '@components';
+import { Button, Text, colors, typography } from '@components';
 import styled from 'styled-components';
 
 export const Container = styled.div`
@@ -172,4 +172,3 @@ export const MenuItem = styled.div`
         background: ${colors.gray[100]};
     }
 `;
-

@@ -1,6 +1,6 @@
-import React, { useContext, useMemo, useState } from 'react';
-import { Button, Card, colors, Icon, Text } from '@components';
+import { Button, Card, Icon, Text, colors } from '@components';
 import { Dropdown } from 'antd';
+import React, { useContext, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 
 import {
