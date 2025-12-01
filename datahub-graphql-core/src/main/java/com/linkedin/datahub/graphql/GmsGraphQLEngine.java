@@ -758,7 +758,6 @@ public class GmsGraphQLEngine {
     configureQueryResolvers(builder);
     configureMutationResolvers(builder);
     configureGenericEntityResolvers(builder);
-    configureEntityInterfaceResolvers(builder);
     configureDatasetResolvers(builder);
     configureCorpUserResolvers(builder);
     configureCorpGroupResolvers(builder);
@@ -1740,15 +1739,6 @@ public class GmsGraphQLEngine {
                             entityTypes,
                             (env) ->
                                 ((StructuredPropertiesEntry) env.getSource()).getValueEntities())));
-  }
-
-  /**
-   * Configures resolvers for the Entity interface. These resolvers are available on all entity
-   * types that implement the Entity interface.
-   */
-  private void configureEntityInterfaceResolvers(final RuntimeWiring.Builder builder) {
-    // Note: relatedDocuments resolver is registered on specific entity types, not on Entity
-    // interface
   }
 
   /**
