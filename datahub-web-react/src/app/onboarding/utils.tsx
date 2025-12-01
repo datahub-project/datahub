@@ -18,10 +18,16 @@ export function getStepIds(userUrn: string) {
     return getUserSpecificStepIds(userUrn).concat(getInstanceLevelOnboardingStepIds());
 }
 
+/**
+ * Get all of the steps that are specific to the user
+ */
 export function getUserSpecificStepIds(userUrn: string) {
     return OnboardingConfig.map((step) => `${userUrn}-${step.id}`);
 }
 
+/**
+ * Get all of the steps that are on the instance level (not user specific)
+ */
 export function getInstanceLevelOnboardingStepIds() {
     return getFreeTrialOnboardingIds();
 }
@@ -102,3 +108,18 @@ export function getStepsToRender(
 export function getInitialAllowListIds() {
     return OnboardingConfig.filter((config) => !config.isActionStep).map((config) => config.id as string);
 }
+
+/**
+ * Helper to get a step's property value by key from educationSteps
+ */
+export const getStepPropertyByKey = (
+    educationSteps: StepStateResult[] | null,
+    stepId: string,
+    propKey: string,
+): string | null => {
+    if (!educationSteps) return null;
+    const stepResult = educationSteps.find((step) => step.id === stepId);
+    if (!stepResult) return null;
+    const entry = stepResult.properties.find((prop) => prop.key === propKey);
+    return entry?.value || null;
+};

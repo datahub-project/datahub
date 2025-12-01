@@ -5,6 +5,9 @@ export const FREE_TRIAL_ONBOARDING_DATA_LINEAGE_ID = 'free-trial-onboarding-data
 export const FREE_TRIAL_ONBOARDING_ASK_DATAHUB_ID = 'free-trial-onboarding-ask-datahub';
 export const FREE_TRIAL_ONBOARDING_CONNECT_SOURCE_ID = 'free-trial-onboarding-connect-source';
 
+/**
+ * Configuration for the Self serve free trial onboarding
+ */
 export const FreeTrialOnboardingConfig: OnboardingTasks = {
     id: FREE_TRIAL_ONBOARDING_ID,
     title: 'Get Started',

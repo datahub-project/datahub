@@ -69,6 +69,9 @@ export function useIsAiChatEnabled() {
     return appConfig.config.featureFlags.showAskDataHub;
 }
 
+/**
+ * Check if the instance is configured for a free trial
+ */
 export function useIsFreeTrialInstance() {
     const appConfig = useAppConfig();
     return appConfig.config.trialConfig.trialEnabled;

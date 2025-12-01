@@ -14,6 +14,10 @@ export type OnboardingStep = {
     isActionStep?: boolean; // hide this step until some action is taken to display it
 };
 
+/**
+ * Configuration for onboarding tasks. 
+ * This is a collection of steps that are part of an onboarding task.
+ */
 export type OnboardingTasks = {
     id?: string;
     title?: string;

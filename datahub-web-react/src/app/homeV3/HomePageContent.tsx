@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { Announcements } from '@app/homeV3/announcements/Announcements';
-import FreeTrialContent from '@app/homeV3/FreeTrialContent';
+import FreeTrialContent from '@app/homeV3/freeTrial/FreeTrialContent';
 import EditDefaultTemplateBar from '@app/homeV3/settings/EditDefaultTemplateBar';
 import HomePageSettingsButtonWrapper from '@app/homeV3/settings/HomePageSettingsButtonWrapper';
 import { CenteredContainer, ContentContainer, ContentDiv } from '@app/homeV3/styledComponents';
