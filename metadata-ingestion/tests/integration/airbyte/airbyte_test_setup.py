@@ -1091,6 +1091,7 @@ def cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
         )
         if cleanup_result.returncode == 0:
             print("Airbyte and Kubernetes environment cleaned up successfully")
+            time.sleep(5)  # Give time for Kubernetes to fully shut down
         else:
             print(f"Cleanup failed: {cleanup_result.stderr}")
             fallback_result = subprocess.run(
@@ -1102,6 +1103,7 @@ def cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
             )
             if fallback_result.returncode == 0:
                 print("Basic Airbyte uninstall completed")
+                time.sleep(5)  # Give time for Kubernetes to fully shut down
             else:
                 print(
                     f"WARNING: Fallback uninstall also failed: {fallback_result.stderr}"
