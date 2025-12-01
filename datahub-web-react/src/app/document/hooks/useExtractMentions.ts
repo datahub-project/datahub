@@ -9,7 +9,10 @@ export const useExtractMentions = (content: string) => {
         if (!content) return { documentUrns: [], assetUrns: [] };
 
         // Match markdown link syntax: [text](urn:li:entityType:id)
-        const urnPattern = /\[([^\]]+)\]\((urn:li:[a-zA-Z]+:[^\s)]+)\)/g;
+        // Handle URNs with nested parentheses by matching everything between the markdown link's parens
+        // The pattern matches: [text](urn:li:entityType:...) where ... can include nested parens
+        // We match the URN prefix, then allow nested paren groups or non-paren characters (one or more)
+        const urnPattern = /\[([^\]]+)\]\((urn:li:[a-zA-Z]+:(?:[^)(]+|\([^)]*\))+)\)/g;
         const matches = Array.from(content.matchAll(urnPattern));
 
         const documentUrns: string[] = [];
