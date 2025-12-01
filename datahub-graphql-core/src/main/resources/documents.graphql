@@ -629,7 +629,6 @@ input SearchDocumentsInput {
   """
   relatedAssets: [String!]
 
-
   """
   Optional document source type to filter by.
   If not provided, searches all documents regardless of source.
