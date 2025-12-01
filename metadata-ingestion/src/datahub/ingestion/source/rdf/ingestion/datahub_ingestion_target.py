@@ -154,7 +154,12 @@ class DataHubIngestionTarget(TargetInterface):
                     )
 
                 # Call post-processing hook if available (for cross-entity dependencies)
-                if hasattr(mcp_builder, "build_post_processing_mcps"):
+                # EXCEPT for structured_property - defer value assignments until after all entities are processed
+                # to ensure definitions are committed before value assignments are validated
+                if (
+                    hasattr(mcp_builder, "build_post_processing_mcps")
+                    and entity_type != "structured_property"
+                ):
                     try:
                         post_mcps = mcp_builder.build_post_processing_mcps(
                             datahub_graph, build_context
@@ -315,6 +320,35 @@ class DataHubIngestionTarget(TargetInterface):
 
             # Note: Assertions are processed via the registry pattern above
             # This section is kept for any special assertion handling if needed
+
+            # Deferred: Structured property value assignments
+            # These must be created AFTER all other entities (including definitions) are processed
+            # to ensure definitions are committed before value assignments are validated
+            structured_property_mcp_builder = registry.get_mcp_builder(
+                "structured_property"
+            )
+            if structured_property_mcp_builder and hasattr(
+                structured_property_mcp_builder, "build_post_processing_mcps"
+            ):
+                try:
+                    logger.info(
+                        "Processing structured property value assignments (deferred until after all entities)"
+                    )
+                    post_mcps = (
+                        structured_property_mcp_builder.build_post_processing_mcps(
+                            datahub_graph, build_context
+                        )
+                    )
+                    if post_mcps:
+                        mcps.extend(post_mcps)
+                        logger.info(
+                            f"Created {len(post_mcps)} structured property value assignment MCPs"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to create structured property value assignment MCPs: {e}",
+                        exc_info=True,
+                    )
 
             # Log summary of MCPs created
             glossary_mcps = sum(
