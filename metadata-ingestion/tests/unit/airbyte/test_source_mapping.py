@@ -522,13 +522,13 @@ class TestAirbyteSourceMapping(unittest.TestCase):
             property_fields=["id", "customer_id", "order_date", "total"],
         )
 
-        # Mock AirbyteStreamDetails.parse_obj to handle any input and return our predefined objects
+        # Mock AirbyteStreamDetails.model_validate to handle any input and return our predefined objects
         with patch(
-            "datahub.ingestion.source.airbyte.models.AirbyteStreamDetails.parse_obj"
-        ) as mock_parse_obj:
+            "datahub.ingestion.source.airbyte.models.AirbyteStreamDetails.model_validate"
+        ) as mock_model_validate:
             # Configure the mock to return our predefined objects regardless of input
             # This bypasses the bug in the implementation where it tries to create a set with a list
-            mock_parse_obj.side_effect = lambda x: (
+            mock_model_validate.side_effect = lambda x: (
                 customer_stream_details
                 if "customers" in str(x)
                 else order_stream_details

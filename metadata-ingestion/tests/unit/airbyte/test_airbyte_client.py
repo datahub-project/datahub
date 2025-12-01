@@ -104,14 +104,14 @@ class TestAirbyteOSSClient:
         assert client.config.api_key.get_secret_value() == "test-api-key"
 
     def test_init_without_host_port(self):
-        # Missing host_port should raise ValueError
-        config = AirbyteClientConfig(
-            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-            # Missing host_port
-        )
+        # Missing host_port should raise ValidationError during config creation
+        from pydantic import ValidationError
 
-        with pytest.raises(ValueError, match="host_port is required"):
-            AirbyteOSSClient(config)
+        with pytest.raises(ValidationError, match="host_port is required"):
+            AirbyteClientConfig(
+                deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+                # Missing host_port
+            )
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
     def test_list_workspaces(self, mock_paginate_results):
@@ -499,17 +499,17 @@ class TestAirbyteCloudClient:
             assert client.config.oauth2_refresh_token is not None
 
     def test_init_missing_workspace_id(self):
-        # Missing workspace_id should raise ValueError
-        config = AirbyteClientConfig(
-            deployment_type=AirbyteDeploymentType.CLOUD,
-            oauth2_client_id="client-id",
-            oauth2_client_secret=SecretStr("client-secret"),
-            oauth2_refresh_token=SecretStr("refresh-token"),
-            # Missing cloud_workspace_id
-        )
+        # Missing workspace_id should raise ValidationError during config creation
+        from pydantic import ValidationError
 
-        with pytest.raises(ValueError, match="Workspace ID is required"):
-            AirbyteCloudClient(config)
+        with pytest.raises(ValidationError, match="cloud_workspace_id is required"):
+            AirbyteClientConfig(
+                deployment_type=AirbyteDeploymentType.CLOUD,
+                oauth2_client_id="client-id",
+                oauth2_client_secret=SecretStr("client-secret"),
+                oauth2_refresh_token=SecretStr("refresh-token"),
+                # Missing cloud_workspace_id
+            )
 
     @patch("requests.post")
     def test_refresh_oauth_token(self, mock_post):

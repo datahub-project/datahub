@@ -1,9 +1,8 @@
 import unittest
-from enum import Enum
 from typing import Dict, List, Optional, Union
 
 import pytest
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from datahub.ingestion.source.airbyte.models import (
     AirbyteConnection,
@@ -11,10 +10,11 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteDestination,
     AirbyteWorkspace,
 )
+from datahub.utilities.str_enum import StrEnum
 
 
 # Mock classes for testing purposes that don't exist in the models.py
-class AirbyteFieldType(str, Enum):
+class AirbyteFieldType(StrEnum):
     """Mock enum for field types in tests."""
 
     STRING = "string"
@@ -79,7 +79,7 @@ class AirbyteStreamSchema(BaseModel):
         return fields
 
 
-class AirbyteSyncMode(str, Enum):
+class AirbyteSyncMode(StrEnum):
     """Mock enum for sync modes in tests."""
 
     FULL_REFRESH = "full_refresh"
@@ -88,7 +88,7 @@ class AirbyteSyncMode(str, Enum):
     OVERWRITE = "overwrite"
 
 
-class AirbyteStatus(str, Enum):
+class AirbyteStatus(StrEnum):
     """Mock enum for connection status in tests."""
 
     ACTIVE = "active"
@@ -96,7 +96,7 @@ class AirbyteStatus(str, Enum):
     DEPRECATED = "deprecated"
 
 
-class AirbyteConnectionScheduleType(str, Enum):
+class AirbyteConnectionScheduleType(StrEnum):
     """Mock enum for connection schedule types in tests."""
 
     MANUAL = "manual"
@@ -107,26 +107,20 @@ class AirbyteConnectionScheduleType(str, Enum):
 class AirbyteConnectionStream(BaseModel):
     """Mock class for connection stream in tests."""
 
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+
     name: str
     namespace: Optional[str] = None
     sync_mode: AirbyteSyncMode = AirbyteSyncMode.FULL_REFRESH
-    cursor_field: List[str] = Field(default_factory=list)
-    primary_key: List[List[str]] = Field(default_factory=list)
-    destination_sync_mode: AirbyteSyncMode = AirbyteSyncMode.OVERWRITE
+    cursor_field: List[str] = Field(default_factory=list, alias="cursorField")
+    primary_key: List[List[str]] = Field(default_factory=list, alias="primaryKey")
+    destination_sync_mode: AirbyteSyncMode = Field(
+        default=AirbyteSyncMode.OVERWRITE, alias="destinationSyncMode"
+    )
     selected: bool = True
     stream_schema: Optional[AirbyteStreamSchema] = Field(None, alias="schema")
-
-    class Config:
-        """Pydantic configuration."""
-
-        fields = {
-            "name": {"alias": "name"},
-            "namespace": {"alias": "namespace"},
-            "sync_mode": {"alias": "syncMode"},
-            "destination_sync_mode": {"alias": "destinationSyncMode"},
-            "cursor_field": {"alias": "cursorField"},
-            "primary_key": {"alias": "primaryKey"},
-        }
 
 
 class FieldSelection(BaseModel):
@@ -158,7 +152,7 @@ class TestAirbyteWorkspace:
             "securityUpdates": True,
             "displaySetupWizard": False,
         }
-        workspace = AirbyteWorkspace.parse_obj(data)
+        workspace = AirbyteWorkspace.model_validate(data)
         assert workspace.workspace_id == "test-workspace-id"
         assert workspace.name == "Test Workspace"
         assert not hasattr(workspace, "slug")
@@ -170,7 +164,7 @@ class TestAirbyteWorkspace:
 
     def test_missing_required_fields(self):
         with pytest.raises(ValidationError):
-            AirbyteWorkspace.parse_obj({})
+            AirbyteWorkspace.model_validate({})
 
     def test_extra_fields_ignored(self):
         data = {
@@ -179,7 +173,7 @@ class TestAirbyteWorkspace:
             "slug": "test-workspace",
             "extra_field": "extra value",
         }
-        workspace = AirbyteWorkspace.parse_obj(data)
+        workspace = AirbyteWorkspace.model_validate(data)
         assert not hasattr(workspace, "extra_field")
 
 
@@ -211,7 +205,7 @@ class TestAirbyteSource:
             "workspaceId": "test-workspace-id",
             "configuration": {"host": "localhost", "port": 5432},
         }
-        source = AirbyteDataSource.parse_obj(data)
+        source = AirbyteDataSource.model_validate(data)
         assert source.source_id == "test-source-id"
         assert source.name == "Test Source"
         assert source.source_type == "postgres"
@@ -222,7 +216,7 @@ class TestAirbyteSource:
 
     def test_missing_required_fields(self):
         with pytest.raises(ValidationError):
-            AirbyteDataSource.parse_obj({})
+            AirbyteDataSource.model_validate({})
 
 
 class TestAirbyteDestination:
@@ -253,7 +247,7 @@ class TestAirbyteDestination:
             "workspaceId": "test-workspace-id",
             "configuration": {"host": "localhost", "port": 5432},
         }
-        destination = AirbyteDestination.parse_obj(data)
+        destination = AirbyteDestination.model_validate(data)
         assert destination.destination_id == "test-destination-id"
         assert destination.name == "Test Destination"
         assert destination.destination_type == "postgres"
@@ -264,7 +258,7 @@ class TestAirbyteDestination:
 
     def test_missing_required_fields(self):
         with pytest.raises(ValidationError):
-            AirbyteDestination.parse_obj({})
+            AirbyteDestination.model_validate({})
 
 
 class TestAirbyteConnection:
@@ -367,7 +361,7 @@ class TestAirbyteConnection:
                 "memory_limit": "",
             },
         }
-        connection = AirbyteConnection.parse_obj(data)
+        connection = AirbyteConnection.model_validate(data)
         assert connection.connection_id == "test-connection-id"
         assert connection.name == "Test Connection"
         assert connection.source_id == "test-source-id"
@@ -378,7 +372,7 @@ class TestAirbyteConnection:
 
     def test_missing_required_fields(self):
         with pytest.raises(ValidationError):
-            AirbyteConnection.parse_obj({})
+            AirbyteConnection.model_validate({})
 
 
 if __name__ == "__main__":

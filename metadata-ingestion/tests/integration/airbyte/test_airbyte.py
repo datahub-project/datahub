@@ -112,6 +112,7 @@ def airbyte_service(
         "--port",
         str(AIRBYTE_API_PORT),
         "--low-resource-mode",
+        "--no-browser",
     ]
 
     try:
