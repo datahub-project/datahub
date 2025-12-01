@@ -103,6 +103,21 @@ def airbyte_service(
     # Clean up any existing Airbyte installation
     cleanup_airbyte(abctl_path, test_resources_dir)
 
+    # Check if Airbyte is still running and clean up again if needed
+    try:
+        status_check = subprocess.run(
+            [str(abctl_path), "local", "status"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if "Status: deployed" in status_check.stdout:
+            print("Airbyte still running, uninstalling again...")
+            cleanup_airbyte(abctl_path, test_resources_dir)
+            time.sleep(5)
+    except Exception as e:
+        print(f"Status check failed: {e}, proceeding with install...")
+
     # Install Airbyte with abctl
     print("\nInstalling Airbyte with abctl...")
     install_cmd = [
