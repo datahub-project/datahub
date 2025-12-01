@@ -54,6 +54,7 @@ export default function DataProductSection({ readOnly }: Props) {
             .then(() => {
                 message.success({ content: 'Removed Data Product.', duration: 2 });
                 setDataProduct(null);
+                setShowRemoveModal(false);
                 // Reload modules
                 // DataProducts - as data products could be shown in domain summary tab
                 // Assets - as assets module could be changed in data product summary tab
