@@ -222,7 +222,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertNotNull(result);
     assertEquals(result.getErrors().size(), 1);
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
-    assertNull(error.getMessage());
+    assertEquals(error.getMessage(), "An unknown error occurred.");
     assertEquals(error.getErrorCode(), 500);
   }
 
@@ -286,8 +286,11 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertNotNull(result);
     assertEquals(result.getErrors().size(), 1);
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
-    // Should use the first ValidationException found
-    assertEquals(error.getMessage(), "Top validation error");
+    String message = error.getMessage();
+    assertTrue(message.contains("Top validation error"));
+    assertTrue(message.contains("Middle error"));
+    assertTrue(message.contains("Deep validation error"));
+    assertTrue(message.contains("Root cause"));
     assertEquals(error.getErrorCode(), 400);
   }
 
@@ -317,7 +320,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertNotNull(result);
     assertEquals(result.getErrors().size(), 1);
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
-    assertEquals(error.getMessage(), "");
+    assertEquals(error.getMessage(), "An unknown error occurred.");
     assertEquals(error.getErrorCode(), 500);
   }
 

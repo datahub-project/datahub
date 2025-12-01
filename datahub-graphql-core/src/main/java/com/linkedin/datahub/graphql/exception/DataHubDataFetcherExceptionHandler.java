@@ -99,8 +99,9 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     StringBuilder message = new StringBuilder();
 
     // Start with the top-level message
-    if (exception.getMessage() != null && !exception.getMessage().isEmpty()) {
-      message.append(exception.getMessage());
+    String topLevelMessage = exception.getMessage();
+    if (topLevelMessage != null && !topLevelMessage.isEmpty()) {
+      message.append(topLevelMessage);
     }
 
     // Walk the exception chain to find root causes
@@ -111,6 +112,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       String causeMessage = cause.getMessage();
       if (causeMessage != null
           && !causeMessage.isEmpty()
+          && !causeMessage.equals(topLevelMessage)
           && !causeMessages.contains(causeMessage)) {
         causeMessages.add(causeMessage);
       }
