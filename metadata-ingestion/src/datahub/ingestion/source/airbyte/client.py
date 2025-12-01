@@ -451,7 +451,19 @@ class AirbyteBaseClient(ABC):
             Connection details including sync catalog
         """
         self._check_auth_before_request()
-        return self._make_request(f"/connections/{connection_id}", method="GET")
+        connection_data = self._make_request(
+            f"/connections/{connection_id}", method="GET"
+        )
+
+        # Workaround for Airbyte v0.30.1: syncCatalog may be in 'configuration' field
+        if not connection_data.get("syncCatalog") and connection_data.get(
+            "configuration"
+        ):
+            config = connection_data.get("configuration", {})
+            if "syncCatalog" in config:
+                connection_data["syncCatalog"] = config["syncCatalog"]
+
+        return connection_data
 
     def list_streams(
         self, source_id: Optional[str] = None, destination_id: Optional[str] = None
@@ -460,12 +472,22 @@ class AirbyteBaseClient(ABC):
         List streams available in Airbyte.
         Can be filtered by source_id or destination_id.
 
+        WARNING: This endpoint is NOT available in Airbyte versions <= v0.30.1
+        and will return 500 errors. Use connection.sync_catalog.streams instead
+        for a reliable, version-independent approach.
+
+        This method is kept for potential future use with newer Airbyte versions,
+        but is not currently used in the ingestion source.
+
         Args:
             source_id: Optional source ID to filter streams
             destination_id: Optional destination ID to filter streams
 
         Returns:
             List of stream metadata
+
+        Raises:
+            Exception: If the endpoint is not available (typically 500 error)
         """
         self._check_auth_before_request()
         query_params = []
@@ -707,10 +729,16 @@ class AirbyteCloudClient(AirbyteBaseClient):
                 workspaces = self._apply_pattern(workspaces, pattern)
 
             return workspaces
-        except Exception as e:
-            logger.warning(f"Failed to get workspace information: {str(e)}")
-            # If we can't get the specific workspace, return empty list
-            return []
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                logger.info(f"Workspace {self.workspace_id} not found")
+                return []
+            else:
+                logger.error(f"Failed to get workspace: HTTP {e.response.status_code}")
+                raise
+        except requests.RequestException as e:
+            logger.error(f"Network error: {str(e)}")
+            raise
 
 
 def create_airbyte_client(config: AirbyteClientConfig) -> AirbyteBaseClient:

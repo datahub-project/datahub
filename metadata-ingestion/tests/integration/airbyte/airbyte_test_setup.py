@@ -41,6 +41,11 @@ STATIC_POSTGRES_DEST_ID = "44444444-4444-4444-4444-444444444444"
 STATIC_PG_TO_PG_CONNECTION_ID = "55555555-5555-5555-5555-555555555555"
 STATIC_MYSQL_TO_PG_CONNECTION_ID = "66666666-6666-6666-6666-666666666666"
 
+# Pinned abctl version for reproducible CI tests
+# Note: This version is known to work with our test setup and fallback logic
+# Update carefully and test thoroughly when upgrading
+ABCTL_VERSION = "v0.30.1"
+
 # Global API URL (will be updated dynamically)
 AIRBYTE_API_URL: str = f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1"
 
@@ -851,6 +856,18 @@ def setup_airbyte_connections(test_resources_dir: Path) -> Dict[str, Optional[st
     print("Updating IDs to static values...")
     _update_ids_to_static(kubeconfig, created_ids)
 
+    # Debug: Check what's in the connection table
+    print("\n" + "=" * 80)
+    print("DEBUG: Checking connection table schema and data")
+    print("=" * 80)
+    pg_conn_id = created_ids.get("pg_to_pg_connection_id")
+    mysql_conn_id = created_ids.get("mysql_to_pg_connection_id")
+    print(f"Postgres connection ID: {pg_conn_id}")
+    print(f"MySQL connection ID: {mysql_conn_id}")
+    if pg_conn_id:
+        print(f"\nQuerying connection {pg_conn_id}...")
+        _query_connection_catalog(kubeconfig, pg_conn_id)
+
     # Restart Airbyte server to reload IDs
     _restart_airbyte_server(kubeconfig)
 
@@ -902,6 +919,72 @@ def _update_ids_to_static(kubeconfig: Path, created_ids: Dict) -> None:
         print("WARNING: Atomic ID update failed, IDs may be dynamic")
 
     print(f"Updated all IDs: {created_ids}")
+
+
+def _query_connection_catalog(
+    kubeconfig: Path, connection_id: str
+) -> Optional[Dict[str, Any]]:
+    """Query the Airbyte database to get catalog-related columns for a connection."""
+    if not shutil.which("kubectl") or not kubeconfig.exists():
+        return None
+
+    try:
+        db_pod_name = "airbyte-db-0"
+
+        # First, list all columns in the connection table
+        columns_sql = "SELECT column_name FROM information_schema.columns WHERE table_name = 'connection' ORDER BY column_name;"
+
+        command = [
+            "kubectl",
+            "--kubeconfig",
+            str(kubeconfig),
+            "exec",
+            "-n",
+            "airbyte-abctl",
+            db_pod_name,
+            "--",
+            "psql",
+            "-U",
+            "airbyte",
+            "-d",
+            "db-airbyte",
+            "-t",
+            "-A",
+            "-c",
+            columns_sql,
+        ]
+
+        result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            columns = result.stdout.strip().split("\n")
+            print(f"Connection table columns: {', '.join(columns)}")
+
+            # Now try to query catalog-related columns
+            catalog_columns = [
+                col
+                for col in columns
+                if "catalog" in col.lower() or "configuration" in col.lower()
+            ]
+            if catalog_columns:
+                print(f"Catalog-related columns: {', '.join(catalog_columns)}")
+
+                # Query the specific connection
+                for col in catalog_columns:
+                    sql = f"SELECT LENGTH(CAST({col} AS TEXT)) FROM connection WHERE id = '{connection_id}';"
+                    result = subprocess.run(
+                        command[:-2] + ["-c", sql],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        length = result.stdout.strip()
+                        print(f"  {col}: length = {length}")
+
+        return None
+    except Exception as e:
+        print(f"Error querying connection catalog: {e}")
+        return None
 
 
 def _restart_airbyte_server(kubeconfig: Path) -> None:
@@ -1038,11 +1121,10 @@ def install_abctl(test_resources_dir: Path) -> Path:
     else:
         raise RuntimeError(f"Unsupported OS: {system}")
 
-    version = "v0.30.1"
-    download_url = f"https://github.com/airbytehq/abctl/releases/download/{version}/abctl-{version}-{os_name}-{arch}.tar.gz"
+    download_url = f"https://github.com/airbytehq/abctl/releases/download/{ABCTL_VERSION}/abctl-{ABCTL_VERSION}-{os_name}-{arch}.tar.gz"
 
     abctl_path = test_resources_dir / "abctl"
-    archive_path = test_resources_dir / f"abctl-{version}-{os_name}-{arch}.tar.gz"
+    archive_path = test_resources_dir / f"abctl-{ABCTL_VERSION}-{os_name}-{arch}.tar.gz"
 
     print(f"Downloading {download_url}...")
     try:
@@ -1075,7 +1157,7 @@ def install_abctl(test_resources_dir: Path) -> Path:
         if result.returncode != 0:
             raise RuntimeError(f"Downloaded abctl is not working: {result.stderr}")
 
-        print(f"abctl {version} installed successfully for {os_name}-{arch}")
+        print(f"abctl {ABCTL_VERSION} installed successfully for {os_name}-{arch}")
         return abctl_path
 
     except Exception as e:

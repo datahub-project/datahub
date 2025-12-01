@@ -1,5 +1,3 @@
-import unittest
-
 import pytest
 from pydantic import ValidationError
 from pydantic.types import SecretStr
@@ -207,7 +205,3 @@ class TestAirbyteSourceConfig:
         )
         assert config.source_pattern.allow == ["postgres.*", "mysql.*"]
         assert config.connection_pattern.allow == ["conn-.*"]
-
-
-if __name__ == "__main__":
-    unittest.main()
