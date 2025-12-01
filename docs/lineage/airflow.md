@@ -94,6 +94,7 @@ Supported operators:
 - `RedshiftSQLOperator`
 - `SnowflakeOperator` and `SnowflakeOperatorAsync`
 - `SqliteOperator`
+- `TeradataOperator` (_Note: Teradata uses two-tier `database.table` naming without a schema level_)
 - `TrinoOperator`
 
 <!--

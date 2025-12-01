@@ -375,6 +375,16 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
             conn_type="sqlite",
             host=str(tmp_path / "my_sqlite.db"),
         ).get_uri(),
+        "AIRFLOW_CONN_MY_TERADATA": Connection(
+            conn_id="my_teradata",
+            conn_type="teradata",
+            host="fake_teradata_host",
+            login="fake_username",
+            password="fake_password",
+            extra={
+                "tmode": "ANSI",
+            },
+        ).get_uri(),
         # Ensure that the plugin waits for metadata to be written.
         # Note that we could also disable the RUN_IN_THREAD entirely,
         # but I want to minimize the difference between CI and prod.
@@ -782,6 +792,7 @@ test_cases_airflow3 = [
     DagTestCase("datahub_emitter_operator_jinja_template_dag"),
     DagTestCase("athena_operator"),
     DagTestCase("bigquery_insert_job_operator"),
+    DagTestCase("teradata_operator"),
 ]
 
 
