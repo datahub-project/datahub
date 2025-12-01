@@ -106,8 +106,8 @@ def test_get_document(auth_session):
               }
               status { state }
               contents { text }
-              created { time actor }
-              lastModified { time actor }
+              created { time actor { urn } }
+              lastModified { time actor { urn } }
               relatedAssets { asset { urn } }
               relatedDocuments { document { urn } }
               parentDocument { document { urn } }
@@ -186,7 +186,7 @@ def test_update_document_contents(auth_session):
               title
               contents { text }
               created { time }
-              lastModified { time actor }
+              lastModified { time actor { urn } }
             }
           }
         }
