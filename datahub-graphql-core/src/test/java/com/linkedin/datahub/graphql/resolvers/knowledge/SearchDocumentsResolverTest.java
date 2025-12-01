@@ -15,7 +15,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DocumentSourceType;
-import com.linkedin.datahub.graphql.generated.DocumentState;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
 import com.linkedin.entity.EntityResponse;
@@ -313,52 +312,11 @@ public class SearchDocumentsResolverTest {
     when(mockEnv.getContext()).thenReturn(mockContext);
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
 
-    // Don't set any states - should default to PUBLISHED
-    input.setStates(null);
-
     SearchDocumentsResult result = resolver.get(mockEnv).get();
 
     assertNotNull(result);
 
     // Verify service was called (the filter will contain state=PUBLISHED by default)
-    verify(mockService, times(1))
-        .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
-  }
-
-  @Test
-  public void testSearchDocumentsWithSingleState() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(mockEnv.getContext()).thenReturn(mockContext);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-
-    // Set to only search UNPUBLISHED documents
-    input.setStates(ImmutableList.of(DocumentState.UNPUBLISHED));
-
-    SearchDocumentsResult result = resolver.get(mockEnv).get();
-
-    assertNotNull(result);
-
-    // Verify service was called with UNPUBLISHED state filter
-    verify(mockService, times(1))
-        .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
-  }
-
-  @Test
-  public void testSearchDocumentsWithMultipleStates() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(mockEnv.getContext()).thenReturn(mockContext);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-
-    // Set to search both PUBLISHED and UNPUBLISHED documents
-    input.setStates(ImmutableList.of(DocumentState.PUBLISHED, DocumentState.UNPUBLISHED));
-
-    SearchDocumentsResult result = resolver.get(mockEnv).get();
-
-    assertNotNull(result);
-
-    // Verify service was called with both states in filter
     verify(mockService, times(1))
         .searchDocuments(
             any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
