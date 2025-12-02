@@ -995,18 +995,30 @@ class SqlParsingAggregator(Closeable):
         )
 
         # Register the query's lineage.
+        is_temp_condition_1 = is_known_temp_table
+        is_temp_condition_2 = (
+            parsed.query_type.is_create() and parsed.query_type_props.get("temporary")
+        )
+        is_temp_condition_3 = self.is_temp_table(out_table)
+        is_temp_condition_4 = (
+            require_out_table_schema and not self._schema_resolver.has_urn(out_table)
+        )
+
         if (
-            is_known_temp_table
-            or (
-                parsed.query_type.is_create()
-                and parsed.query_type_props.get("temporary")
-            )
-            or self.is_temp_table(out_table)
-            or (
-                require_out_table_schema
-                and not self._schema_resolver.has_urn(out_table)
-            )
+            is_temp_condition_1
+            or is_temp_condition_2
+            or is_temp_condition_3
+            or is_temp_condition_4
         ):
+            logger.info(
+                f"[TEMP-LINEAGE] Treating as temp table: downstream={out_table}, "
+                f"is_known_temp={is_temp_condition_1}, "
+                f"is_create_temp={is_temp_condition_2}, "
+                f"is_temp_table={is_temp_condition_3}, "
+                f"require_schema={is_temp_condition_4} "
+                f"(require_out_table_schema={require_out_table_schema}, "
+                f"has_urn={self._schema_resolver.has_urn(out_table) if require_out_table_schema else 'N/A'})"
+            )
             # Infer the schema of the output table and track it for later.
             if parsed.inferred_schema is not None:
                 self._inferred_temp_schemas[query_fingerprint] = parsed.inferred_schema
