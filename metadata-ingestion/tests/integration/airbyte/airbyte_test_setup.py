@@ -12,6 +12,7 @@ during integration tests. It handles:
 
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -32,6 +33,48 @@ BASIC_AUTH_USERNAME = "test@datahub.io"
 BASIC_AUTH_PASSWORD = "password"
 POSTGRES_PORT = 5433
 MYSQL_PORT = 30306
+
+
+# Determine the correct hostname for Airbyte to connect to test databases
+# host.docker.internal works on Mac/Windows but not Linux CI
+# In Linux, use the docker bridge gateway IP
+def get_database_host() -> str:
+    """Get the hostname that Airbyte (running in Kind) should use to connect to test databases."""
+    if platform.system() == "Linux":
+        # In Linux CI, docker bridge gateway is typically 172.17.0.1
+        # But Kind uses its own network, so we need the host's IP from Kind's perspective
+        try:
+            # Get the host IP that Kind can reach
+            # This is typically the docker0 bridge IP
+            result = subprocess.run(
+                [
+                    "docker",
+                    "network",
+                    "inspect",
+                    "bridge",
+                    "-f",
+                    "{{range .IPAM.Config}}{{.Gateway}}{{end}}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+        except Exception:
+            pass
+        # Fallback to common Linux docker bridge IP
+        return "172.17.0.1"
+    else:
+        # Mac/Windows use host.docker.internal
+        return "host.docker.internal"
+
+
+DATABASE_HOST = get_database_host()
+print(f"Using database host for Airbyte connections: {DATABASE_HOST}")
+print(
+    f"Test databases running on ports - PostgreSQL: {POSTGRES_PORT}, MySQL: {MYSQL_PORT}"
+)
 
 # Static IDs for consistent golden files
 STATIC_WORKSPACE_ID = "12345678-1234-1234-1234-123456789012"
@@ -572,7 +615,7 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             "sourceDefinitionId": postgres_source_def_id,
             "workspaceId": workspace_id,
             "connectionConfiguration": {
-                "host": "host.docker.internal",
+                "host": DATABASE_HOST,
                 "port": POSTGRES_PORT,
                 "database": "test",
                 "username": "test",
@@ -602,7 +645,7 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             "sourceDefinitionId": mysql_source_def_id,
             "workspaceId": workspace_id,
             "connectionConfiguration": {
-                "host": "host.docker.internal",
+                "host": DATABASE_HOST,
                 "port": MYSQL_PORT,
                 "database": "source_db",
                 "username": "test",
@@ -653,7 +696,7 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             "destinationDefinitionId": postgres_dest_def_id,
             "workspaceId": workspace_id,
             "connectionConfiguration": {
-                "host": "host.docker.internal",
+                "host": DATABASE_HOST,
                 "port": POSTGRES_PORT,
                 "database": "test",
                 "username": "test",
@@ -689,8 +732,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             )
 
         # Trigger sync jobs to populate catalog and generate job metadata
-        # Do this BEFORE ID updates so jobs are created with dynamic IDs
-        # The atomic transaction will update connection foreign keys to link to static IDs
         print("Triggering sync jobs for connections...")
         _trigger_sync_jobs(api_url, auth, created_ids)
 
