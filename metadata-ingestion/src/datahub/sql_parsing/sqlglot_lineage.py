@@ -1445,7 +1445,7 @@ def _parse_stored_procedure_fallback(
     from datahub.sql_parsing.split_statements import split_statements
 
     logger.info(
-        "Attempting to parse stored procedure with unsupported syntax by extracting and parsing individual statements"
+        "Attempting to parse stored procedure with unsupported syntax by extracting and parsing individual statements [WHEEL-BUILD-VERSION-2025-12-02]"
     )
 
     # Strip CREATE PROCEDURE wrapper if present
