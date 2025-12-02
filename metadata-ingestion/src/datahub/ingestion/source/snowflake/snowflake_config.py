@@ -3,6 +3,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 from typing import Dict, List, Optional, Set
 
 import pydantic
@@ -405,17 +406,12 @@ class SnowflakeV2Config(
         "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
     )
 
-    def _get_compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
-        if not hasattr(self, "_cached_temp_tables_pattern"):
-            object.__setattr__(
-                self,
-                "_cached_temp_tables_pattern",
-                [
-                    re.compile(pattern, re.IGNORECASE)
-                    for pattern in self.temporary_tables_pattern
-                ],
-            )
-        return self._cached_temp_tables_pattern  # type: ignore[attr-defined]
+    @cached_property
+    def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
+        return [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.temporary_tables_pattern
+        ]
 
     @field_validator("convert_urns_to_lowercase", mode="after")
     @classmethod

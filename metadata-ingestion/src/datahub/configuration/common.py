@@ -4,6 +4,7 @@ import re
 import unittest.mock
 from abc import ABC, abstractmethod
 from enum import auto
+from functools import cached_property as functools_cached_property
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -133,7 +134,7 @@ def _config_model_schema_extra(schema: Dict[str, Any], model: Type[BaseModel]) -
 class ConfigModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
-        ignored_types=(cached_property,),
+        ignored_types=(cached_property, functools_cached_property),
         json_schema_extra=_config_model_schema_extra,
         hide_input_in_errors=not get_debug(),
     )
@@ -384,23 +385,13 @@ class AllowDenyPattern(ConfigModel):
     def regex_flags(self) -> int:
         return re.IGNORECASE if self.ignoreCase else 0
 
-    def _get_compiled_allow(self) -> "List[re.Pattern]":
-        if not hasattr(self, "_cached_compiled_allow"):
-            object.__setattr__(
-                self,
-                "_cached_compiled_allow",
-                [re.compile(pattern, self.regex_flags) for pattern in self.allow],
-            )
-        return self._cached_compiled_allow  # type: ignore[attr-defined]
+    @functools_cached_property
+    def _compiled_allow(self) -> "List[re.Pattern]":
+        return [re.compile(pattern, self.regex_flags) for pattern in self.allow]
 
-    def _get_compiled_deny(self) -> "List[re.Pattern]":
-        if not hasattr(self, "_cached_compiled_deny"):
-            object.__setattr__(
-                self,
-                "_cached_compiled_deny",
-                [re.compile(pattern, self.regex_flags) for pattern in self.deny],
-            )
-        return self._cached_compiled_deny  # type: ignore[attr-defined]
+    @functools_cached_property
+    def _compiled_deny(self) -> "List[re.Pattern]":
+        return [re.compile(pattern, self.regex_flags) for pattern in self.deny]
 
     @classmethod
     def allow_all(cls) -> "AllowDenyPattern":
@@ -410,10 +401,10 @@ class AllowDenyPattern(ConfigModel):
         if self.denied(string):
             return False
 
-        return any(pattern.match(string) for pattern in self._get_compiled_allow())
+        return any(pattern.match(string) for pattern in self._compiled_allow)
 
     def denied(self, string: str) -> bool:
-        return any(pattern.match(string) for pattern in self._get_compiled_deny())
+        return any(pattern.match(string) for pattern in self._compiled_deny)
 
     def is_fully_specified_allow_list(self) -> bool:
         """
