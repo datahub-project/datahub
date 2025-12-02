@@ -1084,14 +1084,61 @@ class SQLServerSource(SQLAlchemySource):
                 original_input_count = len(aspect.inputDatasets or [])
                 original_output_count = len(aspect.outputDatasets or [])
 
+                # Log BEFORE filtering to see what parser extracted
+                logger.info(
+                    f"[LINEAGE-BEFORE] Procedure {procedure_name or 'unknown'}: "
+                    f"Parser extracted {original_input_count} inputs, {original_output_count} outputs"
+                )
+                if original_input_count > 0:
+                    logger.info("[LINEAGE-BEFORE]   Input URNs (showing first 5):")
+                    for i, urn in enumerate((aspect.inputDatasets or [])[:5], start=1):
+                        # Extract table name and count parts
+                        parts = urn.split(",")
+                        name = parts[1] if len(parts) >= 2 else "unknown"
+                        # Strip platform_instance to show actual table reference
+                        display_name = name
+                        if platform_instance and name.startswith(
+                            f"{platform_instance}."
+                        ):
+                            display_name = name[len(platform_instance) + 1 :]
+                        name_parts = display_name.split(".")
+                        logger.info(
+                            f"[LINEAGE-BEFORE]     {i}. {display_name} ({len(name_parts)} parts)"
+                        )
+
+                if original_output_count > 0:
+                    logger.info("[LINEAGE-BEFORE]   Output URNs (showing first 5):")
+                    for i, urn in enumerate((aspect.outputDatasets or [])[:5], start=1):
+                        parts = urn.split(",")
+                        name = parts[1] if len(parts) >= 2 else "unknown"
+                        display_name = name
+                        if platform_instance and name.startswith(
+                            f"{platform_instance}."
+                        ):
+                            display_name = name[len(platform_instance) + 1 :]
+                        name_parts = display_name.split(".")
+                        logger.info(
+                            f"[LINEAGE-BEFORE]     {i}. {display_name} ({len(name_parts)} parts)"
+                        )
+
                 # Filter inputs and outputs
+                filtered_inputs = []
+                filtered_outputs = []
+
                 if aspect.inputDatasets:
+                    for urn in aspect.inputDatasets:
+                        if not self._is_qualified_table_urn(urn, platform_instance):
+                            filtered_inputs.append(urn)
                     aspect.inputDatasets = [
                         urn
                         for urn in aspect.inputDatasets
                         if self._is_qualified_table_urn(urn, platform_instance)
                     ]
+
                 if aspect.outputDatasets:
+                    for urn in aspect.outputDatasets:
+                        if not self._is_qualified_table_urn(urn, platform_instance):
+                            filtered_outputs.append(urn)
                     aspect.outputDatasets = [
                         urn
                         for urn in aspect.outputDatasets
@@ -1105,19 +1152,46 @@ class SQLServerSource(SQLAlchemySource):
                     filtered_input_count < original_input_count
                     or filtered_output_count < original_output_count
                 ):
-                    logger.debug(
-                        f"Filtered unqualified tables for {procedure_name or 'procedure'}: "
+                    logger.info(
+                        f"[FILTER] Filtered unqualified tables for {procedure_name or 'procedure'}: "
                         f"inputs {original_input_count} -> {filtered_input_count}, "
                         f"outputs {original_output_count} -> {filtered_output_count}"
                     )
+                    # Log sample of filtered tables (first 3)
+                    if filtered_inputs:
+                        sample = filtered_inputs[:3]
+                        logger.info(f"[FILTER]   Sample filtered inputs: {sample}")
+                    if filtered_outputs:
+                        sample = filtered_outputs[:3]
+                        logger.info(f"[FILTER]   Sample filtered outputs: {sample}")
 
-                # Skip aspect if all tables were filtered out
+                # Skip aspect only if BOTH inputs and outputs are empty
                 if not aspect.inputDatasets and not aspect.outputDatasets:
-                    logger.debug(
-                        f"Skipping lineage for {procedure_name or 'procedure'}: "
+                    logger.info(
+                        f"[SKIP] Skipping lineage for {procedure_name or 'procedure'}: "
                         f"all tables were unqualified aliases"
                     )
                     continue
+
+                # Warn if we have inputs but no outputs (incomplete lineage)
+                if aspect.inputDatasets and not aspect.outputDatasets:
+                    logger.warning(
+                        f"[WARN] Incomplete lineage for {procedure_name or 'procedure'}: "
+                        f"UPDATE/DELETE statement has {filtered_input_count} input(s) but 0 qualified output tables. "
+                        f"Filtered outputs: {filtered_outputs[:3]}. "
+                        f"Proceeding with partial lineage (inputs only)."
+                    )
+
+                # Log AFTER filtering - what we're keeping
+                column_lineage_count = len(aspect.fineGrainedLineages or [])
+                logger.info(
+                    f"[LINEAGE-AFTER] Procedure {procedure_name or 'unknown'}: "
+                    f"Keeping {filtered_input_count} inputs, {filtered_output_count} outputs, "
+                    f"{column_lineage_count} column lineages"
+                )
+                logger.info(
+                    f"[YIELD-MCP] Yielding dataJobInputOutput MCP for {procedure_name or 'unknown'}"
+                )
 
             yield mcp
 
@@ -1128,10 +1202,29 @@ class SQLServerSource(SQLAlchemySource):
         # from all databases in schema_resolver and discovered_tables
         if self.stored_procedures:
             logger.info(
-                f"Processing {len(self.stored_procedures)} stored procedure(s) for lineage extraction"
+                f"[PROC-START] Processing {len(self.stored_procedures)} stored procedure(s) for lineage extraction"
+            )
+            logger.info(
+                f"[PROC-START] Platform instance: {self.get_schema_resolver().platform_instance}"
             )
 
-        for procedure in self.stored_procedures:
+        for idx, procedure in enumerate(self.stored_procedures, start=1):
+            logger.info(
+                f"[PROC] Processing procedure {idx}/{len(self.stored_procedures)}: "
+                f"{procedure.full_name} (db={procedure.db}, schema={procedure.schema})"
+            )
+
+            # Log SQL code snippet at DEBUG level
+            if procedure.procedure_definition:
+                sql_snippet = (
+                    procedure.procedure_definition[:200]
+                    .replace("\n", " ")
+                    .replace("\r", "")
+                )
+                logger.debug(
+                    f"[SQL-SNIPPET] First 200 chars of {procedure.name}: {sql_snippet}..."
+                )
+
             with self.report.report_exc(
                 message="Failed to parse stored procedure lineage",
                 context=procedure.full_name,
@@ -1156,7 +1249,11 @@ class SQLServerSource(SQLAlchemySource):
 
                 if workunit_count == 0:
                     logger.warning(
-                        f"No lineage extracted for stored procedure: {procedure.name}"
+                        f"[NO-LINEAGE] No workunits generated for procedure: {procedure.name}"
+                    )
+                else:
+                    logger.info(
+                        f"[SUCCESS] Generated {workunit_count} workunit(s) for procedure: {procedure.name}"
                     )
 
     def is_temp_table(self, name: str) -> bool:
