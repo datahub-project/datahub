@@ -1,10 +1,10 @@
 import logging
 import os
-import re
 import subprocess
 
 import pytest
 import sqlalchemy
+import sqlglot
 import yaml
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -31,26 +31,28 @@ def is_db2_up(container_name: str) -> bool:
 
 
 def _split_statements(sql):
-    """Split a SQL script into individual statements that can be executed.
-    Statements are usually separated by semicolons, except that BEGIN/END
-    blocks are kept as a single item."""
-    statements: list[str] = []
-    inside_begin = False
-    sql = re.sub(r"--[^\n]*", "", sql)
-    for statement in sql.split(";"):
-        statement = statement.strip()
-        logger.warning(statement)
-        if not statement:
-            continue
-        if inside_begin and statements:
-            statements[-1] += "; " + statement
-        else:
-            statements.append(statement)
-        if "BEGIN" in statement.upper():
-            inside_begin = True
-        if statement.upper() == "END":
-            inside_begin = False
-    return statements
+    # Split a SQL script into individual statements that can be executed.
+    # The Db2 Docker image does not have a built-in way to run a SQL script
+    # upon startup, so the script must be split into statements manually.
+    # Statements are usually separated by semicolons, except that BEGIN/END
+    # blocks (as for stored procedure definitions) must be kept as a single item.
+
+    result = []
+    tokens = sqlglot.tokenize(sql, dialect=sqlglot.Dialect.get("db2"))
+    current_statement_start = 0
+    needed_end_tokens = 0
+    for t in tokens:
+        if t.token_type in (sqlglot.TokenType.BEGIN, sqlglot.TokenType.CASE):
+            needed_end_tokens += 1
+        elif t.token_type == sqlglot.TokenType.END:
+            needed_end_tokens -= 1
+        elif needed_end_tokens == 0 and t.token_type == sqlglot.TokenType.SEMICOLON:
+            result.append(sql[current_statement_start : t.start])
+            current_statement_start = t.end + 1
+
+    result.append(sql[current_statement_start:])
+
+    return [statement for statement in result if statement.strip()]
 
 
 @pytest.fixture(scope="module")

@@ -334,7 +334,7 @@
             "transforms": [
                 {
                     "queryStatement": {
-                        "value": "create procedure procedures.myprocedure()\nlanguage sql\nbegin\n  insert into target_table (id) select id from source_table; end",
+                        "value": "create procedure procedures.myprocedure()\nlanguage sql\nbegin\n  insert into target_table (id) select id from source_table;\nend",
                         "language": "SQL"
                     }
                 }
