@@ -1,0 +1,38 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:test-tag-notification",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+      "json": {
+        "name": "test-tag-notification",
+        "description": "Test tag for notification testing"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-tag-notifications"
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:test-tag-notification-2",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+      "json": {
+        "name": "test-tag-notification-2",
+        "description": "Test tag 2 for notification testing"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-tag-notifications"
+    }
+  }
+]

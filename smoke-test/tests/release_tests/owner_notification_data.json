@@ -1,0 +1,60 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:test-owner-notification",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+      "json": {
+        "active": true,
+        "email": "test-owner-notification@test.com",
+        "fullName": "Test Owner Notification"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-owner-notifications"
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:test-owner-notification-2",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+      "json": {
+        "active": true,
+        "email": "test-owner-notification-2@test.com",
+        "fullName": "Test Owner Notification 2"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-owner-notifications"
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:test-group-notification",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+      "json": {
+        "admins": [],
+        "members": [],
+        "groups": [],
+        "displayName": "Test Group Notification"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-owner-notifications"
+    }
+  }
+]

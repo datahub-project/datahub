@@ -1,0 +1,34 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hdfs",
+        "name": "SampleHdfsDataset",
+        "origin": "PROD"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-deprecation-notifications"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "description": "Sample HDFS dataset for deprecation notification testing"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-deprecation-notifications"
+    }
+  }
+]

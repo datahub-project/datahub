@@ -1,0 +1,40 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:test-term-notification",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+      "json": {
+        "name": "Test Term Notification",
+        "definition": "Test glossary term for notification testing",
+        "termSource": "EXTERNAL"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-term-notifications"
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:test-term-notification-2",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+      "json": {
+        "name": "Test Term Notification 2",
+        "definition": "Second test glossary term for notification testing",
+        "termSource": "EXTERNAL"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-term-notifications"
+    }
+  }
+]

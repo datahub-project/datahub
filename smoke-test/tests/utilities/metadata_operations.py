@@ -803,3 +803,400 @@ def scroll_across_lineage(
 
     res_data = execute_graphql(auth_session, graphql_query, variables)
     return res_data["data"]["scrollAcrossLineage"]
+
+
+def create_tag_proposal(
+    auth_session,
+    resource_urn: str,
+    tag_urns: list[str],
+    description: str,
+) -> str:
+    """Create a tag proposal on a resource.
+
+    Args:
+        auth_session: The authenticated session
+        resource_urn: URN of the resource to propose tags for
+        tag_urns: List of tag URNs to propose
+        description: Proposal description/context
+
+    Returns:
+        URN of the newly created proposal (ActionRequest URN)
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "resourceUrn": resource_urn,
+            "tagUrns": tag_urns,
+            "description": description,
+        }
+    }
+
+    query = """mutation proposeTags($input: ProposeTagsInput!) {
+        proposeTags(input: $input)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["proposeTags"]
+
+
+@with_test_retry()
+def list_proposals(
+    auth_session,
+    resource_urn: str,
+    proposal_type: str = "TAG_ASSOCIATION",
+    status: str = "PENDING",
+    start: int = 0,
+    count: int = 10,
+) -> Dict[str, Any]:
+    """List proposals (action requests) for a resource.
+
+    Args:
+        auth_session: The authenticated session
+        resource_urn: URN of the resource (e.g., dataset URN)
+        proposal_type: Type of proposal (TAG_ASSOCIATION, TERM_ASSOCIATION, etc.)
+        status: Proposal status filter (PENDING, COMPLETED)
+        start: Starting offset for pagination
+        count: Number of proposals to retrieve
+
+    Returns:
+        Dictionary containing proposals data with keys: start, count, total, actionRequests
+    """
+    query = """query listActionRequests($input: ListActionRequestsInput!) {
+        listActionRequests(input: $input) {
+            start
+            count
+            total
+            actionRequests {
+                urn
+                type
+                description
+                status
+                result
+                entity {
+                    urn
+                }
+                params {
+                    tagProposal {
+                        tags {
+                            urn
+                            properties {
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }"""
+
+    variables: Dict[str, Any] = {
+        "input": {
+            "resourceUrn": resource_urn,
+            "type": proposal_type,
+            "status": status,
+            "start": start,
+            "count": count,
+        }
+    }
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["listActionRequests"]
+
+
+def accept_proposal(
+    auth_session,
+    proposal_urn: str,
+    note: str = "",
+) -> bool:
+    """Accept a proposal.
+
+    Args:
+        auth_session: The authenticated session
+        proposal_urn: URN of the proposal to accept
+        note: Optional note explaining the acceptance
+
+    Returns:
+        True if the acceptance was successful
+    """
+    variables: Dict[str, Any] = {
+        "urns": [proposal_urn],
+        "note": note,
+    }
+
+    query = """mutation acceptProposals($urns: [String!]!, $note: String) {
+        acceptProposals(urns: $urns, note: $note)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["acceptProposals"]
+
+
+def reject_proposal(
+    auth_session,
+    proposal_urn: str,
+    note: str = "",
+) -> bool:
+    """Reject a proposal.
+
+    Args:
+        auth_session: The authenticated session
+        proposal_urn: URN of the proposal to reject
+        note: Optional note explaining the rejection
+
+    Returns:
+        True if the rejection was successful
+    """
+    variables: Dict[str, Any] = {
+        "urns": [proposal_urn],
+        "note": note,
+    }
+
+    query = """mutation rejectProposals($urns: [String!]!, $note: String) {
+        rejectProposals(urns: $urns, note: $note)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["rejectProposals"]
+
+
+def add_owner(
+    auth_session,
+    resource_urn: str,
+    owner_urn: str,
+    owner_entity_type: str = "CORP_USER",
+    ownership_type: str = "TECHNICAL_OWNER",
+    ownership_type_urn: Optional[str] = None,
+) -> bool:
+    """Add an owner to a resource.
+
+    Args:
+        auth_session: Authenticated session
+        resource_urn: URN of the resource (e.g., dataset)
+        owner_urn: URN of the owner (user or group)
+        owner_entity_type: Either CORP_USER or CORP_GROUP
+        ownership_type: Type of ownership (TECHNICAL_OWNER, BUSINESS_OWNER, etc.)
+        ownership_type_urn: Optional custom ownership type URN
+
+    Returns:
+        True if successful
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "ownerUrn": owner_urn,
+            "ownerEntityType": owner_entity_type,
+            "resourceUrn": resource_urn,
+        }
+    }
+
+    if ownership_type_urn:
+        variables["input"]["ownershipTypeUrn"] = ownership_type_urn
+        variables["input"]["type"] = "CUSTOM"
+    else:
+        variables["input"]["type"] = ownership_type
+
+    query = """mutation addOwner($input: AddOwnerInput!) {
+        addOwner(input: $input)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["addOwner"]
+
+
+def remove_owner(
+    auth_session,
+    resource_urn: str,
+    owner_urn: str,
+    ownership_type_urn: Optional[str] = None,
+) -> bool:
+    """Remove an owner from a resource.
+
+    Args:
+        auth_session: Authenticated session
+        resource_urn: URN of the resource (e.g., dataset)
+        owner_urn: URN of the owner to remove
+        ownership_type_urn: Optional - specific ownership type to remove
+
+    Returns:
+        True if successful
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "ownerUrn": owner_urn,
+            "resourceUrn": resource_urn,
+        }
+    }
+
+    if ownership_type_urn:
+        variables["input"]["ownershipTypeUrn"] = ownership_type_urn
+
+    query = """mutation removeOwner($input: RemoveOwnerInput!) {
+        removeOwner(input: $input)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["removeOwner"]
+
+
+@with_test_retry()
+def get_dataset_owners(auth_session, dataset_urn: str) -> Dict[str, Any]:
+    """Get ownership information for a dataset.
+
+    Args:
+        auth_session: Authenticated session
+        dataset_urn: URN of the dataset
+
+    Returns:
+        Dictionary containing ownership data with 'owners' array
+    """
+    query = """
+        query getDatasetOwners($urn: String!) {
+            dataset(urn: $urn) {
+                urn
+                ownership {
+                    owners {
+                        owner {
+                            ... on CorpUser {
+                                urn
+                                properties {
+                                    email
+                                }
+                            }
+                            ... on CorpGroup {
+                                urn
+                                properties {
+                                    displayName
+                                }
+                            }
+                        }
+                        type
+                        ownershipType {
+                            urn
+                            info {
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": dataset_urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataset"]["ownership"]
+
+
+@with_test_retry()
+def get_dataset_tags(auth_session, dataset_urn: str) -> Dict[str, Any]:
+    """Get tag information for a dataset.
+
+    Args:
+        auth_session: Authenticated session
+        dataset_urn: URN of the dataset
+
+    Returns:
+        Dictionary containing tags data with 'tags' array
+    """
+    query = """
+        query getDatasetTags($urn: String!) {
+            dataset(urn: $urn) {
+                urn
+                globalTags {
+                    tags {
+                        tag {
+                            urn
+                            name
+                            description
+                        }
+                    }
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": dataset_urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataset"]["globalTags"]
+
+
+@with_test_retry()
+def get_dataset_terms(auth_session, dataset_urn: str) -> Dict[str, Any]:
+    """Get glossary term information for a dataset.
+
+    Args:
+        auth_session: Authenticated session
+        dataset_urn: URN of the dataset
+
+    Returns:
+        Dictionary containing terms data with 'terms' array
+    """
+    query = """
+        query getDatasetTerms($urn: String!) {
+            dataset(urn: $urn) {
+                urn
+                glossaryTerms {
+                    terms {
+                        term {
+                            urn
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": dataset_urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataset"]["glossaryTerms"]
+
+
+def update_deprecation(
+    auth_session,
+    resource_urn: str,
+    deprecated: bool,
+    note: str = "",
+    decommission_time: Optional[int] = None,
+) -> bool:
+    """Update deprecation status of a resource."""
+    variables: Dict[str, Any] = {
+        "input": {"urn": resource_urn, "deprecated": deprecated, "note": note}
+    }
+    if decommission_time is not None:
+        variables["input"]["decommissionTime"] = decommission_time
+
+    query = """mutation updateDeprecation($input: UpdateDeprecationInput!) {
+        updateDeprecation(input: $input)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["updateDeprecation"]
+
+
+@with_test_retry()
+def get_dataset_deprecation(auth_session, dataset_urn: str) -> Optional[Dict[str, Any]]:
+    """Get deprecation information for a dataset.
+
+    Args:
+        auth_session: Authenticated session
+        dataset_urn: URN of the dataset
+
+    Returns:
+        Dictionary containing deprecation data with 'deprecated', 'note', etc., or None if not deprecated
+    """
+    query = """
+        query getDatasetDeprecation($urn: String!) {
+            dataset(urn: $urn) {
+                urn
+                deprecation {
+                    deprecated
+                    note
+                    decommissionTime
+                    actor
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": dataset_urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataset"]["deprecation"]
