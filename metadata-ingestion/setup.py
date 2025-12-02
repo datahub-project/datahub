@@ -490,8 +490,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common,
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    # TODO: remove ibm_db_sa git URL once v0.4.3 is released
-    "db2": {"ibm_db_sa @ git+https://github.com/ibmdb/python-ibmdbsa@f7135467150722c5379d3ae951fbe2ad462f0dec", "pyodbc"} | sql_common,
+    "db2": {"ibm_db_sa>=0.4.3", "pyodbc"} | sql_common,
     "dbt": {"requests"} | dbt_common | aws_common,
     "dbt-cloud": {"requests"} | dbt_common,
     "dremio": {"requests"} | sql_common,
