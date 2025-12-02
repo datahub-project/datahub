@@ -63,7 +63,8 @@ jobs:
           "petemango",
           "askumar27",
           "kyungsoo-datahub",
-          "AdrianMachado"
+          "AdrianMachado",
+          "rob-1019"
           ]'),
           github.actor
           )
