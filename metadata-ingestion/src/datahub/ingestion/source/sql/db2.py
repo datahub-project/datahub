@@ -1,5 +1,4 @@
 import logging
-import re
 from typing import (
     Any,
     Dict,
@@ -159,7 +158,6 @@ class Db2Source(SQLAlchemySource):
 
             yield BaseProcedure(
                 name=row["ROUTINENAME"],
-                # language can have trailing spaces
                 language=row["LANGUAGE"].rstrip() if row["LANGUAGE"] else "",
                 procedure_definition=row["TEXT"],
                 comment=row["REMARKS"],
@@ -213,14 +211,14 @@ def _db2_get_view_qualifier_quoted(
         if not result:
             return None
 
-        # format is like: "SYSIBM","SYSPROC","SMITH","SESSION_USER"
-        # split, ignoring commas inside double quotes
         logger.debug(f"Got PATHSCHEMAS={repr(result)} view {repr(schema)}.{repr(view)}")
-        pathschemas = re.findall(r'([^",]+|"(?:[^"]|"")*")(?:,\s*|$)', result.strip())
+        pathschemas = _split_zos_pathschemas(result.strip())
         if len(pathschemas) > 1:
             raise NotImplementedError(f"len(PATHSCHEMAS) > 1: {repr(pathschemas)}")
-        # already quoted, don't have to call _quote_identifier.
-        return pathschemas[0]
+
+        # the schema name must be quoted so that case-sensitive names make it through
+        # to the sqlglot lineage parser without being normalized.
+        return _quote_identifier(pathschemas[0])
 
     elif inspector.has_table("SYSVIEWS", schema="QSYS2"):
         # Db2 i/AS400 doesn't have this concept.
@@ -296,3 +294,47 @@ def _db2_get_procedures(
         raise NotImplementedError(
             "Couldn't find SYSCAT.ROUTINES, SYSIBM.SYSROUTINES, or QSYS2.SYSROUTINES"
         )
+
+
+def _split_zos_pathschemas(text):
+    # format is schema names in double quotes separated by commas
+    # e.g.: "SYSIBM","SYSPROC","SMITH","SESSION_USER"
+
+    schema_names = []
+    p = 0
+    while p < len(text):
+        if text[p] != '"':
+            raise ValueError(
+                f"Expected schema name to start with double-quote: {repr(text)}"
+            )
+        p += 1  # consume starting double quote
+
+        schema_name = ""
+        while True:
+            if text[p : p + 2] == '""':
+                schema_name += '"'
+                p += 2  # consume escaped double quote
+            elif text[p] == '"':
+                break
+            else:
+                schema_name += text[p]
+                p += 1  # consume schema name character inside quotes
+        schema_names.append(schema_name)
+
+        if text[p] != '"':
+            raise ValueError(
+                f"Expected schema name to end with double-quote: {repr(text)}"
+            )
+        p += 1  # consume ending double quote
+
+        if p < len(text):
+            if text[p] != ",":
+                raise ValueError(
+                    f"Expected schema names to be separated by commas: {repr(text)}"
+                )
+            p += 1  # consume comma
+
+    if p != len(text):  # must consume entire string
+        raise ValueError(f"Failed to parse entire PATHSCHEMAS string: {repr(text)}")
+
+    return schema_names
