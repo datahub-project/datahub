@@ -41,6 +41,7 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:related_terms',
     'urn:li:dataHubPageModule:workflows',
     'urn:li:dataHubPageModule:platforms',
+    'urn:li:dataHubPageModule:lineage',
     'urn:li:dataHubPageModule:columns',
 ];
 

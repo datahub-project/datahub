@@ -44,6 +44,7 @@ public class PageModuleService {
           "urn:li:dataHubPageModule:related_terms",
           "urn:li:dataHubPageModule:workflows",
           "urn:li:dataHubPageModule:platforms",
+          "urn:li:dataHubPageModule:lineage",
           "urn:li:dataHubPageModule:columns");
 
   public PageModuleService(@Nonnull EntityClient entityClient) {

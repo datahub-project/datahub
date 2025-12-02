@@ -117,6 +117,16 @@ export const RELATED_TERMS_MODULE: PageModuleFragment = {
     },
 };
 
+export const LINEAGE_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:lineage',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Lineage',
+        type: DataHubPageModuleType.Lineage,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
 export const COLUMNS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:columns',
     type: EntityType.DatahubPageModule,
@@ -389,6 +399,22 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-related-terms-module',
         };
 
+        const lineage = {
+            name: 'Lineage',
+            key: 'lineage',
+            label: (
+                <MenuItem
+                    description="View the lineage of an asset"
+                    title="Lineage"
+                    icon="TreeStructure"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(LINEAGE_MODULE);
+            },
+            'data-testid': 'add-lineage-module',
+        };
         const schemaTable = {
             name: 'Columns',
             key: 'columns',
@@ -419,7 +445,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         } else if (entityType === EntityType.GlossaryTerm) {
             defaultSummaryModules = [...defaultSummaryModules, relatedTerms];
         } else if (entityType === EntityType.Dataset) {
-            defaultSummaryModules = [schemaTable];
+            defaultSummaryModules = [schemaTable, lineage];
         }
 
         const finalDefaultModules =

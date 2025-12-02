@@ -136,7 +136,7 @@ describe('getDefaultSummaryPageTemplate', () => {
                 surface: {
                     surfaceType: PageTemplateSurfaceType.AssetSummary,
                 },
-                rows: [{ modules: expect.any(Array) }],
+                rows: [{ modules: expect.any(Array) }, { modules: expect.any(Array) }],
                 assetSummary: {
                     summaryElements: [
                         { elementType: SummaryElementType.Created },
@@ -190,7 +190,7 @@ describe('getDefaultSummaryPageTemplate', () => {
             expect(result.type).toBe(EntityType.DatahubPageTemplate);
             expect(result.properties.visibility.scope).toBe(PageTemplateScope.Personal);
             expect(result.properties.surface.surfaceType).toBe(PageTemplateSurfaceType.AssetSummary);
-            if (entityType === EntityType.Domain) {
+            if (entityType === EntityType.Domain || entityType === EntityType.Dataset) {
                 expect(result.properties.rows).toHaveLength(2);
             } else {
                 expect(result.properties.rows).toHaveLength(1);
