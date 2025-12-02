@@ -753,8 +753,16 @@ public class AuthUtil {
       if (useDomainAuth) {
         // Domain-based authorization: use domains as subresources
         Set<Urn> domains = domainsByEntity.getOrDefault(urn, Collections.emptySet());
-        authorized = isAPIAuthorizedEntityUrnsWithSubResources(
-            session, operation, List.of(urn), domains);
+        if (!domains.isEmpty()) {
+          // Entity has domains - use domain-based authorization
+          authorized = isAPIAuthorizedEntityUrnsWithSubResources(
+              session, operation, List.of(urn), domains);
+        } else {
+          // Entity has no domains - fall back to standard authorization
+          // This allows entities without domain assignments (like ingestion sources)
+          // to be authorized by non-domain-based policies
+          authorized = isAPIAuthorizedEntityUrns(session, operation, List.of(urn));
+        }
       } else {
         // Standard authorization: no domain context
         authorized = isAPIAuthorizedEntityUrns(session, operation, List.of(urn));

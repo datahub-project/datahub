@@ -1,7 +1,11 @@
 package io.datahubproject.openapi.controller;
 
+import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorizedMCPsWithDomains;
+import static com.datahub.authorization.AuthorizerChain.isDomainBasedAuthorizationEnabled;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.TIMESTAMP_MILLIS;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
@@ -40,6 +44,8 @@ import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
@@ -511,11 +517,12 @@ public abstract class GenericEntitiesController<
     // Check domain-based authorization if feature flag is enabled
     if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       checkDomainAuthorizationForEntity(opContext, urn, authentication.getActor().toUrnStr());
-    }
-
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
+    } else {
+      // Fall back to entity URN authorization when domain auth is disabled
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
+        throw new UnauthorizedException(
+            authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
+      }
     }
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(urn.getEntityType());
@@ -563,16 +570,49 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityName)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
-    }
-
     AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
 
-    // Check domain-based authorization if feature flag is enabled
-    if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      checkDomainAuthorizationForBatch(opContext, batch, authentication.getActor().toUrnStr());
+    // Convert batch items to MCPs for authorization
+    List<MetadataChangeProposal> mcps = batch.getMCPItems().stream()
+        .map(item -> item.getMetadataChangeProposal())
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList());
+
+    // Extract domains if domain-based authorization is enabled
+    final Map<Urn, Set<Urn>> entityDomains;
+    if (isDomainBasedAuthorizationEnabled(authorizationChain)) {
+      log.info("Domain-based authorization is ENABLED. Collecting domain information for {} proposals.", mcps.size());
+      entityDomains = DomainExtractionUtils.extractEntityDomainsForAuthorization(
+          opContext, entityService, mcps);
+
+      if (entityDomains.size() > 0) {
+        // Validate all domains exist
+        Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(entityDomains);
+        if (!DomainExtractionUtils.validateDomainsExist(opContext, entityService, allDomains)) {
+          throw new UnauthorizedException(
+              "One or more domains do not exist. Cannot create entity with non-existent domain.");
+        }
+      }
+    } else {
+      log.info("Domain-based authorization is DISABLED. Using standard authorization for all {} proposals.", mcps.size());
+      entityDomains = null;
+    }
+
+    // Authorize all MCPs with unified method (handles both domain-based and standard auth)
+    List<Pair<MetadataChangeProposal, Integer>> authResults = isAPIAuthorizedMCPsWithDomains(
+        opContext, ENTITY, entityRegistry, mcps, entityDomains);
+    
+    // Check for authorization failures
+    List<Pair<MetadataChangeProposal, Integer>> failures = authResults.stream()
+        .filter(p -> p.getSecond() != 200)
+        .collect(Collectors.toList());
+    
+    if (!failures.isEmpty()) {
+      String errorMessages = failures.stream()
+          .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
+          .collect(Collectors.joining(", "));
+      throw new UnauthorizedException(
+          "User " + authentication.getActor().toUrnStr() + " is unauthorized to modify entities: " + errorMessages);
     }
 
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
@@ -673,14 +713,17 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(urn))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
-    }
-
     // Check domain-based authorization if feature flag is enabled
     if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      checkDomainAuthorizationForEntity(opContext, urn, authentication.getActor().toUrnStr());
+      checkDomainBasedAuthorizationForSingleEntity(
+          opContext, urn, aspectName, jsonAspect, CREATE,
+          authentication.getActor().toUrnStr());
+    } else {
+      // Fall back to entity URN authorization when domain auth is disabled
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(urn))) {
+        throw new UnauthorizedException(
+            authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
+      }
     }
 
     AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
@@ -754,14 +797,16 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
-      throw new UnauthorizedException(
-          actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
-    }
-
     // Check domain-based authorization if feature flag is enabled
     if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      checkDomainAuthorizationForEntity(opContext, urn, actor.toUrnStr());
+      checkDomainBasedAuthorizationForSingleEntity(
+          opContext, urn, aspectName, patch, UPDATE, actor.toUrnStr());
+    } else {
+      // Fall back to entity URN authorization when domain auth is disabled
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
+        throw new UnauthorizedException(
+            actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
+      }
     }
 
     AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
@@ -914,47 +959,126 @@ public abstract class GenericEntitiesController<
   }
 
   /**
-   * Check domain-based authorization for a batch of entities. This method examines each MCP in the
-   * batch, extracts domain information, and verifies the user has appropriate domain permissions.
+   * Get existing domains for an entity with error handling.
    *
-   * @param opContext the operation context
-   * @param batch the batch of MCPs being ingested
-   * @param actorUrn the URN of the actor performing the operation
-   * @throws UnauthorizedException if the user lacks domain permissions
+   * @param opContext Operation context
+   * @param urn Entity URN
+   * @return Set of domain URNs, empty if none found or error occurred
    */
-  private void checkDomainAuthorizationForBatch(
-      @Nonnull OperationContext opContext, @Nonnull AspectsBatch batch, @Nonnull String actorUrn)
-      throws UnauthorizedException {
+  @Nonnull
+  private Set<Urn> getExistingEntityDomains(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn) {
+    try {
+      return extractDomainsFromEntity(
+          entityService.getEntityV2(
+              opContext,
+              urn.getEntityType(),
+              urn,
+              Collections.singleton(DOMAINS_ASPECT_NAME)));
+    } catch (Exception e) {
+      log.warn("Error fetching entity {} for domain authorization: {}", urn, e.getMessage());
+      return Collections.emptySet();
+    }
+  }
 
-    // Group MCPs by entity URN to avoid duplicate checks
-    Map<Urn, List<ChangeMCP>> mcpsByEntity = new HashMap<>();
-    for (var item : batch.getItems()) {
-      if (item instanceof ChangeMCP) {
-        ChangeMCP changeMCP = (ChangeMCP) item;
-        mcpsByEntity.computeIfAbsent(changeMCP.getUrn(), k -> new ArrayList<>()).add(changeMCP);
+  /**
+   * Validate that all domain URNs exist in the system.
+   *
+   * @param opContext Operation context
+   * @param domainUrns Set of domain URNs to validate
+   * @throws UnauthorizedException if any domain does not exist
+   */
+  private void validateDomainsExist(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> domainUrns)
+      throws UnauthorizedException {
+    for (Urn domainUrn : domainUrns) {
+      if (!entityService.exists(opContext, domainUrn, true)) {
+        throw new UnauthorizedException(
+            "Domain " + domainUrn + " does not exist. Cannot assign entity to non-existent domain.");
       }
     }
+  }
 
-    // Check domain authorization for each entity
-    for (Map.Entry<Urn, List<ChangeMCP>> entry : mcpsByEntity.entrySet()) {
-      Urn entityUrn = entry.getKey();
-      List<ChangeMCP> entityMcps = entry.getValue();
+  /**
+   * Extract new domains from aspect data (handles both JSON strings and Patch objects).
+   *
+   * @param aspectName Name of the aspect
+   * @param aspectData Aspect data (String for JSON or GenericJsonPatch for patches)
+   * @return Set of domain URNs found in the aspect data
+   */
+  @Nonnull
+  private Set<Urn> extractNewDomainsFromAspect(
+      @Nonnull String aspectName,
+      @Nullable Object aspectData) {
+    if (!DOMAINS_ASPECT_NAME.equals(aspectName) || aspectData == null) {
+      return Collections.emptySet();
+    }
 
-      // Check if any MCP is setting domains
-      Set<Urn> proposedDomainUrns = extractDomainsFromMcps(entityMcps);
-
-      // If domains are being set, check authorization using subresources
-      if (!proposedDomainUrns.isEmpty()) {
-        boolean authorized =
-            AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                opContext, CREATE, List.of(entityUrn), proposedDomainUrns);
-
-        if (!authorized) {
-          throw new UnauthorizedException(
-              actorUrn
-                  + " is unauthorized to perform CREATE on entities with domains "
-                  + proposedDomainUrns);
+    try {
+      if (aspectData instanceof GenericJsonPatch) {
+        return extractDomainUrnsFromPatch((GenericJsonPatch) aspectData);
+      } else if (aspectData instanceof String) {
+        Domains domains = RecordUtils.toRecordTemplate(Domains.class, (String) aspectData);
+        if (domains.getDomains() != null && !domains.getDomains().isEmpty()) {
+          return new HashSet<>(domains.getDomains());
         }
+      }
+    } catch (Exception e) {
+      log.warn("Error extracting domains from aspect {}: {}", aspectName, e.getMessage());
+    }
+
+    return Collections.emptySet();
+  }
+
+  /**
+   * Perform domain-based authorization check for a single entity operation.
+   * Checks authorization against both existing domains and new domains being set.
+   *
+   * @param opContext Operation context
+   * @param entityUrn Entity URN being operated on
+   * @param aspectName Name of the aspect being modified
+   * @param aspectData Aspect data (for domain extraction if modifying domains)
+   * @param operation API operation being performed (CREATE, UPDATE, etc.)
+   * @param actorUrn Actor performing the operation
+   * @throws UnauthorizedException if authorization fails
+   */
+  private void checkDomainBasedAuthorizationForSingleEntity(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull String aspectName,
+      @Nullable Object aspectData,
+      @Nonnull ApiOperation operation,
+      @Nonnull String actorUrn)
+      throws UnauthorizedException {
+
+    // Get existing domains
+    Set<Urn> existingDomains = getExistingEntityDomains(opContext, entityUrn);
+
+    // Extract and validate new domains if modifying domains aspect
+    Set<Urn> newDomains = extractNewDomainsFromAspect(aspectName, aspectData);
+    validateDomainsExist(opContext, newDomains);
+
+    // Combine all domains to check
+    Set<Urn> allDomainsToCheck = new HashSet<>(existingDomains);
+    allDomainsToCheck.addAll(newDomains);
+
+    // Check authorization
+    if (!allDomainsToCheck.isEmpty()) {
+      boolean authorized = AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+          opContext, operation, List.of(entityUrn), allDomainsToCheck);
+
+      if (!authorized) {
+        throw new UnauthorizedException(
+            actorUrn + " is unauthorized to " + operation +
+            " entities with domains " + allDomainsToCheck);
+      }
+    } else {
+      // Fallback to entity-level auth when no domains
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, operation, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            actorUrn + " is unauthorized to " + operation + " entities.");
       }
     }
   }
@@ -993,32 +1117,62 @@ public abstract class GenericEntitiesController<
   }
 
   /**
-   * Extract domain URNs from a list of MCPs for a single entity. Looks for Domains aspect in the
-   * MCPs.
+   * Extract domain URNs from a JSON Patch for domain authorization.
+   * Parses patch operations to find domain URNs being added or replaced.
    *
-   * @param mcps the list of MCPs for an entity
-   * @return set of domain URNs if found, empty set otherwise
+   * @param patch the GenericJsonPatch containing patch operations
+   * @return set of domain URNs found in the patch, empty if none found
    */
   @Nonnull
-  private Set<Urn> extractDomainsFromMcps(@Nonnull List<ChangeMCP> mcps) {
-    for (ChangeMCP mcp : mcps) {
-      if (DOMAINS_ASPECT_NAME.equals(mcp.getAspectName())) {
-        try {
-          RecordTemplate aspectData = mcp.getRecordTemplate();
-          if (aspectData instanceof Domains) {
-            Domains domains = (Domains) aspectData;
-            if (domains.hasDomains()
-                && domains.getDomains() != null
-                && !domains.getDomains().isEmpty()) {
-              return new HashSet<>(domains.getDomains());
+  private Set<Urn> extractDomainUrnsFromPatch(@Nonnull GenericJsonPatch patch) {
+    Set<Urn> domainUrns = new HashSet<>();
+
+    if (patch.getPatch() == null || patch.getPatch().isEmpty()) {
+      return domainUrns;
+    }
+
+    try {
+      // Parse the patch operations to extract domain URNs
+      for (GenericJsonPatch.PatchOp operation : patch.getPatch()) {
+        String path = operation.getPath();
+        Object value = operation.getValue();
+
+        // Check if this operation is modifying domains
+        if (path != null && (path.startsWith("/domains") || path.equals("/domains"))) {
+          if (value != null) {
+            // Handle different value types (String for single domain, List for multiple domains)
+            if (value instanceof String) {
+              String urnStr = (String) value;
+              if (urnStr.startsWith("urn:li:domain:")) {
+                try {
+                  domainUrns.add(Urn.createFromString(urnStr));
+                } catch (URISyntaxException e) {
+                  log.warn("Invalid domain URN in patch: {}", urnStr);
+                }
+              }
+            } else if (value instanceof List) {
+              @SuppressWarnings("unchecked")
+              List<Object> valueList = (List<Object>) value;
+              for (Object item : valueList) {
+                if (item instanceof String) {
+                  String urnStr = (String) item;
+                  if (urnStr.startsWith("urn:li:domain:")) {
+                    try {
+                      domainUrns.add(Urn.createFromString(urnStr));
+                    } catch (URISyntaxException e) {
+                      log.warn("Invalid domain URN in patch: {}", urnStr);
+                    }
+                  }
+                }
+              }
             }
           }
-        } catch (Exception e) {
-          // If we can't parse the domains, skip the check
-          log.warn("Error parsing domains from MCP: {}", e.getMessage());
         }
       }
+    } catch (Exception e) {
+      log.warn("Error extracting domain URNs from patch: {}", e.getMessage());
     }
-    return Collections.emptySet();
+
+    return domainUrns;
   }
 }
