@@ -707,13 +707,13 @@ class AirbyteBaseClient(ABC):
 
     def get_job(self, job_id: str) -> Dict[str, Any]:
         """
-        Get job details
+        Get detailed job information including sync statistics
 
         Args:
             job_id: Job ID
 
         Returns:
-            Job details
+            Job details including bytesCommitted, recordsCommitted, streamStatuses, etc.
         """
         self._check_auth_before_request()
         return self._make_request(f"/jobs/{job_id}", method="GET")
