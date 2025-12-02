@@ -868,6 +868,12 @@ class SqlParsingAggregator(Closeable):
                 self.report.num_observed_queries_column_timeout += 1
 
         query_fingerprint = observed.query_hash or parsed.query_fingerprint
+        downstream_urn = parsed.out_tables[0] if parsed.out_tables else None
+        logger.info(
+            f"[OBSERVED-TO-PREPARSED] Creating PreparsedQuery: query_type={parsed.query_type}, "
+            f"in_tables={len(parsed.in_tables)}, out_tables={len(parsed.out_tables)}, "
+            f"downstream={downstream_urn}"
+        )
         self.add_preparsed_query(
             PreparsedQuery(
                 query_id=query_fingerprint,
@@ -879,7 +885,7 @@ class SqlParsingAggregator(Closeable):
                 query_type=parsed.query_type,
                 query_type_props=parsed.query_type_props,
                 upstreams=parsed.in_tables,
-                downstream=parsed.out_tables[0] if parsed.out_tables else None,
+                downstream=downstream_urn,
                 column_lineage=parsed.column_lineage,
                 # TODO: We need a full list of columns referenced, not just the out tables.
                 column_usage=self._compute_upstream_fields(parsed),
@@ -977,8 +983,16 @@ class SqlParsingAggregator(Closeable):
         )
 
         if not parsed.downstream:
+            logger.info(
+                f"[PREPARSED-SKIP] Query has no downstream table, skipping lineage registration. "
+                f"Query type: {parsed.query_type}, upstreams: {len(parsed.upstreams)}"
+            )
             return
         out_table = parsed.downstream
+        logger.info(
+            f"[PREPARSED-DOWNSTREAM] Registering lineage for downstream: {out_table}, "
+            f"upstreams: {len(parsed.upstreams)}"
+        )
 
         # Register the query's lineage.
         if (
@@ -1010,6 +1024,10 @@ class SqlParsingAggregator(Closeable):
 
         else:
             # Non-temp tables immediately generate lineage.
+            logger.info(
+                f"[LINEAGE-MAP-ADD] Adding to lineage_map: downstream={out_table}, "
+                f"query_id={query_fingerprint[:50]}, query_type={parsed.query_type}"
+            )
             self._lineage_map.for_mutation(out_table, OrderedSet()).add(
                 query_fingerprint
             )
