@@ -1,3 +1,4 @@
+from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -747,3 +748,336 @@ class TestAirbyteCloudClient:
         mock_make_request.assert_called_once_with(
             f"/workspaces/{config.cloud_workspace_id}", method="GET"
         )
+
+
+class TestClientBuildSyncCatalog:
+    """Tests for _build_sync_catalog and related methods."""
+
+    def test_build_sync_catalog_with_property_fields(self):
+        """Test building sync catalog with property fields from /streams endpoint."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        config_streams = [
+            {
+                "name": "users",
+                "namespace": "public",
+                "syncMode": "full_refresh_overwrite",
+                "primaryKey": [["id"]],
+                "cursorField": ["updated_at"],
+            }
+        ]
+
+        stream_property_fields = {("users", "public"): [["id"], ["name"], ["email"]]}
+
+        result = client._build_sync_catalog(config_streams, stream_property_fields)
+
+        assert "streams" in result
+        assert len(result["streams"]) == 1
+        stream = result["streams"][0]
+        assert stream["stream"]["name"] == "users"
+        assert stream["stream"]["namespace"] == "public"
+        assert "jsonSchema" in stream["stream"]
+
+    def test_build_sync_catalog_without_property_fields(self):
+        """Test building sync catalog without property fields."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        config_streams = [
+            {
+                "name": "orders",
+                "namespace": "sales",
+                "syncMode": "incremental_append",
+            }
+        ]
+
+        result = client._build_sync_catalog(config_streams, {})
+
+        assert "streams" in result
+        assert len(result["streams"]) == 1
+
+    def test_build_stream_config(self):
+        """Test building stream config."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        stream = {
+            "syncMode": "incremental_append",
+            "primaryKey": [["id"]],
+            "cursorField": ["updated_at"],
+        }
+
+        result = client._build_stream_config(stream)
+
+        assert result["selected"] is True
+        assert result["syncMode"] == "incremental"
+        assert result["destinationSyncMode"] == "append"
+        assert result["primaryKey"] == [["id"]]
+        assert result["cursorField"] == ["updated_at"]
+
+    def test_get_json_schema_for_stream_with_property_fields(self):
+        """Test getting JSON schema when property fields are provided."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        stream = {"name": "users"}
+        property_fields = [["id"], ["name"], ["email"]]
+
+        result = client._get_json_schema_for_stream(stream, property_fields)
+
+        assert "type" in result
+        assert "properties" in result
+        properties: Dict[str, Any] = result.get("properties", {})  # type: ignore[assignment]
+        assert "id" in properties
+        assert "name" in properties
+        assert "email" in properties
+
+    def test_get_json_schema_for_stream_from_configurations(self):
+        """Test getting JSON schema from configurations when property fields are not provided."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        stream = {
+            "name": "orders",
+            "jsonSchema": {
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "integer"},
+                    "amount": {"type": "number"},
+                },
+            },
+        }
+
+        result = client._get_json_schema_for_stream(stream, None)
+
+        assert result == stream["jsonSchema"]
+
+    def test_get_json_schema_for_stream_fallback_empty(self):
+        """Test getting JSON schema falls back to empty dict."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        stream = {"name": "products"}
+
+        result = client._get_json_schema_for_stream(stream, None)
+
+        assert result == {}
+
+
+class TestClientSSLAndAuth:
+    """Tests for SSL and authentication configuration."""
+
+    def test_oss_client_ssl_disabled_warning(self, caplog):
+        """Test warning when SSL is disabled."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+            verify_ssl=False,
+        )
+
+        with caplog.at_level("WARNING"):
+            _ = AirbyteOSSClient(config)
+
+        assert "SSL certificate verification is disabled" in caplog.text
+
+    def test_oss_client_with_api_key(self, caplog):
+        """Test OSS client configured with API key."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+            api_key=SecretStr("test-api-key"),
+        )
+
+        with caplog.at_level("DEBUG"):
+            client = AirbyteOSSClient(config)
+
+        # API key authentication is handled by _check_auth_before_request
+        # Just verify client is created
+        assert client is not None
+
+    def test_oss_client_with_username_password(self, caplog):
+        """Test OSS client configured with username/password."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+            username="test-user",
+            password=SecretStr("test-password"),
+        )
+
+        with caplog.at_level("DEBUG"):
+            _ = AirbyteOSSClient(config)
+
+        assert "Using basic authentication" in caplog.text
+
+
+class TestClientErrorHandling:
+    """Tests for error handling in client methods."""
+
+    @patch("datahub.ingestion.source.airbyte.client.requests.Session.request")
+    def test_make_request_connection_error(self, mock_request):
+        """Test handling of connection errors."""
+        mock_request.side_effect = requests.exceptions.ConnectionError(
+            "Connection refused"
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(Exception) as exc_info:
+            client._make_request("/test", method="GET")
+
+        assert "Connection refused" in str(exc_info.value)
+
+    @patch("datahub.ingestion.source.airbyte.client.requests.Session.request")
+    def test_make_request_timeout(self, mock_request):
+        """Test handling of timeout errors."""
+        mock_request.side_effect = requests.exceptions.Timeout("Request timed out")
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(Exception) as exc_info:
+            client._make_request("/test", method="GET")
+
+        assert "Request timed out" in str(exc_info.value)
+
+
+class TestFetchStreamPropertyFields:
+    """Tests for _fetch_stream_property_fields method."""
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_property_fields_success(self, mock_list_streams):
+        """Test successfully fetching property fields."""
+        mock_list_streams.return_value = [
+            {
+                "streamName": "users",
+                "namespace": "public",
+                "propertyFields": [["id"], ["name"], ["email"]],
+            },
+            {
+                "name": "orders",
+                "streamnamespace": "sales",
+                "propertyFields": [["order_id"], ["amount"]],
+            },
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        result = client._fetch_stream_property_fields("source-id-123")
+
+        assert ("users", "public") in result
+        assert ("orders", "sales") in result
+        assert result[("users", "public")] == [["id"], ["name"], ["email"]]
+        assert result[("orders", "sales")] == [["order_id"], ["amount"]]
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_property_fields_no_source_id(self, mock_list_streams):
+        """Test fetching property fields when source_id is None."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        result = client._fetch_stream_property_fields(None)
+
+        assert result == {}
+        mock_list_streams.assert_not_called()
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_property_fields_exception(self, mock_list_streams):
+        """Test handling exceptions when fetching property fields."""
+        mock_list_streams.side_effect = Exception("API error")
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        result = client._fetch_stream_property_fields("source-id-123")
+
+        assert result == {}
+
+
+class TestGetConnection:
+    """Tests for get_connection method."""
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    @patch(
+        "datahub.ingestion.source.airbyte.client.AirbyteOSSClient._fetch_stream_property_fields"
+    )
+    @patch(
+        "datahub.ingestion.source.airbyte.client.AirbyteOSSClient._build_sync_catalog"
+    )
+    def test_get_connection_builds_sync_catalog_from_configurations(
+        self, mock_build_sync, mock_fetch_fields, mock_make_request
+    ):
+        """Test get_connection builds syncCatalog from configurations.streams."""
+        mock_make_request.return_value = {
+            "connectionId": "conn-123",
+            "sourceId": "source-123",
+            "configurations": {"streams": [{"name": "users", "namespace": "public"}]},
+        }
+        mock_fetch_fields.return_value = {}
+        mock_build_sync_catalog: Dict[str, Any] = {"streams": []}
+        mock_build_sync.return_value = mock_build_sync_catalog
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        result = client.get_connection("conn-123")
+
+        assert "syncCatalog" in result
+        mock_fetch_fields.assert_called_once_with("source-123")
+        mock_build_sync.assert_called_once()
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_get_connection_with_existing_sync_catalog(self, mock_make_request):
+        """Test get_connection when syncCatalog already exists."""
+        mock_make_request.return_value = {
+            "connectionId": "conn-123",
+            "syncCatalog": {"streams": [{"name": "users"}]},
+        }
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        result = client.get_connection("conn-123")
+
+        assert result["syncCatalog"]["streams"][0]["name"] == "users"
