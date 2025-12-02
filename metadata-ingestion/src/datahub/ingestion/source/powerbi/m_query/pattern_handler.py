@@ -158,6 +158,10 @@ class AbstractLineage(ABC):
     def get_db_detail_from_argument(
         arg_list: Tree,
     ) -> Tuple[Optional[str], Optional[str]]:
+        # TODO: tree_function.token_values turns nulls into empty strings,
+        # which then get removed by remove_whitespaces_from_list. We would
+        # prefer to pass them along as None to give callers an accurate view
+        # of the arguments.
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(arg_list)
@@ -165,11 +169,10 @@ class AbstractLineage(ABC):
         )
         logger.debug(f"DB Details: {arguments}")
 
-        if len(arguments) < 2:
-            logger.debug(f"Expected minimum 2 arguments, but got {len(arguments)}")
-            return None, None
-
-        return arguments[0], arguments[1]
+        return (
+            arguments[0] if len(arguments) > 0 else None,
+            arguments[1] if len(arguments) > 1 else None,
+        )
 
     @staticmethod
     def create_reference_table(
@@ -322,6 +325,63 @@ class AbstractLineage(ABC):
                 column_lineage.append(column_lineage_info)
 
         return column_lineage
+
+
+class AmazonAthenaLineage(AbstractLineage):
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.AMAZON_ATHENA.value
+
+    def create_lineage(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> Lineage:
+        logger.debug(
+            f"Processing AmazonAthena data-access function detail {data_access_func_detail}"
+        )
+
+        server, _ = self.get_db_detail_from_argument(data_access_func_detail.arg_list)
+        if server is None:
+            return Lineage.empty()  # Return an empty list
+
+        catalog_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Name"]
+
+        db_name: str = cast(
+            IdentifierAccessor,
+            cast(IdentifierAccessor, data_access_func_detail.identifier_accessor).next,
+        ).items["Name"]
+
+        table_name: str = cast(
+            IdentifierAccessor,
+            cast(
+                IdentifierAccessor,
+                cast(
+                    IdentifierAccessor, data_access_func_detail.identifier_accessor
+                ).next,
+            ).next,
+        ).items["Name"]
+
+        qualified_table_name: str = f"{catalog_name}.{db_name}.{table_name}"
+
+        urn = make_urn(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
+        )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
+        return Lineage(
+            upstreams=[
+                DataPlatformTable(
+                    data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
+                )
+            ],
+            column_lineage=column_lineage,
+        )
 
 
 class AmazonRedshiftLineage(AbstractLineage):
@@ -1207,6 +1267,11 @@ class SupportedPattern(Enum):
     GOOGLE_BIG_QUERY = (
         GoogleBigQueryLineage,
         FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS,
+    )
+
+    AMAZON_ATHENA = (
+        AmazonAthenaLineage,
+        FunctionName.AMAZON_ATHENA_DATA_ACCESS,
     )
 
     AMAZON_REDSHIFT = (
