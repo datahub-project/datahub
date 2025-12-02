@@ -60,8 +60,8 @@ def patch_dialect(dialect: sqlalchemy.engine.interfaces.Dialect) -> None:
 
 
 class Db2Config(BasicSQLAlchemyConfig):
-    database: Optional[str] = pydantic.Field(
-        default=None, description="The Db2 database to ingest from."
+    database: str = pydantic.Field(
+        description="The Db2 database to ingest from.",
     )
 
     include_stored_procedures: bool = pydantic.Field(
