@@ -149,6 +149,9 @@ def get_lineage_config() -> DatahubLineageConfig:
     extract_bigquery_insert_job_operator = conf.get(
         "datahub", "extract_bigquery_insert_job_operator", fallback=True
     )
+    extract_teradata_operator = conf.get(
+        "datahub", "extract_teradata_operator", fallback=True
+    )
 
     log_level = conf.get("datahub", "log_level", fallback=None)
     debug_emitter = conf.get("datahub", "debug_emitter", fallback=False)
@@ -206,6 +209,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         patch_snowflake_schema=patch_snowflake_schema,
         extract_athena_operator=extract_athena_operator,
         extract_bigquery_insert_job_operator=extract_bigquery_insert_job_operator,
+        extract_teradata_operator=extract_teradata_operator,
         log_level=log_level,
         debug_emitter=debug_emitter,
         disable_openlineage_plugin=disable_openlineage_plugin,
