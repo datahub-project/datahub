@@ -91,8 +91,8 @@ public class UpdateSecretResolverTest {
 
   @Test
   public void testGetSuccessWithSpecialCharacters() throws Exception {
-    // Test with a secret value containing special characters that would be escaped by
-    // StringEscapeUtils.escapeJson
+    // Verify that special characters (newlines, slashes, quotes, backslashes) are NOT escaped
+    // before encryption
     QueryContext mockContext = getMockAllowContext();
     mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
