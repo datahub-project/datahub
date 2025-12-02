@@ -1024,13 +1024,20 @@ class SQLServerSource(SQLAlchemySource):
 
         # This is done at the end so that we will have access to tables
         # from all databases in schema_resolver and discovered_tables
-        for procedure in self.stored_procedures:
+        logger.info(
+            f"[START] Processing {len(self.stored_procedures)} stored procedure(s) for lineage extraction"
+        )
+        for i, procedure in enumerate(self.stored_procedures, 1):
+            logger.info(
+                f"[PROC] Processing procedure {i}/{len(self.stored_procedures)}: {procedure.full_name}"
+            )
             with self.report.report_exc(
                 message="Failed to parse stored procedure lineage",
                 context=procedure.full_name,
                 level=StructuredLogLevel.WARN,
             ):
-                yield from auto_workunit(
+                workunit_count = 0
+                for workunit in auto_workunit(
                     generate_procedure_lineage(
                         schema_resolver=self.get_schema_resolver(),
                         procedure=procedure.to_base_procedure(),
@@ -1039,14 +1046,28 @@ class SQLServerSource(SQLAlchemySource):
                         default_db=procedure.db,
                         default_schema=procedure.schema,
                     )
-                )
+                ):
+                    workunit_count += 1
+                    logger.info(
+                        f"[OUT] Yielding workunit #{workunit_count} for {procedure.name}: "
+                        f"id={workunit.id}"
+                    )
+                    yield workunit
+
+                if workunit_count == 0:
+                    logger.info(
+                        f"[WARN] No workunits generated for {procedure.name} "
+                        f"(lineage may have returned None or empty)"
+                    )
 
     def is_temp_table(self, name: str) -> bool:
+        logger.debug(f"[CHECK] Is temp table: '{name}'")
+
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
-            logger.debug(f"temp table matched by pattern {name}")
+            logger.debug("   -> TRUE (matched temp table pattern)")
             return True
 
         try:
@@ -1056,24 +1077,38 @@ class SQLServerSource(SQLAlchemySource):
             db_name = parts[-3]
 
             if table_name.startswith("#"):
+                logger.debug("   -> TRUE (starts with #)")
                 return True
 
             # This is also a temp table if
             #   1. this name would be allowed by the dataset patterns, and
             #   2. we have a list of discovered tables, and
             #   3. it's not in the discovered tables list
+            standardized_name = self.standardize_identifier_case(name)
             if (
                 self.config.database_pattern.allowed(db_name)
                 and self.config.schema_pattern.allowed(schema_name)
                 and self.config.table_pattern.allowed(name)
-                and self.standardize_identifier_case(name)
-                not in self.discovered_datasets
             ):
-                logger.debug(f"inferred as temp table {name}")
-                return True
+                if standardized_name not in self.discovered_datasets:
+                    logger.debug(
+                        f"   -> TRUE (not in discovered_datasets, "
+                        f"standardized as: '{standardized_name}')"
+                    )
+                    return True
+                else:
+                    logger.debug(
+                        f"   -> FALSE (found in discovered_datasets as: '{standardized_name}')"
+                    )
+                    return False
+            else:
+                logger.debug("   -> FALSE (filtered by dataset patterns)")
+                return False
 
-        except Exception:
-            logger.warning(f"Error parsing table name {name} ")
+        except Exception as e:
+            logger.warning(f"Error parsing table name {name}: {e}")
+
+        logger.debug("   -> FALSE (default)")
         return False
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:
