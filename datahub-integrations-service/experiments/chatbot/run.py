@@ -244,6 +244,7 @@ def log_generation_time_metrics(evals_df: pd.DataFrame) -> None:
 
 async def main(
     prompt_ids: Optional[List[str]] = None,
+    tags: Optional[List[str]] = typer.Option(None, "--tag", "-t", help="Filter prompts by tag (can be specified multiple times). Prompts matching ANY tag will be included."),
     instances: Optional[List[str]] = None,
 ) -> None:
     # Configure file logging with DEBUG level
@@ -293,28 +294,44 @@ async def main(
         raise typer.BadParameter("Cannot specify both --prompt-ids and --instances. Please provide only one.")
 
     filtered_prompts = all_prompts
+    
+    # Apply instance filtering
+    if instances:
+        filtered_prompts = [
+            p
+            for p in filtered_prompts
+            if any(fnmatch.fnmatch(p.instance, pattern) for pattern in instances)
+        ]
+        logger.info(f"Filtered by instances {instances}: {len(filtered_prompts)} prompts")
+        logger.debug(f"Prompts after instance filtering: {[p.id for p in filtered_prompts]}")
+    
+    # Apply ID pattern filtering
     if prompt_ids:
         filtered_prompts = [
             p
-            for p in all_prompts
+            for p in filtered_prompts
             if any(fnmatch.fnmatch(p.id, pattern) for pattern in prompt_ids)
         ]
-        if len(filtered_prompts) == 0:
-            logger.error(f"No prompts found for {prompt_ids}")
-            return
-        logger.info(f"Running {len(filtered_prompts)} prompts")
-        logger.debug(f"Filtered prompts: {[p.id for p in filtered_prompts]}")
-    elif instances:
+        logger.info(f"Filtered by ID patterns {prompt_ids}: {len(filtered_prompts)} prompts")
+        logger.debug(f"Prompts after ID filtering: {[p.id for p in filtered_prompts]}")
+    
+    # Apply tag filtering
+    if tags:
         filtered_prompts = [
             p
-            for p in all_prompts
-            if any(fnmatch.fnmatch(p.instance, pattern) for pattern in instances)
+            for p in filtered_prompts
+            if p.tags and any(tag in p.tags for tag in tags)
         ]
-        if len(filtered_prompts) == 0:
-            logger.error(f"No prompts found for instances {instances}")
-            return
-        logger.info(f"Running {len(filtered_prompts)} prompts from instances: {instances}")
-        logger.debug(f"Filtered prompts: {[p.id for p in filtered_prompts]}")
+        logger.info(f"Filtered by tags {tags}: {len(filtered_prompts)} prompts")
+        logger.debug(f"Prompts after tag filtering: {[p.id for p in filtered_prompts]}")
+    
+    # Check if we have any prompts to run
+    if len(filtered_prompts) == 0:
+        logger.error(f"No prompts found matching filters (IDs: {prompt_ids}, Tags: {tags}, Instances: {instances})")
+        return
+    
+    logger.info(f"Running {len(filtered_prompts)} prompts total")
+    logger.debug(f"Final prompt list: {[p.id for p in filtered_prompts]}")
 
     # Load instruction overrides once at the start
     instruction_overrides = load_instruction_overrides()

@@ -32,6 +32,7 @@ from datahub_integrations.chat.chat_history import (
     ToolResult,
 )
 from datahub_integrations.chat.chat_session_formatter import format_message
+from datahub_integrations.chat.sql_generator.tools import generate_sql
 from datahub_integrations.chat.types import ChatType, NextMessage
 from datahub_integrations.gen_ai.linkify import auto_fix_chat_links
 from datahub_integrations.gen_ai.model_config import model_config
@@ -42,6 +43,9 @@ from datahub_integrations.mcp_integration.tool import (
     tools_from_fastmcp,
 )
 from datahub_integrations.smart_search.smart_search import smart_search
+
+register_all_tools(is_oss=False)
+
 
 MAX_TOOL_CALLS = 30
 register_all_tools(is_oss=False)
@@ -206,6 +210,15 @@ def create_data_catalog_explorer_agent(
                 description=smart_search.__doc__ or "Smart search with AI reranking",
             )
         )
+
+    # Add generate_sql tool for text-to-SQL generation
+    plannable_tools.append(
+        ToolWrapper.from_function(
+            fn=async_background(generate_sql),
+            name="generate_sql",
+            description=generate_sql.__doc__ or "Generate SQL from natural language",
+        )
+    )
 
     # Create agent configuration (internal tools will be added after AgentRunner creation)
     config = AgentConfig(

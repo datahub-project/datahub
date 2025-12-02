@@ -405,16 +405,20 @@ class AgentRunner:
 
         response_content = message["content"]
 
-        # Warn about multiple tool calls in single response
+        # Log multiple tool calls in single response
         tool_use_blocks = [block for block in response_content if "toolUse" in block]
         if len(tool_use_blocks) > 1:
-            logger.warning(
+            logger.info(
                 f"LLM returned {len(tool_use_blocks)} tool calls in a single response. "
-                f"Agent loop may not handle this correctly. "
-                f"Tools: {[block['toolUse']['name'] for block in tool_use_blocks]}"
+                f"Executing sequentially. Tools: {[block['toolUse']['name'] for block in tool_use_blocks]}"
             )
 
-        # Process each content block
+        # Process each content block.
+        # When the LLM returns multiple tool calls in a single response, we execute them
+        # sequentially. This is correct behavior - all tool results will be added to history
+        # before the next LLM call.
+        # TODO: Consider executing independent tool calls in parallel for better latency.
+        # This would require checking for tool dependencies and batching the execution.
         for i, content_block in enumerate(response_content):
             is_last_block = i == len(response_content) - 1
             if "text" in content_block:

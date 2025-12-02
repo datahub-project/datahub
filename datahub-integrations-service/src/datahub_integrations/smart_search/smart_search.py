@@ -5,6 +5,8 @@ Main semantic search implementation using keyword expansion and reranking.
 import re
 from typing import List, Optional, TypeVar
 
+import mlflow
+import mlflow.entities
 from datahub.sdk.search_filters import Filter
 from loguru import logger
 
@@ -23,34 +25,100 @@ from datahub_integrations.smart_search.reranker import (
 T = TypeVar("T")
 
 
+def _find_elbow_point(scores: List[float]) -> Optional[int]:
+    """
+    Find the "elbow" point in a score curve using the maximum distance method.
+
+    The elbow is where the curve transitions from steep decline to shallow decline,
+    indicating where quality results end and less relevant results begin.
+
+    This works well with reranker scores (like Cohere) which produce well-calibrated
+    relevance scores with natural quality tiers and clear separation between them.
+
+    Algorithm: Draw a line from first to last score, find the point with
+    maximum perpendicular distance from this line. This geometric approach
+    finds the natural "bend" in the score curve.
+
+    Args:
+        scores: List of scores in descending order (from reranker)
+
+    Returns:
+        Index of elbow point, or None if no significant elbow found
+    """
+    import math
+
+    n = len(scores)
+    if n < 3:
+        return None
+
+    # Line from first point (0, scores[0]) to last point (n-1, scores[-1])
+    # Using normalized x-coordinates for better numerical stability
+    x1, y1 = 0.0, scores[0]
+    x2, y2 = 1.0, scores[-1]
+
+    # Line equation: Ax + By + C = 0
+    # From two points: (y2-y1)x - (x2-x1)y + (x2-x1)y1 - (y2-y1)x1 = 0
+    A = y2 - y1
+    B = x1 - x2
+    C = (x2 - x1) * y1 - (y2 - y1) * x1
+
+    denominator = math.sqrt(A * A + B * B)
+    if denominator == 0:
+        return None  # All scores are the same
+
+    max_dist = 0.0
+    elbow_idx = None
+
+    for i in range(1, n - 1):
+        # Normalized x coordinate
+        x = i / (n - 1)
+        y = scores[i]
+
+        # Perpendicular distance from point to line
+        dist = abs(A * x + B * y + C) / denominator
+
+        if dist > max_dist:
+            max_dist = dist
+            elbow_idx = i
+
+    return elbow_idx
+
+
 def _select_entities_by_score_quality(
     rerank_results: List[RerankResult],
     initial_k: int = 4,
     max_entities: int = 30,
     relative_drop: float = 0.5,
-    plateau_threshold: float = 0.05,
-    plateau_length: int = 3,
+    elbow_min_distance: float = 0.05,
+    min_usable_score: float = 0.2,
 ) -> tuple[List[RerankResult], bool, Optional[str]]:
     """
     Select entities based on score quality with adaptive cutoff detection.
 
-    Returns entities with quality signals to help LLM understand if more candidates exist.
+    Optimized for well-calibrated reranker scores (e.g., Cohere rerank) which have:
+    - Good score separation between quality tiers
+    - Natural clustering by relevance
+    - Clear score drops at quality boundaries
 
     Strategy:
-    1. Always include first initial_k entities (guaranteed minimum)
-    2. Continue beyond initial_k if:
-       - Haven't reached max_entities AND
-       - No large score drop detected (relative_drop threshold) AND
-       - No score plateau detected (flat tail)
-    3. Signal hasMore=True only when we hit limits (not when we stopped due to poor quality)
+    1. If top score is below min_usable_score, return only initial_k (low confidence query)
+    2. Always include first initial_k entities (guaranteed minimum)
+    3. Use elbow detection to find the natural quality breakpoint where scores
+       transition from steep decline to shallow decline
+    4. Use cliff detection as backup for dramatic single drops (>50%)
+    5. Stop at max_entities if reached
+    6. Signal hasMore=True only when we hit limits (not when we stopped due to poor quality)
 
     Args:
         rerank_results: Reranked results sorted by score (descending)
         initial_k: Minimum entities to return unconditionally (default: 4)
         max_entities: Maximum entities to return (default: 30)
         relative_drop: Max allowed drop from top score as fraction (0.5 = 50% drop)
-        plateau_threshold: Max score variation to be considered plateau (0.05 = 5%)
-        plateau_length: Consecutive similar scores indicating plateau (default: 3)
+        elbow_min_distance: Minimum distance for elbow to be considered significant
+                           (relative to score range). Default 0.05 = 5% of score range.
+        min_usable_score: Minimum top score to consider results usable (default: 0.2).
+                         If the best result scores below this, only return initial_k
+                         results since the query likely didn't match well.
 
     Returns:
         Tuple of:
@@ -67,7 +135,50 @@ def _select_entities_by_score_quality(
     if total_available <= initial_k:
         return rerank_results, False, None
 
-    top_score = rerank_results[0].score
+    scores = [r.score for r in rerank_results]
+    top_score = scores[0]
+    score_range = top_score - scores[-1] if scores else 0
+
+    # If top score is below minimum usable threshold, the query didn't match well.
+    # Return only initial_k results since quality detection is unreliable on low scores.
+    if top_score < min_usable_score:
+        logger.info(
+            f"Low confidence query: top_score={top_score:.4f} < {min_usable_score}, "
+            f"returning only {initial_k} results"
+        )
+        return rerank_results[:initial_k], False, "low_confidence_query"
+
+    # Find elbow point - the natural quality breakpoint where scores transition
+    # from steep decline to shallow decline. This works well with reranker scores
+    # (like Cohere) which produce well-separated, calibrated relevance scores.
+    elbow_idx = _find_elbow_point(scores)
+    elbow_cutoff = None
+
+    if elbow_idx is not None and elbow_idx >= initial_k:
+        # Check if elbow is significant (not just noise)
+        import math
+
+        n = len(scores)
+        x1, y1 = 0.0, scores[0]
+        x2, y2 = 1.0, scores[-1]
+        A = y2 - y1
+        B = x1 - x2
+        C = (x2 - x1) * y1 - (y2 - y1) * x1
+        denominator = math.sqrt(A * A + B * B)
+
+        if denominator > 0:
+            x = elbow_idx / (n - 1)
+            elbow_distance = abs(A * x + B * scores[elbow_idx] + C) / denominator
+
+            # Elbow is significant if distance is meaningful relative to score range
+            if score_range > 0 and elbow_distance / score_range >= elbow_min_distance:
+                elbow_cutoff = elbow_idx
+                logger.info(
+                    f"Elbow detected at position {elbow_idx}: "
+                    f"score={scores[elbow_idx]:.4f}, distance={elbow_distance:.4f} "
+                    f"({elbow_distance / score_range:.1%} of score range)"
+                )
+
     selected = []
     cutoff_reason = None
 
@@ -82,7 +193,13 @@ def _select_entities_by_score_quality(
             cutoff_reason = "max_entities_reached"
             break
 
-        # Check for large score drop (quality cliff)
+        # Stop at elbow point (natural quality breakpoint)
+        if elbow_cutoff is not None and i >= elbow_cutoff:
+            cutoff_reason = "elbow_detected"
+            break
+
+        # Backup: Check for large score drop (quality cliff)
+        # This catches dramatic single drops that the elbow might miss
         score_drop = top_score - result.score
         if score_drop > (top_score * relative_drop):
             cutoff_reason = "score_drop_detected"
@@ -92,23 +209,6 @@ def _select_entities_by_score_quality(
                 f"(>{relative_drop * 100:.0f}% of top score {top_score:.4f})"
             )
             break
-
-        # Check for plateau (flat tail of low-quality results)
-        if i >= initial_k + plateau_length - 1:
-            # Look at last plateau_length scores including current
-            window_start = i - plateau_length + 1
-            window_scores = [
-                rerank_results[j].score for j in range(window_start, i + 1)
-            ]
-            score_range = max(window_scores) - min(window_scores)
-
-            if score_range <= plateau_threshold:
-                cutoff_reason = "score_plateau_detected"
-                logger.info(
-                    f"Score plateau detected at position {i}: "
-                    f"last {plateau_length} scores vary by only {score_range:.4f}"
-                )
-                break
 
         # Quality checks passed, include this entity
         selected.append(result)
@@ -271,19 +371,31 @@ def smart_search(
         keyword_search_query: Keyword search query using /q syntax
         filters: Optional entity/platform/domain filters
     """
-    logger.info(
-        f"smart_search called with semantic_query='{semantic_query}', "
-        f"keyword_search_query='{keyword_search_query}', filters={filters}"
-    )
+    logger.bind(
+        keyword_search_query=keyword_search_query,
+        filters=str(filters) if filters else None,
+    ).info("smart_search: {}", semantic_query)
 
-    # Execute search using the provided keyword query
-    # Note: Assumes DataHub client is already set in context by caller
-    search_response = _search_implementation(
-        query=keyword_search_query,
-        filters=filters,
-        num_results=100,  # Fetch candidates for AI reranking
-        search_strategy="ersatz_semantic",
-    )
+    # Track keyword search in mlflow (gracefully no-ops if mlflow disabled)
+    with mlflow.start_span(
+        "keyword_search",
+        span_type=mlflow.entities.SpanType.CHAIN,
+        attributes={
+            "keyword_search_query": keyword_search_query,
+            "filters": str(filters) if filters else None,
+        },
+    ) as search_span:
+        # Execute search using the provided keyword query
+        # Note: Assumes DataHub client is already set in context by caller
+        search_response = _search_implementation(
+            query=keyword_search_query,
+            filters=filters,
+            num_results=100,  # Fetch candidates for AI reranking
+            search_strategy="ersatz_semantic",
+        )
+        search_span.set_outputs(
+            {"candidates_found": len(search_response.get("searchResults", []))}
+        )
 
     candidates = search_response.get("searchResults", [])
     facets = search_response.get("facets", [])
@@ -299,37 +411,71 @@ def smart_search(
             has_more_selected_results=False,
         )
 
-    logger.info(f"Found {len(candidates)} candidates, reranking")
+    logger.bind(candidates_count=len(candidates)).info("Found candidates, reranking")
 
     # Extract entities for reranking
     entities = [candidate.get("entity", {}) for candidate in candidates]
 
     # Rerank - reranker handles text generation internally
     logger.info(f"Calling reranker for {len(entities)} entities")
-    reranker = create_reranker()  # Uses env var to choose Cohere or LLM
-    rerank_results = reranker.rerank(
-        semantic_query=semantic_query,
-        entities=entities,
-        keyword_search_query=keyword_search_query,
-    )
-
-    # Select entities based on score quality (adaptive cutoff)
-    selected_rerank, has_more, selection_cutoff_reason = (
-        _select_entities_by_score_quality(
-            rerank_results=rerank_results,
-            initial_k=4,  # Minimum entities to return
-            max_entities=30,  # Upper limit
-            relative_drop=0.5,  # 50% drop from top = quality cliff
-            plateau_threshold=0.05,  # 5% variation = plateau
-            plateau_length=3,  # 3 consecutive similar scores
+    with mlflow.start_span(
+        "ai_reranking",
+        span_type=mlflow.entities.SpanType.CHAIN,
+        attributes={"entities_count": len(entities)},
+    ) as rerank_span:
+        reranker = create_reranker()  # Uses env var to choose Cohere or LLM
+        rerank_results = reranker.rerank(
+            semantic_query=semantic_query,
+            entities=entities,
+            keyword_search_query=keyword_search_query,
         )
-    )
+        rerank_span.set_outputs(
+            {
+                "top_score": rerank_results[0].score if rerank_results else 0,
+                "results_count": len(rerank_results),
+            }
+        )
 
-    logger.info(
-        f"Quality-based selection: {len(selected_rerank)}/{len(rerank_results)} entities "
-        f"(top score: {rerank_results[0].score if rerank_results else 0:.4f}, "
-        f"selection_cutoff_reason: {selection_cutoff_reason}, has_more: {has_more})"
-    )
+    # Select entities based on score quality (adaptive cutoff with elbow detection)
+    scores = [r.score for r in rerank_results] if rerank_results else []
+    with mlflow.start_span(
+        "quality_selection",
+        span_type=mlflow.entities.SpanType.CHAIN,
+        attributes={
+            "total_candidates": len(rerank_results),
+            "top_score": scores[0] if scores else 0,
+            "bottom_score": scores[-1] if scores else 0,
+            "score_range": (scores[0] - scores[-1]) if scores else 0,
+        },
+    ) as selection_span:
+        selected_rerank, has_more, selection_cutoff_reason = (
+            _select_entities_by_score_quality(
+                rerank_results=rerank_results,
+                initial_k=4,  # Minimum entities to return
+                max_entities=30,  # Upper limit
+                relative_drop=0.5,  # 50% drop from top = quality cliff
+                elbow_min_distance=0.05,  # 5% of score range for significant elbow
+            )
+        )
+
+        # Report selection results to mlflow
+        selection_span.set_outputs(
+            {
+                "selected_count": len(selected_rerank),
+                "cutoff_reason": selection_cutoff_reason,
+                "has_more": has_more,
+                # Include score distribution for analysis (limit to 10 for brevity)
+                "scores_top_10": scores[:10],
+                "selected_scores": [r.score for r in selected_rerank][:10],
+            }
+        )
+
+    logger.bind(
+        selected=len(selected_rerank),
+        total_reranked=len(rerank_results),
+        top_score=rerank_results[0].score if rerank_results else 0,
+        selection_cutoff_reason=selection_cutoff_reason,
+    ).info("Quality-based selection completed")
 
     # Lambda to clean entity in place and return it for token counting
     def get_cleaned_entity(rerank_result: RerankResult) -> dict:
@@ -357,11 +503,13 @@ def smart_search(
         if not selection_cutoff_reason:
             selection_cutoff_reason = "token_budget_exceeded"
 
-    logger.info(
-        f"Returning {len(cleaned_results)} results "
-        f"(reviewed {len(candidates)} candidates, selected {len(selected_rerank)}, "
-        f"has_more: {has_more}, selection_cutoff_reason: {selection_cutoff_reason})"
-    )
+    logger.bind(
+        candidates_reviewed=len(candidates),
+        candidates_selected=len(selected_rerank),
+        returned_count=len(cleaned_results),
+        has_more=has_more,
+        selection_cutoff_reason=selection_cutoff_reason,
+    ).info("smart_search completed")
 
     return SmartSearchResponse(
         results=cleaned_results,

@@ -55,7 +55,7 @@ DataHub AI will typically make multiple tool calls in order to answer a single q
 DataHub AI will not make more than 10 tool calls in a single response.
 
 {
-    "DataHub AI SHOULD use create_plan for complex tasks that require 3 or more tool calls, especially for impact analysis, dependency analysis, or tasks requiring iterative refinement. Simple 1-2 tool call tasks can be executed directly without planning."
+    "DataHub AI SHOULD use create_plan for any sql generation or complex tasks that require 3 or more tool calls, especially for impact analysis, dependency analysis, or tasks requiring iterative refinement. Simple 1-2 tool call tasks can be executed directly without planning."
     if PLANNING_TOOLS_ENABLED
     else ""
 }
