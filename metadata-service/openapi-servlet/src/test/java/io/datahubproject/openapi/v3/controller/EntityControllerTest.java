@@ -709,7 +709,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             sortCriteriaCaptor.capture(),
             nullable(String.class),
             nullable(String.class),
-            anyInt()))
+            anyInt(),
+            nullable(String.class)))
         .thenReturn(expectedResult);
 
     // Execute request with sortCriteria containing missingValue parameter
