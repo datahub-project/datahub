@@ -1,4 +1,3 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
@@ -15,20 +14,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  *   - Flexible mocking: UI dependencies and config variations are easily handled per test.
  * This approach keeps tests robust, maintainable, and focused on the intended scenario.
  */
-
-// Helper to create a wrapper with QueryClientProvider for hooks
-function createQueryWrapper() {
-    const queryClient = new QueryClient({
-        defaultOptions: {
-            queries: {
-                retry: false, // Disable retries in tests
-            },
-        },
-    });
-    return ({ children }: { children: React.ReactNode }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-}
 
 function mockYamlLoad(returnValue: any) {
     vi.doMock('js-yaml', () => ({
@@ -220,9 +205,9 @@ describe('mfeConfigLoader', () => {
             ],
         });
         const { useMFEConfigFromBackend } = await import('../mfeConfigLoader');
-        const { result } = renderHook(() => useMFEConfigFromBackend(), { wrapper: createQueryWrapper() });
+        const { result } = renderHook(() => useMFEConfigFromBackend());
         await waitFor(() => {
-            expect(result.current.data?.microFrontends[0]).toMatchObject({
+            expect(result.current?.microFrontends[0]).toMatchObject({
                 id: 'example-1',
                 label: 'Example MFE Yaml Item',
                 path: '/example-mfe-item',
@@ -234,40 +219,25 @@ describe('mfeConfigLoader', () => {
         });
     });
 
-    it('useMFEConfigFromBackend returns undefined if Yaml is empty', async () => {
-        mockFetchYaml('');
+    it('useMFEConfigFromBackend returns null if Yaml is empty', async () => {
         mockYamlLoad(null);
         const { useMFEConfigFromBackend } = await import('../mfeConfigLoader');
-        const { result } = renderHook(() => useMFEConfigFromBackend(), { wrapper: createQueryWrapper() });
-        await waitFor(() => {
-            // When YAML is empty/null, loadMFEConfigFromYAML throws an error
-            // TanStack Query sets data to undefined when there's an error
-            expect(result.current.isLoading).toBe(false);
-            expect(result.current.data).toBeUndefined();
-            expect(result.current.error).toBeTruthy();
-        });
+        const { result } = renderHook(() => useMFEConfigFromBackend());
+        expect(result.current).toBeNull();
     });
 
-    it('useMFEConfigFromBackend returns undefined if YAML is invalid', async () => {
-        mockFetchYaml('invalid');
+    it('useMFEConfigFromBackend returns null if YAML is invalid', async () => {
         mockYamlLoadThrows(new Error('bad yaml'));
         const { useMFEConfigFromBackend } = await import('../mfeConfigLoader');
-        const { result } = renderHook(() => useMFEConfigFromBackend(), { wrapper: createQueryWrapper() });
-        await waitFor(() => {
-            expect(result.current.isLoading).toBe(false);
-            expect(result.current.data).toBeUndefined();
-            expect(result.current.error).toBeTruthy();
-        });
+        const { result } = renderHook(() => useMFEConfigFromBackend());
+        expect(result.current).toBeNull();
     });
 
     it('useDynamicRoutes returns empty array if no config', async () => {
-        mockFetchYaml('');
         mockYamlLoad(null);
         const { useDynamicRoutes } = await import('../mfeConfigLoader');
-        const { result } = renderHook(() => useDynamicRoutes(), { wrapper: createQueryWrapper() });
-        await waitFor(() => {
-            expect(result.current.routes).toEqual([]);
-        });
+        const { result } = renderHook(() => useDynamicRoutes());
+        expect(result.current).toEqual([]);
     });
 
     it('useDynamicRoutes returns Route elements for each MFE', async () => {
@@ -296,12 +266,12 @@ describe('mfeConfigLoader', () => {
         mockFetchYaml(yamlString);
         mockYamlLoad(validParsedYaml);
         const { useDynamicRoutes } = await import('../mfeConfigLoader');
-        const { result } = renderHook(() => useDynamicRoutes(), { wrapper: createQueryWrapper() });
+        const { result } = renderHook(() => useDynamicRoutes());
         await waitFor(() => {
-            expect(result.current.routes).toHaveLength(2);
+            expect(result.current).toHaveLength(2);
         });
-        expect(result.current.routes[0].props.path).toBe('/mfe/example-mfe-item');
-        expect(result.current.routes[1].props.path).toBe('/mfe/myapp-mfe');
+        expect(result.current[0].props.path).toBe('/mfe/example-mfe-item');
+        expect(result.current[1].props.path).toBe('/mfe/myapp-mfe');
     });
 
     it('MFERoutes renders the dynamic routes', async () => {
@@ -332,12 +302,7 @@ describe('mfeConfigLoader', () => {
         mockReactRouter();
         mockMFEBasePage();
         const { MFERoutes } = await import('../mfeConfigLoader');
-        const Wrapper = createQueryWrapper();
-        const { container } = render(
-            <Wrapper>
-                <MFERoutes />
-            </Wrapper>,
-        );
+        const { container } = render(<MFERoutes />);
         await waitFor(() => {
             expect(container.textContent).toContain('Route: /mfe/example-mfe-item');
             expect(container.textContent).toContain('Route: /mfe/myapp-mfe');
