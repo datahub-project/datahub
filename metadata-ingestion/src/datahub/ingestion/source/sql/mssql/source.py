@@ -1019,6 +1019,108 @@ class SQLServerSource(SQLAlchemySource):
             else qualified_table_name
         )
 
+    def _is_qualified_table_urn(
+        self, urn: str, platform_instance: Optional[str] = None
+    ) -> bool:
+        """Check if a table URN represents a fully qualified table name.
+
+        MSSQL uses 3-part naming: database.schema.table.
+        This helps identify real tables vs. unqualified aliases (e.g., 'dst' in TSQL UPDATE statements).
+
+        Args:
+            urn: Dataset URN
+            platform_instance: Platform instance to strip from the name if present
+
+        Returns:
+            True if the table name is fully qualified (>= 3 parts), False otherwise
+        """
+        # Extract name from URN: urn:li:dataset:(urn:li:dataPlatform:mssql,NAME,ENV)
+        parts = urn.split(",")
+        if len(parts) < 2:
+            return False
+
+        name = parts[1]
+
+        # Strip platform_instance prefix if present
+        if platform_instance and name.startswith(f"{platform_instance}."):
+            name = name[len(platform_instance) + 1 :]
+
+        # Check if name has at least 3 parts (database.schema.table)
+        name_parts = name.split(".")
+        return len(name_parts) >= 3
+
+    def _filter_procedure_lineage(
+        self,
+        mcps: Iterable[MetadataChangeProposalWrapper],
+        procedure_name: Optional[str] = None,
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Filter out unqualified table URNs from stored procedure lineage.
+
+        TSQL syntax like "UPDATE dst FROM table dst" causes sqlglot to extract
+        both 'dst' (alias) and 'table' (real table). Unqualified aliases create
+        invalid URNs that cause DataHub sink to reject the entire aspect.
+
+        This filter removes URNs with < 3 parts (database.schema.table).
+
+        Args:
+            mcps: MCPs from generate_procedure_lineage()
+            procedure_name: Procedure name for logging
+
+        Yields:
+            Filtered MCPs with only qualified table URNs
+        """
+        platform_instance = self.get_schema_resolver().platform_instance
+
+        from datahub.metadata.schema_classes import DataJobInputOutputClass
+
+        for mcp in mcps:
+            # Only filter dataJobInputOutput aspects
+            if (
+                hasattr(mcp, "aspect")
+                and mcp.aspect
+                and isinstance(mcp.aspect, DataJobInputOutputClass)
+            ):
+                aspect: DataJobInputOutputClass = mcp.aspect
+                original_input_count = len(aspect.inputDatasets or [])
+                original_output_count = len(aspect.outputDatasets or [])
+
+                # Filter inputs and outputs
+                if aspect.inputDatasets:
+                    aspect.inputDatasets = [
+                        urn
+                        for urn in aspect.inputDatasets
+                        if self._is_qualified_table_urn(urn, platform_instance)
+                    ]
+                if aspect.outputDatasets:
+                    aspect.outputDatasets = [
+                        urn
+                        for urn in aspect.outputDatasets
+                        if self._is_qualified_table_urn(urn, platform_instance)
+                    ]
+
+                # Log if any tables were filtered out
+                filtered_input_count = len(aspect.inputDatasets or [])
+                filtered_output_count = len(aspect.outputDatasets or [])
+                if (
+                    filtered_input_count < original_input_count
+                    or filtered_output_count < original_output_count
+                ):
+                    logger.debug(
+                        f"Filtered unqualified tables for {procedure_name or 'procedure'}: "
+                        f"inputs {original_input_count} -> {filtered_input_count}, "
+                        f"outputs {original_output_count} -> {filtered_output_count}"
+                    )
+
+                # Skip aspect if all tables were filtered out
+                if not aspect.inputDatasets and not aspect.outputDatasets:
+                    logger.debug(
+                        f"Skipping lineage for {procedure_name or 'procedure'}: "
+                        f"all tables were unqualified aliases"
+                    )
+                    continue
+
+            yield mcp
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
 
@@ -1037,13 +1139,16 @@ class SQLServerSource(SQLAlchemySource):
             ):
                 workunit_count = 0
                 for workunit in auto_workunit(
-                    generate_procedure_lineage(
-                        schema_resolver=self.get_schema_resolver(),
-                        procedure=procedure.to_base_procedure(),
-                        procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
-                        is_temp_table=self.is_temp_table,
-                        default_db=procedure.db,
-                        default_schema=procedure.schema,
+                    self._filter_procedure_lineage(
+                        generate_procedure_lineage(
+                            schema_resolver=self.get_schema_resolver(),
+                            procedure=procedure.to_base_procedure(),
+                            procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
+                            is_temp_table=self.is_temp_table,
+                            default_db=procedure.db,
+                            default_schema=procedure.schema,
+                        ),
+                        procedure_name=procedure.name,
                     )
                 ):
                     workunit_count += 1
