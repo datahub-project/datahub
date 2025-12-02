@@ -27,7 +27,7 @@ import com.datahub.authorization.EntitySpec;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.resources.restli.DomainExtractionUtils;
+import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;

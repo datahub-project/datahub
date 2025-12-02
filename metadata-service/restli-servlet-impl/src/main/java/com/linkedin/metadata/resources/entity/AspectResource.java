@@ -12,6 +12,7 @@ import static com.datahub.authorization.AuthUtil.isAPIAuthorizedMCPsWithDomains;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
 import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
 import static com.datahub.authorization.AuthorizerChain.isDomainBasedAuthorizationEnabled;
+import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.RESTLI_SUCCESS;
 import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
@@ -47,7 +48,7 @@ import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.operations.Utils;
-import com.linkedin.metadata.resources.restli.DomainExtractionUtils;
+import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -317,43 +318,58 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         return RestliUtils.toTask(opContext, () -> {
                 log.debug("Proposals: {}", metadataChangeProposals);
                 try {
-                    // Extract domains WITHIN transaction if domain-based authorization is enabled
-                    // This prevents race conditions where domains could change between auth check and update
-                    final Map<Urn, Set<Urn>> entityDomains;
-                    if (isDomainBasedAuthorizationEnabled(_authorizer)) {
-                        log.info("Domain-based authorization is ENABLED. Collecting domain information for {} proposals.",
-                            metadataChangeProposals.size());
-                        entityDomains = DomainExtractionUtils.extractEntityDomainsForAuthorization(
-                            opContext, _entityService, metadataChangeProposals);
-                        
-                        // Validate all domains exist
-                        Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(entityDomains);
-                        if (!DomainExtractionUtils.validateDomainsExist(opContext, _entityService, allDomains)) {
-                            throw new RestLiServiceException(
-                                HttpStatus.S_400_BAD_REQUEST,
-                                "One or more domains do not exist. Cannot create entity with non-existent domain.");
-                        }
-                    } else {
-                        log.info("Domain-based authorization is DISABLED. Using standard authorization for all {} proposals.",
-                            metadataChangeProposals.size());
-                        entityDomains = null;
-                    }
-
-                    // Authorize all MCPs with unified method (handles both domain-based and standard auth)
-                    List<Pair<MetadataChangeProposal, Integer>> authResults = isAPIAuthorizedMCPsWithDomains(
-                        opContext, ENTITY, opContext.getEntityRegistry(), metadataChangeProposals, entityDomains);
-                    
-                    // Check for authorization failures
-                    List<Pair<MetadataChangeProposal, Integer>> failures = authResults.stream()
-                        .filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
+                    // Separate MCPs into those that need authorization and system entities that don't
+                    // System entities like dataHubExecutionRequest bypass authorization
+                    List<MetadataChangeProposal> mcpsToAuthorize = metadataChangeProposals.stream()
+                        .filter(mcp -> mcp.getEntityUrn() == null ||
+                                      !EXECUTION_REQUEST_ENTITY_NAME.equals(mcp.getEntityUrn().getEntityType()))
                         .collect(Collectors.toList());
                     
-                    if (!failures.isEmpty()) {
-                        String errorMessages = failures.stream()
-                            .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
-                            .collect(Collectors.joining(", "));
-                        throw new RestLiServiceException(
-                            HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to modify entities: " + errorMessages);
+                    if (mcpsToAuthorize.size() < metadataChangeProposals.size()) {
+                        log.info("Skipping authorization for {} system entities (e.g., dataHubExecutionRequest)",
+                            metadataChangeProposals.size() - mcpsToAuthorize.size());
+                    }
+                    
+                    // Only perform authorization if there are MCPs that require it
+                    if (!mcpsToAuthorize.isEmpty()) {
+                        // Extract domains WITHIN transaction if domain-based authorization is enabled
+                        // This prevents race conditions where domains could change between auth check and update
+                        final Map<Urn, Set<Urn>> entityDomains;
+                        if (isDomainBasedAuthorizationEnabled(_authorizer)) {
+                            log.info("Domain-based authorization is ENABLED. Collecting domain information for {} proposals.",
+                                mcpsToAuthorize.size());
+                            entityDomains = DomainExtractionUtils.extractEntityDomainsForAuthorization(
+                                opContext, _entityService, mcpsToAuthorize);
+                            
+                            // Validate all domains exist
+                            Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(entityDomains);
+                            if (!DomainExtractionUtils.validateDomainsExist(opContext, _entityService, allDomains)) {
+                                throw new RestLiServiceException(
+                                    HttpStatus.S_400_BAD_REQUEST,
+                                    "One or more domains do not exist. Cannot create entity with non-existent domain.");
+                            }
+                        } else {
+                            log.info("Domain-based authorization is DISABLED. Using standard authorization for all {} proposals.",
+                                mcpsToAuthorize.size());
+                            entityDomains = null;
+                        }
+
+                        // Authorize all MCPs with unified method (handles both domain-based and standard auth)
+                        List<Pair<MetadataChangeProposal, Integer>> authResults = isAPIAuthorizedMCPsWithDomains(
+                            opContext, ENTITY, opContext.getEntityRegistry(), mcpsToAuthorize, entityDomains);
+                        
+                        // Check for authorization failures
+                        List<Pair<MetadataChangeProposal, Integer>> failures = authResults.stream()
+                            .filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
+                            .collect(Collectors.toList());
+                        
+                        if (!failures.isEmpty()) {
+                            String errorMessages = failures.stream()
+                                .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
+                                .collect(Collectors.joining(", "));
+                            throw new RestLiServiceException(
+                                HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to modify entities: " + errorMessages);
+                        }
                     }
 
                     final AspectsBatch batch = AspectsBatchImpl.builder()

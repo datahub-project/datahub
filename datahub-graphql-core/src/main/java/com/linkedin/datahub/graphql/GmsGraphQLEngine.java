@@ -1356,7 +1356,7 @@ public class GmsGraphQLEngine {
                   "createNativeUserResetToken",
                   new CreateNativeUserResetTokenResolver(this.nativeUserService))
               .dataFetcher(
-                  "batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
+                  "batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService, this.entityClient))
               .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
               .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
               .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
