@@ -558,19 +558,23 @@ subprojects {
       }
     }
     if (shouldApplySpotless(project)) {
-    spotless {
-      java {
-        googleJavaFormat()
-        target project.fileTree(project.projectDir) {
-          include 'src/**/*.java'
-          include 'app/**/*.java'
-          include 'test/**/*.java'
-          exclude 'src/**/resources/'
-          exclude 'src/**/generated/'
-          exclude 'src/**/mainGeneratedDataTemplate/'
-          exclude 'src/**/mainGeneratedRest/'
-          exclude 'src/renamed/avro/'
-          exclude 'src/test/sample-test-plugins/'
+      spotless {
+        java {
+          googleJavaFormat()
+          target project.fileTree(project.projectDir) {
+            include 'src/**/*.java'
+            include 'app/**/*.java'
+            include 'test/**/*.java'
+            exclude 'src/**/resources/'
+            exclude 'src/**/generated/'
+            exclude 'src/**/mainGeneratedDataTemplate/'
+            exclude 'src/**/mainGeneratedAvroSchema/'
+            exclude 'src/**/mainGeneratedGraphQL/'
+            exclude 'src/**/generatedJsonSchema/'
+            exclude 'src/**/mainGeneratedRest/'
+            exclude 'src/renamed/avro/'
+            exclude 'src/test/sample-test-plugins/'
+          }
         }
       }
     }
@@ -605,19 +609,6 @@ subprojects {
           languageVersion = JavaLanguageVersion.of(jdkVersion(project))
         }
       }
-    }
-
-    afterEvaluate {
-      def spotlessJavaTask = tasks.findByName('spotlessJava')
-      def processTask = tasks.findByName('processResources')
-      if (processTask != null) {
-        spotlessJavaTask.dependsOn processTask
-      }
-      def compileJavaTask = tasks.findByName('compileJava')
-      if (compileJavaTask != null) {
-        spotlessJavaTask.dependsOn compileJavaTask
-      }
-    }
     }
   }
 
