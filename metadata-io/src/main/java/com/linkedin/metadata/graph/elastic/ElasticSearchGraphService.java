@@ -336,11 +336,14 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     // Instead of deleting all documents (inefficient), delete and recreate the index
     String indexName = indexConvention.getIndexName(INDEX_NAME);
     try {
-      // Build the reindex config directly without needing OperationContext
+      // Build a config with the correct target mappings for recreation
       ReindexConfig config =
           indexBuilder.buildReindexState(
               indexName, GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap());
+
+      // Use clearIndex which handles deletion and recreation
       indexBuilder.clearIndex(indexName, config);
+
       log.info("Cleared index {} by deleting and recreating it", indexName);
     } catch (IOException e) {
       log.error("Failed to clear index {}", indexName, e);

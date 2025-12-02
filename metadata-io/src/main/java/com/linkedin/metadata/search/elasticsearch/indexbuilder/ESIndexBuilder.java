@@ -1232,11 +1232,84 @@ public class ESIndexBuilder {
         .getCount();
   }
 
+  /**
+   * Check if an index exists.
+   *
+   * @param indexName The name of the index to check
+   * @return true if the index exists, false otherwise
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public boolean indexExists(@Nonnull String indexName) throws IOException {
+    return searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+  }
+
+  /**
+   * Refresh an index to make all operations performed since the last refresh available for search.
+   *
+   * @param indexName The name of the index to refresh
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public void refreshIndex(@Nonnull String indexName) throws IOException {
+    searchClient.refreshIndex(
+        new org.opensearch.action.admin.indices.refresh.RefreshRequest(indexName),
+        RequestOptions.DEFAULT);
+  }
+
+  /**
+   * Delete an index. Handles both aliases and concrete indices.
+   *
+   * @param indexName The name of the index or alias to delete
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public void deleteIndex(@Nonnull String indexName) throws IOException {
+    // Check if it's an alias
+    GetAliasesRequest getAliasesRequest = new GetAliasesRequest(indexName);
+    GetAliasesResponse aliasesResponse =
+        searchClient.getIndexAliases(getAliasesRequest, RequestOptions.DEFAULT);
+
+    Collection<String> indicesToDelete;
+    if (aliasesResponse.getAliases().isEmpty()) {
+      // Not an alias, delete the concrete index directly
+      indicesToDelete = List.of(indexName);
+    } else {
+      // It's an alias, get the concrete indices behind it
+      indicesToDelete = aliasesResponse.getAliases().keySet();
+      log.info(
+          "Index {} is an alias pointing to {}, deleting concrete indices",
+          indexName,
+          indicesToDelete);
+    }
+
+    for (String concreteIndex : indicesToDelete) {
+      try {
+        deleteActionWithRetry(searchClient, concreteIndex);
+      } catch (Exception e) {
+        throw new IOException("Failed to delete index: " + concreteIndex, e);
+      }
+    }
+  }
+
   private void createIndex(String indexName, ReindexConfig state) throws IOException {
     log.info("Index {} does not exist. Creating", indexName);
+    Map<String, Object> mappings = state.targetMappings();
+    Map<String, Object> settings = state.targetSettings();
+    log.info("Creating index {} with targetMappings: {}", indexName, mappings);
+    log.info("Creating index {} with targetSettings: {}", indexName, settings);
+
+    // Verify mappings contain the expected fields
+    if (mappings != null && mappings.containsKey("properties")) {
+      Map<String, Object> props = (Map<String, Object>) mappings.get("properties");
+      log.info("Index {} properties keys: {}", indexName, props.keySet());
+      if (props.containsKey("updatedOn")) {
+        log.info("Index {} updatedOn mapping: {}", indexName, props.get("updatedOn"));
+      } else {
+        log.warn("Index {} is MISSING updatedOn mapping!", indexName);
+      }
+    }
+
     CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
-    createIndexRequest.mapping(state.targetMappings());
-    createIndexRequest.settings(state.targetSettings());
+    createIndexRequest.mapping(mappings);
+    createIndexRequest.settings(settings);
     searchClient.createIndex(createIndexRequest, RequestOptions.DEFAULT);
     log.info("Created index {}", indexName);
   }

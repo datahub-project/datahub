@@ -41,6 +41,7 @@ import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.client.tasks.TaskId;
+import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.QueryBuilder;
@@ -238,9 +239,7 @@ public class ESWriteDAO {
   }
 
   /**
-   * Clear all documents in all the indices by deleting them. Returns the set of index names
-   * (aliases or concrete indices) that were deleted. The caller is responsible for recreating these
-   * indices if needed.
+   * Delete the index
    *
    * @param opContext the operation context
    * @return set of index names that were deleted
@@ -280,8 +279,30 @@ public class ESWriteDAO {
             log.debug("Index {} does not exist, skipping", indexName);
             continue;
           }
-          // If it wasn't an alias, track the concrete index name
-          deletedIndexNames.add(indexName);
+
+          // Check if this concrete index has any aliases pointing to it
+          // If so, track the alias name for recreation, not the concrete index name
+          GetAliasesRequest aliasesForIndexRequest = new GetAliasesRequest();
+          aliasesForIndexRequest.indices(indexName);
+          GetAliasesResponse aliasesForIndex =
+              searchClient.getIndexAliases(aliasesForIndexRequest, RequestOptions.DEFAULT);
+
+          String nameToTrack = indexName;
+          if (!aliasesForIndex.getAliases().isEmpty()
+              && aliasesForIndex.getAliases().containsKey(indexName)) {
+            // Get the alias names that point to this concrete index
+            Set<AliasMetadata> aliases = aliasesForIndex.getAliases().get(indexName);
+            if (aliases != null && !aliases.isEmpty()) {
+              // Use the first alias name (typically there's only one)
+              nameToTrack = aliases.iterator().next().alias();
+              log.info(
+                  "Concrete index {} has alias {}, tracking alias for recreation",
+                  indexName,
+                  nameToTrack);
+            }
+          }
+
+          deletedIndexNames.add(nameToTrack);
           indicesToDelete = List.of(indexName);
           log.info("Deleting concrete index {} for efficient clearing", indexName);
         } else {
